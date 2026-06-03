@@ -41,6 +41,26 @@ def test_counter_close_is_idempotent():
     c.close()
 
 
+def test_counter_flushed_when_shared_connection_closes(tmp_path):
+    # Closing a shared connection must flush a registered counter's buffered increments
+    # before the connection is torn down, even if the counter wasn't close()d directly.
+    db = tmp_path / "shared.db"
+    conn = ConnectionWrapper(filename=db)
+    counter = FileBackedCounter(shared_connection=conn, tablename="counts")
+    counter.increment("g", "a", 3)
+    # Deliberately do NOT call counter.close(); closing the connection should flush it.
+    conn.close()
+
+    reopened = ConnectionWrapper(filename=db)
+    try:
+        rows = reopened.execute(
+            "SELECT group_key, item_key, cnt FROM counts"
+        ).fetchall()
+        assert [tuple(r) for r in rows] == [("g", "a", 3)]
+    finally:
+        reopened.close()
+
+
 def test_counter_rejects_unsafe_tablename():
     # tablename is interpolated into SQL (SQLite can't bind identifiers), so it must be
     # a safe identifier, not attacker-controlled text.
@@ -70,20 +90,6 @@ def test_counter_increment_is_thread_safe():
     counts = dict(dict(c.most_common_by_group())["g"])
     c.close()
     assert all(counts[item] == n_threads * per_thread for item in items), counts
-
-
-def test_counter_flushes_on_del():
-    conn = ConnectionWrapper()
-    try:
-        c = FileBackedCounter(shared_connection=conn, tablename="del_counter")
-        c.increment("g", "a", 2)
-        del c  # __del__ -> close() -> flush; shared conn stays open
-        rows = conn.execute(
-            "SELECT group_key, item_key, cnt FROM del_counter"
-        ).fetchall()
-        assert [tuple(r) for r in rows] == [("g", "a", 2)]
-    finally:
-        conn.close()
 
 
 @pytest.fixture(params=["file", "memory"])

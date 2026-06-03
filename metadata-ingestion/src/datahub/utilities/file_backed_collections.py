@@ -76,7 +76,9 @@ class ConnectionWrapper:
     filename: pathlib.Path
 
     _temp_directory: Optional[str]
-    _dependent_objects: List[Union["FileBackedList", "FileBackedDict"]]
+    _dependent_objects: List[
+        Union["FileBackedList", "FileBackedDict", "FileBackedCounter"]
+    ]
 
     def __init__(self, filename: Optional[pathlib.Path] = None):
         self._temp_directory = None
@@ -588,10 +590,9 @@ class FileBackedCounter(Closeable):
     Callers that need a composite group or item encode it into the string key with a
     separator their prefix cannot contain.
 
-    Unlike FileBackedDict/FileBackedList, FileBackedCounter does NOT register itself in
-    ``ConnectionWrapper._dependent_objects``. When sharing a connection, the owner must
-    therefore call ``close()`` explicitly to flush buffered increments (the
-    ``UsageAggregator`` consumer does this).
+    When given a shared connection, it registers itself in the connection's dependent
+    objects (like FileBackedDict/FileBackedList), so closing the connection flushes any
+    buffered increments before the connection is torn down.
     """
 
     def __init__(
@@ -607,6 +608,10 @@ class FileBackedCounter(Closeable):
             raise ValueError(f"tablename must be a valid identifier, got {tablename!r}")
         self._conn = shared_connection or ConnectionWrapper()
         self._owns_connection = shared_connection is None
+        if shared_connection is not None:
+            # Flush buffered increments when the shared connection is closed, even if
+            # the owner forgets to close() this counter first.
+            shared_connection._dependent_objects.append(self)
         self._tablename = tablename
         self._batch_size = batch_size
         self._closed = False
