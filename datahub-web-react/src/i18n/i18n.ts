@@ -5,8 +5,10 @@ import { initReactI18next } from 'react-i18next';
 
 export const NAMESPACES = [
     'common.actions',
+    'common.counts',
     'common.feedback',
     'common.labels',
+    'entity.form',
     'entity.identity',
     'entity.ownership',
     'entity.preview',
