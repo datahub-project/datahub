@@ -131,6 +131,8 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     '.*Weight$',
     '.*width$',
     '.*Width$',
+    '.*style$',
+    '.*Style$',
 ];
 
 // Files that legitimately need raw color values
@@ -306,6 +308,7 @@ module.exports = {
                                   words: {
                                       exclude: [
                                           '^_blank$',
+                                          '^noopener noreferrer$',
                                           '^\\*$',
                                           '^-$',
                                           '^[A-Z0-9_]+$',
