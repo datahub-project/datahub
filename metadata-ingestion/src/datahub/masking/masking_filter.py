@@ -521,6 +521,14 @@ def install_masking_filter(
     masked unless install is called again (which re-scans), except default
     StreamHandlers bound to sys.stdout/stderr, which the stream wrapper still
     covers.
+
+    Known limitation (fail-open): a handler added to a child logger after
+    install can emit unmasked. callHandlers runs a logger's own handlers before
+    walking up to ancestor handlers, so an unfiltered child handler writes the
+    record before a filtered root handler masks it in place. In the executor
+    this is not a concern — handlers are wired at worker startup, before the
+    per-task install — but a more complete fix (e.g. wrapping Handler.addFilter)
+    would be needed if dynamic post-install handlers ever carry secrets.
     """
     # Create filter
     masking_filter = SecretMaskingFilter(
