@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY, DEFAULT_SYSTEM_ACTOR_URNS } from '@app/entity/shared/constants';
+import { DEFAULT_SYSTEM_ACTOR_URNS } from '@app/entity/shared/constants';
 import { getPlatformName } from '@app/entity/shared/utils';
 import { ContainerView } from '@app/lineage/manage/ContainerView';
 import UserAvatar from '@app/lineage/manage/UserAvatar';
@@ -18,7 +18,7 @@ const PlatformContent = styled.div<{ removeMargin?: boolean }>`
     align-items: center;
     font-size: 10px;
     margin-left: 5px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const PlatformName = styled.span`
@@ -26,7 +26,7 @@ const PlatformName = styled.span`
 `;
 
 const EntityItemOuter = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     display: block;
     align-items: center;
     padding: 12px 0;

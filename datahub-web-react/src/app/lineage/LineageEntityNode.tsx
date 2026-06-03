@@ -2,10 +2,9 @@ import { Group } from '@visx/group';
 import { LinkHorizontal } from '@visx/shape';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityHealth } from '@app/entity/shared/containers/profile/header/EntityHealth';
 import StructuredPropertyBadge, {
     MAX_PROP_BADGE_WIDTH,
@@ -86,6 +85,7 @@ export default function LineageEntityNode({
     setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
 }) {
     const { t } = useTranslation('lineage');
+    const theme = useTheme();
     const { direction } = node;
     const { expandTitles, collapsedColumnsNodes, showColumns, refetchCenterNode } = useContext(LineageExplorerContext);
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
@@ -245,7 +245,7 @@ export default function LineageEntityNode({
                             r="30"
                         />
                         <g
-                            fill={expandHover ? ANTD_GRAY[5] : ANTD_GRAY[6]}
+                            fill={expandHover ? theme.colors.iconDisabled : theme.colors.icon}
                             transform={`translate(${
                                 direction === Direction.Upstream ? centerX - 52 : width / 2 + 10
                             } -21.5) scale(0.04 0.04)`}
@@ -255,7 +255,7 @@ export default function LineageEntityNode({
                     </Group>
                 ) : (
                     <g
-                        fill={ANTD_GRAY[6]}
+                        fill={theme.colors.icon}
                         transform={`translate(${
                             direction === Direction.Upstream ? centerX - 52 : width / 2 + 10
                         } -21.5) scale(0.04 0.04)`}
@@ -300,10 +300,7 @@ export default function LineageEntityNode({
                     y={centerY}
                     x={centerX}
                     fill="white"
-                    stroke={
-                        // eslint-disable-next-line no-nested-ternary
-                        isSelected ? '#1890FF' : isHovered ? '#1890FF' : 'rgba(192, 190, 190, 0.25)'
-                    }
+                    stroke={isSelected || isHovered ? theme.colors.borderBrand : theme.colors.border}
                     strokeWidth={isCenterNode ? 2 : 1}
                     strokeOpacity={1}
                     rx={5}
@@ -402,12 +399,12 @@ export default function LineageEntityNode({
                         fontFamily="Manrope"
                         fontWeight="bold"
                         textAnchor="start"
-                        fill="#8C8C8C"
+                        fill={theme.colors.textSecondary}
                     >
                         {platformDisplayText && (
                             <>
                                 <tspan>{getShortenedTitle(platformDisplayText || '', width)}</tspan>
-                                <tspan dx=".25em" dy="2px" fill="#dadada" fontSize={12} fontWeight="normal">
+                                <tspan dx=".25em" dy="2px" fill={theme.colors.border} fontSize={12} fontWeight="normal">
                                     {' '}
                                     |{' '}
                                 </tspan>
@@ -428,7 +425,7 @@ export default function LineageEntityNode({
                             fontSize={14}
                             fontFamily="Manrope"
                             textAnchor="start"
-                            fill={isCenterNode ? '#1890FF' : 'black'}
+                            fill={isCenterNode ? theme.colors.textBrand : theme.colors.text}
                         >
                             {getShortenedTitle(node.data.name, width)}
                         </UnselectableText>
