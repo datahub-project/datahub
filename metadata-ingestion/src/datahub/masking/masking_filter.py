@@ -453,14 +453,9 @@ class StreamMaskingWrapper:
 
 
 def _iter_all_loggers() -> list[logging.Logger]:
-    """Return the root logger plus every initialized named logger.
-
-    Skips PlaceHolder objects that the logging module stores in loggerDict for
-    not-yet-created intermediate loggers.
-    """
+    """Root logger plus every initialized named logger (skipping PlaceHolders)."""
     loggers: list[logging.Logger] = [logging.getLogger()]
-    # Snapshot the keys, then .get() each — a logger may disappear from the dict
-    # between snapshot and access in a multi-threaded worker.
+    # .get() per snapshotted key: a logger may be removed between snapshot and access.
     for name in list(logging.root.manager.loggerDict.keys()):
         obj = logging.root.manager.loggerDict.get(name)
         if isinstance(obj, logging.Logger):
@@ -469,27 +464,22 @@ def _iter_all_loggers() -> list[logging.Logger]:
 
 
 def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> int:
-    """Attach the masking filter to every existing handler.
+    """Attach the masking filter to all existing handlers; return how many.
 
-    A filter on the root *logger* is only consulted for records logged directly
-    on root; Python does not run it for records propagated up from child loggers.
-    Since virtually all log output comes from named child loggers, masking must
-    happen at the *handler* level, where every record that reaches an output is
-    seen regardless of which logger produced it.
+    Masking lives on handlers, not the logger: Python skips logger-level filters
+    for records propagated from child loggers, so a root-logger filter would miss
+    almost everything. A handler filter sees every record reaching that output and
+    masks it in place, without touching the handler's stream. (Repointing streams
+    instead loops forever under celery -- see install_masking_filter.)
 
-    This masks records in place without touching handler streams. We deliberately
-    do NOT repoint handler streams at a wrapped sys.stdout/stderr: under celery,
-    sys.stderr is a proxy that re-enters logging, and a handler pointed at it
-    forms an infinite recursion cycle that silently drops all output.
-
-    The masking framework's own loggers are skipped — they write to the original
-    stderr by design and carry no secrets, so masking them only adds re-entrancy.
+    Skip datahub.masking.* loggers: they log to the original stderr by design and
+    carry no secrets, so filtering them only risks re-entrancy.
     """
     added_count = 0
     for log in _iter_all_loggers():
         if log.name.startswith("datahub.masking"):
             continue
-        # Iterate a copy: another thread may add/remove handlers concurrently.
+        # Copy: handlers may be added/removed by other threads during iteration.
         for handler in list(log.handlers):
             if not any(isinstance(f, SecretMaskingFilter) for f in handler.filters):
                 handler.addFilter(masking_filter)
@@ -513,63 +503,44 @@ def install_masking_filter(
     max_message_size: int = 5000,
     install_stdout_wrapper: bool = True,
 ) -> SecretMaskingFilter:
-    """Install secret masking filter on root logger and optionally wrap stdout/stderr.
+    """Enable secret masking: install the filter on existing handlers (+ root
+    logger) and, optionally, wrap sys.stdout/stderr for raw writes.
 
-    Masking is applied at the handler level (see _add_filter_to_existing_handlers),
-    so coverage is a snapshot of the handlers that exist when this is called.
-    Install AFTER logging is fully configured. Handlers added later are not
-    masked unless install is called again (which re-scans), except default
-    StreamHandlers bound to sys.stdout/stderr, which the stream wrapper still
-    covers.
+    Masking happens at the handler level (see _add_filter_to_existing_handlers).
+    Coverage is a snapshot of the handlers present now, so call this AFTER logging
+    is configured; handlers added later are covered only by a re-install or, for
+    stdout/stderr, by the stream wrapper.
 
-    Known limitation (fail-open): a handler added to a child logger after
-    install can emit unmasked. callHandlers runs a logger's own handlers before
-    walking up to ancestor handlers, so an unfiltered child handler writes the
-    record before a filtered root handler masks it in place. In the executor
-    this is not a concern — handlers are wired at worker startup, before the
-    per-task install — but a more complete fix (e.g. wrapping Handler.addFilter)
-    would be needed if dynamic post-install handlers ever carry secrets.
+    Fail-open limitation: a handler added to a child logger after install can emit
+    unmasked (a logger's own handlers run before ancestors'). Not a concern in the
+    executor, where handlers exist before masking is installed per task.
     """
-    # Create filter
     masking_filter = SecretMaskingFilter(
         secret_registry=secret_registry, max_message_size=max_message_size
     )
-
-    # Install on root logger (affects all loggers)
     root_logger = logging.getLogger()
 
-    # A SecretMaskingFilter on the root logger is the "already installed?"
-    # sentinel. It also masks records logged directly on root, but is NOT what
-    # masks the bulk of output — Python does not run logger-level filters for
-    # records propagated from child loggers. That is the handler-level filter's
-    # job (_add_filter_to_existing_handlers below).
+    # The root-logger filter is just the "already installed?" sentinel (and masks
+    # records logged directly on root). The real masking is the handler filters
+    # below, since logger-level filters don't see propagated child-logger records.
     existing_filters = [
         f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)
     ]
 
     if existing_filters:
-        # Already installed: re-scan so handlers created since the first install
-        # are covered too (masking is fail-open — a missed handler leaks).
+        # Already installed: re-scan to cover handlers added since (fail-open).
         masking_filter = existing_filters[0]
         _add_filter_to_existing_handlers(masking_filter)
-        logger.debug(
-            "SecretMaskingFilter already installed; refreshed handler coverage"
-        )
+        logger.debug("SecretMaskingFilter already installed; refreshed handlers")
         return masking_filter
 
     root_logger.addFilter(masking_filter)
-
-    # Attach to existing handlers: handler-level filtering masks records in place
-    # for every record that reaches an output, including those propagated from
-    # child loggers, without touching handler streams.
     _add_filter_to_existing_handlers(masking_filter)
     logger.info("Installed SecretMaskingFilter on root logger and existing handlers")
 
-    # Optionally wrap stdout/stderr to also mask raw writes such as print().
-    # NOTE: we intentionally do NOT repoint existing handler streams at the
-    # wrapped streams — masking of log records is handled by the handler-level
-    # filter above, and repointing handlers at sys.stderr deadlocks/recurses
-    # under celery's stderr-to-logging redirection.
+    # Wrap stdout/stderr only to mask raw writes (print(), C-extension output).
+    # We do NOT repoint handler streams here: under celery, sys.stderr re-enters
+    # logging, so a handler pointed at it would recurse infinitely and drop output.
     if install_stdout_wrapper:
         if not isinstance(sys.stdout, StreamMaskingWrapper):
             sys.stdout = StreamMaskingWrapper(sys.stdout, masking_filter)
