@@ -8,9 +8,11 @@ import com.linkedin.datahub.graphql.resolvers.semantic.SemanticSearchResolver;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.search.SemanticSearchDisabledException;
 import com.linkedin.metadata.search.SemanticSearchService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
+import graphql.schema.DataFetcher;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.Collection;
 import java.util.Collections;
@@ -69,11 +71,11 @@ public class SemanticSearchPlugin implements GmsGraphQLPlugin {
 
   @Override
   public List<String> getSchemaFiles() {
-    // Only load the schema if semantic search is available
-    if (semanticSearchService != null) {
-      return List.of(SEMANTIC_SEARCH_SCHEMA_FILE);
-    }
-    return Collections.emptyList();
+    // Always load the schema so the field is defined for clients. When the
+    // service is unavailable, the resolver throws SemanticSearchDisabledException
+    // which surfaces as a clear runtime GraphQL error instead of FieldUndefined
+    // — giving clients a stable contract for feature detection.
+    return List.of(SEMANTIC_SEARCH_SCHEMA_FILE);
   }
 
   @Override
@@ -90,10 +92,24 @@ public class SemanticSearchPlugin implements GmsGraphQLPlugin {
 
   @Override
   public void configureExtraResolvers(RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
-    // Only register resolvers if semantic search is available
     if (semanticSearchService == null) {
-      log.debug(
-          "Skipping semantic search resolver registration - SemanticSearchService not available");
+      // Register stub resolvers that throw SemanticSearchDisabledException so
+      // clients see a stable runtime error ("Semantic search is disabled in
+      // this environment") instead of a schema-level FieldUndefined error.
+      // This lets clients (e.g. the integrations service) reliably detect
+      // unavailability and fall back to keyword search.
+      log.info(
+          "SemanticSearchService not available — registering disabled stubs for semantic search resolvers");
+      final DataFetcher<Object> disabledStub =
+          env -> {
+            throw new SemanticSearchDisabledException();
+          };
+      builder.type(
+          "Query",
+          typeWiring ->
+              typeWiring
+                  .dataFetcher("semanticSearch", disabledStub)
+                  .dataFetcher("semanticSearchAcrossEntities", disabledStub));
       return;
     }
 

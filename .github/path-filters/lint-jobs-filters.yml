@@ -21,6 +21,9 @@ code-check-sources:
   - "**/build.gradle.kts"
   - "**/gradle.lockfile"
   - ".github/scripts/check_*.py"
+pdl:
+  - added|modified: "**/*.pdl"
+  - ".github/scripts/bump_schema_versions.py"
 smoke-test-python:
   - added|modified: "smoke-test/**/*.py"
   - "smoke-test/pyproject.toml"
