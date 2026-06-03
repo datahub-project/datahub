@@ -217,6 +217,14 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             "cache_eviction_batch_size must be positive"
         )
 
+        # tablename is interpolated directly into SQL throughout this class because
+        # SQLite cannot bind table identifiers as parameters. Require it to be a plain
+        # identifier so that interpolation can never become an injection vector.
+        if not self.tablename.isidentifier():
+            raise ValueError(
+                f"tablename must be a valid identifier, got {self.tablename!r}"
+            )
+
         for reserved_column in ("key", "value", "rowid"):
             if reserved_column in self.extra_columns:
                 raise ValueError(f'"{reserved_column}" is a reserved column name')
