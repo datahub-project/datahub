@@ -6,17 +6,19 @@ from pydantic import ValidationError
 
 import datahub.ingestion.source.usage.usage_common
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.env_vars import (
+    DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE,
+    get_usage_aggregator_cache_size,
+)
 from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import (
     DEFAULT_QUERIES_CHARACTER_LIMIT,
-    DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE,
     BaseUsageConfig,
     GenericAggregatedDataset,
     UsageAggregator,
-    _get_usage_aggregator_cache_size,
 )
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
@@ -530,12 +532,12 @@ def test_get_usage_aggregator_cache_size(monkeypatch):
     env = "DATAHUB_USAGE_AGGREGATOR_CACHE_SIZE"
 
     monkeypatch.delenv(env, raising=False)
-    assert _get_usage_aggregator_cache_size() == DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE
+    assert get_usage_aggregator_cache_size() == DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE
 
     monkeypatch.setenv(env, "500")
-    assert _get_usage_aggregator_cache_size() == 500
+    assert get_usage_aggregator_cache_size() == 500
 
     # Non-integer and non-positive overrides fall back to the default rather than crash.
     for bad in ("notanint", "0", "-5"):
         monkeypatch.setenv(env, bad)
-        assert _get_usage_aggregator_cache_size() == DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE
+        assert get_usage_aggregator_cache_size() == DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE

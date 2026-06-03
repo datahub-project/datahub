@@ -1,6 +1,5 @@
 import dataclasses
 import logging
-import os
 from datetime import datetime
 from typing import (
     Callable,
@@ -19,6 +18,7 @@ from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.env_vars import get_usage_aggregator_cache_size
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
@@ -46,35 +46,7 @@ ResourceType = TypeVar("ResourceType")
 # The total number of characters allowed across all queries in a single workunit.
 DEFAULT_QUERIES_CHARACTER_LIMIT = 24000
 
-# Default in-memory LRU cache size (number of GenericAggregatedDataset objects) for the
-# SQLite-backed usage aggregation store. Larger than FileBackedDict's library default (900)
-# because usage events for many resources interleave, so a bigger cache reduces
-# deserialize/re-pickle churn on the hot path. Override via env var for heavy workloads.
-DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE = 2000
-
-
-def _get_usage_aggregator_cache_size() -> int:
-    raw = os.environ.get("DATAHUB_USAGE_AGGREGATOR_CACHE_SIZE")
-    if raw is None:
-        return DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE
-    # A non-integer or non-positive override is treated as invalid: FileBackedDict
-    # requires a positive cache size (for_mutation asserts > 0), so falling back to the
-    # default avoids crashing on every event from a misconfigured env var.
-    try:
-        value = int(raw)
-    except ValueError:
-        value = 0
-    if value <= 0:
-        logger.warning(
-            "Ignoring invalid DATAHUB_USAGE_AGGREGATOR_CACHE_SIZE=%r; using default %d",
-            raw,
-            DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE,
-        )
-        return DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE
-    return value
-
-
-USAGE_AGGREGATOR_CACHE_SIZE = _get_usage_aggregator_cache_size()
+USAGE_AGGREGATOR_CACHE_SIZE = get_usage_aggregator_cache_size()
 
 
 def default_user_urn_builder(email: str) -> str:
@@ -308,7 +280,9 @@ class UsageAggregator(Generic[ResourceType], Closeable):
         # UrnStr (identity) and for usage-path TableReference (str() omits last_updated,
         # which the usage flow never sets — see TableReference.__str__). A ResourceType
         # whose str() is lossy w.r.t. its __eq__ would silently merge distinct resources.
-        return f"{int(floored_ts.timestamp() * 1000)}@{resource}"
+        # FileBackedDict keys must be str (it is a MutableMapping[str, _VT] over a SQLite
+        # TEXT column), so we encode the (bucket_millis, resource) identity as a string.
+        return f"{builder.make_ts_millis(floored_ts)}@{resource}"
 
     def aggregate_event(
         self,

@@ -1,8 +1,11 @@
 # ABOUTME: Central registry for all environment variables used in metadata-ingestion.
 # ABOUTME: All environment variable reads should go through this module for discoverability and maintainability.
 
+import logging
 import os
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # Core DataHub Configuration
@@ -252,6 +255,35 @@ def get_sql_parse_cache_size() -> int:
 def get_dataset_urn_to_lower() -> str:
     """Convert dataset URNs to lowercase."""
     return os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")
+
+
+# Default in-memory LRU cache size (number of GenericAggregatedDataset objects) for the
+# SQLite-backed usage aggregation store. Larger than FileBackedDict's library default (900)
+# because usage events for many resources interleave, so a bigger cache reduces
+# deserialize/re-pickle churn on the hot path. Override via env var for heavy workloads.
+DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE = 2000
+
+
+def get_usage_aggregator_cache_size() -> int:
+    """In-memory LRU cache size for the SQLite-backed usage aggregation store."""
+    raw = os.environ.get("DATAHUB_USAGE_AGGREGATOR_CACHE_SIZE")
+    if raw is None:
+        return DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE
+    # A non-integer or non-positive override is treated as invalid: FileBackedDict
+    # requires a positive cache size (for_mutation asserts > 0), so falling back to the
+    # default avoids crashing on every event from a misconfigured env var.
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 0
+    if value <= 0:
+        logger.warning(
+            "Ignoring invalid DATAHUB_USAGE_AGGREGATOR_CACHE_SIZE=%r; using default %d",
+            raw,
+            DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE,
+        )
+        return DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE
+    return value
 
 
 # ============================================================================
