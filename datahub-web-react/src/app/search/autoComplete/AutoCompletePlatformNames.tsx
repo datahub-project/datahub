@@ -4,6 +4,8 @@ import styled from 'styled-components';
 
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 
+const PLATFORM_JOIN_SEPARATOR = ' & ';
+
 const PlatformText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
@@ -17,7 +19,7 @@ type Props = {
 };
 
 const AutoCompletePlatformNames = ({ platforms }: Props) => {
-    return <PlatformText>{platforms.join(' & ')}</PlatformText>;
+    return <PlatformText>{platforms.join(PLATFORM_JOIN_SEPARATOR)}</PlatformText>;
 };
 
 export default AutoCompletePlatformNames;

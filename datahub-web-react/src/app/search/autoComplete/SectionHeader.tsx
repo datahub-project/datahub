@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
@@ -29,13 +30,14 @@ interface Props {
 }
 
 export default function SectionHeader({ entityType }: Props) {
+    const { t } = useTranslation('search');
     const entityRegistry = useEntityRegistry();
     const isDatasetType = entityType === EntityType.Dataset;
 
     return (
         <EntityTypeLabel showBorder>
             {entityRegistry.getCollectionName(entityType)}
-            {isDatasetType && <SubtypesDescription>tables, topics, views, and more</SubtypesDescription>}
+            {isDatasetType && <SubtypesDescription>{t('autoComplete.datasetsSubtypes')}</SubtypesDescription>}
         </EntityTypeLabel>
     );
 }

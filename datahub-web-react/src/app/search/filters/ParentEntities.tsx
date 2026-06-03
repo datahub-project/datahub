@@ -2,6 +2,7 @@ import { FolderOpenOutlined } from '@ant-design/icons';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
@@ -9,6 +10,8 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { Entity } from '@types';
+
+const HIDDEN_COUNT_PREFIX = '+';
 
 const ParentNodesWrapper = styled.div`
     font-size: 12px;
@@ -51,6 +54,7 @@ interface Props {
 }
 
 export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NUM_VISIBLE, hideIcon = false }: Props) {
+    const { t } = useTranslation('search');
     const entityRegistry = useEntityRegistry();
 
     // parent nodes/domains are returned with direct parent first
@@ -71,7 +75,8 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                         <>
                             {!hideIcon && <FolderOpenOutlined />}
                             <ParentNode color="white">
-                                {entityRegistry.getDisplayName(parentEntity.type, parentEntity) || 'Unknown'}
+                                {entityRegistry.getDisplayName(parentEntity.type, parentEntity) ||
+                                    t('filters.unknownEntity')}
                             </ParentNode>
                             {index !== orderedParentEntities.length - 1 && (
                                 <ArrowWrapper>
@@ -89,7 +94,10 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                         {!hideIcon ? (
                             [...Array(numHiddenEntities)].map(() => <FolderOpenOutlined />)
                         ) : (
-                            <>+{numHiddenEntities}</>
+                            <>
+                                {HIDDEN_COUNT_PREFIX}
+                                {numHiddenEntities}
+                            </>
                         )}
                         <ArrowWrapper>
                             <CaretRight />
@@ -106,7 +114,7 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                                 style={isLast ? { flexShrink: 1 } : { flexShrink: 2 }}
                                 ellipsis={!hasHiddenEntities ? { tooltip: displayName } : true}
                             >
-                                {displayName || 'Unknown'}
+                                {displayName || t('filters.unknownEntity')}
                             </ParentNode>
                             {!isLast && (
                                 <ArrowWrapper>

@@ -8,6 +8,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Container, EntityType } from '@types';
 
+const BREADCRUMB_SEPARATOR = '>';
 const NUM_VISIBLE_CONTAINERS = 2;
 
 const ParentContainersWrapper = styled.div`
@@ -43,7 +44,7 @@ export default function ParentContainers({ parentContainers }: Props) {
             {hiddenContainers.map((container) => (
                 <Fragment key={container.urn}>
                     <FolderOpenOutlined />
-                    <ArrowWrapper>{'>'}</ArrowWrapper>
+                    <ArrowWrapper>{BREADCRUMB_SEPARATOR}</ArrowWrapper>
                 </Fragment>
             ))}
             {visibleContainers.map((container, index) => (
@@ -52,7 +53,7 @@ export default function ParentContainers({ parentContainers }: Props) {
                     <ParentContainer ellipsis={{ tooltip: '' }}>
                         {entityRegistry.getDisplayName(EntityType.Container, container)}
                     </ParentContainer>
-                    {index !== visibleContainers.length - 1 && <ArrowWrapper>{'>'}</ArrowWrapper>}
+                    {index !== visibleContainers.length - 1 && <ArrowWrapper>{BREADCRUMB_SEPARATOR}</ArrowWrapper>}
                 </Fragment>
             ))}
         </ParentContainersWrapper>

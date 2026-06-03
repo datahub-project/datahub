@@ -21,10 +21,13 @@ const Letter = styled.span`
 `;
 
 export const CommandK = () => {
+    // (untranslated-text) keyboard symbols ⌘ and K are not translatable text
+    /* eslint-disable i18next/no-literal-string */
     return (
         <Container>
             <Letter>⌘</Letter>
             <Letter>K</Letter>
         </Container>
     );
+    /* eslint-enable i18next/no-literal-string */
 };

@@ -10,6 +10,7 @@ import React, {
     useRef,
     useState,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
@@ -89,19 +90,6 @@ const SearchIcon = styled(SearchOutlined)`
 const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
 const RELEVANCE_QUERY_OPTION_TYPE = 'recommendation';
 
-const QUICK_FILTER_AUTO_COMPLETE_OPTION = {
-    label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
-    options: [
-        {
-            value: 'quick-filter-unique-key',
-            type: '',
-            label: <QuickFilters />,
-            style: { padding: '8px', cursor: 'auto' },
-            disabled: true,
-        },
-    ],
-};
-
 const renderRecommendedQuery = (query: string) => {
     return {
         value: query,
@@ -166,6 +154,7 @@ export const SearchBar = ({
     showViewAllResults = false,
     ...props
 }: Props) => {
+    const { t } = useTranslation('search');
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string | undefined>(initialQuery);
     const [selected, setSelected] = useState<string>();
@@ -211,7 +200,7 @@ export const SearchBar = ({
             type: '',
             label: (
                 <Button type="link" onClick={onClickExploreAll}>
-                    Explore all →
+                    {t('searchBar.exploreAll')}
                 </Button>
             ),
             style: { marginLeft: 'auto', cursor: 'auto' },
@@ -221,7 +210,7 @@ export const SearchBar = ({
         const tail = showQuickFilters ? [exploreAllOption] : [];
 
         return [...moduleOptions, ...tail];
-    }, [data?.listRecommendations?.modules, onClickExploreAll, showQuickFilters]);
+    }, [data?.listRecommendations?.modules, onClickExploreAll, showQuickFilters, t]);
 
     const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
 
@@ -276,8 +265,22 @@ export const SearchBar = ({
     }, [setSelectedQuickFilter]);
 
     const quickFilterOption = useMemo(() => {
-        return showQuickFilters && quickFilters && quickFilters.length > 0 ? [QUICK_FILTER_AUTO_COMPLETE_OPTION] : [];
-    }, [quickFilters, showQuickFilters]);
+        if (!showQuickFilters || !quickFilters || quickFilters.length === 0) return [];
+        return [
+            {
+                label: <EntityTypeLabel>{t('searchBar.filterBy')}</EntityTypeLabel>,
+                options: [
+                    {
+                        value: 'quick-filter-unique-key',
+                        type: '',
+                        label: <QuickFilters />,
+                        style: { padding: '8px', cursor: 'auto' },
+                        disabled: true,
+                    },
+                ],
+            },
+        ];
+    }, [quickFilters, showQuickFilters, t]);
 
     const options = useMemo(() => {
         // Display recommendations when there is no search query, autocomplete suggestions otherwise.

@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
@@ -9,6 +10,8 @@ import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, FacetFilterInput } from '@types';
+
+const LIST_SEPARATOR = ', ';
 
 const FilterFieldLabel = styled.span`
     font-weight: 600;
@@ -53,6 +56,8 @@ interface Props {
 }
 
 export default function EntitySubTypeAdvancedFilterLabel({ filter, isCompact, disabled, onClose }: Props) {
+    const { t } = useTranslation('search');
+    const { t: tc } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
     const entityTypes = useMemo(
         () => filter.values?.filter((value) => !value.includes(FILTER_DELIMITER)),
@@ -69,13 +74,13 @@ export default function EntitySubTypeAdvancedFilterLabel({ filter, isCompact, di
             <FilterWrapper>
                 {entityTypes && entityTypes.length > 0 && (
                     <>
-                        <FilterFieldLabel>Type</FilterFieldLabel>
-                        <ConditionWrapper>is any of</ConditionWrapper>
+                        <FilterFieldLabel>{tc('type')}</FilterFieldLabel>
+                        <ConditionWrapper>{t('condition.isAnyOf')}</ConditionWrapper>
                         <FilterValuesWrapper>
                             {entityTypes?.map((entityType, index) => (
                                 <>
                                     {entityRegistry.getCollectionName(entityType as EntityType)}
-                                    {index !== entityTypes.length - 1 && ', '}
+                                    {index !== entityTypes.length - 1 && LIST_SEPARATOR}
                                 </>
                             ))}
                         </FilterValuesWrapper>
@@ -83,18 +88,18 @@ export default function EntitySubTypeAdvancedFilterLabel({ filter, isCompact, di
                 )}
                 {Object.entries(entityTypeToSubTypes).map(([entityType, subTypes]) => (
                     <>
-                        <FilterFieldLabel>Type</FilterFieldLabel>
-                        <ConditionWrapper>is</ConditionWrapper>
+                        <FilterFieldLabel>{tc('type')}</FilterFieldLabel>
+                        <ConditionWrapper>{t('condition.is')}</ConditionWrapper>
                         <FilterValuesWrapper>
                             {entityRegistry.getCollectionName(entityType as EntityType)}
                         </FilterValuesWrapper>
-                        <FilterFieldLabel>SubType</FilterFieldLabel>
-                        <ConditionWrapper>is any of</ConditionWrapper>
+                        <FilterFieldLabel>{t('advancedFilter.subType')}</FilterFieldLabel>
+                        <ConditionWrapper>{t('condition.isAnyOf')}</ConditionWrapper>
                         <FilterValuesWrapper>
                             {subTypes.map((v, index) => (
                                 <>
                                     {capitalizeFirstLetterOnly(v)}
-                                    {index !== subTypes.length - 1 && ', '}
+                                    {index !== subTypes.length - 1 && LIST_SEPARATOR}
                                 </>
                             ))}
                         </FilterValuesWrapper>
