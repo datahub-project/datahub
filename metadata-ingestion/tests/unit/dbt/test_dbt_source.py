@@ -3956,3 +3956,95 @@ def test_skip_missing_upstreams_existence_is_cached():
     shared_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.shared,PROD)"
     calls = [c for c in graph.exists.call_args_list if c.args[0] == shared_urn]
     assert len(calls) == 1
+
+
+def test_skip_missing_upstreams_fails_open_on_graph_error():
+    """When graph.exists() raises, the edge is kept and a warning is reported."""
+    graph = mock.MagicMock()
+    graph.exists.side_effect = Exception("GMS timeout")
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    ctx.graph = graph
+
+    config = DBTCoreConfig.model_validate(
+        {**create_base_dbt_config(), "skip_missing_upstreams_in_lineage": True}
+    )
+    source = DBTCoreSource(config, ctx)
+
+    upstream = _make_dbt_model_node("upstream", [])
+    downstream = _make_dbt_model_node("downstream", ["upstream"])
+    all_nodes_map = {"upstream": upstream, "downstream": downstream}
+
+    lineage = source._create_lineage_aspect_for_dbt_node(downstream, all_nodes_map)
+
+    # Edge should be retained (fail open)
+    assert lineage is not None
+    assert len(lineage.upstreams) == 1
+    # Counter should NOT increment (we didn't skip anything)
+    assert source.report.lineage_upstreams_skipped_missing == 0
+    # A warning should have been recorded
+    assert len(source.report.warnings) > 0
+
+
+def test_skip_missing_upstreams_filters_cll():
+    """Column-level lineage referencing a missing upstream is also filtered out."""
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumnLineageInfo
+
+    existing_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.existing,PROD)"
+    )
+    missing_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.missing,PROD)"
+
+    graph = mock.MagicMock()
+    graph.exists.side_effect = lambda urn: urn == existing_urn
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    ctx.graph = graph
+
+    config = DBTCoreConfig.model_validate(
+        {
+            **create_base_dbt_config(),
+            "skip_missing_upstreams_in_lineage": True,
+            "include_column_lineage": True,
+        }
+    )
+    source = DBTCoreSource(config, ctx)
+
+    existing_node = _make_dbt_model_node("existing", [])
+    missing_node = _make_dbt_model_node("missing", [])
+    downstream_node = _make_dbt_model_node("downstream", ["existing", "missing"])
+    # Give the downstream node CLL entries pointing at both upstreams
+    downstream_node.upstream_cll = [
+        DBTColumnLineageInfo(
+            downstream_col="col_a",
+            upstream_dbt_name="existing",
+            upstream_col="col_a",
+        ),
+        DBTColumnLineageInfo(
+            downstream_col="col_b",
+            upstream_dbt_name="missing",
+            upstream_col="col_b",
+        ),
+    ]
+    all_nodes_map = {
+        "existing": existing_node,
+        "missing": missing_node,
+        "downstream": downstream_node,
+    }
+
+    lineage = source._create_lineage_aspect_for_dbt_node(downstream_node, all_nodes_map)
+
+    assert lineage is not None
+    upstream_datasets = {u.dataset for u in lineage.upstreams}
+    assert existing_urn in upstream_datasets
+    assert missing_urn not in upstream_datasets
+
+    # CLL for the missing upstream should also be absent
+    cll_upstream_urns = {
+        sf_urn.split(",")[0].removeprefix("urn:li:schemaField:(")
+        for entry in (lineage.fineGrainedLineages or [])
+        for sf_urn in (entry.upstreams or [])
+    }
+    assert not any(missing_urn in u for u in cll_upstream_urns), (
+        "CLL still references the missing upstream — ghost node would still be created"
+    )

@@ -149,6 +149,7 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
+from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
@@ -547,7 +548,13 @@ class DBTCommonConfig(
     skip_missing_upstreams_in_lineage: bool = Field(
         default=False,
         description="When enabled, upstream datasets that do not already exist in DataHub are excluded from "
-        "lineage, preventing the creation of empty stub entities. Requires a DataHub graph connection.",
+        "lineage, preventing dangling graph edges from appearing in the lineage UI. "
+        "Typically used together with `skip_sources_in_lineage` and `entities_enabled.sources: NO`. "
+        "Important caveats: (1) if dbt is ingested before its upstream source systems, those lineage "
+        "edges will be silently omitted until dbt is re-ingested after the upstreams are present; "
+        "(2) adds one graph.exists() round-trip per unique upstream URN per run (cached within the run); "
+        "(3) soft-deleted upstream entities are treated as present. "
+        "Requires a DataHub graph connection.",
     )
     tag_prefix: str = Field(
         default=f"{DBT_PLATFORM}:", description="Prefix added to tags during ingestion."
@@ -1445,10 +1452,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return self._query_timestamp_cache
 
     def _upstream_exists_in_datahub(self, urn: str) -> bool:
-        """Check whether an upstream URN exists in DataHub, with per-run caching."""
+        """Check whether an upstream URN exists in DataHub, with per-run caching.
+
+        Fails open: if the existence check itself fails (transient GMS error, timeout,
+        etc.) the edge is kept to avoid silent lineage loss.
+        """
         if urn not in self._upstream_exists_cache:
             assert self.ctx.graph  # caller ensures graph is available
-            self._upstream_exists_cache[urn] = self.ctx.graph.exists(urn)
+            try:
+                self._upstream_exists_cache[urn] = self.ctx.graph.exists(urn)
+            except Exception as e:
+                self.report.report_warning(
+                    title="Upstream existence check failed",
+                    message="Could not verify upstream existence; keeping the lineage edge to avoid silent lineage loss.",
+                    context=urn,
+                    exc=e,
+                )
+                self._upstream_exists_cache[urn] = True  # fail open
             if not self._upstream_exists_cache[urn]:
                 self.report.lineage_upstreams_skipped_missing += 1
         return self._upstream_exists_cache[urn]
@@ -3224,12 +3244,30 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     )
                 ]
 
-            if self.config.skip_missing_upstreams_in_lineage and self.ctx.graph:
+            if self.config.skip_missing_upstreams_in_lineage:
                 upstream_urns = [
                     urn
                     for urn in upstream_urns
                     if self._upstream_exists_in_datahub(urn)
                 ]
+                # Also filter CLL: schemaField edges embed the parent dataset URN,
+                # so a missing upstream with CLL still creates the ghost node via
+                # graphService.addEdge(). Keep only entries whose upstream datasets
+                # are all in the surviving set.
+                if cll:
+                    existing_upstream_set = set(upstream_urns)
+                    filtered_cll = []
+                    for entry in cll:
+                        filtered_upstreams = [
+                            sf_urn
+                            for sf_urn in (entry.upstreams or [])
+                            if Urn.from_string(sf_urn).entity_ids[0]
+                            in existing_upstream_set
+                        ]
+                        if filtered_upstreams:
+                            entry.upstreams = filtered_upstreams
+                            filtered_cll.append(entry)
+                    cll = filtered_cll
 
             if not upstream_urns:
                 return None
