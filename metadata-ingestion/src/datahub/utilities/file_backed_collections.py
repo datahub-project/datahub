@@ -573,3 +573,116 @@ class FileBackedList(Generic[_VT], Closeable):
 
     def __del__(self) -> None:
         self.close()
+
+
+class FileBackedCounter(Closeable):
+    """A disk-backed two-level counter: counts items within groups.
+
+    Stores ``(group_key, item_key) -> count`` in SQLite, incrementing via batched
+    upserts, and reads back the most-common items per group. A member of the
+    FileBacked* family, for when the set of counted keys is too large to hold in memory.
+
+    Callers that need a composite group or item encode it into the string key with a
+    separator their prefix cannot contain.
+
+    Unlike FileBackedDict/FileBackedList, FileBackedCounter does NOT register itself in
+    ``ConnectionWrapper._dependent_objects``. When sharing a connection, the owner must
+    therefore call ``close()`` explicitly to flush buffered increments (the
+    ``UsageAggregator`` consumer does this).
+    """
+
+    def __init__(
+        self,
+        *,
+        shared_connection: Optional[ConnectionWrapper] = None,
+        tablename: str = "counter",
+        batch_size: int = 50000,
+    ) -> None:
+        self._conn = shared_connection or ConnectionWrapper()
+        self._owns_connection = shared_connection is None
+        self._tablename = tablename
+        self._batch_size = batch_size
+        self._closed = False
+        # Write buffer, pre-summing repeated keys within a flush window so they collapse
+        # to a single upsert.
+        self._buf: Dict[Tuple[str, str], int] = {}
+        self._upsert = (
+            f"INSERT INTO {tablename}(group_key, item_key, cnt) VALUES (?, ?, ?) "
+            f"ON CONFLICT(group_key, item_key) DO UPDATE SET cnt = cnt + excluded.cnt"
+        )
+        self._use_sqlite_on_conflict = True
+        if sqlite3.sqlite_version_info < (3, 24, 0):
+            # ON CONFLICT was added in SQLite 3.24.0 (2018-06-04).
+            # See https://www.sqlite.org/lang_conflict.html
+            if _get_sqlite_version_override():
+                self._use_sqlite_on_conflict = False
+            else:
+                raise RuntimeError("SQLite version 3.24.0 or later is required")
+        # Always use IF NOT EXISTS: this counter may share a connection or be re-opened
+        # against an existing table, unlike FileBackedDict which gates table reuse via
+        # allow_table_name_reuse.
+        self._conn.execute(
+            f"CREATE TABLE IF NOT EXISTS {tablename}("
+            "group_key TEXT, item_key TEXT, cnt INTEGER, "
+            "PRIMARY KEY(group_key, item_key))"
+        )
+
+    def increment(self, group_key: str, item_key: str, count: int = 1) -> None:
+        key = (group_key, item_key)
+        self._buf[key] = self._buf.get(key, 0) + count
+        if len(self._buf) >= self._batch_size:
+            self._flush()
+
+    def _flush(self) -> None:
+        if not self._buf:
+            return
+        rows = [(group, item, cnt) for (group, item), cnt in self._buf.items()]
+        if self._use_sqlite_on_conflict:
+            self._conn.executemany(self._upsert, rows)
+        else:
+            # Fallback for SQLite < 3.24.0 (no ON CONFLICT support): INSERT, and on a
+            # primary-key collision add to the existing count via UPDATE.
+            for group, item, cnt in rows:
+                try:
+                    self._conn.execute(
+                        f"INSERT INTO {self._tablename}(group_key, item_key, cnt) "
+                        "VALUES (?, ?, ?)",
+                        (group, item, cnt),
+                    )
+                except sqlite3.IntegrityError:
+                    self._conn.execute(
+                        f"UPDATE {self._tablename} SET cnt = cnt + ? "
+                        "WHERE group_key = ? AND item_key = ?",
+                        (cnt, group, item),
+                    )
+        self._buf.clear()
+
+    def most_common_by_group(self) -> Iterator[Tuple[str, List[Tuple[str, int]]]]:
+        """Yield (group_key, items) for each group in group_key order, where items are
+        (item_key, count) ordered by count DESC then rowid ASC. The ON CONFLICT upsert
+        preserves a row's rowid on update, so rowid reflects first-insertion order,
+        making the tie-break deterministic (mirrors collections.Counter.most_common)."""
+        self._flush()
+        cursor = self._conn.execute(
+            f"SELECT group_key, item_key, cnt FROM {self._tablename} "
+            "ORDER BY group_key, cnt DESC, rowid ASC"
+        )
+        cur_group: Optional[str] = None
+        items: List[Tuple[str, int]] = []
+        for group_key, item_key, cnt in cursor:
+            if group_key != cur_group:
+                if cur_group is not None:
+                    yield cur_group, items
+                cur_group = group_key
+                items = []
+            items.append((item_key, cnt))
+        if cur_group is not None:
+            yield cur_group, items
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._flush()
+        if self._owns_connection:
+            self._conn.close()
+        self._closed = True
