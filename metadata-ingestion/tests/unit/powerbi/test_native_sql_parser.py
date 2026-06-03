@@ -11,6 +11,20 @@ def ctx() -> PipelineContext:
     return PipelineContext(run_id="test", pipeline_name="test")
 
 
+def _in_tables(ctx: PipelineContext, query: str, platform: str = "mssql") -> Set[str]:
+    result = native_sql_parser.parse_custom_sql(
+        ctx=ctx,
+        query=query,
+        platform=platform,
+        database="TestDB",
+        schema="dbo",
+        env="PROD",
+        platform_instance=None,
+    )
+    assert result is not None
+    return {urn.lower() for urn in result.in_tables}
+
+
 def test_join():
     query: str = "select A.name from GSL_TEST_DB.PUBLIC.SALES_ANALYST as A inner join GSL_TEST_DB.PUBLIC.SALES_FORECAST as B on A.name = B.name where startswith(A.name, 'mo')"
     tables: List[str] = native_sql_parser.get_tables(query)
@@ -141,27 +155,6 @@ WHERE status = 'inactive'
     assert actual.count("dbo.SourceTable") == 2
 
 
-def test_parse_custom_sql_multi_statement_extracts_all_sources(ctx):
-    # Multi-statement SQL (Block contains N statements) should extract lineage from
-    # all SELECT statements that reference real source tables — not just the first or last.
-    # Semicolons separate statements as they appear in real M-Query SQL.
-    query = "SELECT col FROM dbo.TableA WHERE x = 1;\nSELECT col FROM dbo.TableB WHERE y = 2"
-    result = native_sql_parser.parse_custom_sql(
-        ctx=ctx,
-        query=query,
-        platform="mssql",
-        database="TestDB",
-        schema="dbo",
-        env="PROD",
-        platform_instance=None,
-    )
-    assert result is not None
-    assert result.debug_info is None or result.debug_info.table_error is None
-    urns = {urn.lower() for urn in result.in_tables}
-    assert any("tablea" in urn for urn in urns)
-    assert any("tableb" in urn for urn in urns)
-
-
 def test_remove_tsql_control_statements_leading_semicolon_before_with():
     # Leading semicolon before CTE (;WITH ...) is a T-SQL defensive pattern to ensure
     # the previous statement is terminated. It must be stripped so sqlglot can parse the CTE.
@@ -170,71 +163,6 @@ def test_remove_tsql_control_statements_leading_semicolon_before_with():
     assert not actual.startswith(";")
     assert "WITH cte AS" in actual
     assert "dbo.SourceTable" in actual
-
-
-def test_parse_custom_sql_blank_line_separated_selects_extracts_all_sources(ctx):
-    # Multiple SELECTs separated only by blank lines — pattern that appears after
-    # DROP TABLE IF EXISTS is stripped from between statements (no semicolons remain).
-    # All source tables must still be extracted.
-    query = (
-        "SELECT col FROM dbo.TableA WHERE x = 1\n"
-        "\n"
-        "SELECT col FROM dbo.TableB WHERE y = 2"
-    )
-    result = native_sql_parser.parse_custom_sql(
-        ctx=ctx,
-        query=query,
-        platform="mssql",
-        database="TestDB",
-        schema="dbo",
-        env="PROD",
-        platform_instance=None,
-    )
-    assert result is not None
-    assert result.debug_info is None or result.debug_info.table_error is None
-    urns = {urn.lower() for urn in result.in_tables}
-    assert any("tablea" in urn for urn in urns)
-    assert any("tableb" in urn for urn in urns)
-
-
-def test_parse_custom_sql_select_then_union_extracts_all_sources(ctx):
-    # SELECT ...;\nSELECT ... UNION SELECT ... produces ['Select', 'Union'] block error.
-    # All source tables across both statements must be extracted.
-    query = (
-        "SELECT col FROM dbo.TableA WHERE x = 1;\n"
-        "SELECT col FROM dbo.TableB\n"
-        "UNION ALL\n"
-        "SELECT col FROM dbo.TableC"
-    )
-    result = native_sql_parser.parse_custom_sql(
-        ctx=ctx,
-        query=query,
-        platform="mssql",
-        database="TestDB",
-        schema="dbo",
-        env="PROD",
-        platform_instance=None,
-    )
-    assert result is not None
-    assert result.debug_info is None or result.debug_info.table_error is None
-    urns = {urn.lower() for urn in result.in_tables}
-    assert any("tablea" in urn for urn in urns)
-    assert any("tableb" in urn for urn in urns)
-    assert any("tablec" in urn for urn in urns)
-
-
-def _in_tables(ctx: PipelineContext, query: str, platform: str = "mssql") -> Set[str]:
-    result = native_sql_parser.parse_custom_sql(
-        ctx=ctx,
-        query=query,
-        platform=platform,
-        database="TestDB",
-        schema="dbo",
-        env="PROD",
-        platform_instance=None,
-    )
-    assert result is not None
-    return {urn.lower() for urn in result.in_tables}
 
 
 def test_is_single_statement_classification():
@@ -252,6 +180,34 @@ def test_is_single_statement_classification():
     ]
     assert all(native_sql_parser._is_single_statement(q, "mssql") for q in single)
     assert not any(native_sql_parser._is_single_statement(q, "mssql") for q in multi)
+
+
+def test_is_single_statement_platform_without_dialect():
+    # 'odbc' has no sqlglot dialect; get_dialect raises and we fall back to the default
+    # dialect instead of crashing.
+    assert native_sql_parser._is_single_statement("SELECT a FROM dbo.A", "odbc")
+
+
+def test_parse_custom_sql_multi_statement_extracts_all_sources(ctx):
+    # Multi-statement SQL: lineage must come from every SELECT, not just the first/last.
+    urns = _in_tables(
+        ctx,
+        "SELECT col FROM dbo.TableA WHERE x = 1;\nSELECT col FROM dbo.TableB WHERE y = 2",
+    )
+    assert any("tablea" in urn for urn in urns)
+    assert any("tableb" in urn for urn in urns)
+
+
+def test_parse_custom_sql_select_then_union_extracts_all_sources(ctx):
+    # ';' then a UNION query: all source tables across both statements are extracted.
+    urns = _in_tables(
+        ctx,
+        "SELECT col FROM dbo.TableA WHERE x = 1;\n"
+        "SELECT col FROM dbo.TableB\nUNION ALL\nSELECT col FROM dbo.TableC",
+    )
+    assert any("tablea" in urn for urn in urns)
+    assert any("tableb" in urn for urn in urns)
+    assert any("tablec" in urn for urn in urns)
 
 
 def test_single_cte_does_not_leak_alias(ctx):

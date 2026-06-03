@@ -7,7 +7,6 @@ import sqlparse
 from sqlglot.errors import SqlglotError
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.sql_parsing.split_statements import split_statements
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_lineage_from_sql_statements,
@@ -178,17 +177,6 @@ def parse_custom_sql(
             graph=ctx.graph,
         )
     else:
-        # Multiple statements. Split on real boundaries (';', GO, DROP, ...) with the
-        # grammar-aware splitter, which keeps subqueries and CTEs intact.
-        statements = [stmt for stmt in split_statements(query) if stmt.strip()]
-        if len(statements) <= 1:
-            # No real separator found, but it isn't a single statement either:
-            # genuinely separator-less statements such as `SELECT ... INTO #temp`
-            # followed by a SELECT, or bare blank-line-separated SELECTs. Insert a
-            # separator before each blank-line SELECT so they parse independently.
-            query = re.sub(
-                r"\n{2,}(\s*SELECT\b)", r";\n\n\1", query, flags=re.IGNORECASE
-            )
         result = create_lineage_from_sql_statements(
             queries=query,
             default_schema=schema,
