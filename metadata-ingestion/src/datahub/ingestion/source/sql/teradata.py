@@ -3,10 +3,11 @@ import random
 import re
 import time
 import traceback
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 from collections.abc import Generator
 from concurrent.futures import (
     FIRST_COMPLETED,
+    CancelledError,
     Future,
     ThreadPoolExecutor,
     wait,
@@ -1404,8 +1405,12 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     )
 
 
-LineageQuery = namedtuple("LineageQuery", ["sql", "label"])
-"""A SQL query together with a short human-readable label used for timing reports."""
+@dataclass
+class LineageQuery:
+    """A SQL query together with a short human-readable label used for timing reports."""
+
+    sql: str
+    label: str
 
 
 @platform_name("Teradata")
@@ -2333,6 +2338,12 @@ ORDER by DataBaseName, TableName;
                             results = fut.result(timeout=1)
                             for result in results:
                                 yield result
+                        except CancelledError:
+                            # The stall-timeout path already called
+                            # increment_view_error before cancelling this
+                            # future. Skip the increment here to avoid
+                            # double-counting.
+                            pass
                         except Exception as e:
                             _error_category = _categorize_view_error(e)
                             self._warn_view_error(schema, view_name, _error_category, e)
@@ -2804,6 +2815,7 @@ ORDER by DataBaseName, TableName;
 
         def _watchdog() -> None:
             check_interval = max(min(stall_seconds, 60), 10)
+            stall_warned = False
             while not watchdog_stop.wait(check_interval):
                 with phase_state_lock:
                     phase = phase_state["phase"]
@@ -2812,18 +2824,23 @@ ORDER by DataBaseName, TableName;
                 if phase == "completed":
                     return
                 if elapsed > stall_seconds:
-                    logger.warning(
-                        f"Lineage fetch stall: no progress in {elapsed:.0f}s "
-                        f"(phase={phase}, query_index={query_index}). The "
-                        f"Teradata cursor may be blocked or the query is still "
-                        f"executing on the server. Investigate "
-                        f"DBC.SessionInfoV / network keepalive if this persists."
-                    )
-                    self.report.warning(
-                        title="Lineage fetch stall detected",
-                        message="Teradata cursor may be blocked or the query is still executing on the server. Investigate DBC.SessionInfoV or network keepalive settings.",
-                        context=f"phase={phase}, query_index={query_index}, stalled_for={elapsed:.0f}s",
-                    )
+                    if not stall_warned:
+                        logger.warning(
+                            f"Lineage fetch stall: no progress in {elapsed:.0f}s "
+                            f"(phase={phase}, query_index={query_index}). The "
+                            f"Teradata cursor may be blocked or the query is still "
+                            f"executing on the server. Investigate "
+                            f"DBC.SessionInfoV / network keepalive if this persists."
+                        )
+                        self.report.warning(
+                            title="Lineage fetch stall detected",
+                            message="Teradata cursor may be blocked or the query is still executing on the server. Investigate DBC.SessionInfoV or network keepalive settings.",
+                            context=f"phase={phase}, query_index={query_index}, stalled_for={elapsed:.0f}s",
+                        )
+                        stall_warned = True
+                else:
+                    # Progress was made — reset so the next stall emits a fresh warning.
+                    stall_warned = False
 
         watchdog_thread: Optional[Thread] = None
         if stall_seconds > 0:
@@ -2996,6 +3013,7 @@ ORDER by DataBaseName, TableName;
                 return True
         except Exception as e:
             if isinstance(e, PoolTimeoutError):
+                self.report.increment_schema_discovery_failures()
                 self.report.warning(
                     title="Connection pool exhausted checking historical lineage table",
                     message="Could not acquire a connection to verify PDCRINFO.DBQLSqlTbl_Hst — the connection pool was exhausted. Historical lineage will be skipped for this run. Consider increasing connection_pool_timeout_ms or reducing max_workers.",
@@ -3003,6 +3021,7 @@ ORDER by DataBaseName, TableName;
                     exc=e,
                 )
             elif _should_retry_connect(e):
+                self.report.increment_schema_discovery_failures()
                 self.report.warning(
                     title="Historical lineage table unreachable",
                     message="Historical lineage table PDCRINFO.DBQLSqlTbl_Hst check failed after repeated transient errors. Historical lineage will be skipped for this run.",

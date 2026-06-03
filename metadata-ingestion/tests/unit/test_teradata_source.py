@@ -539,7 +539,7 @@ class TestTeradataSource:
                 queries = source._make_lineage_queries()
 
             assert len(queries) > 0
-            query, _ = queries[0]
+            query = queries[0].sql
             assert "TIMESTAMP" in query
             assert "None" not in query
 
@@ -946,7 +946,7 @@ class TestLineageQuerySeparation:
             queries = source._make_lineage_queries()
 
             assert len(queries) == 1
-            query_sql, _ = queries[0]
+            query_sql = queries[0].sql
             assert '"DBC".QryLogV' in query_sql
             assert "PDCRDATA.DBQLSqlTbl_Hst" not in query_sql
             assert "2024-01-01" in query_sql
@@ -982,7 +982,8 @@ class TestLineageQuerySeparation:
             assert len(queries) == 1
 
             # Single UNION query should contain both historical and current data
-            union_query, union_kind = queries[0]
+            union_query = queries[0].sql
+            union_kind = queries[0].label
             assert union_kind == "historical_union"
             assert '"DBC".QryLogV' in union_query
             assert '"PDCRINFO".DBQLSqlTbl_Hst' in union_query
@@ -1021,7 +1022,7 @@ class TestLineageQuerySeparation:
                 queries = source._make_lineage_queries()
 
             assert len(queries) == 1
-            query_sql, _ = queries[0]
+            query_sql = queries[0].sql
             assert '"DBC".QryLogV' in query_sql
             assert '"PDCRDATA".DBQLSqlTbl_Hst' not in query_sql
 
@@ -1056,7 +1057,8 @@ class TestLineageQuerySeparation:
             assert len(queries) == 1
 
             # UNION query should have case-insensitive database filters for both parts
-            union_query, union_kind = queries[0]
+            union_query = queries[0].sql
+            union_kind = queries[0].label
             assert union_kind == "historical_union"
             assert (
                 "l.DefaultDatabase (NOT CASESPECIFIC) in ('test_db1' (NOT CASESPECIFIC),'test_db2' (NOT CASESPECIFIC))"
@@ -1421,7 +1423,8 @@ class TestQueryConstruction:
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
             queries = source._make_lineage_queries()
-            current_query, current_kind = queries[0]
+            current_query = queries[0].sql
+            current_kind = queries[0].label
             assert current_kind == "current_only"
 
             # Verify current query structure
@@ -1458,7 +1461,8 @@ class TestQueryConstruction:
                 source, "_check_historical_table_exists", return_value=True
             ):
                 queries = source._make_lineage_queries()
-                union_query, union_kind = queries[0]
+                union_query = queries[0].sql
+                union_kind = queries[0].label
                 assert union_kind == "historical_union"
 
                 # Verify UNION query contains historical data structure
@@ -2549,7 +2553,7 @@ class TestLineageQueryScoping:
         with patch.object(source, "_check_historical_table_exists", return_value=False):
             queries = source._make_lineage_queries()
 
-        query, _ = queries[0]
+        query = queries[0].sql
         assert "sales_db" in query
         assert "hr_db" in query
         assert "'All'" not in query
@@ -2567,7 +2571,7 @@ class TestLineageQueryScoping:
         with patch.object(source, "_check_historical_table_exists", return_value=False):
             queries = source._make_lineage_queries()
 
-        query, _ = queries[0]
+        query = queries[0].sql
         assert "explicit_db" in query
         assert "other_db" not in query
 
@@ -2585,7 +2589,7 @@ class TestLineageQueryScoping:
             queries = source._make_lineage_queries()
 
         assert len(queries) == 1
-        assert "DefaultDatabase in" not in queries[0][0]
+        assert "DefaultDatabase in" not in queries[0].sql
 
 
 class TestConfigurableTimeouts:
