@@ -163,6 +163,7 @@ function EntityName(props: Props) {
                 tooltip: { showArrow: false, overlayInnerStyle: { color: theme.colors.textSecondary } },
             }}
             key={`${updatedName}-${key}`}
+            data-testid="entity-name-editable"
         >
             {updatedName}
         </EntityTitle>

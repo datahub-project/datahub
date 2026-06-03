@@ -19,18 +19,16 @@
  */
 
 import { test } from '../../fixtures/base-test';
-import { NestedDomainsPage } from '../../pages/domains/nested-domains.page';
+import { DomainEntityPage } from '../../pages/domains/domain-entity.page';
 import { withRandomSuffix } from '../../utils/random';
 import type { ScopedCleanup } from '../../utils/cleanup';
+import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
 
 const MARKETING_DOMAIN_NAME = 'Marketing';
 const TEST_DOCUMENTATION = 'Test documentation for domains';
 const TEST_LINK_URL = 'https://example.com';
 const TEST_LINK_LABEL = 'Example Link';
 const TEST_OWNER_NAME = 'datahub';
-const LOAD_STATE_DOMCONTENTLOADED = 'domcontentloaded';
-const LOAD_STATE_LOAD = 'load';
-const DELAY_XL = 2000;
 
 // Helper to create domain, navigate to it, and run a test operation with automatic cleanup
 async function runDomainTest(
@@ -38,28 +36,29 @@ async function runDomainTest(
   logger: import('../../utils/logger').DataHubLogger | undefined,
   cleanup: ScopedCleanup,
   testName: string,
-  testOperation: (domainsPage: NestedDomainsPage) => Promise<void>,
+  testOperation: (domainEntityPage: DomainEntityPage) => Promise<void>,
 ): Promise<void> {
-  const domainsPage = new NestedDomainsPage(page, logger);
+  const domainEntityPage = new DomainEntityPage(page, logger);
   const testDomainName = withRandomSuffix(testName);
 
   // Create domain
-  await page.goto('/domains', { waitUntil: LOAD_STATE_DOMCONTENTLOADED });
-  await page.waitForLoadState(LOAD_STATE_LOAD);
-  await page.waitForTimeout(DELAY_XL);
+  await page.goto('/domains', { waitUntil: LOAD_STATES.DOMCONTENTLOADED });
+  await page.waitForLoadState(LOAD_STATES.LOAD);
 
-  const domainUrn = await domainsPage.createDomain(testDomainName);
+  const domainUrn = await domainEntityPage.createDomain(testDomainName);
   cleanup.track(domainUrn);
 
   // Navigate to domain by clicking the link (natural navigation)
-  const domainLink = page.getByRole('link').filter({ hasText: testDomainName }).first();
-  await domainLink.waitFor({ state: 'visible', timeout: 10000 });
+  const domainLink = page.getByRole('link').filter({ hasText: testDomainName });
+  await domainLink.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT });
   await domainLink.click();
-  await page.waitForLoadState(LOAD_STATE_LOAD);
-  await page.waitForTimeout(DELAY_XL);
+  await page.waitForLoadState(LOAD_STATES.LOAD);
+
+  // Wait for page to fully render after navigation before running operations
+  await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
   // Run test-specific operation
-  await testOperation(domainsPage);
+  await testOperation(domainEntityPage);
 }
 
 test.describe('Domains V2 Advanced Functionality', () => {

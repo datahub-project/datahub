@@ -15,7 +15,8 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
-import { NestedDomainsPage } from '../../pages/domains/nested-domains.page';
+import { DomainEntityPage } from '../../pages/domains/domain-entity.page';
+import { LOAD_STATES } from '../../utils/constants';
 
 const MARKETING_DOMAIN_URN = 'urn:li:domain:marketing';
 const DOMAIN_URL_PATTERN = '/domain/';
@@ -23,64 +24,33 @@ const DOMAIN_URL_PATTERN = '/domain/';
 test.describe('Domains V2 Summary Tab', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/domains');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // Navigate to Marketing domain for all summary tests
+    await page.goto(`${DOMAIN_URL_PATTERN}${MARKETING_DOMAIN_URN}`);
+    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   });
 
   test('summary tab displays properties section', async ({ page, logger }) => {
-    logger.step('Verify summary tab properties section');
-    const domainsPage = new NestedDomainsPage(page, logger);
+    const domainsPage = new DomainEntityPage(page, logger);
 
-    // Navigate directly to Marketing domain
-    await page.goto(`${DOMAIN_URL_PATTERN}${MARKETING_DOMAIN_URN}`);
-    await page.waitForLoadState('networkidle');
-
-    // Verify we're on a domain page
-    expect(page.url()).toContain(DOMAIN_URL_PATTERN);
-
-    // Verify Summary tab exists
-    const summaryCount = await domainsPage.summaryTab.count();
-    expect(summaryCount).toBeGreaterThanOrEqual(0);
-
-    // Verify properties section (Created, Owners) are displayed
-    const propertiesCount = await domainsPage.propertiesSection.count();
-    expect(propertiesCount).toBeGreaterThanOrEqual(0);
+    // Verify properties section is visible
+    await expect(domainsPage.propertiesSection).toBeVisible();
   });
 
   test('summary tab displays about section', async ({ page, logger }) => {
-    logger.step('Verify summary tab about section');
-    const domainsPage = new NestedDomainsPage(page, logger);
+    const domainsPage = new DomainEntityPage(page, logger);
 
-    // Navigate directly to Marketing domain
-    await page.goto('/domain/urn:li:domain:marketing');
-    await page.waitForLoadState('networkidle');
-
-    // Verify About section exists
-    const aboutCount = await domainsPage.aboutSection.count();
-    expect(aboutCount).toBeGreaterThanOrEqual(0);
+    // Verify about section is visible
+    await expect(domainsPage.aboutSection).toBeVisible();
   });
 
   test('summary tab displays template section', async ({ page, logger }) => {
-    logger.step('Verify summary tab template section');
-    const domainsPage = new NestedDomainsPage(page, logger);
+    const domainsPage = new DomainEntityPage(page, logger);
 
-    // Navigate directly to Marketing domain
-    await page.goto('/domain/urn:li:domain:marketing');
-    await page.waitForLoadState('networkidle');
-
-    // Verify template sections for assets, domains, and data products
-    const templateCount = await domainsPage.templateSection.count();
-    expect(templateCount).toBeGreaterThanOrEqual(0);
-
-    // Check for Assets section
-    const assetsCount = await domainsPage.assetsHeading.count();
-    expect(assetsCount).toBeGreaterThanOrEqual(0);
-
-    // Check for Domains section (hierarchy)
-    const domainsCount = await domainsPage.domainsHeading.count();
-    expect(domainsCount).toBeGreaterThanOrEqual(0);
-
-    // Check for Data Products section
-    const dataProductsCount = await domainsPage.dataProductsHeading.count();
-    expect(dataProductsCount).toBeGreaterThanOrEqual(0);
+    // Verify template wrapper and all module sections are visible
+    await expect(domainsPage.templateSection).toBeVisible();
+    await expect(domainsPage.assetsHeading).toBeVisible();
+    await expect(domainsPage.domainsHeading).toBeVisible();
+    await expect(domainsPage.dataProductsHeading).toBeVisible();
   });
 });

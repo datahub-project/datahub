@@ -25,6 +25,25 @@ export const TIMEOUTS = {
   QUICK: 300, // Brief pause for rendering
 } as const;
 
+// Interaction delays
+export const DELAYS = {
+  TYPING: 10, // Keyboard typing speed
+  SEQUENTIAL: 50, // Sequential key presses
+} as const;
+
+// Playwright load states
+export const LOAD_STATES = {
+  DOMCONTENTLOADED: 'domcontentloaded',
+  LOAD: 'load',
+  NETWORKIDLE: 'networkidle',
+} as const;
+
+// Keyboard keys
+export const KEYS = {
+  CTRL_A: 'Control+A',
+  ENTER: 'Enter',
+} as const;
+
 // TEST_CREDENTIALS removed — use data/users.ts (users) as the
 // single source of truth for user credentials.
 
