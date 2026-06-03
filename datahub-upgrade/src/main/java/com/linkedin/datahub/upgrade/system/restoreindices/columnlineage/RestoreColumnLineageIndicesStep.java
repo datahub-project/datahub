@@ -38,6 +38,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class RestoreColumnLineageIndicesStep implements UpgradeStep {
 
+  // STEP_ID and VERSION must match the values used when this step ran as a GMS boot step.
+  // The idempotency check derives a URN from STEP_ID — changing either value causes all existing
+  // deployments to re-run the migration because the prior completion record won't be found.
   private static final String STEP_ID = "restore-column-lineage-indices";
   private static final String VERSION = "1";
   private static final Integer BATCH_SIZE = 1000;
