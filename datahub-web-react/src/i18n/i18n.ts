@@ -23,6 +23,7 @@ export const NAMESPACES = [
     'governance.structured-properties',
     'home.v2',
     'home.v3',
+    'misc',
     'modules',
     'settings.features',
     'settings.page',
