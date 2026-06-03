@@ -21,6 +21,7 @@ export const NAMESPACES = [
     'governance.domain',
     'home.v2',
     'home.v3',
+    'ingestion',
     'misc',
     'modules',
     'settings.features',

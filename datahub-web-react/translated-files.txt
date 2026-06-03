@@ -64,6 +64,15 @@ src/app/identity/user/cacheUtils.ts
 src/app/identity/user/recommendedUsersLocalStorage.ts
 src/app/identity/user/useRoleSelector.ts
 src/app/identity/user/useUserTitle.ts
+src/app/ingestV2/*.{ts,tsx}
+src/app/ingestV2/executions/**/*.{ts,tsx}
+src/app/ingestV2/hooks/**/*.{ts,tsx}
+src/app/ingestV2/runDetails/**/*.{ts,tsx}
+src/app/ingestV2/secret/**/*.{ts,tsx}
+src/app/ingestV2/shared/**/*.{ts,tsx}
+src/app/ingestV2/source/*.{ts,tsx}
+src/app/ingestV2/source/conf/**/*.{ts,tsx}
+src/app/ingestV2/source/hooks/**/*.{ts,tsx}
 src/app/permissions/AvatarsGroup.tsx
 src/app/permissions/ManagePermissions.tsx
 src/app/permissions/policy/GlossarySelector.tsx

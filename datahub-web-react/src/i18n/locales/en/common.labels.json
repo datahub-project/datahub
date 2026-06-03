@@ -6,12 +6,15 @@
     "details": "Details",
     "na": "N/A",
     "name": "Name",
+    "owner": "Owner",
     "owners": "Owners",
     "rows": "Rows",
+    "source": "Source",
     "state": "State",
     "status": "Status",
     "tags": "Tags",
     "title": "Title",
     "type": "Type",
-    "usage": "Usage"
+    "usage": "Usage",
+    "value": "Value"
 }
