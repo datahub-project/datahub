@@ -1,19 +1,25 @@
-package com.linkedin.metadata.boot.steps;
+package com.linkedin.datahub.upgrade.system.homepagelinks;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
+import com.linkedin.datahub.upgrade.UpgradeContext;
+import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.key.DataHubUpgradeKey;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.module.DataHubPageModuleParams;
 import com.linkedin.module.DataHubPageModuleProperties;
@@ -28,34 +34,136 @@ import com.linkedin.post.PostType;
 import com.linkedin.template.DataHubPageTemplateProperties;
 import com.linkedin.template.DataHubPageTemplateRow;
 import com.linkedin.template.DataHubPageTemplateRowArray;
+import com.linkedin.upgrade.DataHubUpgradeRequest;
+import com.linkedin.upgrade.DataHubUpgradeResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class MigrateHomePageLinksStep extends UpgradeStep {
+public class MigrateHomePageLinksStep implements UpgradeStep {
+
+  // STEP_ID and VERSION must match the values used when this step ran as a GMS boot step.
+  // The idempotency check derives a URN from STEP_ID — changing either value causes all existing
+  // deployments to re-run the migration because the prior completion record won't be found.
+  private static final String STEP_ID = "migrate-homepage-links";
   private static final String VERSION = "1";
-  private static final String UPGRADE_ID = "migrate-homepage-links";
   private static final String DEFAULT_HOME_PAGE_TEMPLATE_URN =
       "urn:li:dataHubPageTemplate:home_default_1";
   private static final Integer BATCH_SIZE = 1000;
 
+  private final EntityService<?> _entityService;
   private final EntitySearchService _entitySearchService;
+  private final Urn _upgradeUrn;
 
   public MigrateHomePageLinksStep(
       @Nonnull final EntityService<?> entityService,
       @Nonnull final EntitySearchService entitySearchService) {
-    super(entityService, VERSION, UPGRADE_ID);
-    this._entitySearchService = entitySearchService;
+    _entityService = entityService;
+    _entitySearchService = entitySearchService;
+    _upgradeUrn =
+        EntityKeyUtils.convertEntityKeyToUrn(
+            new DataHubUpgradeKey().setId(STEP_ID), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   }
 
   @Override
-  public void upgrade(@Nonnull OperationContext systemOperationContext) throws Exception {
+  public String id() {
+    return STEP_ID;
+  }
+
+  @Override
+  public boolean isOptional() {
+    return true;
+  }
+
+  @Override
+  public boolean skip(final UpgradeContext context) {
+    try {
+      EntityResponse response =
+          _entityService.getEntityV2(
+              context.opContext(),
+              Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
+              _upgradeUrn,
+              Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME));
+      if (response != null
+          && response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)) {
+        DataMap dataMap =
+            response
+                .getAspects()
+                .get(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)
+                .getValue()
+                .data();
+        DataHubUpgradeRequest request = new DataHubUpgradeRequest(dataMap);
+        if (request.hasVersion() && request.getVersion().equals(VERSION)) {
+          log.info("Step {} version {} already completed. Skipping.", STEP_ID, VERSION);
+          return true;
+        }
+      }
+    } catch (Exception e) {
+      log.error("Error checking upgrade history for {}. Proceeding with upgrade.", STEP_ID, e);
+    }
+    return false;
+  }
+
+  @Override
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
+    return context -> {
+      try {
+        ingestUpgradeRequest(context.opContext());
+        upgrade(context.opContext());
+        ingestUpgradeResult(context.opContext());
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+      } catch (Exception e) {
+        log.error("Failed to migrate home page links", e);
+        _entityService.deleteUrn(context.opContext(), _upgradeUrn);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+      }
+    };
+  }
+
+  private void ingestUpgradeRequest(@Nonnull final OperationContext opContext) throws Exception {
+    final AuditStamp auditStamp =
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(_upgradeUrn);
+    proposal.setEntityType(Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
+    proposal.setAspectName(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME);
+    proposal.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new DataHubUpgradeRequest()
+                .setTimestampMs(System.currentTimeMillis())
+                .setVersion(VERSION)));
+    proposal.setChangeType(com.linkedin.events.metadata.ChangeType.UPSERT);
+    _entityService.ingestProposal(opContext, proposal, auditStamp, false);
+  }
+
+  private void ingestUpgradeResult(@Nonnull final OperationContext opContext) throws Exception {
+    final AuditStamp auditStamp =
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(_upgradeUrn);
+    proposal.setEntityType(Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
+    proposal.setAspectName(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME);
+    proposal.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis())));
+    proposal.setChangeType(com.linkedin.events.metadata.ChangeType.UPSERT);
+    _entityService.ingestProposal(opContext, proposal, auditStamp, false);
+  }
+
+  private void upgrade(@Nonnull OperationContext systemOperationContext) throws Exception {
     final AuditStamp auditStamp =
         new AuditStamp()
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
@@ -63,7 +171,6 @@ public class MigrateHomePageLinksStep extends UpgradeStep {
 
     log.info("Starting migration of home page links to page modules...");
 
-    // Step 1: Fetch existing homepage links
     List<Urn> postUrns = fetchPostUrns(systemOperationContext);
     log.info("Found {} home page announcement posts to migrate", postUrns.size());
 
@@ -72,7 +179,6 @@ public class MigrateHomePageLinksStep extends UpgradeStep {
       return;
     }
 
-    // Step 2: Fetch the default home page template
     Urn templateUrn = UrnUtils.getUrn(DEFAULT_HOME_PAGE_TEMPLATE_URN);
     DataHubPageTemplateProperties templateProperties =
         fetchPageTemplateProperties(systemOperationContext, templateUrn);
@@ -82,15 +188,13 @@ public class MigrateHomePageLinksStep extends UpgradeStep {
       return;
     }
 
-    // Step 3: Convert posts to page modules and create them
     List<Urn> moduleUrns = convertPostsToPageModules(systemOperationContext, postUrns, auditStamp);
     log.info("Created {} page modules from home page posts", moduleUrns.size());
 
-    if (moduleUrns.size() == 0) {
+    if (moduleUrns.isEmpty()) {
       return;
     }
 
-    // Step 4: Update the home page template with the new modules
     updateHomePageTemplate(
         systemOperationContext, templateUrn, templateProperties, moduleUrns, auditStamp);
     log.info("Updated home page template with migrated modules");
@@ -98,14 +202,7 @@ public class MigrateHomePageLinksStep extends UpgradeStep {
     log.info("Home page links migration completed successfully");
   }
 
-  @Nonnull
-  @Override
-  public ExecutionMode getExecutionMode() {
-    return ExecutionMode.ASYNC;
-  }
-
   private List<Urn> fetchPostUrns(@Nonnull OperationContext systemOperationContext) {
-    // There's no filtering for type, so we just need to get all posts
     SearchResult searchResult =
         _entitySearchService.search(
             systemOperationContext.withSearchFlags(
@@ -127,7 +224,7 @@ public class MigrateHomePageLinksStep extends UpgradeStep {
       @Nonnull OperationContext systemOperationContext, @Nonnull Urn templateUrn) {
     try {
       EntityResponse response =
-          entityService.getEntityV2(
+          _entityService.getEntityV2(
               systemOperationContext,
               Constants.DATAHUB_PAGE_TEMPLATE_ENTITY_NAME,
               templateUrn,
@@ -155,12 +252,11 @@ public class MigrateHomePageLinksStep extends UpgradeStep {
 
     List<Urn> moduleUrns = new ArrayList<>();
 
-    // Fetch all post info aspects
     Map<Urn, EntityResponse> postResponses =
-        entityService.getEntitiesV2(
+        _entityService.getEntitiesV2(
             systemOperationContext,
             Constants.POST_ENTITY_NAME,
-            postUrns.stream().collect(Collectors.toSet()),
+            new HashSet<>(postUrns),
             Collections.singleton(Constants.POST_INFO_ASPECT_NAME));
 
     for (Map.Entry<Urn, EntityResponse> entry : postResponses.entrySet()) {
@@ -175,15 +271,13 @@ public class MigrateHomePageLinksStep extends UpgradeStep {
       EnvelopedAspect postInfoAspect = response.getAspects().get(Constants.POST_INFO_ASPECT_NAME);
       PostInfo postInfo = new PostInfo(postInfoAspect.getValue().data());
 
-      // Only process posts with HOME_PAGE_ANNOUNCEMENT and LINK types
       if (!PostType.HOME_PAGE_ANNOUNCEMENT.equals(postInfo.getType())
           || !PostContentType.LINK.equals(postInfo.getContent().getType())
           || postInfo.getContent().getLink() == null) {
         continue;
       }
 
-      // Create a page module from this post
-      String moduleId = postUrn.getEntityKey().get(0); // Use the same ID from the post URN
+      String moduleId = postUrn.getEntityKey().get(0);
       Urn moduleUrn =
           UrnUtils.getUrn("urn:li:" + Constants.DATAHUB_PAGE_MODULE_ENTITY_NAME + ":" + moduleId);
 
@@ -196,7 +290,7 @@ public class MigrateHomePageLinksStep extends UpgradeStep {
       proposal.setAspect(GenericRecordUtils.serializeAspect(moduleProperties));
       proposal.setChangeType(ChangeType.UPSERT);
 
-      entityService.ingestProposal(
+      _entityService.ingestProposal(
           systemOperationContext,
           AspectsBatchImpl.builder()
               .mcps(
@@ -218,16 +312,13 @@ public class MigrateHomePageLinksStep extends UpgradeStep {
       @Nonnull PostInfo postInfo, @Nonnull AuditStamp auditStamp) {
     DataHubPageModuleProperties properties = new DataHubPageModuleProperties();
 
-    // Set module name from post title
     properties.setName(postInfo.getContent().getTitle());
     properties.setType(DataHubPageModuleType.LINK);
 
-    // Set visibility
     DataHubPageModuleVisibility visibility = new DataHubPageModuleVisibility();
     visibility.setScope(PageModuleScope.GLOBAL);
     properties.setVisibility(visibility);
 
-    // Set link parameters
     DataHubPageModuleParams params = new DataHubPageModuleParams();
     LinkModuleParams linkParams = new LinkModuleParams();
 
@@ -243,7 +334,6 @@ public class MigrateHomePageLinksStep extends UpgradeStep {
     params.setLinkParams(linkParams);
     properties.setParams(params);
 
-    // Set audit stamps
     properties.setCreated(auditStamp);
     properties.setLastModified(auditStamp);
 
@@ -258,7 +348,6 @@ public class MigrateHomePageLinksStep extends UpgradeStep {
       @Nonnull AuditStamp auditStamp)
       throws Exception {
 
-    // Create rows for the modules (max 3 modules per row)
     List<DataHubPageTemplateRow> newRows = new ArrayList<>();
     for (int i = 0; i < moduleUrns.size(); i += 3) {
       DataHubPageTemplateRow row = new DataHubPageTemplateRow();
@@ -267,7 +356,6 @@ public class MigrateHomePageLinksStep extends UpgradeStep {
       newRows.add(row);
     }
 
-    // Insert the new rows at the beginning of the existing rows
     List<DataHubPageTemplateRow> existingRows =
         templateProperties.getRows() != null
             ? new ArrayList<>(templateProperties.getRows())
@@ -284,7 +372,7 @@ public class MigrateHomePageLinksStep extends UpgradeStep {
     proposal.setAspect(GenericRecordUtils.serializeAspect(templateProperties));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    entityService.ingestProposal(
+    _entityService.ingestProposal(
         systemOperationContext,
         AspectsBatchImpl.builder()
             .mcps(

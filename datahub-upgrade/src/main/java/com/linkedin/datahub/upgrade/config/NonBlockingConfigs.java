@@ -5,9 +5,11 @@ import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatformInstances;
+import com.linkedin.datahub.upgrade.system.dataplatforms.IndexDataPlatforms;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
+import com.linkedin.datahub.upgrade.system.homepagelinks.MigrateHomePageLinks;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
 import com.linkedin.datahub.upgrade.system.ingestion.IngestEntityTypes;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
@@ -26,6 +28,7 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
@@ -226,6 +229,27 @@ public class NonBlockingConfigs {
       @Qualifier("entityAspectDao") final AspectMigrationsDao migrationsDao,
       @Value("${systemUpdate.ingestDataPlatformInstances.enabled}") final boolean enabled) {
     return new IngestDataPlatformInstances(entityService, migrationsDao, enabled);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade indexDataPlatforms(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Qualifier("entitySearchService") final EntitySearchService entitySearchService,
+      @Value("${systemUpdate.indexDataPlatforms.enabled}") final boolean enabled) {
+    return new IndexDataPlatforms(entityService, entitySearchService, enabled);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade migrateHomePageLinks(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Qualifier("entitySearchService") final EntitySearchService entitySearchService,
+      final ConfigurationProvider configurationProvider,
+      @Value("${systemUpdate.migrateHomePageLinks.enabled}") final boolean enabled) {
+    return new MigrateHomePageLinks(
+        entityService,
+        entitySearchService,
+        enabled,
+        configurationProvider.getFeatureFlags().isShowHomePageRedesign());
   }
 
   @Bean

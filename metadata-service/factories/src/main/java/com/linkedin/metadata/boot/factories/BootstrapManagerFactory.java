@@ -8,8 +8,6 @@ import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
-import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
-import com.linkedin.metadata.boot.steps.MigrateHomePageLinksStep;
 import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
 import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
@@ -66,8 +64,6 @@ public class BootstrapManagerFactory {
         BootstrapConfigurationSupport.requireAsyncWorkerThreads(_configurationProvider);
     final RestoreGlossaryIndices restoreGlossaryIndicesStep =
         new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
-    final IndexDataPlatformsStep indexDataPlatformsStep =
-        new IndexDataPlatformsStep(_entityService, _entitySearchService);
     final RestoreDbtSiblingsIndices restoreDbtSiblingsIndices =
         new RestoreDbtSiblingsIndices(_entityService);
     final RemoveClientIdAspectStep removeClientIdAspectStep =
@@ -78,8 +74,6 @@ public class BootstrapManagerFactory {
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
     final RestoreFormInfoIndicesStep restoreFormInfoIndicesStep =
         new RestoreFormInfoIndicesStep(_entityService);
-    final MigrateHomePageLinksStep migrateHomePageLinksStep =
-        new MigrateHomePageLinksStep(_entityService, _entitySearchService);
     final List<BootstrapStep> finalSteps =
         new ArrayList<>(
             ImmutableList.of(
@@ -87,13 +81,8 @@ public class BootstrapManagerFactory {
                 restoreGlossaryIndicesStep,
                 removeClientIdAspectStep,
                 restoreDbtSiblingsIndices,
-                indexDataPlatformsStep,
                 restoreColumnLineageIndices,
                 restoreFormInfoIndicesStep));
-
-    if (_configurationProvider.getFeatureFlags().isShowHomePageRedesign()) {
-      finalSteps.add(migrateHomePageLinksStep);
-    }
 
     return new BootstrapManager(finalSteps, asyncWorkerThreads);
   }
