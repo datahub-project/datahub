@@ -67,6 +67,12 @@ src/app/identity/user/cacheUtils.ts
 src/app/identity/user/recommendedUsersLocalStorage.ts
 src/app/identity/user/useRoleSelector.ts
 src/app/identity/user/useUserTitle.ts
+src/app/ingestV2/source/builder/*.tsx
+src/app/ingestV2/source/builder/RecipeForm/RecipeForm.tsx
+src/app/ingestV2/source/builder/RecipeForm/SecretField/**/*.{ts,tsx}
+src/app/ingestV2/source/builder/RecipeForm/TestConnection/**/*.{ts,tsx}
+src/app/ingestV2/source/builder/RecipeForm/common.tsx
+src/app/ingestV2/source/multiStepBuilder/**/*.{ts,tsx}
 src/app/permissions/AvatarsGroup.tsx
 src/app/permissions/ManagePermissions.tsx
 src/app/permissions/policy/GlossarySelector.tsx
