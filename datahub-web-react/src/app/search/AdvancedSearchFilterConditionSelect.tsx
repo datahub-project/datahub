@@ -4,7 +4,6 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import {
     DESCRIPTION_FILTER_NAME,
     DOMAINS_FILTER_NAME,
@@ -60,10 +59,10 @@ function getLabelsForField(field: string, t: TFunction<'search'>) {
 
 const StyledSelect = styled(Select)`
     border-radius: 5px;
-    color: ${ANTD_GRAY[9]};
-    background: ${ANTD_GRAY[3]};
+    color: ${(props) => props.theme.colors.text};
+    background: ${(props) => props.theme.colors.bgSurface};
     :hover {
-        background: ${ANTD_GRAY[4.5]};
+        background: ${(props) => props.theme.colors.border};
     }
     width: auto;
 `;

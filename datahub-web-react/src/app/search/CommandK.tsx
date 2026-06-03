@@ -1,15 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 const Container = styled.div`
-    color: ${ANTD_GRAY[6]};
-    background-color: #ffffff;
+    color: ${(props) => props.theme.colors.icon};
+    background-color: ${(props) => props.theme.colors.bg};
     opacity: 0.9;
-    border-color: black;
     border-radius: 6px;
-    border: 1px solid ${ANTD_GRAY[6]};
+    border: 1px solid ${(props) => props.theme.colors.icon};
     padding-right: 6px;
     padding-left: 6px;
     margin-right: 4px;

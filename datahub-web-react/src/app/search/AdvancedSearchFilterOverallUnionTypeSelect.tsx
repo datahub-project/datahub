@@ -3,7 +3,6 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { UnionType } from '@app/search/utils/constants';
 
 type Props = {
@@ -16,9 +15,9 @@ const { Option } = Select;
 
 const StyledSelect = styled(Select)`
     border-radius: 5px;
-    background: ${ANTD_GRAY[4]};
+    background: ${(props) => props.theme.colors.border};
     :hover {
-        background: ${ANTD_GRAY[4.5]};
+        background: ${(props) => props.theme.colors.border};
     }
 `;
 

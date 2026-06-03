@@ -13,7 +13,7 @@ const BREADCRUMB_SEPARATOR = '>';
 
 const ContentWrapper = styled.div`
     font-size: 12px;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
 `;
 
 const Container = styled.span`

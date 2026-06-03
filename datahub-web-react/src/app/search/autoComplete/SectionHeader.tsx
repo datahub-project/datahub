@@ -2,18 +2,17 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
 
 export const EntityTypeLabel = styled.div<{ showBorder?: boolean }>`
     font-size: 14px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     ${(props) =>
         props.showBorder &&
         `
-        border-bottom: 1px solid ${ANTD_GRAY[4]};
+        border-bottom: 1px solid ${props.theme.colors.border};
         padding-bottom: 2px;
         `}
 `;
@@ -22,7 +21,7 @@ const SubtypesDescription = styled.span`
     font-size: 12px;
     font-weight: 400;
     margin-left: 8px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 interface Props {

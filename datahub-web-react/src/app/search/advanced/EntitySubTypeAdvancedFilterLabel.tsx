@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import AdvancedFilterCloseButton from '@app/search/advanced/AdvancedFilterCloseButton';
 import { FilterContainer } from '@app/search/advanced/styles';
 import { FILTER_DELIMITER } from '@app/search/utils/constants';
@@ -25,7 +24,7 @@ const FilterWrapper = styled.span`
 `;
 
 const FilterValuesWrapper = styled.div`
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
     margin: 4px;
 `;
 
@@ -35,8 +34,8 @@ const ConditionWrapper = styled.div`
     height: 24px;
     display: flex;
     align-items: center;
-    color: ${ANTD_GRAY[9]};
-    background: ${ANTD_GRAY[2]};
+    color: ${(props) => props.theme.colors.text};
+    background: ${(props) => props.theme.colors.bgSurface};
 `;
 
 function getEntityTypeToSubType(nestedSubTypes?: string[]): { [key: string]: string[] } {

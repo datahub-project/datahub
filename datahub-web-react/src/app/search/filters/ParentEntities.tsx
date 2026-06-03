@@ -5,9 +5,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { Entity } from '@types';
 
@@ -15,7 +13,7 @@ const HIDDEN_COUNT_PREFIX = '+';
 
 const ParentNodesWrapper = styled.div`
     font-size: 12px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     display: flex;
     align-items: center;
     margin-bottom: 3px;
@@ -24,7 +22,7 @@ const ParentNodesWrapper = styled.div`
 
 const ParentNode = styled(Typography.Text)<{ color?: string }>`
     margin-left: 4px;
-    color: ${(props) => (props.color ? props.color : ANTD_GRAY[7])};
+    color: ${(props) => (props.color ? props.color : props.theme.colors.textTertiary)};
 `;
 
 const ArrowWrapper = styled.span`
