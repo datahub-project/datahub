@@ -14,6 +14,7 @@ from concurrent.futures import (
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from functools import lru_cache
 from threading import Event, Lock, Thread, current_thread
 from typing import (
@@ -298,14 +299,21 @@ _PERMISSION_ERROR_KEYWORDS: Tuple[str, ...] = (
 )
 
 
-def _categorize_view_error(exc: BaseException) -> str:
+class ViewErrorCategory(str, Enum):
+    TIMEOUT = "timeout"
+    PERMISSION = "permission"
+    PARSE = "parse"
+    UNKNOWN = "unknown"
+
+
+def _categorize_view_error(exc: BaseException) -> ViewErrorCategory:
     """Classify a view-processing exception for report error-breakdown counters.
 
-    Returns one of the following string literals:
-        ``"timeout"``    — pool exhaustion, I/O timeout, or query timeout.
-        ``"permission"`` — auth failure or missing access privilege.
-        ``"parse"``      — SQL syntax / parse error.
-        ``"unknown"``    — none of the above.
+    Returns one of the ``ViewErrorCategory`` enum members:
+        ``TIMEOUT``    — pool exhaustion, I/O timeout, or query timeout.
+        ``PERMISSION`` — auth failure or missing access privilege.
+        ``PARSE``      — SQL syntax / parse error.
+        ``UNKNOWN``    — none of the above.
 
     Classification uses the same signals as :func:`_should_retry` /
     :func:`_should_retry_connect` so the categories align with the existing
@@ -315,7 +323,7 @@ def _categorize_view_error(exc: BaseException) -> str:
     """
     # Timeout: SQLAlchemy pool exhaustion, Python built-in, or Future timeout.
     if isinstance(exc, (PoolTimeoutError, TimeoutError)):
-        return "timeout"
+        return ViewErrorCategory.TIMEOUT
 
     raw = str(exc)
     msg = raw.lower()
@@ -324,13 +332,13 @@ def _categorize_view_error(exc: BaseException) -> str:
     # "timed out" is checked alongside "timeout" because "timed out" does not
     # contain the substring "timeout" and would not otherwise be caught.
     if any(k in msg for k in ("timed out", "timeout")):
-        return "timeout"
+        return ViewErrorCategory.TIMEOUT
 
     # Permission / auth denial.
     if _PERMISSION_ERROR_CODE_RE.search(raw) or any(
         k in msg for k in _PERMISSION_ERROR_KEYWORDS
     ):
-        return "permission"
+        return ViewErrorCategory.PERMISSION
 
     # SQL parse / syntax error.
     if (
@@ -338,9 +346,9 @@ def _categorize_view_error(exc: BaseException) -> str:
         or any(k in msg for k in _PARSE_ERROR_KEYWORDS)
         or isinstance(exc, NotSupportedError)
     ):
-        return "parse"
+        return ViewErrorCategory.PARSE
 
-    return "unknown"
+    return ViewErrorCategory.UNKNOWN
 
 
 def _jittered_backoff(attempt: int, initial_backoff_seconds: float) -> float:
@@ -1094,7 +1102,7 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
         with self._lock:
             self.column_extraction_duration_seconds += seconds
 
-    def increment_view_error(self, category: str) -> None:
+    def increment_view_error(self, category: ViewErrorCategory) -> None:
         with self._lock:
             self.num_view_processing_failures += 1
             if category == "timeout":
@@ -2414,7 +2422,11 @@ ORDER by DataBaseName, TableName;
             pass
 
     def _warn_view_error(
-        self, schema: str, view_name: str, error_category: str, exc: BaseException
+        self,
+        schema: str,
+        view_name: str,
+        error_category: ViewErrorCategory,
+        exc: BaseException,
     ) -> None:
         """Emit a categorised report warning for a view-processing failure.
 
@@ -2986,22 +2998,15 @@ ORDER by DataBaseName, TableName;
             if isinstance(e, PoolTimeoutError):
                 self.report.warning(
                     title="Connection pool exhausted checking historical lineage table",
-                    message=(
-                        f"Could not acquire a connection to verify PDCRINFO.DBQLSqlTbl_Hst "
-                        f"after {self.config.retry_max_attempts} attempts — the connection pool "
-                        f"was exhausted. Historical lineage will be skipped for this run. "
-                        f"Consider increasing connection_pool_timeout_ms or reducing max_workers."
-                    ),
+                    message="Could not acquire a connection to verify PDCRINFO.DBQLSqlTbl_Hst — the connection pool was exhausted. Historical lineage will be skipped for this run. Consider increasing connection_pool_timeout_ms or reducing max_workers.",
+                    context=f"retry_max_attempts={self.config.retry_max_attempts}",
                     exc=e,
                 )
             elif _should_retry_connect(e):
                 self.report.warning(
                     title="Historical lineage table unreachable",
-                    message=(
-                        f"Historical lineage table PDCRINFO.DBQLSqlTbl_Hst check failed "
-                        f"after {self.config.retry_max_attempts} attempts due to a transient "
-                        f"error: {e}. Historical lineage will be skipped for this run."
-                    ),
+                    message="Historical lineage table PDCRINFO.DBQLSqlTbl_Hst check failed after repeated transient errors. Historical lineage will be skipped for this run.",
+                    context=f"retry_max_attempts={self.config.retry_max_attempts}, error={e}",
                     exc=e,
                 )
             else:
