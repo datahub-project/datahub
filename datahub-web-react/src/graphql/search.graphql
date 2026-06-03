@@ -1270,6 +1270,22 @@ fragment facetFields on FacetMetadata {
                 valueType {
                     urn
                 }
+                allowedValues {
+                    value {
+                        ... on StringValue {
+                            stringValue
+                        }
+                        ... on NumberValue {
+                            numberValue
+                        }
+                    }
+                }
+                typeQualifier {
+                    allowedTypes {
+                        urn
+                        type
+                    }
+                }
             }
         }
     }

@@ -21,7 +21,7 @@ import {
     useGetAutoCompleteMultipleResultsQuery,
     useGetSearchResultsForMultipleQuery,
 } from '@graphql/search.generated';
-import { AndFilterInput, EntityType } from '@types';
+import { AndFilterInput, EntityType, NumberValue, StringValue, StructuredPropertyEntity } from '@types';
 
 const MAX_AGGREGATION_COUNT = 40;
 
@@ -102,6 +102,35 @@ export const useLoadAggregationOptions = ({
             displayName: getStructuredPropFilterDisplayName(field.field, aggregation.value, field.entity),
         };
     });
+    // For structured property fields with allowedValues, surface every allowed value even if it
+    // has no indexed documents yet — so the full set of filterable choices is always visible.
+    const structuredPropEntity =
+        requestedAgg?.entity?.__typename === 'StructuredPropertyEntity'
+            ? (requestedAgg.entity as StructuredPropertyEntity)
+            : undefined;
+    const allowedValuesFromDefinition = structuredPropEntity?.definition?.allowedValues;
+    if (allowedValuesFromDefinition?.length) {
+        const existingValues = new Set((options || []).map((o) => o.value));
+        const extraOptions: FilterValueOption[] = allowedValuesFromDefinition
+            .map((av): FilterValueOption | null => {
+                let rawValue: string | null = null;
+                if (av.value?.__typename === 'StringValue') {
+                    rawValue = (av.value as StringValue).stringValue;
+                } else if (av.value?.__typename === 'NumberValue') {
+                    rawValue = String((av.value as NumberValue).numberValue);
+                }
+                if (rawValue === null || existingValues.has(rawValue)) return null;
+                return {
+                    value: rawValue,
+                    icon: field.icon,
+                    count: includeCounts ? 0 : undefined,
+                    displayName: getStructuredPropFilterDisplayName(field.field, rawValue, field.entity),
+                };
+            })
+            .filter((opt): opt is FilterValueOption => opt !== null);
+        return { options: [...(options || []), ...extraOptions], loading };
+    }
+
     return { options: options || [], loading };
 };
 
