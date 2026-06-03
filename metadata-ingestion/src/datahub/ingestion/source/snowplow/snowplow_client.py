@@ -992,7 +992,10 @@ class SnowplowBDPClient:
         """
         Get all enrichments for a pipeline.
 
-        API Reference: Discovered via testing - resources/v1 path
+        Uses the pipelines/v1 enrichments endpoint. The legacy
+        ``resources/v1/.../configuration/enrichments`` endpoint was deprecated by
+        Snowplow and is being retired; its ``EnrichmentResource`` payload
+        is adapted into the internal model via :meth:`Enrichment.from_resource`.
 
         Args:
             pipeline_id: Pipeline ID
@@ -1000,8 +1003,8 @@ class SnowplowBDPClient:
         Returns:
             List of enrichments
         """
-        # GET /organizations/{organizationId}/resources/v1/pipelines/{pipelineId}/configuration/enrichments
-        endpoint = f"organizations/{self.organization_id}/resources/v1/pipelines/{pipeline_id}/configuration/enrichments"
+        # GET /organizations/{organizationId}/pipelines/v1/{pipelineId}/enrichments
+        endpoint = f"organizations/{self.organization_id}/pipelines/v1/{pipeline_id}/enrichments"
 
         logger.debug(f"Fetching enrichments for pipeline {pipeline_id}")
 
@@ -1023,8 +1026,8 @@ class SnowplowBDPClient:
         enrichments: List[Enrichment] = []
         for enrichment_data in response_data:
             try:
-                enrichments.append(Enrichment.model_validate(enrichment_data))
-            except ValidationError as e:
+                enrichments.append(Enrichment.from_resource(enrichment_data))
+            except (ValidationError, KeyError, TypeError) as e:
                 error_msg = f"Failed to parse enrichment in pipeline {pipeline_id}: {e}"
                 logger.warning(error_msg)
                 if self.report:
