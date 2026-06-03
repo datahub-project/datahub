@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Set
 
 import pytest
 
@@ -223,7 +223,7 @@ def test_parse_custom_sql_select_then_union_extracts_all_sources(ctx):
     assert any("tablec" in urn for urn in urns)
 
 
-def _in_tables(ctx, query: str, platform: str = "mssql") -> set:
+def _in_tables(ctx: PipelineContext, query: str, platform: str = "mssql") -> Set[str]:
     result = native_sql_parser.parse_custom_sql(
         ctx=ctx,
         query=query,
