@@ -128,6 +128,7 @@ export const OnboardingTour = ({ stepIds }: Props) => {
             rounded={10}
             scrollDuration={500}
             accentColor={accentColor}
+            badgeContent={(current) => <span style={{ color: theme.colors.text }}>{current}</span>}
             lastStepNextButton={<Button>Let&apos;s go!</Button>}
             getCurrentStep={handleStepChange}
             update={updateKey}

@@ -1,5 +1,6 @@
 import { Empty, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 type Props = {
@@ -21,19 +22,18 @@ const StyledEmpty = styled(Empty)`
 `;
 
 const EmptyTags = ({ isEmptySearch }: Props) => {
+    const { t } = useTranslation('misc');
     return (
         <EmptyContainer>
             <StyledEmpty
                 description={
                     <>
                         <Typography.Text data-testid="tags-not-found">
-                            {isEmptySearch ? 'No tags found for your search query' : 'No tags found'}
+                            {isEmptySearch ? t('tags.emptySearch') : t('tags.empty')}
                         </Typography.Text>
                         <div>
                             {!isEmptySearch && (
-                                <Typography.Paragraph>
-                                    Tags can be used to organize data assets in DataHub.
-                                </Typography.Paragraph>
+                                <Typography.Paragraph>{t('tags.emptyDescription')}</Typography.Paragraph>
                             )}
                         </div>
                     </>

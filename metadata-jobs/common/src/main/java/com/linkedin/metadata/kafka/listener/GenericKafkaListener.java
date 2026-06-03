@@ -1,8 +1,8 @@
 package com.linkedin.metadata.kafka.listener;
 
+import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,14 +44,17 @@ public interface GenericKafkaListener<E, H extends EventHook<E>, R> {
   void consumeBatch(@Nonnull List<ConsumerRecord<String, R>> consumerRecords);
 
   /**
-   * Process a single Kafka consumer record. Default implementation wraps the record in a singleton
-   * list and delegates to {@link #consumeBatch(List)}.
+   * Process a single Kafka consumer record. Default implementation builds an envelope and delegates
+   * to {@link #consumeEnvelope(InboundMetadataEnvelope)}.
    *
    * @param consumerRecord The Kafka consumer record to process
    */
   default void consume(@Nonnull ConsumerRecord<String, R> consumerRecord) {
-    consumeBatch(Collections.singletonList(consumerRecord));
+    consumeEnvelope(InboundMetadataEnvelope.fromKafka(consumerRecord, getConsumerGroupId()));
   }
+
+  /** Transport-neutral entry for Kafka, pgQueue, and other transports. */
+  void consumeEnvelope(@Nonnull InboundMetadataEnvelope<R> envelope);
 
   /**
    * Converts a generic record to the specific event type.

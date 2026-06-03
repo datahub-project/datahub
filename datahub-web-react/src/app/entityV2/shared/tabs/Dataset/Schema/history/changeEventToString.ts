@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import {
     CATEGORY_APPLICATION,
     CATEGORY_ASSET_MEMBERSHIP,
@@ -22,12 +24,27 @@ import {
 import { downgradeV2FieldPath } from '@src/app/lineageV2/lineageUtils';
 import { ChangeEvent } from '@src/types.generated';
 
+/* eslint-disable i18next/no-literal-string -- injected as interpolation variable into a translated sentence; translators handle word order via the parent key */
 const DEFAULT_FIELD_PATH = 'A new field';
-const EMPTY_ASSET_DOC = 'Asset documentation is empty.';
-const EMPTY_FIELD_DOC = (fieldPath) => `Field documentation for ${downgradeV2FieldPath(fieldPath)} is empty.`;
-const SET_ASSET_DOC = (description) => `Set asset documentation to ${description}`;
-const SET_FIELD_DOC = (fieldPath, description) =>
-    `Set field documentation for ${downgradeV2FieldPath(fieldPath)} to ${description}`;
+/* eslint-enable i18next/no-literal-string */
+
+function emptyAssetDoc() {
+    return i18next.t('entity.profile.schema:changeEventString.assetDocEmpty');
+}
+function emptyFieldDoc(fieldPath: string | undefined | null) {
+    return i18next.t('entity.profile.schema:changeEventString.fieldDocEmpty', {
+        fieldPath: downgradeV2FieldPath(fieldPath ?? ''),
+    });
+}
+function setAssetDoc(description: string | undefined) {
+    return i18next.t('entity.profile.schema:changeEventString.setAssetDoc', { description });
+}
+function setFieldDoc(fieldPath: string | undefined | null, description: string | undefined) {
+    return i18next.t('entity.profile.schema:changeEventString.setFieldDoc', {
+        fieldPath: downgradeV2FieldPath(fieldPath ?? ''),
+        description,
+    });
+}
 
 function getRelationshipLabel(relationshipType: string): string {
     return GLOSSARY_RELATIONSHIP_TYPE_LABELS[relationshipType] || 'related';
@@ -105,11 +122,17 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
     if (category === ChangeCategoryType.TechnicalSchema) {
         const fieldPath = getParameter(changeEvent.parameters, PARAM_FIELD_PATH, DEFAULT_FIELD_PATH);
         if (changeEvent.operation === ChangeOperationType.Add) {
-            displayString = `Added column ${downgradeV2FieldPath(fieldPath || '')}.`;
+            displayString = i18next.t('entity.profile.schema:changeEventString.addedColumn', {
+                column: downgradeV2FieldPath(fieldPath || ''),
+            });
         } else if (changeEvent.operation === ChangeOperationType.Remove) {
-            displayString = `Removed column ${downgradeV2FieldPath(fieldPath || '')}.`;
+            displayString = i18next.t('entity.profile.schema:changeEventString.removedColumn', {
+                column: downgradeV2FieldPath(fieldPath || ''),
+            });
         } else if (changeEvent.operation === ChangeOperationType.Modify) {
-            displayString = `Modified column ${downgradeV2FieldPath(fieldPath || '')}.`;
+            displayString = i18next.t('entity.profile.schema:changeEventString.modifiedColumn', {
+                column: downgradeV2FieldPath(fieldPath || ''),
+            });
         }
     } else if (category === ChangeCategoryType.Documentation) {
         const hasDescriptionParam = (changeEvent.parameters || []).some((p) => p.key === PARAM_DESCRIPTION);
@@ -118,10 +141,10 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
             // EditableDatasetProperties / EditableSchemaMetadata events include a description parameter.
             const description = getParameter(changeEvent.parameters, PARAM_DESCRIPTION, '');
             if (!changeEvent.modifier) {
-                displayString = description === '' ? EMPTY_ASSET_DOC : SET_ASSET_DOC(description);
+                displayString = description === '' ? emptyAssetDoc() : setAssetDoc(description);
             } else {
                 const fieldPath = changeEvent.modifier;
-                displayString = description === '' ? EMPTY_FIELD_DOC(fieldPath) : SET_FIELD_DOC(fieldPath, description);
+                displayString = description === '' ? emptyFieldDoc(fieldPath) : setFieldDoc(fieldPath, description);
             }
         } else if (changeEvent.modifier) {
             // SchemaMetadata-sourced field description changes: modifier holds the field path
@@ -132,45 +155,63 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
         }
     } else if (category === ChangeCategoryType.Tag) {
         const tagUrn = getParameter(changeEvent.parameters, PARAM_TAG_URN, '');
-        const tagName = tagUrn ? extractNameFromUrn(tagUrn, nameMap) : 'Unknown';
+        const tagName = tagUrn ? extractNameFromUrn(tagUrn, nameMap) : 'Unknown'; // eslint-disable-line i18next/no-literal-string -- URN fallback inserted as interpolation variable; word order handled by parent translation key
         const fieldPath = getParameter(changeEvent.parameters, PARAM_FIELD_PATH);
 
         if (changeEvent.operation === ChangeOperationType.Add) {
             displayString = fieldPath
-                ? `Added tag "${tagName}" to field ${downgradeV2FieldPath(fieldPath)}.`
-                : `Added tag "${tagName}".`;
+                ? i18next.t('entity.profile.schema:changeEventString.addedTagToField', {
+                      tagName,
+                      field: downgradeV2FieldPath(fieldPath),
+                  })
+                : i18next.t('entity.profile.schema:changeEventString.addedTag', { tagName });
         } else if (changeEvent.operation === ChangeOperationType.Remove) {
             displayString = fieldPath
-                ? `Removed tag "${tagName}" from field ${downgradeV2FieldPath(fieldPath)}.`
-                : `Removed tag "${tagName}".`;
+                ? i18next.t('entity.profile.schema:changeEventString.removedTagFromField', {
+                      tagName,
+                      field: downgradeV2FieldPath(fieldPath),
+                  })
+                : i18next.t('entity.profile.schema:changeEventString.removedTag', { tagName });
         }
     } else if (category === ChangeCategoryType.GlossaryTerm) {
         const termUrn = getParameter(changeEvent.parameters, PARAM_TERM_URN, '');
-        const termName = termUrn ? extractNameFromUrn(termUrn, nameMap) : 'Unknown';
+        const termName = termUrn ? extractNameFromUrn(termUrn, nameMap) : 'Unknown'; // eslint-disable-line i18next/no-literal-string -- URN fallback inserted as interpolation variable; word order handled by parent translation key
         const fieldPath = getParameter(changeEvent.parameters, PARAM_FIELD_PATH);
         const relationshipType = getParameter(changeEvent.parameters, PARAM_RELATIONSHIP_TYPE);
 
         if (relationshipType) {
             const label = getRelationshipLabel(relationshipType);
             if (changeEvent.operation === ChangeOperationType.Add) {
-                displayString = `Added ${label} term "${termName}".`;
+                displayString = i18next.t('entity.profile.schema:changeEventString.addedLabelTerm', {
+                    label,
+                    termName,
+                });
             } else if (changeEvent.operation === ChangeOperationType.Remove) {
-                displayString = `Removed ${label} term "${termName}".`;
+                displayString = i18next.t('entity.profile.schema:changeEventString.removedLabelTerm', {
+                    label,
+                    termName,
+                });
             }
         } else if (termUrn) {
             if (changeEvent.operation === ChangeOperationType.Add) {
                 displayString = fieldPath
-                    ? `Added term "${termName}" to field ${downgradeV2FieldPath(fieldPath)}.`
-                    : `Added term "${termName}".`;
+                    ? i18next.t('entity.profile.schema:changeEventString.addedTermToField', {
+                          termName,
+                          field: downgradeV2FieldPath(fieldPath),
+                      })
+                    : i18next.t('entity.profile.schema:changeEventString.addedTerm', { termName });
             } else if (changeEvent.operation === ChangeOperationType.Remove) {
                 displayString = fieldPath
-                    ? `Removed term "${termName}" from field ${downgradeV2FieldPath(fieldPath)}.`
-                    : `Removed term "${termName}".`;
+                    ? i18next.t('entity.profile.schema:changeEventString.removedTermFromField', {
+                          termName,
+                          field: downgradeV2FieldPath(fieldPath),
+                      })
+                    : i18next.t('entity.profile.schema:changeEventString.removedTerm', { termName });
             }
         }
     } else if (category === ChangeCategoryType.Ownership) {
         const ownerUrn = getParameter(changeEvent.parameters, PARAM_OWNER_URN, '');
-        const ownerName = ownerUrn ? extractNameFromUrn(ownerUrn, nameMap) : 'Unknown';
+        const ownerName = ownerUrn ? extractNameFromUrn(ownerUrn, nameMap) : 'Unknown'; // eslint-disable-line i18next/no-literal-string -- URN fallback inserted as interpolation variable; word order handled by parent translation key
         const rawOwnerType = getParameter(changeEvent.parameters, PARAM_OWNER_TYPE);
         const ownerTypeUrn = getParameter(changeEvent.parameters, PARAM_OWNER_TYPE_URN);
         let ownerTypeSuffix = '';
@@ -181,49 +222,63 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
         }
 
         if (changeEvent.operation === ChangeOperationType.Add) {
-            displayString = `Added owner "${ownerName}"${ownerTypeSuffix}.`;
+            displayString = i18next.t('entity.profile.schema:changeEventString.addedOwner', {
+                ownerName,
+                ownerTypeSuffix,
+            });
         } else if (changeEvent.operation === ChangeOperationType.Remove) {
-            displayString = `Removed owner "${ownerName}"${ownerTypeSuffix}.`;
+            displayString = i18next.t('entity.profile.schema:changeEventString.removedOwner', {
+                ownerName,
+                ownerTypeSuffix,
+            });
         }
     } else if (category === CATEGORY_DOMAIN) {
         const domainUrn = getParameter(changeEvent.parameters, PARAM_DOMAIN_URN, '');
-        const domainName = domainUrn ? extractNameFromUrn(domainUrn, nameMap) : 'Unknown';
+        const domainName = domainUrn ? extractNameFromUrn(domainUrn, nameMap) : 'Unknown'; // eslint-disable-line i18next/no-literal-string -- URN fallback inserted as interpolation variable; word order handled by parent translation key
 
         if (changeEvent.operation === ChangeOperationType.Add) {
-            displayString = `Added to domain "${domainName}".`;
+            displayString = i18next.t('entity.profile.schema:changeEventString.addedToDomain', { domainName });
         } else if (changeEvent.operation === ChangeOperationType.Remove) {
-            displayString = `Removed from domain "${domainName}".`;
+            displayString = i18next.t('entity.profile.schema:changeEventString.removedFromDomain', { domainName });
         }
     } else if (category === CATEGORY_STRUCTURED_PROPERTY) {
         const propertyUrn = getParameter(changeEvent.parameters, PARAM_PROPERTY_URN, '');
-        const propertyName = propertyUrn ? extractNameFromUrn(propertyUrn, nameMap) : 'Unknown';
+        const propertyName = propertyUrn ? extractNameFromUrn(propertyUrn, nameMap) : 'Unknown'; // eslint-disable-line i18next/no-literal-string -- URN fallback inserted as interpolation variable; word order handled by parent translation key
         const propertyValues = getParameter(changeEvent.parameters, PARAM_PROPERTY_VALUES);
         const valuesSuffix = propertyValues ? ` to ${formatPropertyValues(propertyValues)}` : '';
 
         if (changeEvent.operation === ChangeOperationType.Add) {
-            displayString = `Set structured property "${propertyName}"${valuesSuffix}.`;
+            displayString = i18next.t('entity.profile.schema:changeEventString.setStructuredProperty', {
+                propertyName,
+                valuesSuffix,
+            });
         } else if (changeEvent.operation === ChangeOperationType.Remove) {
-            displayString = `Removed structured property "${propertyName}".`;
+            displayString = i18next.t('entity.profile.schema:changeEventString.removedStructuredProperty', {
+                propertyName,
+            });
         } else if (changeEvent.operation === ChangeOperationType.Modify) {
-            displayString = `Updated structured property "${propertyName}"${valuesSuffix}.`;
+            displayString = i18next.t('entity.profile.schema:changeEventString.updatedStructuredProperty', {
+                propertyName,
+                valuesSuffix,
+            });
         }
     } else if (category === CATEGORY_APPLICATION) {
         const appUrn = changeEvent.modifier || '';
-        const appName = appUrn ? extractNameFromUrn(appUrn, nameMap) : 'Unknown';
+        const appName = appUrn ? extractNameFromUrn(appUrn, nameMap) : 'Unknown'; // eslint-disable-line i18next/no-literal-string -- URN fallback inserted as interpolation variable; word order handled by parent translation key
 
         if (changeEvent.operation === ChangeOperationType.Add) {
-            displayString = `Added to application "${appName}".`;
+            displayString = i18next.t('entity.profile.schema:changeEventString.addedToApplication', { appName });
         } else if (changeEvent.operation === ChangeOperationType.Remove) {
-            displayString = `Removed from application "${appName}".`;
+            displayString = i18next.t('entity.profile.schema:changeEventString.removedFromApplication', { appName });
         }
     } else if (category === CATEGORY_ASSET_MEMBERSHIP) {
         const assetUrn = changeEvent.modifier || '';
-        const assetName = assetUrn ? extractNameFromUrn(assetUrn, nameMap) : 'Unknown';
+        const assetName = assetUrn ? extractNameFromUrn(assetUrn, nameMap) : 'Unknown'; // eslint-disable-line i18next/no-literal-string -- URN fallback inserted as interpolation variable; word order handled by parent translation key
 
         if (changeEvent.operation === ChangeOperationType.Add) {
-            displayString = `Added asset "${assetName}".`;
+            displayString = i18next.t('entity.profile.schema:changeEventString.addedAsset', { assetName });
         } else if (changeEvent.operation === ChangeOperationType.Remove) {
-            displayString = `Removed asset "${assetName}".`;
+            displayString = i18next.t('entity.profile.schema:changeEventString.removedAsset', { assetName });
         }
     }
 

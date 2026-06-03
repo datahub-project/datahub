@@ -5,6 +5,7 @@ import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCL_EVENT_CO
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.messaging.KafkaMessagingEnabled;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.listener.AbstractKafkaListenerRegistrar;
@@ -28,6 +29,7 @@ import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.stereotype.Component;
 
 @Component
+@KafkaMessagingEnabled
 @Conditional(MetadataChangeLogProcessorCondition.class)
 @Slf4j
 public class MCLKafkaListenerRegistrar

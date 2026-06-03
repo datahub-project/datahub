@@ -54,36 +54,49 @@ export class IngestionPage extends BasePage {
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
 
-    // Tab keys use data-node-key attribute on ant-tabs
+    // Tab keys use data-node-key attribute on ant-tabs; no semantic role for this AntD-specific attribute
+    // eslint-disable-next-line playwright/no-raw-locators -- AntD data-node-key attribute; getByRole('tab') matches by visible label, not key
     this.sourcesTab = page.locator('[data-node-key="Sources"]');
+    // eslint-disable-next-line playwright/no-raw-locators -- AntD data-node-key attribute; getByRole('tab') matches by visible label, not key
     this.secretsTab = page.locator('[data-node-key="Secrets"]');
-    this.createSourceButton = page.locator('[data-testid="create-ingestion-source-button"]');
-    this.createSecretButton = page.locator('[data-testid="create-secret-button"]');
-    this.searchInput = page.locator('[data-testid="search-bar-input"]');
+    this.createSourceButton = page.getByTestId('create-ingestion-source-button');
+    this.createSecretButton = page.getByTestId('create-secret-button');
+    this.searchInput = page.getByTestId('search-bar-input');
 
+    // eslint-disable-next-line playwright/no-raw-locators -- Snowflake recipe form generates HTML ids; no data-testid on these fields
     this.accountIdInput = page.locator('#account_id');
+    // eslint-disable-next-line playwright/no-raw-locators -- Snowflake recipe form generates HTML ids; no data-testid on these fields
     this.warehouseInput = page.locator('#warehouse');
+    // eslint-disable-next-line playwright/no-raw-locators -- Snowflake recipe form generates HTML ids; no data-testid on these fields
     this.usernameInput = page.locator('#username');
+    // eslint-disable-next-line playwright/no-raw-locators -- Snowflake recipe form generates HTML ids; no data-testid on these fields
     this.passwordInput = page.locator('#password');
+    // eslint-disable-next-line playwright/no-raw-locators -- Snowflake recipe form generates HTML ids; no data-testid on these fields
     this.authTypeSelect = page.locator('#authentication_type');
+    // eslint-disable-next-line playwright/no-raw-locators -- Snowflake recipe form generates HTML ids; no data-testid on these fields
     this.roleInput = page.locator('#role');
 
-    this.dataSourceSearchInput = page.locator('[placeholder="Search data sources..."]');
-    this.recipeYamlButton = page.locator('[data-testid="recipe-builder-yaml-button"]');
-    this.recipeNextButton = page.locator('[data-testid="recipe-builder-next-button"]');
-    this.scheduleNextButton = page.locator('[data-testid="ingestion-schedule-next-button"]');
+    this.dataSourceSearchInput = page.getByPlaceholder('Search data sources...');
+    this.recipeYamlButton = page.getByTestId('recipe-builder-yaml-button');
+    this.recipeNextButton = page.getByTestId('recipe-builder-next-button');
+    this.scheduleNextButton = page.getByTestId('ingestion-schedule-next-button');
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design collapse item class; no data-testid or ARIA role on this panel
     this.scheduleCollapseItem = page.locator('.ant-collapse-item'); // no data-testid on this AntD panel
-    this.sourceNameInput = page.locator('[data-testid="source-name-input"]');
-    this.saveButton = page.locator('[data-testid="ingestion-source-save-button"]');
+    this.sourceNameInput = page.getByTestId('source-name-input');
+    this.saveButton = page.getByTestId('ingestion-source-save-button');
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design modal root class; no data-testid on the modal root element
     this.wizardModal = page.locator('.ant-modal'); // no data-testid on the AntD modal root
 
-    this.secretNameInput = page.locator('[data-testid="secret-modal-name-input"] input');
-    this.secretValueInput = page.locator('[data-testid="secret-modal-value-input"] textarea');
-    this.secretDescriptionInput = page.locator('[data-testid="secret-modal-description-input"] textarea');
-    this.secretCreateButton = page.locator('[data-testid="secret-modal-create-button"]');
+    this.secretNameInput = page.getByTestId('secret-modal-name-input').getByRole('textbox');
+    this.secretValueInput = page.getByTestId('secret-modal-value-input').getByRole('textbox');
+    this.secretDescriptionInput = page.getByTestId('secret-modal-description-input').getByRole('textbox');
+    this.secretCreateButton = page.getByTestId('secret-modal-create-button');
+    // eslint-disable-next-line playwright/no-raw-locators -- rc-virtual-list internal class; no data-testid on AntD virtual list
     this.secretDropdownList = page.locator('.rc-virtual-list-holder-inner'); // AntD virtual-list, no testid
+    // eslint-disable-next-line playwright/no-raw-locators -- FontAwesome data-icon attribute; no data-testid or semantic role on SVG icon
     this.firstDeleteIcon = page.locator('[data-icon="delete"]').first();
 
+    // eslint-disable-next-line playwright/no-raw-locators -- Monaco editor internal class; no data-testid or ARIA role on the scrollable element
     this.monacoEditor = page.locator('.monaco-scrollable-element').first();
   }
 
@@ -201,6 +214,7 @@ export class IngestionPage extends BasePage {
     await expect(this.usernameInput).toHaveValue(params.username);
     await expect(
       // XPath needed to reach the AntD form-item wrapper — no data-testid on the container.
+      // eslint-disable-next-line playwright/no-raw-locators -- XPath ancestor traversal; no semantic Playwright API for parent element access
       this.authTypeSelect.locator('xpath=ancestor::*[contains(@class,"ant-form-item")][1]'),
     ).toContainText('Username & Password');
     await expect(this.passwordInput).toHaveValue(params.password);
@@ -210,7 +224,7 @@ export class IngestionPage extends BasePage {
   // ── Verification helpers ──────────────────────────────────────────────────
 
   async expectSourceVisible(name: string): Promise<void> {
-    await expect(this.page.locator('tr').filter({ hasText: name })).toBeVisible({ timeout: 30000 });
+    await expect(this.page.getByRole('row').filter({ hasText: name })).toBeVisible({ timeout: 30000 });
   }
 
   async expectScheduleStepVisible(): Promise<void> {
@@ -226,7 +240,7 @@ export class IngestionPage extends BasePage {
       await this.refreshSources();
       await this.searchSources(name);
       await this.page.waitForTimeout(1000);
-      await expect(this.page.locator('tr').filter({ hasText: name })).toBeVisible({ timeout: 3000 });
+      await expect(this.page.getByRole('row').filter({ hasText: name })).toBeVisible({ timeout: 3000 });
     }).toPass({ timeout: 90000, intervals: [3000] });
   }
 
@@ -257,27 +271,28 @@ export class IngestionPage extends BasePage {
   }
 
   async expectSourceSucceeded(sourceName: string): Promise<void> {
-    await expect(this.page.locator('tr').filter({ hasText: sourceName }).getByText('Succeeded')).toBeVisible({
+    await expect(this.page.getByRole('row').filter({ hasText: sourceName }).getByText('Succeeded')).toBeVisible({
       timeout: 180000,
     });
   }
 
   async expectSourceStatusPending(sourceName?: string): Promise<void> {
     const statusLocator = sourceName
-      ? this.page.locator('tr').filter({ hasText: sourceName }).locator('[data-testid="ingestion-source-table-status"]')
-      : this.page.locator('[data-testid="ingestion-source-table-status"]').first();
+      ? this.page.getByRole('row').filter({ hasText: sourceName }).getByTestId('ingestion-source-table-status')
+      : this.page.getByTestId('ingestion-source-table-status').first();
     await expect(statusLocator).toContainText('Pending', { timeout: 30000 });
   }
 
   async openEditForSource(sourceName: string): Promise<void> {
-    await this.page.locator('tr').filter({ hasText: sourceName }).getByRole('button', { name: 'EDIT' }).click();
+    await this.page.getByRole('row').filter({ hasText: sourceName }).getByRole('button', { name: 'EDIT' }).click();
   }
 
   async deleteSource(sourceName: string): Promise<void> {
     // Search for the source first so it is always visible regardless of pagination.
     await this.searchSources(sourceName);
-    await expect(this.page.locator('tr').filter({ hasText: sourceName })).toBeVisible({ timeout: 15000 });
-    await this.page.locator('tr').filter({ hasText: sourceName }).locator('[data-icon="delete"]').first().click();
+    await expect(this.page.getByRole('row').filter({ hasText: sourceName })).toBeVisible({ timeout: 15000 });
+    // eslint-disable-next-line playwright/no-raw-locators -- FontAwesome data-icon attribute; no data-testid or semantic role on SVG icon
+    await this.page.getByRole('row').filter({ hasText: sourceName }).locator('[data-icon="delete"]').first().click();
     await expect(this.page.getByText('Confirm Ingestion Source Removal')).toBeVisible();
     await this.page.getByRole('button', { name: 'Yes' }).click();
     await expect(this.page.getByText('Removed ingestion source.')).toBeVisible({ timeout: 15000 });
@@ -310,6 +325,7 @@ export class IngestionPage extends BasePage {
     await this.authTypeSelect.click({ force: true });
     // dispatchEvent bypasses Playwright's viewport check; AntD dropdown may render below the fold.
     // The [title] attribute on AntD Select options is the only stable identifier — no data-testid available.
+    // eslint-disable-next-line playwright/no-raw-locators -- AntD select dropdown + title attribute; no data-testid on AntD option elements
     await this.page.locator(`.ant-select-dropdown [title="${typeName}"]`).dispatchEvent('click');
   }
 

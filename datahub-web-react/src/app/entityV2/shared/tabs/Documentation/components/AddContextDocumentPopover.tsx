@@ -2,6 +2,7 @@ import { useApolloClient } from '@apollo/client';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { message } from 'antd';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
@@ -44,6 +45,7 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
     onDocumentSelected,
     onClose,
 }) => {
+    const { t } = useTranslation('entity.profile.documentation');
     const [isCreating, setIsCreating] = useState(false);
     const apolloClient = useApolloClient();
     const [createDocumentMutation] = useCreateDocumentMutation();
@@ -83,18 +85,18 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
                     onDocumentSelected(documentUrn);
                     onClose();
                 } else {
-                    message.error('Failed to link document. Please try again.');
+                    message.error(t('failedToLinkDocument'));
                     // Keep popover open on error
                 }
             } catch (error) {
                 console.error('Failed to update document related assets:', error);
-                message.error('Failed to link document. Please try again.');
+                message.error(t('failedToLinkDocument'));
                 // Keep popover open on error
             } finally {
                 setIsCreating(false);
             }
         },
-        [entityUrn, apolloClient, updateRelatedEntities, onDocumentSelected, onClose],
+        [entityUrn, apolloClient, updateRelatedEntities, onDocumentSelected, onClose, t],
     );
 
     /**
@@ -124,13 +126,13 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
                 onClose();
             } catch (error) {
                 console.error('Failed to create document:', error);
-                message.error('Failed to create document. Please try again.');
+                message.error(t('failedToCreateDocument'));
                 // Keep popover open on error
             } finally {
                 setIsCreating(false);
             }
         },
-        [entityUrn, createDocumentMutation, onDocumentSelected, onClose],
+        [entityUrn, createDocumentMutation, onDocumentSelected, onClose, t],
     );
 
     const headerContent = (
@@ -141,7 +143,7 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
             disabled={isCreating}
             data-testid="new-document-root-button"
         >
-            New document
+            {t('newDocument')}
         </NewDocumentButton>
     );
 

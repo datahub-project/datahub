@@ -2,6 +2,7 @@ import { Icon, Menu, Pill, Table, Text, Tooltip } from '@components';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
+import { useTranslation } from 'react-i18next';
 
 import { TableWithInfiniteScroll } from '@components/components/Table/TableWithInfiniteScroll';
 
@@ -28,6 +29,8 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
 import TableIcon from '@src/images/table-icon.svg?react';
 import { Entity, EntityType, StructuredPropertyEntity } from '@src/types.generated';
+
+const LIST_SEPARATOR = ', ';
 
 interface Props {
     searchQuery: string;
@@ -62,6 +65,9 @@ const StructuredPropsTable = ({
     updatedProperty,
     isSearchLoading,
 }: Props) => {
+    const { t } = useTranslation('governance.structured-properties');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
     const me = useUserContext();
     const canEditProps = me.platformPrivileges?.manageStructuredProperties;
@@ -87,7 +93,7 @@ const StructuredPropsTable = ({
 
     const handleDeleteProperty = (property) => {
         const deleteEntity = property as StructuredPropertyEntity;
-        showToastMessage(ToastType.LOADING, 'Deleting structured property', 1);
+        showToastMessage(ToastType.LOADING, t('table.deleting'), 1);
         deleteStructuredProperty({
             variables: {
                 input: {
@@ -115,12 +121,12 @@ const StructuredPropsTable = ({
                     hideInAssetSummaryWhenEmpty: deleteEntity.settings?.hideInAssetSummaryWhenEmpty ?? false,
                     showInColumnsTable: deleteEntity.settings?.showInColumnsTable ?? false,
                 });
-                showToastMessage(ToastType.SUCCESS, 'Structured property deleted successfully!', 3);
+                showToastMessage(ToastType.SUCCESS, t('table.deleteSuccess'), 3);
                 setPropertyToDelete(property.urn);
                 setTotalCount?.((prev) => Math.max(0, prev - 1));
             })
             .catch(() => {
-                showToastMessage(ToastType.ERROR, 'Failed to delete structured property', 3);
+                showToastMessage(ToastType.ERROR, t('table.deleteError'), 3);
             });
 
         setShowConfirmDelete(false);
@@ -138,7 +144,7 @@ const StructuredPropsTable = ({
 
     const columns = [
         {
-            title: 'Name',
+            title: tl('name'),
             key: 'name',
             render: (record) => {
                 return (
@@ -174,7 +180,7 @@ const StructuredPropsTable = ({
             },
         },
         {
-            title: 'Entity Types',
+            title: t('table.entityTypesColumn'),
             key: 'entityTypes',
             width: '270px',
             render: (record) => {
@@ -198,7 +204,7 @@ const StructuredPropsTable = ({
                                         const name = entityRegistry.getEntityName(eType.info.type);
                                         return name;
                                     })
-                                    .join(', ')}
+                                    .join(LIST_SEPARATOR)}
                                 showArrow={false}
                             >
                                 <>
@@ -211,7 +217,7 @@ const StructuredPropsTable = ({
             },
         },
         {
-            title: 'Creation Date',
+            title: t('table.creationDateColumn'),
             key: 'creationDate',
             render: (record) => {
                 const createdTime = record.definition.created?.time;
@@ -230,7 +236,7 @@ const StructuredPropsTable = ({
         },
 
         {
-            title: 'Created By',
+            title: t('table.createdByColumn'),
             key: 'createdBy',
             render: (record) => {
                 const createdByUser = record.definition?.created?.actor;
@@ -255,7 +261,8 @@ const StructuredPropsTable = ({
                     {
                         type: 'item' as const,
                         key: '0',
-                        title: 'View',
+                        title: tc('view'),
+                        dataTestId: 'structured-prop-action-view',
                         onClick: () => {
                             setIsViewDrawerOpen(true);
                             setSelectedProperty(record);
@@ -268,7 +275,8 @@ const StructuredPropsTable = ({
                     {
                         type: 'item' as const,
                         key: '1',
-                        title: 'Copy Urn',
+                        title: t('table.copyUrn'),
+                        dataTestId: 'structured-prop-action-copy-urn',
                         onClick: () => {
                             navigator.clipboard.writeText(record.urn);
                         },
@@ -276,11 +284,10 @@ const StructuredPropsTable = ({
                     {
                         type: 'item' as const,
                         key: '2',
-                        title: 'Edit',
+                        title: tc('edit'),
+                        dataTestId: 'structured-prop-action-edit',
                         disabled: !canEditProps,
-                        tooltip: !canEditProps
-                            ? 'Must have permission to manage structured properties. Ask your DataHub administrator.'
-                            : undefined,
+                        tooltip: !canEditProps ? t('permissionTooltip') : undefined,
                         onClick: () => {
                             if (canEditProps) {
                                 setIsDrawerOpen(true);
@@ -295,12 +302,11 @@ const StructuredPropsTable = ({
                     {
                         type: 'item' as const,
                         key: '3',
-                        title: 'Delete',
+                        title: tc('delete'),
+                        dataTestId: 'structured-prop-action-delete',
                         disabled: !canEditProps,
                         danger: true,
-                        tooltip: !canEditProps
-                            ? 'Must have permission to manage structured properties. Ask your DataHub administrator.'
-                            : undefined,
+                        tooltip: !canEditProps ? t('permissionTooltip') : undefined,
                         onClick: () => {
                             if (canEditProps) {
                                 setSelectedProperty(record);
@@ -361,8 +367,8 @@ const StructuredPropsTable = ({
                 isOpen={showConfirmDelete}
                 handleClose={handleDeleteClose}
                 handleConfirm={() => handleDeleteProperty(selectedProperty)}
-                modalTitle="Confirm Delete"
-                modalText="Are you sure you want to delete? Deleting will remove this structured property from all assets it's currently on."
+                modalTitle={t('table.confirmDeleteTitle')}
+                modalText={t('table.confirmDeleteText')}
             />
         </>
     );

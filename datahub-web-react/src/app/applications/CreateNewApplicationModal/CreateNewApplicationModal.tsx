@@ -1,6 +1,7 @@
 import { Modal } from '@components';
 import { message } from 'antd';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ModalButton } from '@components/components/Modal/Modal';
 
@@ -19,16 +20,26 @@ type CreateNewApplicationModalProps = {
 };
 
 const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ onCreate, onClose, open }) => {
-    const { user } = useUserContext();
+    const { t } = useTranslation('misc');
+    const { t: tc } = useTranslation('common.actions');
+    const { loaded: userLoaded, user } = useUserContext();
     const initialOwners = useMemo(() => (user ? [user] : []), [user]);
     const initialOwnerUrns = useMemo(() => initialOwners.map((owner) => owner.urn), [initialOwners]);
     const [applicationName, setApplicationName] = useState('');
     const [applicationDescription, setApplicationDescription] = useState('');
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+    const [hasInitializedDefaultOwner, setHasInitializedDefaultOwner] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const [createApplicationMutation] = useCreateApplicationMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
+
+    useEffect(() => {
+        if (!hasInitializedDefaultOwner && userLoaded) {
+            setSelectedOwnerUrns(user?.urn ? [user.urn] : []);
+            setHasInitializedDefaultOwner(true);
+        }
+    }, [hasInitializedDefaultOwner, user?.urn, userLoaded]);
 
     const clearFields = useCallback(() => {
         setApplicationName('');
@@ -38,7 +49,7 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
 
     const onOk = async () => {
         if (!applicationName) {
-            message.error('Application name is required');
+            message.error(t('applications.nameRequiredError'));
             return;
         }
 
@@ -60,7 +71,7 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
             const newApplicationUrn = createApplicationResult.data?.createApplication?.urn;
 
             if (!newApplicationUrn) {
-                message.error('Failed to create application. An unexpected error occurred');
+                message.error(t('applications.createError'));
                 setIsLoading(false);
                 return;
             }
@@ -77,12 +88,12 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
                 });
             }
 
-            message.success(`Application "${applicationName}" successfully created`);
+            message.success(t('applications.createSuccess', { name: applicationName }));
             clearFields();
             onCreate();
         } catch (e: any) {
             message.destroy();
-            message.error(`Failed to create application. An unexpected error occurred: ${e.message}`);
+            message.error(t('applications.createErrorDetail', { error: e.message }));
         } finally {
             setIsLoading(false);
         }
@@ -95,25 +106,25 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
 
     const buttons: ModalButton[] = [
         {
-            text: 'Cancel',
+            text: tc('cancel'),
             color: 'violet',
             variant: 'text',
             onClick: onModalClose,
         },
         {
-            text: 'Create',
+            text: tc('create'),
             id: 'createNewApplicationButton',
             color: 'violet',
             variant: 'filled',
             onClick: onOk,
-            disabled: !applicationName || isLoading,
+            disabled: !applicationName || isLoading || !hasInitializedDefaultOwner,
             isLoading,
         },
     ];
 
     return (
         <Modal
-            title="Create New Application"
+            title={t('applications.createModalTitle')}
             onCancel={onModalClose}
             buttons={buttons}
             open={open}
@@ -129,7 +140,8 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
             <OwnersSection
                 selectedOwnerUrns={selectedOwnerUrns}
                 setSelectedOwnerUrns={setSelectedOwnerUrns}
-                defaultOwners={user ? [user] : []}
+                isDisabled={!hasInitializedDefaultOwner}
+                isLoading={!hasInitializedDefaultOwner}
             />
         </Modal>
     );

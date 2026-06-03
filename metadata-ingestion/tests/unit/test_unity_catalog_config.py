@@ -3,7 +3,11 @@ from datetime import datetime, timedelta
 import pytest
 import time_machine
 
-from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.config import (
+    UnityCatalogGEProfilerConfig,
+    UnityCatalogSourceConfig,
+    UnityCatalogSQLAlchemyProfilerConfig,
+)
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 
 FROZEN_TIME = datetime.fromisoformat("2023-01-01 00:00:00+00:00")
@@ -495,3 +499,106 @@ def test_usage_data_source_can_be_set_with_warehouse():
 
     assert config.usage_data_source == UsageDataSource.SYSTEM_TABLES
     assert config.warehouse_id == "test_warehouse"
+
+
+def test_profiling_default_method_is_sqlalchemy():
+    # profiling absent → SQLAlchemy variant
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogSQLAlchemyProfilerConfig)
+    assert config.profiling.method == "sqlalchemy"
+
+
+def test_profiling_dict_without_method_defaults_to_sqlalchemy():
+    # profiling: {enabled: true} with no method key → SQLAlchemy variant
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "profiling": {"enabled": True, "warehouse_id": "wh"},
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogSQLAlchemyProfilerConfig)
+    assert config.profiling.method == "sqlalchemy"
+    assert config.profiling.enabled is True
+
+
+def test_profiling_empty_dict_defaults_to_sqlalchemy():
+    # profiling: {} with no keys at all → SQLAlchemy variant
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "profiling": {},
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogSQLAlchemyProfilerConfig)
+    assert config.profiling.method == "sqlalchemy"
+
+
+def test_profiling_prebuilt_instance_passes_through():
+    # passing a pre-built config object bypasses the dict validator — must stay unchanged
+    prebuilt = UnityCatalogSQLAlchemyProfilerConfig()
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "profiling": prebuilt,
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogSQLAlchemyProfilerConfig)
+    assert config.profiling.method == "sqlalchemy"
+
+
+def test_profiling_explicit_ge_method_preserved():
+    # profiling: {method: ge, ...} → GE variant unchanged
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "profiling": {"method": "ge", "enabled": True, "warehouse_id": "wh"},
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogGEProfilerConfig)
+    assert config.profiling.method == "ge"
+
+
+def test_uses_table_level_profiler_helpers():
+    base = {
+        "token": "token",
+        "workspace_url": "https://test.databricks.com",
+        "include_hive_metastore": False,
+    }
+
+    # sqlalchemy → True
+    cfg = UnityCatalogSourceConfig.model_validate(
+        {**base, "profiling": {"method": "sqlalchemy", "warehouse_id": "wh"}}
+    )
+    assert cfg.is_sqlalchemy_profiling() is True
+    assert cfg.is_ge_profiling() is False
+    assert cfg.uses_table_level_profiler() is True
+
+    # ge → True
+    cfg = UnityCatalogSourceConfig.model_validate(
+        {**base, "profiling": {"method": "ge", "warehouse_id": "wh"}}
+    )
+    assert cfg.is_sqlalchemy_profiling() is False
+    assert cfg.is_ge_profiling() is True
+    assert cfg.uses_table_level_profiler() is True
+
+    # analyze → False
+    cfg = UnityCatalogSourceConfig.model_validate(
+        {**base, "profiling": {"method": "analyze"}}
+    )
+    assert cfg.is_sqlalchemy_profiling() is False
+    assert cfg.is_ge_profiling() is False
+    assert cfg.uses_table_level_profiler() is False

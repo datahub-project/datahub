@@ -3371,6 +3371,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .operation(MetadataAuditOperation.UPDATE)
                   .auditStamp(writeItem.getAuditStamp())
                   .maxVersion(versionN.map(EntityAspect::getVersion).orElse(0L))
+                  .databaseAspectRowVersion(updatedAspect.getVersion())
                   .build();
             })
         .orElse(null);

@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { getResultErrorMessage } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 
 import {
@@ -12,19 +14,19 @@ import {
 
 export const getFormattedResultText = (result?: AssertionResultType) => {
     if (result === undefined) {
-        return 'Not completed';
+        return i18next.t('entity.profile.validations:resultMessage.notCompleted');
     }
     if (result === AssertionResultType.Success) {
-        return 'Passing';
+        return i18next.t('entity.profile.validations:resultMessage.passing');
     }
     if (result === AssertionResultType.Failure) {
-        return 'Failing';
+        return i18next.t('entity.profile.validations:resultMessage.failing');
     }
     if (result === AssertionResultType.Error) {
-        return 'Error';
+        return i18next.t('entity.profile.validations:resultMessage.error');
     }
     if (result === AssertionResultType.Init) {
-        return 'Initializing';
+        return i18next.t('entity.profile.validations:resultMessage.initializing');
     }
     return undefined;
 };
@@ -33,16 +35,18 @@ const getFormattedReasonTextForDefaultAssertion = (run: AssertionRunEvent) => {
     const type = run.result?.type;
     switch (type) {
         case AssertionResultType.Success: {
-            return `The expected conditions were met`;
+            return i18next.t('entity.profile.validations:resultMessage.conditionsMet');
         }
         case AssertionResultType.Error: {
-            let message = `Assertion encountered an error during execution.`;
+            let message: string = i18next.t('entity.profile.validations:resultMessage.assertionEncounteredError');
 
             const maybeError = run.result?.error;
             const maybeType = maybeError?.type;
             const maybeErrorMessage = maybeError?.properties?.find((e) => e.key === 'message')?.value;
             if (maybeType) {
-                message = `Assertion execution encountered an error with type ${maybeType}.`;
+                message = i18next.t('entity.profile.validations:resultMessage.assertionEncounteredErrorWithType', {
+                    maybeType,
+                });
             }
             if (maybeErrorMessage) {
                 message += ` "${maybeErrorMessage}"`;
@@ -50,14 +54,14 @@ const getFormattedReasonTextForDefaultAssertion = (run: AssertionRunEvent) => {
             return message;
         }
         default: {
-            return `The expected conditions were not met.`;
+            return i18next.t('entity.profile.validations:resultMessage.conditionsNotMet');
         }
     }
 };
 
 export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEvent) => {
     if (run?.result?.type === AssertionResultType.Init) {
-        return 'Initial data recorded successfully. Assertion result will be available on the next evaluation.';
+        return i18next.t('entity.profile.validations:resultMessage.initialDataRecorded');
     }
     if (run?.result?.type === AssertionResultType.Error) {
         const formattedError = getResultErrorMessage(run?.result);
@@ -79,7 +83,7 @@ export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEv
         case AssertionType.Custom:
             return getFormattedReasonTextForDefaultAssertion(coalescedRun);
         default:
-            return 'No reason provided';
+            return i18next.t('entity.profile.validations:resultMessage.noReasonProvided');
     }
 };
 
@@ -105,13 +109,19 @@ export enum ResultStatusType {
 export const getResultStatusText = (result: AssertionResultType, type: ResultStatusType) => {
     switch (result) {
         case AssertionResultType.Success:
-            return type === ResultStatusType.LATEST ? 'Passing' : 'Passed';
+            return type === ResultStatusType.LATEST
+                ? i18next.t('entity.profile.validations:resultPill.passing')
+                : i18next.t('entity.profile.validations:resultPill.passedHistorical');
         case AssertionResultType.Failure:
-            return type === ResultStatusType.LATEST ? 'Failing' : 'Failed';
+            return type === ResultStatusType.LATEST
+                ? i18next.t('entity.profile.validations:resultPill.failing')
+                : i18next.t('entity.profile.validations:resultPill.failedHistorical');
         case AssertionResultType.Error:
-            return 'Error';
+            return i18next.t('entity.profile.validations:resultPill.error');
         case AssertionResultType.Init:
-            return type === ResultStatusType.LATEST ? 'Initializing' : 'Initialized';
+            return type === ResultStatusType.LATEST
+                ? i18next.t('entity.profile.validations:resultPill.initializing')
+                : i18next.t('entity.profile.validations:resultPill.initialized');
         default:
             throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
     }

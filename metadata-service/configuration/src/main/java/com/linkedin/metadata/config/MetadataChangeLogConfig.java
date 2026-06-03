@@ -46,6 +46,14 @@ public class MetadataChangeLogConfig {
   @Accessors(chain = true)
   public static class BatchConfig {
     private boolean enabled;
+
+    /** Maximum cumulative raw payload bytes per batch */
     private Integer size;
+
+    /** Maximum number of messages per batch */
+    private Integer maxMessages;
+
+    /** Maximum age (linger) in milliseconds before a partial batch is flushed */
+    private Long maxAgeMs;
   }
 }

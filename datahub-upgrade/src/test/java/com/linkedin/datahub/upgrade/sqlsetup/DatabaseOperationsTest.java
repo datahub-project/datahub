@@ -12,11 +12,14 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.datahub.upgrade.sqlsetup.postgres.PostgresDatabaseOperations;
+import com.linkedin.metadata.config.postgres.DatabaseType;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -123,7 +126,7 @@ public class DatabaseOperationsTest {
 
   @Test
   public void testPostgresGrantCdcPrivilegesSql() {
-    java.util.List<String> statements = postgresOps.grantCdcPrivilegesSql("cdcuser", "testdb");
+    List<String> statements = postgresOps.grantCdcPrivilegesSql("cdcuser", "testdb", "public");
     assertNotNull(statements);
     assertTrue(statements.size() > 0);
     String allStatements = String.join(" ", statements);
@@ -131,11 +134,13 @@ public class DatabaseOperationsTest {
     assertTrue(allStatements.contains("ALTER USER \"cdcuser\" WITH REPLICATION"));
     assertTrue(allStatements.contains("GRANT CONNECT ON DATABASE \"testdb\" TO \"cdcuser\""));
     assertTrue(allStatements.contains("CREATE PUBLICATION dbz_publication"));
+    assertTrue(allStatements.contains("GRANT USAGE ON SCHEMA \"public\" TO \"cdcuser\""));
+    assertTrue(allStatements.contains("\"public\".\"metadata_aspect_v2\""));
   }
 
   @Test
   public void testMysqlGrantCdcPrivilegesSql() {
-    java.util.List<String> statements = mysqlOps.grantCdcPrivilegesSql("cdcuser", "testdb");
+    List<String> statements = mysqlOps.grantCdcPrivilegesSql("cdcuser", "testdb", null);
     assertNotNull(statements);
     assertTrue(statements.size() > 0);
     String allStatements = String.join(" ", statements);
@@ -145,7 +150,7 @@ public class DatabaseOperationsTest {
 
   @Test
   public void testPostgresCreateTableSqlStatements() {
-    java.util.List<String> statements = postgresOps.createTableSqlStatements(false);
+    List<String> statements = postgresOps.createTableSqlStatements(false);
     assertNotNull(statements);
     assertEquals(statements.size(), 1);
     assertTrue(statements.get(0).contains("CREATE TABLE IF NOT EXISTS metadata_aspect_v2"));
@@ -156,7 +161,7 @@ public class DatabaseOperationsTest {
   @Test
   public void testPostgresCreateTableSqlStatementsWithSchemaVersionIndex() {
     // schemaVersionIndex is created via postSetup, not in the statement list
-    java.util.List<String> statements = postgresOps.createTableSqlStatements(true);
+    List<String> statements = postgresOps.createTableSqlStatements(true);
     assertTrue(statements.stream().noneMatch(s -> s.contains("schemaVersionIndex")));
   }
 
@@ -275,7 +280,7 @@ public class DatabaseOperationsTest {
 
   @Test
   public void testMysqlCreateTableSqlStatements() {
-    java.util.List<String> statements = mysqlOps.createTableSqlStatements(false);
+    List<String> statements = mysqlOps.createTableSqlStatements(false);
     assertNotNull(statements);
     assertEquals(statements.size(), 1); // MySQL creates table with indexes in one statement
     assertTrue(statements.get(0).contains("CREATE TABLE IF NOT EXISTS metadata_aspect_v2"));
@@ -316,7 +321,7 @@ public class DatabaseOperationsTest {
 
   @Test
   public void testMysqlCreateTableSqlStatementsMatchesMysqlSetupCharsetAndCollation() {
-    java.util.List<String> statements = mysqlOps.createTableSqlStatements(false);
+    List<String> statements = mysqlOps.createTableSqlStatements(false);
     assertNotNull(statements);
     String ddl = statements.get(0);
     assertTrue(

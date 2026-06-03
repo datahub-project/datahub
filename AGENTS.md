@@ -468,8 +468,9 @@ A stdlib-only Python CLI for agent-driven development. No venv needed — runs w
 scripts/dev/datahub-dev.sh <command>
 ```
 
-Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `stop`, `setup`,
-`frontend`, `docs`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
+Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `stop`, `suspend`,
+`setup`, `frontend`, `docs`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`,
+`sync-flags`, `reset`, `nuke`, `instances list/clean`, `shell-env`).
 
 ### End-to-End Workflow
 
@@ -528,6 +529,95 @@ or after a fresh clone.
 
 When starting, `datahub-dev start` automatically detects and stops conflicting DataHub instances
 from other worktrees/compose projects that occupy the same ports.
+
+### Remote Runners
+
+`datahub-dev.sh` supports a **runner plugin** that proxies operations to a remote machine
+(EC2, Kubernetes pod, or any SSH-accessible host) instead of running Docker locally.
+
+**Configure a runner** in `~/.datahub/dev/config.json`:
+
+```json
+{
+  "max_local_instances": 2,
+  "max_remote_instances": 10,
+  "runner": "/path/to/your-runner.sh"
+}
+```
+
+Or export `DATAHUB_RUNNER=/path/to/runner.sh` in your shell for a one-off session.
+
+**Remote lifecycle** (all commands work identically to local once a runner is set):
+
+```bash
+# One-time bootstrap — provisions the remote environment
+scripts/dev/datahub-dev.sh setup --remote
+
+# Start — syncs changed local files, runs quickstartDebug on the remote,
+#          then sets up port tunnels so local ports reach the remote instance
+scripts/dev/datahub-dev.sh start
+
+# Stop containers only (remote compute keeps running)
+scripts/dev/datahub-dev.sh stop
+
+# Stop containers AND halt the remote compute (no billing while suspended).
+# 'start' will automatically resume the instance when needed.
+scripts/dev/datahub-dev.sh suspend
+
+# All other commands (status, wait, rebuild, test, flag, env, nuke, …)
+# proxy through the runner transparently — use them exactly as you would locally.
+scripts/dev/datahub-dev.sh status
+```
+
+**Multi-instance management** — each git worktree gets its own isolated instance
+(separate Docker project, volumes, and port assignment):
+
+```bash
+# List all registered instances (local and remote) with their ports and status
+scripts/dev/datahub-dev.sh instances list
+
+# Remove stale entries for worktrees that no longer exist
+scripts/dev/datahub-dev.sh instances clean
+
+# Print export statements for the current instance's CLI environment
+eval $(scripts/dev/datahub-dev.sh shell-env)
+# → sets DATAHUB_GMS_URL to the correct local port (tunnel or direct)
+```
+
+**Port assignment** — each instance gets a slot; ports = base + slot × 1000:
+
+| Slot | GMS   | Frontend | Notes                     |
+| ---- | ----- | -------- | ------------------------- |
+| 0    | 8080  | 9002     | First local instance      |
+| 1    | 9080  | 10002    | Second local instance     |
+| 2    | 10080 | 11002    | First remote instance     |
+| …    | …     | …        | Each worktree is isolated |
+
+**Backwards compatibility / opting out of isolation** — if the new per-worktree
+project names cause problems (lost data in old volumes, tooling that expects
+`datahub-*` container names, CI environments that don't need isolation), set
+`compose_project` in `~/.datahub/dev/config.json`:
+
+```json
+{ "compose_project": "datahub" }
+```
+
+This reverts to the old single-instance behaviour: one `datahub` Docker project,
+same container names, existing volumes fully accessible. The env var
+`COMPOSE_PROJECT_NAME=datahub` has the same effect without touching the config file.
+
+**Runner interface** — a runner is any executable that speaks four verbs:
+
+```bash
+runner init                        # one-time environment bootstrap
+runner sync                        # push changed local files to the remote
+runner exec -- <cmd> [args...]     # execute a command in the remote workspace
+runner tunnel <local:remote> ...   # set up port forwarding
+runner resume                      # start compute if stopped (no-op if running)
+runner suspend                     # stop containers + halt compute
+```
+
+A reference Kubernetes runner is at `scripts/dev/runners/k8s.sh`.
 
 ### Recovery Escalation
 

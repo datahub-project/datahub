@@ -13,6 +13,7 @@ import { TextColumns } from '@phosphor-icons/react/dist/csr/TextColumns';
 import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
 import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
 import React, { useContext, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -137,6 +138,7 @@ const Spacer = styled.div`
 `;
 
 export const NavSidebar = () => {
+    const { t } = useTranslation('home.v2');
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
 
@@ -174,7 +176,7 @@ export const NavSidebar = () => {
 
     const customLogoUrl = appConfig.config.visualConfig.logoUrl;
     const hasCustomLogo = customLogoUrl && customLogoUrl !== DEFAULT_LOGO;
-    const logoComponent = hasCustomLogo ? <CustomLogo alt="logo" src={customLogoUrl} /> : <AcrylIcon />;
+    const logoComponent = hasCustomLogo ? <CustomLogo alt={t('navBar.logoAlt')} src={customLogoUrl} /> : <AcrylIcon />;
 
     const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
         title: value.label,

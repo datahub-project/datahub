@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import AbstractSet, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
@@ -13,6 +14,12 @@ logger = logging.getLogger(__name__)
 
 SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
+
+# Snowflake unquoted-identifier names — single segments (``DB``, ``MY_SHARE``)
+# or dot-qualified (``ORG.PROVIDER.LISTING``).
+SNOWFLAKE_OBJECT_NAME_RE = re.compile(
+    r"^[A-Za-z_][A-Za-z0-9_$]*(\.[A-Za-z_][A-Za-z0-9_$]*)*$"
+)
 
 
 def create_deny_regex_sql_filter(
@@ -1421,6 +1428,129 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             FROM TABLE("{db_name}".INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
             ORDER BY name
         """
+
+    @staticmethod
+    def marketplace_listings() -> str:
+        return "SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE"
+
+    @staticmethod
+    def marketplace_purchases() -> str:
+        return """
+            SELECT
+                DATABASE_NAME AS "DATABASE_NAME",
+                CREATED AS "PURCHASE_DATE",
+                DATABASE_OWNER AS "OWNER",
+                COMMENT AS "COMMENT"
+            FROM SNOWFLAKE.ACCOUNT_USAGE.DATABASES
+            WHERE TYPE = 'IMPORTED DATABASE'
+            AND DELETED IS NULL
+            ORDER BY CREATED DESC
+            """
+
+    @staticmethod
+    def marketplace_shares() -> str:
+        return "SHOW SHARES"
+
+    @staticmethod
+    def marketplace_listing_access_history(
+        start_time_millis: int,
+        end_time_millis: int,
+        time_bucket_size: BucketDuration = BucketDuration.DAY,
+        listing_global_names: Optional[List[str]] = None,
+    ) -> str:
+        """Bucketed listing access history, flattened so each row is one
+        ``(bucket, table)`` tuple. Listing names are filtered in ``WHERE``
+        (not ``GROUP BY``) so a table exposed via N listings still produces
+        a single row — ``COUNT(DISTINCT CONSUMER_ACCOUNT_NAME)`` can't be
+        reconstructed by summing in Python.
+
+        ``listing_global_names`` are filtered through
+        ``SNOWFLAKE_OBJECT_NAME_RE`` before interpolation so non-conforming
+        names cannot reach SQL; ``time_bucket_size`` and the millis
+        timestamps are type-constrained at the parameter level.
+        """
+        listing_filter = ""
+        if listing_global_names:
+            safe = [
+                n for n in listing_global_names if SNOWFLAKE_OBJECT_NAME_RE.match(n)
+            ]
+            rejected = sorted(set(listing_global_names) - set(safe))
+            if rejected:
+                logger.warning(
+                    "Dropping marketplace listing name(s) outside the expected "
+                    "Snowflake identifier shape: %s",
+                    rejected,
+                )
+            if safe:
+                quoted = ", ".join(f"'{n}'" for n in safe)
+                listing_filter = (
+                    f"\n              AND h.LISTING_GLOBAL_NAME IN ({quoted})"
+                )
+        return f"""
+            SELECT
+                DATE_TRUNC('{time_bucket_size.value}', h.QUERY_DATE) AS "BUCKET_START_TIME",
+                f.value:"objectName"::STRING AS "OBJECT_NAME",
+                f.value:"objectDomain"::STRING AS "OBJECT_DOMAIN",
+                COUNT(DISTINCT h.QUERY_TOKEN) AS "TOTAL_QUERIES",
+                COUNT(DISTINCT h.CONSUMER_ACCOUNT_NAME) AS "UNIQUE_ACCOUNTS"
+            FROM SNOWFLAKE.DATA_SHARING_USAGE.LISTING_ACCESS_HISTORY h,
+                 LATERAL FLATTEN(input => h.SHARE_OBJECTS_ACCESSED) f
+            WHERE h.QUERY_DATE >= to_timestamp_ltz({start_time_millis}, 3)
+              AND h.QUERY_DATE < to_timestamp_ltz({end_time_millis}, 3)
+              AND h.IS_SHARE = TRUE
+              AND f.value:"objectName" IS NOT NULL{listing_filter}
+            GROUP BY 1, 2, 3
+            ORDER BY 1, 2
+            """
+
+    @staticmethod
+    def marketplace_describe_available_listing(listing_global_name: str) -> str:
+        if not SNOWFLAKE_OBJECT_NAME_RE.match(listing_global_name):
+            raise ValueError(
+                f"Refusing to build DESCRIBE AVAILABLE LISTING SQL for "
+                f"name {listing_global_name!r}: outside the expected "
+                "Snowflake identifier shape."
+            )
+        return f"DESCRIBE AVAILABLE LISTING {listing_global_name}"
+
+    @staticmethod
+    def marketplace_describe_share(share_name: str) -> str:
+        if not SNOWFLAKE_OBJECT_NAME_RE.match(share_name):
+            raise ValueError(
+                f"Refusing to build DESC SHARE SQL for name {share_name!r}: "
+                "outside the expected Snowflake identifier shape."
+            )
+        return f"DESC SHARE {share_name}"
+
+    @staticmethod
+    def marketplace_imported_database_tables(
+        db_name: str,
+        schemas: Optional[List[str]] = None,
+    ) -> str:
+        if not SNOWFLAKE_OBJECT_NAME_RE.match(db_name):
+            raise ValueError(
+                f"Refusing to build INFORMATION_SCHEMA query for database "
+                f"name {db_name!r}: outside the expected Snowflake "
+                "identifier shape."
+            )
+        schema_filter = ""
+        if schemas:
+            safe_schemas = [
+                s.upper() for s in schemas if SNOWFLAKE_OBJECT_NAME_RE.match(s)
+            ]
+            if safe_schemas:
+                quoted = ", ".join(f"'{s}'" for s in safe_schemas)
+                schema_filter = f"AND TABLE_SCHEMA IN ({quoted})"
+        return f"""
+            SELECT
+                TABLE_SCHEMA AS "SCHEMA_NAME",
+                TABLE_NAME AS "TABLE_NAME",
+                TABLE_TYPE AS "TABLE_TYPE"
+            FROM {db_name}.INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+            {schema_filter}
+            ORDER BY TABLE_SCHEMA, TABLE_NAME
+            """
 
     # ==================== Semantic View Usage Queries ====================
 

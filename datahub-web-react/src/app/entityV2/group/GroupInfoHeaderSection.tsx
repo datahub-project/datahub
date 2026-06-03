@@ -66,7 +66,9 @@ export const GroupInfoHeaderSection = ({
         <GroupHeader>
             <NameRow>
                 <Tooltip title={groupName}>
-                    <GroupName level={3}>{groupName}</GroupName>
+                    <GroupName level={3} data-testid="group-profile-name">
+                        {groupName}
+                    </GroupName>
                 </Tooltip>
                 {isExternalGroup && (
                     <Tooltip title={getExternalGroupMembershipTooltip(externalGroupType)}>

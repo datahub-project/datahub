@@ -3,11 +3,16 @@ import { GlobeHemisphereWest } from '@phosphor-icons/react/dist/csr/GlobeHemisph
 import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
 import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { FontColorLevelOptions, FontColorOptions } from '@components/theme/config';
 
 import { ViewTypeSelectProps } from '@app/entityV2/view/select/components/viewTypeSelect/types';
+
+const VIEW_FILTER_ALL = 'all';
+const VIEW_FILTER_PRIVATE = 'private';
+const VIEW_FILTER_PUBLIC = 'public';
 
 const Wrapper = styled.div<{ $bordered?: boolean }>`
     display: flex;
@@ -43,42 +48,49 @@ const INACTIVE_ICON_PROPS = {
 };
 
 export default function ViewTypeSelectV2({ publicViews, privateViews, onTypeSelect, bordered }: ViewTypeSelectProps) {
+    const { t } = useTranslation('entity.views');
     const selectedOption = useMemo(() => {
-        if (publicViews && privateViews) return 'all';
-        if (!publicViews && privateViews) return 'private';
-        if (publicViews && !privateViews) return 'public';
+        if (publicViews && privateViews) return VIEW_FILTER_ALL;
+        if (!publicViews && privateViews) return VIEW_FILTER_PRIVATE;
+        if (publicViews && !privateViews) return VIEW_FILTER_PUBLIC;
         return null;
     }, [publicViews, privateViews]);
 
     return (
         <Wrapper $bordered={bordered} data-testid="views-type-select">
-            <Tooltip placement="bottom" showArrow title="All">
-                <IconWrapper onClick={() => onTypeSelect('all')} $active={selectedOption === 'all'}>
+            <Tooltip placement="bottom" showArrow title={t('viewSelect.filterAll')}>
+                <IconWrapper onClick={() => onTypeSelect(VIEW_FILTER_ALL)} $active={selectedOption === VIEW_FILTER_ALL}>
                     <Icon
                         icon={SquaresFour}
                         size="lg"
-                        {...(selectedOption === 'all' ? ACTIVE_ICON_PROPS : INACTIVE_ICON_PROPS)}
+                        {...(selectedOption === VIEW_FILTER_ALL ? ACTIVE_ICON_PROPS : INACTIVE_ICON_PROPS)}
                     />
                 </IconWrapper>
             </Tooltip>
 
-            <Tooltip placement="bottom" showArrow title="Private">
-                <IconWrapper onClick={() => onTypeSelect('private')} $active={selectedOption === 'private'}>
+            <Tooltip placement="bottom" showArrow title={t('typePrivate')}>
+                <IconWrapper
+                    onClick={() => onTypeSelect(VIEW_FILTER_PRIVATE)}
+                    $active={selectedOption === VIEW_FILTER_PRIVATE}
+                >
                     <Icon
                         icon={Lock}
                         size="lg"
-                        {...(selectedOption === 'private' ? ACTIVE_ICON_PROPS : INACTIVE_ICON_PROPS)}
+                        {...(selectedOption === VIEW_FILTER_PRIVATE ? ACTIVE_ICON_PROPS : INACTIVE_ICON_PROPS)}
                     />
                 </IconWrapper>
             </Tooltip>
 
-            <Tooltip placement="bottom" showArrow title="Public">
-                <IconWrapper onClick={() => onTypeSelect('public')} $active={selectedOption === 'public'}>
+            <Tooltip placement="bottom" showArrow title={t('typePublic')}>
+                <IconWrapper
+                    onClick={() => onTypeSelect(VIEW_FILTER_PUBLIC)}
+                    $active={selectedOption === VIEW_FILTER_PUBLIC}
+                >
                     <Icon
                         icon={GlobeHemisphereWest}
                         weight="fill"
                         size="lg"
-                        {...(selectedOption === 'public' ? ACTIVE_ICON_PROPS : INACTIVE_ICON_PROPS)}
+                        {...(selectedOption === VIEW_FILTER_PUBLIC ? ACTIVE_ICON_PROPS : INACTIVE_ICON_PROPS)}
                     />
                 </IconWrapper>
             </Tooltip>

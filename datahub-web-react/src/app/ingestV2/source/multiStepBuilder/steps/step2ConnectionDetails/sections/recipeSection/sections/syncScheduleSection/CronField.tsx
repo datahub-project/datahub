@@ -48,7 +48,7 @@ const ScheduleContainer = styled.div`
 `;
 
 const CronFormat = styled.div`
-    background-color: ${(props) => props.theme.colors.bgSurfaceNewNav};
+    background-color: ${(props) => props.theme.colors.bgCode};
     border-radius: 4px;
     padding: 3px 6px;
     width: fit-content;

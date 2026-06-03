@@ -8159,6 +8159,11 @@ type Assertion implements EntityWithRelationships & Entity {
   tags: GlobalTags
 
   """
+  Ownership metadata of the Assertion
+  """
+  ownership: Ownership
+
+  """
   Experimental API.
   For fetching extra aspects that do not have custom UI code yet
   """

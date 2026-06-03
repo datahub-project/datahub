@@ -7,7 +7,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 With AI-powered documentation, you can automatically generate documentation for tables and columns.
 
 <p align="center">
-<iframe width="560" height="315" src="https://www.youtube.com/embed/_7DieZeZspY?si=Q5FkCA0gZPEFMj0Y" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/_7DieZeZspY?si=Q5FkCA0gZPEFMj0Y" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 </p>
 
 ## Prerequisites

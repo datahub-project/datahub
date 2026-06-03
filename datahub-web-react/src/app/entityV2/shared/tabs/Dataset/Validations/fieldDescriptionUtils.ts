@@ -37,6 +37,7 @@ const getAssertionStdOperator = ({ operator, isPlural }: { operator: AssertionSt
     return ASSERTION_OPERATOR_TO_DESCRIPTION[operator]?.toLowerCase();
 };
 
+/* untranslated-text -- sentence fragment, word order differs by language */
 export const getFieldMetricTypeReadableLabel = (metric: FieldMetricType) => {
     switch (metric) {
         case FieldMetricType.NullCount:
@@ -78,6 +79,7 @@ export const getFieldMetricTypeReadableLabel = (metric: FieldMetricType) => {
     }
 };
 
+/* untranslated-text -- sentence fragment, word order differs by language */
 const getFieldTransformType = (transform: FieldTransformType) => {
     switch (transform) {
         case FieldTransformType.Length:
@@ -87,6 +89,7 @@ const getFieldTransformType = (transform: FieldTransformType) => {
     }
 };
 
+/* untranslated-text -- sentence fragment, ' and ' between range values cannot be independently translated */
 const getAssertionStdParameters = (parameters: AssertionStdParameters) => {
     if (parameters.value) {
         return formatNumberWithoutAbbreviation(

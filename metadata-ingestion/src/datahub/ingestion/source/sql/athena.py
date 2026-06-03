@@ -11,6 +11,7 @@ import pydantic
 from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
 from pyathena.sqlalchemy_athena import AthenaRestDialect
+from pydantic import model_validator
 from sqlalchemy import create_engine, exc, inspect, text, types
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
@@ -82,6 +83,16 @@ logger = logging.getLogger(__name__)
 # Note: Athena automatically converts uppercase to lowercase, but we're being strict for security
 _IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z0-9_.]+$")
 
+# Athena exposes S3 Tables catalogs as `s3tablescatalog/<bucket>`. They're
+# always Iceberg, invisible to ListDataCatalogs, and namespaced under the
+# catalog name in DataHub.
+_S3_TABLES_CATALOG_PREFIX = "s3tablescatalog/"
+
+
+def _is_s3_tables_catalog(catalog_name: str) -> bool:
+    return catalog_name.startswith(_S3_TABLES_CATALOG_PREFIX)
+
+
 assert STRUCT, "required type modules are not available"
 register_custom_type(STRUCT, RecordTypeClass)
 register_custom_type(MapType, MapTypeClass)
@@ -107,6 +118,74 @@ class CustomAthenaRestDialect(AthenaRestDialect):
 
     # regex to identify complex types in DDL strings which are embedded in `<>`.
     _complex_type_pattern = re.compile(r"(<.+>)")
+
+    # PyAthena's base implementation omits "ICEBERG", which is the TableType for S3 Tables.
+    _ALLOWED_TABLE_TYPES = frozenset(
+        ["EXTERNAL_TABLE", "MANAGED_TABLE", "EXTERNAL", "ICEBERG"]
+    )
+
+    # Populated by AthenaSource.get_inspectors so the boto3 fallback below can
+    # surface failures through the ingestion UI. None when the dialect runs
+    # outside an AthenaSource (e.g. ad-hoc SQLAlchemy use).
+    _report: Optional[SQLSourceReport] = None
+
+    @typing.no_type_check
+    def get_table_names(self, connection, schema=None, **kw):
+        tables = self._get_tables(connection, schema, **kw)
+        table_names = [
+            t.name for t in tables if t.table_type in self._ALLOWED_TABLE_TYPES
+        ]
+
+        # S3 Tables catalogs are invisible to ListDataCatalogs, so PyAthena's
+        # internal path can return nothing.  Fall back to the boto3 client directly.
+        if not table_names:
+            raw_connection = self._raw_connection(connection)
+            catalog = raw_connection.catalog_name
+            if catalog and _is_s3_tables_catalog(catalog):
+                schema_name = schema if schema else raw_connection.schema_name
+                try:
+                    table_names = self._list_tables_via_boto3(
+                        raw_connection=raw_connection,
+                        catalog=catalog,
+                        schema_name=schema_name,
+                    )
+                except Exception as e:
+                    # Without surfacing this, missing IAM permissions, expired
+                    # credentials, etc. look identical to a legitimately empty
+                    # schema.
+                    logger.exception(
+                        "boto3 fallback for S3 Tables catalog %s/%s failed",
+                        catalog,
+                        schema_name,
+                    )
+                    if self._report is not None:
+                        self._report.warning(
+                            message="Failed to list S3 Tables via boto3 fallback. "
+                            "Tables in this schema will be missing from the "
+                            "DataHub catalog.",
+                            context=f"catalog={catalog}, schema={schema_name}",
+                            exc=e,
+                        )
+                    table_names = []
+
+        return table_names
+
+    @typing.no_type_check
+    def _list_tables_via_boto3(
+        self,
+        raw_connection: Any,
+        catalog: str,
+        schema_name: str,
+    ) -> List[str]:
+        boto3_client = raw_connection.client
+        paginator = boto3_client.get_paginator("list_table_metadata")
+        return [
+            t["Name"]
+            for page in paginator.paginate(
+                CatalogName=catalog, DatabaseName=schema_name
+            )
+            for t in page.get("TableMetadataList", [])
+        ]
 
     @typing.no_type_check
     @reflection.cache
@@ -155,7 +234,7 @@ class CustomAthenaRestDialect(AthenaRestDialect):
 
         args = []
 
-        if type_name in ["array"]:
+        if type_name in ["array", "list"]:
             detected_col_type = types.ARRAY
 
             # here we need to account again for two options how `type_` is passed to this method
@@ -249,6 +328,22 @@ class CustomAthenaRestDialect(AthenaRestDialect):
             detected_col_type = types.DECIMAL
             precision, scale = type_meta_information.split(",")
             args = [int(precision), int(scale)]
+        elif type_name.endswith("dtype"):
+            # Pandas nullable dtypes (e.g. Int64Dtype, UInt32Dtype) leak through the profiling
+            # pipeline when great_expectations reflects column types from Athena result sets.
+            base = type_name[:-5]
+            if base in ("int8", "int16", "int32", "uint8", "uint16", "uint32"):
+                detected_col_type = types.INTEGER
+            elif base in ("int64", "uint64"):
+                detected_col_type = types.BIGINT
+            elif base in ("float32", "float64"):
+                detected_col_type = types.FLOAT
+            elif base == "boolean":
+                detected_col_type = types.BOOLEAN
+            elif base in ("string", "object"):
+                detected_col_type = types.String
+            else:
+                return super()._get_column_type(type_name)
         else:
             return super()._get_column_type(type_name)
         return detected_col_type(*args)
@@ -288,7 +383,12 @@ class AthenaConfig(SQLCommonConfig):
     )
     catalog_name: str = pydantic.Field(
         default="awsdatacatalog",
-        description="Athena Catalog Name",
+        description=(
+            "Athena Catalog Name. When set to an S3 Tables catalog "
+            "(i.e. a value starting with `s3tablescatalog/`), the catalog name is "
+            "automatically used as `platform_instance` if not explicitly set, so "
+            "datasets and containers are namespaced under the catalog in DataHub."
+        ),
         min_length=1,
     )
 
@@ -303,8 +403,22 @@ class AthenaConfig(SQLCommonConfig):
         default=None,
         description="Platform instance of the upstream Iceberg datasets that Athena "
         "lineage points to. Set this if your Iceberg connector is configured with a "
-        "non-default platform_instance; leave unset otherwise.",
+        "non-default platform_instance; leave unset otherwise. For S3 Tables catalogs "
+        "this defaults to the catalog name so the Athena dataset URN and its upstream "
+        "Iceberg URN stitch correctly.",
     )
+
+    @model_validator(mode="after")
+    def _derive_defaults_from_s3_catalog(self) -> "AthenaConfig":
+        # S3 Tables datasets are emitted under platform_instance=catalog_name;
+        # the upstream Iceberg URN must use the same namespace or lineage won't
+        # stitch.
+        if _is_s3_tables_catalog(self.catalog_name):
+            if self.platform_instance is None:
+                self.platform_instance = self.catalog_name
+            if self.iceberg_platform_instance is None:
+                self.iceberg_platform_instance = self.catalog_name
+        return self
 
     query_result_location: str = pydantic.Field(
         description="S3 path to the [query result bucket](https://docs.aws.amazon.com/athena/latest/ug/querying.html#query-results-specify-location) which should be used by AWS Athena to store results of the"
@@ -416,7 +530,10 @@ class AthenaSource(SQLAlchemySource):
         engine = create_engine(url, **self.config.options)
 
         # set custom dialect to be used by the inspector
-        engine.dialect = CustomAthenaRestDialect()
+        dialect = CustomAthenaRestDialect()
+        # Wire up the report so S3 Tables fallback errors surface via report.warning.
+        dialect._report = self.report
+        engine.dialect = dialect
         with engine.connect() as conn:
             inspector = inspect(conn)
             yield inspector
@@ -478,6 +595,16 @@ class AthenaSource(SQLAlchemySource):
         table: str,
         metadata: AthenaTableMetadata,
     ) -> Optional[str]:
+        # Every table in an S3 Tables catalog is Iceberg. The `s3://` location reported
+        # by Athena is internal storage, not a meaningful upstream — emit an Iceberg URN
+        # directly so lineage stitches to whatever Iceberg-side ingestion is configured.
+        if _is_s3_tables_catalog(self.config.catalog_name):
+            return make_dataset_urn_with_platform_instance(
+                platform="iceberg",
+                name=f"{schema}.{table}",
+                platform_instance=self.config.iceberg_platform_instance,
+                env=self.config.env,
+            )
         if self.is_glue_catalog is None:
             return None
         if self.is_glue_catalog:

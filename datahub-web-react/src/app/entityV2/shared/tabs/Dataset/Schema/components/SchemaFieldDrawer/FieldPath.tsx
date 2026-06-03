@@ -2,9 +2,13 @@ import { EnterOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
 import { Divider, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import RowIcon from '@images/row-icon.svg?react';
+
+const FIELD_PATH_SEPARATOR = '.';
+const MIRROR_X_TRANSFORM = 'scaleX(-1)';
 
 const FieldPathWrapper = styled.div`
     display: flex;
@@ -67,6 +71,7 @@ interface Props {
 }
 
 export default function FieldPath({ displayName, setExpandedDrawerFieldPath }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const theme = useTheme();
     const displayNameTokens = displayName.split('.');
     const isNestedField = displayNameTokens.length > 1;
@@ -75,14 +80,18 @@ export default function FieldPath({ displayName, setExpandedDrawerFieldPath }: P
     }
     const content = (
         <PopoverContentWrapper>
-            <LevelNum>{displayNameTokens.length} levels nested </LevelNum>
+            <LevelNum>{t('fieldPath.levelsNested', { count: displayNameTokens.length })}</LevelNum>
             <StyledDivider />
             {displayNameTokens.map((token, idx) => (
-                <FieldName onClick={() => setExpandedDrawerFieldPath(displayNameTokens.slice(0, idx + 1).join('.'))}>
+                <FieldName
+                    onClick={() =>
+                        setExpandedDrawerFieldPath(displayNameTokens.slice(0, idx + 1).join(FIELD_PATH_SEPARATOR))
+                    }
+                >
                     {idx !== 0 && (
                         <EnterOutlined
                             style={{
-                                transform: 'scaleX(-1)',
+                                transform: MIRROR_X_TRANSFORM,
                                 paddingLeft: 6,
                                 fontSize: 14,
                                 fontWeight: 'bolder',

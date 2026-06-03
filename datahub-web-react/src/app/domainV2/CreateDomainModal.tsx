@@ -1,5 +1,6 @@
 import { Collapse, Form, message } from 'antd';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Label } from '@components/components/TextArea/components';
@@ -51,6 +52,9 @@ const NAME_FIELD_NAME = 'name';
 const DESCRIPTION_FIELD_NAME = 'description';
 
 export default function CreateDomainModal({ onClose, onCreate }: Props) {
+    const { t } = useTranslation('governance.domain');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const [createDomainMutation] = useCreateDomainMutation();
     const { entityData, setNewDomain } = useDomainsContextV2();
@@ -59,11 +63,16 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
     );
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
+    const { loaded: userLoaded, user } = useUserContext();
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
-    const { user } = useUserContext();
+    const [hasInitializedDefaultOwner, setHasInitializedDefaultOwner] = useState(false);
 
-    // Simply provide current user as placeholder - OwnersSection will handle auto-selection
-    const defaultOwners = user ? [user] : [];
+    useEffect(() => {
+        if (!hasInitializedDefaultOwner && userLoaded) {
+            setSelectedOwnerUrns(user?.urn ? [user.urn] : []);
+            setHasInitializedDefaultOwner(true);
+        }
+    }, [hasInitializedDefaultOwner, user?.urn, userLoaded]);
 
     // Stable callback for setting owner URNs
     const handleSetSelectedOwnerUrns = useCallback((ownerUrns: string[]) => {
@@ -94,7 +103,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         parentDomainUrn: selectedParentUrn || undefined,
                     });
                     message.success({
-                        content: `Created domain!`,
+                        content: t('create.success'),
                         duration: 3,
                     });
                     onCreate?.(
@@ -126,7 +135,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to create Domain!: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('create.error', { errorMessage: e.message || '' }), duration: 3 });
             })
             .finally(() => {
                 onClose();
@@ -140,21 +149,21 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
 
     return (
         <Modal
-            title="Create New Domain"
+            title={t('create.title')}
             open
             onCancel={onClose}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onClose,
                 },
                 {
-                    text: 'Save',
+                    text: tc('save'),
                     id: 'createDomainButton',
                     buttonDataTestId: 'create-domain-button',
                     onClick: onCreateDomain,
-                    disabled: !createButtonEnabled,
+                    disabled: !createButtonEnabled || !hasInitializedDefaultOwner,
                 },
             ]}
         >
@@ -171,14 +180,18 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     rules={[
                         {
                             required: true,
-                            message: 'Enter a Domain name.',
+                            message: t('create.nameRequired'),
                         },
                         { whitespace: true },
                         { min: 1, max: 150 },
                     ]}
                     hasFeedback
                 >
-                    <Input label="Name" data-testid="create-domain-name" placeholder="A name for your domain" />
+                    <Input
+                        label={tl('name')}
+                        data-testid="create-domain-name"
+                        placeholder={t('create.namePlaceholder')}
+                    />
                 </FormItemWithMargin>
                 <FormItemWithMargin
                     name={DESCRIPTION_FIELD_NAME}
@@ -186,18 +199,18 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     hasFeedback
                 >
                     <TextArea
-                        label="Description"
-                        placeholder="A description for your domain"
+                        label={tl('description')}
+                        placeholder={t('create.descriptionPlaceholder')}
                         data-testid="create-domain-description"
                     />
                 </FormItemWithMargin>
                 {isNestedDomainsEnabled && (
                     <FormItemWithMargin>
-                        <Label>Parent Domains</Label>
+                        <Label>{t('create.parentLabel')}</Label>
                         <DomainSelector
                             selectedDomains={selectedParentUrn ? [selectedParentUrn] : []}
                             onDomainsChange={(selectedDomainUrns) => setSelectedParentUrn(selectedDomainUrns[0] || '')}
-                            placeholder="Select parent domain"
+                            placeholder={t('create.parentPlaceholder')}
                             label=""
                             isMultiSelect={false}
                         />
@@ -208,11 +221,12 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     <OwnersSection
                         selectedOwnerUrns={selectedOwnerUrns}
                         setSelectedOwnerUrns={handleSetSelectedOwnerUrns}
-                        defaultOwners={defaultOwners}
+                        isDisabled={!hasInitializedDefaultOwner}
+                        isLoading={!hasInitializedDefaultOwner}
                     />
                 </FormItemNoMargin>
                 <Collapse ghost>
-                    <Collapse.Panel header={<Label>Advanced Options</Label>} key="1">
+                    <Collapse.Panel header={<Label>{t('create.advancedOptions')}</Label>} key="1">
                         <FormItemWithMargin
                             name={ID_FIELD_NAME}
                             rules={[
@@ -221,12 +235,16 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                                         if (value && validateCustomUrnId(value)) {
                                             return Promise.resolve();
                                         }
-                                        return Promise.reject(new Error('Please enter a valid Domain id'));
+                                        return Promise.reject(new Error(t('create.idInvalid')));
                                     },
                                 }),
                             ]}
                         >
-                            <Input label="Custom Id" data-testid="create-domain-id" placeholder="engineering" />
+                            <Input
+                                label={t('create.idLabel')}
+                                data-testid="create-domain-id"
+                                placeholder={t('create.idPlaceholder')}
+                            />
                         </FormItemWithMargin>
                     </Collapse.Panel>
                 </Collapse>

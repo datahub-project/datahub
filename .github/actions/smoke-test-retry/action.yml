@@ -1,0 +1,171 @@
+name: "Smoke Test Retry Check"
+description: >
+  Download and parse the previous attempt's test results to determine which
+  tests failed. Must only be called when github.run_attempt > 1 — callers
+  are responsible for that guard.
+
+  Callers are responsible for skipping test execution when parse_result is
+  'all_passed', since composite actions cannot exit the calling job early.
+
+inputs:
+  test_strategy:
+    description: "Test strategy: 'cypress' or 'pytests'"
+    required: true
+  batch:
+    description: "Current batch number (used for artifact name lookup)"
+    required: true
+  run_id:
+    description: "Current workflow run ID — pass github.run_id"
+    required: true
+  github_token:
+    description: "GitHub token for API calls — pass github.token"
+    required: true
+
+outputs:
+  parse_result:
+    description: "One of: has_failures, all_passed, no_artifacts, error."
+    value: ${{ steps.parse-cypress-failures.outputs.parse_result || steps.parse-pytest-failures.outputs.parse_result || steps.download-artifacts.outputs.parse_result || '' }}
+  filtered_tests_file:
+    description: "Path to file listing failed tests. Only set when parse_result is 'has_failures'."
+    value: ${{ steps.parse-cypress-failures.outputs.filtered_tests_file || steps.parse-pytest-failures.outputs.filtered_tests_file || '' }}
+
+runs:
+  using: composite
+  steps:
+    - name: Download previous test results
+      id: download-artifacts
+      continue-on-error: true
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        RUN_ATTEMPT: ${{ github.run_attempt }}
+        RUN_ID: ${{ inputs.run_id }}
+        TEST_STRATEGY: ${{ inputs.test_strategy }}
+        BATCH: ${{ inputs.batch }}
+        REPOSITORY: ${{ github.repository }}
+      run: |
+
+        PREVIOUS_ATTEMPT=$(( RUN_ATTEMPT - 1 ))
+        echo "Downloading artifacts from run ${RUN_ID}, attempt ${PREVIOUS_ATTEMPT}"
+
+        mkdir -p "${GITHUB_WORKSPACE}/previous-test-results"
+
+        ARTIFACT_NAME="Test Results (smoke tests) ${TEST_STRATEGY} ${BATCH}"
+        echo "Looking for artifact: ${ARTIFACT_NAME}"
+
+        ARTIFACT_ID=$(gh api "repos/${REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
+          --jq ".artifacts[] | select(.name == \"${ARTIFACT_NAME}\") | .id" | head -1)
+
+        if [[ -z "$ARTIFACT_ID" ]]; then
+          echo "No artifact found for batch ${BATCH}"
+          echo "download_success=false" >> "$GITHUB_OUTPUT"
+          echo "parse_result=no_artifacts" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "Found artifact ID: ${ARTIFACT_ID}"
+
+        cd "${GITHUB_WORKSPACE}/previous-test-results"
+        gh api "repos/${REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > artifact.zip
+        unzip -q artifact.zip
+
+        if [[ "${TEST_STRATEGY}" == "cypress" ]]; then
+          if find . -path "*/smoke-test-results/cypress-test-*.xml" -print -quit | grep -q .; then
+            echo "Successfully downloaded cypress test results"
+            echo "download_success=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No cypress test XML files found in artifact"
+            echo "download_success=false" >> "$GITHUB_OUTPUT"
+            echo "parse_result=no_artifacts" >> "$GITHUB_OUTPUT"
+          fi
+        else
+          if find . -path "*/junit*.xml" -print -quit | grep -q .; then
+            echo "Successfully downloaded pytest test results"
+            echo "download_success=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No pytest XML files found in artifact"
+            echo "download_success=false" >> "$GITHUB_OUTPUT"
+            echo "parse_result=no_artifacts" >> "$GITHUB_OUTPUT"
+          fi
+        fi
+
+    - name: Parse failed Cypress tests
+      if: |
+        inputs.test_strategy == 'cypress' &&
+        steps.download-artifacts.outputs.download_success == 'true'
+      id: parse-cypress-failures
+      shell: bash
+      env:
+        BATCH: ${{ inputs.batch }}
+      run: |
+
+        OUTPUT_FILE="${GITHUB_WORKSPACE}/failed-tests-batch-${BATCH}.txt"
+
+        python3 .github/scripts/parse_failed_cypress_tests.py \
+          --input-dir "${GITHUB_WORKSPACE}/previous-test-results" \
+          --output "${OUTPUT_FILE}"
+
+        EXIT_CODE=$?
+
+        case $EXIT_CODE in
+          0)
+            echo "parse_result=has_failures" >> "$GITHUB_OUTPUT"
+            echo "filtered_tests_file=${OUTPUT_FILE}" >> "$GITHUB_OUTPUT"
+            echo "Will retry $(wc -l < ${OUTPUT_FILE}) failed test(s)"
+            ;;
+          2)
+            echo "parse_result=all_passed" >> "$GITHUB_OUTPUT"
+            echo "All tests passed in previous attempt - will skip batch"
+            ;;
+          3)
+            echo "parse_result=no_artifacts" >> "$GITHUB_OUTPUT"
+            echo "No test results found - will run all tests"
+            ;;
+          *)
+            echo "parse_result=error" >> "$GITHUB_OUTPUT"
+            echo "Error parsing test results - will run all tests"
+            ;;
+        esac
+
+    - name: Parse failed pytest modules
+      if: |
+        inputs.test_strategy == 'pytests' &&
+        steps.download-artifacts.outputs.download_success == 'true'
+      id: parse-pytest-failures
+      shell: bash
+      env:
+        BATCH: ${{ inputs.batch }}
+      run: |
+
+        OUTPUT_FILE="${GITHUB_WORKSPACE}/failed-modules-batch-${BATCH}.txt"
+
+        python3 .github/scripts/parse_failed_pytest_tests.py \
+          --input-dir "${GITHUB_WORKSPACE}/previous-test-results" \
+          --output "${OUTPUT_FILE}"
+
+        EXIT_CODE=$?
+
+        case $EXIT_CODE in
+          0)
+            echo "parse_result=has_failures" >> "$GITHUB_OUTPUT"
+            echo "filtered_tests_file=${OUTPUT_FILE}" >> "$GITHUB_OUTPUT"
+            echo "Will retry $(wc -l < ${OUTPUT_FILE}) failed module(s)"
+            ;;
+          2)
+            echo "parse_result=all_passed" >> "$GITHUB_OUTPUT"
+            echo "All tests passed in previous attempt - will skip batch"
+            ;;
+          3)
+            echo "parse_result=no_artifacts" >> "$GITHUB_OUTPUT"
+            echo "No test results found - will run all tests"
+            ;;
+          *)
+            echo "parse_result=error" >> "$GITHUB_OUTPUT"
+            echo "Error parsing test results - will run all tests"
+            ;;
+        esac
+
+    - name: Clean up downloaded artifacts
+      shell: bash
+      run: |
+        rm -rf "${GITHUB_WORKSPACE}/previous-test-results"

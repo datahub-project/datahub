@@ -10,7 +10,7 @@ import { Dataset, Entity, EntityType } from '@types';
 
 const ContentWrapper = styled.div`
     font-size: 12px;
-    color: ${(props) => props.theme.colors.textOnFillInfo};
+    color: ${(props) => props.theme.colors.textOnFillDefault};
 `;
 
 const Container = styled.span`

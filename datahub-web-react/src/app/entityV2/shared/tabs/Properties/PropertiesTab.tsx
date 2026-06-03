@@ -129,35 +129,37 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
                     refetch={refetch}
                 />
             )}
-            <StyledTable
-                pagination={false}
-                // typescript is complaining that default sort order is not a valid column field- overriding this here
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore
-                columns={propertyTableColumns}
-                dataSource={dataSource}
-                locale={{
-                    emptyText: <EmptyText description="No properties found" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                }}
-                rowKey="qualifiedName"
-                expandable={{
-                    expandedRowKeys: [...Array.from(expandedRows)],
-                    defaultExpandAllRows: false,
-                    expandRowByClick: false,
-                    expandIcon: (props) => <ExpandIcon {...props} isCompact />,
-                    onExpand: (expanded, record) => {
-                        if (expanded) {
-                            setExpandedRows((previousRows) => new Set(previousRows.add(record.qualifiedName)));
-                        } else {
-                            setExpandedRows((previousRows) => {
-                                previousRows.delete(record.qualifiedName);
-                                return new Set(previousRows);
-                            });
-                        }
-                    },
-                    indentSize: 16,
-                }}
-            />
+            <div data-testid="entity-properties-table">
+                <StyledTable
+                    pagination={false}
+                    // typescript is complaining that default sort order is not a valid column field- overriding this here
+                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    // @ts-ignore
+                    columns={propertyTableColumns}
+                    dataSource={dataSource}
+                    locale={{
+                        emptyText: <EmptyText description="No properties found" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                    }}
+                    rowKey="qualifiedName"
+                    expandable={{
+                        expandedRowKeys: [...Array.from(expandedRows)],
+                        defaultExpandAllRows: false,
+                        expandRowByClick: false,
+                        expandIcon: (props) => <ExpandIcon {...props} isCompact />,
+                        onExpand: (expanded, record) => {
+                            if (expanded) {
+                                setExpandedRows((previousRows) => new Set(previousRows.add(record.qualifiedName)));
+                            } else {
+                                setExpandedRows((previousRows) => {
+                                    previousRows.delete(record.qualifiedName);
+                                    return new Set(previousRows);
+                                });
+                            }
+                        },
+                        indentSize: 16,
+                    }}
+                />
+            </div>
         </>
     );
 };

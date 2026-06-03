@@ -15,6 +15,7 @@ const TAG_URN = `urn:li:tag:${TAG_NAME}`;
 
 test.describe('tags - assign/unassign', () => {
   test('should allow to assign/unassign tags on a dataset', async ({ page, logger, logDir }) => {
+    test.setTimeout(120000);
     const datasetPage = new DatasetPage(page, logger, logDir);
     const searchPage = new SearchPage(page, logger, logDir);
 

@@ -72,8 +72,10 @@ class GitHubAPIClient:
     """Thin wrapper around requests.Session for GitHub REST API calls."""
 
     BASE_URL = "https://api.github.com"
+    _RUN_PATH = "/repos/{repo}/actions/runs/{run_id}"
     _RUN_ATTEMPT_PATH = "/repos/{repo}/actions/runs/{run_id}/attempts/{attempt}"
     _RUN_JOBS_PATH = "/repos/{repo}/actions/runs/{run_id}/jobs"
+    _RUN_ATTEMPT_JOBS_PATH = "/repos/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs"
 
     def __init__(self, token: str, base_url: str = BASE_URL) -> None:
         self.base_url = base_url
@@ -94,6 +96,18 @@ class GitHubAPIClient:
     def _run_jobs_url(self, repo: str, run_id: str) -> str:
         return self.base_url + self._RUN_JOBS_PATH.format(repo=repo, run_id=run_id)
 
+    def _run_attempt_jobs_url(self, repo: str, run_id: str, attempt: int) -> str:
+        return self.base_url + self._RUN_ATTEMPT_JOBS_PATH.format(
+            repo=repo, run_id=run_id, attempt=attempt
+        )
+
+    def _run_url(self, repo: str, run_id: str) -> str:
+        return self.base_url + self._RUN_PATH.format(repo=repo, run_id=run_id)
+
+    def get_run(self, repo: str, run_id: str) -> dict[str, Any]:
+        """Fetch the latest state of a workflow run."""
+        return self.get(self._run_url(repo, run_id))
+
     def get_run_attempt(self, repo: str, run_id: str, attempt: int) -> dict[str, Any]:
         """Fetch a specific workflow run attempt."""
         return self.get(self._run_attempt_url(repo, run_id, attempt))
@@ -102,6 +116,14 @@ class GitHubAPIClient:
         """Fetch all jobs for a workflow run (latest version of each job across attempts)."""
         return self.get_paginated(
             self._run_jobs_url(repo, run_id), "jobs", params={"filter": "latest"}
+        )
+
+    def get_run_attempt_jobs(
+        self, repo: str, run_id: str, attempt: int
+    ) -> list[dict[str, Any]]:
+        """Fetch all jobs that ran in a specific attempt."""
+        return self.get_paginated(
+            self._run_attempt_jobs_url(repo, run_id, attempt), "jobs"
         )
 
     @handle_rate_limit()

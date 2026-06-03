@@ -58,18 +58,17 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 21
-      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       - name: Gradle build for frontend
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         run: |
           ./gradlew :datahub-web-react:build -x test -x check --parallel
       - name: Publish
         if: ${{ needs.setup.outputs.frontend_change == 'true' && needs.setup.outputs.cloudflare_token_available == 'true' }}
-        uses: cloudflare/pages-action@f0a1cd58cd66095dee69bfa18fa5efd1dde93bca # v1
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: datahub-project-web-react
           workingDirectory: datahub-web-react
-          directory: dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: pages deploy dist --project-name=datahub-project-web-react

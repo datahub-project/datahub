@@ -125,6 +125,10 @@ datahub:
   # For special deployment modes intended to point at read replicas. WARNING: THIS WILL DROP WRITE OPERATIONS WITHOUT ERRORS, intended for analytics based deploys to offload work from user serving deploys
   readOnly: ${DATAHUB_READ_ONLY:false}
 
+  # Metadata event transport: kafka unless DATAHUB_MESSAGING_TRANSPORT is set (e.g. pgqueue).
+  messaging:
+    transport: ${DATAHUB_MESSAGING_TRANSPORT:kafka}
+
   gms:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
@@ -241,7 +245,7 @@ searchService:
 timeseriesAspectService:
   query:
     concurrency: ${TIMESERIES_ASPECT_SERVICE_QUERY_CONCURRENCY:10} # parallel threads
-    queueSize: ${TIMESERIES_ASPECT_SERVICE_QUERY)QUEUE_SIZE:500}
+    queueSize: ${TIMESERIES_ASPECT_SERVICE_QUERY_QUEUE_SIZE:500}
     threadKeepAlive: ${TIMESERIES_ASPECT_SERVICE_QUERY_THREAD_KEEP_ALIVE:60}
   limit:
     results:
@@ -306,11 +310,12 @@ mclProcessing:
       postgresConfig: # Used then CDC_DB_TYPE is set to postgres
         connector.class: ${DEBEZIUM_CONNECTOR_CLASS:io.debezium.connector.postgresql.PostgresConnector}
         plugin.name: ${DEBEZIUM_PLUGIN_NAME:pgoutput}
+        # Debezium schema is the PostgreSQL namespace (default public); database is from the connector DB config.
         table.include.list: ${CDC_INCLUDE_TABLE:public.metadata_aspect_v2}
         schema.include.list: ${CDC_INCLUDE_SCHEMA:public}
         publication.autocreate.mode: disabled
         publication.name: dbz_publication
-        message.key.columns: public.metadata_aspect_v2:urn
+        message.key.columns: ${CDC_POSTGRES_MESSAGE_KEY_COLUMNS:public.metadata_aspect_v2:urn}
         slot.name: debezium
         database.server.name: datahub
       mysqlConfig: # Used then CDC_DB_TYPE is set to mysql
@@ -356,6 +361,7 @@ ebean:
   maxAgeMinutes: ${EBEAN_MAX_AGE_MINUTES:120}
   leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
+  autoCommit: ${EBEAN_DATASOURCE_AUTOCOMMIT:true}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
   postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
   useIamAuth: ${EBEAN_USE_IAM_AUTH:false} # Generic IAM auth for cross-cloud compatibility
@@ -372,12 +378,123 @@ cassandra:
   keyspace: ${CASSANDRA_KEYSPACE:datahub}
   useSsl: ${CASSANDRA_USE_SSL:false}
 
+# PostgreSQL optional SqlSetup (pgQueue).
+# postgres.schema: Ebean/metadata tables (default public). pgQueue uses postgres.pgQueue.schema only
+# (default queue)—queue DDL never lands in postgres.schema unless you explicitly set both to the same value.
+# The JDBC URL path selects the database only.
+postgres:
+  schema: public
+  # pg_cron registry DB (postgresql.conf cron.database_name). Defaults reuse EBEAN_DATASOURCE_* env vars; override with DATAHUB_POSTGRES_PG_CRON_ADMIN_* . Jobs still run in the app DB via cron.schedule_in_database.
+  pgCron:
+    cronSchema: ${DATAHUB_POSTGRES_PG_CRON_SCHEMA:cron}
+    admin:
+      jdbcUrl: ${DATAHUB_POSTGRES_PG_CRON_ADMIN_JDBC_URL:jdbc:postgresql://${EBEAN_DATASOURCE_HOST:localhost:5432}/${DATAHUB_POSTGRES_PG_CRON_ADMIN_DATABASE:postgres}}
+      username: ${DATAHUB_POSTGRES_PG_CRON_ADMIN_USERNAME:${EBEAN_DATASOURCE_USERNAME:datahub}}
+      password: ${DATAHUB_POSTGRES_PG_CRON_ADMIN_PASSWORD:${EBEAN_DATASOURCE_PASSWORD:datahub}}
+      driver: ${DATAHUB_POSTGRES_PG_CRON_ADMIN_DRIVER:${ebean.driver:org.postgresql.Driver}}
+    # Same IAM toggles and cloud env as ebean (LocalEbeanConfigFactory / CrossCloudIamUtils).
+    iam:
+      useIamAuth: ${ebean.useIamAuth:false}
+      postgresUseIamAuth: ${ebean.postgresUseIamAuth:false}
+      cloudProvider: ${ebean.cloudProvider:auto}
+      awsRegion: ${AWS_REGION:#{null}}
+      awsAccessKeyId: ${AWS_ACCESS_KEY_ID:#{null}}
+      awsSecretAccessKey: ${AWS_SECRET_ACCESS_KEY:#{null}}
+      awsSessionToken: ${AWS_SESSION_TOKEN:#{null}}
+      googleApplicationCredentials: ${GOOGLE_APPLICATION_CREDENTIALS:#{null}}
+      gcpProject: ${GCP_PROJECT:#{null}}
+      instanceConnectionName: ${INSTANCE_CONNECTION_NAME:#{null}}
+  # PostgreSQL queue DDL + maintenance (SqlSetup when entity store is Postgres). At-least-once; requires pg_partman for the message table; optional pg_cron when enabled.
+  pgQueue:
+    enabled: ${DATAHUB_PGQUEUE_ENABLED:false}
+    # When true (default), SqlSetup seeds postgres.pgQueue topic rows from kafka.topics.*; postgres.pgQueue.topics overlays or adds pg-only settings.
+    inheritKafkaTopics: ${DATAHUB_PGQUEUE_INHERIT_KAFKA_TOPICS:true}
+    # Namespace for *_topic, *_message, *_apply_retention, etc. Default queue (not public / not postgres.schema).
+    schema: ${DATAHUB_PGQUEUE_SCHEMA:queue}
+    # SqlSetup table name prefix (tables: {prefix}_topic, {prefix}_message, etc.)
+    tablePrefix: ${DATAHUB_PGQUEUE_TABLE_PREFIX:metadata_queue}
+    # Producer-side settings: how GMS encodes and compresses messages before enqueuing.
+    producer:
+      # Application-layer payload codec for new enqueues (per-row payload_compression column). NONE or SNAPPY.
+      payloadCompression: ${DATAHUB_PGQUEUE_PAYLOAD_COMPRESSION:SNAPPY}
+      # MIME for topic.default_content_type_id (lookup in *_content_type); message rows omit content_type_id when matching.
+      defaultContentTypeMime: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_CONTENT_TYPE_MIME:application/avro}
+    topicDefaults:
+      partitionCount: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_PARTITION_COUNT:2}
+      visibilityTimeoutSeconds: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_VISIBILITY_TIMEOUT_SECONDS:600}
+      priorityBands: ${DATAHUB_PGQUEUE_PRIORITY_BANDS:[{"range":[0,3],"weight":70},{"range":[4,6],"weight":20},{"range":[7,9],"weight":10}]}
+      retentionMaxAgeSeconds: ${DATAHUB_PGQUEUE_RETENTION_MAX_AGE_SECONDS:604800}
+      # Target max retained completed rows per topic (0 = unlimited). Not enforced on enqueue — pgQueue
+      # maintenance (*_apply_retention / cron) trims oldest completed rows when over this soft limit.
+      maxRowsPerTopic: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_MAX_ROWS_PER_TOPIC:0}
+      maxTotalPayloadBytesPerTopic: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_MAX_TOTAL_PAYLOAD_BYTES:0}
+      # Same-JVM pgQueue poller threads per topic (partition p → thread p % c). Capped to this topic's
+      # partitionCount (and postgres.pgQueue.topicDefaults.partitionCount for the cluster default). Cross-JVM dedup uses group leases in Postgres.
+      consumerConcurrency: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_CONSUMER_CONCURRENCY:1}
+      # When true, messages are purged as soon as all registered consumers have read past them.
+      aggressiveRetention: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_AGGRESSIVE_RETENTION:false}
+    # Per-topic overlays on kafka.topics.* (same logical keys). Prefer inheritKafkaTopics + kafka.topics for names/partitions/retention; use this block for pg-only limits or extra topics.
+    topics:
+      datahubUpgradeHistory:
+        # Soft cap on completed upgrade-history rows (not expressible in Kafka topic config).
+        maxRowsPerTopic: ${DATAHUB_PGQUEUE_TOPIC_DATAHUB_UPGRADE_HISTORY_MAX_ROWS_PER_TOPIC:10}
+      failedMetadataChangeProposal:
+        maxRowsPerTopic: ${DATAHUB_PGQUEUE_TOPIC_FAILED_MCP_MAX_ROWS_PER_TOPIC:100}
+      metadataChangeProposal:
+        aggressiveRetention: true
+      metadataChangeLogVersioned:
+        aggressiveRetention: true
+      metadataChangeLogTimeseries:
+        aggressiveRetention: true
+    retention:
+      # part_config.retention = max(topicDefaults.retentionMaxAgeSeconds, MAX(topic.retention_max_age_seconds)) + buffer (see SqlSetup).
+      # Allowlisted: 1 hour, 6 hours, 12 hours, 1 day, 1 week, 1 month (pg_partman time interval)
+      partmanPartitionInterval: ${DATAHUB_PGQUEUE_RETENTION_PARTMAN_INTERVAL:1 day}
+      partmanPremake: ${DATAHUB_PGQUEUE_RETENTION_PARTMAN_PREMAKE:4}
+    maintenance:
+      cronEnabled: ${DATAHUB_PGQUEUE_MAINTENANCE_CRON_ENABLED:false}
+      intervalSeconds: ${DATAHUB_PGQUEUE_MAINTENANCE_INTERVAL_SECONDS:3600}
+      batchDeleteLimit: ${DATAHUB_PGQUEUE_MAINTENANCE_BATCH_DELETE_LIMIT:5000}
+    # Dedicated runtime connection pool for the queue store (separate from the main ebean.* pool).
+    # Defaults fall through to ebean.* so a single-Postgres deployment works with zero extra config;
+    # override DATAHUB_PGQUEUE_DATASOURCE_* to point pgQueue at a different DB or role.
+    pool:
+      url: ${DATAHUB_PGQUEUE_DATASOURCE_URL:${ebean.url}}
+      driver: ${DATAHUB_PGQUEUE_DATASOURCE_DRIVER:${ebean.driver}}
+      username: ${DATAHUB_PGQUEUE_DATASOURCE_USERNAME:${ebean.username}}
+      password: ${DATAHUB_PGQUEUE_DATASOURCE_PASSWORD:${ebean.password}}
+      minConnections: ${DATAHUB_PGQUEUE_MIN_CONNECTIONS:1}
+      maxConnections: ${DATAHUB_PGQUEUE_MAX_CONNECTIONS:8}
+      maxInactiveTimeSeconds: ${DATAHUB_PGQUEUE_MAX_INACTIVE_TIME_SECONDS:120}
+      maxAgeMinutes: ${DATAHUB_PGQUEUE_MAX_AGE_MINUTES:120}
+      leakTimeMinutes: ${DATAHUB_PGQUEUE_LEAK_TIME_MINUTES:15}
+      waitTimeoutMillis: ${DATAHUB_PGQUEUE_WAIT_TIMEOUT_MILLIS:1000}
+    consumerPoll:
+      emptyPollSleepMillis: ${DATAHUB_PGQUEUE_EMPTY_POLL_SLEEP_MS:100}
+      mclEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MCL_EMPTY_POLL_SLEEP_MS:25}
+      missingTopicSleepMillis: ${DATAHUB_PGQUEUE_MISSING_TOPIC_SLEEP_MS:500}
+      errorRecoverySleepMillis: ${DATAHUB_PGQUEUE_ERROR_RECOVERY_SLEEP_MS:1000}
+
 # MAE consumer (standalone or embedded in GMS): separate ES HTTP tuning from interactive defaults.
 maeConsumer:
   enabled: ${MAE_CONSUMER_ENABLED:false}
   elasticsearch:
     socketTimeoutMs: ${MAE_ELASTICSEARCH_SOCKET_TIMEOUT:120000}
     connectionRequestTimeoutMs: ${MAE_ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:10000}
+  pgQueue:
+    usageEventsMaxBatch: ${DATAHUB_PGQUEUE_MAE_USAGE_POLL_MAX_BATCH:200}
+    metadataChangeLogMaxBatch: ${DATAHUB_PGQUEUE_MAE_MCL_POLL_MAX_BATCH:50}
+
+# MCE consumer (standalone or embedded in GMS): pgQueue poll tuning when transport=pgqueue.
+mceConsumer:
+  pgQueue:
+    metadataChangeProposalMaxBatch: ${DATAHUB_PGQUEUE_MCE_MCP_POLL_MAX_BATCH:50}
+    batchMetadataChangeProposalMaxBatch: ${DATAHUB_PGQUEUE_MCE_BATCH_MCP_POLL_MAX_BATCH:100}
+
+# PE consumer (standalone or embedded in GMS): pgQueue poll tuning when transport=pgqueue.
+peConsumer:
+  pgQueue:
+    platformEventMaxBatch: ${DATAHUB_PGQUEUE_PE_POLL_MAX_BATCH:50}
 
 elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}
@@ -945,6 +1062,9 @@ incidents:
     consumerGroupSuffix: ${INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 bootstrap:
+  async:
+    # Parallel bootstrap workers; each uses its own DB connection/transactions. Reduce only if the metadata pool shows errors under startup load.
+    workerThreads: ${BOOTSTRAP_ASYNC_WORKER_THREADS:5}
   policies:
     file: ${BOOTSTRAP_POLICIES_FILE:classpath:boot/policies.json}
     # eg for local file
@@ -1077,6 +1197,12 @@ systemUpdate:
       includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
   ingestEntityTypes:
     enabled: ${SYSTEM_UPDATE_INGEST_ENTITY_TYPES_ENABLED:true}
+  ingestDefaultGlobalSettings:
+    enabled: ${SYSTEM_UPDATE_INGEST_DEFAULT_GLOBAL_SETTINGS_ENABLED:true}
+  ingestPolicies:
+    enabled: ${SYSTEM_UPDATE_INGEST_POLICIES_ENABLED:true}
+  ingestDataPlatformInstances:
+    enabled: ${SYSTEM_UPDATE_INGEST_DATA_PLATFORM_INSTANCES_ENABLED:true}
   kubernetesScaleDown:
     enabled: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_ENABLED:true}
     useJavaImplementation: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_JAVA_ENABLED:false}
@@ -1368,6 +1494,13 @@ graphQL:
     # Override: GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD=2
     errorCountThreshold: ${GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD:1}
 
+  # OpenTelemetry instrumentation for GraphQL operations and data fetchers
+  # Requires ENABLE_OTEL=true and a configured OTEL exporter
+  otel:
+    # Enable/disable GraphQL OTel instrumentation
+    # Override: ENABLE_OTEL_GRAPHQL_TRACES=true
+    enableOtelGraphqlTraces: ${ENABLE_OTEL_GRAPHQL_TRACES:false}
+
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}
   lineageEnabled: ${CHROME_EXTENSION_LINEAGE_ENABLED:true}
@@ -1394,6 +1527,10 @@ metadataChangeProposal:
       enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
     extensions:
       enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
+    urlValidation:
+      enabled: ${MCP_VALIDATION_URL_ENABLED:true}
+      allowHttp: ${MCP_VALIDATION_URL_ALLOW_HTTP:false}
+      extraDenyHosts: ${MCP_VALIDATION_URL_EXTRA_DENY_HOSTS:}
   sideEffects:
     schemaField:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}
@@ -1435,6 +1572,8 @@ metadataChangeLog:
     batch:
       enabled: ${MCL_CONSUMER_BATCH_ENABLED:false}
       size: ${MCL_CONSUMER_BATCH_SIZE:1048576}
+      maxMessages: ${MCL_CONSUMER_BATCH_MAX_MESSAGES:500}
+      maxAgeMs: ${MCL_CONSUMER_BATCH_MAX_AGE_MS:1000}
   throttle:
     timeseries:
       entityIndex:

@@ -21,6 +21,7 @@ type Props = {
 };
 
 const HEADER_AND_PAGINATION_HEIGHT_PX = 130;
+const TABLE_SCROLL_X = 'max-content' as const;
 
 const TableContainer = styled.div`
     overflow: hidden;
@@ -91,7 +92,7 @@ export const AcrylAssertionListTable = ({ assertionData, refetch, contract }: Pr
                     showHeader
                     scroll={{
                         y: tableHeight,
-                        x: 'max-content',
+                        x: TABLE_SCROLL_X,
                     }}
                     pagination={{
                         pageSize: 50,

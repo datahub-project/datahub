@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
+import { SQL_LANGUAGE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
 
 const Statement = styled.div<{ fullHeight?: boolean; isCompact?: boolean }>`
     background-color: ${(props) => props.theme.colors.bgSurface};
@@ -55,7 +56,7 @@ export default function QueryCardQuery({ query, showDetails, onClickExpand, inde
             data-testid={`query-content-${index}`}
             isCompact={isCompact}
         >
-            <NestedSyntax showLineNumbers language="sql" isCompact={isCompact}>
+            <NestedSyntax showLineNumbers language={SQL_LANGUAGE} isCompact={isCompact}>
                 {query}
                 {query}
             </NestedSyntax>

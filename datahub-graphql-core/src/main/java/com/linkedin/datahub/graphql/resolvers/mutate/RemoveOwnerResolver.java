@@ -38,7 +38,7 @@ public class RemoveOwnerResolver implements DataFetcher<CompletableFuture<Boolea
             ? null
             : Urn.createFromString(input.getOwnershipTypeUrn());
 
-    OwnerUtils.validateAuthorizedToUpdateOwners(context, targetUrn, _entityClient);
+    OwnerUtils.validateAuthorizedToUpdateOwners(context, targetUrn, _entityClient, _entityService);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

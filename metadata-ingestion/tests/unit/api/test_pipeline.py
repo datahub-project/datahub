@@ -1,6 +1,9 @@
+import json
 import pathlib
+import tempfile
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
 from typing import Iterable, List, Optional, cast
 from unittest.mock import MagicMock, patch
 
@@ -688,22 +691,45 @@ class TestSinkReportTimingOnClose:
     def _create_real_pipeline_with_realistic_sink(self):
         """Create a real Pipeline instance with a realistic sink using Pipeline.create()"""
 
+        from datahub.cli.datapack.loader import IndexFileEntry
+        from datahub.cli.datapack.models import DataPackInfo, TrustTier
         from datahub.ingestion.run.pipeline import Pipeline
 
         # Create realistic sink
         sink = RealisticDatahubRestSink()
 
-        # Create pipeline using Pipeline.create() like the existing tests do
-        # Use demo data source which is simpler and doesn't require external dependencies
-        pipeline = Pipeline.create(
-            {
-                "source": {
-                    "type": "demo-data",
-                    "config": {},
-                },
-                "sink": {"type": "console"},  # Use console sink to avoid network issues
-            }
+        mock_pack = DataPackInfo(
+            name="bootstrap",
+            description="test",
+            url="https://example.com/bootstrap.json",
+            trust=TrustTier.VERIFIED,
         )
+
+        # demo-data now pre-ingests via datapack loader; avoid network and ~/.datahubenv
+        with (
+            patch("datahub.cli.datapack.loader.check_trust"),
+            patch("datahub.cli.datapack.registry.get_pack", return_value=mock_pack),
+            patch("datahub.cli.datapack.loader.ingest_datapack_file_entries"),
+            patch("datahub.cli.datapack.loader.download_pack") as mock_download,
+            tempfile.NamedTemporaryFile(suffix=".json", mode="w") as pack_file,
+        ):
+            json.dump([], pack_file)
+            pack_file.flush()
+            mock_download.return_value = [IndexFileEntry(path=Path(pack_file.name))]
+
+            # Create pipeline using Pipeline.create() like the existing tests do
+            # Use demo data source which is simpler and doesn't require external dependencies
+            pipeline = Pipeline.create(
+                {
+                    "source": {
+                        "type": "demo-data",
+                        "config": {},
+                    },
+                    "sink": {
+                        "type": "console"
+                    },  # Use console sink to avoid network issues
+                }
+            )
 
         # Replace the sink with our realistic sink and register it with the exit_stack
         # This ensures the context manager calls close() on our realistic sink

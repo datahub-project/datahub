@@ -89,6 +89,21 @@ export default defineConfig(async ({ mode }) => {
 
     const isHttps = process.env.REACT_APP_HTTPS === 'true';
     const devPlugins: PluginOption[] = mode === 'development' ? [injectMeticulous()] : [];
+
+    if (mode === 'development') {
+        const localesDir = path.resolve(__dirname, 'src/i18n/locales');
+        const { i18nextHMRPlugin } = await import('i18next-hmr/vite');
+        devPlugins.push(i18nextHMRPlugin({ localesDir }));
+        // i18nextHMRPlugin sends the WS event but returns undefined, letting Vite fall through
+        // to a full-page reload for files not in the module graph. Return [] to suppress it.
+        devPlugins.push({
+            name: 'i18next-hmr-suppress-reload',
+            handleHotUpdate({ file }) {
+                return file.startsWith(localesDir) && file.endsWith('.json') ? [] : undefined;
+            },
+        });
+    }
+
     if (isHttps) {
         devPlugins.push(
             basicSsl({
@@ -119,6 +134,8 @@ export default defineConfig(async ({ mode }) => {
                     { src: path.resolve(__dirname, 'src/images/*'), dest: 'assets/platforms' },
                     // Also keep the theme json files in the build directory
                     { src: path.resolve(__dirname, 'src/conf/theme/*.json'), dest: 'assets/conf/theme' },
+                    // i18n locale files — served at /assets/locales/{{lng}}/{{ns}}.json
+                    { src: path.resolve(__dirname, 'src/i18n/locales'), dest: 'assets' },
                 ],
             }),
             viteStaticCopy({
@@ -169,6 +186,15 @@ export default defineConfig(async ({ mode }) => {
             reportCompressedSize: false,
             // Limit number of worker threads to reduce CPU pressure
             workers: 3, // default is number of CPU cores
+            rollupOptions: {
+                output: {
+                    // Split locale JSON files into per-language chunks
+                    manualChunks(id: string) {
+                        const match = id.match(/\/locales\/([^/]+)\/[^/]+\.json$/);
+                        return match ? match[1] : undefined;
+                    },
+                },
+            },
         },
         server: {
             open: false,

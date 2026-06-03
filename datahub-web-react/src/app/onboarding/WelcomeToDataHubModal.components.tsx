@@ -82,7 +82,7 @@ export const StyledDocsLink = styled.a`
     padding: 10px 12px;
 
     &:hover {
-        background-color: ${(props) => props.theme.colors.bgSurface};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 

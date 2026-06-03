@@ -386,6 +386,7 @@ entities:
       - assertionActions
       - status
       - globalTags
+      - ownership
   - name: dataHubRetention
     category: internal
     keyAspect: dataHubRetentionKey

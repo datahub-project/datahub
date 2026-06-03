@@ -2,12 +2,48 @@ source:
   type: hana
   config:
     # Coordinates
-    host_port: localhost:39041
-    database: dbname
+    host_port: "hana.example.com:30015"
+    # Optional: set to query a specific HANA tenant database
+    # database: "TENANT_DB"
 
     # Credentials
-    username: ${HANA_USER}
-    password: ${HANA_PASS}
+    username: "${HANA_USER}"
+    password: "${HANA_PASS}"
 
-sink:
-  # sink configs
+    # (Optional) Uncomment and update to filter ingested schemas
+    # schema_pattern:
+    #   allow:
+    #     - "^REPORTING$"
+    #     - "^SAPABAP1$"
+
+    # Enable to ingest activated calculation views (requires
+    # _SYS_REPO.ACTIVE_OBJECT, i.e. XS-classic repository content).
+    include_calculation_views: true
+
+    # (Optional) Filter calculation views by `<package_id>.<view_name>`.
+    # The inherited `view_pattern` filters regular SQL views and does not
+    # apply here.
+    # calculation_view_pattern:
+    #   allow:
+    #     - "^acme\\.analytics\\..*"
+
+    # Stored procedures are on by default — disable if you don't want them
+    # as DataJob entities.
+    # include_stored_procedures: false
+
+    # (Optional) Query usage from _SYS_STATISTICS.HOST_SQL_PLAN_CACHE.
+    # Requires MONITORING (or CATALOG READ) on the ingestion user and the
+    # statistics service running on the tenant. Off by default.
+    # include_query_usage: true
+    # include_usage_stats: true
+    # include_operational_stats: true
+    # usage_max_queries: 10000
+    # bucket_duration: DAY
+    # start_time: "-7 days"
+
+    profiling:
+      enabled: true
+      turn_off_expensive_profiling_metrics: true
+
+# Default sink is datahub-rest and doesn't need to be configured
+# See https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for customization options

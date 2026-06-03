@@ -13,6 +13,7 @@ export const getIsRowCountChange = (type: VolumeAssertionType) => {
     return [VolumeAssertionType.RowCountChange, VolumeAssertionType.IncrementingSegmentRowCountChange].includes(type);
 };
 
+/* untranslated-text -- sentence fragment, word order differs by language */
 export const getVolumeTypeDescription = (volumeType: VolumeAssertionType) => {
     switch (volumeType) {
         case VolumeAssertionType.RowCountTotal:
@@ -26,6 +27,7 @@ export const getVolumeTypeDescription = (volumeType: VolumeAssertionType) => {
     }
 };
 
+/* untranslated-text -- sentence fragment, word order differs by language */
 export const getOperatorDescription = (operator: AssertionStdOperator) => {
     switch (operator) {
         case AssertionStdOperator.GreaterThanOrEqualTo:
@@ -39,6 +41,7 @@ export const getOperatorDescription = (operator: AssertionStdOperator) => {
     }
 };
 
+/* untranslated-text -- sentence fragment, ' and ' between range values cannot be independently translated */
 export const getParameterDescription = (parameters: AssertionStdParameters) => {
     if (parameters.value) {
         return formatNumberWithoutAbbreviation(
@@ -55,6 +58,7 @@ export const getParameterDescription = (parameters: AssertionStdParameters) => {
     throw new Error('Invalid assertion parameters provided');
 };
 
+/* untranslated-text -- sentence fragment, word order differs by language */
 export const getValueChangeTypeDescription = (valueChangeType: AssertionValueChangeType) => {
     switch (valueChangeType) {
         case AssertionValueChangeType.Absolute:

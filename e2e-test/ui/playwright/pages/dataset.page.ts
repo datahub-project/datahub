@@ -29,30 +29,75 @@ export class DatasetPage extends BasePage {
   readonly tagAddedToast: Locator;
   readonly tagRemovedToast: Locator;
 
+  // ── Close ─────────────────────────────────────────────────────────────────
+  readonly modalCloseButton: Locator;
+
+  // ── Ownership ────────────────────────────────────────────────────────────
+  readonly addOwnersButton: Locator;
+  readonly addOwnersSelect: Locator;
+  readonly addOwnersSelectBase: Locator;
+  readonly ownerDropdownSearchInput: Locator;
+  readonly addOwnersSelectDropdown: Locator;
+  readonly ownersDoneButton: Locator;
+  readonly ownersAddedToast: Locator;
+  readonly ownerRemovedToast: Locator;
+  readonly ownerRemoveConfirmButton: Locator;
+
+  // ── Business Attribute ────────────────────────────────────────────────────
+  readonly businessAttributeSection: Locator;
+  readonly businessAttributeModalInput: Locator;
+  readonly businessAttributeOption: Locator;
+  readonly addAttributeFromModalBtn: Locator;
+
+  // ── Schema Field Drawer ────────────────────────────────────────────────────
+  readonly fieldDrawer: Locator;
+
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
 
     this.modalComponent = new ModalComponent(page);
     this.confirmationComponent = new ConfirmationModalComponent(page);
 
-    this.datasetName = page.locator('[data-testid="dataset-name"]');
-    this.schemaTab = page.locator('[data-testid="schema-tab"]');
-    this.lineageTab = page.locator('[data-testid="lineage-tab"]');
-    this.propertiesTab = page.locator('[data-testid="properties-tab"]');
+    this.datasetName = page.getByTestId('dataset-name');
+    this.schemaTab = page.getByTestId('schema-tab');
+    this.lineageTab = page.getByTestId('lineage-tab');
+    this.propertiesTab = page.getByTestId('Properties-entity-tab-header');
 
+    // eslint-disable-next-line playwright/no-raw-locators -- HTML id set by EntityProfileCard; no data-testid equivalent
     this.sidebarGlossarySection = page.locator('#entity-profile-glossary-terms');
-    this.addTermsButton = this.sidebarGlossarySection.locator('[data-testid="add-terms-button"]');
-    this.tagTermOption = page.locator('[data-testid="tag-term-option"]').first();
-    this.addTagTermConfirmButton = page.locator('[data-testid="add-tag-term-from-modal-btn"]');
+    this.addTermsButton = this.sidebarGlossarySection.getByTestId('add-terms-button');
+    this.tagTermOption = page.getByTestId('tag-term-option').first();
+    this.addTagTermConfirmButton = page.getByTestId('add-tag-term-from-modal-btn');
 
+    // eslint-disable-next-line playwright/no-raw-locators -- HTML id set by EntityProfileCard; no data-testid equivalent
     this.tagsSectionContainer = page.locator('#entity-profile-tags');
     this.addTagsButton = this.tagsSectionContainer.getByTestId('add-tags-button');
     this.tagTermModalInput = page.getByTestId('tag-term-modal-input');
-    this.tagTermInput = this.tagTermModalInput.locator('input');
+    // AntD Select renders its inner input with role="combobox", not "textbox".
+    this.tagTermInput = this.tagTermModalInput.getByRole('combobox');
     this.addTagFromModalButton = page.getByTestId('add-tag-term-from-modal-btn');
     this.tagUnassignConfirmButton = page.getByTestId('modal-confirm-button');
     this.tagAddedToast = page.getByText('Added Tags!');
     this.tagRemovedToast = page.getByText('Removed Tag!');
+
+    this.modalCloseButton = page.getByRole('button', { name: 'Close' });
+
+    this.addOwnersButton = page.getByTestId('add-owners-button').first();
+    this.addOwnersSelect = page.getByTestId('add-owners-select');
+    this.addOwnersSelectBase = page.getByTestId('add-owners-select-base');
+    this.ownerDropdownSearchInput = page.getByTestId('dropdown-search-input');
+    this.addOwnersSelectDropdown = page.getByTestId('add-owners-select-dropdown');
+    this.ownersDoneButton = page.getByRole('dialog').getByText('Done');
+    this.ownersAddedToast = page.getByText('Owners Added');
+    this.ownerRemovedToast = page.getByText('Owner Removed');
+    this.ownerRemoveConfirmButton = page.getByRole('dialog').getByText('Yes');
+
+    this.businessAttributeSection = page.getByTestId('sidebar-section-content-Business Attribute');
+    this.businessAttributeModalInput = page.getByTestId('business-attribute-modal-input');
+    this.businessAttributeOption = page.getByTestId('business-attribute-option');
+    this.addAttributeFromModalBtn = page.getByTestId('add-attribute-from-modal-btn');
+
+    this.fieldDrawer = page.getByTestId('schema-field-drawer-content');
   }
 
   // ── Dynamic locators ──────────────────────────────────────────────────────
@@ -62,6 +107,7 @@ export class DatasetPage extends BasePage {
   }
 
   getTagOption(tagName: string): Locator {
+    // eslint-disable-next-line playwright/no-raw-locators -- AntD Select option uses name attribute; no semantic equivalent
     return this.page.locator(`[name="${tagName}"]`);
   }
 
@@ -77,11 +123,11 @@ export class DatasetPage extends BasePage {
   }
 
   getGlossaryTermLocator(termName: string): Locator {
-    return this.page.locator(`[data-testid="term-${termName}"]`);
+    return this.page.getByTestId(`term-${termName}`);
   }
 
   getGlossaryTermRemoveButtonLocator(glossaryTermLocator: Locator): Locator {
-    return glossaryTermLocator.locator('[data-testid="remove-icon"]');
+    return glossaryTermLocator.getByTestId('remove-icon');
   }
 
   async addGlossaryTerm(termName: string): Promise<void> {
@@ -138,20 +184,35 @@ export class DatasetPage extends BasePage {
     await this.waitForPageLoad();
   }
 
+  async viewProperties(): Promise<void> {
+    await this.propertiesTab.click();
+    await this.waitForPageLoad();
+  }
+
   async getDatasetName(): Promise<string> {
     return (await this.datasetName.textContent()) || '';
   }
 
   async closeAnyOpenModal(): Promise<void> {
-    const closeButton = this.page.locator('button[aria-label="Close"]');
-    if (await closeButton.isVisible()) {
-      await closeButton.click();
+    if (await this.modalCloseButton.isVisible()) {
+      await this.modalCloseButton.click();
     }
+  }
+
+  async clickSchemaFieldByName(fieldName: string): Promise<void> {
+    this.logger?.step('clickSchemaFieldByName', { fieldName });
+    await this.page.getByText(fieldName, { exact: true }).click();
+  }
+
+  async waitForFieldDrawer(timeout: number = 15000): Promise<void> {
+    this.logger?.step('waitForFieldDrawer');
+    await this.fieldDrawer.waitFor({ state: 'visible', timeout });
   }
 
   async clickSchemaField(fieldName: string): Promise<void> {
     // Use the row's id attribute (set by SchemaTable's onRow handler) so the click
     // reliably hits the row element and triggers the SchemaFieldDrawer to open.
+    // eslint-disable-next-line playwright/no-raw-locators -- SchemaTable sets id="column-<name>" on rows; no data-testid equivalent
     await this.page.locator(`#column-${fieldName}`).click();
   }
 
@@ -160,53 +221,42 @@ export class DatasetPage extends BasePage {
 
     // The V2 schema field drawer renders the business attribute section inside SidebarSection.
     // SidebarSection sets data-testid="sidebar-section-content-{title}" on its content container.
-    const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
-    await businessAttributeSection.waitFor({ state: 'visible', timeout: 15000 });
+    await this.businessAttributeSection.waitFor({ state: 'visible', timeout: 15000 });
     // The ant-drawer-body intercepts pointer events so .hover() fails.
     // Scroll the section into view and dispatch a mouseover event to reveal the "Add Attribute"
     // button (CSS :hover), then click it via the native DOM click to bypass overlay checks.
-    await businessAttributeSection.evaluate((el: HTMLElement) => el.scrollIntoView({ block: 'center' }));
-    await businessAttributeSection.dispatchEvent('mouseover');
-    const addButton = businessAttributeSection.locator('text=Add Attribute');
+    await this.businessAttributeSection.evaluate((el: HTMLElement) => el.scrollIntoView({ block: 'center' }));
+    await this.businessAttributeSection.dispatchEvent('mouseover');
+    const addButton = this.businessAttributeSection.getByText('Add Attribute');
     // If the attribute is already set (e.g. from seed data), "Add Attribute" won't be present — skip.
     if ((await addButton.count()) === 0) return;
     await addButton.evaluate((el: HTMLElement) => el.click());
 
     // The Select component requires typing into the inner search input, not fill() on the outer wrapper.
-    const modalSearchInput = this.page
-      .locator('[data-testid="business-attribute-modal-input"]')
-      .locator('.ant-select-selection-search-input');
+    // eslint-disable-next-line playwright/no-raw-locators -- AntD Select internal search input; no semantic equivalent
+    const modalSearchInput = this.businessAttributeModalInput.locator('.ant-select-selection-search-input');
     await modalSearchInput.fill(attributeName);
 
     // Wait for options to appear, then use ArrowDown + Enter to select without depending on click position.
-    await this.page.locator('[data-testid="business-attribute-option"]').first().waitFor({ state: 'visible' });
+    await this.businessAttributeOption.first().waitFor({ state: 'visible' });
     await modalSearchInput.press('ArrowDown');
     await modalSearchInput.press('Enter');
 
     // Once an option is selected the Done button becomes enabled.
     // Use evaluate+click() to trigger the React onClick via the native DOM click method,
     // bypassing the Playwright actionability check that fails due to the modal body overlay.
-    const doneBtn = this.page.locator('[data-testid="add-attribute-from-modal-btn"]');
-    await doneBtn.waitFor({ state: 'visible' });
-    await expect(doneBtn).toBeEnabled();
-    await doneBtn.evaluate((el: HTMLElement) => el.click());
-    await expect(doneBtn).toBeHidden();
+    await this.addAttributeFromModalBtn.waitFor({ state: 'visible' });
+    await expect(this.addAttributeFromModalBtn).toBeEnabled();
+    await this.addAttributeFromModalBtn.evaluate((el: HTMLElement) => el.click());
+    await expect(this.addAttributeFromModalBtn).toBeHidden();
 
-    await expect(businessAttributeSection.getByText(attributeName)).toBeVisible();
-  }
-
-  getBusinessAttributeSection(_fieldName: string): Locator {
-    // In the V2 entity view, the schema field drawer renders a SidebarSection with
-    // data-testid="sidebar-section-content-Business Attribute" for the business attribute content.
-    return this.page.locator('[data-testid="sidebar-section-content-Business Attribute"]');
+    await expect(this.businessAttributeSection.getByText(attributeName)).toBeVisible();
   }
 
   async removeBusinessAttributeFromField(fieldName: string, attributeName: string): Promise<void> {
-    const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
-
     // In V2 the close icon may be an img element; use [aria-label="close"] to match both
     // the old span[aria-label=close] (Ant Design v4) and new img[aria-label="close"] (V2).
-    const closeIcon = businessAttributeSection.locator('[aria-label="close"]').first();
+    const closeIcon = this.businessAttributeSection.getByLabel('close').first();
     // Use evaluate to click directly, bypassing viewport and pointer-event intercept checks.
     await closeIcon.evaluate((el: HTMLElement) => {
       el.scrollIntoView({ block: 'center' });
@@ -218,17 +268,15 @@ export class DatasetPage extends BasePage {
     await this.page.getByRole('dialog').getByRole('button', { name: 'Yes' }).click({ force: true });
     await this.page.waitForLoadState('networkidle');
 
-    await expect(businessAttributeSection.getByText(attributeName)).not.toBeVisible({ timeout: 15000 });
+    await expect(this.businessAttributeSection.getByText(attributeName)).not.toBeVisible({ timeout: 15000 });
   }
 
-  async expectBusinessAttributeOnField(fieldName: string, attributeName: string): Promise<void> {
-    const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
-    await expect(businessAttributeSection.getByText(attributeName)).toBeVisible();
+  async expectBusinessAttributeOnField(_fieldName: string, attributeName: string): Promise<void> {
+    await expect(this.businessAttributeSection.getByText(attributeName)).toBeVisible();
   }
 
-  async expectBusinessAttributeNotOnField(fieldName: string, attributeName: string): Promise<void> {
-    const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
-    await expect(businessAttributeSection.getByText(attributeName)).toBeHidden();
+  async expectBusinessAttributeNotOnField(_fieldName: string, attributeName: string): Promise<void> {
+    await expect(this.businessAttributeSection.getByText(attributeName)).toBeHidden();
   }
 
   async expectTagOnFieldFromAttribute(fieldName: string, tagName: string): Promise<void> {
@@ -244,17 +292,18 @@ export class DatasetPage extends BasePage {
   // ── Ownership helpers (V1 UI) ─────────────────────────────────────────────
 
   async addOwner(owner: string, ownerType: string): Promise<void> {
-    await this.page.locator('[data-testid="add-owners-button"]').first().click({ force: true });
-    await expect(this.page.locator('[data-testid="add-owners-select"]')).toBeVisible({ timeout: 10000 });
-    await this.page.locator('[data-testid="add-owners-select-base"]').click({ force: true });
-    await this.page.locator('[data-testid="dropdown-search-input"]').fill(owner);
-    await this.page.locator('[data-testid="add-owners-select-dropdown"]').getByText(owner).click({ force: true });
+    await this.addOwnersButton.click({ force: true });
+    await expect(this.addOwnersSelect).toBeVisible({ timeout: 10000 });
+    await this.addOwnersSelectBase.click({ force: true });
+    await this.ownerDropdownSearchInput.fill(owner);
+    await this.addOwnersSelectDropdown.getByText(owner).click({ force: true });
     await expect(this.page.getByText(owner)).toBeVisible();
     await this.page.getByRole('dialog').getByText('Technical Owner').click();
+    // eslint-disable-next-line playwright/no-raw-locators -- XPath parent traversal (..) has no semantic Playwright equivalent
     await this.page.getByRole('listbox').locator('..').getByText(ownerType).click();
     await expect(this.page.getByRole('dialog').getByText(ownerType)).toBeVisible();
-    await this.page.getByText('Done').click();
-    await expect(this.page.getByText('Owners Added')).toBeVisible({ timeout: 15000 });
+    await this.ownersDoneButton.click();
+    await expect(this.ownersAddedToast).toBeVisible({ timeout: 15000 });
     await expect(this.page.getByText(ownerType)).toBeVisible();
     await expect(this.page.getByText(owner)).toBeVisible();
   }
@@ -262,9 +311,10 @@ export class DatasetPage extends BasePage {
   // elementId is a dynamic selector (e.g. href targeting a specific user/group URN)
   // so it is passed in from the test rather than hardcoded here.
   async removeOwner(owner: string, elementId: string): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- dynamic href/id selector passed from test; no semantic equivalent
     await this.page.locator(elementId).locator('xpath=following-sibling::*[1]').click();
-    await this.page.getByText('Yes').click();
-    await expect(this.page.getByText('Owner Removed')).toBeVisible({ timeout: 15000 });
+    await this.ownerRemoveConfirmButton.click();
+    await expect(this.ownerRemovedToast).toBeVisible({ timeout: 15000 });
     await expect(this.page.getByText(owner)).not.toBeVisible({ timeout: 10000 });
   }
 

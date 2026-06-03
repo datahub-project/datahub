@@ -292,7 +292,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
             if self.config.include_glossary_term_associations:
                 # Project numbers are required for the lookupEntryLinks term entry path.
-                # Requires roles/resourcemanager.projectViewer on all configured projects.
+                # Requires a role granting resourcemanager.projects.get (e.g. roles/browser)
+                # on all configured projects.
                 try:
                     self.ctx_data.project_numbers = _resolve_project_numbers(
                         self._project_ids, credentials
@@ -302,7 +303,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                         title="Failed to resolve GCP project numbers",
                         message=(
                             "Could not resolve project numbers via the Resource Manager API. "
-                            "Ensure the service account has roles/resourcemanager.projectViewer "
+                            "Ensure the service account has a role granting "
+                            "resourcemanager.projects.get (e.g. roles/browser) "
                             "on all configured projects."
                         ),
                         context=str(self._project_ids),

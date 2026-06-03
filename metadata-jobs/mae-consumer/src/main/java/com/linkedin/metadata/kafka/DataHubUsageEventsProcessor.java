@@ -1,20 +1,17 @@
 package com.linkedin.metadata.kafka;
 
-import static com.linkedin.metadata.config.kafka.KafkaConfiguration.SIMPLE_EVENT_CONSUMER_NAME;
-
-import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.metadata.kafka.config.DataHubUsageEventsProcessorCondition;
-import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
-import com.linkedin.metadata.kafka.elasticsearch.JsonElasticEvent;
+import com.linkedin.metadata.kafka.config.UsageEventsIndexingConfiguration;
 import com.linkedin.metadata.kafka.transformer.DataHubUsageEventTransformer;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.kafka.usage.DataHubUsageEventIndexer;
+import com.linkedin.metadata.pgqueue.PgQueueStringDecode;
+import com.linkedin.metadata.queue.QueueReceivedMessage;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -22,94 +19,146 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Import;
-import org.springframework.kafka.annotation.EnableKafka;
-import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@EnableKafka
 @Conditional(DataHubUsageEventsProcessorCondition.class)
-@Import({SimpleKafkaConsumerFactory.class})
+@Import({UsageEventsIndexingConfiguration.class})
 public class DataHubUsageEventsProcessor {
   public static final String DATAHUB_USAGE_EVENT_KAFKA_CONSUMER_GROUP_VALUE =
       "${DATAHUB_USAGE_EVENT_KAFKA_CONSUMER_GROUP_ID:datahub-usage-event-consumer-job-client}";
 
-  private final ElasticsearchConnector elasticSearchConnector;
+  private final DataHubUsageEventIndexer usageEventIndexer;
   private final DataHubUsageEventTransformer dataHubUsageEventTransformer;
-  private final String indexName;
   private final OperationContext systemOperationContext;
 
   @Value(DATAHUB_USAGE_EVENT_KAFKA_CONSUMER_GROUP_VALUE)
   private String datahubUsageEventConsumerGroupId;
 
   public DataHubUsageEventsProcessor(
-      ElasticsearchConnector elasticSearchConnector,
+      DataHubUsageEventIndexer usageEventIndexer,
       DataHubUsageEventTransformer dataHubUsageEventTransformer,
-      IndexConvention indexConvention,
       @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
-    this.elasticSearchConnector = elasticSearchConnector;
+    this.usageEventIndexer = usageEventIndexer;
     this.dataHubUsageEventTransformer = dataHubUsageEventTransformer;
-    this.indexName = indexConvention.getIndexName("datahub_usage_event");
     this.systemOperationContext = systemOperationContext;
   }
 
-  @KafkaListener(
-      id = DATAHUB_USAGE_EVENT_KAFKA_CONSUMER_GROUP_VALUE,
-      topics = "${DATAHUB_USAGE_EVENT_NAME:" + Topics.DATAHUB_USAGE_EVENT + "}",
-      containerFactory = SIMPLE_EVENT_CONSUMER_NAME,
-      autoStartup = "false")
-  public void consume(final ConsumerRecord<String, String> consumerRecord) {
+  /**
+   * Batch listener: Spring Kafka delivers a List of records per poll; we transform each, then hand
+   * the whole batch to the indexer in a single {@link DataHubUsageEventIndexer#indexBatch(List)}
+   * call so storage-aware impls (Postgres) can commit them in one transaction. Mirrors the pattern
+   * used by {@code BatchMetadataChangeProposalsProcessor}.
+   */
+  public void consume(final List<ConsumerRecord<String, String>> consumerRecords) {
+    indexBatch(
+        consumerRecords.stream()
+            .map(
+                record ->
+                    new UsageEventInput(
+                        record.topic(),
+                        record.key(),
+                        record.partition(),
+                        record.offset(),
+                        record.serializedValueSize(),
+                        record.timestamp(),
+                        record.value(),
+                        () -> recordKafkaLag(record)))
+            .toList());
+  }
+
+  /** pgQueue transport: same indexing path as {@link #consume(List)}. */
+  public void consume(String logicalTopic, final List<QueueReceivedMessage> messages) {
+    indexBatch(
+        messages.stream()
+            .map(
+                msg -> {
+                  String payload = PgQueueStringDecode.decodeAsUtf8(msg);
+                  return new UsageEventInput(
+                      logicalTopic,
+                      msg.routingKey(),
+                      msg.handle().partitionId(),
+                      msg.handle().enqueueSeq(),
+                      payload.length(),
+                      msg.handle().enqueuedAt().toEpochMilli(),
+                      payload,
+                      () -> recordPgQueueLag(logicalTopic, msg));
+                })
+            .toList());
+  }
+
+  private void indexBatch(List<UsageEventInput> inputs) {
     systemOperationContext.withSpan(
         "consume",
         () -> {
-          systemOperationContext
-              .getMetricUtils()
-              .ifPresent(
-                  metricUtils -> {
-                    long queueTimeMs = System.currentTimeMillis() - consumerRecord.timestamp();
+          List<DataHubUsageEventIndexer.IndexableUsageEvent> events =
+              new ArrayList<>(inputs.size());
+          for (UsageEventInput input : inputs) {
+            input.recordLag().run();
+            log.debug(
+                "Got DUE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
+                input.key(),
+                input.logicalTopic(),
+                input.partition(),
+                input.offset(),
+                input.valueSize(),
+                input.timestampMillis());
 
-                    // Dropwizard legacy
-                    metricUtils.histogram(this.getClass(), "kafkaLag", queueTimeMs);
-
-                    // Micrometer with tags
-                    // TODO: include priority level when available
-                    metricUtils
-                        .getRegistry()
-                        .timer(
-                            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-                            "topic",
-                            consumerRecord.topic(),
-                            "consumer.group",
-                            datahubUsageEventConsumerGroupId)
-                        .record(Duration.ofMillis(queueTimeMs));
-                  });
-          final String record = consumerRecord.value();
-
-          log.debug(
-              "Got DUE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
-              consumerRecord.key(),
-              consumerRecord.topic(),
-              consumerRecord.partition(),
-              consumerRecord.offset(),
-              consumerRecord.serializedValueSize(),
-              consumerRecord.timestamp());
-
-          Optional<DataHubUsageEventTransformer.TransformedDocument> eventDocument =
-              dataHubUsageEventTransformer.transformDataHubUsageEvent(record);
-          if (eventDocument.isEmpty()) {
-            log.warn("Failed to apply usage events transform to record: {}", record);
-            return;
+            Optional<DataHubUsageEventTransformer.TransformedDocument> eventDocument =
+                dataHubUsageEventTransformer.transformDataHubUsageEvent(input.payload());
+            if (eventDocument.isEmpty()) {
+              log.warn("Failed to apply usage events transform to record: {}", input.payload());
+              continue;
+            }
+            String documentId = generateDocumentId(eventDocument.get().getId(), input.offset());
+            events.add(
+                new DataHubUsageEventIndexer.IndexableUsageEvent(eventDocument.get(), documentId));
           }
-          JsonElasticEvent elasticEvent = new JsonElasticEvent(eventDocument.get().getDocument());
-          elasticEvent.setId(
-              generateDocumentId(eventDocument.get().getId(), consumerRecord.offset()));
-          elasticEvent.setIndex(indexName);
-          elasticEvent.setActionType(ChangeType.CREATE);
-          elasticSearchConnector.feedElasticEvent(elasticEvent);
+          usageEventIndexer.indexBatch(events);
         },
         MetricUtils.DROPWIZARD_NAME,
         MetricUtils.name(this.getClass(), "consume"));
+  }
+
+  private record UsageEventInput(
+      String logicalTopic,
+      String key,
+      int partition,
+      long offset,
+      int valueSize,
+      long timestampMillis,
+      String payload,
+      Runnable recordLag) {}
+
+  private void recordPgQueueLag(String logicalTopic, QueueReceivedMessage msg) {
+    systemOperationContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils ->
+                MetricUtils.recordInboundMessageQueueLag(
+                    metricUtils,
+                    this.getClass(),
+                    logicalTopic,
+                    datahubUsageEventConsumerGroupId,
+                    msg.handle().enqueuedAt().toEpochMilli(),
+                    MetricUtils.MESSAGING_SYSTEM_PGQUEUE,
+                    msg.priority()));
+  }
+
+  private void recordKafkaLag(ConsumerRecord<String, String> consumerRecord) {
+    systemOperationContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils ->
+                MetricUtils.recordInboundMessageQueueLag(
+                    metricUtils,
+                    this.getClass(),
+                    consumerRecord.topic(),
+                    datahubUsageEventConsumerGroupId,
+                    consumerRecord.timestamp(),
+                    MetricUtils.MESSAGING_SYSTEM_KAFKA,
+                    null));
   }
 
   /**

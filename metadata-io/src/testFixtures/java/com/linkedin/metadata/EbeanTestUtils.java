@@ -24,9 +24,6 @@ public class EbeanTestUtils {
     config.setName(serverName);
     config.setDefaultServer(false); // Explicitly set as non-default to avoid conflicts
 
-    // Add the required entity packages for DataHub
-    config.getPackages().add("com.linkedin.metadata.entity.ebean");
-
     return DatabaseFactory.create(config);
   }
 
@@ -44,6 +41,8 @@ public class EbeanTestUtils {
     serverConfig.setDataSourceConfig(dataSourceConfig);
     serverConfig.setDdlGenerate(true);
     serverConfig.setDdlRun(true);
+    serverConfig.getPackages().add("com.linkedin.metadata.entity.ebean");
+    serverConfig.getPackages().add("com.linkedin.metadata.queue.ebean");
 
     return serverConfig;
   }

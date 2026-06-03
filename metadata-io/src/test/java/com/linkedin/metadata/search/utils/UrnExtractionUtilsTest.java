@@ -41,7 +41,7 @@ public class UrnExtractionUtilsTest {
         result.toString(), "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
   }
 
-  @Test(expectedExceptions = RuntimeException.class)
+  @Test(expectedExceptions = InvalidSearchHitException.class)
   public void testExtractUrnFromSearchHit_NullUrn() {
     // Given
     Map<String, Object> sourceMap = new HashMap<>();
@@ -52,7 +52,7 @@ public class UrnExtractionUtilsTest {
     UrnExtractionUtils.extractUrnFromSearchHit(mockSearchHit);
   }
 
-  @Test(expectedExceptions = RuntimeException.class)
+  @Test(expectedExceptions = InvalidSearchHitException.class)
   public void testExtractUrnFromSearchHit_InvalidUrn() {
     // Given
     Map<String, Object> sourceMap = new HashMap<>();
@@ -60,6 +60,15 @@ public class UrnExtractionUtilsTest {
     when(mockSearchHit.getSourceAsMap()).thenReturn(sourceMap);
 
     // When/Then - should throw RuntimeException
+    UrnExtractionUtils.extractUrnFromSearchHit(mockSearchHit);
+  }
+
+  @Test(expectedExceptions = InvalidSearchHitException.class)
+  public void testExtractUrnFromSearchHit_NullSourceMap() {
+    // A hit with no _source (e.g. _source disabled or not fetched) must surface as a skippable
+    // InvalidSearchHitException, not a raw NullPointerException that crashes the search.
+    when(mockSearchHit.getSourceAsMap()).thenReturn(null);
+
     UrnExtractionUtils.extractUrnFromSearchHit(mockSearchHit);
   }
 

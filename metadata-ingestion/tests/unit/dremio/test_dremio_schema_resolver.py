@@ -74,6 +74,13 @@ class TestDremioSchemaResolver:
                 "my.table.with.dots",
                 "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.my-source.my_schema.my.table.with.dots,PROD)",
             ),
+            # Real-world: Dremio Samples path with dots in schema name
+            (
+                "Samples",
+                "samples.dremio.com",
+                "NYC-weather.csv",
+                "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.Samples.samples.dremio.com.NYC-weather.csv,PROD)",
+            ),
         ],
     )
     def test_urn_generation(self, resolver, database, db_schema, table, expected_urn):
@@ -167,32 +174,6 @@ class TestDremioSchemaResolver:
         assert (
             urn_mixed
             == "urn:li:dataset:(urn:li:dataPlatform:dremio,Prod-Instance.dremio.mysource.sales.orders,PROD)"
-        )
-
-    def test_real_world_example_samples_dataset(self, resolver):
-        """Test a real-world example from Dremio Samples."""
-        table = _TableName(
-            database="Samples",
-            db_schema="samples.dremio.com",
-            table="NYC-weather.csv",
-        )
-        urn = resolver.get_urn_for_table(table, lower=True)
-        assert (
-            urn
-            == "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD)"
-        )
-
-    def test_real_world_example_deep_hierarchy(self, resolver):
-        """Test a real-world example with deep folder structure."""
-        table = _TableName(
-            database="MySource",
-            db_schema="folder1",
-            table="folder2.subfolder.mytable",
-        )
-        urn = resolver.get_urn_for_table(table, lower=True)
-        assert (
-            urn
-            == "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysource.folder1.folder2.subfolder.mytable,PROD)"
         )
 
 

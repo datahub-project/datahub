@@ -2,6 +2,7 @@
 import { Button, PageTitle, Pagination, SearchBar, StructuredPopover } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -55,6 +56,7 @@ const LoadingBar = styled.div`
 const PAGE_SIZE = 10;
 
 const ManageTags = () => {
+    const { t } = useTranslation('misc');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -118,7 +120,7 @@ const ManageTags = () => {
     }, [searchData, debouncedSearchQuery, entityRegistry]);
 
     if (searchError) {
-        return <Message type="error" content={`Failed to load tags: ${searchError.message}`} />;
+        return <Message type="error" content={t('tags.loadError', { error: searchError.message })} />;
     }
 
     // Create the Create Tag button with proper permissions handling
@@ -126,7 +128,7 @@ const ManageTags = () => {
         if (!canCreateTags) {
             return (
                 <StructuredPopover
-                    title="You do not have permission to create tags"
+                    title={t('tags.noCreatePermissionTooltip')}
                     placement="left"
                     showArrow
                     mouseEnterDelay={0.1}
@@ -134,7 +136,7 @@ const ManageTags = () => {
                 >
                     <span>
                         <Button size="md" color="violet" icon={{ icon: Plus }} disabled>
-                            Create Tag
+                            {t('tags.createButton')}
                         </Button>
                     </span>
                 </StructuredPopover>
@@ -149,7 +151,7 @@ const ManageTags = () => {
                 icon={{ icon: Plus }}
                 data-testid="add-tag-button"
             >
-                Create Tag
+                {t('tags.createButton')}
             </Button>
         );
     };
@@ -159,13 +161,13 @@ const ManageTags = () => {
             {searchLoading && <LoadingBar />}
 
             <HeaderContainer>
-                <PageTitle title="Manage Tags" subTitle="Create and edit asset & column tags" />
+                <PageTitle title={t('tags.pageTitle')} subTitle={t('tags.pageSubtitle')} />
                 {renderCreateTagButton()}
             </HeaderContainer>
 
             <SearchContainer>
                 <SearchBar
-                    placeholder="Search tags..."
+                    placeholder={t('tags.searchPlaceholder')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e)}
                     data-testid="tag-search-input"

@@ -89,7 +89,7 @@ class UnityCatalogProfilerConfig(ConfigModel):
 
 class DeltaLakeDetails(ConfigModel):
     platform_instance_name: Optional[str] = Field(
-        default=None, description="Delta-lake paltform instance name"
+        default=None, description="Delta-lake platform instance name"
     )
     env: str = Field(default="PROD", description="Delta-lake environment")
 
@@ -295,6 +295,26 @@ class UnityCatalogSourceConfig(
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
     )
 
+    include_table_constraints: bool = pydantic.Field(
+        default=False,
+        description=(
+            "If enabled, fetches primary key and foreign key constraints for each table "
+            "via an additional tables.get() API call per table (one call per table). "
+            "Disabled by default to avoid unexpected API load on large catalogs. "
+            "Enables PK/FK visualisation in the DataHub schema view when set to true."
+        ),
+    )
+
+    include_partition_keys: bool = pydantic.Field(
+        default=False,
+        description=(
+            "If enabled, the `isPartitioningKey` field is populated on schema fields "
+            "for columns that are part of the table's partition key. "
+            "Partition key information is already present in the tables.list() response "
+            "so no additional API calls are made."
+        ),
+    )
+
     lineage_data_source: LineageDataSource = pydantic.Field(
         default=LineageDataSource.AUTO,
         description=(
@@ -353,7 +373,7 @@ class UnityCatalogSourceConfig(
         UnityCatalogAnalyzeProfilerConfig,
         UnityCatalogSQLAlchemyProfilerConfig,
     ] = Field(  # type: ignore
-        default=UnityCatalogGEProfilerConfig(),
+        default=UnityCatalogSQLAlchemyProfilerConfig(),
         description="Data profiling configuration",
         discriminator="method",
     )
@@ -439,6 +459,12 @@ class UnityCatalogSourceConfig(
 
     def is_ge_profiling(self) -> bool:
         return self.profiling.method == "ge"
+
+    def is_sqlalchemy_profiling(self) -> bool:
+        return self.profiling.method == "sqlalchemy"
+
+    def uses_table_level_profiler(self) -> bool:
+        return self.is_ge_profiling() or self.is_sqlalchemy_profiling()
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."
@@ -528,4 +554,11 @@ class UnityCatalogSourceConfig(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:
         v.deny.append(".*\\.information_schema")
+        return v
+
+    @field_validator("profiling", mode="before")
+    @classmethod
+    def _default_profiling_method(cls, v: object) -> object:
+        if isinstance(v, dict) and "method" not in v:
+            return {**v, "method": "sqlalchemy"}
         return v

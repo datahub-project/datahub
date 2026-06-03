@@ -3,6 +3,7 @@ package com.linkedin.metadata.restli;
 import static com.linkedin.gms.factory.common.LocalEbeanConfigFactory.getListenerToTrackCounts;
 
 import com.linkedin.gms.factory.common.CrossCloudIamUtils;
+import com.linkedin.gms.factory.common.EbeanPoolDefaults;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.datasource.DataSourceConfig;
 import org.springframework.beans.factory.annotation.Value;
@@ -107,6 +108,7 @@ public class EbeanServerConfig {
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
     dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
     dataSourceConfig.setListener(getListenerToTrackCounts(metricUtils, "mce-consumer"));
+    EbeanPoolDefaults.applyDefaultTransactionIsolation(dataSourceConfig);
 
     // Set custom properties for IAM authentication
     if (crossCloudConfig.customProperties != null) {

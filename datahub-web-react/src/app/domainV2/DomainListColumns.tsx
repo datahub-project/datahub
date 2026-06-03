@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
 import { Tag, Typography } from 'antd';
+import type { TFunction } from 'i18next';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -35,7 +36,7 @@ export function DomainListMenuColumn(handleDelete: (urn: string) => void) {
     );
 }
 
-export function DomainNameColumn(logoIcon: JSX.Element) {
+export function DomainNameColumn(logoIcon: JSX.Element, t: TFunction<'governance.domain'>) {
     return (record: DomainEntry) => (
         <span data-testid={record.urn}>
             <Link to={record.url}>
@@ -43,8 +44,8 @@ export function DomainNameColumn(logoIcon: JSX.Element) {
                 <DomainNameContainer>
                     <Typography.Text>{record.name}</Typography.Text>
                 </DomainNameContainer>
-                <Tooltip title={`There are ${record.entities} entities in this domain.`}>
-                    <Tag>{record.entities} entities</Tag>
+                <Tooltip title={t('column.entitiesTooltip', { formattedCount: record.entities })}>
+                    <Tag>{t('column.entitiesTag', { formattedCount: record.entities })}</Tag>
                 </Tooltip>
             </Link>
         </span>

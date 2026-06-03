@@ -47,6 +47,7 @@ class PgQueueTopicPartialConfig(ConfigModel):
     retention_max_age_seconds: Optional[int] = Field(default=None, ge=0)
     max_rows_per_topic: Optional[int] = Field(default=None, ge=0)
     max_total_payload_bytes_per_topic: Optional[int] = Field(default=None, ge=0)
+    aggressive_retention: Optional[bool] = Field(default=None)
 
 
 class PgQueueTopicDefaultsConfig(ConfigModel):
@@ -82,6 +83,13 @@ class PgQueueTopicDefaultsConfig(ConfigModel):
         default=0,
         ge=0,
         description="Max total payload bytes per topic (0 = unlimited).",
+    )
+    aggressive_retention: bool = Field(
+        default=False,
+        description=(
+            "When true, purge messages once all registered consumers have read past them "
+            "(postgres.pgQueue.topicDefaults.aggressiveRetention)."
+        ),
     )
     default_content_type_mime: str = Field(
         default="application/avro",
@@ -168,6 +176,8 @@ class PgQueueConnectionConfig(ConfigModel):
             base.max_total_payload_bytes_per_topic = (
                 partial.max_total_payload_bytes_per_topic
             )
+        if partial.aggressive_retention is not None:
+            base.aggressive_retention = partial.aggressive_retention
         return base
 
     @field_validator("host_port", mode="after")

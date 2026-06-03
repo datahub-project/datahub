@@ -1657,6 +1657,12 @@
           "supported": true
         },
         {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_query_usage` (queries) and `include_usage_stats` (rollup) \u2014 mines `_SYS_STATISTICS.HOST_SQL_PLAN_CACHE`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -1671,6 +1677,12 @@
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Derived from observed queries when `include_operational_stats` and `include_query_usage` are enabled",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1701,16 +1713,22 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hana.HanaSource",
+      "classname": "datahub.ingestion.source.sql.hana.hana.HanaSource",
       "platform_id": "hana",
       "platform_name": "SAP HANA",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "hex": {
       "capabilities": [
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Column-level lineage via SQL parsing when datahub-api is configured. The graph-backed SchemaResolver fetches table schemas from DataHub on demand to expand SELECT * and resolve column references. Graceful degradation to dataset-level when datahub-api is absent.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1741,8 +1759,20 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Status, categories, and collections emitted as tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default via queriedTables API (Hex Enterprise workspaces) or SQL parsing from cells (all Hex tiers). Applied to both projects and components. Unpublished entities always use SQL parsing. No warehouse ingestion dependency required.",
           "subtype_modifier": null,
           "supported": true
         }
@@ -4426,6 +4456,150 @@
       "platform_id": "teradata",
       "platform_name": "Teradata",
       "support_status": "TESTING"
+    },
+    "thoughtspot": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Workspaces (Orgs) emit as containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Column-level lineage from TS's pre-resolved `columns[*].sources` field on `metadata/search` (TS-internal) and from `physicalColumnName` (cross-platform external). TML edocs are consulted separately for chart-layer details (search query, source-table FQNs, chart type), not for column-level lineage.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Per-entity cumulative view counts via `metadata_search` `include_stats`; enabled by `include_usage_stats: true`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default, configured via `include_ownership`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Resolved from `/tags/search` and emitted as GlobalTags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Worksheet\u2192Table, Chart\u2192Worksheet, Dashboard\u2192Worksheet, plus cross-platform Worksheet\u2192external warehouse (Databricks / Snowflake / BigQuery / ...) configured via `external_connections`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.thoughtspot.source.ThoughtSpotSource",
+      "platform_id": "thoughtspot",
+      "platform_name": "ThoughtSpot",
+      "support_status": "INCUBATING"
+    },
+    "timescaledb": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "CLASSIFICATION",
+          "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled for continuous aggregates via column-level lineage",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.sql.timescaledb.TimescaleDBSource",
+      "platform_id": "timescaledb",
+      "platform_name": "TimescaleDB",
+      "support_status": "INCUBATING"
     },
     "trino": {
       "capabilities": [

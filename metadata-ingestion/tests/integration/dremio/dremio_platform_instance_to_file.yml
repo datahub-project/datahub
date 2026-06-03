@@ -15,6 +15,10 @@ source:
 
     include_query_lineage: false
 
+    # Exercise the A3 PATCH lineage path so the goldens (which were
+    # regenerated under this default) match runtime output.
+    incremental_lineage: true
+
     source_mappings:
       - platform: s3
         source_name: samples

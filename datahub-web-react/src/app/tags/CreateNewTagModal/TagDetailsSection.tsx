@@ -1,5 +1,6 @@
 import { ColorPicker, Input } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 // Tag details section props
@@ -31,6 +32,8 @@ const TagDetailsSection: React.FC<TagDetailsProps> = ({
     tagColor,
     setTagColor,
 }) => {
+    const { t } = useTranslation('misc');
+    const { t: tc } = useTranslation('common.labels');
     const handleTagNameChange: React.Dispatch<React.SetStateAction<string>> = (value) => {
         if (typeof value === 'function') {
             setTagName(value);
@@ -55,10 +58,10 @@ const TagDetailsSection: React.FC<TagDetailsProps> = ({
         <SectionContainer>
             <FormSection>
                 <Input
-                    label="Name"
+                    label={tc('name')}
                     value={tagName}
                     setValue={handleTagNameChange}
-                    placeholder="Enter tag name"
+                    placeholder={t('tags.namePlaceholder')}
                     data-testid="tag-name-field"
                     required
                 />
@@ -66,17 +69,17 @@ const TagDetailsSection: React.FC<TagDetailsProps> = ({
 
             <FormSection>
                 <Input
-                    label="Description"
+                    label={tc('description')}
                     value={tagDescription}
                     setValue={handleDescriptionChange}
-                    placeholder="Add a description for your new tag"
+                    placeholder={t('tags.descriptionPlaceholder')}
                     data-testid="tag-description-field"
                     type="textarea"
                 />
             </FormSection>
 
             <FormSection>
-                <ColorPicker initialColor={tagColor} onChange={handleColorChange} label="Color" />
+                <ColorPicker initialColor={tagColor} onChange={handleColorChange} label={t('tags.color')} />
             </FormSection>
         </SectionContainer>
     );

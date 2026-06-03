@@ -74,7 +74,8 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
           "Malformed input provided: owners cannot be removed from subresources.");
     }
 
-    OwnerUtils.validateAuthorizedToUpdateOwners(context, resourceUrn, _entityClient);
+    OwnerUtils.validateAuthorizedToUpdateOwners(
+        context, resourceUrn, _entityClient, _entityService);
     LabelUtils.validateResource(
         context.getOperationContext(),
         resourceUrn,

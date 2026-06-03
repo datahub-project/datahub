@@ -65,7 +65,7 @@ With the collected usage data, you can even see column-level usage statistics (R
 **DataHub 101: Data Profiling and Usage Stats 101**
 
 <p align="center">
-<iframe width="560" height="315" src="https://www.youtube.com/embed/d4S7RgWUg5U?start=254" title="DataHub 101: Data Profiling" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/d4S7RgWUg5U?start=254" title="DataHub 101: Data Profiling" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
 </p>
 
 ### GraphQL

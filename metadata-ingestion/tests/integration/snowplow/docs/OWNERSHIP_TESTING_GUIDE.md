@@ -145,8 +145,8 @@ To see ownership in the DataHub UI, you'll need a running DataHub instance.
 ### Step 1: Start DataHub
 
 ```bash
-cd /Users/treff7es/shadow/datahub
-docker-compose -f docker-compose-without-neo4j-m1.yml up -d
+cd <path-to-datahub-repo>
+./gradlew quickstartDebug
 
 # Wait for DataHub to start (2-3 minutes)
 # Check health:

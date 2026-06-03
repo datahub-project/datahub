@@ -1,0 +1,20 @@
+{
+    "logOut": "Abmelden",
+    "nav.access": "Zugriff",
+    "nav.accessTokens": "Zugriffstokens",
+    "nav.appearance": "Erscheinungsbild",
+    "nav.developer": "Entwickler",
+    "nav.features": "Funktionen",
+    "nav.homePage": "Startseite",
+    "nav.manage": "Verwalten",
+    "nav.myNotifications": "Meine Benachrichtigungen",
+    "nav.mySubscriptions": "Meine Abonnements",
+    "nav.ownershipTypes": "Ownership Types",
+    "nav.permissions": "Berechtigungen",
+    "nav.personal": "Persönlich",
+    "nav.preferences": "Präferenzen",
+    "nav.usersGroups": "Benutzer & Gruppen",
+    "nav.views": "Ansichten",
+    "subTitle": "Ihre Einstellungen verwalten",
+    "title": "Einstellungen"
+}

@@ -43,6 +43,13 @@ class FilterConfig(ConfigModel):
     event: Optional[Dict[str, Any]] = Field(default=None)
 
 
+class FilterSpec(ConfigModel):
+    """Configuration for a single pipeline filter."""
+
+    type: str
+    config: Optional[Dict[str, Any]] = Field(default=None)
+
+
 class ActionConfig(ConfigModel):
     type: str
     config: Optional[Dict[str, Any]] = Field(default=None)
@@ -67,7 +74,8 @@ class PipelineConfig(ConfigModel):
     name: str
     enabled: bool = True
     source: SourceConfig
-    filter: Optional[FilterConfig] = None
+    filter: Optional[FilterConfig] = None  # Deprecated: use `filters` instead
+    filters: Optional[List[FilterSpec]] = None
     transform: Optional[List[TransformConfig]] = None
     action: ActionConfig
     datahub: Optional[DatahubClientConfig] = None

@@ -1,19 +1,21 @@
 import { Avatar, Text } from '@components';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import { OptionType } from '@components/components/AutoComplete/types';
 import { AvatarType } from '@components/components/AvatarStack/types';
 
+import { useActorOptions } from '@app/entityV2/shared/EntitySearchSelect/useActorOptions';
 import {
     ActorEntity,
-    filterActors,
     getActorEmail,
     getActorPictureLink,
     resolveActorsFromUrns,
 } from '@app/entityV2/shared/utils/actorUtils';
-import { deduplicateEntities, entitiesToSelectOptions } from '@app/entityV2/shared/utils/selectorUtils';
-import { useGetRecommendations } from '@app/shared/recommendation';
+import { entitiesToSelectOptions } from '@app/entityV2/shared/utils/selectorUtils';
+import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
+import { addUserFiltersToAutoCompleteMultipleInput } from '@app/shared/userSearchUtils';
 import { SimpleSelect } from '@src/alchemy-components/components/Select/SimpleSelect';
 import EntityIcon from '@src/app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
@@ -48,8 +50,11 @@ interface ActorsSearchSelectProps {
     onUpdate: (selectedActors: ActorEntity[]) => void;
     placeholder?: string;
     label?: string;
-    defaultActors?: ActorEntity[];
+    entityUrn?: string;
+    includeCurrentUser?: boolean;
+    includeCurrentUserGroups?: boolean;
     isDisabled?: boolean;
+    isLoading?: boolean;
     width?: number | 'full' | 'fit-content';
     showSearch?: boolean;
     entityTypes?: EntityType[];
@@ -59,9 +64,7 @@ interface ActorsSearchSelectProps {
 /**
  * A specialized search and selection component for actors (CorpUser and CorpGroup entities).
  * Built on top of SimpleSelect with actor-specific features like recommendations,
- * avatar rendering, and placeholder support.
- *
- * TODO: Support resolving selected entities from selectedActorUrns on initial render.
+ * avatar rendering, selected actor hydration, and contextual empty-state options.
  */
 const DEFAULT_ACTOR_TYPES = [EntityType.CorpUser, EntityType.CorpGroup];
 
@@ -70,29 +73,19 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     onUpdate,
     placeholder = 'Search for users or groups',
     label,
-    defaultActors: placeholderActors,
+    entityUrn,
+    includeCurrentUser = true,
+    includeCurrentUserGroups = true,
     isDisabled = false,
+    isLoading = false,
     width = 'full',
     showSearch = true,
     entityTypes = DEFAULT_ACTOR_TYPES,
     dataTestId,
 }) => {
     const entityRegistry = useEntityRegistryV2();
-    const [selectedActorEntities, setSelectedActorEntities] = useState<ActorEntity[]>([]);
-    const hasAutoSelectedRef = useRef(false);
-
-    // Auto-select placeholder actors ONLY ONCE on initial render when no actors are selected
-    useEffect(() => {
-        if (
-            placeholderActors &&
-            placeholderActors.length > 0 &&
-            !hasAutoSelectedRef.current &&
-            selectedActorUrns.length === 0
-        ) {
-            onUpdate(placeholderActors);
-            hasAutoSelectedRef.current = true;
-        }
-    }, [placeholderActors, selectedActorUrns.length, onUpdate]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
     // Autocomplete query for actors (CorpUser and CorpGroup types)
     const [autoCompleteQuery, { data: autocompleteData, loading: searchLoading }] =
@@ -100,73 +93,75 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             fetchPolicy: 'no-cache',
         });
 
-    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations(entityTypes);
+    useDebounce(
+        () => {
+            setDebouncedSearchQuery(searchQuery.trim());
+        },
+        DEBOUNCE_SEARCH_MS,
+        [searchQuery],
+    );
 
-    // Get results from the recommendations or autocomplete
-    const searchResults: Array<Entity> = useMemo(() => {
-        return (
-            autocompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities) ||
-            recommendedData ||
-            []
-        );
-    }, [autocompleteData?.autoCompleteForMultiple?.suggestions, recommendedData]);
-
-    // Filter search results to only include actors
-    const actorSearchResults = useMemo(() => {
-        return filterActors(searchResults);
-    }, [searchResults]);
-
-    // Sync selectedActorEntities with selectedActorUrns from parent
     useEffect(() => {
-        const currentSelectedUrns = selectedActorEntities
-            .map((e) => e.urn)
-            .sort()
-            .join(',');
-        const newSelectedUrns = selectedActorUrns.sort().join(',');
-
-        // Only update if the URNs have actually changed
-        if (currentSelectedUrns !== newSelectedUrns) {
-            const entities = resolveActorsFromUrns(selectedActorUrns, {
-                placeholderActors,
-                searchResults,
-                selectedActors: selectedActorEntities,
-            });
-
-            setSelectedActorEntities(entities);
-        }
-    }, [selectedActorUrns, placeholderActors, searchResults, selectedActorEntities]);
-
-    // Use utility to deduplicate entities from all sources
-    // Only include actor entities in the options
-    const allActorEntities = useMemo(() => {
-        const combined = deduplicateEntities({
-            placeholderEntities: placeholderActors,
-            searchResults: actorSearchResults,
-            selectedEntities: selectedActorEntities,
+        if (!debouncedSearchQuery) return;
+        autoCompleteQuery({
+            variables: {
+                input: addUserFiltersToAutoCompleteMultipleInput(
+                    {
+                        types: entityTypes,
+                        query: debouncedSearchQuery,
+                        limit: 10,
+                    },
+                    entityTypes,
+                ),
+            },
         });
-        return filterActors(combined);
-    }, [placeholderActors, actorSearchResults, selectedActorEntities]);
+    }, [autoCompleteQuery, debouncedSearchQuery, entityTypes]);
+
+    const typedSearchResults: Array<Entity> = useMemo(() => {
+        const autocomplete = autocompleteData?.autoCompleteForMultiple;
+        if (!debouncedSearchQuery || autocomplete?.query !== debouncedSearchQuery) return [];
+        return autocomplete?.suggestions?.flatMap((suggestion) => suggestion.entities) || [];
+    }, [autocompleteData?.autoCompleteForMultiple, debouncedSearchQuery]);
+
+    const isSearching = !!searchQuery.trim();
+    const {
+        actorOptions: dropdownActorEntities,
+        selectedActors,
+        loading: actorOptionsLoading,
+    } = useActorOptions({
+        selectedActorUrns,
+        entityTypes,
+        entityUrn,
+        includeCurrentUser,
+        includeCurrentUserGroups,
+        searchResults: typedSearchResults,
+        isSearching,
+    });
+
+    const selectedAndDropdownActorEntities = useMemo(() => {
+        const seenUrns = new Set<string>();
+        return [...selectedActors, ...dropdownActorEntities].filter((actor) => {
+            if (seenUrns.has(actor.urn)) return false;
+            seenUrns.add(actor.urn);
+            return true;
+        });
+    }, [dropdownActorEntities, selectedActors]);
 
     // Convert entities to SelectOption format using utility
-    const selectOptions = entitiesToSelectOptions(allActorEntities, entityRegistry);
+    const selectOptions = useMemo(
+        () => entitiesToSelectOptions(dropdownActorEntities, entityRegistry),
+        [dropdownActorEntities, entityRegistry],
+    );
+
+    const selectedAndDropdownOptions = useMemo(
+        () => entitiesToSelectOptions(selectedAndDropdownActorEntities, entityRegistry),
+        [selectedAndDropdownActorEntities, entityRegistry],
+    );
 
     // Handle search
-    const handleSearch = useCallback(
-        (query: string) => {
-            if (query.trim()) {
-                autoCompleteQuery({
-                    variables: {
-                        input: {
-                            types: entityTypes,
-                            query: query.trim(),
-                            limit: 10,
-                        },
-                    },
-                });
-            }
-        },
-        [autoCompleteQuery, entityTypes],
-    );
+    const handleSearch = useCallback((query: string) => {
+        setSearchQuery(query);
+    }, []);
 
     // Render actor entity in dropdown
     const renderDropdownActorLabel = useCallback(
@@ -195,7 +190,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     // Render selected actor label
     const renderSelectedActorLabel = useCallback(
         (selectedOption: OptionType) => {
-            const entity = allActorEntities.find((e) => e.urn === selectedOption.value);
+            const entity = selectedAndDropdownActorEntities.find((e) => e.urn === selectedOption.value);
             if (!entity) return selectedOption.label;
 
             const displayName = entityRegistry.getDisplayName(entity.type, entity);
@@ -204,25 +199,23 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
 
             return <Avatar name={displayName || ''} imageUrl={imageUrl} type={avatarType} showInPill />;
         },
-        [allActorEntities, entityRegistry],
+        [selectedAndDropdownActorEntities, entityRegistry],
     );
 
     // Handle select change
     const handleSelectChange = useCallback(
         (newValues: string[]) => {
             const newEntities = resolveActorsFromUrns(newValues, {
-                placeholderActors: allActorEntities,
-                selectedActors: selectedActorEntities,
+                placeholderActors: selectedAndDropdownActorEntities,
             });
 
-            setSelectedActorEntities(newEntities);
             onUpdate(newEntities);
         },
-        [onUpdate, allActorEntities, selectedActorEntities],
+        [onUpdate, selectedAndDropdownActorEntities],
     );
 
     // Loading state for the select
-    const isSelectLoading = recommendationsLoading || searchLoading;
+    const isSelectLoading = isLoading || actorOptionsLoading || (isSearching && searchLoading);
 
     return (
         <SimpleSelect
@@ -231,11 +224,13 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             }}
             label={label}
             options={selectOptions}
+            combinedSelectedAndSearchOptions={selectedAndDropdownOptions}
             isLoading={isSelectLoading}
             values={selectedActorUrns}
             onUpdate={handleSelectChange}
             onSearchChange={handleSearch}
             showSearch={showSearch}
+            filterResultsByQuery={false}
             isMultiSelect
             placeholder={placeholder}
             isDisabled={isDisabled}
@@ -243,7 +238,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             dataTestId={dataTestId}
             renderCustomSelectedValue={renderSelectedActorLabel}
             renderCustomOptionText={(option) => {
-                const entity = allActorEntities.find((e) => e.urn === option.value);
+                const entity = dropdownActorEntities.find((e) => e.urn === option.value);
                 return entity ? renderDropdownActorLabel(entity) : option.label;
             }}
         />

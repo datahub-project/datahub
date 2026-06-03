@@ -1,5 +1,6 @@
 import { Input } from '@components';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import {
@@ -12,26 +13,8 @@ import AggregationValueInput from '@app/sharedV2/queryBuilder/valueInputs/Aggreg
 import { EntitySearchValueInput } from '@app/sharedV2/queryBuilder/valueInputs/EntitySearchValueInput';
 import SelectValueInput from '@app/sharedV2/queryBuilder/valueInputs/SelectValueInput';
 
-function propertyToValueInputLabel(property: string | undefined): string | undefined {
-    switch (property) {
-        case 'urn':
-            return 'Assets';
-        case 'glossaryTerms':
-            return 'Terms';
-        case '_entityType':
-            return 'Types';
-        case 'typeNames':
-            return 'Sub Types';
-        case 'fieldPaths':
-            return 'Columns';
-        case 'platformInstance':
-            return 'Instances';
-        case 'owners':
-            return 'Owners';
-        default:
-            return property ? capitalizeFirstLetterOnly(property) : undefined;
-    }
-}
+const DEFAULT_SINGLE_MODE = 'single' as const;
+const DEFAULT_MULTIPLE_MODE = 'multiple' as const;
 
 interface Props {
     selectedValues?: string[];
@@ -42,8 +25,30 @@ interface Props {
 }
 
 const ValuesSelect = ({ selectedValues, options, onChangeValues, property, propertyDisplayName }: Props) => {
-    const label = useMemo(() => propertyToValueInputLabel(property), [property]);
-    const placeholder = propertyDisplayName ? `Select ${propertyDisplayName.toLowerCase()}...` : 'Select a value...';
+    const { t } = useTranslation('shared.query-builder');
+    const label = useMemo((): string | undefined => {
+        switch (property) {
+            case 'urn':
+                return t('value.assetsLabel');
+            case 'glossaryTerms':
+                return t('value.termsLabel');
+            case '_entityType':
+                return t('value.typesLabel');
+            case 'typeNames':
+                return t('value.subTypesLabel');
+            case 'fieldPaths':
+                return t('value.columnsLabel');
+            case 'platformInstance':
+                return t('value.instancesLabel');
+            case 'owners':
+                return t('value.ownersLabel');
+            default:
+                return property ? capitalizeFirstLetterOnly(property) : undefined;
+        }
+    }, [property, t]);
+    const placeholder = propertyDisplayName
+        ? t('value.placeholder', { propertyDisplayName: propertyDisplayName.toLowerCase() })
+        : t('value.defaultPlaceholder');
 
     return (
         <>
@@ -52,7 +57,7 @@ const ValuesSelect = ({ selectedValues, options, onChangeValues, property, prope
                     facetField={(options.options as AggregationParams)?.facetField}
                     selectedValues={selectedValues || []}
                     onChangeSelectedValues={(newSelected) => onChangeValues(newSelected)}
-                    mode={(options.options as any)?.mode || 'multiple'}
+                    mode={(options.options as any)?.mode || DEFAULT_MULTIPLE_MODE}
                     label={label}
                     placeholder={placeholder}
                 />
@@ -62,7 +67,7 @@ const ValuesSelect = ({ selectedValues, options, onChangeValues, property, prope
                     selectedUrns={selectedValues || []}
                     onChangeSelectedUrns={(newSelected) => onChangeValues(newSelected)}
                     entityTypes={(options.options as any)?.entityTypes || []}
-                    mode={(options.options as any)?.mode || 'single'}
+                    mode={(options.options as any)?.mode || DEFAULT_SINGLE_MODE}
                     label={label}
                     placeholder={placeholder}
                 />
@@ -73,7 +78,7 @@ const ValuesSelect = ({ selectedValues, options, onChangeValues, property, prope
                     onChangeSelected={(selected) => onChangeValues(selected as string[])}
                     placeholder={placeholder}
                     options={(options.options as SelectParams)?.options}
-                    mode={(options.options as any)?.mode || 'single'}
+                    mode={(options.options as any)?.mode || DEFAULT_SINGLE_MODE}
                     label={label}
                 />
             )}

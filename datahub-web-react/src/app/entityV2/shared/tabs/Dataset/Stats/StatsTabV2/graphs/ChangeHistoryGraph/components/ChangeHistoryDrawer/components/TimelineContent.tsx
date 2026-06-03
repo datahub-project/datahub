@@ -1,4 +1,5 @@
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import ChangeTypePill from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/components/ChangeTypePill';
@@ -32,6 +33,7 @@ type TimelineContentProps = {
 };
 
 export default function TimelineContent({ operation, user }: TimelineContentProps) {
+    const { t } = useTranslation('entity.profile.stats');
     const timestamp = dayjs(operation.lastUpdatedTimestamp);
 
     const getUserName = useGetUserName();
@@ -41,10 +43,12 @@ export default function TimelineContent({ operation, user }: TimelineContentProp
             <ContentRow>
                 <ChangeTypePill operation={operation} />
                 <Text>
-                    <Text color="gray" type="span">
-                        by
-                    </Text>{' '}
-                    {getUserName(user)}
+                    <Trans
+                        t={t}
+                        i18nKey="changeHistoryTimeline.byUser"
+                        values={{ name: getUserName(user) }}
+                        components={{ gray: <Text color="gray" type="span" /> }}
+                    />
                 </Text>
             </ContentRow>
             <Popover content={timestamp.format('ll LTS')} placement="right">

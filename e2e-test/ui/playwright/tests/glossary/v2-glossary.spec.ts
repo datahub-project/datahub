@@ -23,6 +23,10 @@ const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightGl
 const BATCH_ADD_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightGlossaryBatchAddDataset,PROD)';
 
 test.describe('glossary term group and term lifecycle', () => {
+  // Run tests serially to avoid parallel browser instances competing for memory
+  // and to prevent ES index contention between concurrent mutations.
+  test.describe.configure({ mode: 'serial' });
+
   let glossaryPage: GlossaryPage;
 
   test.beforeEach(async ({ page, logger, logDir }) => {
@@ -31,6 +35,8 @@ test.describe('glossary term group and term lifecycle', () => {
   });
 
   test('create term group at root level', async ({ cleanup }) => {
+    // expectSidebarContainsNode retries for up to 120 s; allow 60 s overhead on top.
+    test.setTimeout(180000);
     const termGroupName = withRandomSuffix('GlossaryGroup');
 
     const termGroupUrn = await glossaryPage.createTermGroup(termGroupName);
@@ -41,6 +47,8 @@ test.describe('glossary term group and term lifecycle', () => {
   });
 
   test('create glossary term inside term group', async ({ cleanup }) => {
+    // expectEntityInContentsTab retries for up to 90 s; allow 60 s overhead on top.
+    test.setTimeout(150000);
     const termGroupName = withRandomSuffix('GlossaryGroup');
     const termName = withRandomSuffix('GlossaryTerm');
 
@@ -55,6 +63,7 @@ test.describe('glossary term group and term lifecycle', () => {
   });
 
   test('add glossary term to dataset via sidebar', async ({ page, logger, logDir, cleanup }) => {
+    test.setTimeout(150000);
     const termGroupName = withRandomSuffix('GlossaryGroup');
     const termName = withRandomSuffix('GlossaryTerm');
 
@@ -74,6 +83,7 @@ test.describe('glossary term group and term lifecycle', () => {
   });
 
   test('batch add term to dataset via Add to Assets', async ({ page, logger, logDir, cleanup }) => {
+    test.setTimeout(150000);
     const termGroupName = withRandomSuffix('GlossaryGroup');
     const termName = withRandomSuffix('GlossaryTerm');
 
@@ -98,6 +108,7 @@ test.describe('glossary term group and term lifecycle', () => {
   });
 
   test('delete glossary term', async ({ cleanup }) => {
+    test.setTimeout(120000);
     const termGroupName = withRandomSuffix('GlossaryGroup');
     const termName = withRandomSuffix('GlossaryTerm');
 

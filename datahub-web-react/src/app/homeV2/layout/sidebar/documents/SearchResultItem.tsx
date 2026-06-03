@@ -4,6 +4,7 @@ import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import Loading from '@app/shared/Loading';
@@ -112,7 +113,7 @@ const IconWrapper = styled.div<{ $isSelected: boolean }>`
         ${(props) =>
             props.$isSelected
                 ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`
-                : `color: ${props.theme.colors.textTertiary};`}
+                : `color: ${props.theme.colors.icon};`}
     }
 `;
 
@@ -184,6 +185,7 @@ export const SearchResultItem: React.FC<SearchResultItemProps> = ({
     onToggleExpand,
     onCreateChild,
 }) => {
+    const { t } = useTranslation('home.v2');
     const [isHovered, setIsHovered] = useState(false);
 
     // Determine document title and URN
@@ -254,7 +256,7 @@ export const SearchResultItem: React.FC<SearchResultItemProps> = ({
                 </LeftContent>
                 {onCreateChild && (
                     <Actions className="search-result-actions">
-                        <Tooltip title="New document" placement="bottom" showArrow={false}>
+                        <Tooltip title={t('documents.newDocumentTooltip')} placement="bottom" showArrow={false}>
                             <ActionButton icon={{ icon: Plus }} variant="text" onClick={handleAddChildClick} />
                         </Tooltip>
                     </Actions>

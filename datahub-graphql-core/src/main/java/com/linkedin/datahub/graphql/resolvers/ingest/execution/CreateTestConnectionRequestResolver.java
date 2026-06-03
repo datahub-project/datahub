@@ -80,10 +80,17 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
                 RECIPE_ARG_NAME,
                 IngestionUtils.injectPipelineName(
                     input.getRecipe(), executionRequestUrn.toString()));
-            String testVersion = input.getVersion();
-            if (testVersion != null && !testVersion.trim().isEmpty()) {
-              arguments.put(VERSION_ARG_NAME, testVersion.trim());
-            }
+            // Mirror the manual-ingestion path (CreateIngestionExecutionRequestResolver) which
+            // routes the same call through IngestionUtils.resolveIngestionCliVersion. Without
+            // this, a test-connection request with no input.version (or a blank one) silently
+            // omits args.version, causing the executor to fall back to its bundled CLI version
+            // rather than the configured defaultCliVersion. That divergence makes test
+            // connections run on a different CLI than the actual ingestion will use — hiding
+            // compatibility issues that surface in production.
+            arguments.put(
+                VERSION_ARG_NAME,
+                IngestionUtils.resolveIngestionCliVersion(
+                    input.getVersion(), _ingestionConfiguration.getDefaultCliVersion()));
             execInput.setArgs(new StringMap(arguments));
 
             final MetadataChangeProposal proposal =

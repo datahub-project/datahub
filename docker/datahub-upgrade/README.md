@@ -120,7 +120,7 @@ These variables tell the upgrade job how to connect to critical storage systems 
 2. Pull (or build) & execute the `datahub-upgrade` container:
 
 ```aidl
-docker pull acryldata/datahub-upgrade:head && docker run --env-file *path-to-custom-env-file.env* acryldata/datahub-upgrade:head -u <Upgrade Job Name> -a <Upgrade Job Arguments>
+docker pull acryldata/datahub-upgrade:quickstart && docker run --env-file *path-to-custom-env-file.env* acryldata/datahub-upgrade:quickstart -u <Upgrade Job Name> -a <Upgrade Job Arguments>
 ```
 
 ## Command-Line Arguments
@@ -139,7 +139,7 @@ For example, to run the migration named "NoCodeDataMigration", you would do exec
 OR
 
 ```aidl
-docker pull acryldata/datahub-upgrade:head && docker run --env-file env/docker.env acryldata/datahub-upgrade:head -u NoCodeDataMigration
+docker pull acryldata/datahub-upgrade:quickstart && docker run --env-file env/docker.env acryldata/datahub-upgrade:quickstart -u NoCodeDataMigration
 ```
 
 ### Provided Arguments for a Given Upgrade Job
@@ -157,5 +157,5 @@ To specify these, you can use a combination of `-a` arguments and of the form _a
 OR
 
 ```aidl
-docker pull acryldata/datahub-upgrade:head && docker run --env-file env/docker.env acryldata/datahub-upgrade:head -u NoCodeDataMigration -a batchSize=500 -a batchDelayMs=1000
+docker pull acryldata/datahub-upgrade:quickstart && docker run --env-file env/docker.env acryldata/datahub-upgrade:quickstart -u NoCodeDataMigration -a batchSize=500 -a batchDelayMs=1000
 ```

@@ -1,3 +1,5 @@
+import time
+
 from tests.utils import get_frontend_url
 
 
@@ -51,3 +53,32 @@ def listUsers(session):
 
     response.raise_for_status()
     return response.json()
+
+
+def wait_for_user_in_list(
+    session,
+    username: str,
+    *,
+    present: bool = True,
+    max_timeout_in_sec: int = 120,
+) -> None:
+    """Poll listUsers until a username is visible or gone.
+
+    listUsers is backed by Elasticsearch search, which can lag behind MCP/MCL
+    consumers even after wait_for_writes_to_sync() returns.
+    """
+    start = time.time()
+    last_users: list[dict[str, str]] | None = None
+    while time.time() - start < max_timeout_in_sec:
+        res_data = listUsers(session)
+        users = res_data.get("data", {}).get("listUsers", {}).get("users", [])
+        last_users = users if users is not None else []
+        found = {"username": username} in last_users
+        if found == present:
+            return
+        time.sleep(1)
+    state = "present" if present else "absent"
+    raise AssertionError(
+        f"Timed out waiting for {username} to be {state} in listUsers after "
+        f"{max_timeout_in_sec}s (last users: {last_users})"
+    )

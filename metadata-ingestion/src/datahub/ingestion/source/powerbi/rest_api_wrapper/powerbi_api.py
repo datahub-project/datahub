@@ -22,6 +22,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Measure,
     PowerBIDataset,
     Report,
+    ReportType,
     Table,
     User,
     Workspace,
@@ -204,6 +205,92 @@ class PowerBiAPI:
     def get_report_users(self, workspace_id: str, report_id: str) -> List[User]:
         return self._get_entity_users(workspace_id, Constant.REPORTS, report_id)
 
+    def _resolve_paginated_report_lineage(
+        self, report: Report, workspace: Workspace
+    ) -> None:
+        """Resolve lineage for an RDL paginated report.
+
+        Paginated reports don't carry a datasetId in the scan response, so we
+        fall back to /reports/{id}/datasources to discover either an embedded
+        external datasource or a binding to a shared Power BI dataset.
+        """
+        context = (
+            f"workspace={workspace.name}, "
+            f"report_name={report.name}, report_id={report.id}"
+        )
+        if self.__config.admin_apis_only:
+            # /reports/{id}/datasources has no admin-API variant, so paginated
+            # report lineage cannot be fetched in this mode.
+            self.reporter.info(
+                title="Paginated Report Lineage Unavailable",
+                message=(
+                    "Paginated report lineage requires the regular "
+                    "/reports/{id}/datasources API, which is unavailable in "
+                    "admin_apis_only mode. Disable admin_apis_only or grant "
+                    "Report.Read.All to the service principal to enable it."
+                ),
+                context=context,
+            )
+            return
+        try:
+            report.datasources = self._get_resolver().get_report_datasources(
+                workspace=workspace, report_id=report.id
+            )
+        except Exception:
+            self.log_http_error(
+                message=(
+                    f"Unable to fetch datasources for paginated report "
+                    f"{report.name}({report.id}) in workspace {workspace.name}"
+                )
+            )
+            self.reporter.warning(
+                title="Paginated Report Datasources Fetch Failed",
+                message=(
+                    "Unable to fetch /datasources for a paginated report; "
+                    "upstream lineage will be empty. See connector logs for "
+                    "the HTTP error."
+                ),
+                context=context,
+            )
+            return
+
+        bound_dataset_id = next(
+            (
+                ds.powerbi_dataset_id
+                for ds in report.datasources
+                if ds.powerbi_dataset_id is not None
+            ),
+            None,
+        )
+        if bound_dataset_id is not None:
+            # RDL report bound to a shared semantic model: reuse the same
+            # dataset->report lineage as a regular report.
+            report.dataset_id = bound_dataset_id
+            report.dataset = self.dataset_registry.get(bound_dataset_id)
+            if report.dataset is None:
+                self.reporter.info(
+                    title="Missing Lineage For Paginated Report",
+                    message=(
+                        "Paginated report is bound to a Power BI dataset that "
+                        "was not found in any scanned workspace (likely a "
+                        "cross-workspace reference filtered by "
+                        "workspace_id_pattern); lineage will be missing."
+                    ),
+                    context=f"{context}, dataset_id={bound_dataset_id}",
+                )
+        elif not report.datasources:
+            # Succeeded with no rows: the report genuinely has no datasources
+            # (admin_apis_only is handled earlier).
+            self.reporter.info(
+                title="Missing Lineage For Paginated Report",
+                message=(
+                    "Paginated report has no shared dataset and the "
+                    "/datasources endpoint returned no rows; upstream lineage "
+                    "will be empty."
+                ),
+                context=context,
+            )
+
     def get_reports(self, workspace: Workspace) -> Dict[str, Report]:
         """
         Fetch the report from PowerBi for the given Workspace
@@ -292,6 +379,8 @@ class PowerBiAPI:
                         message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
                         context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
                     )
+            elif report.type is ReportType.PaginatedReport:
+                self._resolve_paginated_report_lineage(report, workspace)
 
         def fill_tags() -> None:
             if self.__config.extract_endorsements_to_tags is False:

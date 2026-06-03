@@ -136,12 +136,12 @@ export function distributeVisibleItems(
 
 export function StructuredReport({ report }: Props) {
     const theme = useTheme();
-    const ERROR_COLOR = theme.colors.bgSurfaceError;
-    const ERROR_TEXT_COLOR = theme.colors.textError;
-    const WARNING_COLOR = theme.colors.bgSurfaceWarning;
-    const WARNING_TEXT_COLOR = theme.colors.textWarning;
-    const INFO_COLOR = theme.colors.bgSurfaceBrand;
-    const INFO_TEXT_COLOR = theme.colors.iconBrand;
+    const errorColor = theme.colors.bgSurfaceError;
+    const errorTextColor = theme.colors.textError;
+    const warningColor = theme.colors.bgSurfaceWarning;
+    const warningTextColor = theme.colors.textWarning;
+    const infoColor = theme.colors.bgSurfaceBrand;
+    const infoTextColor = theme.colors.textBrand;
 
     const warnings = report.items.filter((item) => item.level === StructuredReportItemLevel.WARN);
     const errors = report.items.filter((item) => item.level === StructuredReportItemLevel.ERROR);
@@ -213,24 +213,24 @@ export function StructuredReport({ report }: Props) {
                 {visibleErrors.length ? (
                     <StructuredReportItemList
                         items={visibleErrors}
-                        color={ERROR_COLOR}
-                        textColor={ERROR_TEXT_COLOR}
+                        color={errorColor}
+                        textColor={errorTextColor}
                         icon={WarningDiamond}
                     />
                 ) : null}
                 {visibleWarnings.length ? (
                     <StructuredReportItemList
                         items={visibleWarnings}
-                        color={WARNING_COLOR}
-                        textColor={WARNING_TEXT_COLOR}
+                        color={warningColor}
+                        textColor={warningTextColor}
                         icon={WarningCircle}
                     />
                 ) : null}
                 {visibleInfos.length ? (
                     <StructuredReportItemList
                         items={visibleInfos}
-                        color={INFO_COLOR}
-                        textColor={INFO_TEXT_COLOR}
+                        color={infoColor}
+                        textColor={infoTextColor}
                         icon={Info}
                     />
                 ) : null}

@@ -1,6 +1,7 @@
 import { useApolloClient } from '@apollo/client';
 import { message } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -73,6 +74,7 @@ export function useServiceAccountListState() {
 }
 
 export function useServiceAccountListData(page: number, pageSize: number, debouncedQuery: string) {
+    const { t } = useTranslation('entity.identity');
     const apolloClient = useApolloClient();
     const authenticatedUser = useUserContext();
     const canManageServiceAccounts = authenticatedUser?.platformPrivileges?.manageServiceAccounts || false;
@@ -115,13 +117,13 @@ export function useServiceAccountListData(page: number, pageSize: number, deboun
         async (urn: string) => {
             try {
                 await deleteServiceAccount({ variables: { urn } });
-                message.success('Service account deleted');
+                message.success(t('serviceAccounts.deleteSuccess'));
                 removeServiceAccountFromListCache(apolloClient, urn, page, pageSize);
             } catch (e: any) {
-                message.error(`Failed to delete service account: ${e.message || ''}`);
+                message.error(t('serviceAccounts.deleteError', { error: e.message || '' }));
             }
         },
-        [apolloClient, deleteServiceAccount, page, pageSize],
+        [apolloClient, deleteServiceAccount, page, pageSize, t],
     );
 
     const onChangePage = useCallback((newPage: number) => {
@@ -164,6 +166,7 @@ export function useServiceAccountRoleAssignment(
     setOptimisticRoles: React.Dispatch<React.SetStateAction<Record<string, string>>>,
     refetch: () => void,
 ) {
+    const { t } = useTranslation('entity.identity');
     const apolloClient = useApolloClient();
     const [batchAssignRoleMutation] = useBatchAssignRoleMutation();
 
@@ -202,8 +205,13 @@ export function useServiceAccountRoleAssignment(
                 if (!errors) {
                     message.success(
                         newRoleUrn === NO_ROLE_URN
-                            ? `Removed role from service account ${roleAssignmentState.serviceAccountName}!`
-                            : `Assigned role ${roleToAssign?.name} to service account ${roleAssignmentState.serviceAccountName}!`,
+                            ? t('serviceAccounts.roleAssign.removeSuccess', {
+                                  name: roleAssignmentState.serviceAccountName,
+                              })
+                            : t('serviceAccounts.roleAssign.assignSuccess', {
+                                  role: roleToAssign?.name,
+                                  name: roleAssignmentState.serviceAccountName,
+                              }),
                     );
 
                     // Optimistically update the UI immediately
@@ -232,8 +240,15 @@ export function useServiceAccountRoleAssignment(
             .catch((e) => {
                 message.error(
                     newRoleUrn === NO_ROLE_URN
-                        ? `Failed to remove role from ${roleAssignmentState.serviceAccountName}: ${e.message || ''}`
-                        : `Failed to assign role ${roleToAssign?.name} to ${roleAssignmentState.serviceAccountName}: ${e.message || ''}`,
+                        ? t('serviceAccounts.roleAssign.removeError', {
+                              name: roleAssignmentState.serviceAccountName,
+                              error: e.message || '',
+                          })
+                        : t('serviceAccounts.roleAssign.assignError', {
+                              role: roleToAssign?.name,
+                              name: roleAssignmentState.serviceAccountName,
+                              error: e.message || '',
+                          }),
                 );
             });
     }, [
@@ -244,6 +259,7 @@ export function useServiceAccountRoleAssignment(
         selectRoleOptions,
         setOptimisticRoles,
         setRoleAssignmentState,
+        t,
     ]);
 
     return {
@@ -272,6 +288,7 @@ export function useServiceAccountViewOptions(): { viewOptions: SelectOption[]; l
 }
 
 export function useServiceAccountDefaultView(refetch: () => void) {
+    const { t } = useTranslation('entity.identity');
     const [updateDefaultView] = useUpdateServiceAccountDefaultViewMutation();
 
     const handleDefaultViewChange = useCallback(
@@ -285,13 +302,15 @@ export function useServiceAccountDefaultView(refetch: () => void) {
                         },
                     },
                 });
-                message.success(viewUrn ? 'Default view updated' : 'Default view removed');
+                message.success(
+                    viewUrn ? t('serviceAccounts.defaultViewUpdated') : t('serviceAccounts.defaultViewRemoved'),
+                );
                 refetch();
             } catch (e: any) {
-                message.error(`Failed to update default view: ${e.message || ''}`);
+                message.error(t('serviceAccounts.defaultViewError', { error: e.message || '' }));
             }
         },
-        [updateDefaultView, refetch],
+        [updateDefaultView, refetch, t],
     );
 
     return { handleDefaultViewChange };

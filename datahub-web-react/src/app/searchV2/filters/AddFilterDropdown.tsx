@@ -119,7 +119,7 @@ function FilterPopover({ field, onAddFilter, setDropdownOpen, includeCount }: Po
         field.icon ||
         (field.type === FieldType.ENTITY &&
             field.entityTypes?.length &&
-            entityRegistry.getIcon(field.entityTypes[0], 12, IconStyleType.ACCENT, theme.colors.textTertiary));
+            entityRegistry.getIcon(field.entityTypes[0], 12, IconStyleType.ACCENT, theme.colors.icon));
 
     return (
         <Popover

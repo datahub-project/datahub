@@ -46,6 +46,7 @@ const darkTheme: ColorTheme = {
     iconInformation: colors.blue400,
     iconSuccess: colors.green150,
     iconWarning: colors.yellow500,
+    iconOnFillBrand: colors.gray0,
     buttonFillBrand: colors.violet800,
     buttonFillFocus: colors.violet500,
     buttonSurfaceBrandFocus: colors.violet500,
@@ -66,6 +67,8 @@ const darkTheme: ColorTheme = {
     borderError: colors.red300,
     borderSuccess: colors.green300,
     borderWarning: colors.yellow800,
+    borderWhite: colors.gray0,
+
     // Interactive states: Hover
     textHover: colors.violet400,
     iconHover: colors.violet400,

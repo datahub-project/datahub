@@ -14,6 +14,7 @@ Tests cover:
 from typing import Dict, Iterator, List
 from unittest.mock import MagicMock, patch
 
+import requests
 from requests.models import HTTPError
 
 from datahub.configuration.common import AllowDenyPattern
@@ -495,6 +496,52 @@ class TestProcessReportErrorIsolation:
         # Failure should have been recorded
         assert source.report.failures
 
+    def test_timeout_error_uses_report_warning_not_failure(self):
+        """Built-in TimeoutError should call report_warning, not report_failure,
+        so one timed-out report doesn't mark the whole run as FAILURE."""
+        source = _make_source()
+        report = {"token": "tok", "name": "Report"}
+
+        def timeout_inner(space_token: str, report: dict) -> Iterator:
+            raise TimeoutError("timed out")
+            yield
+
+        with patch.object(source, "_process_report_inner", side_effect=timeout_inner):
+            list(source._process_report("space1", report))
+
+        assert not source.report.failures
+        assert source.report.warnings
+
+    def test_requests_timeout_uses_report_warning_not_failure(self):
+        """requests.exceptions.Timeout should also call report_warning."""
+        source = _make_source()
+        report = {"token": "tok", "name": "Report"}
+
+        def timeout_inner(space_token: str, report: dict) -> Iterator:
+            raise requests.exceptions.Timeout("connection timed out")
+            yield
+
+        with patch.object(source, "_process_report_inner", side_effect=timeout_inner):
+            list(source._process_report("space1", report))
+
+        assert not source.report.failures
+        assert source.report.warnings
+
+    def test_non_timeout_error_still_uses_report_failure(self):
+        """Non-timeout exceptions should still call report_failure."""
+        source = _make_source()
+        report = {"token": "tok", "name": "Report"}
+
+        def failing_inner(space_token: str, report: dict) -> Iterator:
+            raise ValueError("unexpected error")
+            yield
+
+        with patch.object(source, "_process_report_inner", side_effect=failing_inner):
+            list(source._process_report("space1", report))
+
+        assert source.report.failures
+        assert not source.report.warnings
+
     def test_error_handler_failure_does_not_propagate(self):
         """If report_failure itself raises (e.g. serialization error),
         the exception must not escape _process_report — otherwise
@@ -687,3 +734,54 @@ class TestChartFetchGating:
         source = _make_source()
         assert self._drive(source, explorations_count=5, chart_count=0) == 0
         assert source.report.chart_api_calls_skipped == 1
+
+
+# ──────────────────────────────────────────────────────────────────────
+# report_pattern filtering
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestReportPattern:
+    def _make_source_with_config(self, **kwargs: object) -> ModeSource:
+        config = ModeConfig(
+            token="test",
+            password="test",
+            workspace="test_workspace",
+            **kwargs,
+        )
+        with (
+            patch("datahub.ingestion.source.mode.requests.Session"),
+            patch.object(ModeSource, "_get_request_json", return_value={}),
+        ):
+            ctx = MagicMock()
+            ctx.graph = None
+            ctx.pipeline_name = "test"
+            ctx.run_id = "test-run"
+            ctx.pipeline_config = None
+            source = ModeSource(ctx, config)
+        return source
+
+    def test_report_pattern_deny_excludes_report(self):
+        """Reports matching the deny pattern should be excluded and tracked."""
+
+        source = self._make_source_with_config(
+            report_pattern=AllowDenyPattern(deny=["^slow_report$"])
+        )
+
+        reports = [
+            {"token": "tok1", "name": "slow_report"},
+            {"token": "tok2", "name": "fast_report"},
+        ]
+
+        with (
+            patch.object(
+                source, "_get_reports", return_value=iter([[reports[0]], [reports[1]]])
+            ),
+            patch.object(source, "_get_datasets", return_value=iter([])),
+            patch.object(source, "construct_space_container", return_value=iter([])),
+        ):
+            report_args, _, _ = source._collect_space_work_items("space1", "MySpace")
+
+        assert len(report_args) == 1
+        assert report_args[0][1]["token"] == "tok2"
+        assert "slow_report" in list(source.report.filtered_reports)

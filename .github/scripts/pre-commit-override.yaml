@@ -46,6 +46,24 @@ repos:
         pass_filenames: false
         files: ^datahub-web-react/.*\.(ts|tsx|js)$
         entry: ./gradlew :datahub-web-react:lintFix
+      - id: docusaurus-markdown-lint
+        name: Lint Docusaurus Markdown
+        description: Catches Docusaurus-specific Markdown issues that Prettier cannot validate
+        language: system
+        files: ^.*\.mdx?$
+        entry: python3 .github/scripts/check_docusaurus_markdown.py
+      - id: playwright-e2e-lint-fix
+        name: Playwright E2E ESLint Fix
+        entry: ./gradlew :e2e-test:ui:playwright:lintFix -x generateGitPropertiesGlobal
+        language: system
+        files: ^e2e-test/ui/playwright/.*\.ts$
+        pass_filenames: false
+      - id: playwright-e2e-prettier-write
+        name: Playwright E2E Prettier Format
+        entry: ./gradlew :e2e-test:ui:playwright:prettierWrite -x generateGitPropertiesGlobal
+        language: system
+        files: ^e2e-test/ui/playwright/.*\.ts$
+        pass_filenames: false
       - id: bump-schema-versions
         name: Bump PDL schema versions
         entry: python .github/scripts/bump_schema_versions.py

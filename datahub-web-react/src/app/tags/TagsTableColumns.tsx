@@ -5,6 +5,7 @@ import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 import Highlight from 'react-highlighter';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -109,6 +110,7 @@ export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
 });
 
 export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
+    const { t } = useTranslation('misc');
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const entityFilters = [{ field: 'tags', values: [tagUrn] }];
@@ -135,7 +137,7 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
     const aggregations = entityFacet?.aggregations || [];
 
     if (aggregations.length === 0) {
-        return <Text>Not applied</Text>;
+        return <Text>{t('tags.notApplied')}</Text>;
     }
 
     // Get total count of entities this tag is applied to
@@ -181,13 +183,14 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
                     }
                 }}
             >
-                <Text color="violet">
-                    {totalCount} {totalCount === 1 ? 'entity' : 'entities'}
-                </Text>
+                <Text color="violet">{t('tags.appliedToEntityCount', { count: totalCount })}</Text>
             </div>
 
             {aggregations.slice(0, 3).map((agg) => {
                 if (!agg?.value || !agg?.count || agg.count === 0) return null;
+                /* eslint-disable i18next/no-literal-string -- (untranslated-text) collectionName is a dynamically
+                   resolved entity-type label (already translated by getCollectionName) injected mid-phrase with a
+                   varying count; cannot be a single static plural key */
                 return (
                     <div
                         key={agg.value}
@@ -206,6 +209,7 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
                         </Text>
                     </div>
                 );
+                /* eslint-enable i18next/no-literal-string */
             })}
         </ColumnContainer>
     );
@@ -223,11 +227,13 @@ export const TagActionsColumn = React.memo(
         onDelete: () => void;
         canManageTags: boolean;
     }) => {
+        const { t } = useTranslation('misc');
+        const { t: tc } = useTranslation('common.actions');
         const menuItems = [
             {
                 type: 'item' as const,
                 key: 'edit',
-                title: 'Edit',
+                title: tc('edit'),
                 icon: PencilSimple,
                 onClick: onEdit,
                 'data-testid': 'action-edit',
@@ -235,7 +241,7 @@ export const TagActionsColumn = React.memo(
             {
                 type: 'item' as const,
                 key: 'copy-urn',
-                title: 'Copy URN',
+                title: t('tags.copyUrn'),
                 icon: Copy,
                 onClick: () => {
                     navigator.clipboard.writeText(tagUrn);
@@ -246,7 +252,7 @@ export const TagActionsColumn = React.memo(
                       {
                           type: 'item' as const,
                           key: 'delete',
-                          title: 'Delete',
+                          title: tc('delete'),
                           icon: Trash,
                           danger: true,
                           onClick: onDelete,

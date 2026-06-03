@@ -21,6 +21,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Page,
     PowerBIDataset,
     Report,
+    ReportDatasource,
     Table,
     Tile,
     User,
@@ -157,6 +158,12 @@ class DataResolverBase(ABC):
 
     @abstractmethod
     def get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+        pass
+
+    @abstractmethod
+    def get_report_datasources(
+        self, workspace: Workspace, report_id: str
+    ) -> List[ReportDatasource]:
         pass
 
     @abstractmethod
@@ -376,6 +383,7 @@ class RegularAPIResolver(DataResolverBase):
         Constant.REPORT_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}",
         Constant.REPORT_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports",
         Constant.PAGE_BY_REPORT: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}/pages",
+        Constant.REPORT_DATASOURCES: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}/datasources",
         Constant.DATASET_EXECUTE_QUERIES: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/executeQueries",
         Constant.GET_WORKSPACE_APP: "{MY_ORG_URL}/apps/{APP_ID}",
     }
@@ -465,6 +473,31 @@ class RegularAPIResolver(DataResolverBase):
                 order=raw_instance.get(Constant.ORDER),
             )
             for raw_instance in response_dict.get(Constant.VALUE, [])
+        ]
+
+    def get_report_datasources(
+        self, workspace: Workspace, report_id: str
+    ) -> List[ReportDatasource]:
+        endpoint: str = RegularAPIResolver.API_ENDPOINTS[
+            Constant.REPORT_DATASOURCES
+        ].format(
+            POWERBI_BASE_URL=self._base_url,
+            WORKSPACE_ID=workspace.id,
+            REPORT_ID=report_id,
+        )
+        logger.debug(f"Request to paginated-report datasources URL={endpoint}")
+        response = self._request_session.get(
+            endpoint,
+            headers=self.get_authorization_header(),
+        )
+        # Let HTTP errors propagate so the caller can emit a structured
+        # reporter.warning instead of the INFO-level log from is_http_failure.
+        response.raise_for_status()
+
+        return [
+            ds
+            for raw in response.json().get(Constant.VALUE, [])
+            if (ds := ReportDatasource.from_raw(raw)) is not None
         ]
 
     def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
@@ -825,6 +858,17 @@ class AdminAPIResolver(DataResolverBase):
 
     def get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         return []  # Report pages are not available in Admin API
+
+    def get_report_datasources(
+        self, workspace: Workspace, report_id: str
+    ) -> List[ReportDatasource]:
+        # No admin-API variant exists for /reports/{id}/datasources;
+        # callers in admin_apis_only mode will get empty lineage.
+        logger.debug(
+            "get_report_datasources is a no-op in admin_apis_only mode (report_id=%s)",
+            report_id,
+        )
+        return []
 
     def get_modified_workspaces(self, modified_since: str) -> List[str]:
         """

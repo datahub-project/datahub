@@ -1,6 +1,7 @@
 import { Editor } from '@components';
 import { Modal, message } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -32,6 +33,9 @@ type DescriptionEditorProps = {
 };
 
 export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
+    const { t } = useTranslation('entity.profile.documentation');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
     const mutationUrn = useMutationUrn();
     const { entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
@@ -121,7 +125,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     };
 
     const handleSave = async () => {
-        message.loading({ content: 'Saving...' });
+        message.loading({ content: tf('saving') });
         try {
             if (updateEntity) {
                 // Use the legacy update description path.
@@ -137,7 +141,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                 entityType,
                 entityUrn: mutationUrn,
             });
-            message.success({ content: 'Description Updated', duration: 2 });
+            message.success({ content: t('descriptionUpdated'), duration: 2 });
             // Updating the localStorage after save
             delete editedDescriptions[mutationUrn];
             if (Object.keys(editedDescriptions).length === 0) {
@@ -149,7 +153,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to update description: \n ${e.message || ''}`, duration: 2 });
+                message.error({ content: t('failedToUpdateDescription', { message: e.message || '' }), duration: 2 });
             }
         }
         refetch?.();
@@ -169,11 +173,11 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
             onCancel();
         } else {
             Modal.confirm({
-                title: `Discard unsaved changes?`,
-                content: `Your changes will be lost.`,
+                title: t('discardChanges.title'),
+                content: t('discardChanges.description'),
                 onOk: onCancel,
                 onCancel() {},
-                okText: 'Yes',
+                okText: tc('yes'),
                 maskClosable: true,
                 closable: true,
             });
@@ -213,7 +217,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                         key={editorKey}
                         content={updatedDescription}
                         onChange={handleEditorChange}
-                        placeholder="Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!"
+                        placeholder={t('editorPlaceholder')}
                         uploadFileProps={{
                             onFileUpload: uploadFile,
                             ...uploadFileAnalyticsCallbacks,

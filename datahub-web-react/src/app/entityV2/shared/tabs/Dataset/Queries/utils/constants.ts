@@ -1,3 +1,5 @@
+export const SQL_LANGUAGE = 'sql';
+
 /**
  * Max queries to fetch on the Queries Tab
  */
@@ -12,5 +14,3 @@ export const DEFAULT_PAGE_SIZE = 5;
  */
 export const MAX_ROWS_BEFORE_DEBOUNCE = 50;
 export const HALF_SECOND_IN_MS = 500;
-
-export const ADD_UNAUTHORIZED_MESSAGE = 'You are not authorized to add Queries to this entity.';

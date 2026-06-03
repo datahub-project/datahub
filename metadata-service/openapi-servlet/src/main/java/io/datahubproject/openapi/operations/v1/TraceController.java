@@ -7,6 +7,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.config.messaging.KafkaOrPgQueueMessagingTransportCondition;
 import com.linkedin.metadata.systemmetadata.TraceService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -25,6 +26,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,6 +39,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/openapi/v1/trace")
 @Slf4j
+// TraceService is registered when messaging transport is Kafka or pgQueue.
+@Conditional(KafkaOrPgQueueMessagingTransportCondition.class)
 @Tag(name = "Tracing", description = "An API for tracing async operations.")
 public class TraceController {
   private final TraceService traceService;

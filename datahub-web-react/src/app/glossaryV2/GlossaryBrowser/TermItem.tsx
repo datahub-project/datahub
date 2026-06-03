@@ -1,18 +1,21 @@
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { css } from 'styled-components/macro';
 
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { EDITING_DOCUMENTATION_URL_PARAM } from '@app/entityV2/shared/constants';
 import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/utils';
 import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
+import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
 
 const TermWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
     padding-left: calc(${(props) => (props.$depth ? props.$depth * 24 + 12 : 18)}px);
-    background-color: ${(props) => props.$isSelected && props.theme.colors.bgActive}};
+    background-color: ${(props) => (props.$isSelected ? props.theme.colors.bgActive : 'transparent')};
     display: flex;
     align-items: center;
 
@@ -25,7 +28,11 @@ const TermWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
     }
 `;
 
-const nameStyles = `
+const StyledTermIcon = styled(GlossaryColoredIcon)`
+    margin-right: 8px;
+`;
+
+const nameStyles = css`
     padding: 16px 0;
     display: inline-block;
     height: 100%;
@@ -56,7 +63,7 @@ export const TermLink = styled(Link)<TermLinkProps>`
 
     ${(props) => props.$isChildNode && `opacity: 1;`}
     ${(props) => props.$areChildrenVisible && `color: ${props.theme.colors.textActive}; font-weight: 500; opacity: 1;`}
-    ${(props) => props.$isSelected && `color: ${props.theme.colors.textActive}}; font-weight: 700; opacity: 1;`}
+    ${(props) => props.$isSelected && `color: ${props.theme.colors.textActive}; font-weight: 700; opacity: 1;`}
 `;
 
 export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
@@ -79,14 +86,17 @@ interface Props {
     areChildrenVisible?: boolean;
     depth: number;
     selectedUrns?: string[];
+    iconColor?: string;
 }
 
 function TermItem(props: Props) {
-    const { term, isSelecting, selectTerm, includeActiveTabPath, areChildrenVisible, selectedUrns } = props;
+    const { term, isSelecting, selectTerm, includeActiveTabPath, areChildrenVisible, selectedUrns, iconColor } = props;
 
     const { entityData } = useGlossaryEntityData();
     const entityRegistry = useEntityRegistry();
     const activeTabPath = useGlossaryActiveTabPath();
+    const generateColor = useGenerateGlossaryColorFromPalette();
+    const resolvedIconColor = iconColor || generateColor(term.urn);
 
     function handleSelectTerm() {
         if (selectTerm) {
@@ -103,6 +113,7 @@ function TermItem(props: Props) {
 
     return (
         <TermWrapper $isSelected={entityData?.urn === term.urn} $depth={props.depth}>
+            <StyledTermIcon color={resolvedIconColor} icon={BookmarkSimple} size={24} iconSize={14} />
             {!isSelecting && (
                 <TermLink
                     to={`${entityRegistry.getEntityUrl(term.type, term.urn)}${

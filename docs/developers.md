@@ -343,8 +343,6 @@ The default is defined in `gradle.properties`
    datahub.dependencies.apkrepo.url=https://nexus.company.com/apk/
    ```
 
-   :::
-
 #### GitHub Base URL
 
 Docker images download JVM tooling (jattach, OpenTelemetry Java agent) from GitHub at build time.

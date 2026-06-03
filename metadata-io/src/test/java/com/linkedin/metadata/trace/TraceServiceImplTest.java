@@ -70,8 +70,6 @@ public class TraceServiceImplTest {
   @Mock private EntityService<?> entityService;
   @Mock private MCPTraceReader mcpTraceReader;
   @Mock private MCPFailedTraceReader mcpFailedTraceReader;
-  @Mock private MCLTraceReader mclVersionedTraceReader;
-  @Mock private MCLTraceReader mclTimeseriesTraceReader;
 
   private TraceServiceImpl traceService;
   private static final OperationContext operationContext =
@@ -88,8 +86,6 @@ public class TraceServiceImplTest {
             .entityService(entityService)
             .mcpTraceReader(mcpTraceReader)
             .mcpFailedTraceReader(mcpFailedTraceReader)
-            .mclVersionedTraceReader(mclVersionedTraceReader)
-            .mclTimeseriesTraceReader(mclTimeseriesTraceReader)
             .build();
   }
 

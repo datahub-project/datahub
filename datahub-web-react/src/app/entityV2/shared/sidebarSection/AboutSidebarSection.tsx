@@ -69,10 +69,11 @@ export const AboutSidebarSection = ({ aboutText, isProfileOwner, onSaveAboutMe }
                                     }
                                     setIsAboutEditable(false);
                                 }}
+                                inputTestId="about-text-edit"
                             />
                         ) : (
                             <>
-                                <ClampedText ref={textRef} $expanded={isExpanded}>
+                                <ClampedText ref={textRef} $expanded={isExpanded} data-testid="about-text-display">
                                     {about || <EmptyValue />}
                                 </ClampedText>
                                 {isClamped && (

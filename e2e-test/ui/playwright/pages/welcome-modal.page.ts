@@ -26,11 +26,14 @@ export class WelcomeModalPage extends BasePage {
     // cause false failures in expectModalVisible / expectModalNotVisible.
     this.modal = page.getByRole('dialog').filter({ hasText: 'Welcome to DataHub' });
     this.modalTitle = page.getByRole('heading', { name: 'Welcome to DataHub' });
-    this.closeButton = page.locator('[data-testid="modal-close-icon"]');
+    this.closeButton = page.getByTestId('modal-close-icon');
 
     // Carousel navigation selectors
+    // eslint-disable-next-line playwright/no-raw-locators -- react-slick carousel dots have no ARIA role or data-testid
     this.carouselDots = page.locator('.slick-dots li');
+    // eslint-disable-next-line playwright/no-raw-locators -- react-slick carousel dots have no ARIA role or data-testid
     this.lastCarouselDot = page.locator('.slick-dots li').last();
+    // eslint-disable-next-line playwright/no-raw-locators -- react-slick active dot has no ARIA role or data-testid
     this.activeCarouselDot = page.locator('.slick-dots li.slick-active');
 
     // CTA selectors (on final slide)
@@ -72,6 +75,7 @@ export class WelcomeModalPage extends BasePage {
     });
 
     // Wait for carousel dots to be visible (more reliable than .slick-slider)
+    // eslint-disable-next-line playwright/no-raw-locators -- react-slick carousel container has no ARIA role or data-testid
     const carouselDots = this.page.locator('.slick-dots');
     await carouselDots.waitFor({ state: 'visible', timeout: 15000 });
   }
