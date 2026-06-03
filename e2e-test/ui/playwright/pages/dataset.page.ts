@@ -16,7 +16,6 @@ export class DatasetPage extends BasePage {
   // ── Glossary term sidebar ──────────────────────────────────────────────────
   readonly sidebarGlossarySection: Locator;
   readonly addTermsButton: Locator;
-  readonly tagTermOption: Locator;
   readonly addTagTermConfirmButton: Locator;
 
   // ── Sidebar Tags section ──────────────────────────────────────────────────
@@ -66,15 +65,16 @@ export class DatasetPage extends BasePage {
     // eslint-disable-next-line playwright/no-raw-locators -- HTML id set by EntityProfileCard; no data-testid equivalent
     this.sidebarGlossarySection = page.locator('#entity-profile-glossary-terms');
     this.addTermsButton = this.sidebarGlossarySection.getByTestId('add-terms-button');
-    this.tagTermOption = page.getByTestId('tag-term-option').first();
     this.addTagTermConfirmButton = page.getByTestId('add-tag-term-from-modal-btn');
 
     // eslint-disable-next-line playwright/no-raw-locators -- HTML id set by EntityProfileCard; no data-testid equivalent
     this.tagsSectionContainer = page.locator('#entity-profile-tags');
     this.addTagsButton = this.tagsSectionContainer.getByTestId('add-tags-button');
     this.tagTermModalInput = page.getByTestId('tag-term-modal-input');
-    // AntD Select renders its inner input with role="combobox", not "textbox".
-    this.tagTermInput = this.tagTermModalInput.getByRole('combobox');
+    // Alchemy SimpleSelect renders the search input inside the dropdown popover (rendered
+    // outside the trigger container via AntD's Dropdown). Click `tagTermModalInput` first
+    // to open the dropdown before interacting with `tagTermInput`.
+    this.tagTermInput = page.getByTestId('dropdown-search-input');
     this.addTagFromModalButton = page.getByTestId('add-tag-term-from-modal-btn');
     this.tagUnassignConfirmButton = page.getByTestId('modal-confirm-button');
     this.tagAddedToast = page.getByText('Added Tags!');
@@ -107,8 +107,7 @@ export class DatasetPage extends BasePage {
   }
 
   getTagOption(tagName: string): Locator {
-    // eslint-disable-next-line playwright/no-raw-locators -- AntD Select option uses name attribute; no semantic equivalent
-    return this.page.locator(`[name="${tagName}"]`);
+    return this.page.getByTestId(`tag-term-option-${tagName}`);
   }
 
   getTagRemoveIcon(tagName: string): Locator {
@@ -134,9 +133,11 @@ export class DatasetPage extends BasePage {
     this.logger?.step('addGlossaryTerm', { termName });
     await this.addTermsButton.click();
     await expect(this.tagTermModalInput).toBeVisible();
-    // AntD Select triggers search via keyboard events; pressSequentially (not fill) is required.
-    await this.tagTermInput.pressSequentially(termName);
-    await this.tagTermOption.click();
+    // Alchemy SimpleSelect: click the trigger to open the dropdown, then type into the
+    // search input inside the dropdown popover.
+    await this.tagTermModalInput.click();
+    await this.tagTermInput.fill(termName);
+    await this.getTagOption(termName).click();
     // Click the header to close the terms select dropdown if it stayed open.
     await this.modalComponent.title.click();
     await this.addTagTermConfirmButton.click();
@@ -327,7 +328,8 @@ export class DatasetPage extends BasePage {
     await this.addTagsButton.click();
 
     await expect(this.tagTermModalInput).toBeVisible();
-    await this.tagTermInput.focus();
+    // Alchemy SimpleSelect: open the dropdown so the search input becomes available.
+    await this.tagTermModalInput.click();
     await this.tagTermInput.fill(tagName);
 
     const tagOption = this.getTagOption(tagName);
