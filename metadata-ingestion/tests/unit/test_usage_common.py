@@ -429,6 +429,21 @@ def test_usage_aggregator_parity_with_reference():
     assert actual == expected
 
 
+@pytest.mark.parametrize("batch_size", [1, 3, 50000])
+def test_usage_aggregator_parity_across_flush_sizes(batch_size: int) -> None:
+    # A small batch_size forces many flushes, exercising cross-flush count
+    # accumulation (ON CONFLICT upsert) and the rowid tie-break — the core of the
+    # incremental-counting design — which a single-flush run would not cover.
+    config = BaseUsageConfig()
+    events = _varied_events()
+    agg: UsageAggregator[str] = UsageAggregator(config, batch_size=batch_size)
+    _feed(agg, events)
+    actual = sorted(_normalize(wu) for wu in agg.generate_workunits(_urn))
+    agg.close()
+    expected = sorted(_normalize(wu) for wu in _reference_workunits(events, config))
+    assert actual == expected
+
+
 def test_usage_aggregator_parity_with_denied_user():
     config = BaseUsageConfig(user_email_pattern=AllowDenyPattern(deny=["denied@x.com"]))
     day1 = datetime(2020, 1, 1)
