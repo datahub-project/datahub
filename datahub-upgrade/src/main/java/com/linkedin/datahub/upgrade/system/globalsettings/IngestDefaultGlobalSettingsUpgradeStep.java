@@ -1,4 +1,4 @@
-package com.linkedin.metadata.boot.steps;
+package com.linkedin.datahub.upgrade.system.globalsettings;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -16,54 +16,85 @@ import com.linkedin.data.schema.validation.ValidateDataAgainstSchema;
 import com.linkedin.data.schema.validation.ValidationOptions;
 import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.upgrade.UpgradeContext;
+import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
-import jakarta.annotation.Nonnull;
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.util.Objects;
+import java.util.function.Function;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 
 /**
- * This bootstrap step is responsible for ingesting a default Global Settings object if it does not
- * already exist.
- *
- * <p>If settings already exist, we merge the defaults and the existing settings such that the
- * container will also get new settings when they are added.
+ * System-update blocking step that ingests default global settings on every deploy, merging with
+ * any existing settings so new defaults are automatically picked up.
  */
 @Slf4j
-public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
+public class IngestDefaultGlobalSettingsUpgradeStep implements UpgradeStep {
 
+  private static final String STEP_ID = "ingest-default-global-settings";
   private static final String DEFAULT_SETTINGS_RESOURCE_PATH = "./boot/global_settings.json";
+
   private final EntityService<?> _entityService;
+  private final boolean _enabled;
   private final String _resourcePath;
 
-  public IngestDefaultGlobalSettingsStep(@Nonnull final EntityService<?> entityService) {
-    this(entityService, DEFAULT_SETTINGS_RESOURCE_PATH);
+  public IngestDefaultGlobalSettingsUpgradeStep(
+      @Nonnull final EntityService<?> entityService, final boolean enabled) {
+    this(entityService, enabled, DEFAULT_SETTINGS_RESOURCE_PATH);
   }
 
-  public IngestDefaultGlobalSettingsStep(
-      @Nonnull final EntityService<?> entityService, @Nonnull final String resourcePath) {
-    _entityService = Objects.requireNonNull(entityService);
-    _resourcePath = Objects.requireNonNull(resourcePath);
+  // Package-private: used in tests
+  IngestDefaultGlobalSettingsUpgradeStep(
+      @Nonnull final EntityService<?> entityService,
+      final boolean enabled,
+      @Nonnull final String resourcePath) {
+    _entityService = entityService;
+    _enabled = enabled;
+    _resourcePath = resourcePath;
   }
 
   @Override
-  public String name() {
-    return getClass().getName();
+  public String id() {
+    return STEP_ID;
   }
 
   @Override
-  public void execute(@Nonnull OperationContext systemOperationContext)
-      throws IOException, URISyntaxException {
+  public boolean isOptional() {
+    return false;
+  }
 
+  @Override
+  public boolean skip(final UpgradeContext context) {
+    if (!_enabled) {
+      log.info("Ingest default global settings step is disabled; skipping.");
+      return true;
+    }
+    return false;
+  }
+
+  @Override
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
+    return context -> {
+      try {
+        execute(context.opContext());
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+      } catch (Exception e) {
+        log.error("Failed to ingest default global settings", e);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+      }
+    };
+  }
+
+  private void execute(@Nonnull final OperationContext systemOperationContext) throws Exception {
     final ObjectMapper mapper = new ObjectMapper();
     int maxSize =
         Integer.parseInt(
@@ -75,7 +106,6 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
 
     log.info("Ingesting default global settings...");
 
-    // 1. Read from the file into JSON.
     JsonNode defaultSettingsObj;
     try {
       defaultSettingsObj = mapper.readTree(new ClassPathResource(_resourcePath).getInputStream());
@@ -94,9 +124,7 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
               defaultSettingsObj.getNodeType()));
     }
 
-    // 2. Bind the global settings json into a GlobalSettingsInfo aspect.
-    GlobalSettingsInfo defaultSettings;
-    defaultSettings =
+    GlobalSettingsInfo defaultSettings =
         RecordUtils.toRecordTemplate(GlobalSettingsInfo.class, defaultSettingsObj.toString());
     ValidationResult result =
         ValidateDataAgainstSchema.validate(
@@ -113,16 +141,12 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
               result.getMessages()));
     }
 
-    // 3. Get existing settings or empty settings object
     final GlobalSettingsInfo existingSettings =
         getExistingGlobalSettingsOrEmpty(systemOperationContext);
 
-    // 4. Merge existing settings onto previous settings. Be careful - if we change the settings
-    // schema dramatically in future we may need to account for that.
     final GlobalSettingsInfo newSettings =
         new GlobalSettingsInfo(mergeDataMaps(defaultSettings.data(), existingSettings.data()));
 
-    // 5. Ingest into DataHub.
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(GLOBAL_SETTINGS_URN);
     proposal.setEntityType(GLOBAL_SETTINGS_ENTITY_NAME);
@@ -137,10 +161,12 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis()),
         false);
+
+    log.info("Successfully ingested default global settings.");
   }
 
   private GlobalSettingsInfo getExistingGlobalSettingsOrEmpty(
-      @Nonnull OperationContext systemOperationContext) {
+      @Nonnull final OperationContext systemOperationContext) {
     RecordTemplate aspect =
         _entityService.getAspect(
             systemOperationContext, GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, 0);

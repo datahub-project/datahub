@@ -20,6 +20,7 @@ import enEntityProfileStats from '@src/i18n/locales/en/entity.profile.stats.json
 import enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
+import enGovernanceDomain from '@src/i18n/locales/en/governance.domain.json';
 import enGovernanceGlossary from '@src/i18n/locales/en/governance.glossary.json';
 import enGovernanceStructuredProperties from '@src/i18n/locales/en/governance.structured-properties.json';
 import enHomeV2 from '@src/i18n/locales/en/home.v2.json';
@@ -53,6 +54,7 @@ i18n.use(initReactI18next).init({
         'entity.profile.stats',
         'entity.profile.view',
         'entity.views',
+        'governance.domain',
         'governance.glossary',
         'governance.structured-properties',
         'home.v2',
@@ -82,6 +84,7 @@ i18n.use(initReactI18next).init({
             'entity.profile.stats': enEntityProfileStats,
             'entity.profile.view': enEntityProfileView,
             'entity.views': enEntityViews,
+            'governance.domain': enGovernanceDomain,
             'governance.glossary': enGovernanceGlossary,
             'governance.structured-properties': enGovernanceStructuredProperties,
             'home.v2': enHomeV2,

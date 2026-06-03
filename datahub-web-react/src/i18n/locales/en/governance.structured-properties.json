@@ -84,7 +84,7 @@
     "valueType.numberLabel": "Number",
     "valueType.numberListDescription": "A list of integers or decimals",
     "valueType.numberListLabel": "Number - List",
-    "valueType.richTextDescription": "A freeform string of markdown text ",
+    "valueType.richTextDescription": "A freeform string of markdown text",
     "valueType.richTextLabel": "Rich Text",
     "valueType.text": "text",
     "valueType.textDescription": "A string value",
