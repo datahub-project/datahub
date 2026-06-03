@@ -28,7 +28,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.upgrade.DataHubUpgradeRequest;
+import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
@@ -67,11 +67,10 @@ public class IndexDataPlatformsStepTest {
 
   @Test
   public void testSkipReturnsTrueWhenAlreadyRan() throws Exception {
-    DataHubUpgradeRequest upgradeRequest =
-        new DataHubUpgradeRequest().setVersion("1").setTimestampMs(0L);
-    EnvelopedAspect aspect = new EnvelopedAspect().setValue(new Aspect(upgradeRequest.data()));
+    DataHubUpgradeResult upgradeResult = new DataHubUpgradeResult().setTimestampMs(0L);
+    EnvelopedAspect aspect = new EnvelopedAspect().setValue(new Aspect(upgradeResult.data()));
     EnvelopedAspectMap aspectMap =
-        new EnvelopedAspectMap(Map.of(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME, aspect));
+        new EnvelopedAspectMap(Map.of(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, aspect));
     EntityResponse response = new EntityResponse().setAspects(aspectMap);
     when(mockEntityService.getEntityV2(
             any(), eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME), any(), any()))
@@ -79,22 +78,6 @@ public class IndexDataPlatformsStepTest {
     IndexDataPlatformsStep step =
         new IndexDataPlatformsStep(mockEntityService, mockEntitySearchService);
     assertTrue(step.skip(mockUpgradeContext));
-  }
-
-  @Test
-  public void testSkipReturnsFalseWhenVersionMismatch() throws Exception {
-    DataHubUpgradeRequest upgradeRequest =
-        new DataHubUpgradeRequest().setVersion("0").setTimestampMs(0L);
-    EnvelopedAspect aspect = new EnvelopedAspect().setValue(new Aspect(upgradeRequest.data()));
-    EnvelopedAspectMap aspectMap =
-        new EnvelopedAspectMap(Map.of(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME, aspect));
-    EntityResponse response = new EntityResponse().setAspects(aspectMap);
-    when(mockEntityService.getEntityV2(
-            any(), eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME), any(), any()))
-        .thenReturn(response);
-    IndexDataPlatformsStep step =
-        new IndexDataPlatformsStep(mockEntityService, mockEntitySearchService);
-    assertFalse(step.skip(mockUpgradeContext));
   }
 
   @Test

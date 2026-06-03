@@ -38,7 +38,7 @@ import com.linkedin.template.DataHubPageTemplateSurface;
 import com.linkedin.template.DataHubPageTemplateVisibility;
 import com.linkedin.template.PageTemplateScope;
 import com.linkedin.template.PageTemplateSurfaceType;
-import com.linkedin.upgrade.DataHubUpgradeRequest;
+import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -74,11 +74,10 @@ public class MigrateHomePageLinksStepTest {
 
   @Test
   public void testSkipReturnsTrueWhenAlreadyRan() throws Exception {
-    DataHubUpgradeRequest upgradeRequest =
-        new DataHubUpgradeRequest().setVersion("1").setTimestampMs(0L);
-    EnvelopedAspect aspect = new EnvelopedAspect().setValue(new Aspect(upgradeRequest.data()));
+    DataHubUpgradeResult upgradeResult = new DataHubUpgradeResult().setTimestampMs(0L);
+    EnvelopedAspect aspect = new EnvelopedAspect().setValue(new Aspect(upgradeResult.data()));
     EnvelopedAspectMap aspectMap =
-        new EnvelopedAspectMap(Map.of(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME, aspect));
+        new EnvelopedAspectMap(Map.of(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, aspect));
     EntityResponse response = new EntityResponse().setAspects(aspectMap);
     when(mockEntityService.getEntityV2(
             any(), eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME), any(), any()))
@@ -86,22 +85,6 @@ public class MigrateHomePageLinksStepTest {
     MigrateHomePageLinksStep step =
         new MigrateHomePageLinksStep(mockEntityService, mockEntitySearchService);
     assertTrue(step.skip(mockUpgradeContext));
-  }
-
-  @Test
-  public void testSkipReturnsFalseWhenVersionMismatch() throws Exception {
-    DataHubUpgradeRequest upgradeRequest =
-        new DataHubUpgradeRequest().setVersion("0").setTimestampMs(0L);
-    EnvelopedAspect aspect = new EnvelopedAspect().setValue(new Aspect(upgradeRequest.data()));
-    EnvelopedAspectMap aspectMap =
-        new EnvelopedAspectMap(Map.of(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME, aspect));
-    EntityResponse response = new EntityResponse().setAspects(aspectMap);
-    when(mockEntityService.getEntityV2(
-            any(), eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME), any(), any()))
-        .thenReturn(response);
-    MigrateHomePageLinksStep step =
-        new MigrateHomePageLinksStep(mockEntityService, mockEntitySearchService);
-    assertFalse(step.skip(mockUpgradeContext));
   }
 
   @Test

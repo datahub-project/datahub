@@ -4,7 +4,6 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.DataMap;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -92,20 +91,11 @@ public class MigrateHomePageLinksStep implements UpgradeStep {
               context.opContext(),
               Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
               _upgradeUrn,
-              Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME));
+              Collections.singleton(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME));
       if (response != null
-          && response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)) {
-        DataMap dataMap =
-            response
-                .getAspects()
-                .get(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)
-                .getValue()
-                .data();
-        DataHubUpgradeRequest request = new DataHubUpgradeRequest(dataMap);
-        if (request.hasVersion() && request.getVersion().equals(VERSION)) {
-          log.info("Step {} version {} already completed. Skipping.", STEP_ID, VERSION);
-          return true;
-        }
+          && response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME)) {
+        log.info("Step {} already completed. Skipping.", STEP_ID);
+        return true;
       }
     } catch (Exception e) {
       log.error("Error checking upgrade history for {}. Proceeding with upgrade.", STEP_ID, e);
