@@ -31,38 +31,53 @@ class DomainPlatformAccessResolverTest {
         }
     }
 
+    private static EntitySpec spec(String name, boolean domainAssignable) {
+        EntitySpec s = mock(EntitySpec.class);
+        when(s.getName()).thenReturn(name);
+        when(s.hasAspect("domains")).thenReturn(domainAssignable);
+        return s;
+    }
+
     /**
-     * Regression guard: the aggregation must be scoped to concrete asset entity types, never
-     * {@code null}. Passing null makes aggregateByValue query every entity index, where the
-     * {@code owners EXISTS negated} clause matches docs on indices without an owners field and the
-     * accessible domain/platform set becomes wrong (home-page cards unfiltered/blank on v1.5.x).
+     * The accessible set must come from a filtered aggregation scoped to the entity types that can
+     * be assigned to a domain (the {@code domains} aspect, read live from the registry) — never a
+     * hardcoded entity list and never a null/all-index scope. The domain/platform entities
+     * themselves must be excluded (they lack the domains aspect) or their self-referential
+     * domains/platform fields leak every value back in.
      */
     @Test
     @SuppressWarnings("unchecked")
-    void aggregationScopedToAssetEntitiesNotAllIndices() {
+    void aggregatesOverDomainAssignableEntitiesReadFromRegistry() {
         EntitySearchService ess = mock(EntitySearchService.class);
         OperationContext opCtx = mock(OperationContext.class);
         EntityRegistry registry = mock(EntityRegistry.class);
         when(opCtx.getEntityRegistry()).thenReturn(registry);
 
         Map<String, EntitySpec> specs = new HashMap<>();
-        for (String name : List.of("dataset", "dashboard", "chart", "corpuser", "tag", "domain")) {
-            specs.put(name, mock(EntitySpec.class));
-        }
+        specs.put("dataset", spec("dataset", true));
+        specs.put("dashboard", spec("dashboard", true));
+        specs.put("tag", spec("tag", false));
+        specs.put("domain", spec("domain", false));
         when(registry.getEntitySpecs()).thenReturn(specs);
-        when(ess.aggregateByValue(any(), any(), any(), any(), any())).thenReturn(Map.<String, Long>of());
 
-        new DomainPlatformAccessResolver(ess)
-                .resolve(opCtx, urn("urn:li:corpuser:alice"), List.of(urn("urn:li:corpGroup:g1")));
+        when(ess.aggregateByValue(any(), any(), eq("domains"), any(), any()))
+                .thenReturn(Map.of("urn:li:domain:CBP", 3L));
+        when(ess.aggregateByValue(any(), any(), eq("platform"), any(), any()))
+                .thenReturn(Map.of("urn:li:dataPlatform:mysql", 3L));
 
-        ArgumentCaptor<List<String>> captor = ArgumentCaptor.forClass(List.class);
+        DomainPlatformAccessResolver.AccessSets sets =
+                new DomainPlatformAccessResolver(ess)
+                        .resolve(opCtx, urn("urn:li:corpuser:alice"), List.of(urn("urn:li:corpGroup:g1")));
+
+        ArgumentCaptor<List<String>> entityCap = ArgumentCaptor.forClass(List.class);
         verify(ess, atLeastOnce())
-                .aggregateByValue(any(), captor.capture(), eq("domains"), any(Filter.class), any());
+                .aggregateByValue(any(), entityCap.capture(), eq("domains"), any(Filter.class), any());
 
-        List<String> entityNames = captor.getValue();
-        assertThat(entityNames).isNotNull().isNotEmpty();
-        assertThat(entityNames).contains("dataset", "dashboard", "chart");
-        // Non-asset indices must be excluded — they are the source of the over-match.
-        assertThat(entityNames).doesNotContain("corpuser", "tag", "domain");
+        List<String> entityNames = entityCap.getValue();
+        assertThat(entityNames).contains("dataset", "dashboard");
+        assertThat(entityNames).doesNotContain("tag", "domain");
+
+        assertThat(sets.domains()).containsExactly("urn:li:domain:CBP");
+        assertThat(sets.platforms()).containsExactly("urn:li:dataPlatform:mysql");
     }
 }
