@@ -3,6 +3,7 @@ package com.linkedin.metadata.models.registry;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
+import com.linkedin.metadata.aspect.plugins.filter.AspectReadFilter;
 import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
@@ -127,6 +128,16 @@ public interface EntityRegistry {
   @Nonnull
   default List<MutationHook> getAllMutationHooks() {
     return getPluginFactory().getMutationHooks();
+  }
+
+  /**
+   * Returns read filters applied at DAO egress to omit unauthorized aspects.
+   *
+   * @return list of read filters
+   */
+  @Nonnull
+  default List<AspectReadFilter> getAllAspectReadFilters() {
+    return getPluginFactory().getAspectReadFilters();
   }
 
   /**

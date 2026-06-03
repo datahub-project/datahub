@@ -7,6 +7,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.plugins.filter.ReadIntent;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
@@ -31,6 +32,13 @@ import javax.annotation.Nullable;
  * interface is meant to abstract away the storage concerns of these pieces of metadata, permitting
  * any underlying storage system to be used.
  *
+ * <p>All read paths require an {@link OperationContext}. Use a system {@link OperationContext} for
+ * internal jobs and ingestion; user-facing callers pass the request session context. Aspect-level
+ * read authorization is enforced at the DAO egress via {@link
+ * com.linkedin.metadata.aspect.filter.AspectDaoReadSupport} and {@link
+ * com.linkedin.metadata.aspect.filter.AspectReadGuard} unless {@link
+ * OperationContext#isSystemAuth()} is true.
+ *
  * <p>Requirements for any implementation: 1. Being able to map its internal storage representation
  * to {@link EntityAspect}; 2. Honor the internal versioning semantics. The latest version of any
  * aspect is set to 0 for efficient retrieval. In most cases only the latest state of an aspect will
@@ -50,17 +58,23 @@ public interface AspectDao {
       @Nonnull OperationContext opContext,
       @Nonnull final String urn,
       @Nonnull final String aspectName,
-      final long version);
+      final long version,
+      @Nonnull ReadIntent intent);
 
   @Nullable
-  EntityAspect getAspect(
-      @Nonnull OperationContext opContext, @Nonnull final EntityAspectIdentifier key);
+  default EntityAspect getAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull final EntityAspectIdentifier key,
+      @Nonnull ReadIntent intent) {
+    return getAspect(opContext, key.getUrn(), key.getAspect(), key.getVersion(), intent);
+  }
 
   @Nonnull
   Map<EntityAspectIdentifier, EntityAspect> batchGet(
       @Nonnull OperationContext opContext,
       @Nonnull final Set<EntityAspectIdentifier> keys,
-      boolean forUpdate);
+      boolean forUpdate,
+      @Nonnull ReadIntent intent);
 
   @Nonnull
   List<EntityAspect> getAspectsInRange(
@@ -68,7 +82,8 @@ public interface AspectDao {
       @Nonnull Urn urn,
       Set<String> aspectNames,
       long startTimeMillis,
-      long endTimeMillis);
+      long endTimeMillis,
+      @Nonnull ReadIntent intent);
 
   /**
    * @param urn urn to fetch

@@ -22,6 +22,10 @@ public class DefaultEntitySpec implements EntitySpec {
   private final RecordDataSchema _snapshotSchema;
   private final TyperefDataSchema _aspectTyperefSchema;
 
+  private boolean _systemEntity;
+  private boolean _systemEntityAllowRead;
+  private boolean _systemEntityAllowExists;
+
   private List<SearchableFieldSpec> _searchableFieldSpecs;
   private Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypeMap;
   private List<SearchableRefFieldSpec> _searchableRefFieldSpecs;
@@ -144,5 +148,27 @@ public class DefaultEntitySpec implements EntitySpec {
   @Override
   public String getSearchGroup() {
     return _entityAnnotation.getSearchGroup();
+  }
+
+  @Override
+  public boolean isSystemEntity() {
+    return _systemEntity;
+  }
+
+  @Override
+  public boolean isSystemEntityAllowRead() {
+    return _systemEntityAllowRead;
+  }
+
+  @Override
+  public boolean isSystemEntityAllowExists() {
+    return _systemEntityAllowExists;
+  }
+
+  public void setSystemEntityFlags(
+      final boolean systemEntity, final boolean allowRead, final boolean allowExists) {
+    _systemEntity = systemEntity;
+    _systemEntityAllowRead = allowRead;
+    _systemEntityAllowExists = allowExists;
   }
 }

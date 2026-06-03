@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EntityAspect;
+import com.linkedin.metadata.aspect.plugins.filter.ReadIntent;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -518,7 +519,7 @@ public class TimelineServiceImpl implements TimelineService {
             .collect(Collectors.toSet());
     List<EntityAspect> aspectsInRange =
         this._aspectDao.getAspectsInRange(
-            opContext, urn, fullAspectNames, startTimeMillis, endTimeMillis);
+            opContext, urn, fullAspectNames, startTimeMillis, endTimeMillis, ReadIntent.READ);
 
     return processAspectTimeline(
         opContext,
@@ -647,7 +648,11 @@ public class TimelineServiceImpl implements TimelineService {
         }
         EntityAspect row =
             _aspectDao.getAspect(
-                opContext, urn.toString(), aspectMinVersion.getKey(), versionToGet);
+                opContext,
+                urn.toString(),
+                aspectMinVersion.getKey(),
+                versionToGet,
+                ReadIntent.READ);
         if (row != null) {
           aspectRowSetMap.get(row.getAspect()).add(row);
         } else {

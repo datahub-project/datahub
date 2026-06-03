@@ -22,6 +22,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.plugins.filter.ReadIntent;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -264,7 +265,7 @@ public class CassandraAspectDaoTest {
 
     // Read operations should still work
     EntityAspect aspect =
-        testDao.getAspect(opContext, urnString, aspectName, ASPECT_LATEST_VERSION);
+        testDao.getAspect(opContext, urnString, aspectName, ASPECT_LATEST_VERSION, ReadIntent.READ);
     assertNotNull(aspect, "Read operations should work when not writable");
     assertEquals(aspect.getMetadata(), "test-metadata", "Read should return correct data");
     verify(mockSession, times(1)).execute(any(SimpleStatement.class));
@@ -274,7 +275,8 @@ public class CassandraAspectDaoTest {
         testDao.batchGet(
             opContext,
             Set.of(new EntityAspectIdentifier(urnString, aspectName, ASPECT_LATEST_VERSION)),
-            false);
+            false,
+            ReadIntent.READ);
     assertEquals(batchResult.size(), 1, "Batch get should work when not writable");
     verify(mockSession, times(2))
         .execute(any(SimpleStatement.class)); // 1 from getAspect + 1 from batchGet

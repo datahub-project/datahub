@@ -41,6 +41,7 @@ import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.entity.versioning.VersionPropertiesInput;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.policy.SystemDataPolicy;
 import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -61,7 +62,6 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
-import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v3.models.AspectItem;
 import io.datahubproject.openapi.v3.models.FacetMetadata;
 import io.datahubproject.openapi.v3.models.Filter;
@@ -203,7 +203,10 @@ public class EntityController
       throws URISyntaxException {
 
     final Collection<String> resolvedEntityNames =
-        RequestInputUtil.resolveEntityNames(entityRegistry, entityAspectsBody.getEntities());
+        SystemDataPolicy.resolveEntityNamesForRead(
+            entityRegistry,
+            entityAspectsBody.getEntities(),
+            AuthUtil.isSystemDataAccessControlEnabled());
     Authentication authentication = AuthenticationContext.getAuthentication();
 
     OperationContext opContext =

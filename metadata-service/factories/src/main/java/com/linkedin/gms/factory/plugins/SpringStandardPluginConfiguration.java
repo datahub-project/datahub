@@ -2,11 +2,13 @@ package com.linkedin.gms.factory.plugins;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.authorization.config.SystemDataAccessControlConfiguration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.filter.SystemDataReadFilter;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
@@ -14,6 +16,7 @@ import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.hooks.LifecycleStageTransitionHook;
 import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+import com.linkedin.metadata.aspect.plugins.filter.AspectReadFilter;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
@@ -25,6 +28,7 @@ import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidator;
+import com.linkedin.metadata.aspect.validation.SystemDataWriteValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.UrlValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
@@ -85,11 +89,21 @@ public class SpringStandardPluginConfiguration {
   @Value("${metadataChangeProposal.validation.ignoreUnknown}")
   private boolean ignoreUnknownEnabled;
 
-  @Value("${metadataChangeProposal.validation.extensions.enabled:false}")
+  @Value("${metadataChangeProposal.validation.extensions.enabled}")
   private boolean extensionsEnabled;
 
-  @Value("${featureFlags.aspectMigrationMutatorEnabled:false}")
+  @Value("${featureFlags.aspectMigrationMutatorEnabled}")
   private boolean aspectMigrationMutatorEnabled;
+
+  private final SystemDataAccessControlConfiguration systemDataAccessControlConfiguration;
+
+  public SpringStandardPluginConfiguration(
+      ObjectProvider<SystemDataAccessControlConfiguration>
+          systemDataAccessControlConfigurationProvider) {
+    this.systemDataAccessControlConfiguration =
+        systemDataAccessControlConfigurationProvider.getIfAvailable(
+            SystemDataAccessControlConfiguration::new);
+  }
 
   /**
    * Registers the migration chain as the highest-priority mutation hook. Collects all {@link
@@ -535,6 +549,30 @@ public class SpringStandardPluginConfiguration {
                 .className(ConditionalWriteValidator.class.getName())
                 .enabled(true)
                 .supportedOperations(List.of(CREATE, CREATE_ENTITY, DELETE, UPSERT, UPDATE, PATCH))
+                .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator systemDataWriteValidator() {
+    return new SystemDataWriteValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(SystemDataWriteValidator.class.getName())
+                .enabled(systemDataAccessControlConfiguration.isEnabled())
+                .supportedOperations(AUTH_CHANGE_TYPE_OPERATIONS)
+                .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
+                .build());
+  }
+
+  @Bean
+  public AspectReadFilter systemDataReadFilter() {
+    return new SystemDataReadFilter()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(SystemDataReadFilter.class.getName())
+                .enabled(systemDataAccessControlConfiguration.isEnabled())
+                .supportedOperations(List.of("READ", "EXISTS"))
                 .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
                 .build());
   }

@@ -2,7 +2,7 @@ package io.datahubproject.metadata.context;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.AuthorizationSession;
+import com.datahub.authorization.EntityRegistryAuthorizationSession;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.context.OperationFingerprint;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -51,7 +51,7 @@ import lombok.extern.slf4j.Slf4j;
 @Builder(toBuilder = true)
 @Getter
 @Slf4j
-public class OperationContext implements AuthorizationSession, OperationFingerprint {
+public class OperationContext implements OperationFingerprint, EntityRegistryAuthorizationSession {
 
   /**
    * This should be the primary entry point when a request is made to Rest.li, OpenAPI, Graphql or

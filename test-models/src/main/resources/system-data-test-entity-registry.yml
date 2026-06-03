@@ -1,0 +1,15 @@
+# Test-only system entity fixtures for unit tests. Not loaded in production GMS.
+entities:
+  - name: testSystemData
+    doc: Test-only system entity for access control tests.
+    category: internal
+    keyAspect: testSystemDataKey
+    aspects:
+      - testSystemDataInfo
+  - name: testSystemDataPolicyEligible
+    doc: Test-only system entity eligible for policy-governed read/exists.
+    category: internal
+    keyAspect: testSystemDataPolicyEligibleKey
+    aspects:
+      - testSystemDataPolicyEligibleInfo
+      - testSystemDataHiddenAspect

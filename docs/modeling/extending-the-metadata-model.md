@@ -803,3 +803,8 @@ replaces it with its own- this has a different boostScore and a different fieldN
 As a result, you can issue a query specifically for tags on Schema Fields via `fieldTags:<tag_name>` or tags directly
 applied to an entity via `tags:<tag_name>`. Since both have `queryByDefault` set to true, you can also search for
 entities with either of these properties just by searching for the tag name.
+
+## System metadata
+
+For internal GMS-owned entities that must be hidden from users and writable only by the system actor, see
+[System Entity Data Access](./system-data.md).

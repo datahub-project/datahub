@@ -1,0 +1,12 @@
+namespace com.datahub.test.systemdata
+
+/**
+ * Test-only aspect with {@code @System} override on a policy-eligible system entity.
+ */
+@Aspect = {
+  "name": "testSystemDataHiddenAspect"
+}
+@System = true
+record TestSystemDataHiddenAspect {
+  value: optional string
+}

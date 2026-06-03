@@ -18,6 +18,8 @@ import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
+import com.linkedin.metadata.models.annotation.SystemAnnotation;
+import com.linkedin.metadata.models.annotation.SystemEntityAnnotation;
 import com.linkedin.metadata.models.annotation.TimeseriesFieldAnnotation;
 import com.linkedin.metadata.models.annotation.TimeseriesFieldCollectionAnnotation;
 import com.linkedin.metadata.models.annotation.UrnValidationAnnotation;
@@ -147,7 +149,7 @@ public class EntitySpecBuilder {
 
       validateEntitySpec(entitySpec);
 
-      return entitySpec;
+      return SystemEntitySpecApplier.apply(entitySpec);
     }
 
     failValidation(
@@ -192,7 +194,7 @@ public class EntitySpecBuilder {
 
       validateEntitySpec(entitySpec);
 
-      return entitySpec;
+      return SystemEntitySpecApplier.apply(entitySpec);
     }
 
     failValidation(
@@ -208,7 +210,8 @@ public class EntitySpecBuilder {
       @Nonnull final String keyAspect,
       @Nonnull final List<AspectSpec> aspectSpecs,
       @Nonnull final String searchGroup) {
-    return new ConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup);
+    EntitySpec entitySpec = new ConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup);
+    return SystemEntitySpecApplier.apply(entitySpec);
   }
 
   public EntitySpec buildPartialEntitySpec(
@@ -236,17 +239,20 @@ public class EntitySpecBuilder {
 
       if (AnnotationExtractionMode.IGNORE_ASPECT_FIELDS.equals(_extractionMode)) {
         // Short Circuit.
-        return new AspectSpec(
-            aspectAnnotation,
-            Collections.emptyList(),
-            Collections.emptyList(),
-            Collections.emptyList(),
-            Collections.emptyList(),
-            Collections.emptyList(),
-            Collections.emptyList(),
-            Collections.emptyList(),
-            aspectRecordSchema,
-            aspectClass);
+        final AspectSpec shortCircuitSpec =
+            new AspectSpec(
+                aspectAnnotation,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                aspectRecordSchema,
+                aspectClass);
+        parseSystemMetadataAnnotations(aspectRecordSchema, shortCircuitSpec);
+        return shortCircuitSpec;
       }
 
       final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedSearchResult =
@@ -344,17 +350,20 @@ public class EntitySpecBuilder {
           new DataSchemaRichContextTraverser(urnValidationFieldSpecExtractor);
       timestampFieldSpecTraverser.traverse(processedTimestampResult.getResultSchema());
 
-      return new AspectSpec(
-          aspectAnnotation,
-          searchableFieldSpecExtractor.getSpecs(),
-          searchScoreFieldSpecExtractor.getSpecs(),
-          relationshipFieldSpecExtractor.getSpecs(),
-          timeseriesFieldSpecExtractor.getTimeseriesFieldSpecs(),
-          timeseriesFieldSpecExtractor.getTimeseriesFieldCollectionSpecs(),
-          searchableRefFieldSpecExtractor.getSpecs(),
-          urnValidationFieldSpecExtractor.getUrnValidationFieldSpecs(),
-          aspectRecordSchema,
-          aspectClass);
+      AspectSpec aspectSpec =
+          new AspectSpec(
+              aspectAnnotation,
+              searchableFieldSpecExtractor.getSpecs(),
+              searchScoreFieldSpecExtractor.getSpecs(),
+              relationshipFieldSpecExtractor.getSpecs(),
+              timeseriesFieldSpecExtractor.getTimeseriesFieldSpecs(),
+              timeseriesFieldSpecExtractor.getTimeseriesFieldCollectionSpecs(),
+              searchableRefFieldSpecExtractor.getSpecs(),
+              urnValidationFieldSpecExtractor.getUrnValidationFieldSpecs(),
+              aspectRecordSchema,
+              aspectClass);
+      parseSystemMetadataAnnotations(aspectRecordSchema, aspectSpec);
+      return aspectSpec;
     }
 
     failValidation(
@@ -496,6 +505,24 @@ public class EntitySpecBuilder {
                     + "aspects must only contain fields of STRING or ENUM type. Found %s.",
                 keyAspect.getName(), field.getType().toString()));
       }
+    }
+  }
+
+  private void parseSystemMetadataAnnotations(
+      @Nonnull final RecordDataSchema aspectRecordSchema, @Nonnull final AspectSpec aspectSpec) {
+    final Object systemAnnotationObj =
+        aspectRecordSchema.getProperties().get(SystemAnnotation.ANNOTATION_NAME);
+    if (systemAnnotationObj != null) {
+      aspectSpec.setSystemAnnotation(
+          SystemAnnotation.fromSchemaProperty(
+              systemAnnotationObj, aspectRecordSchema.getFullName()));
+    }
+    final Object systemEntityAnnotationObj =
+        aspectRecordSchema.getProperties().get(SystemEntityAnnotation.ANNOTATION_NAME);
+    if (systemEntityAnnotationObj != null) {
+      aspectSpec.setSystemEntityAnnotation(
+          SystemEntityAnnotation.fromSchemaProperty(
+              systemEntityAnnotationObj, aspectRecordSchema.getFullName()));
     }
   }
 

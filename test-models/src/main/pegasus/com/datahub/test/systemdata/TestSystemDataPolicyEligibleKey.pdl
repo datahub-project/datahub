@@ -1,0 +1,15 @@
+namespace com.datahub.test.systemdata
+
+/**
+ * Test-only system entity with read/exists eligible for policy-engine evaluation.
+ */
+@Aspect = {
+  "name": "testSystemDataPolicyEligibleKey"
+}
+@SystemEntity = {
+  "allowRead": true,
+  "allowExists": true
+}
+record TestSystemDataPolicyEligibleKey {
+  id: string
+}

@@ -111,6 +111,7 @@ public class Constants {
   public static final String DATA_PLATFORM_INSTANCE_ENTITY_NAME = "dataPlatformInstance";
   public static final String ACCESS_TOKEN_ENTITY_NAME = "dataHubAccessToken";
   public static final String DATA_HUB_UPGRADE_ENTITY_NAME = "dataHubUpgrade";
+  public static final String DATA_HUB_SYSTEM_STATE_ENTITY_NAME = "dataHubSystemState";
   public static final String INVITE_TOKEN_ENTITY_NAME = "inviteToken";
   public static final String DATAHUB_ROLE_ENTITY_NAME = "dataHubRole";
   public static final String POST_ENTITY_NAME = "post";
@@ -379,6 +380,9 @@ public class Constants {
   public static final String DATA_HUB_UPGRADE_KEY_ASPECT_NAME = "dataHubUpgradeKey";
   public static final String DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME = "dataHubUpgradeRequest";
   public static final String DATA_HUB_UPGRADE_RESULT_ASPECT_NAME = "dataHubUpgradeResult";
+  public static final String DATA_HUB_SYSTEM_STATE_KEY_ASPECT_NAME = "dataHubSystemStateKey";
+  public static final String DATA_HUB_SYSTEM_STATE_PROPERTIES_ASPECT_NAME =
+      "dataHubSystemStateProperties";
 
   // Invite Token
   public static final String INVITE_TOKEN_ASPECT_NAME = "inviteToken";

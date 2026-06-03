@@ -1,5 +1,6 @@
 package com.datahub.authorization;
 
+import com.datahub.authorization.config.SystemDataAccessControlConfiguration;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import java.util.List;
@@ -15,4 +16,7 @@ public class AuthorizationConfiguration {
   private List<AuthorizerConfiguration> authorizers;
 
   private ViewAuthorizationConfiguration view;
+
+  /** System entity data access control (API gate, DAO read filter, write validator). */
+  private SystemDataAccessControlConfiguration systemDataAccessControl;
 }

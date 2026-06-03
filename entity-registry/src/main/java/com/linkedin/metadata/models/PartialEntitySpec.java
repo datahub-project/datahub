@@ -90,4 +90,30 @@ public class PartialEntitySpec implements EntitySpec {
   public String getSearchGroup() {
     return _entityAnnotation.getSearchGroup();
   }
+
+  private boolean _systemEntity;
+  private boolean _systemEntityAllowRead;
+  private boolean _systemEntityAllowExists;
+
+  @Override
+  public boolean isSystemEntity() {
+    return _systemEntity;
+  }
+
+  @Override
+  public boolean isSystemEntityAllowRead() {
+    return _systemEntityAllowRead;
+  }
+
+  @Override
+  public boolean isSystemEntityAllowExists() {
+    return _systemEntityAllowExists;
+  }
+
+  public void setSystemEntityFlags(
+      final boolean systemEntity, final boolean allowRead, final boolean allowExists) {
+    _systemEntity = systemEntity;
+    _systemEntityAllowRead = allowRead;
+    _systemEntityAllowExists = allowExists;
+  }
 }
