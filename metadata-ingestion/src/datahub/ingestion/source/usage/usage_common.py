@@ -246,20 +246,41 @@ class BaseUsageConfig(BaseTimeWindowConfig):
 
 
 class _Dim:
-    """The counted dimensions stored as item-key prefixes in the usage counter."""
+    """The counted dimensions, stored as item-key prefixes in the usage counter."""
 
     USER = "user"
     QUERY = "query"
     COLUMN = "column"
 
 
-def _encode_item(dim: str, value: str) -> str:
-    return f"{dim}:{value}"
+class _UsageKeys:
+    """Single source of truth for the usage counter's (group_key, item_key) encoding.
 
+    Keys are colon-joined. The prefixes -- an integer bucket and a fixed dim name --
+    never contain ':', so str.partition(':') round-trips arbitrary resource/value content.
+    """
 
-def _decode_item(item_key: str) -> Tuple[str, str]:
-    dim, _, value = item_key.partition(":")
-    return dim, value
+    # Item key recording group existence even when there are no real counts (denied or
+    # empty events), so the group still emits an (empty) workunit.
+    EXISTENCE = ""
+
+    @staticmethod
+    def group(bucket_millis: int, resource_key: str) -> str:
+        return f"{bucket_millis}:{resource_key}"
+
+    @staticmethod
+    def split_group(group_key: str) -> Tuple[int, str]:
+        bucket_str, _, resource_key = group_key.partition(":")
+        return int(bucket_str), resource_key
+
+    @staticmethod
+    def item(dim: str, value: str) -> str:
+        return f"{dim}:{value}"
+
+    @staticmethod
+    def split_item(item_key: str) -> Tuple[str, str]:
+        dim, _, value = item_key.partition(":")
+        return dim, value
 
 
 class UsageAggregator(Generic[ResourceType], Closeable):
@@ -307,32 +328,43 @@ class UsageAggregator(Generic[ResourceType], Closeable):
         bucket = self._bucket_millis(start_time, self.config.bucket_duration)
         # str(resource) is the identity key; resources whose str() are equal are
         # intentionally aggregated together (holds for UrnStr and usage-path
-        # TableReference, whose last_updated is unset). bucket is a leading integer and
-        # dim is a ":"-free enum, so the keys decode unambiguously via str.partition(":").
+        # TableReference, whose last_updated is unset).
         resource_key = str(resource)
-        group_key = f"{bucket}:{resource_key}"
+        group_key = _UsageKeys.group(bucket, resource_key)
 
         # FileBackedDict's bounded in-memory cache acts as the write buffer and dedups
-        # repeated sets of the same key, so set unconditionally (no per-event read).
-        # This is last-write-wins (a deliberate, immaterial divergence from the prior
-        # first-write-wins, since resources with equal str() are interchangeable).
+        # repeated sets of the same key, so set unconditionally (last-write-wins; an
+        # immaterial divergence from the prior first-write-wins, since resources with
+        # equal str() are interchangeable).
         self._resources[resource_key] = resource
-        # Sentinel item records the group's existence even for denied/empty events, so
-        # they still emit an empty workunit (matches the in-memory implementation).
-        self._counts.increment(group_key, "", count=0)
+        self._add_read_entry(
+            group_key, user=user, query=query, fields=fields, count=count
+        )
 
-        # Replicate add_read_entry's filter: a denied user records nothing further.
-        if not (user and not self.config.user_email_pattern.allowed(user)):
-            if user:
-                self._counts.increment(group_key, _encode_item(_Dim.USER, user), count)
-            if query:
-                self._counts.increment(
-                    group_key, _encode_item(_Dim.QUERY, query), count
-                )
-            for field in fields:
-                self._counts.increment(
-                    group_key, _encode_item(_Dim.COLUMN, field), count
-                )
+    def _add_read_entry(
+        self,
+        group_key: str,
+        *,
+        user: Optional[str],
+        query: Optional[str],
+        fields: List[str],
+        count: int,
+    ) -> None:
+        # Record the group's existence even for denied/empty events, so they still emit
+        # an empty workunit (mirrors GenericAggregatedDataset.add_read_entry, which
+        # always creates the aggregate before its denied-user early return).
+        self._counts.increment(group_key, _UsageKeys.EXISTENCE, count=0)
+        # A denied user records nothing further.
+        if user and not self.config.user_email_pattern.allowed(user):
+            return
+        if user:
+            self._counts.increment(group_key, _UsageKeys.item(_Dim.USER, user), count)
+        if query:
+            self._counts.increment(group_key, _UsageKeys.item(_Dim.QUERY, query), count)
+        for field in fields:
+            self._counts.increment(
+                group_key, _UsageKeys.item(_Dim.COLUMN, field), count
+            )
 
     def generate_workunits(
         self,
@@ -340,7 +372,7 @@ class UsageAggregator(Generic[ResourceType], Closeable):
         user_urn_builder: Optional[Callable[[str], str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for group_key, items in self._counts.most_common_by_group():
-            bucket_str, _, resource_key = group_key.partition(":")
+            bucket_millis, resource_key = _UsageKeys.split_group(group_key)
             resource = self._resources[resource_key]
 
             query_freq: List[Tuple[str, int]] = []
@@ -348,7 +380,7 @@ class UsageAggregator(Generic[ResourceType], Closeable):
             column_freq: List[Tuple[str, int]] = []
             query_count = 0
             for item_key, cnt in items:
-                dim, item = _decode_item(item_key)
+                dim, item = _UsageKeys.split_item(item_key)
                 if dim == _Dim.QUERY:
                     query_freq.append((item, cnt))
                     query_count += cnt
@@ -360,7 +392,7 @@ class UsageAggregator(Generic[ResourceType], Closeable):
 
             yield make_usage_workunit(
                 bucket_start_time=datetime.fromtimestamp(
-                    int(bucket_str) / 1000, tz=timezone.utc
+                    bucket_millis / 1000, tz=timezone.utc
                 ),
                 resource=resource,
                 query_count=query_count,

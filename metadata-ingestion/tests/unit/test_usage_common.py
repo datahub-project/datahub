@@ -16,6 +16,8 @@ from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
     UsageAggregator,
+    _Dim,
+    _UsageKeys,
 )
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
@@ -322,6 +324,21 @@ def test_make_usage_workunit_include_top_n_queries():
     du: DatasetUsageStatisticsClass = wu.metadata.aspect
     assert du.totalSqlQueries == 1
     assert du.topSqlQueries is None
+
+
+def test_usage_keys_group_roundtrip():
+    # resource_key containing ":" must round-trip (partition splits on the first ":").
+    gk = _UsageKeys.group(1700000000000, "urn:li:dataset:(x,y,PROD)")
+    assert _UsageKeys.split_group(gk) == (1700000000000, "urn:li:dataset:(x,y,PROD)")
+
+
+def test_usage_keys_item_roundtrip():
+    # value containing ":" must round-trip; dim prefix is ":"-free.
+    ik = _UsageKeys.item(_Dim.QUERY, "SELECT a::int FROM t WHERE x = 'a:b'")
+    assert _UsageKeys.split_item(ik) == (
+        _Dim.QUERY,
+        "SELECT a::int FROM t WHERE x = 'a:b'",
+    )
 
 
 def test_extract_user_email():
