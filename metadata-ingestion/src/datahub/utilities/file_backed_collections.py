@@ -607,7 +607,9 @@ class FileBackedCounter(Closeable):
         self._batch_size = batch_size
         self._closed = False
         # Write buffer, pre-summing repeated keys within a flush window so they collapse
-        # to a single upsert.
+        # to a single upsert. _lock guards _buf so concurrent increment()/_flush() calls
+        # don't lose counts or mutate the dict mid-iteration.
+        self._lock = threading.Lock()
         self._buf: Dict[Tuple[str, str], int] = {}
         self._upsert = (
             f"INSERT INTO {tablename}(group_key, item_key, cnt) VALUES (?, ?, ?) "
@@ -632,14 +634,21 @@ class FileBackedCounter(Closeable):
 
     def increment(self, group_key: str, item_key: str, count: int = 1) -> None:
         key = (group_key, item_key)
-        self._buf[key] = self._buf.get(key, 0) + count
-        if len(self._buf) >= self._batch_size:
+        with self._lock:
+            self._buf[key] = self._buf.get(key, 0) + count
+            over_batch = len(self._buf) >= self._batch_size
+        if over_batch:
             self._flush()
 
     def _flush(self) -> None:
-        if not self._buf:
-            return
-        rows = [(group, item, cnt) for (group, item), cnt in self._buf.items()]
+        # Snapshot and clear the buffer under the lock, then write outside it: the SQL
+        # write is serialized separately by ConnectionWrapper's own lock, and holding
+        # _lock across I/O would needlessly block concurrent increment() calls.
+        with self._lock:
+            if not self._buf:
+                return
+            rows = [(group, item, cnt) for (group, item), cnt in self._buf.items()]
+            self._buf.clear()
         if self._use_sqlite_on_conflict:
             self._conn.executemany(self._upsert, rows)
         else:
@@ -658,7 +667,6 @@ class FileBackedCounter(Closeable):
                         "WHERE group_key = ? AND item_key = ?",
                         (cnt, group, item),
                     )
-        self._buf.clear()
 
     def most_common_by_group(self) -> Iterator[Tuple[str, List[Tuple[str, int]]]]:
         """Yield (group_key, items) for each group in group_key order, where items are

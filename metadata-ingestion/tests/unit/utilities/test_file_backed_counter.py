@@ -1,3 +1,4 @@
+import threading
 from typing import Iterator
 
 import pytest
@@ -38,6 +39,30 @@ def test_counter_close_is_idempotent():
     c.increment("g", "a", 1)
     c.close()
     c.close()
+
+
+def test_counter_increment_is_thread_safe():
+    # Concurrent increments must not lose counts or hit "dict changed size during
+    # iteration" in _flush. A tiny batch_size forces flushes to interleave with the
+    # increments running on other threads.
+    c = FileBackedCounter(batch_size=5)
+    items = [chr(ord("a") + i) for i in range(10)]
+    n_threads, per_thread = 8, 500
+
+    def work() -> None:
+        for _ in range(per_thread):
+            for item in items:
+                c.increment("g", item, 1)
+
+    threads = [threading.Thread(target=work) for _ in range(n_threads)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    counts = dict(dict(c.most_common_by_group())["g"])
+    c.close()
+    assert all(counts[item] == n_threads * per_thread for item in items), counts
 
 
 def test_counter_flushes_on_del():
