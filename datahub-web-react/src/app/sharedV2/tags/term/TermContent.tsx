@@ -132,6 +132,10 @@ export default function TermContent({
                 clickable
                 variant={highlightTerm ? 'highlighted' : 'default'}
                 size={fontSize && fontSize <= 10 ? 'sm' : 'md'}
+                // Pass an explicit `-pill` suffix so the inner pill's default `term-{name}`
+                // testid doesn't collide with the outer `TermContainer` selector and trip
+                // Playwright/Cypress strict-mode. Mirrors the `Tag` / `TagPill` pairing.
+                dataTestId={`term-${displayName}-pill`}
                 rightAdornment={term.actor?.urn === PROPAGATOR_URN ? <PropagateThunderbolt /> : undefined}
                 onRemove={
                     canRemove && !readOnly

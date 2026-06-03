@@ -339,11 +339,15 @@ export class DatasetPage extends BasePage {
     await tagOption.waitFor({ state: 'visible' });
     await tagOption.click();
 
-    // Do NOT press Escape: the alchemy Modal wraps AntD `Modal`, which closes on Escape;
-    // the AntD `Dropdown` powering SimpleSelect does NOT consume Escape, so the keypress
-    // bubbles to the Modal and closes it — taking the confirm button with it. The footer
-    // button sits outside the dropdown popover, so clicking it dismisses the dropdown
-    // and submits the modal in one step.
+    // Close the SimpleSelect dropdown by re-clicking its trigger. We can't press Escape
+    // (closes the alchemy Modal — AntD Modal default), and we can't just click the footer
+    // confirm button while the popover is open because the popover renders below the
+    // trigger and physically covers the footer when search results are short — the
+    // CI trace shows `<div label="" type="text">` (the DropdownSearchBar Input wrapper)
+    // intercepting pointer events. The trigger itself sits above the popover and is
+    // never covered, so clicking it toggles the dropdown closed.
+    await this.tagTermModalInput.click();
+
     await expect(this.addTagFromModalButton).toBeEnabled();
     await this.addTagFromModalButton.click();
 
