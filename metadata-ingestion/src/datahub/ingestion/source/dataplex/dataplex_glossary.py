@@ -252,14 +252,8 @@ class DataplexGlossaryProcessor:
         parent = f"projects/{project_id}/locations/{location}"
         request = dataplex_v1.ListGlossariesRequest(parent=parent)
         with PerfTimer() as timer:
-            response = list(self._glossary_client.list_glossaries(request=request))
+            response = self._glossary_client.list_glossaries(request=request)
         self._report.report_api_call("list_glossaries", timer.elapsed_seconds())
-        logger.debug(
-            "list_glossaries parent=%s returned %d glossaries in %.2fs",
-            parent,
-            len(response),
-            timer.elapsed_seconds(),
-        )
         logger.debug("list_glossaries payload: %s", response)
         return response
 
@@ -294,12 +288,6 @@ class DataplexGlossaryProcessor:
         # Fetch categories and terms.
         categories = self._list_categories(project_id, location, glossary_id)
         terms = self._list_terms(project_id, location, glossary_id)
-        logger.debug(
-            "Glossary %s: %d categories, %d terms",
-            glossary_id,
-            len(categories),
-            len(terms),
-        )
 
         for category in categories:
             cat_id = _resource_id(category.name)
@@ -360,39 +348,25 @@ class DataplexGlossaryProcessor:
 
     def _list_categories(
         self, project_id: str, location: str, glossary_id: str
-    ) -> List[dataplex_v1.GlossaryCategory]:
+    ) -> Iterable[dataplex_v1.GlossaryCategory]:
         parent = f"projects/{project_id}/locations/{location}/glossaries/{glossary_id}"
         request = dataplex_v1.ListGlossaryCategoriesRequest(parent=parent)
         with PerfTimer() as timer:
-            categories = list(
-                self._glossary_client.list_glossary_categories(request=request)
-            )
+            categories = self._glossary_client.list_glossary_categories(request=request)
         self._report.report_api_call(
             "list_glossary_categories", timer.elapsed_seconds()
-        )
-        logger.debug(
-            "list_glossary_categories parent=%s returned %d categories in %.2fs",
-            parent,
-            len(categories),
-            timer.elapsed_seconds(),
         )
         logger.debug("list_glossary_categories payload: %s", categories)
         return categories
 
     def _list_terms(
         self, project_id: str, location: str, glossary_id: str
-    ) -> List[dataplex_v1.GlossaryTerm]:
+    ) -> Iterable[dataplex_v1.GlossaryTerm]:
         parent = f"projects/{project_id}/locations/{location}/glossaries/{glossary_id}"
         request = dataplex_v1.ListGlossaryTermsRequest(parent=parent)
         with PerfTimer() as timer:
-            terms = list(self._glossary_client.list_glossary_terms(request=request))
+            terms = self._glossary_client.list_glossary_terms(request=request)
         self._report.report_api_call("list_glossary_terms", timer.elapsed_seconds())
-        logger.debug(
-            "list_glossary_terms parent=%s returned %d terms in %.2fs",
-            parent,
-            len(terms),
-            timer.elapsed_seconds(),
-        )
         logger.debug("list_glossary_terms payload: %s", terms)
         return terms
 
