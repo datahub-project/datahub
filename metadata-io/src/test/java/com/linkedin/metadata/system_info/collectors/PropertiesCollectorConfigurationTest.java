@@ -550,6 +550,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cassandra.hosts",
           "cassandra.port",
           "cassandra.useSsl",
+          "ebean.autoCommit",
           "ebean.autoCreateDdl",
           "ebean.batchGetMethod",
           "ebean.queryKeysCountForBatch",
