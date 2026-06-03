@@ -48,7 +48,7 @@ import {
 import { capitalizeFirstLetterOnly, forcePluralize, pluralizeIfIrregular } from '@app/shared/textUtil';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import { DATE_TYPE_URN, URN_TYPE_URN } from '@src/app/shared/constants';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 import dayjs from '@utils/dayjs';
@@ -474,13 +474,33 @@ function getDynamicFilterField(field: string, availableFilters: FacetMetadata[])
     const filterAggregations = availableFilters?.find(
         (availableFilter) => availableFilter.field === field,
     )?.aggregations;
+    const entity = associatedAvailableFilter?.entity || undefined;
+
+    let type = getFilterFieldType(field, filterAggregations || []);
+    let entityTypes = getFilterEntityTypes(field, filterAggregations);
+
+    // For structured property fields, use the property's valueType definition to determine the
+    // correct filter UI — prevents URN-type properties from falling back to a plain text dropdown.
+    if (field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME) && entity) {
+        const structuredPropEntity = entity as StructuredPropertyEntity;
+        const valueTypeUrn = structuredPropEntity.definition?.valueType?.urn;
+        if (valueTypeUrn === URN_TYPE_URN) {
+            type = FieldType.ENTITY;
+            // Prefer the explicit typeQualifier allowedTypes; fall back to inference from aggregations.
+            const qualifierTypes = structuredPropEntity.definition?.typeQualifier?.allowedTypes;
+            if (qualifierTypes?.length) {
+                entityTypes = qualifierTypes.map((t) => t.type).filter(Boolean) as EntityType[];
+            }
+        }
+    }
+
     return {
         field,
         displayName: filterDisplayName || field,
-        type: getFilterFieldType(field, filterAggregations || []),
-        entityTypes: getFilterEntityTypes(field, filterAggregations),
+        type,
+        entityTypes,
         icon: getFilterDropdownIcon(field),
-        entity: associatedAvailableFilter?.entity || undefined,
+        entity,
     };
 }
 
