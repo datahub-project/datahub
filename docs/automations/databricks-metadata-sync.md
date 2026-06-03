@@ -1,5 +1,5 @@
 ---
-description: "Sync DataHub tags, terms, owners, and descriptions to Databricks Unity Catalog using DataHub Cloud's Databricks metadata sync automation."
+description: "Sync DataHub tags, glossary terms, and descriptions to Databricks Unity Catalog using DataHub Cloud's Databricks metadata sync automation."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -16,7 +16,7 @@ This feature is currently in Public Beta in DataHub Cloud. Reach out to your Dat
 
 ## Overview
 
-Databricks Metadata Sync is an automation feature that enables seamless synchronization of DataHub Tags and Descriptions with Databricks Unity Catalog. This automation ensures consistent metadata governance across both platforms, automatically propagating DataHub governance artifacts to Unity Catalog tables, columns, catalogs, and schemas. Typically, this will be used in conjunction with the [Databricks ingestion source](https://docs.datahub.com/docs/generated/ingestion/sources/databricks), which enables ingesting Tags & descriptions from Databricks into DataHub.
+Databricks Metadata Sync is an automation feature that enables seamless synchronization of DataHub Tags, Glossary Terms, and Descriptions with Databricks Unity Catalog. This automation ensures consistent metadata governance across both platforms, automatically propagating DataHub governance artifacts to Unity Catalog tables, columns, catalogs, and schemas. Typically, this will be used in conjunction with the [Databricks ingestion source](https://docs.datahub.com/docs/generated/ingestion/sources/databricks), which enables ingesting Tags & descriptions from Databricks into DataHub.
 
 This automation is exclusively available in DataHub Cloud.
 
@@ -31,10 +31,11 @@ This automation is exclusively available in DataHub Cloud.
 The Databricks Metadata Sync automation provides comprehensive metadata synchronization with the following features:
 
 - **Automated Tag Propagation**: Seamlessly sync DataHub Tags to Unity Catalog tables, columns, catalogs, and schemas
+- **Glossary Term Propagation**: Sync DataHub Glossary Terms to Unity Catalog. Terms surface as Databricks tags using the term URN as the tag key.
 - **Description Synchronization**: Automatically propagate DataHub descriptions to Unity Catalog objects as comments
-- **Bidirectional Updates**: Maintain consistency by automatically removing Tags and descriptions from Unity Catalog when they are removed in DataHub
-- **Selective Propagation**: Configure specific Tags for propagation, or sync all Tags
-- **Historical Backfill**: Initialize Tags and Descriptions for assets on Databricks with current DataHub Tags & Descriptions.
+- **Bidirectional Updates**: Maintain consistency by automatically removing Tags, Glossary Terms, and descriptions from Unity Catalog when they are removed in DataHub
+- **Selective Propagation**: Configure specific Tags or Glossary Terms for propagation, or sync all of them
+- **Historical Backfill**: Initialize Tags, Glossary Terms, and Descriptions for assets on Databricks with current DataHub state.
 
 > **A note about legacy Hive Metastore**: Bi-directional sync for _descriptions_ is supported for Hive Metastore Schemas & Tables, but Tag sync is _not_. This is because Databricks does not support applying of Tags to these assets on Hive Metastore.
 
@@ -152,6 +153,7 @@ Choose the types of information to synchronize:
 Choose between:
 
 - **Tags**: Sync Tags for Tables, Columns, Catalogs, & Schemas (Unity Catalog only)
+- **Glossary Terms**: Sync Glossary Terms for Tables, Columns, Catalogs & Schemas as Databricks tags (Unity Catalog only)
 - **Descriptions**: Sync descriptions for Tables, Columns, Catalogs & Schemas as comments (Unity Catalog & legacy Hive Metastore)
 
 <p align="center">
@@ -197,7 +199,7 @@ Click **Save and Run** to activate the automation and begin real-time synchroniz
 
 ### Initializing Existing Assets
 
-For environments with existing DataHub metadata, you can perform a one-time backfill to ensure all current Tags and Descriptions from DataHub are propagated to Unity Catalog. Depending on the number of assets, this might take a while!
+For environments with existing DataHub metadata, you can perform a one-time backfill to ensure all current Tags, Glossary Terms, and Descriptions from DataHub are propagated to Unity Catalog. Depending on the number of assets, this might take a while!
 
 #### Initialization Process
 
@@ -281,4 +283,4 @@ But fear not - you can always view the original underlying Databricks descriptio
 
 4. **Can I sync DataHub Structured Properties or Glossary Terms back to Databricks as Tags?**
 
-Currently, no. Sync back is limited to Tags, to keep the concepts aligned more simply across both platforms. Reach out if you'd benefit from this capability!
+Glossary Terms are supported — they surface in Unity Catalog as Databricks tags using the term URN as the tag key. Structured Properties are not yet supported. Reach out if you'd benefit from Structured Property sync.
