@@ -1,6 +1,7 @@
 import { StopOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import {
@@ -23,22 +24,23 @@ type Props = {
 };
 
 export const DataContractAssertionStatus = ({ assertion }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const latestRun = (assertion.runEvents?.runEvents?.length && assertion.runEvents?.runEvents[0]) || undefined;
     const latestResultType = latestRun?.result?.type || undefined;
 
     return (
         <StatusContainer>
             {latestResultType === undefined && <StopOutlined />}
-            <Tooltip title="Assertion is passing">
+            <Tooltip title={t('assertionStatus.passing')}>
                 {latestResultType === AssertionResultType.Success && <StyledCheckOutlined />}
             </Tooltip>
-            <Tooltip title="Assertion is failing">
+            <Tooltip title={t('assertionStatus.failing')}>
                 {latestResultType === AssertionResultType.Failure && <StyledCloseOutlined />}
             </Tooltip>
-            <Tooltip title="Assertion has completed with errors">
+            <Tooltip title={t('assertionStatus.completingWithErrors')}>
                 {latestResultType === AssertionResultType.Error && <StyledExclamationOutlined />}
             </Tooltip>
-            <Tooltip title="Assertion is initializing">
+            <Tooltip title={t('assertionStatus.initializing')}>
                 {latestResultType === AssertionResultType.Init && <StyledClockCircleOutlined />}
             </Tooltip>
         </StatusContainer>

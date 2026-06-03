@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import SampleValueCell from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/Samples/components/SampleValueCell';
 import { Column, Table } from '@src/alchemy-components';
@@ -12,13 +13,14 @@ interface SamplesTableProps {
 }
 
 export default function SamplesTable({ samples, fieldType, onViewSample, maxItems }: SamplesTableProps) {
+    const { t } = useTranslation('entity.profile.schema');
     const truncatedSamples = useMemo(() => samples.slice(0, maxItems), [samples, maxItems]);
 
     const columns: Column<string>[] = useMemo(() => {
         const isPreviewMode = maxItems !== undefined;
         const columnsToShow: Column<string>[] = [
             {
-                title: 'Sample Values',
+                title: t('statsV2Samples.columnHeader'),
                 key: 'sample-value',
                 render: (record) => {
                     return <SampleValueCell sample={record} onViewSample={onViewSample} />;
@@ -38,7 +40,7 @@ export default function SamplesTable({ samples, fieldType, onViewSample, maxItem
         ];
 
         return columnsToShow;
-    }, [fieldType, onViewSample, maxItems]);
+    }, [fieldType, onViewSample, maxItems, t]);
 
     return <Table data={truncatedSamples} isScrollable columns={columns} />;
 }

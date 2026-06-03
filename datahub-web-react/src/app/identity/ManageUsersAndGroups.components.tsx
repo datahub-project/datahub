@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Button, PageTitle, Pill } from '@src/alchemy-components';
@@ -79,6 +80,8 @@ export const ManageUsersAndGroupsHeader = ({
     onCreateServiceAccount,
     onCreateGroup,
 }: ManageUsersAndGroupsHeaderProps) => {
+    const { t } = useTranslation('entity.identity');
+
     const renderActionButton = () => {
         switch (activeTab) {
             case 'service-accounts':
@@ -89,19 +92,19 @@ export const ManageUsersAndGroupsHeader = ({
                         onClick={onCreateServiceAccount}
                         data-testid="create-service-account-button"
                     >
-                        Create Service Account
+                        {t('serviceAccounts.createButton')}
                     </Button>
                 );
             case 'groups':
                 return (
                     <Button variant="filled" onClick={onCreateGroup} data-testid="create-group-button">
-                        Create Group
+                        {t('groups.createButton')}
                     </Button>
                 );
             default:
                 return (
                     <Button variant="filled" disabled={!canManageUsers} onClick={onInviteUsers}>
-                        Invite Users
+                        {t('users.inviteButton')}
                     </Button>
                 );
         }
@@ -110,10 +113,7 @@ export const ManageUsersAndGroupsHeader = ({
     return (
         <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
             <HeaderLeft>
-                <PageTitle
-                    title="Manage Users &amp; Groups"
-                    subTitle="View your DataHub users &amp; groups. Take administrative actions."
-                />
+                <PageTitle title={t('pageTitle')} subTitle={t('pageSubTitle')} />
             </HeaderLeft>
             <HeaderRight>{renderActionButton()}</HeaderRight>
         </PageHeaderContainer>

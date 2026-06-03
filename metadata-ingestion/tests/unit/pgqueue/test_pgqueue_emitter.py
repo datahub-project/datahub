@@ -70,7 +70,7 @@ class TestSerializeForEnqueue:
     @patch("datahub.pgqueue.emitter.create_pgqueue_connection")
     @patch("datahub.pgqueue.emitter.AvroSerializer")
     @patch("datahub.pgqueue.emitter.SchemaRegistryClient")
-    def test_mce_with_snapshot(
+    def test_mce_rejected(
         self,
         _sr_cls: MagicMock,
         avro_ser_cls: MagicMock,
@@ -79,7 +79,6 @@ class TestSerializeForEnqueue:
     ) -> None:
         avro_ser_cls.return_value = MagicMock(return_value=b"\x00mce")
 
-        from datahub.emitter.kafka_emitter import MCE_KEY
         from datahub.pgqueue.emitter import DatahubPgQueueEmitter
 
         emitter = DatahubPgQueueEmitter(emitter_config)
@@ -90,11 +89,8 @@ class TestSerializeForEnqueue:
             "urn:li:dataset:(urn:li:dataPlatform:mysql,db.tbl,PROD)"
         )
 
-        topic, key, payload = emitter._serialize_for_enqueue(mce)
-
-        assert topic == emitter_config.topic_routes[MCE_KEY]
-        assert key == mce.proposedSnapshot.urn
-        assert payload == b"\x00mce"
+        with pytest.raises(ValueError, match="legacy snapshot MCE"):
+            emitter._serialize_for_enqueue(mce)
 
     @patch("datahub.pgqueue.emitter.create_pgqueue_connection")
     @patch("datahub.pgqueue.emitter.AvroSerializer")
@@ -120,7 +116,7 @@ class TestSerializeForEnqueue:
     @patch("datahub.pgqueue.emitter.create_pgqueue_connection")
     @patch("datahub.pgqueue.emitter.AvroSerializer")
     @patch("datahub.pgqueue.emitter.SchemaRegistryClient")
-    def test_mce_missing_snapshot_raises(
+    def test_mce_missing_snapshot_still_rejected(
         self,
         _sr_cls: MagicMock,
         avro_ser_cls: MagicMock,
@@ -136,7 +132,7 @@ class TestSerializeForEnqueue:
         mce = MagicMock(spec=MetadataChangeEvent)
         mce.proposedSnapshot = None
 
-        with pytest.raises(AttributeError):
+        with pytest.raises(ValueError, match="legacy snapshot MCE"):
             emitter._serialize_for_enqueue(mce)
 
 
@@ -216,13 +212,13 @@ class TestEmitBatch:
     @patch("datahub.pgqueue.emitter.create_pgqueue_connection")
     @patch("datahub.pgqueue.emitter.AvroSerializer")
     @patch("datahub.pgqueue.emitter.SchemaRegistryClient")
-    def test_emit_batch_mixed_topics_raises(
+    def test_emit_batch_mce_rejected_reports_error(
         self,
         _sr_cls: MagicMock,
         avro_ser_cls: MagicMock,
         _conn_fn: MagicMock,
     ) -> None:
-        """MCPs and MCEs in the same batch target different topics → ValueError."""
+        """Legacy MCE in a batch is rejected and reported via callback."""
         avro_ser_cls.return_value = MagicMock(return_value=b"\x00avro")
 
         config = _make_config()
@@ -243,11 +239,10 @@ class TestEmitBatch:
         callback = MagicMock()
         emitter.emit_batch([mcp, mce], callback=callback)
 
-        # The error is caught internally and forwarded to the callback
         assert callback.call_count == 1
         err = callback.call_args[0][0]
         assert isinstance(err, ValueError)
-        assert "single topic" in str(err)
+        assert "legacy snapshot MCE" in str(err)
 
     @patch("datahub.pgqueue.emitter.create_pgqueue_connection")
     @patch("datahub.pgqueue.emitter.AvroSerializer")

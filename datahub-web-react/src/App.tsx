@@ -4,7 +4,7 @@ import '@src/AppV2.less';
 import { ApolloClient, ApolloLink, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import Cookies from 'js-cookie';
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
 
@@ -15,6 +15,7 @@ import { Routes } from '@app/Routes';
 import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
+import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
 import { ErrorCodes } from '@app/shared/constants';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
@@ -109,7 +110,9 @@ export const InnerApp: React.VFC = () => {
                     <title>{useCustomTheme().theme?.content?.title}</title>
                 </Helmet>
                 <Router basename={getRuntimeBasePath()}>
-                    <Routes />
+                    <Suspense fallback={<SuspenseGlobal />}>
+                        <Routes />
+                    </Suspense>
                 </Router>
             </CustomThemeProvider>
         </HelmetProvider>

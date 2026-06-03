@@ -91,7 +91,7 @@ test.describe('Query and Filter Search', () => {
     await searchPage.expectTextVisible('Tags');
 
     // Verify the specific tag element is visible (requires page directly).
-    const tagLocator = page.locator('[data-testid="tag-PlaywrightFeatureTag"]');
+    const tagLocator = page.getByTestId('tag-PlaywrightFeatureTag');
     await expect(tagLocator).toBeVisible();
     await searchPage.expectTextVisible('PlaywrightFeatureTag');
   });

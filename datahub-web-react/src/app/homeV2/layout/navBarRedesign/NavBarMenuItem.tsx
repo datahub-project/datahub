@@ -29,7 +29,7 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
     }
 
     && svg {
-        color: ${(props) => props.theme.colors.textTertiary};
+        color: ${(props) => props.theme.colors.icon};
         width: 20px;
         height: 20px;
     }

@@ -21,8 +21,9 @@ vi.mock('@graphql/user.generated');
 vi.mock('@graphql/settings.generated');
 vi.mock('@app/entity/shared/EntityContext');
 
+const mockShowToast = vi.fn();
 vi.mock('@app/homeV3/toast/useShowToast', () => ({
-    default: () => ({ showToast: vi.fn() }),
+    default: () => ({ showToast: mockShowToast }),
 }));
 
 const mockUpsertPageTemplateMutation = vi.fn();
@@ -812,6 +813,50 @@ describe('useTemplateOperations', () => {
                     },
                 },
             });
+        });
+
+        it('should show translated toast when creating new personal HomePage template', async () => {
+            const { result } = renderHook(() =>
+                useTemplateOperations(setPersonalTemplate, null, PageTemplateSurfaceType.HomePage),
+            );
+
+            mockUpsertPageTemplateMutation.mockResolvedValue({
+                data: {
+                    upsertPageTemplate: {
+                        urn: 'urn:li:pageTemplate:new',
+                    },
+                },
+            });
+
+            await act(async () => {
+                await result.current.upsertTemplate(mockTemplate, true, null);
+            });
+
+            expect(mockShowToast).toHaveBeenCalledWith(
+                'You’ve edited your home page',
+                'To reset your home page click "Reset to Organization Default"',
+                'edited-home-page-toast',
+            );
+        });
+
+        it('should not show toast when updating an existing personal template', async () => {
+            const { result } = renderHook(() =>
+                useTemplateOperations(setPersonalTemplate, null, PageTemplateSurfaceType.HomePage),
+            );
+
+            mockUpsertPageTemplateMutation.mockResolvedValue({
+                data: {
+                    upsertPageTemplate: {
+                        urn: 'urn:li:pageTemplate:existing',
+                    },
+                },
+            });
+
+            await act(async () => {
+                await result.current.upsertTemplate(mockTemplate, true, mockTemplate);
+            });
+
+            expect(mockShowToast).not.toHaveBeenCalled();
         });
 
         it('should update asset settings when creating asset preview template', async () => {

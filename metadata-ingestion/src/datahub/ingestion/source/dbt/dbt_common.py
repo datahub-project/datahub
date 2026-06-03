@@ -1441,6 +1441,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         extra_custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        action_processor = OperationProcessor(
+            self.config.meta_mapping,
+            self.config.tag_prefix,
+            "SOURCE_CONTROL",
+            self.config.strip_user_ids_from_email,
+            match_nested_props=True,
+        )
+
         for node in sorted(test_nodes, key=lambda n: n.dbt_name):
             upstreams = get_upstreams_for_test(
                 test_node=node,
@@ -1501,6 +1509,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         assertion_urn,
                         upstream_urn,
                     )
+
+                    # This is ownership metadata on the dbt test node itself, not ownership
+                    # inherited from the upstream dataset under test.
+                    ownership_mcp = self._create_test_assertion_ownership_mcp(
+                        node, assertion_urn, action_processor
+                    )
+                    if ownership_mcp:
+                        yield ownership_mcp
 
                 for test_result in node.test_results:
                     if self.config.entities_enabled.can_emit_test_results:
@@ -1586,6 +1602,30 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 logger.debug(
                     f"Skipping freshness result for {node.name} emission since it is turned off."
                 )
+
+    def _create_test_assertion_ownership_mcp(
+        self,
+        node: DBTNode,
+        assertion_urn: str,
+        action_processor: OperationProcessor,
+    ) -> Optional[MetadataChangeProposalWrapper]:
+        if not self.config.enable_owner_extraction:
+            return None
+
+        meta_aspects: Dict[str, Any] = {}
+        if self.config.enable_meta_mapping and node.meta:
+            meta_aspects = action_processor.process(node.meta)
+
+        aggregated_owners = self._aggregate_owners(
+            node, meta_aspects.get(Constants.ADD_OWNER_OPERATION)
+        )
+        if not aggregated_owners:
+            return None
+
+        return MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn,
+            aspect=OwnershipClass(owners=aggregated_owners),
+        )
 
     @abstractmethod
     def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
@@ -2187,6 +2227,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         # TODO: Add some telemetry around this - how frequently does it filter stuff out?
                         if target_platform_urn_to_dbt_name.get(upstream_column.table)
                         in node.upstream_nodes
+                        and upstream_column.column
+                        and column_lineage_info.downstream.column
                     ]
 
             # If we didn't fetch the schema from the graph, use the inferred schema.
@@ -3095,6 +3137,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
                     cll = []
                     for column_lineage in sql_parsing_result.column_lineage or []:
+                        if not column_lineage.downstream.column:
+                            continue
                         cll.append(
                             FineGrainedLineage(
                                 upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
@@ -3104,6 +3148,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                                         upstream.table, upstream.column
                                     )
                                     for upstream in column_lineage.upstreams
+                                    if upstream.column
                                 ],
                                 downstreams=[
                                     mce_builder.make_schema_field_urn(
@@ -3125,6 +3170,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         # SQL parsing failed entirely, which is already reported above.
                         pass
 
+                valid_cll_entries = [
+                    entry
+                    for entry in node.upstream_cll
+                    if entry.upstream_col and entry.downstream_col
+                ]
                 cll = [
                     FineGrainedLineage(
                         upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
@@ -3148,7 +3198,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         ),
                     )
                     for downstream, upstreams in groupby_unsorted(
-                        node.upstream_cll, lambda x: x.downstream_col
+                        valid_cll_entries, lambda x: x.downstream_col
                     )
                 ]
 

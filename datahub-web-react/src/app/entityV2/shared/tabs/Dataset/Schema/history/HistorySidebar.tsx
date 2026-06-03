@@ -1,6 +1,7 @@
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { Drawer } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SearchBar } from '@components/components/SearchBar/SearchBar';
@@ -107,6 +108,7 @@ const HistorySidebar = ({
     entityType,
     defaultCategories,
 }: Props) => {
+    const { t } = useTranslation('entity.profile.schema');
     const categoryOptions = useMemo(() => getCategoryOptions(entityType), [entityType]);
     const allCategoryValues = useMemo(() => categoryOptions.map((o) => o.value), [categoryOptions]);
     const initialCategories = defaultCategories ?? allCategoryValues;
@@ -212,22 +214,22 @@ const HistorySidebar = ({
         >
             <DrawerContent>
                 <FieldHeaderWrapper>
-                    Change History
+                    {t('historySidebar.changeHistory')}
                     <CloseIcon onClick={() => onClose()}>
                         <CloseOutlinedIcon />
                     </CloseIcon>
                 </FieldHeaderWrapper>
                 <FilterBar>
                     <SearchBar
-                        placeholder="Search changes..."
+                        placeholder={t('historySidebar.searchChangesPlaceholder')}
                         value={searchText}
                         onChange={(val) => setSearchText(val)}
                         width="100%"
                         height="36px"
                     />
                     <SimpleSelect
-                        placeholder="Filter"
-                        selectLabelProps={{ variant: 'labeled', label: 'Types' }}
+                        placeholder={t('historySidebar.filterPlaceholder')}
+                        selectLabelProps={{ variant: 'labeled', label: t('historySidebar.typesLabel') }}
                         options={categoryOptions}
                         values={selectedCategories}
                         onUpdate={(values) => setSelectedCategories(values)}
@@ -250,11 +252,9 @@ const HistorySidebar = ({
                 </ChangeTransactionList>
 
                 <HistoryFooter>
-                    {hasError && 'Unable to load change history.'}
-                    {!hasError &&
-                        mayBeTruncated &&
-                        'Showing the most recent changes. Older history may not be displayed.'}
-                    {!hasError && !mayBeTruncated && 'Complete change history'}
+                    {hasError && t('historySidebar.unableToLoad')}
+                    {!hasError && mayBeTruncated && t('historySidebar.truncationNotice')}
+                    {!hasError && !mayBeTruncated && t('historySidebar.completeHistory')}
                 </HistoryFooter>
             </DrawerContent>
         </StyledDrawer>

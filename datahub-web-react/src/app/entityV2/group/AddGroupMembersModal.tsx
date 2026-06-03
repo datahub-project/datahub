@@ -57,6 +57,7 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
             title="Add group members"
             open={visible}
             onCancel={onModalClose}
+            dataTestId="add-members-modal"
             buttons={[
                 {
                     text: 'Cancel',

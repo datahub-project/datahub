@@ -6,7 +6,7 @@
 # Pre-v1.5.0: when users pass e.g. --version v1.4.0, the CLI downloads the compose file from that
 # version's git tag, which still includes those setup containers. No code changes needed.
 # v1.5.0+ quickstart: compose uses system-update only; no separate setup containers. Default is pinned
-# to git tag v1.5.0.3 (not master). `head` still uses compose from master and head images.
+# to git tag v1.5.0.3 (not master). `head` uses compose from master and the `quickstart` docker tag (see manifest).
 # Default must be v1.4.0.3 or later so system-update runs SqlSetup when DATAHUB_SQL_SETUP_ENABLED=true.
 #
 # If --version is specified during CLI run:
@@ -36,7 +36,12 @@ quickstart_version_map:
 
   head:
     composefile_git_ref: master
-    docker_tag: head
+    docker_tag: quickstart
+    mysql_tag: "8.2"
+
+  quickstart:
+    composefile_git_ref: master
+    docker_tag: quickstart
     mysql_tag: "8.2"
 
   # Must be v1.4.0.3+ so datahub-upgrade runs SqlSetup when DATAHUB_SQL_SETUP_ENABLED=true.
@@ -66,4 +71,4 @@ quickstart_version_map:
   # If stable is not defined the latest released version will be used.
   # stable:
   #   composefile_git_ref: master
-  #   docker_tag: head
+  #   docker_tag: quickstart

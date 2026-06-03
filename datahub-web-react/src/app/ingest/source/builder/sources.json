@@ -87,6 +87,14 @@
         "recipe": "source:\n    type: tableau\n    config:\n        # Coordinates\n        connect_uri: null\n        stateful_ingestion:\n            enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:thoughtspot",
+        "name": "thoughtspot",
+        "displayName": "ThoughtSpot",
+        "description": "Import Liveboards, Answers, Visualizations, Worksheets, Tags, and column-level lineage from ThoughtSpot.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/thoughtspot/",
+        "recipe": "source:\n  type: thoughtspot\n  config:\n    connection:\n      base_url: \"https://your-cluster.thoughtspot.cloud\"\n      # Trusted authentication (recommended for production).\n      # Add credentials in the Secrets tab and reference them by name.\n      auth:\n        type: trusted\n        username: \"${THOUGHTSPOT_USERNAME}\"\n        secret_key: \"${THOUGHTSPOT_SECRET_KEY}\"\n      # (Optional) Scope to a specific org in multi-org tenants.\n      # org_identifier: \"production\"\n\n    include_ownership: true\n    # Per-entity view counts via metadata_search include_stats (same counter\n    # as the TS UI \"Views\" column).\n    include_usage_stats: false\n\n    stateful_ingestion:\n      enabled: true\n      remove_stale_metadata: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:powerbi",
         "name": "powerbi",
         "displayName": "PowerBI",
@@ -125,6 +133,14 @@
         "description": "Import Tables, Views, Databases, Schemas, and statistics from Postgres.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/postgres/",
         "recipe": "source: \n    type: postgres\n    config:\n        # Coordinates\n        host_port: # Your Postgres host and port, e.g. postgres:5432\n        database: # Your Postgres Database, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Postgres username, e.g. admin\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:timescaledb",
+        "name": "timescaledb",
+        "displayName": "TimescaleDB",
+        "description": "Import Tables, Views, Hypertables, Continuous Aggregates, and Background Jobs from TimescaleDB.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/timescaledb/",
+        "recipe": "source: \n    type: timescaledb\n    config:\n        # Coordinates\n        host_port: # Your TimescaleDB host and port, e.g. timescaledb:5432\n        database: # Your TimescaleDB Database, e.g. tsdb\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your TimescaleDB username, e.g. datahub_user\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # (Optional) Emit TimescaleDB background jobs as DataJob entities\n        # include_background_jobs: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:kafka",
@@ -418,7 +434,8 @@
         "name": "hex",
         "displayName": "Hex",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/hex/",
-        "recipe": "source:\n  type: hex\n  config:\n    workspace_name: # Your Hex Workspace name\n     token: # Your PAT or Workspace token"
+        "recipe": "source:\n  type: hex\n  config:\n    workspace_name: # Your Hex workspace name\n    token: # Your Workspace Token or PAT",
+        "description": "Import Projects, Components, lineage, run history, and AI context documents from Hex."
     },
     {
         "urn": "urn:li:dataPlatform:grafana",

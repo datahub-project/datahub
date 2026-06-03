@@ -33,20 +33,22 @@ export class EntityDocumentationPage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.editDocumentationButton = page.locator('[data-testid="edit-documentation-button"]');
-    this.saveDescriptionButton = page.locator('[data-testid="description-editor-save-button"]');
-    this.addRelatedButton = page.locator('[data-testid="add-related-button"]');
-    this.relatedList = page.locator('[data-testid="related-list"]');
-    this.platformLinksContainer = page.locator('[data-testid="platform-links-container"]');
-    this.urlInput = page.locator('[data-testid="url-input"]');
-    this.labelInput = page.locator('[data-testid="label-input"]');
+    this.editDocumentationButton = page.getByTestId('edit-documentation-button');
+    this.saveDescriptionButton = page.getByTestId('description-editor-save-button');
+    this.addRelatedButton = page.getByTestId('add-related-button');
+    this.relatedList = page.getByTestId('related-list');
+    this.platformLinksContainer = page.getByTestId('platform-links-container');
+    this.urlInput = page.getByTestId('url-input');
+    this.labelInput = page.getByTestId('label-input');
+    // eslint-disable-next-line playwright/no-raw-locators -- Remirror/ProseMirror CSS class + contenteditable attribute; no semantic equivalent
     this.proseMirrorEditor = page.locator('.remirror-editor.ProseMirror[contenteditable="true"]');
-    this.editFieldDescriptionButton = page.locator('[data-testid="edit-field-description"]');
-    this.fieldDescriptionEditor = page.locator('[data-testid="description-editor"] .ProseMirror');
-    this.fieldDescriptionUpdateButton = page.locator('[data-testid="description-modal-update-button"]');
-    this.showInPreviewCheckbox = page.locator('[data-testid="show-in-asset-preview-checkbox"]');
-    this.linkFormSubmitButton = page.locator('[data-testid="link-form-modal-submit-button"]');
-    this.sidebarDocumentationSection = page.locator('[data-testid="sidebar-section-content-Documentation"]');
+    this.editFieldDescriptionButton = page.getByTestId('edit-field-description');
+    // eslint-disable-next-line playwright/no-raw-locators -- ProseMirror CSS class inside testid container; no data-testid on the editor element
+    this.fieldDescriptionEditor = page.getByTestId('description-editor').locator('.ProseMirror');
+    this.fieldDescriptionUpdateButton = page.getByTestId('description-modal-update-button');
+    this.showInPreviewCheckbox = page.getByTestId('show-in-asset-preview-checkbox');
+    this.linkFormSubmitButton = page.getByTestId('link-form-modal-submit-button');
+    this.sidebarDocumentationSection = page.getByTestId('sidebar-section-content-Documentation');
   }
 
   async navigateToDatasetDocumentationTab(datasetUrn: string, datasetName: string): Promise<void> {
@@ -56,7 +58,8 @@ export class EntityDocumentationPage extends BasePage {
   }
 
   async openEntityTab(tabName: string): Promise<void> {
-    // ant-tabs tab items have an id ending with the tab name
+    // ant-tabs tab items have an id ending with the tab name; no semantic selector for id-suffix matching
+    // eslint-disable-next-line playwright/no-raw-locators -- AntD tab id suffix pattern; no getByRole equivalent with id constraint
     await this.page.locator(`div[id$="${tabName}"]:nth-child(1)`).click();
     await this.page.waitForLoadState('networkidle');
   }
@@ -102,10 +105,12 @@ export class EntityDocumentationPage extends BasePage {
     // Guard: ensure the entity page loaded and is not a "Not Found" error page.
     // The schema table is rendered only when the entity exists; waiting for any
     // row with an id matching the column- convention confirms a real schema tab.
+    // eslint-disable-next-line playwright/no-raw-locators -- dynamic id prefix [id^="column-"]; no getByTestId equivalent
     await expect(this.page.locator('[id^="column-"]').first()).toBeVisible({ timeout: 30000 });
   }
 
   async editFieldDescription(fieldName: string, description: string): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- React-generated CSS id (#column-{name}); no data-testid on schema rows
     const row = this.page.locator(`#column-${fieldName}`);
 
     // SchemaTable toggles the drawer open/closed on row click. If the drawer is
@@ -159,7 +164,7 @@ export class EntityDocumentationPage extends BasePage {
     await this.labelInput.clear();
     await this.labelInput.fill(label);
 
-    const checkboxInput = this.showInPreviewCheckbox.locator('input');
+    const checkboxInput = this.showInPreviewCheckbox.getByRole('checkbox');
     const isChecked = await checkboxInput.isChecked();
     if (isChecked !== showInPreview) {
       await this.showInPreviewCheckbox.click();
@@ -185,10 +190,11 @@ export class EntityDocumentationPage extends BasePage {
     showInPreview: boolean,
   ): Promise<void> {
     await this.relatedList
-      .locator('li.ant-list-item')
+      .getByRole('listitem')
+      // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
       .filter({ has: this.page.locator(`a[href='${currentUrl}']`) })
       .filter({ hasText: currentLabel })
-      .locator('[data-testid="edit-link-button"]')
+      .getByTestId('edit-link-button')
       .click();
     await this.fillLinkForm(newUrl, newLabel, showInPreview);
     await this.submitLinkForm();
@@ -197,9 +203,10 @@ export class EntityDocumentationPage extends BasePage {
 
   async removeLinkByUrl(url: string): Promise<void> {
     await this.relatedList
-      .locator('li.ant-list-item')
+      .getByRole('listitem')
+      // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
       .filter({ has: this.page.locator(`a[href="${url}"]`) })
-      .locator('[data-testid="remove-link-button"]')
+      .getByTestId('remove-link-button')
       .click();
     await expect(this.page.getByText('Link Removed')).toBeVisible({ timeout: 15000 });
     await expect(this.page.getByText('Link Removed')).not.toBeVisible({ timeout: 15000 });
@@ -208,10 +215,12 @@ export class EntityDocumentationPage extends BasePage {
   // ── Link verification helpers ────────────────────────────────────────────
 
   async expectLinkInDocumentationTab(url: string): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
     await expect(this.relatedList.locator(`[href='${url}']`)).toHaveCount(1, { timeout: 15000 });
   }
 
   async expectLinkNotInDocumentationTab(url: string): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
     await expect(this.relatedList.locator(`[href='${url}']`)).toHaveCount(0, { timeout: 10000 });
   }
 
@@ -219,14 +228,17 @@ export class EntityDocumentationPage extends BasePage {
     // Link may be in an overflow dropdown (hidden) when many show-in-preview links exist.
     // Use .first() because the link can appear twice in the DOM (visible + aria-hidden copy)
     // and strict-mode toBeAttached would fail on 2+ matches without it.
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
     await expect(this.platformLinksContainer.locator(`a[href='${url}']`).first()).toBeAttached({ timeout: 15000 });
   }
 
   async expectLinkNotInEntityHeader(url: string): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
     await expect(this.platformLinksContainer.locator(`a[href='${url}']`)).toHaveCount(0, { timeout: 10000 });
   }
 
   async expectLinkInSidebar(url: string): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
     await expect(this.sidebarDocumentationSection.locator(`[href='${url}']`)).toBeVisible({ timeout: 15000 });
   }
 

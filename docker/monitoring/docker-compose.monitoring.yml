@@ -36,6 +36,8 @@ services:
       - prometheus
   jaeger-all-in-one:
     image: jaegertracing/all-in-one:latest
+    environment:
+      - MEMORY_MAX_TRACES=100000
     ports:
       - 16686:16686
       - '14268'

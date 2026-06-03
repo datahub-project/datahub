@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 import {
@@ -159,6 +160,7 @@ async function mountMFE({
 }
 
 export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
+    const { t } = useTranslation('misc');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const box = useRef<HTMLDivElement>(null);
     const history = useHistory();
@@ -195,10 +197,10 @@ export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
     }, [config, history]);
 
     if (hasError) {
-        return <ErrorComponent message={`${config.label} is not available at this time`} />;
+        return <ErrorComponent message={t('mfeframework.notAvailableError', { label: config.label })} />;
     }
     if (!config.flags.enabled) {
-        return <ErrorComponent message={`${config.label} is disabled.`} />;
+        return <ErrorComponent message={t('mfeframework.disabledError', { label: config.label })} />;
     }
 
     return (

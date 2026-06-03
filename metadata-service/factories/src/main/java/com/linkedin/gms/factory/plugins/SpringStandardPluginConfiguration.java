@@ -26,6 +26,7 @@ import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
+import com.linkedin.metadata.aspect.validation.UrlValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
 import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
@@ -386,6 +387,36 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.urlValidation.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator urlValidator(ConfigurationProvider configurationProvider) {
+    com.linkedin.metadata.config.UrlValidationConfig urlConfig =
+        configurationProvider.getMetadataChangeProposal().getValidation().getUrlValidation();
+
+    return new UrlValidator()
+        .setAllowHttp(urlConfig != null && urlConfig.isAllowHttp())
+        .setExtraDenyHostsList(urlConfig != null ? urlConfig.getExtraDenyHosts() : null)
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(UrlValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(CORP_USER_EDITABLE_INFO_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_GROUP_ENTITY_NAME)
+                            .aspectName(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
   public AspectPayloadValidator urnAnnotationValidator() {
     return new UrnAnnotationValidator()
         .setConfig(
@@ -536,7 +567,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(OwnershipOwnerTypes.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(CREATE, UPSERT, UPDATE, RESTATE, PATCH))
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, RESTATE, PATCH))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()

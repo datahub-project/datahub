@@ -9,12 +9,68 @@ _SNIPPETS = _REPO_ROOT / "docker" / "snippets" / "ingestion"
 sys.path.insert(0, str(_SNIPPETS))
 
 from bundled_venv_config import (  # noqa: E402
+    BundledVenvGroupPlan,
+    alias_cluster,
     build_group_plans,
+    bundled_venv_symlink_names,
+    canonical_plugin,
     extras_to_install_string,
     groups_config_from_plugin_group_env,
     plugin_extras_for_plugin,
     sorted_union_extras,
 )
+
+
+def test_canonical_plugin_resolves_databricks_alias() -> None:
+    assert canonical_plugin("databricks") == "unity-catalog"
+    assert canonical_plugin("unity-catalog") == "unity-catalog"
+
+
+def test_alias_cluster_unity_catalog_and_databricks() -> None:
+    assert alias_cluster("unity-catalog") == frozenset({"unity-catalog", "databricks"})
+
+
+def test_alias_cluster_hive_metastore_and_presto_on_hive() -> None:
+    assert alias_cluster("hive-metastore") == frozenset(
+        {"hive-metastore", "presto-on-hive"}
+    )
+
+
+def test_plugin_extras_databricks_uses_unity_catalog_extra() -> None:
+    assert plugin_extras_for_plugin(
+        "databricks", slim_mode=False
+    ) == plugin_extras_for_plugin("unity-catalog", slim_mode=False)
+
+
+def test_bundled_venv_symlink_names_includes_aliases_for_singleton() -> None:
+    plan = BundledVenvGroupPlan(
+        label="unity-catalog",
+        members=("unity-catalog",),
+        extras=("unity-catalog",),
+        canonical_dir_name="unity-catalog-bundled",
+    )
+    assert bundled_venv_symlink_names(plan) == (
+        "databricks-bundled",
+        "unity-catalog-bundled",
+    )
+
+
+def test_bundled_venv_symlink_names_includes_aliases_for_group_member() -> None:
+    plan = BundledVenvGroupPlan(
+        label="common",
+        members=("s3", "unity-catalog"),
+        extras=("s3", "unity-catalog"),
+        canonical_dir_name="common-venv",
+    )
+    names = bundled_venv_symlink_names(plan)
+    assert "databricks-bundled" in names
+    assert "unity-catalog-bundled" in names
+    assert "s3-bundled" in names
+
+
+def test_build_group_plans_rejects_alias_duplicates_in_plugin_list() -> None:
+    with pytest.raises(ValueError, match="lists aliases"):
+        build_group_plans(["unity-catalog", "databricks"], None, slim_mode=False)
 
 
 def test_plugin_extras_dedupes_file_plugin_extra() -> None:

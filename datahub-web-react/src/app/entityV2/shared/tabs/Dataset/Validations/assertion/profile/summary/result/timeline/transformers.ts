@@ -1,4 +1,5 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
+import i18next from 'i18next';
 
 import {
     AssertionDataPoint,
@@ -68,18 +69,18 @@ const tryGetYAxisLabelForChartFromAssertionInfo = (
     let label: string | undefined;
     switch (assertionInfo?.type) {
         case AssertionType.Volume:
-            label = 'Row count';
+            label = i18next.t('entity.profile.validations:timeline.rowCount');
             break;
         case AssertionType.Field:
             label = tryGetFieldAssertionYAxisLabel(assertionInfo.fieldAssertion);
             break;
         case AssertionType.Sql:
-            label = 'SQL query result';
+            label = i18next.t('entity.profile.validations:timeline.sqlQueryResult');
             break;
         case AssertionType.DataSchema:
             break;
         case AssertionType.Freshness:
-            label = 'Freshness check results';
+            label = i18next.t('entity.profile.validations:timeline.freshnessCheckResults');
             break;
         case AssertionType.Dataset:
             break;
@@ -93,7 +94,7 @@ function tryGetFieldAssertionYAxisLabel(info?: Maybe<FieldAssertionInfo>): strin
     let label: string | undefined;
     switch (info?.type) {
         case FieldAssertionType.FieldValues:
-            label = 'Invalid Rows';
+            label = i18next.t('entity.profile.validations:timeline.invalidRows');
             break;
         case FieldAssertionType.FieldMetric: {
             const maybeMetricType = info.fieldMetricAssertion?.metric;
@@ -102,7 +103,7 @@ function tryGetFieldAssertionYAxisLabel(info?: Maybe<FieldAssertionInfo>): strin
             } catch (e) {
                 // Best attempt
             }
-            label = label || maybeMetricType?.valueOf() || 'Metric Value';
+            label = label || maybeMetricType?.valueOf() || i18next.t('entity.profile.validations:timeline.metricValue');
             break;
         }
         default:

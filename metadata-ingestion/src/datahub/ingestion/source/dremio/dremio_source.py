@@ -1,8 +1,10 @@
+import functools
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -15,6 +17,10 @@ from datahub.ingestion.api.decorators import (
     config_class,
     platform_name,
     support_status,
+)
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
+from datahub.ingestion.api.incremental_properties_helper import (
+    auto_incremental_properties,
 )
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
@@ -39,13 +45,21 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioCatalog,
     DremioContainer,
     DremioDataset,
-    DremioDatasetType,
     DremioGlossaryTerm,
     DremioQuery,
     DremioSourceContainer,
 )
-from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
+from datahub.ingestion.source.dremio.dremio_models import DremioDatasetType
+from datahub.ingestion.source.dremio.dremio_profiling import (
+    DremioProfiler,
+    ProfileTarget,
+    build_profile_target,
+)
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantQueriesRunSkipHandler,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -71,11 +85,46 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
 
 # Dremio uses 'dremio' as the default database name in all SQL contexts
 DREMIO_DATABASE_NAME = "dremio"
+
+
+def passes_dremio_filters(
+    name: str,
+    catalog_dataset_names: Set[str],
+    dataset_pattern: AllowDenyPattern,
+    schema_pattern: AllowDenyPattern,
+) -> bool:
+    """Apply the catalog walk's filters to a name discovered via query/view
+    lineage so SQL-derived URNs can't produce ghost datasets the operator
+    excluded via schema_pattern / dataset_pattern."""
+    # Pattern matching is done against the post-`dremio.` form.
+    if name.startswith(f"{DREMIO_DATABASE_NAME}."):
+        name = name[len(DREMIO_DATABASE_NAME) + 1 :]
+
+    if name in catalog_dataset_names:
+        return True
+
+    path_parts = name.split(".")
+    # Dremio reflections under _accelerator_ are internal, never user-facing.
+    if path_parts and path_parts[0] == "_accelerator_":
+        return False
+
+    if not dataset_pattern.allowed(name):
+        return False
+
+    # Schema gate uses `.allowed` directly: should_include_container has
+    # report side-effects we don't want at lineage-emission time.
+    if len(path_parts) > 1:
+        container_path = ".".join(path_parts[:-1])
+        if not schema_pattern.allowed(container_path):
+            return False
+
+    return True
 
 
 class DremioSchemaResolver(SchemaResolver):
@@ -126,9 +175,9 @@ class DremioSchemaResolver(SchemaResolver):
 
         urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
-            platform_instance=platform_instance,
-            env=self.env,
             name=table_name,
+            env=self.env,
+            platform_instance=platform_instance,
         )
         return urn
 
@@ -199,7 +248,6 @@ class DremioSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = DremioSourceReport()
 
-        # Set time window for query lineage extraction
         self.report.window_start_time, self.report.window_end_time = (
             self.config.start_time,
             self.config.end_time,
@@ -207,30 +255,39 @@ class DremioSource(StatefulIngestionSourceBase):
 
         self.source_map: Dict[str, DremioSourceMapEntry] = dict()
 
-        # Initialize API operations
-        dremio_api = DremioAPIOperations(self.config, self.report)
+        api = DremioAPIOperations(self.config, self.report)
+        self.source_type_mapper = api.source_type_mapper
+        self.dremio_catalog = DremioCatalog(api)
 
-        # Initialize catalog
-        self.dremio_catalog = DremioCatalog(dremio_api)
+        # Full URNs don't need graph resolution — only build a registry for bare names.
+        self.domain_registry: Optional[DomainRegistry] = None
+        if self.config.domain and not self.config.domain.startswith("urn:li:domain:"):
+            self.domain_registry = DomainRegistry(
+                cached_domains=[self.config.domain], graph=self.ctx.graph
+            )
 
-        # Initialize aspects
         self.dremio_aspects = DremioAspects(
             platform=self.get_platform(),
             domain=self.config.domain,
+            domain_registry=self.domain_registry,
             ingest_owner=self.config.ingest_owner,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            ui_url=dremio_api.ui_url,
+            ui_url=api.ui_url,
         )
         self.max_workers = config.max_workers
 
-        # Create a custom schema resolver for Dremio that handles the "dremio." infix (post platform_instance)
+        # Custom resolver handles the "dremio." infix injected after platform_instance.
         self.dremio_schema_resolver = DremioSchemaResolver(
             platform=self.get_platform(),
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             graph=self.ctx.graph,
         )
+
+        # Populated during the catalog walk; read by the aggregator's
+        # is_allowed_table callback, so must exist before construction.
+        self.catalog_dataset_names: Set[str] = set()
 
         self.sql_parsing_aggregator = SqlParsingAggregator(
             platform=make_data_platform_urn(self.get_platform()),
@@ -241,14 +298,31 @@ class DremioSource(StatefulIngestionSourceBase):
             generate_usage_statistics=True,
             generate_operations=True,
             usage_config=self.config.usage,
+            # Gate SQL-discovered URNs through the catalog-walk filters.
+            is_allowed_table=self._is_allowed_table,
         )
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
-        # For profiling
-        self.profiler = DremioProfiler(config, self.report, dremio_api)
+        profiling_handler: Optional[ProfilingHandler] = None
+        if config.stateful_ingestion and config.stateful_ingestion.enabled:
+            profiling_handler = ProfilingHandler(
+                source=self,
+                config=config,
+                pipeline_name=ctx.pipeline_name,
+                run_id=ctx.run_id,
+            )
+        self.profiler = DremioProfiler(config, self.report, api, profiling_handler)
 
-        # Track catalog dataset names for query lineage validation
-        self.catalog_dataset_names: set[str] = set()
+    def _is_allowed_table(self, name: str) -> bool:
+        allowed = passes_dremio_filters(
+            name=name,
+            catalog_dataset_names=self.catalog_dataset_names,
+            dataset_pattern=self.config.dataset_pattern,
+            schema_pattern=self.config.schema_pattern,
+        )
+        if not allowed:
+            self.report.lineage_dropped_filtered += 1
+        return allowed
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":
@@ -262,7 +336,11 @@ class DremioSource(StatefulIngestionSourceBase):
         dremio_sources = list(self.dremio_catalog.get_sources())
         source_mappings_config = self.config.source_mappings or []
 
-        source_map = build_dremio_source_map(dremio_sources, source_mappings_config)
+        source_map = build_dremio_source_map(
+            dremio_sources,
+            source_mappings_config,
+            source_type_mapper=self.source_type_mapper,
+        )
         logger.info(f"Full source map: {source_map}")
 
         self._validate_source_mappings(source_map)
@@ -288,20 +366,21 @@ class DremioSource(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            functools.partial(
+                auto_incremental_lineage, self.config.incremental_lineage
+            ),
+            functools.partial(
+                auto_incremental_properties, self.config.incremental_properties
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        """
-        Internal method to generate workunits for Dremio metadata.
-        """
-
         self.source_map = self._build_source_map()
 
         with self.report.new_stage(METADATA_EXTRACTION):
-            # Process Containers
             containers = self.dremio_catalog.get_containers()
             for container in containers:
                 try:
@@ -317,23 +396,45 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Process Datasets
+            # Single pass over the catalog: project to slim ProfileTarget
+            # tuples and harvest glossary terms inline. Both follow-up passes
+            # would otherwise re-run the global catalog query, and pinning
+            # full DremioDataset objects for 10k+ catalogs is expensive.
+            # Dedup glossary terms by string because DremioGlossaryTerm has
+            # no __eq__/__hash__.
+            profiling_enabled = self.config.is_profiling_enabled()
+            profile_targets: Optional[List[ProfileTarget]] = (
+                [] if profiling_enabled else None
+            )
+            glossary_terms_seen: Set[str] = set()
+            glossary_terms_collected: List[DremioGlossaryTerm] = []
             for dataset_info in self.dremio_catalog.get_datasets():
+                for glossary_term in dataset_info.glossary_terms:
+                    if glossary_term.glossary_term not in glossary_terms_seen:
+                        glossary_terms_seen.add(glossary_term.glossary_term)
+                        glossary_terms_collected.append(glossary_term)
                 try:
                     yield from self.process_dataset(dataset_info)
                     logger.info(
                         f"Dremio dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name} emitted successfully"
                     )
                 except Exception as exc:
-                    self.report.num_datasets_failed += 1  # Increment failed datasets
+                    self.report.num_datasets_failed += 1
                     self.report.report_failure(
                         message="Failed to process Dremio dataset",
                         context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
                         exc=exc,
                     )
+                    # Don't queue a profile for an emission that already failed.
+                    continue
+                if profile_targets is not None and dataset_info.columns:
+                    profile_targets.append(
+                        build_profile_target(
+                            dataset_info, self._make_dataset_urn(dataset_info)
+                        )
+                    )
 
-            # Process Glossary Terms using streaming
-            for glossary_term in self.dremio_catalog.get_glossary_terms():
+            for glossary_term in glossary_terms_collected:
                 try:
                     yield from self.process_glossary_term(glossary_term)
                 except Exception as exc:
@@ -343,41 +444,36 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Optionally Process Query Lineage
             if self.config.include_query_lineage:
                 with self.report.new_stage(LINEAGE_EXTRACTION):
                     self.get_query_lineage_workunits()
 
-            # Generate workunit for aggregated SQL parsing results
             for mcp in self.sql_parsing_aggregator.gen_metadata():
                 yield mcp.as_workunit()
 
-            # Profiling
-            if self.config.is_profiling_enabled():
+            if profiling_enabled and profile_targets is not None:
                 with (
                     self.report.new_stage(PROFILING),
                     ThreadPoolExecutor(
                         max_workers=self.config.profiling.max_workers
                     ) as executor,
                 ):
-                    # Collect datasets for profiling
-                    datasets_for_profiling = list(self.dremio_catalog.get_datasets())
-                    future_to_dataset = {
-                        executor.submit(self.generate_profiles, dataset): dataset
-                        for dataset in datasets_for_profiling
+                    future_to_target = {
+                        executor.submit(self.generate_profiles, target): target
+                        for target in profile_targets
                     }
 
-                    for future in as_completed(future_to_dataset):
-                        dataset_info = future_to_dataset[future]
+                    for future in as_completed(future_to_target):
+                        target = future_to_target[future]
                         try:
                             yield from future.result()
                         except Exception as exc:
                             self.report.profiling_skipped_other[
-                                dataset_info.resource_name
+                                target.resource_name
                             ] += 1
                             self.report.report_failure(
                                 message="Failed to profile dataset",
-                                context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
+                                context=target.full_table_name,
                                 exc=exc,
                             )
 
@@ -406,8 +502,8 @@ class DremioSource(StatefulIngestionSourceBase):
 
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
 
-        # Filter out Dremio Reflections (internal acceleration structures in _accelerator_ schema)
-        # These are Dremio's internal metadata and should not appear in the DataHub catalog
+        # Drop Dremio Reflections — _accelerator_ holds internal acceleration
+        # structures that should never surface in the DataHub catalog.
         if dataset_info.path and dataset_info.path[0] == "_accelerator_":
             self.report.report_dropped(f"Skipping Dremio reflection: {dataset_name}")
             return
@@ -417,7 +513,6 @@ class DremioSource(StatefulIngestionSourceBase):
             self.report.report_dropped(dataset_name)
             return
 
-        # Track catalog dataset names for query lineage validation
         self.catalog_dataset_names.add(dataset_name)
 
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -431,12 +526,9 @@ class DremioSource(StatefulIngestionSourceBase):
             dataset_urn, dataset_info
         ):
             yield dremio_mcp
-            # Check if the emitted aspect is SchemaMetadataClass
             if isinstance(
                 dremio_mcp.metadata, MetadataChangeProposalWrapper
             ) and isinstance(dremio_mcp.metadata.aspect, SchemaMetadataClass):
-                # Register the schema with the custom Dremio schema resolver
-                # The resolver will ensure all URNs are constructed with the "dremio." infix
                 self.sql_parsing_aggregator.register_schema(
                     urn=dataset_urn,
                     schema=dremio_mcp.metadata.aspect,
@@ -500,34 +592,46 @@ class DremioSource(StatefulIngestionSourceBase):
 
         yield from self.dremio_aspects.populate_glossary_term_mcp(glossary_term_info)
 
-    def generate_profiles(
-        self, dataset_info: DremioDataset
-    ) -> Iterable[MetadataWorkUnit]:
+    def _make_dataset_urn(self, dataset_info: DremioDataset) -> str:
         schema_str = ".".join(dataset_info.path)
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
-        dataset_urn = make_dataset_urn_with_platform_instance(
+        return make_dataset_urn_with_platform_instance(
             platform=make_data_platform_urn(self.get_platform()),
             name=f"{DREMIO_DATABASE_NAME}.{dataset_name}",
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
-        yield from self.profiler.get_workunits(dataset_info, dataset_urn)
+
+    def generate_profiles(self, target: ProfileTarget) -> Iterable[MetadataWorkUnit]:
+        yield from self.profiler.get_workunits(target)
 
     def generate_view_lineage(
         self, dataset_urn: str, parents: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        Generate lineage information for views.
-        """
-        upstream_urns = [
-            make_dataset_urn_with_platform_instance(
-                platform=make_data_platform_urn(self.get_platform()),
-                name=f"{DREMIO_DATABASE_NAME}.{upstream_table.lower()}",
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
+        """Generate lineage for views, dropping parents excluded by the
+        catalog walk's filters so we don't emit ghost upstream datasets."""
+        upstream_urns: List[str] = []
+        for upstream_table in parents:
+            upstream_name = upstream_table.lower()
+            if not passes_dremio_filters(
+                name=upstream_name,
+                catalog_dataset_names=self.catalog_dataset_names,
+                dataset_pattern=self.config.dataset_pattern,
+                schema_pattern=self.config.schema_pattern,
+            ):
+                self.report.lineage_dropped_filtered += 1
+                continue
+            upstream_urns.append(
+                make_dataset_urn_with_platform_instance(
+                    platform=make_data_platform_urn(self.get_platform()),
+                    name=f"{DREMIO_DATABASE_NAME}.{upstream_name}",
+                    env=self.config.env,
+                    platform_instance=self.config.platform_instance,
+                )
             )
-            for upstream_table in parents
-        ]
+
+        if not upstream_urns:
+            return
 
         lineage = UpstreamLineage(
             upstreams=[
@@ -556,8 +660,42 @@ class DremioSource(StatefulIngestionSourceBase):
         """
         Process query lineage information.
         """
+        effective_start = self.config.start_time
+        effective_end = self.config.end_time
+        redundant_handler: Optional[RedundantQueriesRunSkipHandler] = None
 
-        queries = self.dremio_catalog.get_queries()
+        if self.config.enable_stateful_time_window:
+            redundant_handler = RedundantQueriesRunSkipHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
+            if redundant_handler.should_skip_this_run(
+                cur_start_time=self.config.start_time,
+                cur_end_time=self.config.end_time,
+            ):
+                self.report.info(
+                    "Skipping query lineage/usage extraction: the current time window "
+                    f"({self.config.start_time} – {self.config.end_time}) was already "
+                    "fully processed in a previous run.",
+                )
+                return
+
+            # Advance start_time to the end of the previous run so only new
+            # job history is fetched.
+            effective_start, effective_end = redundant_handler.suggest_run_time_window(
+                cur_start_time=self.config.start_time,
+                cur_end_time=self.config.end_time,
+            )
+            logger.info(
+                f"Effective query lineage window: {effective_start} – {effective_end} "
+                f"(original: {self.config.start_time} – {self.config.end_time})"
+            )
+
+        queries = self.dremio_catalog.get_queries(
+            start_time=effective_start, end_time=effective_end
+        )
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             future_to_query = {
@@ -574,6 +712,15 @@ class DremioSource(StatefulIngestionSourceBase):
                         context=f"{query.job_id}: {exc}",
                         exc=exc,
                     )
+
+        # Record the time window after successful processing so subsequent runs
+        # can skip or advance past it.
+        if redundant_handler is not None:
+            redundant_handler.update_state(
+                start_time=effective_start,
+                end_time=effective_end,
+                bucket_duration=self.config.bucket_duration,
+            )
 
     def _validate_query_lineage_format(self, query: DremioQuery) -> None:
         for queried_ds in query.queried_datasets:
@@ -611,34 +758,63 @@ class DremioSource(StatefulIngestionSourceBase):
             # Validate query dataset format matches catalog format
             self._validate_query_lineage_format(query)
 
-            upstream_urns = [
-                make_dataset_urn_with_platform_instance(
+            # Pre-filter explicit upstreams/downstream; is_allowed_table
+            # is the second line of defence for URNs the SQL parser
+            # rediscovers inside add_observed_query.
+            downstream_name = query.affected_dataset.lower()
+            downstream_allowed = passes_dremio_filters(
+                name=downstream_name,
+                catalog_dataset_names=self.catalog_dataset_names,
+                dataset_pattern=self.config.dataset_pattern,
+                schema_pattern=self.config.schema_pattern,
+            )
+
+            upstream_urns: List[str] = []
+            for ds in query.queried_datasets:
+                ds_lower = ds.lower()
+                if not passes_dremio_filters(
+                    name=ds_lower,
+                    catalog_dataset_names=self.catalog_dataset_names,
+                    dataset_pattern=self.config.dataset_pattern,
+                    schema_pattern=self.config.schema_pattern,
+                ):
+                    self.report.lineage_dropped_filtered += 1
+                    continue
+                upstream_urns.append(
+                    make_dataset_urn_with_platform_instance(
+                        platform=make_data_platform_urn(self.get_platform()),
+                        name=f"{DREMIO_DATABASE_NAME}.{ds_lower}",
+                        env=self.config.env,
+                        platform_instance=self.config.platform_instance,
+                    )
+                )
+
+            if downstream_allowed and upstream_urns:
+                downstream_urn = make_dataset_urn_with_platform_instance(
                     platform=make_data_platform_urn(self.get_platform()),
-                    name=f"{DREMIO_DATABASE_NAME}.{ds.lower()}",
+                    name=f"{DREMIO_DATABASE_NAME}.{downstream_name}",
                     env=self.config.env,
                     platform_instance=self.config.platform_instance,
                 )
-                for ds in query.queried_datasets
-            ]
+                self.sql_parsing_aggregator.add_known_query_lineage(
+                    KnownQueryLineageInfo(
+                        query_text=query.query,
+                        upstreams=upstream_urns,
+                        downstream=downstream_urn,
+                    ),
+                    merge_lineage=True,
+                )
+            elif not downstream_allowed:
+                # One increment per query whose downstream is filtered.
+                # Per-upstream drops were already counted in the loop above;
+                # this is intentionally not multiplied by the upstream count
+                # — see lineage_dropped_filtered's docstring for the "lineage
+                # references, not edges" semantics.
+                self.report.lineage_dropped_filtered += 1
 
-            downstream_urn = make_dataset_urn_with_platform_instance(
-                platform=make_data_platform_urn(self.get_platform()),
-                name=f"{DREMIO_DATABASE_NAME}.{query.affected_dataset.lower()}",
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-            )
-
-            # Add query to SqlParsingAggregator
-            self.sql_parsing_aggregator.add_known_query_lineage(
-                KnownQueryLineageInfo(
-                    query_text=query.query,
-                    upstreams=upstream_urns,
-                    downstream=downstream_urn,
-                ),
-                merge_lineage=True,
-            )
-
-        # Add observed query
+        # Always register the observed query; usage stats aren't gated here.
+        # Aspects for filtered URNs that the SQL parser rediscovers are blocked
+        # by SqlParsingAggregator's is_allowed_table gate at emission time.
         self.sql_parsing_aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query,
@@ -707,6 +883,7 @@ class DremioSource(StatefulIngestionSourceBase):
 def build_dremio_source_map(
     dremio_sources: Iterable[DremioSourceContainer],
     source_mappings_config: List[DremioSourceMapping],
+    source_type_mapper: Optional[DremioToDataHubSourceTypeMapping] = None,
 ) -> Dict[str, DremioSourceMapEntry]:
     """
     Builds a source mapping dictionary to support external lineage generation across
@@ -728,15 +905,15 @@ def build_dremio_source_map(
         creating cross-platform lineage.
 
     """
+    mapper = source_type_mapper or DremioToDataHubSourceTypeMapping()
+
     source_map = {}
     for source in dremio_sources:
         current_source_name = source.container_name
 
         source_type = source.dremio_source_type.lower()
-        source_category = DremioToDataHubSourceTypeMapping.get_category(source_type)
-        datahub_platform = DremioToDataHubSourceTypeMapping.get_datahub_platform(
-            source_type
-        )
+        source_category = mapper.lookup_category(source_type)
+        datahub_platform = mapper.lookup_datahub_platform(source_type)
         root_path = source.root_path.lower() if source.root_path else ""
         database_name = source.database_name.lower() if source.database_name else ""
         source_present = False

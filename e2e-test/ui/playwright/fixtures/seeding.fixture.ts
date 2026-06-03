@@ -263,7 +263,7 @@ async function ingestMcps(
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
   // ── Option: injectable feature name (worker-scoped) ───────────────────────
   featureName: [null, { option: true, scope: 'worker' }],

@@ -2,6 +2,12 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+##### Virtual Connections
+
+[Tableau Virtual Connections](https://help.tableau.com/current/online/en-us/dm_vconn_overview.htm) are shared data sources that provide a centralised, governed view of underlying tables. DataHub ingests them as datasets and creates lineage back to the physical tables they reference, including column-level lineage where available.
+
+Virtual connection ingestion is enabled by default. To disable it, set `ingest_virtual_connections: false` in your recipe.
+
 ##### Lineage
 
 Lineage is emitted as received from Tableau's metadata API for

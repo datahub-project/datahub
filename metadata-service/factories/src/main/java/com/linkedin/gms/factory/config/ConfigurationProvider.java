@@ -5,6 +5,7 @@ import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.GMSConfiguration;
 import com.linkedin.metadata.config.PlatformAnalyticsConfiguration;
+import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -15,8 +16,7 @@ import org.springframework.stereotype.Component;
 
 @EqualsAndHashCode(callSuper = true)
 @Component
-// Include extra kafka properties
-@EnableConfigurationProperties(KafkaProperties.class)
+@EnableConfigurationProperties({KafkaProperties.class, PostgresSqlSetupProperties.class})
 @ConfigurationProperties
 @Data
 public class ConfigurationProvider extends DataHubAppConfiguration {

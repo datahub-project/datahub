@@ -53,6 +53,7 @@ You can authenticate with Databricks using OAuth, Azure authentication, a Person
 - To `include_usage_statistics` (enabled by default), your service principal must have one of the following:
   - `CAN_MANAGE` permissions on any SQL Warehouses you want to ingest: [guide](https://docs.databricks.com/security/auth-authz/access-control/sql-endpoint-acl.html).
   - When `usage_data_source` is set to `SYSTEM_TABLES` or `AUTO` (default) with `warehouse_id` configured: `SELECT` privilege on `system.query.history` table for improved performance with large query volumes and multi-workspace setups.
+- To `include_table_constraints` (disabled by default), no additional permissions are required beyond the `SELECT` privilege already listed above. The connector uses the same `tables.get()` API endpoint.
 - To ingest `profiling` information with the default SQLAlchemy profiler (`method: sqlalchemy`), you need `SELECT` privilege on tables and views.
 - To ingest `profiling` information with `method: ge` (requires `pip install 'acryl-datahub[profiling-ge]'`), you need `SELECT` privileges on all profiled tables.
 - To ingest `profiling` information with `method: analyze` and `call_analyze: true` (enabled by default), your service principal must have ownership or `MODIFY` privilege on any tables you want to profile.

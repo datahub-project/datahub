@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -39,6 +40,7 @@ type SummarySectionProps = {
 };
 
 export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ group, visibleStatus }) => {
+    const { t } = useTranslation('entity.profile.validations');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
@@ -57,16 +59,20 @@ export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ gr
                         key={status.text}
                         title={
                             status.resultType && (
-                                <>
-                                    {group.name} {status.text} Assertions{' '}
-                                    <Link
-                                        to={url}
-                                        style={{ color: theme.colors.textInformation }}
-                                        onClick={(event) => event.stopPropagation()}
-                                    >
-                                        view
-                                    </Link>
-                                </>
+                                <Trans
+                                    t={t}
+                                    i18nKey="assertionSummary.tooltipTitle"
+                                    values={{ groupName: group.name, statusText: status.text }}
+                                    components={{
+                                        anchor: (
+                                            <Link
+                                                to={url}
+                                                style={{ color: theme.colors.textInformation }}
+                                                onClick={(event) => event.stopPropagation()}
+                                            />
+                                        ),
+                                    }}
+                                />
                             )
                         }
                     >

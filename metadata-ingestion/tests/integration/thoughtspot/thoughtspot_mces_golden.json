@@ -1,0 +1,2216 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "thoughtspot",
+                "instance": "prod",
+                "workspace_id": "workspace-1"
+            },
+            "name": "Sales Analytics",
+            "description": "Sales team dashboards and reports"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.viz-1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Workspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:15a369348330f6ca2f570c549ba90b18",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "thoughtspot",
+                "instance": "prod",
+                "workspace_id": "workspace-2"
+            },
+            "name": "Marketing Dashboard",
+            "description": "Marketing metrics and KPIs"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:15a369348330f6ca2f570c549ba90b18",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:15a369348330f6ca2f570c549ba90b18",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Workspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:15a369348330f6ca2f570c549ba90b18",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.viz-1)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Visualization"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.viz-1)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "thoughtspot_id": "viz-1",
+                "created": "2021-12-22T19:06:40+00:00",
+                "modified": "2023-11-17T05:46:40+00:00"
+            },
+            "title": "Revenue by Month",
+            "description": "Monthly revenue breakdown",
+            "lastModified": {
+                "created": {
+                    "time": 1640200000000,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1700200000000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.viz-1)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:15a369348330f6ca2f570c549ba90b18",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.viz-1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+                },
+                {
+                    "id": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016",
+                    "urn": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-1)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "thoughtspot_id": "liveboard-1",
+                "created": "2021-12-22T19:06:40+00:00",
+                "modified": "2023-11-17T05:46:40+00:00",
+                "author": "john.doe",
+                "thoughtspot_favorites": "3",
+                "thoughtspot_last_accessed": "2023-11-18T09:33:20+00:00"
+            },
+            "externalUrl": "https://test.thoughtspot.cloud/#/pinboard/liveboard-1",
+            "title": "Q4 Sales Dashboard",
+            "description": "Quarterly sales performance metrics",
+            "charts": [],
+            "chartEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(thoughtspot,prod.viz-1)"
+                }
+            ],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1640200000000,
+                    "actor": "urn:li:corpuser:john.doe"
+                },
+                "lastModified": {
+                    "time": 1700200000000,
+                    "actor": "urn:li:corpuser:john.doe"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-1)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Liveboard"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-1)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-1)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:john.doe",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+                },
+                {
+                    "id": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016",
+                    "urn": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-2)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "thoughtspot_id": "liveboard-2",
+                "created": "2021-12-23T22:53:20+00:00",
+                "modified": "2023-11-18T09:33:20+00:00",
+                "author": "jane.smith",
+                "thoughtspot_favorites": "7",
+                "thoughtspot_last_accessed": "2023-11-19T13:20:00+00:00"
+            },
+            "externalUrl": "https://test.thoughtspot.cloud/#/pinboard/liveboard-2",
+            "title": "Customer Insights",
+            "description": "Customer behavior analysis dashboard",
+            "charts": [],
+            "chartEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(thoughtspot,prod.viz-2)"
+                }
+            ],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1640300000000,
+                    "actor": "urn:li:corpuser:jane.smith"
+                },
+                "lastModified": {
+                    "time": 1700300000000,
+                    "actor": "urn:li:corpuser:jane.smith"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-2)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Liveboard"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-2)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jane.smith",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.viz-2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.viz-2)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:15a369348330f6ca2f570c549ba90b18"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-1)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "thoughtspot_id": "answer-1",
+                "created": "2021-12-25T02:40:00+00:00",
+                "modified": "2023-11-19T13:20:00+00:00",
+                "author": "john.doe",
+                "thoughtspot_favorites": "1",
+                "thoughtspot_last_accessed": "2023-11-20T17:06:40+00:00"
+            },
+            "externalUrl": "https://test.thoughtspot.cloud/#/saved-answer/answer-1",
+            "title": "Monthly Revenue Chart",
+            "description": "Revenue trend by month",
+            "lastModified": {
+                "created": {
+                    "time": 1640400000000,
+                    "actor": "urn:li:corpuser:john.doe"
+                },
+                "lastModified": {
+                    "time": 1700400000000,
+                    "actor": "urn:li:corpuser:john.doe"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-1,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.viz-2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+                },
+                {
+                    "id": "urn:li:container:15a369348330f6ca2f570c549ba90b18",
+                    "urn": "urn:li:container:15a369348330f6ca2f570c549ba90b18"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.viz-2)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Visualization"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.viz-2)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "thoughtspot_id": "viz-2",
+                "created": "2021-12-23T22:53:20+00:00",
+                "modified": "2023-11-18T09:33:20+00:00"
+            },
+            "title": "User Growth",
+            "description": "Weekly user growth trend",
+            "lastModified": {
+                "created": {
+                    "time": 1640300000000,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1700300000000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-1)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Answer"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-2)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "thoughtspot_id": "answer-2",
+                "created": "2021-12-26T06:26:40+00:00",
+                "modified": "2023-11-20T17:06:40+00:00",
+                "author": "john.doe",
+                "thoughtspot_last_accessed": "2023-11-21T20:53:20+00:00"
+            },
+            "externalUrl": "https://test.thoughtspot.cloud/#/saved-answer/answer-2",
+            "title": "User Growth Trend",
+            "description": "Active users by week",
+            "lastModified": {
+                "created": {
+                    "time": 1640500000000,
+                    "actor": "urn:li:corpuser:john.doe"
+                },
+                "lastModified": {
+                    "time": 1700500000000,
+                    "actor": "urn:li:corpuser:john.doe"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-2,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-1)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:john.doe",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-2)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:15a369348330f6ca2f570c549ba90b18"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-1)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-2)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Answer"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-2)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:john.doe",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+                },
+                {
+                    "id": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016",
+                    "urn": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+                },
+                {
+                    "id": "urn:li:container:15a369348330f6ca2f570c549ba90b18",
+                    "urn": "urn:li:container:15a369348330f6ca2f570c549ba90b18"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "thoughtspot_id": "worksheet-1",
+                "created": "2021-12-27T10:13:20+00:00",
+                "modified": "2023-11-21T20:53:20+00:00",
+                "author": "john.doe"
+            },
+            "externalUrl": "https://test.thoughtspot.cloud/#/data/tables/worksheet-1",
+            "name": "Sales_Fact_View",
+            "description": "Sales transactions fact table",
+            "created": {
+                "time": 1640600000000
+            },
+            "lastModified": {
+                "time": 1700600000000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Worksheet"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "thoughtspot_id": "table-1",
+                "created": "2021-12-28T14:00:00+00:00",
+                "modified": "2023-11-23T00:40:00+00:00",
+                "author": "jane.smith"
+            },
+            "externalUrl": "https://test.thoughtspot.cloud/#/data/tables/table-1",
+            "name": "raw_orders",
+            "description": "Raw orders data from source system",
+            "created": {
+                "time": 1640700000000
+            },
+            "lastModified": {
+                "time": 1700700000000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:john.doe",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "order_id",
+                    "nullable": false,
+                    "description": "Unique order identifier",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INT64",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "customer_id",
+                    "nullable": false,
+                    "description": "Customer reference",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INT64",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "order_amount",
+                    "nullable": false,
+                    "description": "Total order amount in USD",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "DOUBLE",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "order_date",
+                    "nullable": false,
+                    "description": "Date order was placed",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "DATE",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            },
+                            {
+                                "tag": "urn:li:tag:Temporal"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jane.smith",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "thoughtspot_id": "worksheet-2",
+                "created": "2021-12-29T17:46:40+00:00",
+                "modified": "2023-11-24T04:26:40+00:00",
+                "author": "jane.smith"
+            },
+            "externalUrl": "https://test.thoughtspot.cloud/#/data/tables/worksheet-2",
+            "name": "Customer_Dimension",
+            "description": "Customer dimension view",
+            "created": {
+                "time": 1640800000000
+            },
+            "lastModified": {
+                "time": 1700800000000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Worksheet"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jane.smith",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-1)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705305600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "viewsCount": 10000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-2)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705305600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "viewsCount": 25000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "id",
+                    "nullable": false,
+                    "description": "Primary key",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INT64",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "customer_id",
+                    "nullable": false,
+                    "description": "Foreign key to customers",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INT64",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "amount",
+                    "nullable": false,
+                    "description": "Order total",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "DOUBLE",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "created_at",
+                    "nullable": false,
+                    "description": "Record creation timestamp",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "DATE_TIME",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            },
+                            {
+                                "tag": "urn:li:tag:Temporal"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-1)",
+    "changeType": "UPSERT",
+    "aspectName": "chartUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705305600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "viewsCount": 200
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-2)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:15a369348330f6ca2f570c549ba90b18"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+                },
+                {
+                    "id": "urn:li:container:15a369348330f6ca2f570c549ba90b18",
+                    "urn": "urn:li:container:15a369348330f6ca2f570c549ba90b18"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.answer-2)",
+    "changeType": "UPSERT",
+    "aspectName": "chartUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705305600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "viewsCount": 500
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "customer_id",
+                    "nullable": false,
+                    "description": "Customer ID",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INT64",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "customer_name",
+                    "nullable": false,
+                    "description": "Customer full name",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "email",
+                    "nullable": false,
+                    "description": "Customer email address",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "segment",
+                    "nullable": false,
+                    "description": "Customer segment classification",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.sql-view-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:thoughtspot",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.sql-view-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "thoughtspot_id": "sql-view-1",
+                "created": "2021-12-30T21:33:20+00:00",
+                "modified": "2023-11-25T08:13:20+00:00",
+                "author": "john.doe"
+            },
+            "externalUrl": "https://test.thoughtspot.cloud/#/data/tables/sql-view-1",
+            "name": "Top_Revenue_View",
+            "description": "SQL view aggregating revenue by region",
+            "created": {
+                "time": 1640900000000
+            },
+            "lastModified": {
+                "time": 1700900000000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:15a369348330f6ca2f570c549ba90b18"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.sql-view-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.sql-view-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.sql-view-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1705305600000,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mock_warehouse.public.sales,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,mock_warehouse.public.sales,PROD),region)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.sql-view-1,PROD),region)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,mock_warehouse.public.sales,PROD),revenue)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.sql-view-1,PROD),total)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.sql-view-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT region, SUM(revenue) AS total FROM mock_warehouse.public.sales GROUP BY region",
+            "viewLanguage": "snowflake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.sql-view-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:john.doe",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(thoughtspot,prod.liveboard-2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.sql-view-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+                },
+                {
+                    "id": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016",
+                    "urn": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+                },
+                {
+                    "id": "urn:li:container:15a369348330f6ca2f570c549ba90b18",
+                    "urn": "urn:li:container:15a369348330f6ca2f570c549ba90b18"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+                },
+                {
+                    "id": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016",
+                    "urn": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.viz-1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.worksheet-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(thoughtspot,prod.viz-2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:thoughtspot,prod)"
+                },
+                {
+                    "id": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016",
+                    "urn": "urn:li:container:fdf920a06e8d5e48ac42e4e43c81f016"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,prod.sql-view-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Temporal",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Temporal"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Measure",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Measure"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Dimension",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Dimension"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705305600000,
+        "runId": "thoughtspot-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

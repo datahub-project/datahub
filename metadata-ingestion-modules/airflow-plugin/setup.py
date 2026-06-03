@@ -25,12 +25,14 @@ _self_pin = (
 base_requirements = {
     f"acryl-datahub[sql-parser,datahub-rest]{_self_pin}",
     "pydantic>=2.4.0",
-    # We require Airflow 2.5.x at minimum, since we need the new DAG listener API.
-    # We support both Airflow 2.x and 3.x with full backward compatibility.
-    "apache-airflow>=2.5.0,<4.0.0",
-    # Note: OpenLineage dependencies are version-specific and provided via extras:
-    # - airflow2: for Airflow 2.x (uses standalone openlineage-airflow package)
-    # - airflow3: for Airflow 3.x (uses native apache-airflow-providers-openlineage)
+    # Airflow 3.0+. The only 3.0-vs-3.1 API gap we hit is BaseHook: it moved into
+    # the Task SDK (airflow.sdk.bases.hook) in 3.1, but is still importable from
+    # airflow.hooks.base on 3.0.x. hooks/datahub.py handles both via a fallback.
+    "apache-airflow>=3.0.0,<4.0.0",
+    # 2.1.0 added Airflow 3 listener interface support; we deliberately stay at
+    # or below the version pinned by Airflow 3.1.0's constraints file (2.7.1) so
+    # `pip install acryl-datahub-airflow-plugin` works under those constraints.
+    "apache-airflow-providers-openlineage>=2.1.0",
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -42,14 +44,6 @@ plugins: Dict[str, Set[str]] = {
     },
     "datahub-file": {
         f"acryl-datahub[sync-file-emitter]{_self_pin}",
-    },
-    # airflow2: For Airflow 2.x, use standalone openlineage-airflow package
-    "airflow2": {
-        "openlineage-airflow>=1.2.0",
-    },
-    # airflow3: For Airflow 3.x, use native OpenLineage provider
-    "airflow3": {
-        "apache-airflow-providers-openlineage>=1.0.0",
     },
 }
 
@@ -94,15 +88,11 @@ integration_test_requirements = {
     *plugins["datahub-file"],
     *plugins["datahub-kafka"],
     f"acryl-datahub[testing-utils]{_self_pin}",
-    # Extra requirements for loading our test dags.
-    "apache-airflow[snowflake,amazon,google]>=2.0.2",
-    # A collection of issues we've encountered:
-    # - Connexion's new version breaks Airflow:
-    #   See https://github.com/apache/airflow/issues/35234.
-    # - https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
-    #   Eventually we want to set this to "snowflake-sqlalchemy>=1.4.3".
-    # - To avoid https://github.com/snowflakedb/snowflake-connector-python/issues/1188,
-    #   we need https://github.com/snowflakedb/snowflake-connector-python/pull/1193
+    # Provider extras needed for loading test DAGs; airflow itself is already
+    # pinned in base_requirements.
+    "apache-airflow-providers-snowflake",
+    "apache-airflow-providers-amazon",
+    "apache-airflow-providers-google",
     "snowflake-connector-python>=2.7.10",
     "virtualenv",  # needed by PythonVirtualenvOperator
     "apache-airflow-providers-sqlite",
@@ -157,6 +147,12 @@ setuptools.setup(
     install_requires=list(base_requirements),
     extras_require={
         "ignore": [],  # This is a dummy extra to allow for trailing commas in the list.
+        # Backward-compatibility no-op: the plugin now always targets Airflow 3,
+        # so `[airflow3]` adds nothing over the base install. Kept so existing
+        # `pip install 'acryl-datahub-airflow-plugin[airflow3]'` commands (and any
+        # pinned recipes/CI) keep working. (`[airflow2]` is intentionally not
+        # restored — Airflow 2 is unsupported.)
+        "airflow3": [],
         **{plugin: list(dependencies) for plugin, dependencies in plugins.items()},
         "dev": list(dev_requirements),
         "integration-tests": list(integration_test_requirements),

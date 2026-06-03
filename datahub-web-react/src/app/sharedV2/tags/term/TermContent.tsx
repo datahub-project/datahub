@@ -70,7 +70,7 @@ const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; sho
 `;
 
 const PropagateThunderbolt = styled(ThunderboltOutlined)`
-    color: ${(props) => props.theme.colors.textSuccess};
+    color: ${(props) => props.theme.colors.iconSuccess};
     margin-right: -4px;
     font-weight: bold;
 `;

@@ -1,9 +1,9 @@
 import { Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 
 import { formatNumber } from '@app/shared/formatNumber';
-import { pluralize } from '@app/shared/textUtil';
 import { PageRoutes } from '@conf/Global';
 
 import { Domain, Entity } from '@types';
@@ -16,6 +16,7 @@ interface Props {
 }
 
 const useDomainModuleUtils = ({ domains }: Props) => {
+    const { t } = useTranslation('modules');
     const history = useHistory();
 
     const navigateToDomains = () => {
@@ -31,12 +32,12 @@ const useDomainModuleUtils = ({ domains }: Props) => {
             <>
                 {assetCount > 0 && (
                     <Text size="sm">
-                        {formatNumber(assetCount)} {pluralize(assetCount, 'asset')}{' '}
+                        {t('domains.assetCount', { count: assetCount, formattedCount: formatNumber(assetCount) })}{' '}
                     </Text>
                 )}
                 {dataProductCount > 0 && (
                     <Text size="sm">
-                        , {formatNumber(dataProductCount)} data {pluralize(dataProductCount, 'product')}
+                        {`, ${t('domains.dataProductCount', { count: dataProductCount, formattedCount: formatNumber(dataProductCount) })}`}
                     </Text>
                 )}
             </>

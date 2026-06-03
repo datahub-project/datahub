@@ -1,6 +1,7 @@
 import { ClockCircleOutlined } from '@ant-design/icons';
 import { Divider } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { DataContractSummaryFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractSummaryFooter';
@@ -55,6 +56,7 @@ type Props = {
 };
 
 export const FreshnessContractSummary = ({ contracts, showAction = false }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     // TODO: Support multiple per-asset contracts.
     const firstContract = (contracts.length && contracts[0]) || undefined;
     const assertionDefinition = firstContract?.assertion?.info?.freshnessAssertion?.schedule;
@@ -63,14 +65,14 @@ export const FreshnessContractSummary = ({ contracts, showAction = false }: Prop
 
     return (
         <Container>
-            <TitleText>FRESHNESS</TitleText>
+            <TitleText>{t('contractSection.freshness')}</TitleText>
             <SummaryContainer>
                 <Header>
                     <ClockCircleOutlined style={{ marginRight: 8 }} />
-                    Update Frequency
+                    {t('freshnessContract.updateFrequency')}
                 </Header>
                 <Body>
-                    {!assertionDefinition && <>No contract found :(</>}
+                    {!assertionDefinition && <>{t('freshnessContract.noContractFound')}</>}
                     <b>
                         {assertionDefinition && (
                             <FreshnessScheduleSummary
@@ -84,10 +86,10 @@ export const FreshnessContractSummary = ({ contracts, showAction = false }: Prop
                 <Footer>
                     <DataContractSummaryFooter
                         assertions={(firstContract && [firstContract?.assertion]) || []}
-                        passingText="Meeting freshness contract"
-                        failingText="Violating freshness contract"
-                        errorText="Freshness contract assertions are completing with errors"
-                        actionText="view freshness assertions"
+                        passingText={t('contractStatus.passingText.freshness')}
+                        failingText={t('contractStatus.failingText.freshness')}
+                        errorText={t('contractStatus.errorText.freshness')}
+                        actionText={t('contractStatus.action.viewFreshness')}
                         showAction={showAction}
                     />
                 </Footer>

@@ -107,7 +107,7 @@ const EntityTypeShadow = styled.div<{ color: string; isGhost: boolean }>`
 `;
 
 export const LoadingWrapper = styled.div`
-    color: ${(props) => props.theme.colors.textBrand};
+    color: ${(props) => props.theme.colors.iconBrand};
     font-size: 32px;
     line-height: 0;
     pointer-events: none;
@@ -125,7 +125,7 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
 
 const IconsWrapper = styled.div`
     align-items: center;
-    color: ${(props) => props.theme.colors.text};
+    color: ${(props) => props.theme.colors.icon};
     display: flex;
     flex-direction: column;
     font-size: 24px;

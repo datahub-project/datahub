@@ -1,6 +1,7 @@
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { Button, Icon, Modal, Text, toast } from '@src/alchemy-components';
@@ -102,6 +103,8 @@ type Props = {
 };
 
 export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText }: Props) => {
+    const { t } = useTranslation('settings.tokens');
+    const { t: tc } = useTranslation('common.actions');
     const baseUrl = window.location.origin;
     const accessTokenCurl = `curl -X POST '${baseUrl}${resolveRuntimePath('/api/graphql')}' \\
 --header 'Authorization: Bearer ${accessToken}' \\
@@ -110,8 +113,8 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
 
     const copyToClipboard = (text: string, label: string) => {
         navigator.clipboard.writeText(text).then(
-            () => toast.success(`${label} copied to clipboard`),
-            () => toast.error(`Failed to copy ${label.toLowerCase()}`),
+            () => toast.success(t('copiedToClipboard', { label })),
+            () => toast.error(t('copyFailed', { label })),
         );
     };
 
@@ -122,13 +125,13 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
     return (
         <Modal
             width={700}
-            title="New Access Token"
+            title={t('newTokenTitle')}
             onCancel={onClose}
             dataTestId="access-token-modal"
             footer={
                 <ModalFooter>
                     <Button id="createTokenButton" onClick={onClose} data-testid="access-token-modal-close-button">
-                        Close
+                        {tc('close')}
                     </Button>
                 </ModalFooter>
             }
@@ -138,14 +141,12 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                     <InfoIconWrapper>
                         <Icon icon={Info} size="inherit" />
                     </InfoIconWrapper>
-                    <Text size="sm">
-                        Make sure to copy your access token now. You won&apos;t be able to see it again.
-                    </Text>
+                    <Text size="sm">{t('copyWarning')}</Text>
                 </InfoAlert>
 
                 <Section>
                     <Text size="md" weight="semiBold">
-                        Token
+                        {t('tokenSectionTitle')}
                     </Text>
                     <ExpirationText size="sm">{expiresInText}</ExpirationText>
                     <CodeBlock>
@@ -153,47 +154,54 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                         <CopyButton
                             variant="text"
                             size="sm"
-                            onClick={() => copyToClipboard(accessToken, 'Token')}
+                            onClick={() => copyToClipboard(accessToken, t('tokenCopyLabel'))}
                             data-testid="copy-token-button"
                             icon={{ icon: Copy }}
                         >
-                            Copy
+                            {tc('copy')}
                         </CopyButton>
                     </CodeBlock>
                 </Section>
 
                 <Section>
                     <Text size="md" weight="semiBold">
-                        Usage
+                        {t('usageSectionTitle')}
                     </Text>
                     <Text size="sm" color="gray">
-                        To use the token, provide it as a <Kbd>Bearer</Kbd> token in the <Kbd>Authorization</Kbd> header
-                        when making API requests:
+                        <Trans t={t} i18nKey="tokenUsageDescription" components={{ kbd: <Kbd /> }} />
                     </Text>
                     <CodeBlock>
                         <CodeContent data-testid="access-token-curl">{accessTokenCurl}</CodeContent>
                         <CopyButton
                             variant="text"
                             size="sm"
-                            onClick={() => copyToClipboard(accessTokenCurl, 'cURL command')}
+                            onClick={() => copyToClipboard(accessTokenCurl, t('curlCopyLabel'))}
                             data-testid="copy-curl-button"
                             icon={{ icon: Copy }}
                         >
-                            Copy
+                            {tc('copy')}
                         </CopyButton>
                     </CodeBlock>
                 </Section>
 
                 <Section>
                     <Text size="md" weight="semiBold">
-                        Learn More
+                        {t('learnMoreSectionTitle')}
                     </Text>
                     <Text size="sm" color="gray">
-                        To learn more about the DataHub APIs, check out the{' '}
-                        <Link href="https://www.datahubproject.io/docs/" target="_blank" rel="noopener noreferrer">
-                            DataHub Docs
-                        </Link>
-                        .
+                        <Trans
+                            t={t}
+                            i18nKey="learnMoreDescription"
+                            components={{
+                                link: (
+                                    <Link
+                                        href="https://www.datahubproject.io/docs/"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    />
+                                ),
+                            }}
+                        />
                     </Text>
                 </Section>
             </ModalContent>

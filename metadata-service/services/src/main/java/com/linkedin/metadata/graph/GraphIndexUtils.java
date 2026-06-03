@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.util.RecordUtils;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.InputField;
 import com.linkedin.common.InputFields;
 import com.linkedin.common.urn.Urn;
@@ -486,17 +487,22 @@ public class GraphIndexUtils {
     return new HashSet<>(edgeAndRelationTypes.getFirst());
   }
 
-  private static List<Edge> getMergedEdges(final Set<Edge> oldEdgeSet, final Set<Edge> newEdgeSet) {
-    final Map<Integer, Edge> oldEdgesMap =
-        oldEdgeSet.stream()
-            .map(edge -> Pair.of(edge.hashCode(), edge))
-            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+  @VisibleForTesting
+  static List<Edge> getMergedEdges(final Set<Edge> oldEdgeSet, final Set<Edge> newEdgeSet) {
+    // Key by the Edge itself (using Edge#equals/#hashCode), not by the raw
+    // Edge#hashCode() value. Two distinct edges can share a 32-bit hashCode, which
+    // previously made Collectors.toMap throw "IllegalStateException: Duplicate key"
+    // and made the lookup below match colliding edges instead of equal ones.
+    // oldEdgeSet is a Set, so its elements are already distinct by Edge#equals and
+    // cannot produce duplicate keys; no merge function is needed.
+    final Map<Edge, Edge> oldEdgesMap =
+        oldEdgeSet.stream().collect(Collectors.toMap(edge -> edge, edge -> edge));
 
     final List<Edge> mergedEdges = new ArrayList<>();
     if (!oldEdgesMap.isEmpty()) {
       for (Edge newEdge : newEdgeSet) {
-        if (oldEdgesMap.containsKey(newEdge.hashCode())) {
-          final Edge oldEdge = oldEdgesMap.get(newEdge.hashCode());
+        if (oldEdgesMap.containsKey(newEdge)) {
+          final Edge oldEdge = oldEdgesMap.get(newEdge);
           final Edge mergedEdge = GraphIndexUtils.mergeEdges(oldEdge, newEdge);
           mergedEdges.add(mergedEdge);
         }

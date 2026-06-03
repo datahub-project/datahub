@@ -85,6 +85,7 @@ export default function GroupEditModal({
             title="Edit Profile"
             open={visible}
             onCancel={onClose}
+            dataTestId="group-edit-profile-modal"
             buttons={[
                 {
                     text: 'Cancel',
@@ -97,6 +98,7 @@ export default function GroupEditModal({
                     variant: 'filled',
                     disabled: saveButtonEnabled,
                     id: 'editGroupButton',
+                    buttonDataTestId: 'group-edit-profile-save-button',
                 },
             ]}
         >
@@ -117,7 +119,11 @@ export default function GroupEditModal({
             >
                 {canEditGroupName && (
                     <Form.Item name="name" label={<Typography.Text strong>Name</Typography.Text>}>
-                        <Input value={data.name} onChange={(event) => setData({ ...data, name: event.target.value })} />
+                        <Input
+                            data-testid="group-profile-name-input"
+                            value={data.name}
+                            onChange={(event) => setData({ ...data, name: event.target.value })}
+                        />
                     </Form.Item>
                 )}
                 <Form.Item
@@ -134,6 +140,7 @@ export default function GroupEditModal({
                     hasFeedback
                 >
                     <Input
+                        data-testid="group-profile-email-input"
                         placeholder="engineering@example.com"
                         value={data.email}
                         onChange={(event) => setData({ ...data, email: event.target.value })}
@@ -146,6 +153,7 @@ export default function GroupEditModal({
                     hasFeedback
                 >
                     <Input
+                        data-testid="group-profile-slack-input"
                         placeholder="#engineering"
                         value={data.slack}
                         onChange={(event) => setData({ ...data, slack: event.target.value })}

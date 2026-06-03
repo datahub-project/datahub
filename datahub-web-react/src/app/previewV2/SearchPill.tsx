@@ -19,7 +19,7 @@ const computeColor = (theme: DefaultTheme, enabled?: boolean, active?: boolean) 
     let color = theme.colors.textDisabled;
     if (enabled) {
         if (active) {
-            color = theme.colors.bg;
+            color = theme.colors.textOnFillDefault;
         } else {
             color = theme.colors.textTertiary;
         }
@@ -51,13 +51,13 @@ const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; isHighli
     }
 
     :hover {
-        color: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.iconDisabled)};
+        color: ${({ enabled, theme }) => (enabled ? theme.colors.iconOnFillBrand : theme.colors.iconDisabled)};
         background-color: ${({ enabled, theme }) =>
             enabled ? `${theme.colors.buttonFillBrand}` : theme.colors.bgSurface};
 
         svg {
-            color: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.iconDisabled)};
-            fill: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.iconDisabled)};
+            color: ${({ enabled, theme }) => (enabled ? theme.colors.iconOnFillBrand : theme.colors.iconDisabled)};
+            fill: ${({ enabled, theme }) => (enabled ? theme.colors.iconOnFillBrand : theme.colors.iconDisabled)};
         }
 
         >div: last-child {

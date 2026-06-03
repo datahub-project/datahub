@@ -7,7 +7,7 @@ import TextValueInput from '@app/searchV2/filters/value/TextValueInput';
 
 const Container = styled.div`
     padding: 16px;
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     box-shadow: ${(props) => props.theme.colors.shadowMd};
     border-radius: 8px;
 `;

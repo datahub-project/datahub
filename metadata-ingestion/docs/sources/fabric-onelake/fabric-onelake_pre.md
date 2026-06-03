@@ -8,7 +8,8 @@ The `fabric-onelake` module ingests metadata from Fabric Onelake into DataHub. I
 2. **Grant permissions** - Ensure your identity has `Workspace.Read.All` and workspace access
 3. **Configure recipe** - Use `fabric-onelake_recipe.yml` as a template
 4. **Run ingestion** - Execute `datahub ingest -c fabric-onelake_recipe.yml`
-   :::
+
+:::
 
 #### Key Features
 

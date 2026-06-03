@@ -23,9 +23,9 @@ const featureCardContent =  [
     icon: <CompassTwoTone />
   },
 {
-    title: "Data Quality Control",
-    description: "Improve data quality through metadata tests, assertions, data freshness checks, and data contracts.",
-    to: "https://www.acryldata.io/blog/data-contracts-in-datahub-combining-verifiability-with-holistic-data-management?utm_source=datahub&utm_medium=referral&utm_content=blog",
+    title: "Data Quality & Observability",
+    description: "Detect and resolve quality issues before they impact production. Automated anomaly detection, assertions, and data contracts keep data reliable.",
+    to: "docs/features/feature-guides/observe",
     icon: <AlertTwoTone />
   },
 {

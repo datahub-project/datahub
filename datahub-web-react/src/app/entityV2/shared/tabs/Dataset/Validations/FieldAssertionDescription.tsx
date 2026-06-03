@@ -52,6 +52,8 @@ export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assert
     const parameters = getFieldParametersDescription(assertionInfo);
     let descriptionContent = <>{assertionDescription}</>;
 
+    /* eslint-disable i18next/no-literal-string -- (untranslated-text) Inline prepositions and labels ('of', 'column', 'Values') assembled
+       into description sentence; word order differs by language */
     if (!assertionDescription) {
         descriptionContent = (
             <>
@@ -66,6 +68,7 @@ export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assert
             </>
         );
     }
+    /* eslint-enable i18next/no-literal-string */
 
     return (
         <StyledDescrptionContainer>

@@ -18,7 +18,10 @@ const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHd
 const UPSTREAM_URN = 'urn:li:dataset:(urn:li:dataPlatform:kafka,SamplePlaywrightKafkaDataset,PROD)';
 
 test.describe('column-Level lineage and impact analysis path test', () => {
-  test.beforeEach(async ({ apiMock }) => {
+  test.beforeEach(async ({ page, apiMock }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('navBarState', '{"state":"COLLAPSED"}');
+    });
     await apiMock.setFeatureFlags({ lineageGraphV3: false });
   });
 
@@ -45,12 +48,14 @@ test.describe('column-Level lineage and impact analysis path test', () => {
 
     // Verify the selected field_bar indicator is active (fill not white)
     await expect(
+      // eslint-disable-next-line playwright/no-raw-locators -- XPath parent (..) and multi-element CSS selector; no semantic API for parent traversal or SVG elements
       lp.getReactFlowNode(UPSTREAM_URN).getByText('field_bar').locator('..').locator('svg, circle, path').first(),
     ).not.toHaveAttribute('fill', 'white');
 
     // Verify shipment_info has a connection indicator (stroke not transparent).
     // Use exact: true to avoid matching sub-fields like shipment_info.date, shipment_info.target, etc.
     await expect(
+      // eslint-disable-next-line playwright/no-raw-locators -- XPath parent (..) and multi-element CSS selector; no semantic API for parent traversal or SVG elements
       lp
         .getReactFlowNode(DATASET_URN)
         .getByText('shipment_info', { exact: true })
@@ -62,6 +67,7 @@ test.describe('column-Level lineage and impact analysis path test', () => {
     // Click shipment_info in downstream node
     await lp.getReactFlowNode(DATASET_URN).getByText('shipment_info', { exact: true }).click();
     await expect(
+      // eslint-disable-next-line playwright/no-raw-locators -- XPath parent (..) and multi-element CSS selector; no semantic API for parent traversal or SVG elements
       lp
         .getReactFlowNode(DATASET_URN)
         .getByText('shipment_info', { exact: true })
@@ -70,6 +76,7 @@ test.describe('column-Level lineage and impact analysis path test', () => {
         .first(),
     ).not.toHaveAttribute('fill', 'white');
     await expect(
+      // eslint-disable-next-line playwright/no-raw-locators -- XPath parent (..) and multi-element CSS selector; no semantic API for parent traversal or SVG elements
       lp
         .getReactFlowNode(UPSTREAM_URN)
         .getByText('field_bar', { exact: true })

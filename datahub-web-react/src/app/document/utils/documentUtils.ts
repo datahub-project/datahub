@@ -12,6 +12,7 @@ import { Document, DocumentState, EntityType } from '@types';
 export function documentToTreeNode(doc: Document, hasChildren: boolean): DocumentTreeNode {
     return {
         urn: doc.urn,
+        /* untranslated-text -- persisted document-title data default, not UI chrome */
         title: doc.info?.title || 'Untitled',
         parentUrn: doc.info?.parentDocument?.document?.urn || null,
         hasChildren,
@@ -75,6 +76,7 @@ export function createDefaultDocumentInput(options?: {
     showInGlobalContext?: boolean;
 }) {
     return {
+        /* untranslated-text -- persisted document-title data default, not UI chrome */
         title: options?.title || 'New Document',
         parentDocument: options?.parentUrn || undefined,
         relatedAssets: options?.relatedAssetUrns || undefined,

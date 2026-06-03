@@ -1,5 +1,6 @@
 import { Radio, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
@@ -71,6 +72,7 @@ export function ViewTab({ formatOptions, showFormatted, setShowFormatted }: View
 }
 
 export default function ViewDefinitionTab() {
+    const { t } = useTranslation('entity.profile.view');
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const logic = baseEntity?.dataset?.viewProperties?.logic || 'UNKNOWN';
     const formattedLogic = baseEntity?.dataset?.viewProperties?.formattedLogic;
@@ -80,24 +82,30 @@ export default function ViewDefinitionTab() {
     const canShowFormatted = !!formattedLogic;
 
     const isDbt = baseEntity?.dataset?.platform?.urn === DBT_URN;
-    const formatOptions = isDbt ? ['Source', 'Compiled'] : ['Raw', 'Formatted'];
+    const formatOptions = isDbt
+        ? [t('viewDefinitionTab.formatSource'), t('viewDefinitionTab.formatCompiled')]
+        : [t('viewDefinitionTab.formatRaw'), t('viewDefinitionTab.formatFormatted')];
     const [showFormatted, setShowFormatted] = useState(false);
 
     return (
         <>
             <InfoSection>
-                <Typography.Title level={5}>Details</Typography.Title>
+                <Typography.Title level={5}>{t('viewDefinitionTab.detailsHeading')}</Typography.Title>
                 <InfoItemContainer justifyContent="left">
-                    <InfoItem title="Materialized">
-                        <InfoItemContent>{materialized ? 'True' : 'False'}</InfoItemContent>
+                    <InfoItem title={t('viewDefinitionTab.materializedLabel')}>
+                        <InfoItemContent>
+                            {materialized
+                                ? t('viewDefinitionTab.materializedTrue')
+                                : t('viewDefinitionTab.materializedFalse')}
+                        </InfoItemContent>
                     </InfoItem>
-                    <InfoItem title="Language">
+                    <InfoItem title={t('viewDefinitionTab.languageLabel')}>
                         <InfoItemContent>{language.toUpperCase()}</InfoItemContent>
                     </InfoItem>
                 </InfoItemContainer>
             </InfoSection>
             <InfoSection>
-                <Typography.Title level={5}>Logic</Typography.Title>
+                <Typography.Title level={5}>{t('viewDefinitionTab.logicHeading')}</Typography.Title>
                 <ViewHeader>
                     {canShowFormatted && (
                         <ViewTab

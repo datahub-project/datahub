@@ -27,6 +27,7 @@ import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
@@ -56,7 +57,6 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.slf4j.MDC;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -89,7 +89,7 @@ public class MetadataChangeProposalsProcessorTest {
 
   @Mock private ThrottleSensor mockKafkaThrottle;
 
-  @Mock private KafkaListenerEndpointRegistry mockRegistry;
+  @Mock private ConsumerPauseSupport mockConsumerPauseSupport;
 
   @Mock private ConfigurationProvider mockProvider;
 
@@ -136,14 +136,11 @@ public class MetadataChangeProposalsProcessorTest {
             null);
 
     // Setup the processor
+    MetadataChangeProposalConsumer mcpConsumer =
+        new MetadataChangeProposalConsumer(opContext, entityClient, mockKafkaProducer);
     processor =
         new MetadataChangeProposalsProcessor(
-            opContext,
-            entityClient,
-            mockKafkaProducer,
-            mockKafkaThrottle,
-            mockRegistry,
-            mockProvider);
+            mockKafkaThrottle, mockProvider, mockConsumerPauseSupport, mcpConsumer);
 
     // Set the mceConsumerGroupId field via reflection
     try {
@@ -350,10 +347,12 @@ public class MetadataChangeProposalsProcessorTest {
     // Verify timer was recorded
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-            "topic",
+            MetricUtils.MESSAGING_QUEUE_TIME,
+            MetricUtils.MESSAGING_SYSTEM,
+            MetricUtils.MESSAGING_SYSTEM_KAFKA,
+            MetricUtils.MESSAGING_TOPIC,
             "MetadataChangeProposal_v1",
-            "consumer.group",
+            MetricUtils.MESSAGING_CONSUMER_GROUP,
             "MetadataChangeProposal-Consumer");
 
     assertNotNull(timer);
@@ -398,18 +397,22 @@ public class MetadataChangeProposalsProcessorTest {
     // Verify separate timers for different topics
     Timer timer1 =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-            "topic",
+            MetricUtils.MESSAGING_QUEUE_TIME,
+            MetricUtils.MESSAGING_SYSTEM,
+            MetricUtils.MESSAGING_SYSTEM_KAFKA,
+            MetricUtils.MESSAGING_TOPIC,
             "MetadataChangeProposal_v1",
-            "consumer.group",
+            MetricUtils.MESSAGING_CONSUMER_GROUP,
             "MetadataChangeProposal-Consumer");
 
     Timer timer2 =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-            "topic",
+            MetricUtils.MESSAGING_QUEUE_TIME,
+            MetricUtils.MESSAGING_SYSTEM,
+            MetricUtils.MESSAGING_SYSTEM_KAFKA,
+            MetricUtils.MESSAGING_TOPIC,
             "MetadataChangeProposal_Timeseries",
-            "consumer.group",
+            MetricUtils.MESSAGING_CONSUMER_GROUP,
             "MetadataChangeProposal-Consumer");
 
     assertEquals(timer1.count(), 1);
@@ -448,10 +451,12 @@ public class MetadataChangeProposalsProcessorTest {
     // Verify timer was still recorded despite failure
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-            "topic",
+            MetricUtils.MESSAGING_QUEUE_TIME,
+            MetricUtils.MESSAGING_SYSTEM,
+            MetricUtils.MESSAGING_SYSTEM_KAFKA,
+            MetricUtils.MESSAGING_TOPIC,
             "MetadataChangeProposal_v1",
-            "consumer.group",
+            MetricUtils.MESSAGING_CONSUMER_GROUP,
             "MetadataChangeProposal-Consumer");
 
     assertEquals(timer.count(), 1);
@@ -508,10 +513,12 @@ public class MetadataChangeProposalsProcessorTest {
     // Verify timer statistics
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-            "topic",
+            MetricUtils.MESSAGING_QUEUE_TIME,
+            MetricUtils.MESSAGING_SYSTEM,
+            MetricUtils.MESSAGING_SYSTEM_KAFKA,
+            MetricUtils.MESSAGING_TOPIC,
             "MetadataChangeProposal_v1",
-            "consumer.group",
+            MetricUtils.MESSAGING_CONSUMER_GROUP,
             "MetadataChangeProposal-Consumer");
 
     assertEquals(timer.count(), queueTimes.length);
@@ -536,14 +543,11 @@ public class MetadataChangeProposalsProcessorTest {
             .build(opContext.getSystemActorContext().getAuthentication(), false);
 
     // Create a new processor with this context
+    MetadataChangeProposalConsumer mcpConsumerNoMetrics =
+        new MetadataChangeProposalConsumer(opContextNoMetrics, entityClient, mockKafkaProducer);
     MetadataChangeProposalsProcessor processorNoMetrics =
         new MetadataChangeProposalsProcessor(
-            opContextNoMetrics,
-            entityClient,
-            mockKafkaProducer,
-            mockKafkaThrottle,
-            mockRegistry,
-            mockProvider);
+            mockKafkaThrottle, mockProvider, mockConsumerPauseSupport, mcpConsumerNoMetrics);
 
     // Create MCP
     MetadataChangeProposal mcp = createSimpleMCP();

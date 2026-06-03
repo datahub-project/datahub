@@ -98,7 +98,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
     return (
         <Modal
             title="Set as Deprecated"
-            zIndex={zIndexOverride ?? 10}
+            zIndex={zIndexOverride ?? 1000}
             onCancel={handleClose}
             keyboard
             buttons={[

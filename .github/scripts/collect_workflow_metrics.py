@@ -55,14 +55,17 @@ def main() -> int:
     # Step 1: Fetch workflow run attempt
     run_data = gh.get_run_attempt(args.repo, args.run_id, args.attempt)
 
-    # Step 2: Fetch all jobs for this run (filter=latest gives latest version of each job)
+    # Step 2: Fetch all jobs (latest per job) to classify the rerun type, then fetch
+    # the attempt-specific jobs via the dedicated endpoint — filter=latest only returns
+    # the most-recent attempt of each job, so filtering by attempt number on that list
+    # yields nothing for any attempt that isn't the latest.
     all_jobs = gh.get_run_jobs(args.repo, args.run_id)
 
     # Step 3: Classify rerun type
     rerun_type = classify_rerun(args.attempt, all_jobs)
 
-    # Step 4: Filter to only jobs that ran in this attempt
-    attempt_jobs = [j for j in all_jobs if j.get("run_attempt") == args.attempt]
+    # Step 4: Fetch jobs that ran in this specific attempt
+    attempt_jobs = gh.get_run_attempt_jobs(args.repo, args.run_id, args.attempt)
 
     # Step 5: Build metrics dataclasses
     metrics = Metrics(

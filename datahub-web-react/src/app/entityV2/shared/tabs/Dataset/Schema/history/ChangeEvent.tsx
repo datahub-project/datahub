@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { getChangeEventString } from '@app/entityV2/shared/tabs/Dataset/Schema/history/changeEventToString';
@@ -53,6 +54,7 @@ interface ChangeTransactionProps {
 }
 
 const ChangeEventComponent: React.FC<ChangeTransactionProps> = ({ changeEvent, nameMap }) => {
+    const { t: tc } = useTranslation('common.actions');
     const [expanded, setExpanded] = useState(false);
     const fullString = getChangeEventString(changeEvent, nameMap);
     const needsTruncation = (fullString?.length ?? 0) > MAX_DISPLAY_CHARS;
@@ -65,7 +67,7 @@ const ChangeEventComponent: React.FC<ChangeTransactionProps> = ({ changeEvent, n
                 {processDocumentationString(displayString)}
                 {needsTruncation && (
                     <ToggleLink onClick={() => setExpanded((prev) => !prev)}>
-                        {expanded ? 'Show less' : 'Show more'}
+                        {expanded ? tc('showLess') : tc('showMore')}
                     </ToggleLink>
                 )}
             </ChangeEventText>

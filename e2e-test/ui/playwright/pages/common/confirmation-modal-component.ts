@@ -11,9 +11,9 @@ export class ConfirmationModalComponent extends ModalComponent {
 
   constructor(page: Page) {
     super(page);
-    this.closeButton = this.modal.locator('[data-testid="modal-close-icon"]');
-    this.confirmButton = this.modal.locator('[data-testid="modal-confirm-button"]');
-    this.cancelButton = this.modal.locator('[data-testid="modal-cancel-button"]');
+    this.closeButton = this.modal.getByTestId('modal-close-icon');
+    this.confirmButton = this.modal.getByTestId('modal-confirm-button');
+    this.cancelButton = this.modal.getByTestId('modal-cancel-button');
   }
 
   async close(): Promise<void> {

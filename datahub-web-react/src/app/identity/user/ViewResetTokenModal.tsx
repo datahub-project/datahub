@@ -1,6 +1,7 @@
 import { RedoOutlined } from '@ant-design/icons';
 import { Button, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -44,6 +45,7 @@ type Props = {
 };
 
 export default function ViewResetTokenModal({ open, userUrn, username, onClose }: Props) {
+    const { t } = useTranslation('entity.identity');
     const baseUrl = window.location.origin;
     const [hasGeneratedResetToken, setHasGeneratedResetToken] = useState(false);
 
@@ -65,13 +67,13 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
                         userUrn,
                     });
                     setHasGeneratedResetToken(true);
-                    message.success('Generated new link to reset credentials');
+                    message.success(t('resetToken.generateSuccess'));
                 }
             })
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to create new link to reset credentials : \n ${e.message || ''}`,
+                    content: t('resetToken.generateError', { error: e.message || '' }),
                     duration: 3,
                 });
             });
@@ -87,7 +89,7 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
             footer={null}
             title={
                 <Typography.Text>
-                    <b>Reset User Password</b>
+                    <b>{t('resetToken.modalTitle')}</b>
                 </Typography.Text>
             }
             open={open}
@@ -95,10 +97,14 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
         >
             {hasGeneratedResetToken ? (
                 <ModalSection>
-                    <ModalSectionHeader strong>Share reset link</ModalSectionHeader>
+                    <ModalSectionHeader strong>{t('resetToken.shareLink.header')}</ModalSectionHeader>
                     <ModalSectionParagraph>
-                        Share this reset link to reset the credentials for {username}.
-                        <b>This link will expire in 24 hours.</b>
+                        <Trans
+                            t={t}
+                            i18nKey="resetToken.shareLink.description"
+                            values={{ username }}
+                            components={{ b: <b /> }}
+                        />
                     </ModalSectionParagraph>
                     <Typography.Paragraph copyable={{ text: inviteLink }}>
                         <pre>{inviteLink}</pre>
@@ -106,16 +112,14 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
                 </ModalSection>
             ) : (
                 <ModalSection>
-                    <ModalSectionHeader strong>A new link must be generated</ModalSectionHeader>
-                    <ModalSectionParagraph>
-                        You cannot view any old reset links. Please generate a new one below.
-                    </ModalSectionParagraph>
+                    <ModalSectionHeader strong>{t('resetToken.newLinkRequired.header')}</ModalSectionHeader>
+                    <ModalSectionParagraph>{t('resetToken.newLinkRequired.description')}</ModalSectionParagraph>
                 </ModalSection>
             )}
             <ModalSection>
-                <ModalSectionHeader strong>Generate a new link</ModalSectionHeader>
+                <ModalSectionHeader strong>{t('resetToken.generateLink.header')}</ModalSectionHeader>
                 <ModalSectionParagraph>
-                    Generate a new reset link! Note, any old links will <b>cease to be active</b>.
+                    <Trans t={t} i18nKey="resetToken.generateLink.description" components={{ b: <b /> }} />
                 </ModalSectionParagraph>
                 <CreateResetTokenButton
                     onClick={createNativeUserResetToken}

@@ -5,18 +5,24 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.search.FieldSuggester;
 import co.elastic.clients.elasticsearch.indices.update_aliases.Action;
+import co.elastic.clients.json.JsonpUtils;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.Map;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.index.IndexRequest;
@@ -25,7 +31,10 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.aggregations.AggregationBuilders;
+import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.suggest.Suggest;
 import org.opensearch.search.suggest.SuggestBuilder;
@@ -351,6 +360,70 @@ public class Es8SearchClientShimConversionTest {
                 json)) {
       return SearchResponse.fromXContent(parser);
     }
+  }
+
+  /** convertQuery rewrites legacy range bounds before sending to Elasticsearch 8. */
+  @Test
+  public void testConvertQueryNormalizesLegacyRangeBounds() throws Exception {
+    Method normalizeQueryJsonMethod =
+        Es8SearchClientShim.class.getDeclaredMethod("normalizeQueryJson", String.class);
+    normalizeQueryJsonMethod.setAccessible(true);
+
+    String legacy = QueryBuilders.rangeQuery("timestamp").gte(100L).lt(200L).toString();
+    String normalized = (String) normalizeQueryJsonMethod.invoke(shim, legacy);
+
+    assertFalse(normalized.contains("\"from\""));
+    assertFalse(normalized.contains("\"to\""));
+    assertTrue(normalized.contains("\"gte\":100"));
+    assertTrue(normalized.contains("\"lt\":200"));
+
+    Query result = invokeConvertQuery(QueryBuilders.rangeQuery("timestamp").gte(100L).lt(200L));
+    assertNotNull(result);
+  }
+
+  /**
+   * AnalyticsService embeds date-range filters in filter aggregations; convertAggregations must
+   * normalize legacy range bounds the same way convertQuery does.
+   */
+  @Test
+  public void testConvertAggregationsNormalizesLegacyRangeBoundsInFilterAgg() throws Exception {
+    SearchSourceBuilder source = new SearchSourceBuilder();
+    source.aggregation(
+        AggregationBuilders.filter(
+            "filtered",
+            QueryBuilders.boolQuery()
+                .must(QueryBuilders.rangeQuery("timestamp").gte(100L).lt(200L))));
+
+    assertTrue(source.aggregations().toString().contains("\"from\""));
+
+    Method convertAggregationsMethod =
+        Es8SearchClientShim.class.getDeclaredMethod(
+            "convertAggregations", AggregatorFactories.Builder.class);
+    convertAggregationsMethod.setAccessible(true);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Aggregation> aggregations =
+        (Map<String, Aggregation>) convertAggregationsMethod.invoke(shim, source.aggregations());
+
+    assertNotNull(aggregations);
+    assertTrue(aggregations.containsKey("filtered"));
+
+    ObjectMapper objectMapper = new ObjectMapper();
+    String serialized =
+        JsonpUtils.toJsonString(aggregations.get("filtered"), new JacksonJsonpMapper(objectMapper));
+    assertFalse(serialized.contains("\"from\""));
+    assertFalse(serialized.contains("\"to\""));
+    assertTrue(serialized.contains("\"gte\":100"));
+    assertTrue(serialized.contains("\"lt\":200"));
+  }
+
+  /** Helper method to invoke the private convertQuery method via reflection. */
+  private Query invokeConvertQuery(QueryBuilder queryBuilder) throws Exception {
+    Method convertQueryMethod =
+        Es8SearchClientShim.class.getDeclaredMethod(
+            "convertQuery", org.opensearch.index.query.QueryBuilder.class);
+    convertQueryMethod.setAccessible(true);
+    return (Query) convertQueryMethod.invoke(shim, queryBuilder);
   }
 
   /** Helper method to invoke the private convertSuggestion method via reflection. */

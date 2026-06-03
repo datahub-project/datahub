@@ -103,6 +103,7 @@ const IngestionBoxTopRow = styled.div`
 
 const IngestionRowCount = styled(Text)`
     margin-right: 10px;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 type Props = {
@@ -128,14 +129,13 @@ type RenderIngestionContentsProps = {
 };
 
 const IngestionContents: React.FC<RenderIngestionContentsProps> = ({ items, getKey, getLabel }) => {
-    const theme = useTheme();
     return (
         <IngestionBoxesContainer>
             {items.map((item) => (
                 <Card
                     title={
                         <IngestionBoxTopRow>
-                            <IngestionRowCount size="xl" weight="bold" style={{ color: theme.colors.text }}>
+                            <IngestionRowCount size="xl" weight="bold">
                                 {formatNumber(item.count)}
                             </IngestionRowCount>
                             <Pill
@@ -147,7 +147,7 @@ const IngestionContents: React.FC<RenderIngestionContentsProps> = ({ items, getK
                         </IngestionBoxTopRow>
                     }
                     subTitle={
-                        <Text size="md" style={{ color: theme.colors.text }}>
+                        <Text size="md" color="gray">
                             {getLabel(item)}
                         </Text>
                     }

@@ -6,13 +6,16 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-import com.linkedin.datahub.upgrade.sqlsetup.DatabaseType;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetup;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
+import com.linkedin.metadata.config.postgres.DatabaseType;
+import com.linkedin.metadata.config.postgres.PgQueueSetupOptions;
+import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
+import java.lang.reflect.Field;
+import java.util.List;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.AfterClass;
@@ -20,6 +23,9 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class SqlSetupConfigTest {
+
+  private static final String BANDS_JSON =
+      "[{\"range\":[0,3],\"weight\":70},{\"range\":[4,6],\"weight\":20},{\"range\":[7,9],\"weight\":10}]";
 
   @Mock private EntityRegistry mockEntityRegistry;
   @Mock private Database mockDatabase;
@@ -55,14 +61,6 @@ public class SqlSetupConfigTest {
   }
 
   @Test
-  public void testMetricUtils() {
-    MetricUtils metricUtils = sqlSetupConfig.metricUtils();
-
-    assertNotNull(metricUtils);
-    assertTrue(metricUtils instanceof MetricUtils);
-  }
-
-  @Test
   public void testOperationContext() {
     OperationContext operationContext = sqlSetupConfig.operationContext(mockEntityRegistry);
 
@@ -88,6 +86,9 @@ public class SqlSetupConfigTest {
     assertEquals(args.getCreateUserUsername(), "mysqluser");
     assertEquals(args.getCreateUserPassword(), "mysqlpass");
     assertEquals(args.isIamAuthEnabled(), false);
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    assertFalse(pg.getPgQueue().isEnabled());
+    assertNull(pg.buildPgQueueOptions());
   }
 
   @Test
@@ -108,6 +109,9 @@ public class SqlSetupConfigTest {
     assertEquals(args.getCreateUserUsername(), "postgresuser");
     assertEquals(args.getCreateUserPassword(), "postgrespass");
     assertEquals(args.isIamAuthEnabled(), false);
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    assertFalse(pg.getPgQueue().isEnabled());
+    assertNull(pg.buildPgQueueOptions());
   }
 
   @Test
@@ -179,8 +183,9 @@ public class SqlSetupConfigTest {
             "localhost", // host
             0, // port
             "datahub", // databaseName
-            false // createSchemaVersionIndex
-            );
+            null, // postgresMetadataSchema
+            false, // createSchemaVersionIndex
+            null);
 
     SqlSetup sqlSetup = sqlSetupConfig.createInstance(mockDatabase, setupArgs);
 
@@ -236,8 +241,9 @@ public class SqlSetupConfigTest {
             "localhost", // host
             0, // port
             "datahub", // databaseName
-            false // createSchemaVersionIndex
-            );
+            null, // postgresMetadataSchema
+            false, // createSchemaVersionIndex
+            null);
 
     // Should not throw exception - IAM auth is valid without role
     sqlSetupConfig.validateAuthenticationConfig(args);
@@ -260,8 +266,9 @@ public class SqlSetupConfigTest {
             "localhost", // host
             0, // port
             "datahub", // databaseName
-            false // createSchemaVersionIndex
-            );
+            null, // postgresMetadataSchema
+            false, // createSchemaVersionIndex
+            null);
 
     sqlSetupConfig.validateAuthenticationConfig(args);
   }
@@ -283,8 +290,9 @@ public class SqlSetupConfigTest {
             "localhost", // host
             0, // port
             "datahub", // databaseName
-            false // createSchemaVersionIndex
-            );
+            null, // postgresMetadataSchema
+            false, // createSchemaVersionIndex
+            null);
 
     try {
       sqlSetupConfig.validateAuthenticationConfig(args);
@@ -311,8 +319,9 @@ public class SqlSetupConfigTest {
             "localhost", // host
             0, // port
             "datahub", // databaseName
-            false // createSchemaVersionIndex
-            );
+            null, // postgresMetadataSchema
+            false, // createSchemaVersionIndex
+            null);
 
     try {
       sqlSetupConfig.validateAuthenticationConfig(args);
@@ -339,8 +348,9 @@ public class SqlSetupConfigTest {
             "localhost", // host
             0, // port
             "datahub", // databaseName
-            false // createSchemaVersionIndex
-            );
+            null, // postgresMetadataSchema
+            false, // createSchemaVersionIndex
+            null);
 
     // Should not throw exception
     sqlSetupConfig.validateAuthenticationConfig(args);
@@ -363,8 +373,9 @@ public class SqlSetupConfigTest {
             "localhost", // host
             0, // port
             "datahub", // databaseName
-            false // createSchemaVersionIndex
-            );
+            null, // postgresMetadataSchema
+            false, // createSchemaVersionIndex
+            null);
 
     // Should not throw exception
     sqlSetupConfig.validateAuthenticationConfig(args);
@@ -457,8 +468,9 @@ public class SqlSetupConfigTest {
             "localhost", // host
             0, // port
             "datahub", // databaseName
-            false // createSchemaVersionIndex
-            );
+            null, // postgresMetadataSchema
+            false, // createSchemaVersionIndex
+            null);
 
     // Test IAM auth without password is valid (no exception expected)
     sqlSetupConfig.validateAuthenticationConfig(args1);
@@ -479,8 +491,9 @@ public class SqlSetupConfigTest {
             "localhost", // host
             0, // port
             "datahub", // databaseName
-            false // createSchemaVersionIndex
-            );
+            null, // postgresMetadataSchema
+            false, // createSchemaVersionIndex
+            null);
 
     // Test IAM auth without password is valid (no exception expected)
     sqlSetupConfig.validateAuthenticationConfig(args2);
@@ -501,8 +514,9 @@ public class SqlSetupConfigTest {
             "localhost", // host
             0, // port
             "datahub", // databaseName
-            false // createSchemaVersionIndex
-            );
+            null, // postgresMetadataSchema
+            false, // createSchemaVersionIndex
+            null);
 
     try {
       sqlSetupConfig.validateAuthenticationConfig(args3);
@@ -527,8 +541,9 @@ public class SqlSetupConfigTest {
             "localhost", // host
             0, // port
             "datahub", // databaseName
-            false // createSchemaVersionIndex
-            );
+            null, // postgresMetadataSchema
+            false, // createSchemaVersionIndex
+            null);
 
     try {
       sqlSetupConfig.validateAuthenticationConfig(args4);
@@ -591,5 +606,186 @@ public class SqlSetupConfigTest {
     assertEquals(args.getPort(), 5432);
     assertEquals(args.getDatabaseName(), "testdb");
     assertEquals(args.getPort(), 5432); // Should be 5432 for PostgreSQL when no explicit port
+  }
+
+  private static void setPrivateField(Object target, String fieldName, Object value)
+      throws Exception {
+    Field f = target.getClass().getDeclaredField(fieldName);
+    f.setAccessible(true);
+    f.set(target, value);
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testPgQueueUsePartmanInvalidIntervalThrows() throws Exception {
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    pg.setSchema("q");
+    pg.getPgQueue().setEnabled(true);
+    pg.getPgQueue().setSchema("queue");
+    pg.getPgQueue().setTablePrefix("q");
+    pg.getPgQueue().getTopicDefaults().setPartitionCount(2);
+    pg.getPgQueue().getTopicDefaults().setVisibilityTimeoutSeconds(60);
+    pg.getPgQueue().getTopicDefaults().setPriorityBands(BANDS_JSON);
+    pg.getPgQueue().getTopicDefaults().setRetentionMaxAgeSeconds(0);
+    pg.getPgQueue().getTopicDefaults().setMaxRowsPerTopic(0L);
+    pg.getPgQueue().getTopicDefaults().setMaxTotalPayloadBytesPerTopic(0L);
+    pg.getPgQueue().getRetention().setPartmanPartitionInterval("1 fortnight");
+    pg.getPgQueue().getRetention().setPartmanPremake(4);
+    pg.getPgQueue().getMaintenance().setBatchDeleteLimit(5000);
+    pg.getPgQueue().setPayloadCompression("SNAPPY");
+    pg.validateForUse(DatabaseType.POSTGRES);
+  }
+
+  @Test
+  public void testResolvePartmanPartitionRetentionUsesMaxOfDefaultsAndTopics() {
+    // Same as prior PgQueueSetupOptions test: 1 day default + 2x 1 week buffer => 15 days
+    assertEquals(
+        PostgresSqlSetupProperties.resolvePartmanPartitionRetentionIntervalText(86400, 0, "1 week"),
+        "15 days");
+    // Per-topic max exceeds cluster default: must follow the larger policy
+    int week = 7 * 86400;
+    assertEquals(
+        PostgresSqlSetupProperties.resolvePartmanPartitionRetentionIntervalText(60, week, "1 day"),
+        "9 days");
+  }
+
+  @Test
+  public void testFormatPartmanRetentionIntervalText() {
+    assertEquals(
+        PostgresSqlSetupProperties.formatPartmanRetentionIntervalText(86400, 2 * 86400), "3 days");
+  }
+
+  @Test
+  public void testApplySqlSetupSchemaFromJdbcUrlDefaultsToPublic() {
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    pg.applySqlSetupSchemaFromJdbcUrl("jdbc:postgresql://localhost:5432/postgresdb");
+    assertEquals(pg.getSchema(), "public");
+  }
+
+  @Test
+  public void testApplySqlSetupSchemaFromJdbcUrlIgnoresCurrentSchemaQueryParam() {
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    pg.applySqlSetupSchemaFromJdbcUrl(
+        "jdbc:postgresql://localhost:5432/postgresdb?currentSchema=custom");
+    assertEquals(pg.getSchema(), "public");
+  }
+
+  @Test
+  public void testPgQueueEnabledOnPostgres() throws Exception {
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    pg.getPgQueue().setEnabled(true);
+    pg.getPgQueue().setSchema("DataHub_PGQueue");
+    pg.getPgQueue().setTablePrefix("metadata_queue");
+    pg.getPgQueue().getTopicDefaults().setPartitionCount(2);
+    pg.getPgQueue().getTopicDefaults().setVisibilityTimeoutSeconds(600);
+    pg.getPgQueue().getTopicDefaults().setPriorityBands(BANDS_JSON);
+    pg.getPgQueue().getTopicDefaults().setRetentionMaxAgeSeconds(604800);
+    pg.getPgQueue().getTopicDefaults().setMaxRowsPerTopic(0L);
+    pg.getPgQueue().getTopicDefaults().setMaxTotalPayloadBytesPerTopic(0L);
+    pg.getPgQueue().getRetention().setPartmanPartitionInterval("1 day");
+    pg.getPgQueue().getRetention().setPartmanPremake(4);
+    pg.getPgQueue().getMaintenance().setCronEnabled(false);
+    pg.getPgQueue().getMaintenance().setIntervalSeconds(3600);
+    pg.getPgQueue().getMaintenance().setBatchDeleteLimit(5000);
+    pg.getPgQueue().setPayloadCompression("SNAPPY");
+    pg.setSchema("public");
+    pg.validateForUse(DatabaseType.POSTGRES);
+    PgQueueSetupOptions q = pg.buildPgQueueOptions();
+    assertNotNull(q);
+    assertEquals(q.getSchema(), "datahub_pgqueue");
+    assertEquals(q.getTopicDefaultPriorityBands(), BANDS_JSON);
+  }
+
+  @Test
+  public void testPgQueueOptionsPopulated() {
+    PgQueueSetupOptions q =
+        new PgQueueSetupOptions(
+            "datahub",
+            "pgqueue",
+            4,
+            120,
+            BANDS_JSON,
+            3600,
+            1000L,
+            1_000_000L,
+            "application/avro",
+            "1 day",
+            7,
+            true,
+            7200,
+            2000,
+            false,
+            1,
+            List.of());
+    assertEquals(q.getTopicDefaultPartitionCount(), 4);
+    assertEquals(q.getMaintenanceBatchDeleteLimit(), 2000);
+  }
+
+  @Test
+  public void testPgCronAdminJdbcConfiguredWithCronEnabled() {
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    pg.setSchema("q");
+    pg.getPgQueue().setEnabled(true);
+    pg.getPgQueue().setSchema("queue");
+    pg.getPgQueue().setTablePrefix("metadata_queue");
+    pg.getPgQueue().getTopicDefaults().setPartitionCount(2);
+    pg.getPgQueue().getTopicDefaults().setVisibilityTimeoutSeconds(600);
+    pg.getPgQueue().getTopicDefaults().setPriorityBands(BANDS_JSON);
+    pg.getPgQueue().getTopicDefaults().setRetentionMaxAgeSeconds(604800);
+    pg.getPgQueue().getTopicDefaults().setMaxRowsPerTopic(0L);
+    pg.getPgQueue().getTopicDefaults().setMaxTotalPayloadBytesPerTopic(0L);
+    pg.getPgQueue().getRetention().setPartmanPartitionInterval("1 day");
+    pg.getPgQueue().getRetention().setPartmanPremake(4);
+    pg.getPgQueue().getMaintenance().setCronEnabled(true);
+    pg.getPgQueue().getMaintenance().setIntervalSeconds(3600);
+    pg.getPgQueue().getMaintenance().setBatchDeleteLimit(5000);
+    pg.getPgCron().getAdmin().setJdbcUrl("jdbc:postgresql://localhost:5432/postgres");
+    pg.getPgCron().getAdmin().setUsername("u");
+    pg.getPgCron().getAdmin().setPassword("p");
+    pg.getPgQueue().setPayloadCompression("SNAPPY");
+    pg.validateForUse(DatabaseType.POSTGRES);
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testPgQueueCronEnabledWithoutAdminJdbcUrlThrows() {
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    pg.setSchema("q");
+    pg.getPgQueue().setEnabled(true);
+    pg.getPgQueue().setSchema("queue");
+    pg.getPgQueue().setTablePrefix("metadata_queue");
+    pg.getPgQueue().getTopicDefaults().setPartitionCount(2);
+    pg.getPgQueue().getTopicDefaults().setVisibilityTimeoutSeconds(600);
+    pg.getPgQueue().getTopicDefaults().setPriorityBands(BANDS_JSON);
+    pg.getPgQueue().getTopicDefaults().setRetentionMaxAgeSeconds(604800);
+    pg.getPgQueue().getTopicDefaults().setMaxRowsPerTopic(0L);
+    pg.getPgQueue().getTopicDefaults().setMaxTotalPayloadBytesPerTopic(0L);
+    pg.getPgQueue().getRetention().setPartmanPartitionInterval("1 day");
+    pg.getPgQueue().getRetention().setPartmanPremake(4);
+    pg.getPgQueue().getMaintenance().setCronEnabled(true);
+    pg.getPgQueue().getMaintenance().setIntervalSeconds(3600);
+    pg.getPgQueue().getMaintenance().setBatchDeleteLimit(5000);
+    pg.getPgQueue().setPayloadCompression("SNAPPY");
+    pg.validateForUse(DatabaseType.POSTGRES);
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testPgQueueInvalidSchemaThrows() {
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    pg.setSchema("public");
+    pg.getPgQueue().setEnabled(true);
+    pg.getPgQueue().setSchema("9invalid");
+    pg.getPgQueue().setTablePrefix("metadata_queue");
+    pg.getPgQueue().getTopicDefaults().setPartitionCount(2);
+    pg.getPgQueue().getTopicDefaults().setVisibilityTimeoutSeconds(600);
+    pg.getPgQueue().getTopicDefaults().setPriorityBands(BANDS_JSON);
+    pg.getPgQueue().getTopicDefaults().setRetentionMaxAgeSeconds(0);
+    pg.getPgQueue().getTopicDefaults().setMaxRowsPerTopic(0L);
+    pg.getPgQueue().getTopicDefaults().setMaxTotalPayloadBytesPerTopic(0L);
+    pg.getPgQueue().getRetention().setPartmanPartitionInterval("1 day");
+    pg.getPgQueue().getRetention().setPartmanPremake(4);
+    pg.getPgQueue().getMaintenance().setCronEnabled(false);
+    pg.getPgQueue().getMaintenance().setIntervalSeconds(3600);
+    pg.getPgQueue().getMaintenance().setBatchDeleteLimit(5000);
+    pg.getPgQueue().setPayloadCompression("SNAPPY");
+    pg.validateForUse(DatabaseType.POSTGRES);
   }
 }

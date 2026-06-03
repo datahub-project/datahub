@@ -1,4 +1,5 @@
 import React, { useContext, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -70,6 +71,7 @@ const StyledCarousel = styled(HorizontalScroller)`
 `;
 
 export const Insights = () => {
+    const { t } = useTranslation('home.v2');
     const { loaded } = useUserContext();
     const { isUserInitializing } = useContext(OnboardingContext);
     const currentUserPersona = useUserPersona();
@@ -87,7 +89,7 @@ export const Insights = () => {
     return (
         <InsightStatusProvider displayedInsightIds={filteredInsights.map((insight) => insight.id)}>
             <div id={HOME_PAGE_INSIGHTS_ID}>
-                <Section title="For you">
+                <Section title={t('insights.forYou')}>
                     <StyledCarousel scrollDistance={INSIGHT_CARD_MIN_WIDTH + GAP_PX}>
                         {filteredInsights.map((section) => (
                             <section.component key={section.id} />

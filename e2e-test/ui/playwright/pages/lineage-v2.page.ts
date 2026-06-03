@@ -51,30 +51,33 @@ export class LineageV2Page extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.lineageEditMenuButton = page.locator('[data-testid="lineage-edit-menu-button"]').first();
-    this.editUpstreamLineageButton = page.locator('[data-testid="edit-upstream-lineage"]');
-    this.editDownstreamLineageButton = page.locator('[data-testid="edit-downstream-lineage"]');
+    this.lineageEditMenuButton = page.getByTestId('lineage-edit-menu-button').first();
+    this.editUpstreamLineageButton = page.getByTestId('edit-upstream-lineage');
+    this.editDownstreamLineageButton = page.getByTestId('edit-downstream-lineage');
+    // eslint-disable-next-line playwright/no-raw-locators -- AntD data-node-key attribute; getByRole('tab') may match by visible text but not by node key
     this.lineageTabKey = page.locator('[data-node-key="Lineage"]').first();
+    // eslint-disable-next-line playwright/no-raw-locators -- React-generated HTML id on AntD sidebar tab; no data-testid available
     this.sidebarLineageTab = page.locator('#entity-sidebar-tabs-tab-Lineage');
-    this.upstreamDirectionOption = page.locator('[data-testid="compact-lineage-tab-direction-select-option-upstream"]');
-    this.downstreamDirectionOption = page.locator(
-      '[data-testid="compact-lineage-tab-direction-select-option-downstream"]',
-    );
-    this.columnLineageToggle = page.locator('[data-testid="column-lineage-toggle"]');
-    this.degree2Filter = page.locator('[data-testid="facet-degree-2"]');
-    this.degree3PlusFilter = page.locator('[data-testid="facet-degree-3+"]');
-    this.filterByDescriptionOption = page.locator('[data-testid="adv-search-add-filter-description"]');
-    this.filterTextInput = page.locator('[data-testid="edit-text-input"]');
-    this.filterTextDoneButton = page.locator('[data-testid="edit-text-done-btn"]');
+    this.upstreamDirectionOption = page.getByTestId('compact-lineage-tab-direction-select-option-upstream');
+    this.downstreamDirectionOption = page.getByTestId('compact-lineage-tab-direction-select-option-downstream');
+    this.columnLineageToggle = page.getByTestId('column-lineage-toggle');
+    this.degree2Filter = page.getByTestId('facet-degree-2');
+    this.degree3PlusFilter = page.getByTestId('facet-degree-3+');
+    this.filterByDescriptionOption = page.getByTestId('adv-search-add-filter-description');
+    this.filterTextInput = page.getByTestId('edit-text-input');
+    this.filterTextDoneButton = page.getByTestId('edit-text-done-btn');
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design list container class; no data-testid or ARIA role on this wrapper
     this.listItems = page.locator('.ant-list-items');
-    this.downloadCsvButton = page.locator('[data-testid="download-csv-button"]');
-    this.downloadCsvInput = page.locator('[data-testid="download-as-csv-input"]');
-    this.csvModalDownloadButton = page.locator('[data-testid="csv-modal-download-button"]');
-    this.lineageEditSearchInput = page.locator('[role="dialog"] [data-testid="search-input"]');
-    this.lineageTabDirectionSelect = page.locator('[data-testid="lineage-tab-direction-select"]');
-    this.lineageTabDownstreamOption = page.locator('[data-testid="lineage-tab-direction-select-option-downstream"]');
-    this.lineageTabUpstreamOption = page.locator('[data-testid="lineage-tab-direction-select-option-upstream"]');
+    this.downloadCsvButton = page.getByTestId('download-csv-button');
+    this.downloadCsvInput = page.getByTestId('download-as-csv-input');
+    this.csvModalDownloadButton = page.getByTestId('csv-modal-download-button');
+    this.lineageEditSearchInput = page.getByRole('dialog').getByTestId('search-input');
+    this.lineageTabDirectionSelect = page.getByTestId('lineage-tab-direction-select');
+    this.lineageTabDownstreamOption = page.getByTestId('lineage-tab-direction-select-option-downstream');
+    this.lineageTabUpstreamOption = page.getByTestId('lineage-tab-direction-select-option-upstream');
+    // eslint-disable-next-line playwright/no-raw-locators -- rc-virtual-list internal class; no data-testid or ARIA role
     this.columnDropdownVirtualList = page.locator('.rc-virtual-list');
+    // eslint-disable-next-line playwright/no-raw-locators -- CSS class substring match for generated class name; no data-testid on ResultText
     this.resultTextLink = page.locator('.ant-list-items [class*="ResultText"]').first();
   }
 
@@ -112,12 +115,12 @@ export class LineageV2Page extends BasePage {
   // ── Node existence checks ───────────────────────────────────────────────────
 
   getNode(nodeUrn: string): Locator {
-    return this.page.locator(`[data-testid="lineage-node-${nodeUrn}"]`);
+    return this.page.getByTestId(`lineage-node-${nodeUrn}`);
   }
 
   /** Get the ReactFlow canvas node element for a given entity URN. */
   getReactFlowNode(urn: string): Locator {
-    return this.page.locator(`[data-testid="rf__node-${urn}"]`);
+    return this.page.getByTestId(`rf__node-${urn}`);
   }
 
   async checkNodeExists(nodeUrn: string): Promise<void> {
@@ -131,7 +134,7 @@ export class LineageV2Page extends BasePage {
   // ── Edge existence checks ───────────────────────────────────────────────────
 
   async checkEdgeExists(node1Urn: string, node2Urn: string): Promise<void> {
-    await expect(this.page.locator(`[data-testid="rf__edge-${node1Urn}-:-${node2Urn}"]`)).toBeAttached({
+    await expect(this.page.getByTestId(`rf__edge-${node1Urn}-:-${node2Urn}`)).toBeAttached({
       timeout: 10000,
     });
   }
@@ -142,9 +145,9 @@ export class LineageV2Page extends BasePage {
     node2Urn: string,
     col2Name: string,
   ): Promise<void> {
-    await expect(
-      this.page.locator(`[data-testid="rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}"]`),
-    ).toBeAttached({ timeout: 10000 });
+    await expect(this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`)).toBeAttached({
+      timeout: 10000,
+    });
   }
 
   async checkEdgeBetweenColumnsNotExists(
@@ -153,9 +156,9 @@ export class LineageV2Page extends BasePage {
     node2Urn: string,
     col2Name: string,
   ): Promise<void> {
-    await expect(
-      this.page.locator(`[data-testid="rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}"]`),
-    ).not.toBeAttached({ timeout: 5000 });
+    await expect(this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`)).not.toBeAttached({
+      timeout: 5000,
+    });
   }
 
   // ── Expand / contract ───────────────────────────────────────────────────────
@@ -163,46 +166,41 @@ export class LineageV2Page extends BasePage {
   async expandOne(nodeUrn: string): Promise<void> {
     // ReactFlow nodes can be off-screen after auto-fit; dispatch the click event directly
     // on the DOM element to bypass Playwright's viewport check.
-    await this.page.locator(`[data-testid="expand-one-${nodeUrn}-button"]`).dispatchEvent('click');
+    await this.page.getByTestId(`expand-one-${nodeUrn}-button`).dispatchEvent('click');
   }
 
   async expandAll(nodeUrn: string): Promise<void> {
-    await this.page.locator(`[data-testid="expand-all-${nodeUrn}-button"]`).dispatchEvent('click');
+    await this.page.getByTestId(`expand-all-${nodeUrn}-button`).dispatchEvent('click');
   }
 
   async contract(nodeUrn: string): Promise<void> {
     // Contract button may be outside the ReactFlow viewport; use dispatchEvent to bypass checks.
-    await this.page.locator(`[data-testid="contract-${nodeUrn}-button"]`).first().dispatchEvent('click');
+    await this.page.getByTestId(`contract-${nodeUrn}-button`).first().dispatchEvent('click');
   }
 
   // ── Column interactions ─────────────────────────────────────────────────────
 
   async expandContractColumns(nodeUrn: string): Promise<void> {
-    const button = this.page
-      .locator(`[data-testid="lineage-node-${nodeUrn}"]`)
-      .locator('[data-testid="expand-contract-columns"]');
+    const button = this.page.getByTestId(`lineage-node-${nodeUrn}`).getByTestId('expand-contract-columns');
     await button.scrollIntoViewIfNeeded();
     await button.click();
   }
 
   async hoverColumn(nodeUrn: string, columnName: string): Promise<void> {
-    await this.page
-      .locator(`[data-testid="lineage-node-${nodeUrn}"]`)
-      .locator(`[data-testid="column-${columnName}"]`)
-      .hover();
+    await this.page.getByTestId(`lineage-node-${nodeUrn}`).getByTestId(`column-${columnName}`).hover();
   }
 
   async unhoverColumn(nodeUrn: string, columnName: string): Promise<void> {
     await this.page
-      .locator(`[data-testid="lineage-node-${nodeUrn}"]`)
-      .locator(`[data-testid="column-${columnName}"]`)
+      .getByTestId(`lineage-node-${nodeUrn}`)
+      .getByTestId(`column-${columnName}`)
       .dispatchEvent('mouseout');
   }
 
   async selectColumn(nodeUrn: string, columnName: string): Promise<void> {
     await this.page
-      .locator(`[data-testid="lineage-node-${nodeUrn}"]`)
-      .locator(`[data-testid="column-${columnName}"]`)
+      .getByTestId(`lineage-node-${nodeUrn}`)
+      .getByTestId(`column-${columnName}`)
       .first()
       .click({ force: true });
   }
@@ -211,7 +209,7 @@ export class LineageV2Page extends BasePage {
 
   getFilterNode(nodeUrn: string, direction: 'up' | 'down'): Locator {
     const dir = direction === 'up' ? 'u' : 'd';
-    return this.page.locator(`[data-testid="rf__node-lf:${dir}:${nodeUrn}"]`);
+    return this.page.getByTestId(`rf__node-lf:${dir}:${nodeUrn}`);
   }
 
   async checkFilterNodeExists(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
@@ -221,38 +219,37 @@ export class LineageV2Page extends BasePage {
   async showMore(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
     // Filter nodes may be positioned off-screen in the ReactFlow canvas; dispatch the event
     // directly to bypass Playwright's viewport enforcement.
-    await this.getFilterNode(nodeUrn, direction).locator('[data-testid="show-more"]').dispatchEvent('click');
+    await this.getFilterNode(nodeUrn, direction).getByTestId('show-more').dispatchEvent('click');
   }
 
   async showAll(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
-    await this.getFilterNode(nodeUrn, direction).locator('[data-testid="show-all"]').dispatchEvent('click');
+    await this.getFilterNode(nodeUrn, direction).getByTestId('show-all').dispatchEvent('click');
   }
 
   async showLess(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
-    await this.getFilterNode(nodeUrn, direction).locator('[data-testid="show-less"]').dispatchEvent('click');
+    await this.getFilterNode(nodeUrn, direction).getByTestId('show-less').dispatchEvent('click');
   }
 
   async filterNodes(nodeUrn: string, direction: 'up' | 'down', query: string): Promise<void> {
-    const searchInput = this.getFilterNode(nodeUrn, direction).locator('[data-testid="search-input"]');
+    const searchInput = this.getFilterNode(nodeUrn, direction).getByTestId('search-input');
     await searchInput.clear();
     await searchInput.fill(query);
   }
 
   async clearFilter(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
-    await this.getFilterNode(nodeUrn, direction).locator('[data-testid="search-input"]').clear();
+    await this.getFilterNode(nodeUrn, direction).getByTestId('search-input').clear();
   }
 
   async ensureFilterNodeTitleHasText(nodeUrn: string, direction: 'up' | 'down', text: string): Promise<void> {
-    await expect(this.getFilterNode(nodeUrn, direction).locator('[data-testid="title"]')).toHaveText(text, {
+    await expect(this.getFilterNode(nodeUrn, direction).getByTestId('title')).toHaveText(text, {
       timeout: 10000,
     });
   }
 
   async checkFilterMatches(nodeUrn: string, direction: 'up' | 'down', matchesNumber: string): Promise<void> {
-    await expect(this.getFilterNode(nodeUrn, direction).locator('[data-testid="matches"]')).toHaveText(
-      `${matchesNumber} matches`,
-      { timeout: 5000 },
-    );
+    await expect(this.getFilterNode(nodeUrn, direction).getByTestId('matches')).toHaveText(`${matchesNumber} matches`, {
+      timeout: 5000,
+    });
   }
 
   async checkFilterCounter(
@@ -263,14 +260,14 @@ export class LineageV2Page extends BasePage {
     value: string,
   ): Promise<void> {
     await expect(
-      this.getFilterNode(nodeUrn, direction).locator(`[data-testid="filter-counter-${counterSection}-${counterType}"]`),
+      this.getFilterNode(nodeUrn, direction).getByTestId(`filter-counter-${counterSection}-${counterType}`),
     ).toHaveText(value, { timeout: 5000 });
   }
 
   // ── Manage lineage menu ────────────────────────────────────────────────────
 
   async openManageLineageMenu(nodeUrn: string): Promise<void> {
-    await this.page.locator(`[data-testid="manage-lineage-menu-${nodeUrn}"]`).click();
+    await this.page.getByTestId(`manage-lineage-menu-${nodeUrn}`).click();
   }
 
   async clickLineageEditMenuButton(): Promise<void> {

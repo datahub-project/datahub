@@ -3,6 +3,7 @@ import { SorterResult } from 'antd/lib/table/interface';
 import ResizeObserver from 'rc-resize-observer';
 import type { FixedType } from 'rc-table/lib/interface';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
@@ -166,6 +167,7 @@ type Props = {
 const EMPTY_SET: Set<string> = new Set();
 const TABLE_HEADER_HEIGHT = 52;
 const KEYBOARD_CONTROL_DEBOUNCE_MS = 50;
+const SCROLL_X = 'max-content';
 
 export default function SchemaTable({
     rows,
@@ -182,6 +184,8 @@ export default function SchemaTable({
     refetch,
     visibleColumns,
 }: Props): JSX.Element {
+    const { t } = useTranslation('entity.profile.schema');
+    const { t: tc } = useTranslation('common.labels');
     const { urn: entityUrn } = useEntityData();
     const location = useLocation();
 
@@ -234,7 +238,7 @@ export default function SchemaTable({
         () => ({
             fixed: 'left' as FixedType,
             width: 200,
-            title: 'Name',
+            title: tc('name'),
             dataIndex: 'fieldPath',
             key: 'fieldPath',
             render: schemaTitleRenderer,
@@ -243,26 +247,26 @@ export default function SchemaTable({
             sorter: (sourceA, sourceB) =>
                 translateFieldPath(sourceA.fieldPath).localeCompare(translateFieldPath(sourceB.fieldPath)),
         }),
-        [schemaTitleRenderer],
+        [schemaTitleRenderer, tc],
     );
 
     const typeColumn = useMemo(
         () => ({
             width: 100,
-            title: 'Type',
+            title: tc('type'),
             dataIndex: 'type',
             key: 'type',
             render: schemaTypeRenderer,
             sorter: (sourceA, sourceB) => sourceA.type.localeCompare(sourceB.type),
         }),
-        [schemaTypeRenderer],
+        [schemaTypeRenderer, tc],
     );
 
     const descriptionColumn = useMemo(
         () => ({
             ellipsis: true,
             className: 'description-column',
-            title: 'Description',
+            title: tc('description'),
             dataIndex: 'description',
             key: 'description',
             render: descriptionRender,
@@ -270,26 +274,26 @@ export default function SchemaTable({
                 (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
                 (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
         }),
-        [descriptionRender, extractFieldDescription],
+        [descriptionRender, extractFieldDescription, tc],
     );
 
     const tagColumn = useMemo(
         () => ({
             width: 100,
-            title: 'Tags',
+            title: tc('tags'),
             dataIndex: 'globalTags',
             key: 'tag',
             render: tagRenderer,
             sorter: (sourceA, sourceB) =>
                 extractFieldTagsInfo(sourceA).numberOfTags - extractFieldTagsInfo(sourceB).numberOfTags,
         }),
-        [tagRenderer, extractFieldTagsInfo],
+        [tagRenderer, extractFieldTagsInfo, tc],
     );
 
     const termColumn = useMemo(
         () => ({
             width: 200,
-            title: 'Glossary Terms',
+            title: t('schemaTable.glossaryTermsColumn'),
             dataIndex: 'globalTags',
             key: 'term',
             render: termRenderer,
@@ -297,18 +301,18 @@ export default function SchemaTable({
                 extractFieldGlossaryTermsInfo(sourceA).numberOfTerms -
                 extractFieldGlossaryTermsInfo(sourceB).numberOfTerms,
         }),
-        [termRenderer, extractFieldGlossaryTermsInfo],
+        [termRenderer, extractFieldGlossaryTermsInfo, t],
     );
 
     const businessAttributeColumn = useMemo(
         () => ({
             width: 150,
-            title: 'Business Attribute',
+            title: t('schemaTable.businessAttributeColumn'),
             dataIndex: 'businessAttribute',
             key: 'businessAttribute',
             render: businessAttributeRenderer,
         }),
-        [businessAttributeRenderer],
+        [businessAttributeRenderer, t],
     );
 
     // Function to get the count of each usageStats fieldPath
@@ -327,13 +331,13 @@ export default function SchemaTable({
     const usageColumn = useMemo(
         () => ({
             width: 100,
-            title: 'Stats',
+            title: t('schemaTable.statsColumn'),
             dataIndex: 'fieldPath',
             key: 'usage',
             render: usageStatsRenderer,
             sorter: (sourceA, sourceB) => getCount(sourceA.fieldPath) - getCount(sourceB.fieldPath),
         }),
-        [usageStatsRenderer, getCount],
+        [usageStatsRenderer, getCount, t],
     );
 
     const allColumns = useMemo(() => {
@@ -536,7 +540,7 @@ export default function SchemaTable({
                         dataSource={dataSource}
                         // rowKey={(record) => `column-${record.fieldPath}`}
                         rowKey="fieldPath"
-                        scroll={{ x: 'max-content', y: tableHeight }}
+                        scroll={{ x: SCROLL_X, y: tableHeight }}
                         components={VT}
                         expandable={{
                             expandedRowKeys: [...Array.from(expandedRows)],

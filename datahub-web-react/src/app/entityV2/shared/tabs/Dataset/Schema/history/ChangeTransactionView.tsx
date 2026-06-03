@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import ChangeEventComponent from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeEvent';
@@ -108,6 +109,7 @@ export default function ChangeTransactionView({
     semanticVersion,
     nameMap,
 }: ChangeTransactionEntry) {
+    const { t } = useTranslation('entity.profile.schema');
     const actorName = extractActorName(transaction.actor);
 
     return (
@@ -126,7 +128,7 @@ export default function ChangeTransactionView({
                             {formatTimestamp(transaction.timestampMillis)}
                         </ChangeTransactionTimestamp>
                         {semanticVersion && <TitleText>{`(${semanticVersion})`}</TitleText>}
-                        {actorName && <ActorText>by {actorName}</ActorText>}
+                        {actorName && <ActorText>{t('historyTransaction.byActor', { actorName })}</ActorText>}
                     </ChangeTransactionTitle>
                 </TransactionDateHeader>
                 <div>

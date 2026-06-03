@@ -12,7 +12,6 @@ from datahub_airflow_plugin.airflow3._teradata_openlineage_patch import (
 )
 
 _EXTRACTORS = "airflow.providers.openlineage.extractors"
-_EXTRACTORS_BASE = f"{_EXTRACTORS}.base"
 
 
 class _FakeOperatorLineage:
@@ -35,7 +34,7 @@ def _restore_modules(
 @pytest.fixture
 def openlineage_sys_modules_sandbox():
     """Save and restore OpenLineage-related entries in sys.modules."""
-    keys = (_EXTRACTORS, _EXTRACTORS_BASE)
+    keys = (_EXTRACTORS,)
     saved: dict[str, types.ModuleType] = {
         k: sys.modules[k] for k in keys if k in sys.modules
     }
@@ -43,15 +42,13 @@ def openlineage_sys_modules_sandbox():
     _restore_modules(keys, saved)
 
 
-def test_create_wrapper_uses_primary_operator_lineage_import(
+def test_create_wrapper_uses_operator_lineage_import(
     openlineage_sys_modules_sandbox: None,
 ) -> None:
-    """Airflow 3.x path: OperatorLineage from extractors package (covers primary import)."""
+    """Primary import path: OperatorLineage resolves from extractors package."""
     ext = types.ModuleType(_EXTRACTORS)
     ext.OperatorLineage = _FakeOperatorLineage  # type: ignore[attr-defined]
     sys.modules[_EXTRACTORS] = ext
-    if _EXTRACTORS_BASE in sys.modules:
-        del sys.modules[_EXTRACTORS_BASE]
 
     original = mock.Mock()
     wrapper = _create_teradata_openlineage_wrapper(original)
@@ -59,32 +56,12 @@ def test_create_wrapper_uses_primary_operator_lineage_import(
     assert wrapper is not original
 
 
-def test_create_wrapper_falls_back_to_base_operator_lineage_import(
-    openlineage_sys_modules_sandbox: None,
-) -> None:
-    """Airflow 2.x provider path: OperatorLineage from extractors.base (covers fallback)."""
-    ext = types.ModuleType(_EXTRACTORS)
-    sys.modules[_EXTRACTORS] = ext
-
-    base = types.ModuleType(_EXTRACTORS_BASE)
-    base.OperatorLineage = _FakeOperatorLineage  # type: ignore[attr-defined]
-    sys.modules[_EXTRACTORS_BASE] = base
-
-    original = mock.Mock()
-    wrapper = _create_teradata_openlineage_wrapper(original)
-
-    assert wrapper is not original
-
-
-def test_create_wrapper_returns_original_when_both_imports_fail(
+def test_create_wrapper_returns_original_when_import_fails(
     openlineage_sys_modules_sandbox: None,
 ) -> None:
     """If OperatorLineage cannot be resolved, the original callable is returned."""
     ext = types.ModuleType(_EXTRACTORS)
     sys.modules[_EXTRACTORS] = ext
-
-    base = types.ModuleType(_EXTRACTORS_BASE)
-    sys.modules[_EXTRACTORS_BASE] = base
 
     original = mock.Mock()
     wrapper = _create_teradata_openlineage_wrapper(original)

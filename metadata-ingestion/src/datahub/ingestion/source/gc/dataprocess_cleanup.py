@@ -10,6 +10,7 @@ from typing import Dict, Iterable, List, Optional
 from pydantic import Field
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.env_vars import get_report_info_sample_size
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
@@ -287,7 +288,9 @@ class DataProcessCleanup:
             self.report.num_aspect_removed_by_type.get(type, 0) + 1
         )
         if type not in self.report.sample_soft_deleted_aspects_by_type:
-            self.report.sample_soft_deleted_aspects_by_type[type] = LossyList()
+            self.report.sample_soft_deleted_aspects_by_type[type] = LossyList(
+                max_elements=get_report_info_sample_size()
+            )
         self.report.sample_soft_deleted_aspects_by_type[type].append(urn)
 
         if self.dry_run:

@@ -42,7 +42,7 @@ import { DataProcessRunStatus, EntityType, LineageDirection } from '@types';
 import LinkOut from '@images/link-out.svg?react';
 
 export const LoadingWrapper = styled.div`
-    color: ${({ theme }) => theme.colors.buttonFillBrand};
+    color: ${({ theme }) => theme.colors.iconBrand};
     font-size: 32px;
     line-height: 0;
     pointer-events: none;

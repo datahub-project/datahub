@@ -68,14 +68,14 @@
   "globalTags_add": {
     "arrayPrimaryKeys": {
       "tags": [
-        "tag",
-        "attribution\u241fsource"
+        "attribution\u241fsource",
+        "tag"
       ]
     },
     "patch": [
       {
         "op": "add",
-        "path": "/tags/urn:li:tag:testTag/",
+        "path": "/tags//urn:li:tag:testTag",
         "value": {
           "tag": "urn:li:tag:testTag"
         }
@@ -85,14 +85,14 @@
   "globalTags_add_attributed": {
     "arrayPrimaryKeys": {
       "tags": [
-        "tag",
-        "attribution\u241fsource"
+        "attribution\u241fsource",
+        "tag"
       ]
     },
     "patch": [
       {
         "op": "add",
-        "path": "/tags/urn:li:tag:testTag/urn:li:dataHubAction:testSource",
+        "path": "/tags/urn:li:dataHubAction:testSource/urn:li:tag:testTag",
         "value": {
           "attribution": {
             "actor": "urn:li:corpuser:datahub",
@@ -108,14 +108,14 @@
   "globalTags_add_with_context": {
     "arrayPrimaryKeys": {
       "tags": [
-        "tag",
-        "attribution\u241fsource"
+        "attribution\u241fsource",
+        "tag"
       ]
     },
     "patch": [
       {
         "op": "add",
-        "path": "/tags/urn:li:tag:testTag/",
+        "path": "/tags//urn:li:tag:testTag",
         "value": {
           "context": "testContext",
           "tag": "urn:li:tag:testTag"
@@ -141,14 +141,14 @@
   "globalTags_remove_attributed": {
     "arrayPrimaryKeys": {
       "tags": [
-        "tag",
-        "attribution\u241fsource"
+        "attribution\u241fsource",
+        "tag"
       ]
     },
     "patch": [
       {
         "op": "remove",
-        "path": "/tags/urn:li:tag:testTag/urn:li:dataHubAction:testSource",
+        "path": "/tags/urn:li:dataHubAction:testSource/urn:li:tag:testTag",
         "value": {}
       }
     ]

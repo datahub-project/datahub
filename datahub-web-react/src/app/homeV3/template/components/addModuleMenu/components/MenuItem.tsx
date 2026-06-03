@@ -1,6 +1,7 @@
 import { Icon, Text, Tooltip } from '@components';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import spacing from '@components/theme/foundations/spacing';
@@ -38,13 +39,14 @@ interface Props {
 }
 
 export default function MenuItem({ icon, title, description, hasChildren, isDisabled, isSmallModule }: Props) {
+    const { t } = useTranslation('modules');
     const tooltipText = useMemo(() => {
         if (!isDisabled) return undefined;
         if (isSmallModule) {
-            return 'Cannot add small widget to large widget row';
+            return t('menu.cannotAddSmallToLarge');
         }
-        return 'Cannot add large widget to small widget row';
-    }, [isDisabled, isSmallModule]);
+        return t('menu.cannotAddLargeToSmall');
+    }, [t, isDisabled, isSmallModule]);
 
     const iconColorLevel = isDisabled ? 300 : 1800;
 

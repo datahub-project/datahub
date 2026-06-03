@@ -2,6 +2,7 @@ import { SearchOutlined } from '@ant-design/icons';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Input } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -81,6 +82,7 @@ interface Props {
 }
 
 export default function SearchBar({ onClickManageViews, onChangeSearch, minWidth, fullWidth }: Props) {
+    const { t } = useTranslation('entity.views');
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     return (
@@ -88,7 +90,11 @@ export default function SearchBar({ onClickManageViews, onChangeSearch, minWidth
             <div className="search-manage-container">
                 <StyledInput
                     className="style-input-container"
-                    placeholder={isShowNavBarRedesign ? 'Search views...' : 'Search'}
+                    placeholder={
+                        isShowNavBarRedesign
+                            ? t('viewSelect.searchPlaceholder')
+                            : t('viewSelect.searchPlaceholderLegacy')
+                    }
                     onChange={onChangeSearch}
                     allowClear
                     prefix={isShowNavBarRedesign ? <MagnifyingGlass size={20} /> : <SearchOutlinedStyle />}
@@ -98,7 +104,7 @@ export default function SearchBar({ onClickManageViews, onChangeSearch, minWidth
                     $minWidth={minWidth}
                 />
                 <div className="manage" onClick={() => onClickManageViews()} role="none">
-                    Manage all
+                    {t('viewSelect.manageAll')}
                 </div>
             </div>
         </Wrapper>

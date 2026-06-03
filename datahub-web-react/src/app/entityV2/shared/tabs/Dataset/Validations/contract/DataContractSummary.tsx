@@ -2,6 +2,7 @@ import { Tooltip } from '@components';
 import EditIcon from '@mui/icons-material/Edit';
 import { Button, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
@@ -84,6 +85,7 @@ export const DataContractSummary = ({
     editDisabled,
     editDisabledMessage,
 }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const summaryIcon = getContractSummaryIcon(state, summary, theme.colors);
     const summaryTitle = getContractSummaryTitle(state, summary);
@@ -103,7 +105,7 @@ export const DataContractSummary = ({
                 <Tooltip title={editDisabled ? editDisabledMessage : null}>
                     <CreateButton disabled={editDisabled} onClick={showContractBuilder}>
                         <EditIconStyle />
-                        EDIT
+                        {tc('edit')}
                     </CreateButton>
                 </Tooltip>
             </Actions>

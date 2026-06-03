@@ -7,6 +7,7 @@ import { Robot } from '@phosphor-icons/react/dist/csr/Robot';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
@@ -120,12 +121,13 @@ enum StatusType {
 }
 
 export const AccessTokens = () => {
+    const { t } = useTranslation('settings.tokens');
     const [createTokenFor, setCreateTokenFor] = useState<'personal' | 'remote-executor' | undefined>(undefined);
     const [showSelectServiceAccountModal, setShowSelectServiceAccountModal] = useState(false);
     const [selectedServiceAccount, setSelectedServiceAccount] = useState<ServiceAccount | null>(null);
     const [removedTokens, setRemovedTokens] = useState<string[]>([]);
     const [statusFilter, setStatusFilter] = useState(StatusType.ALL);
-    const [owner, setOwner] = useState('All');
+    const [owner, setOwner] = useState<string | undefined>(undefined);
     const [filters, setFilters] = useState<Array<FacetFilterInput> | null>(null);
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [tokenToBeRemoved, setTokenToBeRemoved] = useState<TokenRow | null>(null);
@@ -194,8 +196,7 @@ export const AccessTokens = () => {
             condition: FilterOperator.LessThan,
         };
         if (canManageToken) {
-            const newFilters: FacetFilterInput[] =
-                owner && owner !== 'All' ? [{ field: 'ownerUrn', values: [owner] }] : [];
+            const newFilters: FacetFilterInput[] = owner ? [{ field: 'ownerUrn', values: [owner] }] : [];
             if (statusFilter === StatusType.EXPIRED) {
                 newFilters.push(lessThanStatus);
             }
@@ -242,7 +243,7 @@ export const AccessTokens = () => {
             })
             .catch((e) => {
                 toast.destroy();
-                toast.error(`Failed to revoke Token!: \n ${e.message || ''}`);
+                toast.error(t('revokeError', { message: e.message || '' }));
             })
             .finally(() => {
                 setTimeout(() => {
@@ -265,7 +266,7 @@ export const AccessTokens = () => {
 
     const tableColumns: Column<TokenRow>[] = [
         {
-            title: 'Name',
+            title: t('columnName'),
             key: 'name',
             width: '27%',
             render: (record) => (
@@ -277,7 +278,7 @@ export const AccessTokens = () => {
             ),
         },
         {
-            title: 'Description',
+            title: t('columnDescription'),
             key: 'description',
             width: '25%',
             render: (record) =>
@@ -288,20 +289,26 @@ export const AccessTokens = () => {
                 ) : null,
         },
         {
-            title: 'Expires At',
+            title: t('columnExpiresAt'),
             key: 'expiresAt',
             width: '25%',
             render: (record) => {
-                if (!record.expiresAt) return <NeverExpireText>Never</NeverExpireText>;
+                if (!record.expiresAt) return <NeverExpireText>{t('neverExpires')}</NeverExpireText>;
                 const localeTimezone = getLocaleTimezone();
                 const formattedExpireAt = new Date(record.expiresAt);
                 return (
-                    <span>{`${formattedExpireAt.toLocaleDateString()} at ${formattedExpireAt.toLocaleTimeString()} (${localeTimezone})`}</span>
+                    <span>
+                        {t('expiresAtFormat', {
+                            date: formattedExpireAt.toLocaleDateString(),
+                            time: formattedExpireAt.toLocaleTimeString(),
+                            timezone: localeTimezone,
+                        })}
+                    </span>
                 );
             },
         },
         {
-            title: 'Owner',
+            title: t('columnOwner'),
             key: 'owner',
             width: '15%',
             render: (record) => {
@@ -339,7 +346,7 @@ export const AccessTokens = () => {
                         color="red"
                         isCircle
                         size="lg"
-                        aria-label="Revoke token"
+                        aria-label={t('revokeTokenAriaLabel')}
                         data-testid="revoke-token-button"
                     />
                 </div>
@@ -349,10 +356,10 @@ export const AccessTokens = () => {
 
     const filterColumns = canManageToken ? tableColumns : tableColumns.filter((column) => column.key !== 'owner');
 
-    const hasActiveFilters = (canManageToken && owner !== 'All') || statusFilter !== StatusType.ALL;
+    const hasActiveFilters = (canManageToken && !!owner) || statusFilter !== StatusType.ALL;
 
     const clearFilters = () => {
-        setOwner('All');
+        setOwner(undefined);
         setStatusFilter(StatusType.ALL);
     };
 
@@ -367,8 +374,8 @@ export const AccessTokens = () => {
             return (
                 <EmptyState
                     icon={Lock}
-                    title="No Access"
-                    description="You don't have permission to manage access tokens."
+                    title={t('noAccessTitle')}
+                    description={t('noAccessDescription')}
                     style={{ flex: 1 }}
                 />
             );
@@ -377,10 +384,10 @@ export const AccessTokens = () => {
             return (
                 <EmptyState
                     icon={FunnelSimple}
-                    title="No Access Tokens Found"
-                    description="No tokens match the current filters."
+                    title={t('noTokensFoundTitle')}
+                    description={t('noTokensFoundDescription')}
                     action={{
-                        label: 'Clear filters',
+                        label: t('clearFilters'),
                         onClick: clearFilters,
                         icon: { icon: X },
                         variant: 'secondary',
@@ -392,10 +399,10 @@ export const AccessTokens = () => {
         return (
             <EmptyState
                 icon={Key}
-                title="No Access Tokens"
-                description="Generate a new token to get started."
+                title={t('emptyTitle')}
+                description={t('emptyDescription')}
                 action={{
-                    label: 'Generate new token',
+                    label: t('generateNewToken'),
                     onClick: () => setCreateTokenFor('personal'),
                     icon: { icon: Plus },
                 }}
@@ -410,11 +417,11 @@ export const AccessTokens = () => {
     };
 
     return (
-        <SourceContainer>
-            {tokensError && <Alert variant="error" title="Failed to load tokens." />}
-            {revokeTokenError && <Alert variant="error" title="Failed to update the token." />}
+        <SourceContainer data-testid="manage-access-tokens-page">
+            {tokensError && <Alert variant="error" title={t('loadError')} />}
+            {revokeTokenError && <Alert variant="error" title={t('updateError')} />}
             <PageHeader>
-                <PageTitle title="Manage Access Tokens" subTitle="Manage Access Tokens for use with DataHub APIs." />
+                <PageTitle title={t('pageTitle')} subTitle={t('pageSubTitle')} />
                 <Menu
                     disabled={!canGeneratePersonalAccessTokens}
                     placement="bottom"
@@ -422,14 +429,14 @@ export const AccessTokens = () => {
                         {
                             type: 'item',
                             key: 'personal',
-                            title: 'Personal Token',
+                            title: t('personalToken'),
                             icon: Key,
                             onClick: () => setCreateTokenFor('personal'),
                         },
                         {
                             type: 'item',
                             key: 'remote-executor',
-                            title: 'Remote Executor',
+                            title: t('remoteExecutor'),
                             icon: CloudArrowUp,
                             onClick: () => setCreateTokenFor('remote-executor'),
                         },
@@ -438,7 +445,7 @@ export const AccessTokens = () => {
                                   {
                                       type: 'item',
                                       key: 'service-account',
-                                      title: 'Service Account',
+                                      title: t('serviceAccount'),
                                       icon: Robot,
                                       onClick: () => setShowSelectServiceAccountModal(true),
                                   },
@@ -452,30 +459,25 @@ export const AccessTokens = () => {
                         data-testid="add-token-button"
                         disabled={!canGeneratePersonalAccessTokens}
                     >
-                        Generate new token
+                        {t('generateNewToken')}
                     </Button>
                 </Menu>
             </PageHeader>
-            {isTokenAuthEnabled === false && (
-                <Alert
-                    variant="error"
-                    title="Token based authentication is currently disabled. Contact your DataHub administrator to enable this feature."
-                />
-            )}
+            {isTokenAuthEnabled === false && <Alert variant="error" title={t('authDisabledAlert')} />}
             <SelectContainer>
                 {canGeneratePersonalAccessTokens && canManageToken && (
                     <SimpleSelect
                         options={ownerOptions}
-                        values={owner !== 'All' ? [owner] : []}
-                        onUpdate={(values) => setOwner(values.length > 0 ? values[0] : 'All')}
+                        values={owner ? [owner] : []}
+                        onUpdate={(values) => setOwner(values.length > 0 ? values[0] : undefined)}
                         onClear={() => {
                             setQuery('');
-                            setOwner('All');
+                            setOwner(undefined);
                         }}
                         showSearch
                         filterResultsByQuery={false}
                         onSearchChange={(value) => setQuery(value.trim())}
-                        placeholder="Owner"
+                        placeholder={t('ownerPlaceholder')}
                         showClear
                         width="fit-content"
                         renderCustomOptionText={(option) => {
@@ -492,8 +494,8 @@ export const AccessTokens = () => {
                 {canGeneratePersonalAccessTokens && (
                     <SimpleSelect
                         options={[
-                            { value: String(StatusType.ALL), label: 'All' },
-                            { value: String(StatusType.EXPIRED), label: 'Expired' },
+                            { value: String(StatusType.ALL), label: t('statusAll') },
+                            { value: String(StatusType.EXPIRED), label: t('statusExpired') },
                         ]}
                         values={[String(statusFilter)]}
                         onUpdate={(values) => setStatusFilter(Number(values[0]) as StatusType)}
@@ -531,8 +533,8 @@ export const AccessTokens = () => {
                     if (tokenToBeRemoved) onRemoveToken(tokenToBeRemoved);
                     setTokenToBeRemoved(null);
                 }}
-                modalTitle="Are you sure you want to revoke this token?"
-                modalText="Anyone using this token will no longer be able to access the DataHub API. You cannot undo this action."
+                modalTitle={t('revokeConfirmTitle')}
+                modalText={t('revokeConfirmText')}
             />
             <SelectServiceAccountModal
                 visible={showSelectServiceAccountModal}

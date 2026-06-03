@@ -9,7 +9,8 @@ Two source types are available:
 - `mssql`: Uses python-tds library (pure Python, easier to install)
 - `mssql-odbc`: Uses pyodbc library (required for encryption, Azure managed services)
 - If you need encryption (e.g., for Azure SQL), use source type `mssql-odbc` and configure `uri_args` with your ODBC driver settings.
-  :::
+
+:::
 
 ### Prerequisites
 

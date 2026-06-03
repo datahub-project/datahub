@@ -8,6 +8,8 @@ import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
 import { formatTimestamp } from '@app/sharedV2/time/utils';
 import { Popover } from '@src/alchemy-components';
 
+import { Document, DocumentSourceType } from '@types';
+
 const DateWithTooltip = styled.span`
     cursor: help;
     &:hover {
@@ -20,7 +22,8 @@ const DateWithTooltip = styled.span`
 export default function LastIngestedProperty(props: PropertyComponentProps) {
     const { entityData, loading } = useEntityContext();
 
-    const lastIngested = entityData?.lastIngested ?? undefined;
+    const isExternal = (entityData as Document)?.info?.source?.sourceType === DocumentSourceType.External;
+    const lastIngested = isExternal ? (entityData?.lastIngested ?? undefined) : undefined;
 
     const renderLastIngested = (timestamp: number) => {
         return (

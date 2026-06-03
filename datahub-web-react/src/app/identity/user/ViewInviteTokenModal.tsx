@@ -2,6 +2,7 @@ import { UserOutlined } from '@ant-design/icons';
 import { Button, Modal, Tooltip } from '@components';
 import { Select, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
@@ -70,10 +71,12 @@ type Props = {
 };
 
 export default function ViewInviteTokenModal({ open, onClose }: Props) {
+    const { t } = useTranslation('entity.identity');
+    const { t: tc } = useTranslation('common.actions');
     const baseUrl = window.location.origin;
     const [selectedRole, setSelectedRole] = useState<DataHubRole>();
 
-    const noRoleText = 'No Role';
+    const noRoleText = t('inviteToken.noRole');
 
     const { roles: selectRoleOptions } = useRoleSelector();
 
@@ -128,13 +131,13 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                         roleUrn,
                     });
                     setInviteToken(data?.createInviteToken?.inviteToken || '');
-                    message.success('Generated new invite link');
+                    message.success(t('inviteToken.generateSuccess'));
                 }
             })
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to create Invite Token for role ${selectedRole?.name} : \n ${e.message || ''}`,
+                    content: t('inviteToken.createError', { roleName: selectedRole?.name, error: e.message || '' }),
                     duration: 3,
                 });
             });
@@ -143,7 +146,14 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
     const inviteLink = `${baseUrl}${resolveRuntimePath(`${PageRoutes.SIGN_UP}?invite_token=${inviteToken}`)}`;
 
     return (
-        <Modal width={950} footer={null} buttons={[]} title="Share Invite Link" open={open} onCancel={onClose}>
+        <Modal
+            width={950}
+            footer={null}
+            buttons={[]}
+            title={t('inviteToken.modalTitle')}
+            open={open}
+            onCancel={onClose}
+        >
             <ModalSection>
                 <InviteLinkDiv>
                     <InfoContainer>
@@ -168,32 +178,29 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                         </CopyText>
                     </InfoContainer>
                     <ActionsContainer>
-                        <Tooltip title="Copy invite link.">
+                        <Tooltip title={t('inviteToken.copyTooltip')}>
                             <Button
                                 onClick={() => {
                                     navigator.clipboard.writeText(inviteLink);
-                                    message.success('Copied invite link to clipboard');
+                                    message.success(t('inviteToken.copiedSuccess'));
                                 }}
                             >
-                                Copy
+                                {tc('copy')}
                             </Button>
                         </Tooltip>
-                        <Tooltip title="Generate a new link. Any old links will no longer be valid.">
+                        <Tooltip title={t('inviteToken.generateNewLinkTooltip')}>
                             <Button
                                 variant="outline"
                                 onClick={() => {
                                     createInviteToken(selectedRole?.urn);
                                 }}
                             >
-                                Refresh
+                                {tc('refresh')}
                             </Button>
                         </Tooltip>
                     </ActionsContainer>
                 </InviteLinkDiv>
-                <ModalSectionFooter type="secondary">
-                    Copy an invite link to send to your users. When they join, users will be automatically assigned to
-                    the selected role.
-                </ModalSectionFooter>
+                <ModalSectionFooter type="secondary">{t('inviteToken.footerText')}</ModalSectionFooter>
             </ModalSection>
         </Modal>
     );

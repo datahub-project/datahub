@@ -17,10 +17,12 @@ set -x
 source ./set-test-env-vars.sh
 
 LOAD_DATA=$(cat <<EOF
+import os
 from conftest import build_auth_session, build_graph_client
 from tests.cypress.integration_test import ingest_data
 
 auth_session = build_auth_session()
+os.environ["DATAHUB_GMS_TOKEN"] = auth_session.gms_token()
 ingest_data(auth_session, build_graph_client(auth_session))
 EOF
 )

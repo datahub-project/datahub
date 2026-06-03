@@ -61,6 +61,18 @@ public class DataHubAppConfiguration {
    */
   private MaeConsumerConfiguration maeConsumer;
 
+  /**
+   * MCE consumer tuning ({@code mceConsumer.*}); pgQueue poll batch sizes apply when {@code
+   * datahub.messaging.transport=pgqueue}.
+   */
+  private MceConsumerConfiguration mceConsumer;
+
+  /**
+   * PE consumer tuning ({@code peConsumer.*}); pgQueue poll batch sizes apply when {@code
+   * datahub.messaging.transport=pgqueue}.
+   */
+  private PeConsumerConfiguration peConsumer;
+
   /** Search Service configurations */
   private SearchServiceConfiguration searchService;
 
@@ -111,4 +123,7 @@ public class DataHubAppConfiguration {
 
   /** Consistency checks configuration */
   private ConsistencyChecksConfiguration consistencyChecks;
+
+  /** Bootstrap (startup steps, async worker pool sizing). */
+  private BootstrapConfiguration bootstrap;
 }

@@ -2,7 +2,7 @@ package com.linkedin.metadata.kafka;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.system_telemetry.OpenTelemetryBaseFactory;
-import com.linkedin.metadata.event.GenericProducer;
+import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,7 +22,7 @@ public class MCEOpenTelemetryConfig extends OpenTelemetryBaseFactory {
   protected SystemTelemetryContext traceContext(
       MetricUtils metricUtils,
       ConfigurationProvider configurationProvider,
-      @Qualifier("dataHubUsageEventProducer") GenericProducer<String> dueProducer) {
-    return super.traceContext(metricUtils, configurationProvider, dueProducer);
+      @Qualifier("dataHubUsageEventProducer") UsageEventPublisher usageEventPublisher) {
+    return super.traceContext(metricUtils, configurationProvider, usageEventPublisher);
   }
 }

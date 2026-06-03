@@ -1,11 +1,11 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { Text } from '@src/alchemy-components';
 import { DEFAULT_COLOR_SCHEME, getColorSchemeParams } from '@src/alchemy-components/components/BarChart/constants';
 import { Datum } from '@src/alchemy-components/components/BarChart/types';
 import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
-import { pluralize } from '@src/app/shared/textUtil';
 
 interface RowCountByValuePopoverProps {
     datum: Datum;
@@ -40,6 +40,7 @@ const LabelContainer = styled.div`
 `;
 
 export default function RowCountByValuePopover({ datum, labelFormatter }: RowCountByValuePopoverProps) {
+    const { t } = useTranslation('entity.profile.schema');
     const theme = useTheme();
     const colorScheme = datum.colorScheme ?? DEFAULT_COLOR_SCHEME;
     const colorSchemeParams = getColorSchemeParams(theme.colors)[colorScheme];
@@ -53,7 +54,10 @@ export default function RowCountByValuePopover({ datum, labelFormatter }: RowCou
                 </LabelContainer>
             </Text>
             <Text size="sm" weight="semiBold">
-                {formatNumberWithoutAbbreviation(datum.x)} {pluralize(datum.x, 'Row')}
+                {t('statsV2Charts.rowLabel', {
+                    count: datum.x,
+                    formattedCount: formatNumberWithoutAbbreviation(datum.x),
+                })}
             </Text>
         </Container>
     );

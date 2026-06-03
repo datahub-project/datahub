@@ -2917,6 +2917,59 @@ def _make_dbt_node(dbt_name, node_type="model", **overrides):
     return DBTNode(**defaults)
 
 
+def test_create_test_entity_mcps_emits_assertion_ownership_from_test_owner():
+    source = create_mocked_dbt_source()
+    test_node = _make_dbt_node(
+        "test.project.unique_my_model",
+        node_type="test",
+        owner="assertion_owner@example.com",
+        upstream_nodes=["model.project.my_model"],
+    )
+    test_node.test_info = DBTTest(
+        qualified_test_name="not_null", column_name="id", kw_args={}
+    )
+    model_node = _make_dbt_node("model.project.my_model")
+
+    mcps = list(
+        source.create_test_entity_mcps(
+            [test_node], {}, {"model.project.my_model": model_node}
+        )
+    )
+
+    ownership_mcps = [mcp for mcp in mcps if isinstance(mcp.aspect, OwnershipClass)]
+    assert len(ownership_mcps) == 1
+    ownership_mcp = ownership_mcps[0]
+    assert ownership_mcp.entityUrn is not None
+    assert isinstance(ownership_mcp.aspect, OwnershipClass)
+    assert ownership_mcp.entityUrn.startswith("urn:li:assertion:")
+    assert ownership_mcp.aspect.owners[0].owner == (
+        "urn:li:corpuser:assertion_owner@example.com"
+    )
+    assert ownership_mcp.aspect.owners[0].type == OwnershipTypeClass.DATAOWNER
+
+
+def test_create_freshness_assertion_mcps_does_not_copy_source_owner():
+    source = create_mocked_dbt_source()
+    source_node = _make_dbt_node(
+        "source.project.raw.users",
+        node_type="source",
+        owner="source_owner",
+    )
+    source_node.freshness_info = DBTFreshnessInfo(
+        invocation_id="test-123",
+        status="pass",
+        max_loaded_at=datetime(2026, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
+        snapshotted_at=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
+        max_loaded_at_time_ago_in_s=7200.0,
+        warn_after=DBTFreshnessCriteria(count=12, period="hour"),
+        error_after=None,
+    )
+
+    mcps = list(source.create_freshness_assertion_mcps([source_node], {}))
+
+    assert not any(isinstance(mcp.aspect, OwnershipClass) for mcp in mcps)
+
+
 def test_load_run_results_skips_generate():
     run_results_json = {
         "args": {"which": "generate"},

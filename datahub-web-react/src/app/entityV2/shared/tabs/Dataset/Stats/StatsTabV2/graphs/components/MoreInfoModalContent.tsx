@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
 import analytics, { EventType } from '@src/app/analytics';
@@ -9,6 +10,7 @@ import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
 const VIEW_DOCUMENTATION_LINK = 'https://datahubproject.io/integrations/';
 
 const MoreInfoModalContent = () => {
+    const { t } = useTranslation('entity.profile.stats');
     const { statsEntity } = useStatsSectionsContext();
     const platformName = getPlatformNameFromEntityData(statsEntity as GenericEntityProperties);
 
@@ -22,13 +24,23 @@ const MoreInfoModalContent = () => {
 
     return (
         <div>
-            <Text size="md">Turn on profiling for the {platformName} source in order to see stats here.</Text>
+            <Text size="md">{t('moreInfoModal.turnOnProfiling', { platformName })}</Text>
             <Text size="md">
-                You can{' '}
-                <a href={VIEW_DOCUMENTATION_LINK} onClick={sendAnalytics} target="_blank" rel="noreferrer noopener">
-                    view documentation
-                </a>{' '}
-                for more help.
+                <Trans
+                    t={t}
+                    i18nKey="moreInfoModal.viewDocumentation"
+                    components={{
+                        anchor: (
+                            // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                            <a
+                                href={VIEW_DOCUMENTATION_LINK}
+                                onClick={sendAnalytics}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                            />
+                        ),
+                    }}
+                />
             </Text>
         </div>
     );

@@ -15,7 +15,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 @Getter
 @SuperBuilder
-public class MCPTraceReader extends KafkaTraceReader<MetadataChangeProposal> {
+public class MCPTraceReader extends KafkaTraceReader<MetadataChangeProposal>
+    implements McpPendingTracePort {
   @Nonnull private final String topicName;
   @Nullable private final String consumerGroupId;
 

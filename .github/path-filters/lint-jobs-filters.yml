@@ -3,6 +3,8 @@ lint-job:
   - ".github/path-filters/lint-job-filter.yml"
 markdown:
   - added|modified: "**/*.md"
+  - ".github/scripts/check_docusaurus_markdown.py"
+  - "datahub-web-react/build.gradle"
 github-actions:
   - added|modified: ".github/**/*.yml"
   - added|modified: ".github/**/*.yaml"
@@ -19,6 +21,9 @@ code-check-sources:
   - "**/build.gradle.kts"
   - "**/gradle.lockfile"
   - ".github/scripts/check_*.py"
+pdl:
+  - added|modified: "**/*.pdl"
+  - ".github/scripts/bump_schema_versions.py"
 smoke-test-python:
   - added|modified: "smoke-test/**/*.py"
   - "smoke-test/pyproject.toml"

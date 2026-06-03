@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
@@ -60,6 +61,8 @@ const EmptyState = styled.div`
     font-size: 14px;
 `;
 
+const BREADCRUMB_SEPARATOR = ' > ';
+
 interface DocumentPopoverBaseProps {
     /** Optional header content to render above search */
     headerContent?: React.ReactNode;
@@ -110,6 +113,8 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
     filterSearchResults,
     sourceTypes,
 }) => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
@@ -151,7 +156,7 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
             <SearchContainer>
                 <Input
                     label=""
-                    placeholder="Search context..."
+                    placeholder={t('documents.searchPlaceholder')}
                     value={searchQuery}
                     setValue={setSearchQuery}
                     disabled={searchDisabled}
@@ -161,9 +166,9 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
             <TreeScrollContainer $maxHeight={maxHeight}>
                 {isSearching ? (
                     <>
-                        {searchLoading && <EmptyState>Searching...</EmptyState>}
+                        {searchLoading && <EmptyState>{t('documents.searching')}</EmptyState>}
                         {!searchLoading && filteredSearchResults.length === 0 && (
-                            <EmptyState>No results found</EmptyState>
+                            <EmptyState>{tc('noResults')}</EmptyState>
                         )}
                         {!searchLoading &&
                             filteredSearchResults.map((doc) => {
@@ -171,7 +176,9 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
                                 let breadcrumb: string | null = null;
                                 if (doc.parentDocuments?.documents && doc.parentDocuments.documents.length > 0) {
                                     const parents = [...doc.parentDocuments.documents].reverse();
-                                    breadcrumb = parents.map((parent) => parent.info?.title || 'Untitled').join(' > ');
+                                    breadcrumb = parents
+                                        .map((parent) => parent.info?.title || t('untitled'))
+                                        .join(BREADCRUMB_SEPARATOR);
                                 }
 
                                 const isSelected = selectedUrn === doc.urn;

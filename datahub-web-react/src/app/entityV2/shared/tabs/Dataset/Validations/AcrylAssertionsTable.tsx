@@ -1,5 +1,6 @@
 import { Checkbox, Empty, Table, TableProps } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -106,6 +107,7 @@ export const AcrylAssertionsTable = ({
     onSelect,
     refetch,
 }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const { entityData } = useEntityData();
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
 
@@ -208,7 +210,12 @@ export const AcrylAssertionsTable = ({
                 dataSource={assertionsTableData}
                 rowKey="urn"
                 locale={{
-                    emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                    emptyText: (
+                        <Empty
+                            description={t('assertionList.noAssertionsTitle')}
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        />
+                    ),
                 }}
                 onRow={(record) => {
                     return {

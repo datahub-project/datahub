@@ -1,5 +1,6 @@
 import { ClockCircleOutlined, StopOutlined } from '@ant-design/icons';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { getCronAsText } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
@@ -46,6 +47,7 @@ export const AssertionScheduleSummary = ({
     nextEvaluatedAtMillis,
     isStopped = false,
 }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const localeTimezone = getLocaleTimezone();
 
     /**
@@ -53,7 +55,11 @@ export const AssertionScheduleSummary = ({
      */
     const lastEvaluatedAt = lastEvaluatedAtMillis && new Date(lastEvaluatedAtMillis);
     const lastEvaluatedTimeLocal = lastEvaluatedAt
-        ? `Last evaluated on ${lastEvaluatedAt.toLocaleDateString()} at ${lastEvaluatedAt.toLocaleTimeString()} (${localeTimezone})`
+        ? t('schedule.lastEvaluatedOn', {
+              date: lastEvaluatedAt.toLocaleDateString(),
+              time: lastEvaluatedAt.toLocaleTimeString(),
+              timezone: localeTimezone,
+          })
         : null;
     const lastEvaluatedTimeGMT = lastEvaluatedAt ? lastEvaluatedAt.toUTCString() : null;
 
@@ -62,7 +68,11 @@ export const AssertionScheduleSummary = ({
      */
     const nextEvaluatedAt = nextEvaluatedAtMillis && new Date(nextEvaluatedAtMillis);
     const nextEvaluatedTimeLocal = nextEvaluatedAt
-        ? `Next evaluation at ${nextEvaluatedAt.toLocaleDateString()} at ${nextEvaluatedAt.toLocaleTimeString()} (${localeTimezone})`
+        ? t('schedule.nextEvaluationAt', {
+              date: nextEvaluatedAt.toLocaleDateString(),
+              time: nextEvaluatedAt.toLocaleTimeString(),
+              timezone: localeTimezone,
+          })
         : null;
     const nextEvaluatedTimeGMT = nextEvaluatedAt ? nextEvaluatedAt.toUTCString() : null;
 
@@ -85,18 +95,15 @@ export const AssertionScheduleSummary = ({
                 {scheduleText && (
                     <AssertionScheduleSummarySection
                         icon={<StyledClockCircleOutlined />}
-                        title="Run schedule"
-                        subtitle={`Runs ${scheduleText} (${timezone})`}
+                        title={t('schedule.runSchedule')}
+                        subtitle={t('schedule.runs', { scheduleText, timezone })}
                         showDivider
                     />
                 )}
                 <AssertionScheduleSummarySection
                     icon={<StyledClockCircleOutlined />}
-                    title="Last evaluated"
-                    subtitle={
-                        (lastEvaluatedTimeLocal && lastEvaluatedTimeLocal) ||
-                        'This assertion has not been evaluated yet.'
-                    }
+                    title={t('schedule.lastEvaluated')}
+                    subtitle={(lastEvaluatedTimeLocal && lastEvaluatedTimeLocal) || t('schedule.notEvaluatedYet')}
                     tooltip={lastEvaluatedTimeGMT}
                     showDivider
                 />
@@ -104,7 +111,7 @@ export const AssertionScheduleSummary = ({
                 {(nextEvaluatedTimeLocal && !isStopped && (
                     <AssertionScheduleSummarySection
                         icon={<StyledClockCircleOutlined />}
-                        title="Next evaluation"
+                        title={t('schedule.nextEvaluation')}
                         subtitle={nextEvaluatedTimeLocal}
                         tooltip={nextEvaluatedTimeGMT}
                         showDivider={false}
@@ -113,8 +120,8 @@ export const AssertionScheduleSummary = ({
                     (nextEvaluatedTimeLocal && (
                         <AssertionScheduleSummarySection
                             icon={<StyledStopOutlined />}
-                            title="Next evaluation"
-                            subtitle="This assertion is not actively running. Start the assertion to view the next evaluation time."
+                            title={t('schedule.nextEvaluation')}
+                            subtitle={t('schedule.notActivelyRunning')}
                             showDivider={false}
                         />
                     )) ||

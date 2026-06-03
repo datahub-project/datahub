@@ -1,5 +1,6 @@
 import { Timeline } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { AssertionResultDot } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/AssertionResultDot';
@@ -36,6 +37,7 @@ const INITIAL_VISIBLE_COUNT = 3;
 
 export const AssertionResultsTable = ({ assertion }: Props) => {
     const theme = useTheme();
+    const { t } = useTranslation('common.actions');
     const [count, setCount] = useState(INITIAL_VISIBLE_COUNT);
     const { data, loading } = useGetAssertionRunsQuery({
         variables: {
@@ -81,7 +83,7 @@ export const AssertionResultsTable = ({ assertion }: Props) => {
                         setCount((currentCount) => currentCount + DEFAULT_FETCH_COUNT);
                     }}
                 >
-                    Show more
+                    {t('showMoreCapitalized')}
                 </ShowMoreButton>
             )}
         </Container>

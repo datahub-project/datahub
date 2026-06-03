@@ -1,5 +1,6 @@
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
@@ -26,18 +27,19 @@ type Props = {
 };
 
 export const CopyUrnAction = ({ assertion, isExpandedView = false }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const [isUrnCopied, setIsUrnCopied] = useState(false);
     return (
         <ActionItem
             key="copy-urn"
-            tip="Copy urn for this assertion"
+            tip={t('action.copyUrnToAssertion')}
             onClick={() => {
                 navigator.clipboard.writeText(assertion.urn);
                 setIsUrnCopied(true);
             }}
             icon={isUrnCopied ? <StyledCheckOutlined /> : <StyledCopyOutlined />}
             isExpandedView={isExpandedView}
-            actionName="Copy urn"
+            actionName={t('action.copyUrn')}
         />
     );
 };

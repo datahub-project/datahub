@@ -11,7 +11,6 @@ from confluent_kafka.serialization import MessageField, SerializationContext
 
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.kafka_emitter import (
-    MCE_KEY,
     MCP_KEY,
     KafkaEmitterConfig,
 )
@@ -98,15 +97,10 @@ class DatahubPgQueueEmitter(Closeable, Emitter):
             serializer = self._mcp_serializer
             payload_obj = item
         else:
-            if MCE_KEY not in self.config.topic_routes:
-                raise ValueError(
-                    f"Cannot emit MetadataChangeEvent: {MCE_KEY} missing from topic_routes"
-                )
-            topic_name = self.config.topic_routes[MCE_KEY]
-            kafka_topic_for_sr = topic_name
-            key = item.proposedSnapshot.urn
-            serializer = self._mce_serializer
-            payload_obj = item
+            raise ValueError(
+                "MetadataChangeEvent (legacy snapshot MCE) is not supported with pgQueue "
+                "messaging. Use MetadataChangeProposal (MCP) ingestion instead."
+            )
 
         ctx = SerializationContext(kafka_topic_for_sr, MessageField.VALUE)
         serialized = serializer(payload_obj, ctx)
@@ -138,6 +132,7 @@ class DatahubPgQueueEmitter(Closeable, Emitter):
                 max_rows_per_topic=td.max_rows_per_topic,
                 max_total_payload_bytes=td.max_total_payload_bytes_per_topic,
                 default_content_type_mime=td.default_content_type_mime,
+                aggressive_retention=td.aggressive_retention,
                 priority=self.config.default_priority,
                 payload=stored,
                 content_type=self.config.content_type,
@@ -196,6 +191,7 @@ class DatahubPgQueueEmitter(Closeable, Emitter):
                 max_rows_per_topic=td.max_rows_per_topic,
                 max_total_payload_bytes=td.max_total_payload_bytes_per_topic,
                 default_content_type_mime=td.default_content_type_mime,
+                aggressive_retention=td.aggressive_retention,
             )
             for _ in items:
                 cb(None, "pgQueue enqueue succeeded")  # type: ignore[arg-type]
