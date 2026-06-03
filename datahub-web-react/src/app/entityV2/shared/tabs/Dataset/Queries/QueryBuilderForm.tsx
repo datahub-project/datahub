@@ -1,9 +1,11 @@
 import Editor from '@monaco-editor/react';
 import { Form, Input, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { QueryBuilderState } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import { SQL_LANGUAGE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
 import '@conf/monaco';
 import { Editor as MarkdownEditor } from '@src/alchemy-components';
 
@@ -33,6 +35,8 @@ type Props = {
 };
 
 export default function QueryBuilderForm({ state, updateState }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
+    const { t: tc } = useTranslation('common.labels');
     const updateQuery = (query) => {
         updateState({
             ...state,
@@ -56,12 +60,15 @@ export default function QueryBuilderForm({ state, updateState }: Props) {
 
     return (
         <Form layout="vertical">
-            <Form.Item required label={<Typography.Text strong>Query</Typography.Text>}>
+            <Form.Item
+                required
+                label={<Typography.Text strong>{t('queryBuilderModal.formLabelQuery')}</Typography.Text>}
+            >
                 <EditorWrapper>
                     <Editor
                         options={QUERY_EDITOR_OPTIONS}
                         height={QUERY_EDITOR_HEIGHT}
-                        defaultLanguage="sql"
+                        defaultLanguage={SQL_LANGUAGE}
                         value={state.query}
                         onChange={updateQuery}
                         className="query-builder-editor-input"
@@ -71,17 +78,17 @@ export default function QueryBuilderForm({ state, updateState }: Props) {
             <Form.Item
                 rules={[{ min: 1, max: 500 }]}
                 hasFeedback
-                label={<Typography.Text strong>Title</Typography.Text>}
+                label={<Typography.Text strong>{t('queryBuilderModal.formLabelTitle')}</Typography.Text>}
             >
                 <Input
                     data-testid="query-builder-title-input"
                     autoFocus
                     value={state.title}
                     onChange={(newTitle) => updateTitle(newTitle.target.value)}
-                    placeholder="Join Transactions and Users Tables"
+                    placeholder={t('queryBuilderModal.titlePlaceholder')}
                 />
             </Form.Item>
-            <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
+            <Form.Item label={<Typography.Text strong>{tc('description')}</Typography.Text>}>
                 <StyledEditor
                     data-testid="query-builder-description-input"
                     doNotFocus

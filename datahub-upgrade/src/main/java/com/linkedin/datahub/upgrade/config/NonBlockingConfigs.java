@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
+import com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatformInstances;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
@@ -23,6 +24,7 @@ import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
 import com.linkedin.metadata.config.messaging.KafkaMessagingEnabledCondition;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.search.SearchService;
@@ -217,6 +219,14 @@ public class NonBlockingConfigs {
       final EntityService<?> entityService,
       @Value("${systemUpdate.ingestEntityTypes.enabled}") final boolean enabled) {
     return new IngestEntityTypes(opContext, entityService, enabled);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade ingestDataPlatformInstances(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Qualifier("entityAspectDao") final AspectMigrationsDao migrationsDao,
+      @Value("${systemUpdate.ingestDataPlatformInstances.enabled}") final boolean enabled) {
+    return new IngestDataPlatformInstances(entityService, migrationsDao, enabled);
   }
 
   @Bean

@@ -4108,3 +4108,100 @@ class TestExecuteWithCursorFallback:
 
         conn.execution_options.assert_not_called()
         assert result is expected
+
+
+class TestCharPaddingFixes:
+    """Teradata returns CHAR(N) values space-padded over the wire. The library's
+    strict comparisons (`row['Nullable'] == 'Y'`, `row['IdColType'] in ('GA',
+    'GD')`) then evaluate False for every column, so genuinely nullable columns
+    hydrate as nullable=False and identity columns hydrate as
+    autoincrement=False. Exercise the fix through optimized_get_columns so we
+    catch a regression at the actual code path."""
+
+    def _call_with_row(self, row, library_col_info=None):
+        """Drive optimized_get_columns with a single mocked row.
+
+        library_col_info simulates what teradatasqlalchemy's _get_column_info
+        would return; the test then asserts our padding fixes override it."""
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+        mock_dialect._get_column_info.return_value = library_col_info or {
+            "name": "col1",
+            "nullable": False,
+            "autoincrement": False,
+        }
+        mock_dialect.get_schema_columns.return_value = {"my_table": [row]}
+
+        tables_cache: Dict[str, List[TeradataTable]] = {
+            "mydb": [
+                TeradataTable(
+                    database="mydb",
+                    name="my_table",
+                    description=None,
+                    object_type="Table",
+                    create_timestamp=datetime.now(),
+                    last_alter_name=None,
+                    last_alter_timestamp=None,
+                    request_text=None,
+                )
+            ]
+        }
+        return optimized_get_columns(
+            mock_dialect,
+            MagicMock(),
+            "my_table",
+            "mydb",
+            tables_cache=tables_cache,
+        )
+
+    @staticmethod
+    def _row(**fields):
+        """SQLAlchemy Row-like object with attribute access for given fields."""
+        row = MagicMock(spec=list(fields.keys()) + ["CommentString"])
+        for k, v in fields.items():
+            setattr(row, k, v)
+        row.CommentString = None
+        return row
+
+    # Nullable: customer-reported bug
+    def test_padded_nullable_y_hydrates_as_true(self):
+        cols = self._call_with_row(self._row(Nullable="Y "))
+        assert cols[0]["nullable"] is True
+
+    def test_padded_nullable_n_hydrates_as_false(self):
+        cols = self._call_with_row(self._row(Nullable="N "))
+        assert cols[0]["nullable"] is False
+
+    def test_clean_nullable_y_unchanged(self):
+        cols = self._call_with_row(self._row(Nullable="Y"))
+        assert cols[0]["nullable"] is True
+
+    def test_dict_row_padded_nullable(self):
+        """HELP-derived dict rows must work alongside SQLAlchemy Row objects."""
+        cols = self._call_with_row({"Nullable": "Y ", "ColumnName": "col1"})
+        assert cols[0]["nullable"] is True
+
+    # IdColType: latent sibling bug, same root cause
+    def test_padded_idcoltype_hydrates_as_autoincrement_true(self):
+        """The library does `row['IdColType'] in ('GA','GD')`; Teradata returns
+        'GA  ' padded, so the check fails for every identity column."""
+        cols = self._call_with_row(
+            self._row(Nullable="Y", IdColType="GA  "),
+            library_col_info={"name": "col1", "nullable": True, "autoincrement": False},
+        )
+        assert cols[0]["autoincrement"] is True
+
+    def test_padded_idcoltype_gd_hydrates_as_autoincrement_true(self):
+        cols = self._call_with_row(
+            self._row(Nullable="Y", IdColType="GD  "),
+            library_col_info={"name": "col1", "nullable": True, "autoincrement": False},
+        )
+        assert cols[0]["autoincrement"] is True
+
+    def test_no_idcoltype_leaves_autoincrement_alone(self):
+        """Non-identity columns have IdColType=None; we must not overwrite."""
+        cols = self._call_with_row(
+            self._row(Nullable="Y", IdColType=None),
+            library_col_info={"name": "col1", "nullable": True, "autoincrement": False},
+        )
+        assert cols[0]["autoincrement"] is False
