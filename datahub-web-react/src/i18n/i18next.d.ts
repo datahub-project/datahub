@@ -9,6 +9,7 @@ import type enEntityProfileIncident from '@src/i18n/locales/en/entity.profile.in
 import type enEntityProfileQueries from '@src/i18n/locales/en/entity.profile.queries.json';
 import type enEntityProfileSchema from '@src/i18n/locales/en/entity.profile.schema.json';
 import type enEntityProfileStats from '@src/i18n/locales/en/entity.profile.stats.json';
+import type enEntityProfileSummary from '@src/i18n/locales/en/entity.profile.summary.json';
 import type enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import type enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
 import type enEntityViews from '@src/i18n/locales/en/entity.views.json';
@@ -40,6 +41,7 @@ declare module 'i18next' {
             'entity.profile.queries': typeof enEntityProfileQueries;
             'entity.profile.schema': typeof enEntityProfileSchema;
             'entity.profile.stats': typeof enEntityProfileStats;
+            'entity.profile.summary': typeof enEntityProfileSummary;
             'entity.profile.view': typeof enEntityProfileView;
             'entity.views': typeof enEntityViews;
             'governance.domain': typeof enGovernanceDomain;
