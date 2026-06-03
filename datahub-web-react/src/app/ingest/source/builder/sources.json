@@ -207,6 +207,14 @@
         "recipe": "source:\n    type: mariadb\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:ydb",
+        "name": "ydb",
+        "displayName": "YDB",
+        "description": "Import Tables, Views, and column statistics from YDB.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/ydb/",
+        "recipe": "source:\n    type: ydb\n    config:\n        # Coordinates\n        host_port: null\n        # The YDB database to ingest, e.g. local\n        database: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:doris",
         "name": "doris",
         "displayName": "Apache Doris",

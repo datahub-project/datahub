@@ -1,0 +1,32 @@
+source:
+  type: ydb
+  config:
+    # Coordinates
+    host_port: localhost:2136
+    database: /local
+
+    # Authentication — anonymous by default (e.g. the local-ydb dev image).
+    # For secured clusters choose ONE of the following:
+    #
+    # Static credentials:
+    # username: my-user
+    # password: my-password
+    #
+    # Access token (IAM/OAuth):
+    # access_token: "${YDB_TOKEN}"
+    #
+    # Service account key (a file path, or the key content as a secret):
+    # service_account_key_file: /path/to/sa-key.json
+    # service_account_json: "${YDB_SA_KEY_JSON}"
+
+    # Transport — independent of the authentication method above, set if needed:
+    # protocol: grpcs
+    # root_certificates_path: /path/to/ca.pem
+
+    # Optional: filter which tables/views are ingested.
+    # table_pattern:
+    #   allow:
+    #     - "jaffle_shop/.*"
+
+sink:
+  # sink configs

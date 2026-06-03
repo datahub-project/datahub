@@ -1,0 +1,20 @@
+run_id: ydb-test
+
+source:
+  type: ydb
+  config:
+    host_port: localhost:2136
+    database: /local
+    table_pattern:
+      allow:
+        - ".*datahub_it/.*"
+    profiling:
+      enabled: true
+      # Sample values are not order-stable across runs; keep them off so the
+      # golden stays deterministic.
+      include_field_sample_values: false
+
+sink:
+  type: file
+  config:
+    filename: "./ydb_mces.json"

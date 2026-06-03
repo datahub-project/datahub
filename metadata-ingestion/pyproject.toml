@@ -1335,6 +1335,20 @@ vertica = [
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
 ]
 
+ydb = [
+    "acryl-datahub-classify==0.0.11",
+    "cachetools<6.0.0",
+    "greenlet<4.0.0",
+    "numpy<2",
+    "patchy==2.8.0",
+    "pip",
+    "schwifty<2026.0.0",
+    "sqlalchemy>=1.4.39,<2",
+    "sqlglot[c]==30.8.0",
+    "sqlparse<0.6.0",
+    "ydb-sqlalchemy>=0.1.22,<0.2.0",
+]
+
 # All plugins (excluding: airflow, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc)
 all = [
     "acryl-datahub-classify==0.0.11",
@@ -1472,6 +1486,7 @@ all = [
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
     "websocket-client<2.0.0",
+    "ydb-sqlalchemy>=0.1.22,<0.2.0",
     "zstd<1.5.6.8",
 ]
 
@@ -1666,6 +1681,7 @@ dev = [
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
     "websocket-client<2.0.0",
+    "ydb-sqlalchemy>=0.1.22,<0.2.0",
     "zstd<1.5.6.8",
 ]
 
@@ -1858,6 +1874,7 @@ docs = [
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
     "websocket-client<2.0.0",
+    "ydb-sqlalchemy>=0.1.22,<0.2.0",
     "zstd<1.5.6.8",
 ]
 
@@ -2046,6 +2063,7 @@ powerbi-report-server = "datahub.ingestion.source.powerbi_report_server:PowerBiR
 iceberg = "datahub.ingestion.source.iceberg.iceberg:IcebergSource"
 informatica = "datahub.ingestion.source.informatica.source:InformaticaSource"
 vertica = "datahub.ingestion.source.sql.vertica:VerticaSource"
+ydb = "datahub.ingestion.source.sql.ydb:YDBSource"
 presto = "datahub.ingestion.source.sql.presto:PrestoSource"
 presto-on-hive = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource"
 pulsar = "datahub.ingestion.source.pulsar:PulsarSource"

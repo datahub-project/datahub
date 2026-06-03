@@ -27,6 +27,7 @@ aiohttp==3.13.5
     #   azure-core
     #   okta
     #   s3fs
+    #   ydb
 aioitertools==0.13.0
     # via aiobotocore
 aiosignal==1.4.0
@@ -581,6 +582,7 @@ grpcio==1.78.0
     #   grpc-google-iam-v1
     #   grpcio-status
     #   grpcio-tools
+    #   ydb
 grpcio-status==1.62.3
     # via google-api-core
 grpcio-tools==1.71.2
@@ -1033,6 +1035,7 @@ packaging==24.2
     #   thinc
     #   twine
     #   weasel
+    #   ydb
 pandas==2.1.4
     # via
     #   acryl-datahub
@@ -1136,6 +1139,7 @@ protobuf==5.29.6
     #   grpcio-tools
     #   mlflow-skinny
     #   proto-plus
+    #   ydb
 psutil==7.2.2
     # via
     #   acryl-datahub
@@ -1625,6 +1629,7 @@ sqlalchemy==1.4.44
     #   teradatasqlalchemy
     #   trino
     #   vertica-sqlalchemy-dialect
+    #   ydb-sqlalchemy
 sqlalchemy-bigquery==1.16.0
     # via acryl-datahub
 sqlalchemy-cockroachdb==1.4.6
@@ -2008,6 +2013,14 @@ yarl==1.23.0
     #   aiohttp
     #   gql
     #   okta
+ydb==3.29.0
+    # via
+    #   ydb-dbapi
+    #   ydb-sqlalchemy
+ydb-dbapi==0.1.22
+    # via ydb-sqlalchemy
+ydb-sqlalchemy==0.1.22
+    # via acryl-datahub
 zeep==4.3.2
     # via simple-salesforce
 zipp==3.23.0

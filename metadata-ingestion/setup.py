@@ -822,6 +822,7 @@ plugins: Dict[str, Set[str]] = {
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
+    "ydb": sql_common | {"ydb-sqlalchemy>=0.1.22,<0.2.0"},
     "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks_common | databricks | sql_common,
@@ -1026,6 +1027,7 @@ base_dev_requirements = {
             "nifi",
             "notion",
             "vertica",
+            "ydb",
             "mode",
             "fivetran",
             "kafka-connect",
@@ -1188,6 +1190,7 @@ entry_points = {
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "informatica = datahub.ingestion.source.informatica.source:InformaticaSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
+        "ydb = datahub.ingestion.source.sql.ydb:YDBSource",
         "presto = datahub.ingestion.source.sql.presto:PrestoSource",
         # This is only here for backward compatibility. Use the `hive-metastore` source instead.
         "presto-on-hive = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",

@@ -1,0 +1,17 @@
+run_id: ydb-test
+
+source:
+  type: ydb
+  config:
+    host_port: localhost:2136
+    database: /local
+    # The fixture seeds objects under the `datahub_it/` directory; restrict
+    # ingestion to them so the golden file stays deterministic.
+    table_pattern:
+      allow:
+        - ".*datahub_it/.*"
+
+sink:
+  type: file
+  config:
+    filename: "./ydb_mces.json"
