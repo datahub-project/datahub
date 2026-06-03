@@ -7,6 +7,9 @@ fragment childGlossaryTerm on GlossaryTerm {
         name
         description
     }
+    displayProperties {
+        ...displayPropertiesFields
+    }
 }
 
 fragment glossaryNodeFields on GlossaryNode {

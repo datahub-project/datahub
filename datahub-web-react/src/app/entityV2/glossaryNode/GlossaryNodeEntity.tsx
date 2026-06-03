@@ -1,5 +1,7 @@
-import { AppstoreOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import i18next from 'i18next';
 import React from 'react';
 
@@ -74,6 +76,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 useEntityQuery={useGetGlossaryNodeQuery}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
                 isNameEditable
+                isColorEditable
                 tabs={this.getProfileTabs()}
                 sidebarSections={this.getSidebarSections()}
                 // NOTE: Hiding this for now as we've moved the actions to the content of ChildrenTab.tsx
@@ -127,14 +130,14 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             {
                 name: i18next.t('entity.types:tab.contents'),
                 component: ChildrenTabWrapper,
-                icon: AppstoreOutlined,
+                icon: SquaresFour,
             },
             ...(!showSummaryTab
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
-                          icon: FileOutlined,
+                          icon: FileText,
                           properties: {
                               hideLinksButton: true,
                           },
@@ -144,7 +147,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             {
                 name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
-                icon: UnorderedListOutlined,
+                icon: ListBullets,
             },
         ];
     };
@@ -154,7 +157,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 

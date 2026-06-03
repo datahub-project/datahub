@@ -232,7 +232,7 @@ const darkTheme: ColorTheme = {
     colorPickerBrown: colors.brown300,
     colorPickerDarkGreen: colors.darkgreen300,
     colorPickerOlive: colors.olive300,
-    colorPickerDefault: colors.gray1200,
+    colorPickerDefault: colors.violet500,
     // Glossary Color Palette
     glossaryPaletteViolet: colors.violet400,
     glossaryPalettePurple: colors.violet500,

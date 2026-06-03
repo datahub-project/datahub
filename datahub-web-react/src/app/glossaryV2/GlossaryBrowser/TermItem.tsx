@@ -96,7 +96,10 @@ function TermItem(props: Props) {
     const entityRegistry = useEntityRegistry();
     const activeTabPath = useGlossaryActiveTabPath();
     const generateColor = useGenerateGlossaryColorFromPalette();
-    const resolvedIconColor = iconColor || generateColor(term.urn);
+    // A term's own saved displayProperties.colorHex (set via the header color picker)
+    // takes precedence over a color inherited from a parent node, which in turn beats the
+    // deterministic palette fallback. This keeps the sidebar in sync with the entity header.
+    const resolvedIconColor = term.displayProperties?.colorHex || iconColor || generateColor(term.urn);
 
     function handleSelectTerm() {
         if (selectTerm) {

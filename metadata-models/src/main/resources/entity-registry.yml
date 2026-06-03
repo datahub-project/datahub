@@ -322,6 +322,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - displayProperties
       - assetSettings
   - name: glossaryNode
     category: core

@@ -927,6 +927,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         institutionalMemory {
             ...institutionalMemoryFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
     ... on GlossaryNode {
         ...glossaryNode

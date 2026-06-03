@@ -13,6 +13,8 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DisplayPropertiesUpdateInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -26,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class UpdateDisplayPropertiesResolver implements DataFetcher<CompletableFuture<Boolean>> {
   private final EntityService _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -46,7 +49,20 @@ public class UpdateDisplayPropertiesResolver implements DataFetcher<CompletableF
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!AuthorizationUtils.canManageDomains(context)) {
+          // displayProperties is shared across domains and glossary entities. Authorize
+          // based on the target entity type so a glossary editor can change a term/node
+          // color without also having MANAGE_DOMAINS, and vice versa.
+          final String entityType = targetUrn.getEntityType();
+          final boolean authorized;
+          if (Constants.GLOSSARY_TERM_ENTITY_NAME.equals(entityType)
+              || Constants.GLOSSARY_NODE_ENTITY_NAME.equals(entityType)) {
+            authorized =
+                GlossaryUtils.canManageGlossaries(context)
+                    || GlossaryUtils.canUpdateGlossaryEntity(targetUrn, context, _entityClient);
+          } else {
+            authorized = AuthorizationUtils.canManageDomains(context);
+          }
+          if (!authorized) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
@@ -97,10 +113,9 @@ public class UpdateDisplayPropertiesResolver implements DataFetcher<CompletableF
                 e.getMessage());
             throw new RuntimeException(
                 String.format(
-                    "Failed to update DisplayProperties for urn: {}, properties: {}. {}",
-                    targetUrn.toString(),
-                    input.toString(),
-                    e.getMessage()));
+                    "Failed to update DisplayProperties for urn: %s, properties: %s. %s",
+                    targetUrn.toString(), input.toString(), e.getMessage()),
+                e);
           }
         },
         this.getClass().getSimpleName(),

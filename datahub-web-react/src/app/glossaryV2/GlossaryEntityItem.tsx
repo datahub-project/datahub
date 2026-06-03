@@ -90,6 +90,7 @@ function GlossaryEntityItem(props: Props) {
                     type={type}
                     urn={urn}
                     entityData={entityData}
+                    displayProperties={displayProperties}
                     termCount={termCount}
                     nodeCount={nodeCount}
                 />

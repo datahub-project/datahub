@@ -179,7 +179,10 @@ function NodeItem(props: Props) {
 
     if (shouldHideNode) return null;
 
-    const glossaryColor = iconColor || node.displayProperties?.colorHex || generateColor(node.urn);
+    // A node's own saved displayProperties.colorHex (set via the header color picker)
+    // takes precedence over a color inherited from a parent node, which in turn beats the
+    // deterministic palette fallback. This keeps the sidebar in sync with the entity header.
+    const glossaryColor = node.displayProperties?.colorHex || iconColor || generateColor(node.urn);
     const NodeIcon = iconColor ? BookmarkSimple : BookmarksSimple;
 
     return (

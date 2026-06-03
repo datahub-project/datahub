@@ -87,6 +87,13 @@ export const EntityPage = ({ entityType }: Props) => {
     const [isTabFullsize, setTabFullsize] = useState(false);
     const sidebarWidth = useSidebarWidth();
 
+    // Build the profile JSX up-front (and unconditionally) so any hooks that entity definitions
+    // inline through `getProfileTabs()` (e.g. `useShowAssetSummaryPage`) run on every render.
+    // Otherwise the hook count flips when `canViewEntityPage` transitions from undefined →
+    // defined after the privileges query resolves, producing a Rules-of-Hooks violation that
+    // crashes the page.
+    const profile = entityRegistry.renderProfile(entityType, urn);
+
     return (
         <>
             {error && <ErrorSection />}
@@ -106,7 +113,7 @@ export const EntityPage = ({ entityType }: Props) => {
                             setTabFullsize: isLineageV2 && showLineage ? undefined : setTabFullsize,
                         }}
                     >
-                        {showNewPage && entityRegistry.renderProfile(entityType, urn)}
+                        {showNewPage && profile}
                         {!showNewPage && (
                             <BrowsableEntityPage
                                 isBrowsable={isBrowsable}
@@ -115,7 +122,7 @@ export const EntityPage = ({ entityType }: Props) => {
                                 lineageSupported={isLineageSupported}
                             >
                                 {showLineage && !isLineageV2 && <LineageExplorer type={entityType} urn={urn} />}
-                                {(!showLineage || isLineageV2) && entityRegistry.renderProfile(entityType, urn)}
+                                {(!showLineage || isLineageV2) && profile}
                             </BrowsableEntityPage>
                         )}
                     </TabFullSizedContext.Provider>

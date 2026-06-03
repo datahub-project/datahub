@@ -1,5 +1,8 @@
-import { AppstoreOutlined, FileOutlined, LayoutOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { Columns } from '@phosphor-icons/react/dist/csr/Columns';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import i18next from 'i18next';
 import * as React from 'react';
 
@@ -88,6 +91,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 headerActionItems={new Set([EntityActionItem.BATCH_ADD_GLOSSARY_TERM])}
                 headerDropdownItems={headerDropdownItems}
                 isNameEditable
+                isColorEditable
                 tabs={this.getProfileTabs()}
                 sidebarSections={this.getSidebarSections()}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
@@ -144,7 +148,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                       {
                           name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
-                          icon: FileOutlined,
+                          icon: FileText,
                       },
                   ]
                 : []),
@@ -152,12 +156,12 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 name: i18next.t('entity.types:shared.relatedAssets'),
                 getCount: useGlossaryRelatedAssetsTabCount,
                 component: GlossaryRelatedEntity,
-                icon: AppstoreOutlined,
+                icon: SquaresFour,
             },
             {
                 name: i18next.t('entity.types:glossaryTerm.schemaTab'),
                 component: SchemaTab,
-                icon: LayoutOutlined,
+                icon: Columns,
                 properties: {
                     editMode: false,
                 },
@@ -182,7 +186,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             {
                 name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
-                icon: UnorderedListOutlined,
+                icon: ListBullets,
             },
         ];
     };
@@ -192,7 +196,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 
