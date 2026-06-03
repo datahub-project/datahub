@@ -1,0 +1,16 @@
+version: "2"
+services:
+  testydb:
+    image: ydbplatform/local-ydb:trunk
+    container_name: "testydb"
+    # YDB discovery advertises the endpoint clients should reconnect to; pinning
+    # the hostname to localhost keeps it reachable from the host via the mapped port.
+    hostname: localhost
+    platform: linux/amd64
+    ports:
+      - 2136:2136
+      - 2135:2135
+    environment:
+      YDB_USE_IN_MEMORY_PDISKS: "true"
+      GRPC_PORT: 2136
+      GRPC_TLS_PORT: 2135

@@ -1231,6 +1231,16 @@ vertica = [
     "sqlparse>=0.6.0,<1.0.0",
 ]
 
+ydb = [
+    "cachetools<6.0.0",
+    "greenlet<4.0.0",
+    "sqlalchemy>=2.0.0,<2.1",
+    "sqlglot[c]==30.22.0",
+    "sqlparse>=0.6.0,<1.0.0",
+    "ydb-sqlalchemy>=0.1.22,<0.2.0",
+    "ydb-sqlglot-plugin>=0.2.8,<0.3.0",
+]
+
 # All plugins (excluding: airflow, confluence, datahub-documents, datahub-lite, debug-recording, duckdb, feast, google-drive, great-expectations, mssql-odbc, notion, onnx-embeddings, sqlmesh, unstructured)
 all = [
     "aerospike>=15.0.0,<20.0.0",
@@ -1353,6 +1363,8 @@ all = [
     "ujson>=5.12.1,<6.0.0",
     "wcmatch>=10.1,<11.0.0",
     "websocket-client<2.0.0",
+    "ydb-sqlalchemy>=0.1.22,<0.2.0",
+    "ydb-sqlglot-plugin>=0.2.8,<0.3.0",
     "zstd<1.5.6.8",
 ]
 
@@ -1552,6 +1564,8 @@ dev = [
     "uvicorn<0.41.0",
     "wcmatch>=10.1,<11.0.0",
     "websocket-client<2.0.0",
+    "ydb-sqlalchemy>=0.1.22,<0.2.0",
+    "ydb-sqlglot-plugin>=0.2.8,<0.3.0",
     "zstd<1.5.6.8",
 ]
 
@@ -1751,6 +1765,8 @@ docs = [
     "uvicorn<0.41.0",
     "wcmatch>=10.1,<11.0.0",
     "websocket-client<2.0.0",
+    "ydb-sqlalchemy>=0.1.22,<0.2.0",
+    "ydb-sqlglot-plugin>=0.2.8,<0.3.0",
     "zstd<1.5.6.8",
 ]
 
@@ -1953,6 +1969,7 @@ iceberg = "datahub.ingestion.source.iceberg.iceberg:IcebergSource"
 informatica = "datahub.ingestion.source.informatica.source:InformaticaSource"
 informix = "datahub.ingestion.source.informix.source:InformixSource"
 vertica = "datahub.ingestion.source.sql.vertica:VerticaSource"
+ydb = "datahub.ingestion.source.sql.ydb:YDBSource"
 presto = "datahub.ingestion.source.sql.presto:PrestoSource"
 presto-on-hive = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource"
 pulsar = "datahub.ingestion.source.pulsar:PulsarSource"
