@@ -72,6 +72,9 @@ def test_remove_tsql_control_statements_go():
     assert not any(line.strip().upper() == "GO" for line in actual.splitlines())
     assert "SELECT col FROM dbo.TableA" in actual
     assert "SELECT col FROM dbo.TableB" in actual
+    # The batch boundary is preserved as a real ';' terminator, not deleted into a
+    # blank line — so downstream splitting never has to guess where statements end.
+    assert ";" in actual
 
 
 def test_remove_tsql_control_statements_select_into():
@@ -218,3 +221,80 @@ def test_parse_custom_sql_select_then_union_extracts_all_sources(ctx):
     assert any("tablea" in urn for urn in urns)
     assert any("tableb" in urn for urn in urns)
     assert any("tablec" in urn for urn in urns)
+
+
+def _in_tables(ctx, query: str, platform: str = "mssql") -> set:
+    result = native_sql_parser.parse_custom_sql(
+        ctx=ctx,
+        query=query,
+        platform=platform,
+        database="TestDB",
+        schema="dbo",
+        env="PROD",
+        platform_instance=None,
+    )
+    assert result is not None
+    return {urn.lower() for urn in result.in_tables}
+
+
+def test_is_single_statement_classification():
+    # CTE/UNION/plain SELECT (incl. ';' or '--' inside comments and strings) are one
+    # statement; only ';'- and blank-line-separated statements are multi.
+    single = [
+        "WITH c AS (\n  SELECT id FROM dbo.Src\n)\n\nSELECT * FROM c",
+        "SELECT a FROM dbo.A\nUNION ALL\n\nSELECT b FROM dbo.B",
+        "/* c */ WITH c AS (SELECT x FROM dbo.Src)\nSELECT * FROM c",
+        "SELECT 'a; b -- c' AS s FROM dbo.A",
+    ]
+    multi = [
+        "SELECT a FROM dbo.A;\nSELECT b FROM dbo.B",
+        "SELECT a FROM dbo.A\n\nSELECT b FROM dbo.B",
+    ]
+    assert all(native_sql_parser._is_single_statement(q, "mssql") for q in single)
+    assert not any(native_sql_parser._is_single_statement(q, "mssql") for q in multi)
+
+
+def test_single_cte_does_not_leak_alias(ctx):
+    # Reported bug: a single nested CTE with blank lines and a ';' in a comment must stay
+    # one statement, else the CTE alias resolves as a real table and leaks as an upstream.
+    query = (
+        "WITH outer_cte AS (\n"
+        "    WITH inner_cte AS (\n"
+        "\n"
+        "        SELECT id FROM dbo.SrcA\n"
+        "    )\n"
+        "    -- join here; note the ';' in this comment\n"
+        "    SELECT i.id FROM inner_cte i JOIN dbo.SrcB b ON b.id = i.id\n"
+        ")\n"
+        "\n\n"
+        "SELECT * FROM outer_cte"
+    )
+    urns = _in_tables(ctx, query)
+    assert any("srca" in u for u in urns) and any("srcb" in u for u in urns)
+    assert not any("outer_cte" in u or "inner_cte" in u for u in urns)
+
+
+def test_multi_statement_with_cte_does_not_leak_alias(ctx):
+    # A CTE in a ';'-separated multi-statement query must keep its closing SELECT, so
+    # the alias is not split off into a real-table upstream.
+    query = (
+        "WITH my_cte AS (SELECT id FROM dbo.Src)\n"
+        "SELECT * FROM my_cte;\n"
+        "SELECT x FROM dbo.Other"
+    )
+    urns = _in_tables(ctx, query)
+    assert any("src" in u for u in urns) and any("other" in u for u in urns)
+    assert not any("my_cte" in u for u in urns)
+
+
+def test_go_separated_cte_does_not_leak_alias(ctx):
+    # GO between a CTE and the next statement is preserved as a ';' by the cleanup, so the
+    # CTE (despite its blank-line formatting) is split off without leaking its alias.
+    raw = (
+        "WITH my_cte AS (\n  SELECT id FROM dbo.Src\n)\n\nSELECT * FROM my_cte\n"
+        "GO\n"
+        "SELECT x FROM dbo.Other"
+    )
+    urns = _in_tables(ctx, native_sql_parser.remove_tsql_control_statements(raw))
+    assert any("src" in u for u in urns) and any("other" in u for u in urns)
+    assert not any("my_cte" in u for u in urns)
