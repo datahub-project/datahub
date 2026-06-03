@@ -19,6 +19,7 @@ import enEntityProfileSchema from '@src/i18n/locales/en/entity.profile.schema.js
 import enEntityProfileStats from '@src/i18n/locales/en/entity.profile.stats.json';
 import enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
+import enEntityTypes from '@src/i18n/locales/en/entity.types.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
 import enGovernanceDomain from '@src/i18n/locales/en/governance.domain.json';
 import enGovernanceGlossary from '@src/i18n/locales/en/governance.glossary.json';
@@ -54,6 +55,7 @@ i18n.use(initReactI18next).init({
         'entity.profile.schema',
         'entity.profile.stats',
         'entity.profile.view',
+        'entity.types',
         'entity.views',
         'governance.domain',
         'governance.glossary',
@@ -85,6 +87,7 @@ i18n.use(initReactI18next).init({
             'entity.profile.schema': enEntityProfileSchema,
             'entity.profile.stats': enEntityProfileStats,
             'entity.profile.view': enEntityProfileView,
+            'entity.types': enEntityTypes,
             'entity.views': enEntityViews,
             'governance.domain': enGovernanceDomain,
             'governance.glossary': enGovernanceGlossary,
