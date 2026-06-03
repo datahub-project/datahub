@@ -39,6 +39,7 @@ export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:your_subscriptions',
     'urn:li:dataHubPageModule:top_domains',
     'urn:li:dataHubPageModule:assets',
+    'urn:li:dataHubPageModule:output_ports',
     'urn:li:dataHubPageModule:child_hierarchy',
     'urn:li:dataHubPageModule:data_products',
     'urn:li:dataHubPageModule:related_terms',
