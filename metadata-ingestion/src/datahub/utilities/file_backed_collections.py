@@ -13,6 +13,7 @@ from types import TracebackType
 from typing import (
     Any,
     Callable,
+    Counter,
     Dict,
     Generic,
     Iterator,
@@ -20,11 +21,13 @@ from typing import (
     MutableMapping,
     Optional,
     OrderedDict,
+    Protocol,
     Sequence,
     Tuple,
     Type,
     TypeVar,
     Union,
+    runtime_checkable,
 )
 
 from datahub.configuration.env_vars import get_override_sqlite_version_req
@@ -689,3 +692,39 @@ class FileBackedCounter(Closeable):
 
     def __del__(self) -> None:
         self.close()
+
+
+@runtime_checkable
+class GroupedItemCounter(Protocol):
+    """A counter of items within groups. Satisfied by FileBackedCounter (disk) and
+    InMemoryGroupedCounter (memory), so consumers can swap backends.
+
+    most_common_by_group yields groups in group_key order; items within a group are
+    ordered by count descending then first-insertion order.
+    """
+
+    def increment(self, group_key: str, item_key: str, count: int = 1) -> None: ...
+
+    def most_common_by_group(self) -> Iterator[Tuple[str, List[Tuple[str, int]]]]: ...
+
+    def close(self) -> None: ...
+
+
+class InMemoryGroupedCounter:
+    """In-memory GroupedItemCounter. collections.Counter.most_common() orders by count
+    descending with insertion-order ties, matching FileBackedCounter's
+    `cnt DESC, rowid ASC`, so the two backends are interchangeable."""
+
+    def __init__(self) -> None:
+        self._groups: Dict[str, "Counter[str]"] = {}
+
+    def increment(self, group_key: str, item_key: str, count: int = 1) -> None:
+        # `+= count` with count=0 still materializes the item (existence sentinel).
+        self._groups.setdefault(group_key, collections.Counter())[item_key] += count
+
+    def most_common_by_group(self) -> Iterator[Tuple[str, List[Tuple[str, int]]]]:
+        for group_key in sorted(self._groups):
+            yield group_key, self._groups[group_key].most_common()
+
+    def close(self) -> None:
+        pass

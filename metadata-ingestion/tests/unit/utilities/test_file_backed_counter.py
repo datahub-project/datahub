@@ -1,19 +1,13 @@
+from typing import Iterator
+
+import pytest
+
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedCounter,
+    GroupedItemCounter,
+    InMemoryGroupedCounter,
 )
-
-
-def test_counter_most_common_by_group():
-    c = FileBackedCounter()
-    c.increment("g1", "a", 3)
-    c.increment("g1", "b", 1)
-    c.increment("g1", "a", 2)  # a -> 5
-    c.increment("g2", "x", 1)
-    result = dict(c.most_common_by_group())
-    c.close()
-    assert result["g1"] == [("a", 5), ("b", 1)]
-    assert result["g2"] == [("x", 1)]
 
 
 def test_counter_cross_flush_accumulation():
@@ -25,27 +19,6 @@ def test_counter_cross_flush_accumulation():
     result = dict(c.most_common_by_group())
     c.close()
     assert result["g"] == [("a", 3), ("b", 1)]
-
-
-def test_counter_tie_break_is_insertion_order():
-    # Tied counts must break by insertion order (rowid ASC), deterministically,
-    # mirroring Counter.most_common — across flushes too.
-    c = FileBackedCounter(batch_size=1)
-    c.increment("g", "first", 1)
-    c.increment("g", "second", 1)
-    c.increment("g", "third", 1)
-    result = dict(c.most_common_by_group())
-    c.close()
-    assert result["g"] == [("first", 1), ("second", 1), ("third", 1)]
-
-
-def test_counter_zero_count_sentinel_creates_group():
-    # An item incremented by 0 still creates the group (used for existence tracking).
-    c = FileBackedCounter()
-    c.increment("g", "", 0)
-    result = dict(c.most_common_by_group())
-    c.close()
-    assert result == {"g": [("", 0)]}
 
 
 def test_counter_shared_connection_not_closed_on_close():
@@ -67,24 +40,6 @@ def test_counter_close_is_idempotent():
     c.close()
 
 
-def test_counter_groups_yielded_in_key_order():
-    c = FileBackedCounter()
-    c.increment("g2", "x", 1)  # inserted before g1
-    c.increment("g1", "y", 1)
-    groups = [g for g, _ in c.most_common_by_group()]
-    c.close()
-    assert groups == ["g1", "g2"]
-
-
-def test_counter_increment_defaults_to_one():
-    c = FileBackedCounter()
-    c.increment("g", "a")  # default count=1
-    c.increment("g", "a")
-    result = dict(c.most_common_by_group())
-    c.close()
-    assert result["g"] == [("a", 2)]
-
-
 def test_counter_flushes_on_del():
     conn = ConnectionWrapper()
     try:
@@ -97,3 +52,62 @@ def test_counter_flushes_on_del():
         assert [tuple(r) for r in rows] == [("g", "a", 2)]
     finally:
         conn.close()
+
+
+@pytest.fixture(params=["file", "memory"])
+def counter(request: pytest.FixtureRequest) -> Iterator[GroupedItemCounter]:
+    c: GroupedItemCounter = (
+        FileBackedCounter(batch_size=1)  # batch_size=1 also exercises the flush path
+        if request.param == "file"
+        else InMemoryGroupedCounter()
+    )
+    yield c
+    c.close()
+
+
+def test_grouped_counter_most_common_by_group(counter):
+    counter.increment("g1", "a", 3)
+    counter.increment("g1", "b", 1)
+    counter.increment("g1", "a", 2)  # a -> 5
+    counter.increment("g2", "x", 1)
+    result = dict(counter.most_common_by_group())
+    assert result["g1"] == [("a", 5), ("b", 1)]
+    assert result["g2"] == [("x", 1)]
+
+
+def test_grouped_counter_tie_break_is_insertion_order(counter):
+    counter.increment("g", "first", 1)
+    counter.increment("g", "second", 1)
+    counter.increment("g", "third", 1)
+    assert dict(counter.most_common_by_group())["g"] == [
+        ("first", 1),
+        ("second", 1),
+        ("third", 1),
+    ]
+
+
+def test_grouped_counter_zero_count_sentinel_creates_group(counter):
+    counter.increment("g", "", 0)
+    assert dict(counter.most_common_by_group()) == {"g": [("", 0)]}
+
+
+def test_grouped_counter_groups_yielded_in_key_order(counter):
+    counter.increment("g2", "x", 1)  # inserted before g1
+    counter.increment("g1", "y", 1)
+    assert [g for g, _ in counter.most_common_by_group()] == ["g1", "g2"]
+
+
+def test_grouped_counter_increment_defaults_to_one(counter):
+    counter.increment("g", "a")
+    counter.increment("g", "a")
+    assert dict(counter.most_common_by_group())["g"] == [("a", 2)]
+
+
+def test_file_backed_counter_satisfies_protocol():
+    c = FileBackedCounter()
+    assert isinstance(c, GroupedItemCounter)
+    c.close()
+
+
+def test_in_memory_counter_satisfies_protocol():
+    assert isinstance(InMemoryGroupedCounter(), GroupedItemCounter)
