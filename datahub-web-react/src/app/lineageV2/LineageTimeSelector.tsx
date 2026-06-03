@@ -1,6 +1,7 @@
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Button, Space, Typography } from 'antd';
+import i18next from 'i18next';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -91,7 +92,7 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
                     <Button type="text" onClick={() => handleOpenChange(true)}>
                         <CalendarOutlined style={{ marginRight: '4px' }} />
                         <Typography.Text>
-                            <b>{getTimeRangeDescription(startDate, endDate, t)}</b>
+                            <b>{getTimeRangeDescription(startDate, endDate)}</b>
                         </Typography.Text>
                         <CaretDownOutlined style={{ fontSize: '10px' }} />
                     </Button>
@@ -117,7 +118,7 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
                         )}
                         format="ll"
                         ranges={Object.fromEntries(
-                            ranges.map(([start, end]) => [getTimeRangeDescription(start, end, t), [start, end]]),
+                            ranges.map(([start, end]) => [getTimeRangeDescription(start, end), [start, end]]),
                         )}
                         onChange={handleRangeChange}
                         onOpenChange={handleOpenChange}
@@ -129,26 +130,22 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
     );
 }
 
-function getTimeRangeDescription(
-    startDate: Dayjs | null,
-    endDate: Dayjs | null,
-    t: (key: string, opts?: object) => string,
-): string {
+function getTimeRangeDescription(startDate: Dayjs | null, endDate: Dayjs | null): string {
     if (!startDate && !endDate) {
-        return t('timeSelector.allTime');
+        return i18next.t('lineage:timeSelector.allTime');
     }
 
     if (!startDate && endDate) {
-        return t('timeSelector.until', { date: endDate.format('ll') });
+        return i18next.t('lineage:timeSelector.until', { date: endDate.format('ll') });
     }
 
     if (startDate && !endDate) {
         const dayDiff = dayjs().diff(startDate, 'days');
         if (dayDiff <= 30) {
-            return t('timeSelector.lastNDays', { count: dayDiff });
+            return i18next.t('lineage:timeSelector.lastNDays', { count: dayDiff });
         }
-        return t('timeSelector.from', { date: startDate.format('ll') });
+        return i18next.t('lineage:timeSelector.from', { date: startDate.format('ll') });
     }
 
-    return t('timeSelector.unknownRange');
+    return i18next.t('lineage:timeSelector.unknownRange');
 }

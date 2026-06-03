@@ -1,5 +1,6 @@
 import { ArrowDownOutlined, ArrowUpOutlined, MoreOutlined } from '@ant-design/icons';
 import { Dropdown, Popover, Tooltip } from 'antd';
+import i18next from 'i18next';
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -48,17 +49,12 @@ function PopoverContent({
     );
 }
 
-function getDownstreamDisabledPopoverContent(
-    canEditLineage: boolean,
-    isDashboard: boolean,
-    t: (key: string, opts?: object) => string,
-    centerEntity?: () => void,
-) {
+function getDownstreamDisabledPopoverContent(canEditLineage: boolean, isDashboard: boolean, centerEntity?: () => void) {
     if (!canEditLineage) {
-        return t('manageLineage.unauthorized');
+        return i18next.t('lineage:manageLineage.unauthorized');
     }
     if (isDashboard) {
-        return t('manageLineage.dashboardNoDownstream');
+        return i18next.t('lineage:manageLineage.dashboardNoDownstream');
     }
     return <PopoverContent centerEntity={centerEntity} direction="downstream" />;
 }
@@ -144,12 +140,7 @@ export default function ManageLineageMenu({
                           disabled={isDownstreamDisabled}
                       >
                           <Popover
-                              content={getDownstreamDisabledPopoverContent(
-                                  !!canEditLineage,
-                                  isDashboard,
-                                  t,
-                                  centerEntity,
-                              )}
+                              content={getDownstreamDisabledPopoverContent(!!canEditLineage, isDashboard, centerEntity)}
                               overlayStyle={isDownstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
                           >
                               <MenuItemContent>
