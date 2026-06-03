@@ -11,19 +11,13 @@ from datahub.utilities.file_backed_collections import (
 )
 
 
-def _grouped(counter: GroupedItemCounter) -> dict:
-    # most_common_by_group yields lazy per-group iterators that are only valid until the
-    # next group is requested, so materialize each group's items during iteration.
-    return {group: list(items) for group, items in counter.most_common_by_group()}
-
-
 def test_counter_cross_flush_accumulation():
     # batch_size=1 forces a flush per increment, exercising the cross-flush upsert.
     c = FileBackedCounter(batch_size=1)
     for _ in range(3):
         c.increment("g", "a", 1)
     c.increment("g", "b", 1)
-    result = _grouped(c)
+    result = dict(c.most_common_by_group())
     c.close()
     assert result["g"] == [("a", 3), ("b", 1)]
 
@@ -33,7 +27,7 @@ def test_counter_shared_connection_not_closed_on_close():
     try:
         c = FileBackedCounter(shared_connection=conn)
         c.increment("g", "a", 1)
-        assert _grouped(c)["g"] == [("a", 1)]
+        assert dict(c.most_common_by_group())["g"] == [("a", 1)]
         c.close()
         conn.execute("SELECT 1").fetchone()  # still usable
     finally:
@@ -93,7 +87,7 @@ def test_counter_increment_is_thread_safe():
     for t in threads:
         t.join()
 
-    counts = dict(_grouped(c)["g"])
+    counts = dict(dict(c.most_common_by_group())["g"])
     c.close()
     assert all(counts[item] == n_threads * per_thread for item in items), counts
 
@@ -114,7 +108,7 @@ def test_grouped_counter_most_common_by_group(counter):
     counter.increment("g1", "b", 1)
     counter.increment("g1", "a", 2)  # a -> 5
     counter.increment("g2", "x", 1)
-    result = _grouped(counter)
+    result = dict(counter.most_common_by_group())
     assert result["g1"] == [("a", 5), ("b", 1)]
     assert result["g2"] == [("x", 1)]
 
@@ -123,7 +117,7 @@ def test_grouped_counter_tie_break_is_insertion_order(counter):
     counter.increment("g", "first", 1)
     counter.increment("g", "second", 1)
     counter.increment("g", "third", 1)
-    assert _grouped(counter)["g"] == [
+    assert dict(counter.most_common_by_group())["g"] == [
         ("first", 1),
         ("second", 1),
         ("third", 1),
@@ -132,7 +126,7 @@ def test_grouped_counter_tie_break_is_insertion_order(counter):
 
 def test_grouped_counter_zero_count_sentinel_creates_group(counter):
     counter.increment("g", "", 0)
-    assert _grouped(counter) == {"g": [("", 0)]}
+    assert dict(counter.most_common_by_group()) == {"g": [("", 0)]}
 
 
 def test_grouped_counter_groups_yielded_in_key_order(counter):
@@ -144,4 +138,4 @@ def test_grouped_counter_groups_yielded_in_key_order(counter):
 def test_grouped_counter_increment_defaults_to_one(counter):
     counter.increment("g", "a")
     counter.increment("g", "a")
-    assert _grouped(counter)["g"] == [("a", 2)]
+    assert dict(counter.most_common_by_group())["g"] == [("a", 2)]
