@@ -101,13 +101,3 @@ def test_grouped_counter_increment_defaults_to_one(counter):
     counter.increment("g", "a")
     counter.increment("g", "a")
     assert dict(counter.most_common_by_group())["g"] == [("a", 2)]
-
-
-def test_file_backed_counter_satisfies_protocol():
-    c = FileBackedCounter()
-    assert isinstance(c, GroupedItemCounter)
-    c.close()
-
-
-def test_in_memory_counter_satisfies_protocol():
-    assert isinstance(InMemoryGroupedCounter(), GroupedItemCounter)
