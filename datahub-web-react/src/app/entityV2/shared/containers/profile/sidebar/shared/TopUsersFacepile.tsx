@@ -30,6 +30,7 @@ export default function TopUsersFacepile({ users, max, checkExistence = true }: 
         );
     }, [usersList, entityRegistry]);
 
+    // eslint-disable-next-line i18next/no-literal-string -- placeholder dash for empty user list, not translatable UI text
     if (!usersList?.length) return <div>-</div>;
     return <AvatarStack avatars={avatars} maxToShow={max} />;
 }

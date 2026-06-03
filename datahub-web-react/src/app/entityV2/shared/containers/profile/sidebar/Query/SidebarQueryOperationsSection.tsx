@@ -1,11 +1,16 @@
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 
+// eslint-disable-next-line i18next/no-literal-string -- syntax highlighting language identifier, not UI text
+const DEFAULT_LANGUAGE = 'sql';
+
 export default function SidebarQueryOperationsSection() {
+    const { t } = useTranslation('entity.shared.containers');
     const { fineGrainedOperations } = useContext(EntitySidebarContext);
 
     if (!fineGrainedOperations?.length) {
@@ -16,7 +21,7 @@ export default function SidebarQueryOperationsSection() {
         <>
             {fineGrainedOperations.map((operation: FineGrainedOperation, index) => (
                 <SidebarSection
-                    title={`Operation ${index + 1}`}
+                    title={t('sidebar.query.operationIndexedTitle', { index: index + 1 })}
                     /* eslint-disable-next-line react/no-array-index-key */
                     key={index}
                     content={<SidebarQueryOperation operation={operation} />}
@@ -75,27 +80,36 @@ const PreviewSyntax = styled(SyntaxHighlighter)`
 `;
 
 function SidebarQueryOperation({ operation }: { operation: FineGrainedOperation }) {
+    const { t } = useTranslation('entity.shared.containers');
     return (
         <OperationContainer>
             {operation.transformOperation && (
                 <Section key="logic">
-                    <SectionHeader>LOGIC</SectionHeader>
-                    <PreviewSyntax language="sql" showLineNumbers wrapLines lineNumberStyle={{ display: 'none' }}>
+                    <SectionHeader>{t('sidebar.query.logicLabel')}</SectionHeader>
+                    <PreviewSyntax
+                        language={DEFAULT_LANGUAGE}
+                        showLineNumbers
+                        wrapLines
+                        lineNumberStyle={{ display: 'none' }}
+                    >
                         {operation.transformOperation}
                     </PreviewSyntax>
                 </Section>
             )}
+            {/* eslint-disable i18next/no-literal-string -- (untranslated-text) used as programmatic key and display value */}
             {operation.inputColumns?.length && (
                 <OperationInputsOrOutputs title="inputs" columns={operation.inputColumns} />
             )}
             {operation.outputColumns?.length && (
                 <OperationInputsOrOutputs title="outputs" columns={operation.outputColumns} />
             )}
+            {/* eslint-enable i18next/no-literal-string */}
         </OperationContainer>
     );
 }
 
 function OperationInputsOrOutputs({ title, columns }: { title: string; columns: Array<[string, string]> }) {
+    const { t } = useTranslation('entity.shared.containers');
     const tables = Array.from(new Set(columns.map(([name]) => name)));
     return (
         <Section key={title}>
@@ -104,11 +118,13 @@ function OperationInputsOrOutputs({ title, columns }: { title: string; columns: 
                 <table cellSpacing={0} cellPadding={0}>
                     <tbody>
                         <tr>
-                            <HeaderColumn>Tables:</HeaderColumn>
+                            <HeaderColumn>{t('sidebar.query.tablesLabel')}</HeaderColumn>
+                            {/* eslint-disable-next-line i18next/no-literal-string -- comma separator in technical data list, not UI text */}
                             <TextColumn>{tables.join(', ')}</TextColumn>
                         </tr>
                         <tr>
-                            <HeaderColumn>Columns:</HeaderColumn>
+                            <HeaderColumn>{t('sidebar.query.columnsLabel')}</HeaderColumn>
+                            {/* eslint-disable-next-line i18next/no-literal-string -- technical data column reference format, not UI text */}
                             <TextColumn>{columns.map(([table, col]) => `${table}.${col}`).join(', ')}</TextColumn>
                         </tr>
                     </tbody>
