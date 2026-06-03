@@ -1,7 +1,7 @@
 import dataclasses
 import logging
-from collections import defaultdict
-from datetime import datetime
+import pickle
+from datetime import datetime, timezone
 from typing import (
     Callable,
     Counter,
@@ -10,6 +10,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Set,
     Tuple,
     TypeVar,
 )
@@ -26,6 +27,7 @@ from datahub.configuration.time_window_config import (
     get_time_bucket,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DatasetFieldUsageCountsClass,
@@ -33,6 +35,7 @@ from datahub.metadata.schema_classes import (
     DatasetUserUsageCountsClass,
     TimeWindowSizeClass,
 )
+from datahub.utilities.file_backed_collections import ConnectionWrapper
 from datahub.utilities.sql_formatter import format_sql_query, trim_query
 
 logger = logging.getLogger(__name__)
@@ -240,14 +243,57 @@ class BaseUsageConfig(BaseTimeWindowConfig):
         return v
 
 
-class UsageAggregator(Generic[ResourceType]):
+class UsageAggregator(Generic[ResourceType], Closeable):
     # TODO: Move over other connectors to use this class
 
-    def __init__(self, config: BaseUsageConfig):
+    _UPSERT_COUNT = (
+        "INSERT INTO usage_counts(bucket, resource_key, dim, item, cnt) "
+        "VALUES (?, ?, ?, ?, ?) "
+        "ON CONFLICT(bucket, resource_key, dim, item) "
+        "DO UPDATE SET cnt = cnt + excluded.cnt"
+    )
+
+    def __init__(
+        self,
+        config: BaseUsageConfig,
+        *,
+        shared_connection: Optional[ConnectionWrapper] = None,
+        batch_size: int = 50000,
+    ) -> None:
         self.config = config
-        self.aggregation: Dict[
-            datetime, Dict[ResourceType, GenericAggregatedDataset[ResourceType]]
-        ] = defaultdict(dict)
+        self._batch_size = batch_size
+        self._conn = shared_connection or ConnectionWrapper()
+        self._owns_connection = shared_connection is None
+        self._closed = False
+
+        self._conn.execute(
+            "CREATE TABLE IF NOT EXISTS usage_resources("
+            "resource_key TEXT PRIMARY KEY, resource BLOB)"
+        )
+        self._conn.execute(
+            "CREATE TABLE IF NOT EXISTS usage_aggregates("
+            "bucket INTEGER, resource_key TEXT, PRIMARY KEY(bucket, resource_key))"
+        )
+        self._conn.execute(
+            "CREATE TABLE IF NOT EXISTS usage_counts("
+            "bucket INTEGER, resource_key TEXT, dim TEXT, item TEXT, cnt INTEGER, "
+            "PRIMARY KEY(bucket, resource_key, dim, item))"
+        )
+
+        # All unbounded data lives in SQLite so heap memory stays flat regardless of
+        # resource cardinality: the high-cardinality per-query/user/column counts go to
+        # usage_counts, and the resource objects themselves are pickled to disk in
+        # usage_resources (one row per distinct resource) rather than retained in memory.
+        self._resource_buf: Dict[str, bytes] = {}
+
+        # Write buffers, deduplicated/combined within a flush window. counts are
+        # pre-summed so repeated increments to the same key become one upsert.
+        self._aggregate_buf: Set[Tuple[int, str]] = set()
+        self._count_buf: Dict[Tuple[int, str, str, str], int] = {}
+
+    @staticmethod
+    def _bucket_millis(start_time: datetime, bucket_duration: BucketDuration) -> int:
+        return int(get_time_bucket(start_time, bucket_duration).timestamp() * 1000)
 
     def aggregate_event(
         self,
@@ -259,34 +305,139 @@ class UsageAggregator(Generic[ResourceType]):
         fields: List[str],
         count: int = 1,
     ) -> None:
-        floored_ts: datetime = get_time_bucket(start_time, self.config.bucket_duration)
-        self.aggregation[floored_ts].setdefault(
-            resource,
-            GenericAggregatedDataset[ResourceType](
-                bucket_start_time=floored_ts,
-                resource=resource,
-            ),
-        ).add_read_entry(
-            user,
-            query,
-            fields,
-            user_email_pattern=self.config.user_email_pattern,
-            count=count,
-        )
+        bucket = self._bucket_millis(start_time, self.config.bucket_duration)
+        # str(resource) is the identity key; resources whose str() are equal are
+        # intentionally aggregated together (holds for UrnStr and usage-path
+        # TableReference, whose last_updated is unset).
+        resource_key = str(resource)
+
+        # Always record existence + resource, even for denied/empty events, so they
+        # still emit an empty workunit (matches the in-memory implementation).
+        self._aggregate_buf.add((bucket, resource_key))
+        if resource_key not in self._resource_buf:
+            self._resource_buf[resource_key] = pickle.dumps(resource)
+
+        # Replicate add_read_entry's filter: a denied user records nothing further.
+        if not (user and not self.config.user_email_pattern.allowed(user)):
+            if user:
+                self._bump(bucket, resource_key, "user", user, count)
+            if query:
+                self._bump(bucket, resource_key, "query", query, count)
+            for field in fields:
+                self._bump(bucket, resource_key, "column", field, count)
+
+        if (
+            len(self._count_buf) >= self._batch_size
+            or len(self._aggregate_buf) >= self._batch_size
+        ):
+            self._flush()
+
+    def _bump(
+        self, bucket: int, resource_key: str, dim: str, item: str, count: int
+    ) -> None:
+        key = (bucket, resource_key, dim, item)
+        self._count_buf[key] = self._count_buf.get(key, 0) + count
+
+    def _flush(self) -> None:
+        if self._resource_buf:
+            self._conn.executemany(
+                "INSERT OR IGNORE INTO usage_resources(resource_key, resource) "
+                "VALUES (?, ?)",
+                list(self._resource_buf.items()),
+            )
+            self._resource_buf.clear()
+        if self._aggregate_buf:
+            self._conn.executemany(
+                "INSERT OR IGNORE INTO usage_aggregates(bucket, resource_key) "
+                "VALUES (?, ?)",
+                list(self._aggregate_buf),
+            )
+            self._aggregate_buf.clear()
+        if self._count_buf:
+            self._conn.executemany(
+                self._UPSERT_COUNT,
+                [
+                    (bucket, rk, dim, item, cnt)
+                    for (bucket, rk, dim, item), cnt in self._count_buf.items()
+                ],
+            )
+            self._count_buf.clear()
 
     def generate_workunits(
         self,
         resource_urn_builder: Callable[[ResourceType], str],
         user_urn_builder: Optional[Callable[[str], str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        for time_bucket in self.aggregation.values():
-            for aggregate in time_bucket.values():
-                yield aggregate.make_usage_workunit(
-                    bucket_duration=self.config.bucket_duration,
-                    top_n_queries=self.config.top_n_queries,
-                    format_sql_queries=self.config.format_sql_queries,
-                    include_top_n_queries=self.config.include_top_n_queries,
-                    resource_urn_builder=resource_urn_builder,
-                    user_urn_builder=user_urn_builder,
-                    queries_character_limit=self.config.queries_character_limit,
-                )
+        self._flush()
+        # c.rowid ASC is a deterministic tie-break for equal counts: the ON CONFLICT
+        # upsert preserves a row's rowid on update, so rowid reflects first-insertion
+        # order of each (bucket, resource_key, dim, item). This mirrors
+        # Counter.most_common's insertion-order tie-break, keeping output (and usage
+        # golden files) stable.
+        cursor = self._conn.execute(
+            "SELECT a.bucket, a.resource_key, r.resource, c.dim, c.item, c.cnt "
+            "FROM usage_aggregates a "
+            "JOIN usage_resources r ON r.resource_key = a.resource_key "
+            "LEFT JOIN usage_counts c "
+            "  ON c.bucket = a.bucket AND c.resource_key = a.resource_key "
+            "ORDER BY a.bucket, a.resource_key, c.dim, c.cnt DESC, c.rowid ASC"
+        )
+
+        cur_key: Optional[Tuple[int, str]] = None
+        cur_resource: Optional[ResourceType] = None
+        query_freq: List[Tuple[str, int]] = []
+        user_freq: List[Tuple[str, int]] = []
+        column_freq: List[Tuple[str, int]] = []
+        query_count = 0
+
+        def build() -> MetadataWorkUnit:
+            assert cur_key is not None
+            assert cur_resource is not None  # narrows Optional for mypy
+            return make_usage_workunit(
+                bucket_start_time=datetime.fromtimestamp(
+                    cur_key[0] / 1000, tz=timezone.utc
+                ),
+                resource=cur_resource,
+                query_count=query_count,
+                query_freq=(
+                    query_freq[: self.config.top_n_queries]
+                    if self.config.include_top_n_queries
+                    else None
+                ),
+                user_freq=user_freq,
+                column_freq=column_freq,
+                bucket_duration=self.config.bucket_duration,
+                resource_urn_builder=resource_urn_builder,
+                user_urn_builder=user_urn_builder,
+                top_n_queries=self.config.top_n_queries,
+                format_sql_queries=self.config.format_sql_queries,
+                queries_character_limit=self.config.queries_character_limit,
+            )
+
+        for bucket, resource_key, resource_blob, dim, item, cnt in cursor:
+            key = (bucket, resource_key)
+            if key != cur_key:
+                if cur_key is not None:
+                    yield build()
+                cur_key = key
+                cur_resource = pickle.loads(resource_blob)
+                query_freq, user_freq, column_freq, query_count = [], [], [], 0
+            if dim is None:
+                continue  # empty aggregate (LEFT JOIN miss)
+            if dim == "query":
+                query_freq.append((item, cnt))
+                query_count += cnt
+            elif dim == "user":
+                user_freq.append((item, cnt))
+            elif dim == "column":
+                column_freq.append((item, cnt))
+        if cur_key is not None:
+            yield build()
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._flush()
+        if self._owns_connection:
+            self._conn.close()
+        self._closed = True
