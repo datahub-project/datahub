@@ -23,7 +23,7 @@
     "createNewPolicy": "Create new policy",
     "createPolicyModalTitle": "Create a new Policy",
     "deactivatePolicySuccess": "Successfully deactivated policy.",
-    "deletePolicyText": "Are you sure you want to remove policy?",
+    "deletePolicyText": "Are you sure you want to remove this policy?",
     "deletePolicyTitle": "Delete {{name}}",
     "details.appliesToGroupsLabel": "Applies to Groups",
     "details.appliesToOwnersLabel": "Applies to Owners",
