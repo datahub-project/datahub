@@ -46,6 +46,13 @@ def test_set_use_sqlite_on_conflict():
         assert cache._use_sqlite_on_conflict is False
 
 
+def test_rejects_unsafe_tablename() -> None:
+    # tablename is interpolated into SQL (SQLite can't bind identifiers), so it must be
+    # a plain identifier, not attacker-controlled text.
+    with pytest.raises(ValueError):
+        FileBackedDict[int](tablename="cache; DROP TABLE x --")
+
+
 @pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
 def test_file_dict(use_sqlite_on_conflict: bool) -> None:
     cache = FileBackedDict[int](
