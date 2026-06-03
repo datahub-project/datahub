@@ -9,7 +9,7 @@ import TabItem from '@theme/TabItem';
 
 <FeatureAvailability saasOnly />
 
-This guide specifically covers how to use the Assertion APIs for **DataHub Cloud** native assertions, including:
+This guide specifically covers how to use the Assertion APIs and Python SDK for **DataHub Cloud** native assertions, including:
 
 - [Freshness Assertions](/docs/managed-datahub/observe/freshness-assertions.md)
 - [Volume Assertions](/docs/managed-datahub/observe/volume-assertions.md)
@@ -17,9 +17,9 @@ This guide specifically covers how to use the Assertion APIs for **DataHub Cloud
 - [Schema Assertions](/docs/managed-datahub/observe/schema-assertions.md)
 - [Custom SQL Assertions](/docs/managed-datahub/observe/custom-sql-assertions.md)
 
-## Why Would You Use Assertions APIs?
+## Why Would You Use Assertions APIs & SDK?
 
-The Assertions APIs allow you to create, schedule, run, and delete Assertions with DataHub Cloud. Additionally, you can manage subscriptions to receive notifications when assertions change state or when other entity changes occur.
+The Assertions APIs and SDK allow you to create, schedule, run, and delete Assertions with DataHub Cloud. Additionally, you can manage subscriptions to receive notifications when assertions change state or when other entity changes occur.
 
 ### Goal Of This Guide
 
@@ -818,7 +818,7 @@ Freshness supports default severity only, and Assertions with anomaly detection 
 
 ## Run Assertions
 
-You can use the following APIs to trigger the assertions you've created to run on-demand. This is
+You can use the following APIs and SDK functions to trigger the assertions you've created to run on-demand. This is
 particularly useful for running assertions on a custom schedule, for example from your production
 data pipelines.
 
