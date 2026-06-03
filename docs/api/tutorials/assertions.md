@@ -734,6 +734,45 @@ Assertions can optionally set the severity assigned when an assertion fails. Use
 
 The example below creates a Volume assertion that passes when row count is at most 1,000. If it fails and the observed row count is at least 2,000, the failure is marked `HIGH`; otherwise, it falls back to `MEDIUM`.
 
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```graphql
+mutation upsertDatasetVolumeAssertionMonitor {
+  upsertDatasetVolumeAssertionMonitor(
+    input: {
+      entityUrn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)"
+      type: ROW_COUNT_TOTAL
+      rowCountTotal: {
+        operator: LESS_THAN_OR_EQUAL_TO
+        parameters: { value: { value: "1000", type: NUMBER } }
+        failureSeverityConfig: {
+          defaultSeverity: MEDIUM
+          rules: [
+            {
+              severity: HIGH
+              operator: GREATER_THAN_OR_EQUAL_TO
+              parameters: { value: { value: "2000", type: NUMBER } }
+            }
+          ]
+        }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */4 * * *"
+      }
+      evaluationParameters: { sourceType: INFORMATION_SCHEMA }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
 ```python
 from acryl_datahub_cloud.sdk import (
     AssertionFailureSeverity,
@@ -771,6 +810,9 @@ volume_assertion = client.assertions.sync_volume_assertion(
 
 print(f"Created volume assertion: {volume_assertion.urn}")
 ```
+
+</TabItem>
+</Tabs>
 
 Freshness supports default severity only, and Assertions with anomaly detection do not support manual severity configuration.
 
