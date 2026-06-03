@@ -3854,14 +3854,30 @@ def _make_dbt_model_node(dbt_name: str, upstream_nodes: List[str]) -> DBTNode:
 
 
 def test_skip_missing_upstreams_in_lineage_config():
-    config_dict = {
-        "manifest_path": "dummy_path",
-        "catalog_path": "dummy_path",
-        "target_platform": "postgres",
-        "skip_missing_upstreams_in_lineage": True,
-    }
-    config = DBTCoreConfig.model_validate(config_dict)
+    # Works without skip_sources_in_lineage — logs a warning but does not raise
+    config = DBTCoreConfig.model_validate(
+        {
+            "manifest_path": "dummy_path",
+            "catalog_path": "dummy_path",
+            "target_platform": "postgres",
+            "skip_missing_upstreams_in_lineage": True,
+        }
+    )
     assert config.skip_missing_upstreams_in_lineage is True
+
+    # Recommended combination — no warning logged
+    config = DBTCoreConfig.model_validate(
+        {
+            "manifest_path": "dummy_path",
+            "catalog_path": "dummy_path",
+            "target_platform": "postgres",
+            "skip_missing_upstreams_in_lineage": True,
+            "skip_sources_in_lineage": True,
+            "entities_enabled": {"sources": "NO"},
+        }
+    )
+    assert config.skip_missing_upstreams_in_lineage is True
+    assert config.skip_sources_in_lineage is True
 
 
 def test_skip_missing_upstreams_in_lineage_filters_missing():
@@ -3880,6 +3896,8 @@ def test_skip_missing_upstreams_in_lineage_filters_missing():
         {
             **create_base_dbt_config(),
             "skip_missing_upstreams_in_lineage": True,
+            "skip_sources_in_lineage": True,
+            "entities_enabled": {"sources": "NO"},
         }
     )
     source = DBTCoreSource(config, ctx)
@@ -3914,6 +3932,8 @@ def test_skip_missing_upstreams_in_lineage_all_missing_returns_none():
         {
             **create_base_dbt_config(),
             "skip_missing_upstreams_in_lineage": True,
+            "skip_sources_in_lineage": True,
+            "entities_enabled": {"sources": "NO"},
         }
     )
     source = DBTCoreSource(config, ctx)
@@ -3940,6 +3960,8 @@ def test_skip_missing_upstreams_existence_is_cached():
         {
             **create_base_dbt_config(),
             "skip_missing_upstreams_in_lineage": True,
+            "skip_sources_in_lineage": True,
+            "entities_enabled": {"sources": "NO"},
         }
     )
     source = DBTCoreSource(config, ctx)
@@ -3967,7 +3989,12 @@ def test_skip_missing_upstreams_fails_open_on_graph_error():
     ctx.graph = graph
 
     config = DBTCoreConfig.model_validate(
-        {**create_base_dbt_config(), "skip_missing_upstreams_in_lineage": True}
+        {
+            **create_base_dbt_config(),
+            "skip_missing_upstreams_in_lineage": True,
+            "skip_sources_in_lineage": True,
+            "entities_enabled": {"sources": "NO"},
+        }
     )
     source = DBTCoreSource(config, ctx)
 
@@ -4005,6 +4032,8 @@ def test_skip_missing_upstreams_filters_cll():
         {
             **create_base_dbt_config(),
             "skip_missing_upstreams_in_lineage": True,
+            "skip_sources_in_lineage": True,
+            "entities_enabled": {"sources": "NO"},
             "include_column_lineage": True,
         }
     )

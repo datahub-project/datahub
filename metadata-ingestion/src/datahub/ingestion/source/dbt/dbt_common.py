@@ -744,6 +744,15 @@ class DBTCommonConfig(
                 "`prefer_sql_parser_lineage` requires that `skip_sources_in_lineage` is enabled."
             )
 
+        if self.skip_missing_upstreams_in_lineage and not self.skip_sources_in_lineage:
+            logger.warning(
+                "`skip_missing_upstreams_in_lineage` is most effective with `skip_sources_in_lineage` enabled. "
+                "Without it, source nodes appear as dbt URNs in lineage rather than target-platform URNs, "
+                "so on the first ingestion run dbt source entities do not yet exist in DataHub and their "
+                "lineage edges will be silently dropped. The flag still works correctly for model-to-model "
+                "lineage and on subsequent runs once source entities are committed."
+            )
+
         if (
             self.skip_sources_in_lineage
             and self.entities_enabled
