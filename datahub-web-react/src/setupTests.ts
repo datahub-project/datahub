@@ -26,6 +26,7 @@ import enEntityProfileSummary from '@src/i18n/locales/en/entity.profile.summary.
 import enEntityProfileTabs from '@src/i18n/locales/en/entity.profile.tabs.json';
 import enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
+import enEntitySharedComponents from '@src/i18n/locales/en/entity.shared.components.json';
 import enEntitySharedContainers from '@src/i18n/locales/en/entity.shared.containers.json';
 import enEntityTypes from '@src/i18n/locales/en/entity.types.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
@@ -73,6 +74,7 @@ i18n.use(initReactI18next).init({
         'entity.profile.stats',
         'entity.profile.summary',
         'entity.profile.view',
+        'entity.shared.components',
         'entity.shared.containers',
         'entity.types',
         'entity.views',
@@ -116,6 +118,7 @@ i18n.use(initReactI18next).init({
             'entity.profile.stats': enEntityProfileStats,
             'entity.profile.summary': enEntityProfileSummary,
             'entity.profile.view': enEntityProfileView,
+            'entity.shared.components': enEntitySharedComponents,
             'entity.shared.containers': enEntitySharedContainers,
             'entity.types': enEntityTypes,
             'entity.views': enEntityViews,
