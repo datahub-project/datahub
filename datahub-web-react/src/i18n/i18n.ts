@@ -5,6 +5,7 @@ import { initReactI18next } from 'react-i18next';
 
 export const NAMESPACES = [
     'analytics',
+    'auth',
     'common.actions',
     'common.feedback',
     'common.labels',
