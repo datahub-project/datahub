@@ -594,26 +594,40 @@ class TestSnowplowBDPClientAPIMethods:
     # Enrichments API tests
     @patch.object(SnowplowBDPClient, "_request")
     def test_get_enrichments_success(self, mock_request, bdp_client):
-        """Test fetching enrichments for a pipeline."""
-        mock_enrichments = [
+        """Enrichments are fetched from the non-deprecated pipelines/v1 endpoint and
+        mapped from the EnrichmentResource shape into the internal Enrichment model.
+
+        The legacy ``resources/v1/.../configuration/enrichments`` endpoint was
+        deprecated by Snowplow.
+        """
+        mock_request.return_value = [
             {
-                "id": "enrich1",
-                "schemaRef": "iglu:com.snowplowanalytics.snowplow.enrichments/ip_lookups/jsonschema/1-0-0",
-                "filename": "ip_lookups.json",
+                "name": "anon-ip",
                 "enabled": True,
-                "lastUpdate": "2024-01-01T00:00:00Z",
+                "schemaKey": "iglu:com.snowplowanalytics.snowplow/anon_ip/jsonschema/1-0-1",
+                # userData IS the parameter object (no "parameters" wrapper)
+                "userData": {"anonOctets": 1, "anonSegments": 2},
             }
         ]
-        # Response is direct array, not wrapped
-        mock_request.return_value = mock_enrichments
 
         result = bdp_client.get_enrichments("pipeline1")
 
-        assert len(result) == 1
         mock_request.assert_called_once_with(
             "GET",
-            "organizations/test-org-id/resources/v1/pipelines/pipeline1/configuration/enrichments",
+            "organizations/test-org-id/pipelines/v1/pipeline1/enrichments",
         )
+        assert len(result) == 1
+        enrichment = result[0]
+        assert enrichment.enabled is True
+        assert (
+            enrichment.schema_ref
+            == "iglu:com.snowplowanalytics.snowplow/anon_ip/jsonschema/1-0-1"
+        )
+        assert enrichment.parameters == {"anonOctets": 1, "anonSegments": 2}
+        # vendor is derived from the schemaKey since the new payload has no vendor field
+        assert enrichment.content is not None
+        assert enrichment.content.data.vendor == "com.snowplowanalytics.snowplow"
+        assert enrichment.content.data.name == "anon-ip"
 
     # Event Specifications API tests
     @patch.object(SnowplowBDPClient, "_request")
