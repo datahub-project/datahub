@@ -379,6 +379,10 @@ class UsageAggregator(Generic[ResourceType], Closeable):
         resource_urn_builder: Callable[[ResourceType], str],
         user_urn_builder: Optional[Callable[[str], str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        # Cap query items to top_n while streaming so a single high-cardinality group
+        # never has to be fully materialized in memory. Items stream in count-desc order,
+        # so the first top_n query items are the top ones; query_count still sums all.
+        top_n = self.config.top_n_queries if self.config.include_top_n_queries else 0
         for group_key, items in self._counts.most_common_by_group():
             bucket_millis, resource_key = _UsageKeys.split_group(group_key)
             resource = self._resources[resource_key]
@@ -390,7 +394,8 @@ class UsageAggregator(Generic[ResourceType], Closeable):
             for item_key, cnt in items:
                 dim, item = _UsageKeys.split_item(item_key)
                 if dim == _Dim.QUERY:
-                    query_freq.append((item, cnt))
+                    if len(query_freq) < top_n:
+                        query_freq.append((item, cnt))
                     query_count += cnt
                 elif dim == _Dim.USER:
                     user_freq.append((item, cnt))
@@ -404,11 +409,7 @@ class UsageAggregator(Generic[ResourceType], Closeable):
                 ),
                 resource=resource,
                 query_count=query_count,
-                query_freq=(
-                    query_freq[: self.config.top_n_queries]
-                    if self.config.include_top_n_queries
-                    else None
-                ),
+                query_freq=query_freq if self.config.include_top_n_queries else None,
                 user_freq=user_freq,
                 column_freq=column_freq,
                 bucket_duration=self.config.bucket_duration,

@@ -1,5 +1,6 @@
 import collections
 import gzip
+import itertools
 import logging
 import pathlib
 import pickle
@@ -677,27 +678,26 @@ class FileBackedCounter(Closeable):
                         (cnt, group, item),
                     )
 
-    def most_common_by_group(self) -> Iterator[Tuple[str, List[Tuple[str, int]]]]:
-        """Yield (group_key, items) for each group in group_key order, where items are
-        (item_key, count) ordered by count DESC then rowid ASC. The ON CONFLICT upsert
-        preserves a row's rowid on update, so rowid reflects first-insertion order,
-        making the tie-break deterministic (mirrors collections.Counter.most_common)."""
+    def most_common_by_group(
+        self,
+    ) -> Iterator[Tuple[str, Iterator[Tuple[str, int]]]]:
+        """Yield (group_key, items) for each group in group_key order, where items is a
+        lazy iterator of (item_key, count) ordered by count DESC then rowid ASC. The
+        ON CONFLICT upsert preserves a row's rowid on update, so rowid reflects
+        first-insertion order, making the tie-break deterministic (mirrors
+        collections.Counter.most_common).
+
+        Items are streamed, not materialized, so a single huge group does not have to fit
+        in memory. Each group's iterator is only valid until the next group is requested
+        (itertools.groupby semantics): consume a group fully before advancing.
+        """
         self._flush()
         cursor = self._conn.execute(
             f"SELECT group_key, item_key, cnt FROM {self._tablename} "
             "ORDER BY group_key, cnt DESC, rowid ASC"
         )
-        cur_group: Optional[str] = None
-        items: List[Tuple[str, int]] = []
-        for group_key, item_key, cnt in cursor:
-            if group_key != cur_group:
-                if cur_group is not None:
-                    yield cur_group, items
-                cur_group = group_key
-                items = []
-            items.append((item_key, cnt))
-        if cur_group is not None:
-            yield cur_group, items
+        for group_key, rows in itertools.groupby(cursor, key=lambda row: row[0]):
+            yield group_key, ((item_key, cnt) for _, item_key, cnt in rows)
 
     def close(self) -> None:
         if self._closed:
@@ -722,7 +722,9 @@ class GroupedItemCounter(Protocol):
 
     def increment(self, group_key: str, item_key: str, count: int = 1) -> None: ...
 
-    def most_common_by_group(self) -> Iterator[Tuple[str, List[Tuple[str, int]]]]: ...
+    def most_common_by_group(
+        self,
+    ) -> Iterator[Tuple[str, Iterator[Tuple[str, int]]]]: ...
 
     def close(self) -> None: ...
 
@@ -739,9 +741,11 @@ class InMemoryGroupedCounter:
         # `+= count` with count=0 still materializes the item (existence sentinel).
         self._groups.setdefault(group_key, collections.Counter())[item_key] += count
 
-    def most_common_by_group(self) -> Iterator[Tuple[str, List[Tuple[str, int]]]]:
+    def most_common_by_group(
+        self,
+    ) -> Iterator[Tuple[str, Iterator[Tuple[str, int]]]]:
         for group_key in sorted(self._groups):
-            yield group_key, self._groups[group_key].most_common()
+            yield group_key, iter(self._groups[group_key].most_common())
 
     def close(self) -> None:
         pass

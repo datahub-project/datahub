@@ -515,6 +515,31 @@ def test_usage_aggregator_top_n_tie_break_matches_reference():
     )
 
 
+def test_usage_aggregator_caps_top_queries_but_sums_all():
+    # topSqlQueries is capped at top_n_queries (streamed cap), but totalSqlQueries still
+    # reflects ALL query counts.
+    config = BaseUsageConfig(top_n_queries=2)
+    day1 = datetime(2020, 1, 1)
+    agg: UsageAggregator[str] = UsageAggregator(config)
+    for i, n in enumerate([5, 4, 3, 2, 1]):  # 5 distinct queries, distinct counts
+        for _ in range(n):
+            agg.aggregate_event(
+                resource="db.t",
+                start_time=day1,
+                query=f"q{i}",
+                user="u@x.com",
+                fields=[],
+            )
+    wus = list(agg.generate_workunits(_urn))
+    agg.close()
+    assert len(wus) == 1
+    assert isinstance(wus[0].metadata, MetadataChangeProposalWrapper)
+    aspect = wus[0].metadata.aspect
+    assert isinstance(aspect, DatasetUsageStatisticsClass)
+    assert aspect.totalSqlQueries == 15  # 5+4+3+2+1 — all queries summed
+    assert aspect.topSqlQueries == ["q0", "q1"]  # only the top 2 retained
+
+
 def test_usage_aggregator_merges_resources_with_equal_str():
     config = BaseUsageConfig()
     agg: UsageAggregator[_MergeRes] = UsageAggregator(config)
