@@ -27,6 +27,7 @@ from datahub.masking.masking_filter import (
     StreamMaskingWrapper,
     _add_filter_to_existing_handlers,
     install_masking_filter,
+    uninstall_masking_filter,
 )
 from datahub.masking.secret_registry import SecretRegistry
 
@@ -339,6 +340,44 @@ class TestAddFilterToExistingHandlers:
 
         masking_logger.removeHandler(handler)
         masking_logger.handlers.clear()
+
+    def test_repeat_install_attaches_to_newly_added_handler(self):
+        """A second install must re-scan and cover handlers added after the
+        first install (masking is fail-open, so missed handlers leak)."""
+        test_logger = logging.getLogger("test_repeat_install")
+        test_logger.handlers.clear()
+        h1 = logging.StreamHandler(StringIO())
+        test_logger.addHandler(h1)
+
+        install_masking_filter(install_stdout_wrapper=False)
+        assert any(isinstance(f, SecretMaskingFilter) for f in h1.filters)
+
+        # Handler added AFTER the first install.
+        h2 = logging.StreamHandler(StringIO())
+        test_logger.addHandler(h2)
+
+        install_masking_filter(install_stdout_wrapper=False)
+        assert any(isinstance(f, SecretMaskingFilter) for f in h2.filters)
+
+        test_logger.removeHandler(h1)
+        test_logger.removeHandler(h2)
+        test_logger.handlers.clear()
+
+    def test_uninstall_removes_filter_from_all_handlers(self):
+        """Teardown is symmetric: no SecretMaskingFilter remains on any handler."""
+        test_logger = logging.getLogger("test_uninstall_handlers")
+        test_logger.handlers.clear()
+        handler = logging.StreamHandler(StringIO())
+        test_logger.addHandler(handler)
+
+        install_masking_filter(install_stdout_wrapper=False)
+        assert any(isinstance(f, SecretMaskingFilter) for f in handler.filters)
+
+        uninstall_masking_filter()
+        assert not any(isinstance(f, SecretMaskingFilter) for f in handler.filters)
+
+        test_logger.removeHandler(handler)
+        test_logger.handlers.clear()
 
 
 class TestBootstrapErrorHandling:

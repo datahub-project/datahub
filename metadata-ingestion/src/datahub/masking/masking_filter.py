@@ -459,8 +459,10 @@ def _iter_all_loggers() -> list[logging.Logger]:
     not-yet-created intermediate loggers.
     """
     loggers: list[logging.Logger] = [logging.getLogger()]
+    # Snapshot the keys, then .get() each — a logger may disappear from the dict
+    # between snapshot and access in a multi-threaded worker.
     for name in list(logging.root.manager.loggerDict.keys()):
-        obj = logging.root.manager.loggerDict[name]
+        obj = logging.root.manager.loggerDict.get(name)
         if isinstance(obj, logging.Logger):
             loggers.append(obj)
     return loggers
@@ -487,7 +489,8 @@ def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> int
     for log in _iter_all_loggers():
         if log.name.startswith("datahub.masking"):
             continue
-        for handler in log.handlers:
+        # Iterate a copy: another thread may add/remove handlers concurrently.
+        for handler in list(log.handlers):
             if not any(isinstance(f, SecretMaskingFilter) for f in handler.filters):
                 handler.addFilter(masking_filter)
                 added_count += 1
@@ -499,7 +502,7 @@ def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> int
 def _remove_filter_from_existing_handlers() -> None:
     """Remove the masking filter from every handler it was attached to."""
     for log in _iter_all_loggers():
-        for handler in log.handlers:
+        for handler in list(log.handlers):
             handler.filters = [
                 f for f in handler.filters if not isinstance(f, SecretMaskingFilter)
             ]
@@ -510,7 +513,15 @@ def install_masking_filter(
     max_message_size: int = 5000,
     install_stdout_wrapper: bool = True,
 ) -> SecretMaskingFilter:
-    """Install secret masking filter on root logger and optionally wrap stdout/stderr."""
+    """Install secret masking filter on root logger and optionally wrap stdout/stderr.
+
+    Masking is applied at the handler level (see _add_filter_to_existing_handlers),
+    so coverage is a snapshot of the handlers that exist when this is called.
+    Install AFTER logging is fully configured. Handlers added later are not
+    masked unless install is called again (which re-scans), except default
+    StreamHandlers bound to sys.stdout/stderr, which the stream wrapper still
+    covers.
+    """
     # Create filter
     masking_filter = SecretMaskingFilter(
         secret_registry=secret_registry, max_message_size=max_message_size
@@ -519,21 +530,30 @@ def install_masking_filter(
     # Install on root logger (affects all loggers)
     root_logger = logging.getLogger()
 
-    # Check if already installed (avoid duplicates)
+    # A SecretMaskingFilter on the root logger is the "already installed?"
+    # sentinel. It also masks records logged directly on root, but is NOT what
+    # masks the bulk of output — Python does not run logger-level filters for
+    # records propagated from child loggers. That is the handler-level filter's
+    # job (_add_filter_to_existing_handlers below).
     existing_filters = [
         f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)
     ]
 
     if existing_filters:
-        logger.debug("SecretMaskingFilter already installed on root logger")
-        return existing_filters[0]
+        # Already installed: re-scan so handlers created since the first install
+        # are covered too (masking is fail-open — a missed handler leaks).
+        masking_filter = existing_filters[0]
+        _add_filter_to_existing_handlers(masking_filter)
+        logger.debug(
+            "SecretMaskingFilter already installed; refreshed handler coverage"
+        )
+        return masking_filter
 
     root_logger.addFilter(masking_filter)
 
-    # Attach to existing handlers too: a filter on the root logger does not run
-    # for records propagated from child loggers, so handler-level filtering is
-    # what actually masks the bulk of log output. This masks records in place
-    # and never touches handler streams (see _add_filter_to_existing_handlers).
+    # Attach to existing handlers: handler-level filtering masks records in place
+    # for every record that reaches an output, including those propagated from
+    # child loggers, without touching handler streams.
     _add_filter_to_existing_handlers(masking_filter)
     logger.info("Installed SecretMaskingFilter on root logger and existing handlers")
 
