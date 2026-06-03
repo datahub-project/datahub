@@ -171,65 +171,74 @@ public class IndexDataPlatformsStep implements UpgradeStep {
       AuditStamp auditStamp,
       AspectSpec dataPlatformInfoAspectSpec)
       throws Exception {
-    ListUrnsResult listResult =
-        _entityService.listUrns(opContext, Constants.DATA_PLATFORM_ENTITY_NAME, 0, BATCH_SIZE);
+    int start = 0;
+    int processed = 0;
+    ListUrnsResult listResult;
 
-    List<Urn> dataPlatformUrns = listResult.getEntities();
+    do {
+      listResult =
+          _entityService.listUrns(
+              opContext, Constants.DATA_PLATFORM_ENTITY_NAME, start, BATCH_SIZE);
+      List<Urn> dataPlatformUrns = listResult.getEntities();
 
-    if (dataPlatformUrns.isEmpty()) {
-      return 0;
-    }
-
-    final Map<Urn, EntityResponse> dataPlatformInfoResponses =
-        _entityService.getEntitiesV2(
-            opContext,
-            Constants.DATA_PLATFORM_ENTITY_NAME,
-            new HashSet<>(dataPlatformUrns),
-            Collections.singleton(Constants.DATA_PLATFORM_INFO_ASPECT_NAME));
-
-    List<Future<?>> futures = new LinkedList<>();
-    for (Urn dpUrn : dataPlatformUrns) {
-      EntityResponse dataPlatformEntityResponse = dataPlatformInfoResponses.get(dpUrn);
-      if (dataPlatformEntityResponse == null) {
-        log.warn("Data Platform not in set of entity responses {}", dpUrn);
-        continue;
+      if (dataPlatformUrns.isEmpty()) {
+        break;
       }
 
-      DataPlatformInfo dpInfo = mapDpInfo(dataPlatformEntityResponse);
-      if (dpInfo == null) {
-        log.warn("Received null dataPlatformInfo aspect for urn {}", dpUrn);
-        continue;
+      final Map<Urn, EntityResponse> dataPlatformInfoResponses =
+          _entityService.getEntitiesV2(
+              opContext,
+              Constants.DATA_PLATFORM_ENTITY_NAME,
+              new HashSet<>(dataPlatformUrns),
+              Collections.singleton(Constants.DATA_PLATFORM_INFO_ASPECT_NAME));
+
+      List<Future<?>> futures = new LinkedList<>();
+      for (Urn dpUrn : dataPlatformUrns) {
+        EntityResponse dataPlatformEntityResponse = dataPlatformInfoResponses.get(dpUrn);
+        if (dataPlatformEntityResponse == null) {
+          log.warn("Data Platform not in set of entity responses {}", dpUrn);
+          continue;
+        }
+
+        DataPlatformInfo dpInfo = mapDpInfo(dataPlatformEntityResponse);
+        if (dpInfo == null) {
+          log.warn("Received null dataPlatformInfo aspect for urn {}", dpUrn);
+          continue;
+        }
+
+        futures.add(
+            _entityService
+                .alwaysProduceMCLAsync(
+                    opContext,
+                    dpUrn,
+                    Constants.DATA_PLATFORM_ENTITY_NAME,
+                    Constants.DATA_PLATFORM_INFO_ASPECT_NAME,
+                    dataPlatformInfoAspectSpec,
+                    null,
+                    dpInfo,
+                    null,
+                    null,
+                    auditStamp,
+                    ChangeType.RESTATE)
+                .getFirst());
       }
 
-      futures.add(
-          _entityService
-              .alwaysProduceMCLAsync(
-                  opContext,
-                  dpUrn,
-                  Constants.DATA_PLATFORM_ENTITY_NAME,
-                  Constants.DATA_PLATFORM_INFO_ASPECT_NAME,
-                  dataPlatformInfoAspectSpec,
-                  null,
-                  dpInfo,
-                  null,
-                  null,
-                  auditStamp,
-                  ChangeType.RESTATE)
-              .getFirst());
-    }
+      futures.stream()
+          .filter(Objects::nonNull)
+          .forEach(
+              f -> {
+                try {
+                  f.get();
+                } catch (InterruptedException | ExecutionException e) {
+                  throw new RuntimeException(e);
+                }
+              });
 
-    futures.stream()
-        .filter(Objects::nonNull)
-        .forEach(
-            f -> {
-              try {
-                f.get();
-              } catch (InterruptedException | ExecutionException e) {
-                throw new RuntimeException(e);
-              }
-            });
+      processed += dataPlatformUrns.size();
+      start += BATCH_SIZE;
+    } while (start < listResult.getTotal());
 
-    return listResult.getTotal();
+    return processed;
   }
 
   private DataPlatformInfo mapDpInfo(EntityResponse entityResponse) {

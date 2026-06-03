@@ -203,21 +203,29 @@ public class MigrateHomePageLinksStep implements UpgradeStep {
   }
 
   private List<Urn> fetchPostUrns(@Nonnull OperationContext systemOperationContext) {
-    SearchResult searchResult =
-        _entitySearchService.search(
-            systemOperationContext.withSearchFlags(
-                flags ->
-                    flags.setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true)),
-            List.of(Constants.POST_ENTITY_NAME),
-            "*",
-            null,
-            null,
-            0,
-            BATCH_SIZE);
-
-    return searchResult.getEntities().stream()
-        .map(SearchEntity::getEntity)
-        .collect(Collectors.toList());
+    List<Urn> allUrns = new ArrayList<>();
+    int start = 0;
+    SearchResult searchResult;
+    do {
+      searchResult =
+          _entitySearchService.search(
+              systemOperationContext.withSearchFlags(
+                  flags ->
+                      flags.setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true)),
+              List.of(Constants.POST_ENTITY_NAME),
+              "*",
+              null,
+              null,
+              start,
+              BATCH_SIZE);
+      List<Urn> batch =
+          searchResult.getEntities().stream()
+              .map(SearchEntity::getEntity)
+              .collect(Collectors.toList());
+      allUrns.addAll(batch);
+      start += batch.size();
+    } while (start < searchResult.getNumEntities());
+    return allUrns;
   }
 
   private DataHubPageTemplateProperties fetchPageTemplateProperties(
