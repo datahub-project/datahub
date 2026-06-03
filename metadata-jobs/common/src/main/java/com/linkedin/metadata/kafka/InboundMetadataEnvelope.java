@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.metadata.queue.QueueReceivedMessage;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -17,6 +18,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 public class InboundMetadataEnvelope<R> {
 
   @Nonnull String logicalTopic;
+
+  /** {@link MetricUtils#MESSAGING_SYSTEM_KAFKA} or {@link MetricUtils#MESSAGING_SYSTEM_PGQUEUE}. */
+  @Nonnull String messagingSystem;
 
   @Nullable String key;
 
@@ -53,6 +57,7 @@ public class InboundMetadataEnvelope<R> {
       @Nonnull ConsumerRecord<String, R> record, @Nullable String consumerGroupId) {
     return InboundMetadataEnvelope.<R>builder()
         .logicalTopic(record.topic())
+        .messagingSystem(MetricUtils.MESSAGING_SYSTEM_KAFKA)
         .key(record.key())
         .payload(record.value())
         .enqueuedAtMillis(record.timestamp())
@@ -75,6 +80,7 @@ public class InboundMetadataEnvelope<R> {
     var h = message.handle();
     return InboundMetadataEnvelope.<R>builder()
         .logicalTopic(logicalTopic)
+        .messagingSystem(MetricUtils.MESSAGING_SYSTEM_PGQUEUE)
         .key(message.routingKey())
         .payload(payload)
         .enqueuedAtMillis(h.enqueuedAt().toEpochMilli())

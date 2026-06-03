@@ -1,6 +1,7 @@
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Collapse } from 'antd';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
 import {
     CheckboxContainer,
@@ -18,6 +19,14 @@ import { useUpdateStructuredPropertyMutation } from '@src/graphql/structuredProp
 import { AllowedValue, StructuredPropertyEntity } from '@src/types.generated';
 
 const SCHEMA_FIELD_URN = 'urn:li:entityType:datahub.schemaField';
+const DISPLAY_SETTING = {
+    isHidden: 'isHidden',
+    showInSearchFilters: 'showInSearchFilters',
+    showInAssetSummary: 'showInAssetSummary',
+    hideInAssetSummaryWhenEmpty: 'hideInAssetSummaryWhenEmpty',
+    showAsAssetBadge: 'showAsAssetBadge',
+    showInColumnsTable: 'showInColumnsTable',
+} as const;
 
 interface Props {
     formValues: StructuredProp | undefined;
@@ -36,6 +45,8 @@ const DisplayPreferences = ({
     allowedValues,
     badgeProperty,
 }: Props) => {
+    const { t } = useTranslation('governance.structured-properties');
+    const { t: tc } = useTranslation('common.actions');
     const [updateProperty] = useUpdateStructuredPropertyMutation();
     const [showReplaceBadge, setShowReplaceBadge] = useState<boolean>(false);
 
@@ -70,7 +81,7 @@ const DisplayPreferences = ({
                     header={
                         <CollapseHeader>
                             <Text weight="bold" color="gray">
-                                Display Preferences
+                                {t('display.title')}
                             </Text>
                         </CollapseHeader>
                     }
@@ -79,33 +90,37 @@ const DisplayPreferences = ({
                     <TogglesContainer>
                         <StyledFormItem name={['settings', 'isHidden']}>
                             <Switch
-                                label="Hide Property"
+                                label={t('display.hideProperty')}
                                 size="sm"
                                 checked={formValues?.settings?.isHidden}
-                                onChange={(e) => handleDisplaySettingChange('isHidden', e.target.checked)}
-                                labelHoverText="If enabled, this property will be hidden everywhere"
+                                onChange={(e) => handleDisplaySettingChange(DISPLAY_SETTING.isHidden, e.target.checked)}
+                                labelHoverText={t('display.hidePropertyTooltip')}
                                 data-testid="structured-props-hide-switch"
                             />
                         </StyledFormItem>
                         <StyledFormItem name={['settings', 'showInSearchFilters']}>
                             <Switch
-                                label="Show in Search Filters"
+                                label={t('display.showInSearchFilters')}
                                 size="sm"
                                 checked={formValues?.settings?.showInSearchFilters}
-                                onChange={(e) => handleDisplaySettingChange('showInSearchFilters', e.target.checked)}
+                                onChange={(e) =>
+                                    handleDisplaySettingChange(DISPLAY_SETTING.showInSearchFilters, e.target.checked)
+                                }
                                 isDisabled={formValues?.settings?.isHidden}
-                                labelHoverText="If enabled, this property will appear in search filters"
+                                labelHoverText={t('display.showInSearchFiltersTooltip')}
                             />
                         </StyledFormItem>
                         <CompoundedItemWrapper>
                             <StyledFormItem name={['settings', 'showInAssetSummary']}>
                                 <Switch
-                                    label="Show in Asset Sidebar"
+                                    label={t('display.showInAssetSidebar')}
                                     size="sm"
                                     checked={formValues?.settings?.showInAssetSummary}
-                                    onChange={(e) => handleDisplaySettingChange('showInAssetSummary', e.target.checked)}
+                                    onChange={(e) =>
+                                        handleDisplaySettingChange(DISPLAY_SETTING.showInAssetSummary, e.target.checked)
+                                    }
                                     isDisabled={formValues?.settings?.isHidden}
-                                    labelHoverText="If enabled, this property will appear in asset sidebar"
+                                    labelHoverText={t('display.showInAssetSidebarTooltip')}
                                     data-testid="structured-props-show-in-asset-summary-switch"
                                 />
                             </StyledFormItem>
@@ -113,13 +128,16 @@ const DisplayPreferences = ({
                                 <StyledFormSubItem name={['settings', 'hideInAssetSummaryWhenEmpty']}>
                                     <CheckboxContainer>
                                         <Checkbox
-                                            label="Hide when Empty"
+                                            label={t('display.hideWhenEmpty')}
                                             isChecked={formValues?.settings?.hideInAssetSummaryWhenEmpty}
-                                            labelTooltip="If enabled, this property will only show in the asset sidebar if it's assigned to the asset"
+                                            labelTooltip={t('display.hideWhenEmptyTooltip')}
                                             size="sm"
                                             gap="2px"
                                             onCheckboxChange={(isChecked) =>
-                                                handleDisplaySettingChange('hideInAssetSummaryWhenEmpty', isChecked)
+                                                handleDisplaySettingChange(
+                                                    DISPLAY_SETTING.hideInAssetSummaryWhenEmpty,
+                                                    isChecked,
+                                                )
                                             }
                                             justifyContent="flex-start"
                                             dataTestId="structured-props-hide-in-asset-summary-when-empty-checkbox"
@@ -131,33 +149,35 @@ const DisplayPreferences = ({
                         </CompoundedItemWrapper>
                         <StyledFormItem name={['settings', 'showAsAssetBadge']}>
                             <Switch
-                                label="Show as Asset Badge"
+                                label={t('display.showAsAssetBadge')}
                                 size="sm"
                                 checked={formValues?.settings?.showAsAssetBadge === true}
                                 onChange={(e) => {
                                     if (badgeProperty && e.target.checked) setShowReplaceBadge(true);
-                                    else handleDisplaySettingChange('showAsAssetBadge', e.target.checked);
+                                    else handleDisplaySettingChange(DISPLAY_SETTING.showAsAssetBadge, e.target.checked);
                                 }}
                                 isDisabled={
                                     !hasAssetBadgeEnabled &&
                                     (formValues?.settings?.isHidden ||
                                         !canBeAssetBadge(selectedValueType, allowedValues))
                                 }
-                                labelHoverText="If enabled, this property will appear as asset badge"
-                                disabledHoverText="Only Text or Number property types with allowed values defined can appear as an asset badge."
+                                labelHoverText={t('display.showAsAssetBadgeTooltip')}
+                                disabledHoverText={t('display.showAsAssetBadgeDisabledTooltip')}
                             />
                         </StyledFormItem>
                         <StyledFormItem name={['settings', 'showInColumnsTable']}>
                             <Switch
-                                label="Show in Columns Table"
+                                label={t('display.showInColumnsTable')}
                                 size="sm"
                                 checked={formValues?.settings?.showInColumnsTable}
-                                onChange={(e) => handleDisplaySettingChange('showInColumnsTable', e.target.checked)}
+                                onChange={(e) =>
+                                    handleDisplaySettingChange(DISPLAY_SETTING.showInColumnsTable, e.target.checked)
+                                }
                                 isDisabled={
                                     !showInColumnsTable && (formValues?.settings?.isHidden || !hasColumnEntityType)
                                 }
-                                labelHoverText="If enabled, this property will appear as a column in the Columns table for Datasets"
-                                disabledHoverText="Property must apply to Columns in order to show in columns table."
+                                labelHoverText={t('display.showInColumnsTableTooltip')}
+                                disabledHoverText={t('display.showInColumnsTableDisabledTooltip')}
                                 data-testid="structured-props-show-in-columns-table-switch"
                             />
                         </StyledFormItem>
@@ -169,21 +189,28 @@ const DisplayPreferences = ({
                     isOpen={showReplaceBadge}
                     handleClose={handleReplaceClose}
                     handleConfirm={() => {
-                        handleDisplaySettingChange('showAsAssetBadge', true);
+                        handleDisplaySettingChange(DISPLAY_SETTING.showAsAssetBadge, true);
                         setShowReplaceBadge(false);
                         updateBadgePropertyToOff();
                     }}
-                    confirmButtonText="Update"
-                    modalTitle="Update Property"
+                    confirmButtonText={tc('update')}
+                    modalTitle={t('display.updatePropertyTitle')}
                     modalText={
                         <p>
-                            <span>Another property </span>
-                            <Pill label={getDisplayName(badgeProperty)} size="sm" color="violet" clickable={false} />
-                            &nbsp;is already being shown on asset previews, but only one property is allowed at a time.
-                            Do you want to replace the current property? This will hide {getDisplayName(
-                                badgeProperty,
-                            )}{' '}
-                            on all asset previews.
+                            <Trans
+                                i18nKey="display.replaceBadgeConfirmation"
+                                components={{
+                                    pill: (
+                                        <Pill
+                                            label={getDisplayName(badgeProperty)}
+                                            size="sm"
+                                            color="violet"
+                                            clickable={false}
+                                        />
+                                    ),
+                                }}
+                                values={{ name: getDisplayName(badgeProperty) }}
+                            />
                         </p>
                     }
                 />

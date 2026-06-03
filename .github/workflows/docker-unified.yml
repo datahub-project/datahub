@@ -115,6 +115,7 @@ jobs:
         env:
           GITHUB_REF_FALLBACK: ${{ github.event_name == 'release' && format('refs/tags/{0}', github.event.release.tag_name) || github.ref}}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           source .github/scripts/docker_helpers.sh
           {
@@ -362,6 +363,61 @@ jobs:
             ~/.gradle/caches/jars-*
             ~/.gradle/caches/transforms-*
           key: gradle-plugins-cache
+
+  comment_pr_images:
+    name: Comment PR image tags
+    runs-on: ubuntu-latest
+    needs: [setup, base_build]
+    if: ${{ github.event_name == 'pull_request' && needs.setup.outputs.pr-publish == 'true' }}
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Upsert PR image comment
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          PR_TAG: ${{ needs.setup.outputs.tag }}
+          SHORT_SHA: ${{ needs.setup.outputs.short_sha }}
+          REGISTRY: ${{ env.DOCKER_REGISTRY }}
+        with:
+          script: |
+            const marker = '<!-- pr-docker-images -->';
+            const { PR_TAG, SHORT_SHA, REGISTRY } = process.env;
+            const body = [
+              marker,
+              '## 🐳 Docker Images Published for Testing',
+              '',
+              `Images for this PR have been published to the [\`${REGISTRY}\`](https://hub.docker.com/u/${REGISTRY}) Docker Hub registry, tagged \`${PR_TAG}\`.`,
+              '',
+              'Run DataHub quickstart with these images:',
+              '',
+              '```bash',
+              `DATAHUB_VERSION=${PR_TAG} datahub docker quickstart`,
+              '```',
+              '',
+              'Or pull an individual image, e.g.:',
+              '',
+              '```bash',
+              `docker pull ${REGISTRY}/datahub-gms:${PR_TAG}`,
+              '```',
+              '',
+              `Pinned to commit \`${SHORT_SHA}\`.`,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+            });
+            const existing = comments.find(
+              (c) => c.user?.type === 'Bot' && c.body?.includes(marker),
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
 
   smoke_test_matrix:
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
@@ -1200,7 +1256,9 @@ jobs:
         timeout-minutes: 60
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
-          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstartDebugConsumers' }}"
+          echo "Using build task: $BUILD_TASK"
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
           docker images
         env:
           DOCKER_CACHE: GITHUB
@@ -1218,7 +1276,12 @@ jobs:
           SKIP_INSTALL_DEV: "true"
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
-        run: ./smoke-test/run-quickstart.sh
+          # Must match smoke_test and base_build (e.g. smoke:quickstartPg → quickstart-postgres).
+          # Default quickstart-consumers requires mae/mce images that are not built for pg-only profiles.
+          PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
+        run: |
+          echo "Using compose profile: $PROFILE_NAME"
+          ./smoke-test/run-quickstart.sh
 
       - name: Disable ES Disk Threshold
         run: |
@@ -1361,6 +1424,63 @@ jobs:
           name: playwright-html-report
           path: playwright-report/
           retention-days: 5
+
+      - name: Configure AWS credentials for S3 report upload
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        if: always()
+        continue-on-error: true
+        with:
+          role-to-assume: ${{ secrets.PLAYWRIGHT_REPORTS_OSS_ROLE_ARN }}
+          aws-region: us-west-2
+
+      - name: Publish Playwright report to S3
+        id: publish-s3-report
+        if: always()
+        continue-on-error: true
+        env:
+          GH_WORKFLOW: ${{ github.workflow }}
+          GH_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GH_EVENT_REPOSITORY_NAME: ${{ github.event.repository.name }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          if [[ ! -d playwright-report ]] || [[ -z "$(ls -A playwright-report 2>/dev/null)" ]]; then
+            echo "No playwright-report directory — skipping S3 upload"
+            exit 0
+          fi
+
+          BUCKET="datahub-oss-ci-build-artifacts.dev.dh-int.zone"
+
+          WORKFLOW_NAME=$(echo "$GH_WORKFLOW" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed 's/[^a-z0-9]/-/g' \
+            | sed -E 's/-+/-/g' \
+            | sed 's/^-//;s/-$//')
+          S3_PATH="${GH_REPOSITORY_OWNER}/${GH_EVENT_REPOSITORY_NAME}/workflows/${GH_EVENT_NAME}/${GH_RUN_ID}_${GH_RUN_ATTEMPT}/${WORKFLOW_NAME}/playwright-report"
+
+          aws s3 sync playwright-report/ "s3://${BUCKET}/${S3_PATH}/" \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --sse AES256 \
+            --delete
+
+          REPORT_URL="https://${BUCKET}/${S3_PATH}/index.html"
+          echo "report_url=${REPORT_URL}" >> "$GITHUB_OUTPUT"
+          echo "Published Playwright report to: ${REPORT_URL}"
+
+      - name: Add report link to GitHub Summary
+        if: ${{ always() && steps.publish-s3-report.outputs.report_url != '' }}
+        run: |
+          {
+            echo "## Playwright HTML Report"
+            echo ""
+            echo "| Resource | Link |"
+            echo "|----------|------|"
+            echo "| HTML Report (incl. Traces) | ${{ steps.publish-s3-report.outputs.report_url }} |"
+            echo ""
+            echo "> [!NOTE]"
+            echo "> Accessible from the DataHub VPN only."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   publish_images:
     name: Update quickstart tag after tests pass on master

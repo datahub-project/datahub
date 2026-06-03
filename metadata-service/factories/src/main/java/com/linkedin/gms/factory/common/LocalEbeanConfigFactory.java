@@ -45,6 +45,9 @@ public class LocalEbeanConfigFactory {
   @Value("${ebean.waitTimeoutMillis:1000}")
   private Integer ebeanWaitTimeoutMillis;
 
+  @Value("${ebean.autoCommit:true}")
+  private Boolean ebeanAutoCommit;
+
   @Value("${ebean.autoCreateDdl:false}")
   private Boolean ebeanAutoCreate;
 
@@ -130,7 +133,9 @@ public class LocalEbeanConfigFactory {
     dataSourceConfig.setMaxAgeMinutes(ebeanMaxAgeMinutes);
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
     dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
+    dataSourceConfig.setAutoCommit(ebeanAutoCommit);
     dataSourceConfig.setListener(getListenerToTrackCounts(metricUtils, "main"));
+    EbeanPoolDefaults.applyDefaultTransactionIsolation(dataSourceConfig);
 
     // Set custom properties for IAM authentication
     if (crossCloudConfig.customProperties != null) {

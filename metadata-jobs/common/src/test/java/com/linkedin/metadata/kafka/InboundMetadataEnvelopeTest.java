@@ -6,6 +6,7 @@ import static org.testng.Assert.assertNull;
 import com.linkedin.metadata.queue.PgQueuePayloadCompression;
 import com.linkedin.metadata.queue.QueueMessageHandle;
 import com.linkedin.metadata.queue.QueueReceivedMessage;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -33,6 +34,7 @@ public class InboundMetadataEnvelopeTest {
         InboundMetadataEnvelope.fromPgQueue(
             message, "MetadataChangeLog_Versioned_v1", "mae-consumer", "decoded-value");
 
+    assertEquals(envelope.getMessagingSystem(), MetricUtils.MESSAGING_SYSTEM_PGQUEUE);
     assertEquals(envelope.getLogicalTopic(), "MetadataChangeLog_Versioned_v1");
     assertEquals(envelope.getKey(), "urn:li:dataset:abc");
     assertEquals(envelope.getPayload(), "decoded-value");
@@ -57,6 +59,7 @@ public class InboundMetadataEnvelopeTest {
     InboundMetadataEnvelope<String> envelope =
         InboundMetadataEnvelope.fromKafka(record, "mce-consumer");
 
+    assertEquals(envelope.getMessagingSystem(), MetricUtils.MESSAGING_SYSTEM_KAFKA);
     assertEquals(envelope.getLogicalTopic(), "MCP_v1");
     assertEquals(envelope.getKey(), "key");
     assertEquals(envelope.getPayload(), "value");

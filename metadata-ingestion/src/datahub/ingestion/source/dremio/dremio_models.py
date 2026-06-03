@@ -23,7 +23,7 @@ class DremioDatasetType(StrEnum):
 
 
 class DremioJobState(StrEnum):
-    """Dremio async job states. Consumer lands in #17652 / A2."""
+    """Dremio async job terminal and in-progress states."""
 
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
@@ -39,7 +39,7 @@ class DremioOwnerType(StrEnum):
 
 
 class DremioContainerResponse(BaseModel):
-    """Typed Dremio container payload. Consumer lands in #17652 / A2."""
+    """Typed Dremio container payload covering Catalog and child-listing shapes."""
 
     id: Optional[str] = None
     name: str = Field(alias="name")
@@ -50,8 +50,9 @@ class DremioContainerResponse(BaseModel):
     database_name: Optional[str] = Field(default=None)
     tag: Optional[str] = Field(default=None)
     created_at: Optional[str] = Field(default=None, alias="createdAt")
-    # Stamped by the recursive catalog walk in A2 so a folder inherits its
-    # root container's subtype for browse-path prefixing.
+    # Stamped by the recursive catalog walk in DremioAPIOperations so a
+    # folder inherits its root container's subtype for browse-path
+    # prefixing.
     root_container_type: Optional[str] = None
 
     class Config:

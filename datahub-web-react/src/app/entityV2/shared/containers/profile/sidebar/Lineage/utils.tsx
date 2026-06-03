@@ -114,6 +114,7 @@ export const getRelatedEntitySummary = (
                                 ? (entityRegistry.getEntityName(type.type as EntityType) ?? '')
                                 : type.type,
                         ).toLocaleLowerCase()}
+                        {/* eslint-disable-next-line i18next/no-literal-string -- list separator punctuation, not translatable UI text */}
                         {idx < summary.types.length - 1 && <>, </>}
                     </SummaryText>
                 );

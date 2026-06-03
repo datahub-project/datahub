@@ -115,6 +115,32 @@ class LossyList(List[T], Generic[T]):
         self.total_elements = total
         self.sampled = self.total_elements > self.max_elements
 
+    def resize(self, max_elements: int) -> None:
+        """Change max_elements, pruning excess entries if shrinking.
+
+        Growing is lossless. Shrinking drops random entries (consistent with
+        the reservoir-sampling behavior used elsewhere in this class) and
+        marks the list as sampled. Once sampled, the flag is never cleared —
+        dropped entries cannot be recovered by a subsequent grow.
+
+        Note: total_elements (and therefore len()) is not adjusted — it always
+        reflects the count of all ever-appended items, not the current retained
+        count.
+        """
+        if max_elements < 1:
+            raise ValueError(f"max_elements must be >= 1, got {max_elements}")
+        if max_elements == self.max_elements:
+            return
+        self.max_elements = max_elements
+        current_len = super().__len__()
+        if current_len > max_elements:
+            indices_to_drop = random.sample(
+                range(current_len), current_len - max_elements
+            )
+            for i in sorted(indices_to_drop, reverse=True):
+                super().__delitem__(i)
+            self.sampled = True
+
 
 class LossySet(Set[T], Generic[T]):
     """A set that only preserves a sample of elements in a set. Currently this is a very simple greedy sampling set"""
@@ -202,6 +228,8 @@ class LossyDict(Dict[_KT, _VT], Generic[_KT, _VT]):
 
     def resize(self, max_elements: int) -> None:
         """Change max_elements, pruning excess entries if needed."""
+        if max_elements < 1:
+            raise ValueError(f"max_elements must be >= 1, got {max_elements}")
         self.max_elements = max_elements
         excess = super().__len__() - max_elements
         if excess > 0:
