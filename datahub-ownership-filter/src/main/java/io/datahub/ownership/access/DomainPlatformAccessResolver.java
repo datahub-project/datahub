@@ -36,6 +36,16 @@ public class DomainPlatformAccessResolver {
     private static final String PLATFORM_FIELD = "platform";
     private static final int AGG_LIMIT = 10_000;
 
+    /**
+     * Asset entity types that carry a {@code domains} and/or {@code platform} field. We aggregate
+     * only over these (never the full index set) so the ownership predicate stays meaningful. The
+     * list is intersected with the live registry, so unknown names on a given version are skipped.
+     */
+    private static final List<String> ASSET_ENTITY_CANDIDATES = List.of(
+            "dataset", "dashboard", "chart", "dataFlow", "dataJob", "dataProcessInstance",
+            "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey",
+            "container", "notebook", "dataProduct");
+
     public record AccessSets(Set<String> domains, Set<String> platforms) {}
 
     private final EntitySearchService entitySearchService;
@@ -66,14 +76,37 @@ public class DomainPlatformAccessResolver {
             return cached;
         }
         Filter ownership = buildOwnershipFilter(actor, groups);
-        // entityNames = null -> aggregate across all entity types; the field only exists on assets.
+        // Scope the aggregation to concrete asset entity types. Passing null makes aggregateByValue
+        // query EVERY entity index (getAllEntityIndicesPatterns) while the ownership filter is only
+        // transformed for the default specs; on indices without an `owners` field the
+        // `owners EXISTS negated` clause then matches every document, so the aggregation returns all
+        // domains/platforms regardless of ownership (DataHub v1.5.x; on other ES/OpenSearch builds
+        // the same query can instead return empty or throw, blanking the home-page cards).
+        List<String> assetEntities = assetEntityNames(opCtx);
         Set<String> domains =
-                entitySearchService.aggregateByValue(opCtx, null, DOMAINS_FIELD, ownership, AGG_LIMIT).keySet();
+                entitySearchService.aggregateByValue(opCtx, assetEntities, DOMAINS_FIELD, ownership, AGG_LIMIT).keySet();
         Set<String> platforms =
-                entitySearchService.aggregateByValue(opCtx, null, PLATFORM_FIELD, ownership, AGG_LIMIT).keySet();
+                entitySearchService.aggregateByValue(opCtx, assetEntities, PLATFORM_FIELD, ownership, AGG_LIMIT).keySet();
         AccessSets sets = new AccessSets(Set.copyOf(domains), Set.copyOf(platforms));
         cache.put(actor.toString(), sets);
         return sets;
+    }
+
+    /** Candidate asset entity names that actually exist in this deployment's registry. */
+    private List<String> assetEntityNames(@Nonnull OperationContext opCtx) {
+        Set<String> known = opCtx.getEntityRegistry().getEntitySpecs().keySet();
+        List<String> names = new ArrayList<>(ASSET_ENTITY_CANDIDATES.size());
+        for (String name : ASSET_ENTITY_CANDIDATES) {
+            if (known.contains(name)) {
+                names.add(name);
+            }
+        }
+        // Never fall back to null/empty (that would query all indices and over-match); dataset is
+        // always present in a DataHub registry.
+        if (names.isEmpty()) {
+            names.add("dataset");
+        }
+        return names;
     }
 
     /** owners IN [actor, groups]  OR  owners absent/empty (the same predicate the search filter uses). */
