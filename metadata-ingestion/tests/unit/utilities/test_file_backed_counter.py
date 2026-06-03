@@ -41,6 +41,13 @@ def test_counter_close_is_idempotent():
     c.close()
 
 
+def test_counter_rejects_unsafe_tablename():
+    # tablename is interpolated into SQL (SQLite can't bind identifiers), so it must be
+    # a safe identifier, not attacker-controlled text.
+    with pytest.raises(ValueError):
+        FileBackedCounter(tablename="counts; DROP TABLE x --")
+
+
 def test_counter_increment_is_thread_safe():
     # Concurrent increments must not lose counts or hit "dict changed size during
     # iteration" in _flush. A tiny batch_size forces flushes to interleave with the

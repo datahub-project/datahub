@@ -601,6 +601,10 @@ class FileBackedCounter(Closeable):
         tablename: str = "counter",
         batch_size: int = 50000,
     ) -> None:
+        # tablename is interpolated into the SQL below (SQLite cannot bind identifiers),
+        # so require a safe identifier instead of trusting the caller blindly.
+        if not tablename.isidentifier():
+            raise ValueError(f"tablename must be a valid identifier, got {tablename!r}")
         self._conn = shared_connection or ConnectionWrapper()
         self._owns_connection = shared_connection is None
         self._tablename = tablename
