@@ -27,6 +27,7 @@ import enHomeV2 from '@src/i18n/locales/en/home.v2.json';
 import enHomeV3 from '@src/i18n/locales/en/home.v3.json';
 import enMisc from '@src/i18n/locales/en/misc.json';
 import enModules from '@src/i18n/locales/en/modules.json';
+import enOnboarding from '@src/i18n/locales/en/onboarding.json';
 import enSettingsFeatures from '@src/i18n/locales/en/settings.features.json';
 import enSettingsPage from '@src/i18n/locales/en/settings.page.json';
 import enSettingsPermissions from '@src/i18n/locales/en/settings.permissions.json';
@@ -62,6 +63,7 @@ i18n.use(initReactI18next).init({
         'home.v3',
         'misc',
         'modules',
+        'onboarding',
         'settings.features',
         'settings.page',
         'settings.permissions',
@@ -93,6 +95,7 @@ i18n.use(initReactI18next).init({
             'home.v3': enHomeV3,
             misc: enMisc,
             modules: enModules,
+            onboarding: enOnboarding,
             'settings.features': enSettingsFeatures,
             'settings.page': enSettingsPage,
             'settings.permissions': enSettingsPermissions,

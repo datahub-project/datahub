@@ -25,6 +25,7 @@ export const NAMESPACES = [
     'home.v3',
     'misc',
     'modules',
+    'onboarding',
     'settings.features',
     'settings.page',
     'settings.permissions',
