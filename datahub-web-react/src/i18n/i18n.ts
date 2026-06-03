@@ -9,6 +9,7 @@ export const NAMESPACES = [
     'common.labels',
     'entity.identity',
     'entity.ownership',
+    'entity.preview',
     'entity.profile.documentation',
     'entity.profile.incident',
     'entity.profile.validations',
