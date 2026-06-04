@@ -13,6 +13,7 @@ import enCommonFeedback from '@src/i18n/locales/en/common.feedback.json';
 import enCommonLabels from '@src/i18n/locales/en/common.labels.json';
 import enEntityIdentity from '@src/i18n/locales/en/entity.identity.json';
 import enEntityOwnership from '@src/i18n/locales/en/entity.ownership.json';
+import enEntityPreview from '@src/i18n/locales/en/entity.preview.json';
 import enEntityProfileAccess from '@src/i18n/locales/en/entity.profile.access.json';
 import enEntityProfileDocumentation from '@src/i18n/locales/en/entity.profile.documentation.json';
 import enEntityProfileIncident from '@src/i18n/locales/en/entity.profile.incident.json';
@@ -54,6 +55,7 @@ i18n.use(initReactI18next).init({
         'entity.identity',
         'entity.profile.documentation',
         'entity.ownership',
+        'entity.preview',
         'entity.profile.incident',
         'entity.profile.tabs',
         'entity.profile.validations',
@@ -90,6 +92,7 @@ i18n.use(initReactI18next).init({
             'entity.identity': enEntityIdentity,
             'entity.profile.documentation': enEntityProfileDocumentation,
             'entity.ownership': enEntityOwnership,
+            'entity.preview': enEntityPreview,
             'entity.profile.incident': enEntityProfileIncident,
             'entity.profile.tabs': enEntityProfileTabs,
             'entity.profile.validations': enEntityProfileValidations,

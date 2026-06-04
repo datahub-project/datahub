@@ -48,17 +48,21 @@ export default function ColumnPathsText({ paths, resultEntityUrn, openModal }: P
 
     return (
         <>
+            {/* eslint-disable i18next/no-literal-string -- (untranslated-text) lineage column-path phrase; deferred to follow-up */}
             <DescriptionWrapper>
                 {lineageDirection === LineageDirection.Downstream ? 'Downstream' : 'Upstream'} column
                 {displayedColumns.length > 1 && 's'}:&nbsp;
             </DescriptionWrapper>
+            {/* eslint-enable i18next/no-literal-string */}
             <ResultText onClick={openModal}>
                 <Tooltip
                     title={
+                        /* eslint-disable i18next/no-literal-string -- (untranslated-text) lineage column-path phrase; deferred to follow-up */
                         <span>
                             Click to see column path{paths.length > 1 && 's'} from{' '}
                             <ColumnsRelationshipText displayedColumns={displayedColumns} />
                         </span>
+                        /* eslint-enable i18next/no-literal-string */
                     }
                 >
                     <span>
