@@ -42,6 +42,7 @@ const IconSpan = styled.span`
     font-size: 18px;
 `;
 
+/* untranslated-text -- ML feature data-type enum display labels, mirror GraphQL MlFeatureDataType enum */
 const DATA_TYPE_ICON_MAP: Record<MlFeatureDataType, { icon: FC<{ style: any }> | null; size: number; text: string }> = {
     [MlFeatureDataType.Byte]: {
         icon: () => (
@@ -88,6 +89,7 @@ export default function MlFeatureDataTypeIcon({ dataType }: Props) {
         <NativeDataTypeTooltip>
             <TypeIconContainer>
                 {Icon && <Icon style={{ fontSize: size }} />}
+                {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) programmatic flag value for styled-component prop, not user-facing copy */}
                 <TypeSubtitle type="secondary" hasicon={Icon ? 'yes' : undefined}>
                     {text}
                 </TypeSubtitle>
