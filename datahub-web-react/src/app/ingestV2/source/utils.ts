@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import YAML from 'yamljs';
 
 import { SortingState } from '@components/components/Table/types';
@@ -34,6 +35,7 @@ import {
 } from '@types';
 
 const CUSTOM_SOURCE_NAME = 'custom';
+/* untranslated-text -- used programmatically as a source-type discriminator, not rendered as UI copy */
 export const CUSTOM_SOURCE_DISPLAY_NAME = 'Custom';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
@@ -75,7 +77,7 @@ export const validateURL = (fieldName: string) => {
             if (!value || isURLValid) {
                 return Promise.resolve();
             }
-            return Promise.reject(new Error(`A valid ${fieldName} is required.`));
+            return Promise.reject(new Error(i18next.t('ingestion:source.validUrlRequired', { fieldName })));
         },
     };
 };
@@ -104,7 +106,7 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
     ): StructuredReportLogEntry[] => {
         return Object.entries(items).map(([rawMessage, context]) => ({
             level,
-            title: 'An unexpected issue occurred',
+            title: i18next.t('ingestion:report.unexpectedIssue'),
             message: rawMessage,
             context,
         }));
@@ -121,7 +123,7 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
 
                 return {
                     level,
-                    title: item.title || 'An unexpected issue occurred',
+                    title: item.title || i18next.t('ingestion:report.unexpectedIssue'),
                     message: item.message,
                     context: item.context,
                 };
@@ -374,6 +376,7 @@ export const getOtherIngestionContents = (
     if (totalDatasetProfileCount > 0) {
         const datasetProfilePercent = `${((totalDatasetProfileCount / totalStatusCount) * 100).toFixed(0)}%`;
         result.push({
+            /* untranslated-text -- value doubles as the React key via getKey; changing it would alter grouping */
             type: 'Profiling',
             count: totalDatasetProfileCount,
             percent: datasetProfilePercent,
@@ -383,12 +386,14 @@ export const getOtherIngestionContents = (
     if (totalDatasetUsageStatisticsCount > 0) {
         const datasetUsageStatisticsPercent = `${((totalDatasetUsageStatisticsCount / totalStatusCount) * 100).toFixed(0)}%`;
         result.push({
+            /* untranslated-text -- value doubles as the React key via getKey; changing it would alter grouping */
             type: 'Usage',
             count: totalDatasetUsageStatisticsCount,
             percent: datasetUsageStatisticsPercent,
         });
     } else {
         result.push({
+            /* untranslated-text -- value doubles as the React key via getKey; changing it would alter grouping */
             type: 'Usage',
             count: 0,
             percent: '0%',

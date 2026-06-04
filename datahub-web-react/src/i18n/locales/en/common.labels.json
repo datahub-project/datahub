@@ -2,16 +2,22 @@
     "category": "Category",
     "column": "Column",
     "columns": "Columns",
+    "created": "Created",
     "description": "Description",
     "details": "Details",
+    "domain": "Domain",
     "na": "N/A",
     "name": "Name",
+    "none": "None",
+    "owner": "Owner",
     "owners": "Owners",
     "rows": "Rows",
+    "source": "Source",
     "state": "State",
     "status": "Status",
     "tags": "Tags",
     "title": "Title",
     "type": "Type",
-    "usage": "Usage"
+    "usage": "Usage",
+    "value": "Value"
 }

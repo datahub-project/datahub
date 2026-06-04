@@ -2,6 +2,7 @@ import { Popover } from '@components';
 import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
 import i18next from 'i18next';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { getLastIngestedColor } from '@app/entity/shared/containers/profile/sidebar/LastIngested';
@@ -61,6 +62,7 @@ const descriptors = {
 };
 
 const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
+    const { t } = useTranslation('entity.preview');
     const lastUpdatedAgo = toRelativeTimeString(time);
 
     if (!time || time === 0) return null;
@@ -80,11 +82,7 @@ const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
 
     return (
         <Popover
-            content={
-                /* eslint-disable i18next/no-literal-string -- (untranslated-text) dynamic relative-time join; `updateType` is already translated and `lastUpdatedAgo` is a localized relative-time string with language-varying word order */
-                <PopoverContent>{`${updateType} ${lastUpdatedAgo}`}</PopoverContent>
-                /* eslint-enable i18next/no-literal-string */
-            }
+            content={<PopoverContent>{t('freshness.popoverContent', { updateType, lastUpdatedAgo })}</PopoverContent>}
             placement="bottom"
             showArrow={false}
         >
