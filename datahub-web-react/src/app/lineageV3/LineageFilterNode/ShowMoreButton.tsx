@@ -71,7 +71,6 @@ interface Props {
 
 export function ShowMoreButton({ data, numMatches }: Props) {
     const { t } = useTranslation('lineage');
-    const { t: tcAction } = useTranslation('common.actions');
     const { direction, contents, limit, parent } = data;
     const { nodes, setDisplayVersion } = useContext(LineageNodesContext);
 
@@ -104,9 +103,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
                     data-testid="show-more"
                 >
                     <Text>
-                        {limit + LINEAGE_FILTER_PAGINATION >= maximum
-                            ? tcAction('showAll')
-                            : tcAction('showMoreCapitalized')}
+                        {limit + LINEAGE_FILTER_PAGINATION >= maximum ? t('filter.showAll') : t('filter.showMore')}
                     </Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
@@ -119,7 +116,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
                     onClick={() => setPagination(Math.min(maximum, limit) - LINEAGE_FILTER_PAGINATION)}
                     data-testid="show-less"
                 >
-                    <Text>{tcAction('showLess')}</Text>
+                    <Text>{t('filter.showLess')}</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
             );
@@ -127,7 +124,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
         if (limit + LINEAGE_FILTER_PAGINATION < maximum && limit + MAX_INCREASE >= maximum) {
             list.push(
                 <Button key="show-all" onClick={() => setPagination(maximum)} data-testid="show-all">
-                    <Text>{tcAction('showAll')}</Text>
+                    <Text>{t('filter.showAll')}</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
             );
@@ -141,7 +138,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
             );
         }
         return list;
-    }, [limit, maximum, setPagination, t, tcAction]);
+    }, [limit, maximum, setPagination, t]);
 
     if (!buttons.length) return null;
     return (
