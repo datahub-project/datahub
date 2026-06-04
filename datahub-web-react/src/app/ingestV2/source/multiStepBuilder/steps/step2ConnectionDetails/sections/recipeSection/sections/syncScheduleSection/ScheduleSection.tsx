@@ -1,6 +1,7 @@
 import { Icon, Switch, Text } from '@components';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -39,6 +40,7 @@ const TimezoneContainer = styled.div`
 `;
 
 export function ScheduleSection() {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const { updateState, state } = useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep>();
     const { schedule } = state;
     const interval = schedule?.interval?.replaceAll(', ', ' ') || DAILY_MIDNIGHT_CRON_INTERVAL;
@@ -55,7 +57,9 @@ export function ScheduleSection() {
         if (scheduleCronInterval) {
             try {
                 return {
-                    text: `Runs ${lowerFirstLetter(cronToString(scheduleCronInterval))}.`,
+                    text: t('multiStep.schedule.runs', {
+                        schedule: lowerFirstLetter(cronToString(scheduleCronInterval)),
+                    }),
                     error: false,
                 };
             } catch (e) {
@@ -69,7 +73,7 @@ export function ScheduleSection() {
             text: undefined,
             error: false,
         };
-    }, [scheduleCronInterval]);
+    }, [scheduleCronInterval, t]);
 
     useEffect(() => {
         if (scheduleEnabled) {
@@ -106,17 +110,17 @@ export function ScheduleSection() {
 
     return (
         <SectionContainer data-testid="sync-schedule-section">
-            <SectionName name="Sync Schedule" description={subtitle} />
+            <SectionName name={t('multiStep.schedule.title')} description={subtitle} />
             <SwitchLabel>
                 <Text size="sm" weight="bold" color="gray" colorLevel={600}>
-                    Run on a schedule
+                    {t('multiStep.schedule.runOnSchedule')}
                 </Text>
                 <Text size="sm" weight="bold" color="gray" colorLevel={1700}>
-                    (recommended)
+                    {t('multiStep.schedule.recommended')}
                 </Text>
             </SwitchLabel>
             <Switch
-                label="Keep metadata current by automatically syncing on a regular interval"
+                label={t('multiStep.schedule.switchLabel')}
                 checked={scheduleEnabled}
                 onChange={(e) => setScheduleEnabled(e.target.checked)}
                 labelPosition="right"
@@ -126,7 +130,7 @@ export function ScheduleSection() {
                 <WarningContainer>
                     <Icon icon={Warning} color="yellow" colorLevel={1000} size="md" />
                     <Text color="yellow" colorLevel={1000} size="sm">
-                        Running ingestion without a schedule may result in out-of-date information.
+                        {t('multiStep.schedule.noScheduleWarning')}
                     </Text>
                 </WarningContainer>
             )}
@@ -136,7 +140,7 @@ export function ScheduleSection() {
                 cronAsText={cronAsText}
             />
             <TimezoneContainer>
-                <Text color="gray">Choose a timezone for the schedule.</Text>
+                <Text color="gray">{t('multiStep.schedule.chooseTimezone')}</Text>
                 <TimezoneSelect value={scheduleTimezone} onChange={setScheduleTimezone} />
             </TimezoneContainer>
         </SectionContainer>
