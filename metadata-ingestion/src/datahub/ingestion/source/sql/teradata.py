@@ -2888,11 +2888,11 @@ ORDER by DataBaseName, TableName;
                     query_db_elapsed = 0.0
 
                     try:
-                        t_start = time.time()
+                        t_start = time.monotonic()
                         result = self._execute_with_cursor_fallback(
                             conn, lineage_query.sql
                         )
-                        query_db_elapsed += time.time() - t_start
+                        query_db_elapsed += time.monotonic() - t_start
                         _mark_phase("awaiting_first_batch", query_index)
 
                         # Stream results in batches to avoid memory issues
@@ -2908,9 +2908,9 @@ ORDER by DataBaseName, TableName;
                             # propagates to the outer except block.  The stall-detection
                             # watchdog above covers the complementary failure mode where
                             # fetchmany() hangs rather than raises.
-                            t_start = time.time()
+                            t_start = time.monotonic()
                             batch = self._retry_fetchmany(result, batch_size)
-                            query_db_elapsed += time.time() - t_start
+                            query_db_elapsed += time.monotonic() - t_start
                             if not batch:
                                 break
 
