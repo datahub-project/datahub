@@ -149,6 +149,7 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
+from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
@@ -306,6 +307,8 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     )
 
     nodes_filtered: LossyList[str] = field(default_factory=LossyList)
+
+    lineage_upstreams_skipped_missing: int = 0
 
     duplicate_sources_dropped: Optional[int] = None
     duplicate_sources_references_updated: Optional[int] = None
@@ -542,6 +545,17 @@ class DBTCommonConfig(
         "Requires that `entities_enabled.sources` is set to `NO`. "
         "This is mainly useful when you have multiple, interdependent dbt projects. ",
     )
+    skip_missing_upstreams_in_lineage: bool = Field(
+        default=False,
+        description="When enabled, upstream datasets that do not already exist in DataHub are excluded from "
+        "lineage, preventing dangling graph edges from appearing in the lineage UI. "
+        "Typically used together with `skip_sources_in_lineage` and `entities_enabled.sources: NO`. "
+        "Important caveats: (1) if dbt is ingested before its upstream source systems, those lineage "
+        "edges will be silently omitted until dbt is re-ingested after the upstreams are present; "
+        "(2) adds one graph.exists() round-trip per unique upstream URN per run (cached within the run); "
+        "(3) soft-deleted upstream entities are treated as present. "
+        "Requires a DataHub graph connection.",
+    )
     tag_prefix: str = Field(
         default=f"{DBT_PLATFORM}:", description="Prefix added to tags during ingestion."
     )
@@ -728,6 +742,15 @@ class DBTCommonConfig(
         if self.prefer_sql_parser_lineage and not self.skip_sources_in_lineage:
             raise ValueError(
                 "`prefer_sql_parser_lineage` requires that `skip_sources_in_lineage` is enabled."
+            )
+
+        if self.skip_missing_upstreams_in_lineage and not self.skip_sources_in_lineage:
+            logger.warning(
+                "`skip_missing_upstreams_in_lineage` is most effective with `skip_sources_in_lineage` enabled. "
+                "Without it, source nodes appear as dbt URNs in lineage rather than target-platform URNs, "
+                "so on the first ingestion run dbt source entities do not yet exist in DataHub and their "
+                "lineage edges will be silently dropped. The flag still works correctly for model-to-model "
+                "lineage and on subsequent runs once source entities are committed."
             )
 
         if (
@@ -1224,7 +1247,7 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     return custom_properties
 
 
-def _get_dbt_cte_names(name: str, target_platform: str) -> List[str]:
+def _get_dbt_cte_names(name: str, adapter: str) -> List[str]:
     # Match the dbt CTE naming scheme:
     # The default is defined here https://github.com/dbt-labs/dbt-core/blob/4122f6c308c88be4a24c1ea490802239a4c1abb8/core/dbt/adapters/base/relation.py#L222
     # However, since this PR https://github.com/dbt-labs/dbt-core/pull/2712, it's also possible
@@ -1243,8 +1266,8 @@ def _get_dbt_cte_names(name: str, target_platform: str) -> List[str]:
     }
 
     cte_names = [default_cte_name]
-    if target_platform in adapter_cte_names:
-        cte_names.append(adapter_cte_names[target_platform])
+    if adapter in adapter_cte_names:
+        cte_names.append(adapter_cte_names[adapter])
 
     return cte_names
 
@@ -1410,6 +1433,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._query_timestamp_cache: Optional[int] = None
         # Exposures loaded by subclass (manifest or dbt Cloud API)
         self._exposures: List[DBTExposure] = []
+        # Cache for upstream existence checks (skip_missing_upstreams_in_lineage)
+        self._upstream_exists_cache: Dict[str, bool] = {}
 
     def _get_query_timestamp(self) -> int:
         """Get timestamp for Query entities, cached for reproducibility."""
@@ -1434,6 +1459,28 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._query_timestamp_cache = datetime_to_ts_millis(datetime.now())
         self.report.query_timestamps_fallback_used = True
         return self._query_timestamp_cache
+
+    def _upstream_exists_in_datahub(self, urn: str) -> bool:
+        """Check whether an upstream URN exists in DataHub, with per-run caching.
+
+        Fails open: if the existence check itself fails (transient GMS error, timeout,
+        etc.) the edge is kept to avoid silent lineage loss.
+        """
+        if urn not in self._upstream_exists_cache:
+            assert self.ctx.graph  # caller ensures graph is available
+            try:
+                self._upstream_exists_cache[urn] = self.ctx.graph.exists(urn)
+            except Exception as e:
+                self.report.report_warning(
+                    title="Upstream existence check failed",
+                    message="Could not verify upstream existence; keeping the lineage edge to avoid silent lineage loss.",
+                    context=urn,
+                    exc=e,
+                )
+                self._upstream_exists_cache[urn] = True  # fail open
+            if not self._upstream_exists_cache[urn]:
+                self.report.lineage_upstreams_skipped_missing += 1
+        return self._upstream_exists_cache[urn]
 
     def create_test_entity_mcps(
         self,
@@ -1793,6 +1840,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
         if self.config.write_semantics == "PATCH":
             self.ctx.require_graph("Using dbt with write_semantics=PATCH")
+        if self.config.skip_missing_upstreams_in_lineage:
+            self.ctx.require_graph(
+                "Using dbt with skip_missing_upstreams_in_lineage=True"
+            )
 
         all_nodes, additional_custom_props = self.load_nodes()
 
@@ -2192,7 +2243,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     ]
                     if upstream_node.is_ephemeral_model()
                     for cte_name in _get_dbt_cte_names(
-                        upstream_node.name, schema_resolver.platform
+                        upstream_node.name,
+                        upstream_node.dbt_adapter or schema_resolver.platform,
                     )
                 }
                 if cte_mapping:
@@ -2277,10 +2329,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> SqlParsingResult:
         assert node.compiled_code is not None
 
+        # Use the dbt adapter as the SQL dialect (e.g. "trino", "snowflake").
+        # schema_resolver.platform is the storage platform (e.g. "glue") which
+        # is used for URN construction, not SQL parsing.
+        sql_dialect: str = node.dbt_adapter or schema_resolver.platform
+
         try:
             picked_statement = parse_statements_and_pick(
                 node.compiled_code,
-                platform=schema_resolver.platform,
+                platform=sql_dialect,
             )
         except Exception as e:
             logger.debug(
@@ -2293,7 +2350,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         try:
             preprocessed_sql = detach_ctes(
                 picked_statement,
-                platform=schema_resolver.platform,
+                platform=sql_dialect,
                 cte_mapping=cte_mapping,
             )
         except Exception as e:
@@ -2304,7 +2361,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             return SqlParsingResult.make_from_error(e)
 
-        sql_result = sqlglot_lineage(preprocessed_sql, schema_resolver=schema_resolver)
+        sql_result = sqlglot_lineage(
+            preprocessed_sql,
+            schema_resolver=schema_resolver,
+            override_dialect=sql_dialect,
+        )
         if sql_result.debug_info.table_error:
             self.report.sql_parser_table_errors += 1
             logger.info(
@@ -2844,7 +2905,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         compiled_code = None
         if self.config.include_compiled_code and node.compiled_code:
             compiled_code = try_format_query(
-                node.compiled_code, platform=self.config.target_platform
+                node.compiled_code,
+                platform=node.dbt_adapter or self.config.target_platform,
             )
             compiled_code = self._truncate_code(compiled_code, _DBT_MAX_SQL_LENGTH)
 
@@ -3201,6 +3263,31 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         valid_cll_entries, lambda x: x.downstream_col
                     )
                 ]
+
+            if self.config.skip_missing_upstreams_in_lineage:
+                upstream_urns = [
+                    urn
+                    for urn in upstream_urns
+                    if self._upstream_exists_in_datahub(urn)
+                ]
+                # Also filter CLL: schemaField edges embed the parent dataset URN,
+                # so a missing upstream with CLL still creates the ghost node via
+                # graphService.addEdge(). Keep only entries whose upstream datasets
+                # are all in the surviving set.
+                if cll:
+                    existing_upstream_set = set(upstream_urns)
+                    filtered_cll = []
+                    for entry in cll:
+                        filtered_upstreams = [
+                            sf_urn
+                            for sf_urn in (entry.upstreams or [])
+                            if Urn.from_string(sf_urn).entity_ids[0]
+                            in existing_upstream_set
+                        ]
+                        if filtered_upstreams:
+                            entry.upstreams = filtered_upstreams
+                            filtered_cll.append(entry)
+                    cll = filtered_cll
 
             if not upstream_urns:
                 return None
