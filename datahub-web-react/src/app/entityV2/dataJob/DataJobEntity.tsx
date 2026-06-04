@@ -5,6 +5,7 @@ import { Share } from '@phosphor-icons/react/dist/csr/Share';
 import { Swap } from '@phosphor-icons/react/dist/csr/Swap';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -86,9 +87,9 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getPathName = () => 'tasks';
 
-    getEntityName = () => 'Task';
+    getEntityName = () => i18next.t('entity.types:dataJob.name');
 
-    getCollectionName = () => 'Tasks';
+    getCollectionName = () => i18next.t('entity.types:dataJob.namePlural');
 
     useEntityQuery = useGetDataJobQuery;
 
@@ -102,28 +103,28 @@ export class DataJobEntity implements Entity<DataJob> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
-                    name: 'Pipeline',
+                    name: i18next.t('entity.types:dataFlow.name'),
                     component: DataJobFlowTab,
                     icon: Share,
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
                     icon: TreeStructure,
                     supportsFullsize: true,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: ListBullets,
                 },
                 {
-                    name: 'Runs',
+                    name: i18next.t('entity.types:tab.runs'),
                     component: RunsTab,
                     icon: ArrowsClockwise,
                     display: {
@@ -132,7 +133,7 @@ export class DataJobEntity implements Entity<DataJob> {
                     },
                 },
                 {
-                    name: 'Incidents',
+                    name: i18next.t('entity.types:tab.incidents'),
                     icon: WarningCircle,
                     component: IncidentTab,
                     getCount: (_, dataJob) => {
@@ -166,18 +167,18 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
         },
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];

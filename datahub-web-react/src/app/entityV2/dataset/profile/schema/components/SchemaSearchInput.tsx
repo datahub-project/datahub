@@ -48,7 +48,7 @@ const SchemaSearchInput: React.FC<SchemaSearchProps> = ({
     setSchemaFilterSelectOpen,
     numRows,
 }: SchemaSearchProps) => {
-    const { t } = useTranslation('entity.profile.schema');
+    const { t } = useTranslation('entity.types');
     const { t: tc } = useTranslation('common.actions');
     return (
         <SearchContainer>
@@ -86,7 +86,7 @@ const SchemaSearchInput: React.FC<SchemaSearchProps> = ({
                 />
             </Popover>
             {searchInput.length > 0 && (
-                <MatchLabelText>{t('searchInput.matchedColumns', { count: matches.length, numRows })}</MatchLabelText>
+                <MatchLabelText>{t('dataset.matchedColumnsCount', { count: matches.length, numRows })}</MatchLabelText>
             )}
         </SearchContainer>
     );
