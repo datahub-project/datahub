@@ -203,9 +203,15 @@ public class DomainUtils {
     Filter parentDomainFilter = buildParentDomainFilter(domainUrn);
     // Fetch candidate child domains from OpenSearch. OpenSearch is eventually
     // consistent -- a recently-deleted child may still appear here.
+    final int pageSize = 200;
     final SearchResult searchResult =
         entityClient.filter(
-            context.getOperationContext(), DOMAIN_ENTITY_NAME, parentDomainFilter, null, 0, 200);
+            context.getOperationContext(),
+            DOMAIN_ENTITY_NAME,
+            parentDomainFilter,
+            null,
+            0,
+            pageSize);
     if (searchResult.getNumEntities() == 0) {
       return false;
     }
@@ -217,7 +223,14 @@ public class DomainUtils {
         searchResult.getEntities().stream()
             .map(SearchEntity::getEntity)
             .collect(Collectors.toSet());
-    return !entityClient.filterExistingUrns(context.getOperationContext(), candidateUrns).isEmpty();
+    if (!entityClient.filterExistingUrns(context.getOperationContext(), candidateUrns).isEmpty()) {
+      return true;
+    }
+    // If OpenSearch reported more candidates than we fetched in this page, we
+    // cannot confirm the domain is childless without checking the remaining
+    // entries. Fall back to treating the domain as having children to prevent
+    // accidental deletion when the index is stale on a large hierarchy.
+    return searchResult.getNumEntities() > searchResult.getEntities().size();
   }
 
   private static Map<Urn, EntityResponse> getDomainsByNameAndParent(
