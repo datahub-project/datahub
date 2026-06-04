@@ -1,0 +1,5 @@
+{
+    "changeAdded": "{{fieldPath}} was added.",
+    "changeModified": "{{fieldPath}} was modified.",
+    "changeRemoved": "{{fieldPath}} was removed."
+}
