@@ -84,17 +84,41 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.emit_assertions:
             for monitor in self.client.get_monitors():
                 self.report.report_monitor_scanned()
-                yield from self.builder.build_assertion(monitor)
+                try:
+                    yield from self.builder.build_assertion(monitor)
+                except Exception as e:
+                    self.report.warning(
+                        title="Failed to build assertion for monitor",
+                        message="Skipping monitor due to an unexpected error.",
+                        context=f"monitor_uuid={monitor.uuid}",
+                        exc=e,
+                    )
             for rule in self.client.get_custom_rules():
                 self.report.report_custom_rule_scanned()
-                yield from self.builder.build_assertion(rule)
+                try:
+                    yield from self.builder.build_assertion(rule)
+                except Exception as e:
+                    self.report.warning(
+                        title="Failed to build assertion for custom rule",
+                        message="Skipping custom rule due to an unexpected error.",
+                        context=f"rule_uuid={rule.uuid}",
+                        exc=e,
+                    )
 
         # Alerts are emitted after definitions so run events can attach to the
         # assertions ingested above.
         if self.config.emit_alerts:
             for alert in self.client.get_alerts():
                 self.report.report_alert_scanned()
-                yield from self.builder.build_run_event(alert)
+                try:
+                    yield from self.builder.build_run_event(alert)
+                except Exception as e:
+                    self.report.warning(
+                        title="Failed to build run event for alert",
+                        message="Skipping alert due to an unexpected error.",
+                        context=f"alert_uuid={alert.uuid}",
+                        exc=e,
+                    )
 
     def get_report(self) -> MonteCarloSourceReport:
         return self.report

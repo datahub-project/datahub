@@ -187,8 +187,12 @@ class MonteCarloClient:
             variables["domainIds"] = self.config.domain_ids
         monitors = self._call(_MONITORS_QUERY, variables).get("getMonitors") or []
         for raw in monitors:
+            uuid = raw.get("uuid")
+            if not uuid:
+                logger.warning("Skipping monitor with missing uuid: %r", raw)
+                continue
             yield MonteCarloAssertionDef(
-                uuid=raw["uuid"],
+                uuid=uuid,
                 name=raw.get("name"),
                 description=raw.get("description"),
                 monitor_type=raw.get("monitorType"),
@@ -201,8 +205,12 @@ class MonteCarloClient:
 
     def get_custom_rules(self) -> Iterable[MonteCarloAssertionDef]:
         for raw in self._paginate(_CUSTOM_RULES_QUERY, "getCustomRules", {}):
+            uuid = raw.get("uuid")
+            if not uuid:
+                logger.warning("Skipping custom rule with missing uuid: %r", raw)
+                continue
             yield MonteCarloAssertionDef(
-                uuid=raw["uuid"],
+                uuid=uuid,
                 description=raw.get("description"),
                 rule_type=raw.get("ruleType"),
                 custom_sql=raw.get("customSql"),
@@ -217,8 +225,12 @@ class MonteCarloClient:
         )
         variables = {"createdTime": {"gte": start.isoformat()}}
         for raw in self._paginate(_ALERTS_QUERY, "getAlerts", variables):
+            alert_id = raw.get("id")
+            if not alert_id:
+                logger.warning("Skipping alert with missing id: %r", raw)
+                continue
             yield MonteCarloAlert(
-                uuid=raw["id"],
+                uuid=alert_id,
                 type=raw.get("type"),
                 sub_types=raw.get("subTypes") or [],
                 severity=raw.get("severity"),
@@ -233,9 +245,15 @@ class MonteCarloClient:
         table = self._call(_GET_TABLE_QUERY, {"mcon": mcon}).get("getTable")
         if not table:
             return None
+        full_table_id = table.get("fullTableId")
+        if not full_table_id:
+            logger.warning(
+                "getTable response missing fullTableId for mcon=%s; skipping.", mcon
+            )
+            return None
         warehouse = table.get("warehouse") or {}
         return ResolvedTable(
             mcon=table.get("mcon", mcon),
-            full_table_id=table["fullTableId"],
+            full_table_id=full_table_id,
             connection_type=warehouse.get("connectionType"),
         )
