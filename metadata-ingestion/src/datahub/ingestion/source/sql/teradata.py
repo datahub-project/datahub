@@ -1045,7 +1045,7 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # Per-query execution timing for lineage fetch.
     # Value: total elapsed seconds covering
     # both the execute step and the complete result fetch.
-    lineage_query_timings: TopKDict[str, float] = field(default_factory=TopKDict)
+    lineage_query_timings: Dict[str, float] = field(default_factory=dict)
 
     # Number of lineage queries whose total execution time exceeded
     # config.lineage_slow_query_log_seconds.
