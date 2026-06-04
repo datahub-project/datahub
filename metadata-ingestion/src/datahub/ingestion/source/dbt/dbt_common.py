@@ -1247,7 +1247,7 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     return custom_properties
 
 
-def _get_dbt_cte_names(name: str, target_platform: str) -> List[str]:
+def _get_dbt_cte_names(name: str, adapter: str) -> List[str]:
     # Match the dbt CTE naming scheme:
     # The default is defined here https://github.com/dbt-labs/dbt-core/blob/4122f6c308c88be4a24c1ea490802239a4c1abb8/core/dbt/adapters/base/relation.py#L222
     # However, since this PR https://github.com/dbt-labs/dbt-core/pull/2712, it's also possible
@@ -1266,8 +1266,8 @@ def _get_dbt_cte_names(name: str, target_platform: str) -> List[str]:
     }
 
     cte_names = [default_cte_name]
-    if target_platform in adapter_cte_names:
-        cte_names.append(adapter_cte_names[target_platform])
+    if adapter in adapter_cte_names:
+        cte_names.append(adapter_cte_names[adapter])
 
     return cte_names
 
