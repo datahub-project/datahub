@@ -84,6 +84,45 @@ public class DeleteDomainResolverTest {
   }
 
   @Test
+  public void testDeleteBlockedWhenPagedCandidatesAllStaleButMoreExist() throws Exception {
+    // When OpenSearch reports more total candidates than fit in one page and all
+    // fetched candidates are stale in MySQL, deletion must still be blocked.
+    // Without the fallback check (numEntities > entities.size()), the code would
+    // incorrectly return false -- potentially allowing deletion of a domain that
+    // still has real children in the un-fetched remainder of the OpenSearch result.
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DeleteDomainResolver resolver = new DeleteDomainResolver(mockClient);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_URN);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    // OpenSearch reports 300 total but only returns one entry in this page,
+    // simulating the case where numEntities > the fetched page size.
+    Urn childUrn = UrnUtils.getUrn(CHILD_URN);
+    Mockito.when(
+            mockClient.filter(
+                any(),
+                Mockito.eq("domain"),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(200)))
+        .thenReturn(
+            new SearchResult()
+                .setNumEntities(300)
+                .setEntities(new SearchEntityArray(new SearchEntity().setEntity(childUrn))));
+
+    // The fetched candidate is stale in MySQL.
+    Mockito.when(mockClient.filterExistingUrns(any(), any())).thenReturn(Collections.emptySet());
+
+    // Must still block deletion: we cannot confirm childlessness from one page.
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(any(), Mockito.any());
+  }
+
+  @Test
   public void testDeleteWithStaleChildDomains() throws Exception {
     // Regression test for the OpenSearch eventual-consistency race condition:
     // OpenSearch still shows a child that was just deleted from MySQL.
