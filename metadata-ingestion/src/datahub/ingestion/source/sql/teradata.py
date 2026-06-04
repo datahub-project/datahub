@@ -1106,11 +1106,11 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     def increment_view_error(self, category: ViewErrorCategory) -> None:
         with self._lock:
             self.num_view_processing_failures += 1
-            if category == "timeout":
+            if category is ViewErrorCategory.TIMEOUT:
                 self.view_timeout_errors += 1
-            elif category == "parse":
+            elif category is ViewErrorCategory.PARSE:
                 self.view_parse_errors += 1
-            elif category == "permission":
+            elif category is ViewErrorCategory.PERMISSION:
                 self.view_permission_errors += 1
             else:
                 self.view_unknown_errors += 1

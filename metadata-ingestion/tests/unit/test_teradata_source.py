@@ -5088,14 +5088,16 @@ class TestLineageWatchdog:
             def set(self) -> None:
                 pass  # called from the finally-block; safe to ignore
 
-        # time.time() sequence:
-        #   call 0 — initial phase_state["last_event_at"]           → 0.0
-        #   call 1 — logger.info("Executing lineage query…")         → 0.0
-        #            (LogRecord.created internally calls time.time())
-        #   call 2 — _mark_phase("executing_query") before execute   → 0.0
-        #   calls 3-5 — watchdog elapsed computation (×3 ticks)     → 100.0
-        #   calls 6+ — mark_phase / cleanup (don't affect assertion) → 100.0
-        _time_seq = iter([0.0, 0.0, 0.0] + [100.0] * 50)
+        # Use thread-identity routing instead of a position-counted sequence.
+        # The watchdog thread is always named "teradata-lineage-watchdog" (see
+        # Thread(..., name=…) in _fetch_lineage_entries_chunked).  Returning
+        # a high value (100.0) from that thread and 0.0 from all others means
+        # elapsed = 100.0 − 0.0 = 100.0 >> stall_seconds (1) no matter how
+        # many logging or setup calls consume time.time() on the main thread.
+        def _thread_aware_time() -> float:
+            if current_thread().name == "teradata-lineage-watchdog":
+                return 100.0
+            return 0.0
 
         with (
             patch.object(source, "get_metadata_engine", return_value=MagicMock()),
@@ -5118,7 +5120,7 @@ class TestLineageWatchdog:
             ),
             patch(
                 "datahub.ingestion.source.sql.teradata.time.time",
-                side_effect=lambda: next(_time_seq, 100.0),
+                side_effect=_thread_aware_time,
             ),
         ):
             list(source._fetch_lineage_entries_chunked())
