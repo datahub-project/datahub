@@ -14,7 +14,9 @@ export class BaseSource {
   ) {
     this.recipeBuilderYamlButton = page.getByTestId('recipe-builder-yaml-button');
     this.toggleExpandButton = page.getByTestId('toggle-expand-button');
+    // eslint-disable-next-line playwright/no-raw-locators -- Monaco editor internal scroll container; no data-testid or ARIA role
     this.yamlEditor = page.locator('.monaco-scrollable-element').and(page.locator(':visible'));
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design select dropdown portal; no data-testid or ARIA role
     this.secretDropdown = page.locator('.ant-select-dropdown').and(page.locator(':visible'));
   }
 

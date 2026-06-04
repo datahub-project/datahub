@@ -114,7 +114,7 @@ export abstract class SourcesBaseTab extends BaseTab {
     this.toast = new ToastComponent(page);
 
     this.inlineSecretDialog = page.getByRole('dialog', { name: 'Create a new Secret' });
-    this.inlineSecretNameInput = this.inlineSecretDialog.getByTestId('secret-modal-name-input').locator('input');
+    this.inlineSecretNameInput = this.inlineSecretDialog.getByTestId('secret-modal-name-input').getByRole('textbox');
     this.inlineSecretValueInput = this.inlineSecretDialog.getByTestId('secret-modal-value-input').getByRole('textbox');
     this.inlineSecretDescriptionInput = this.inlineSecretDialog
       .getByTestId('secret-modal-description-input')
@@ -126,9 +126,12 @@ export abstract class SourcesBaseTab extends BaseTab {
     this.typeFilterSelect = page.getByTestId('ingestions-type-filter');
     this.cliPill = page.getByTestId('ingestion-source-cli-pill');
     this.sourceTypeSearchInput = page.getByTestId('source-type-search-input');
+    // eslint-disable-next-line playwright/no-raw-locators -- recipe form field addressed by generated id; no data-testid
     this.passwordInput = page.locator('#password');
+    // eslint-disable-next-line playwright/no-raw-locators -- cron builder Ant Design select; no data-testid or ARIA role
     this.cronHoursSelect = page.locator('.cron-builder-hours .ant-select');
     this.cancelModalCloseButton = page.getByTestId('connect-data-source-modal').getByTestId('modal-close-icon');
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design select dropdown portal; no data-testid or ARIA role
     this.secretDropdown = page.locator('.ant-select-dropdown').and(page.locator(':visible'));
   }
 
@@ -139,10 +142,12 @@ export abstract class SourcesBaseTab extends BaseTab {
   }
 
   getSourceRow(sourceName: string): Locator {
+    // eslint-disable-next-line playwright/no-raw-locators -- :visible pseudo-class disambiguates duplicate rows; no role/testid equivalent
     return this.page.getByTestId(`row-${sourceName}`).and(this.page.locator(':visible'));
   }
 
   getSourceCell(sourceName: string): Locator {
+    // eslint-disable-next-line playwright/no-raw-locators -- first table cell selected by tag; cells carry no per-cell data-testid
     return this.getSourceRow(sourceName).locator('td').first();
   }
 
@@ -155,10 +160,12 @@ export abstract class SourcesBaseTab extends BaseTab {
   }
 
   getDropdownMenuItem(label: string): Locator {
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design dropdown menu portal; no data-testid or ARIA role
     return this.page.locator('body .ant-dropdown-menu').getByText(label);
   }
 
   getTypeFilterDropdownItem(value: string): Locator {
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design dropdown portal; no data-testid or ARIA role
     return this.page.locator('body .ant-dropdown').getByText(value);
   }
 
@@ -167,17 +174,22 @@ export abstract class SourcesBaseTab extends BaseTab {
   }
 
   getSourceTypeOption(typeName: string): Locator {
-    return this.page
-      .locator('[data-testid^="source-option-"]')
-      .filter({ hasText: typeName })
-      .and(this.page.locator(':visible'));
+    return (
+      this.page
+        .getByTestId(/^source-option-/)
+        .filter({ hasText: typeName })
+        // eslint-disable-next-line playwright/no-raw-locators -- :visible pseudo-class disambiguates duplicate nodes; no role/testid equivalent
+        .and(this.page.locator(':visible'))
+    );
   }
 
   getCronHoursClearButton(): Locator {
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design select clear affordance; no data-testid or ARIA role
     return this.cronHoursSelect.locator('.ant-select-clear');
   }
 
   getScheduleHourOption(hour: string): Locator {
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design time option keyed by title attribute; no data-testid
     return this.page.locator(`[title="${hour}"]`).and(this.page.locator(':visible'));
   }
 

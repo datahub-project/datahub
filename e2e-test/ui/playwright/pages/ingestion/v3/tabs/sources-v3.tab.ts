@@ -48,7 +48,7 @@ export class SourcesV3Tab extends SourcesBaseTab {
     this.sourceNameInput = page.getByTestId('data-source-name');
     this.saveButton = page.getByTestId('save-button');
     this.saveAndRunButton = page.getByTestId('save-and-run-button');
-    this.cliVersionInput = page.getByTestId('cli-version-input').locator('input');
+    this.cliVersionInput = page.getByTestId('cli-version-input').getByRole('textbox');
     this.syncScheduleHeading = page.getByTestId('sync-schedule-section');
     this.cancelSourceButton = page.getByTestId('cancel-ingestion-source-button');
     this.snowflakeSource = new SnowflakeSourceV3(page, logger);

@@ -27,7 +27,7 @@ test.describe('ingestion sources', () => {
     await ingestionPage.goto();
   });
 
-  test('create, edit, and delete an ingestion source', async ({ page }) => {
+  test('create, edit, and delete an ingestion source', async () => {
     const suffix = generateRandomString();
     const sourceName = `ingestion source ${suffix}`;
     const sourceDetails: SnowflakeFormDetails = {
@@ -76,7 +76,7 @@ test.describe('ingestion sources', () => {
     await ingestionPage.sourcesTab.expectSchedule(updatedSourceName, '06:00 am');
 
     await ingestionPage.sourcesTab.deleteIngestionSource(sourceUrn, updatedSourceName);
-    await expect(page.getByText(updatedSourceName)).toBeHidden();
+    await ingestionPage.sourcesTab.expectSourceNotVisible(updatedSourceName);
   });
 
   test('create and run an ingestion source', async ({ cleanup }) => {

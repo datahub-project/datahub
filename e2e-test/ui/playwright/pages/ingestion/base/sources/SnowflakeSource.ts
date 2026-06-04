@@ -37,6 +37,8 @@ export class SnowflakeSource extends BaseSource {
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
     this.snowflakeDetailsHeading = page.getByText('Snowflake Details');
+    // Recipe form fields are rendered with generated ids and carry no data-testid or ARIA role.
+    /* eslint-disable playwright/no-raw-locators */
     this.accountIdInput = page.locator('#account_id');
     this.warehouseInput = page.locator('#warehouse');
     this.usernameInput = page.locator('#username');
@@ -45,6 +47,7 @@ export class SnowflakeSource extends BaseSource {
     this.authTypeSelectContainer = page.locator('.ant-select').filter({ has: this.authenticationTypeField });
     this.passwordInput = page.locator('#password');
     this.roleInput = page.locator('#role');
+    /* eslint-enable playwright/no-raw-locators */
   }
 
   async fillForm(details: Partial<SnowflakeFormDetails>): Promise<void> {

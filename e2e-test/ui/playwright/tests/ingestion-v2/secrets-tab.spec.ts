@@ -1,5 +1,5 @@
 import { SnowflakeFormDetails } from '@pages/ingestion/base/sources/SnowflakeSource';
-import { test, expect } from '../../fixtures/base-test';
+import { test } from '../../fixtures/base-test';
 import { IngestionV2Page } from '../../pages/ingestion/v2/ingestion-v2.page';
 import { generateRandomString } from '../../utils/random';
 
@@ -20,7 +20,7 @@ test.describe('secrets tab in manage data sources', () => {
     await ingestionPage.secretsTab.navigate();
   });
 
-  test('create and delete a secret', async ({ page }) => {
+  test('create and delete a secret', async () => {
     const suffix = generateRandomString();
     const secretName = `playwright_secret_${suffix}`;
     const secretValue = `secret-value-${suffix}`;
@@ -28,11 +28,11 @@ test.describe('secrets tab in manage data sources', () => {
 
     const secretUrn = await ingestionPage.secretsTab.createSecret(secretName, secretValue, secretDescription);
     await ingestionPage.secretsTab.expectSecretVisible(secretUrn);
-    await expect(page.getByText(secretDescription)).toBeVisible();
+    await ingestionPage.secretsTab.expectSecretDescriptionVisible(secretDescription);
 
     await ingestionPage.secretsTab.deleteSecret(secretUrn);
     await ingestionPage.secretsTab.expectSecretNotVisible(secretUrn);
-    await expect(page.getByText(secretDescription)).toBeHidden();
+    await ingestionPage.secretsTab.expectSecretDescriptionNotVisible(secretDescription);
   });
 
   test('create ingestion source using a secret', async ({ cleanup }) => {

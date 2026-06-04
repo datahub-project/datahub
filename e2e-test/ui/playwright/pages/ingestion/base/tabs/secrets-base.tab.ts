@@ -32,7 +32,7 @@ export class SecretsBaseTab extends BaseTab {
     this.tabKey = 'Secrets';
 
     this.createSecretButton = page.getByTestId('create-secret-button');
-    this.secretNameInput = page.getByTestId('secret-modal-name-input').locator('input');
+    this.secretNameInput = page.getByTestId('secret-modal-name-input').getByRole('textbox');
     this.secretValueInput = page.getByTestId('secret-modal-value-input').getByRole('textbox');
     this.secretDescriptionInput = page.getByTestId('secret-modal-description-input').getByRole('textbox');
     this.secretModalCreateButton = page.getByTestId('secret-modal-create-button');
@@ -46,6 +46,10 @@ export class SecretsBaseTab extends BaseTab {
 
   getDeleteSecretButton(urn: string): Locator {
     return this.getSecretRow(urn).getByTestId('delete-secret-action');
+  }
+
+  getSecretDescription(description: string): Locator {
+    return this.page.getByText(description);
   }
 
   async createSecret(name: string, value: string, description?: string): Promise<string> {
@@ -80,5 +84,13 @@ export class SecretsBaseTab extends BaseTab {
 
   async expectSecretNotVisible(urn: string): Promise<void> {
     await expect(this.getSecretRow(urn)).toBeHidden();
+  }
+
+  async expectSecretDescriptionVisible(description: string): Promise<void> {
+    await expect(this.getSecretDescription(description)).toBeVisible();
+  }
+
+  async expectSecretDescriptionNotVisible(description: string): Promise<void> {
+    await expect(this.getSecretDescription(description)).toBeHidden();
   }
 }

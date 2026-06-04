@@ -28,6 +28,7 @@ export class RunHistoryBaseTab extends BaseTab {
     this.sourceNameFilter = page.getByTestId('source-name-filter');
     this.dropdownSearchBar = page.getByTestId('dropdown-search-input');
     this.footerUpdateButton = page.getByTestId('footer-button-update');
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design dropdown portal has no data-testid or ARIA role
     this.filterDropdown = page.locator('body .ant-dropdown');
   }
 

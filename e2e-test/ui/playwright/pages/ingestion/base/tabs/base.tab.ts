@@ -13,6 +13,7 @@ export abstract class BaseTab {
   ) {}
 
   get tab(): Locator {
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design tab node keyed by data-node-key; no ARIA role exposed
     return this.page.locator(`div[data-node-key="${this.tabKey}"]`);
   }
 

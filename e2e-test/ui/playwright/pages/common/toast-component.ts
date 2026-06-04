@@ -7,6 +7,7 @@ export class ToastComponent {
   private readonly container: Locator;
 
   constructor(page: Page) {
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design global message container has no data-testid or ARIA role
     this.container = page.locator('.ant-message');
   }
 

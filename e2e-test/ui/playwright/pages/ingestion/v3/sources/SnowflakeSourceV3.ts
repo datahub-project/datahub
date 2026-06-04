@@ -23,6 +23,7 @@ export class SnowflakeSourceV3 extends SnowflakeSource {
   }
 
   getAuthTypeFormItem(): Locator {
+    // eslint-disable-next-line playwright/no-raw-locators -- recipe form field addressed by generated id; no data-testid
     return this.page.locator('#authentication_type');
   }
 
