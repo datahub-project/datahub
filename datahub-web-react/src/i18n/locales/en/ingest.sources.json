@@ -33,7 +33,7 @@
     "sources.csvEnricher.description": "Import metadata from a formatted CSV.",
     "sources.csvEnricher.displayName": "CSV",
     "sources.custom.description": "Configure a custom recipe using YAML.",
-    "sources.custom.displayName": "Custom",
+    "sources.custom.displayName": "Other",
     "sources.dagster.description": "Import Pipelines, Jobs, Assets, and lineage from Dagster.",
     "sources.dagster.displayName": "Dagster",
     "sources.databricks.description": "Import Metastores, Schemas, Tables, lineage, queries, and statistics from Databricks Unity Catalog.",
