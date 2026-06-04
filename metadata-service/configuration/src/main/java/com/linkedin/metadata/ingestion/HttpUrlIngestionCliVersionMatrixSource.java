@@ -189,6 +189,14 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
           HttpRequest.newBuilder(URI.create(url))
               .timeout(Duration.ofMillis(FETCH_TIMEOUT_MS))
               .header("User-Agent", "DataHub-GMS")
+              // Lets the URL point at the GitHub "contents" API
+              // (https://api.github.com/repos/<org>/<repo>/contents/<path>?ref=<branch>) — the only
+              // authenticated way to read a file from a private/internal GitHub repo, since
+              // raw.githubusercontent.com does not honor the Authorization header for those. With
+              // this Accept the contents API returns the raw file body instead of base64 JSON.
+              // Plain file hosts (raw URLs, gists, S3, CDNs) ignore an unknown Accept and still
+              // return the file, so sending it unconditionally is safe for public URLs too.
+              .header("Accept", "application/vnd.github.raw")
               .GET();
       if (authHeader != null && !authHeader.isEmpty()) {
         reqBuilder.header("Authorization", authHeader);
