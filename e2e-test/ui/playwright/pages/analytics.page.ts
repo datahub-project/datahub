@@ -2,7 +2,7 @@ import type { Page, Locator } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
-import { TIMEOUTS } from '../utils/constants';
+import { TIMEOUTS, LOAD_STATES } from '../utils/constants';
 
 /**
  * Analytics page object — semantic methods for core workflows.
@@ -40,7 +40,7 @@ export class AnalyticsPage extends BasePage {
   async goToChart(urn: string): Promise<void> {
     this.logger?.step('navigate to chart', { urn });
     await this.navigate(`/chart/${urn}`);
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
   /**
@@ -49,7 +49,7 @@ export class AnalyticsPage extends BasePage {
   async goToAnalytics(): Promise<void> {
     this.logger?.step('navigate to analytics', {});
     await this.navigate('/analytics');
-    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
   /**
@@ -69,13 +69,15 @@ export class AnalyticsPage extends BasePage {
   }
 
   /**
-   * Click on entity tab (e.g., Dashboards, Summary).
+   * Click on entity tab (e.g., Dashboards, Summary) and wait for content to load.
    */
   async clickTab(tabName: string): Promise<void> {
     this.logger?.step('click tab', { tabName });
     const tab = this.getTabSelector(tabName);
     await expect(tab).toBeVisible();
     await tab.click();
+    // Wait for tab content to load after click
+    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
   /**
@@ -83,6 +85,7 @@ export class AnalyticsPage extends BasePage {
    */
   async verifyTabViewsChartVisible(): Promise<void> {
     this.logger?.step('verify Tab Views chart visible', {});
+    await this.tabViewsChart.waitFor({ state: 'attached', timeout: TIMEOUTS.LONG });
     await this.tabViewsChart.scrollIntoViewIfNeeded();
     await expect(this.tabViewsChart).toBeVisible({ timeout: TIMEOUTS.SHORT });
   }
