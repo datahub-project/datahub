@@ -1,4 +1,5 @@
 import { notification } from '@components';
+import i18next from 'i18next';
 import { useCallback } from 'react';
 
 import { validateFile } from '@components/components/Editor/extensions/fileDragDrop';
@@ -35,7 +36,7 @@ export function useUploadFileHandler(props: Props) {
                         validation.failureType || FileUploadFailureType.UNKNOWN,
                     );
                     notification.error({
-                        message: 'Upload Failed',
+                        message: i18next.t('shared.product:upload.failedTitle'),
                         description: validation.displayError || validation.error,
                     });
 
@@ -58,8 +59,8 @@ export function useUploadFileHandler(props: Props) {
                             `${uploadError}`,
                         );
                         notification.error({
-                            message: 'Upload Failed',
-                            description: 'Something went wrong',
+                            message: i18next.t('shared.product:upload.failedTitle'),
+                            description: i18next.t('common.feedback:somethingWentWrong'),
                         });
                         return null;
                     }
@@ -76,8 +77,8 @@ export function useUploadFileHandler(props: Props) {
                     `${error}`,
                 );
                 notification.error({
-                    message: 'Upload Failed',
-                    description: 'Something went wrong',
+                    message: i18next.t('shared.product:upload.failedTitle'),
+                    description: i18next.t('common.feedback:somethingWentWrong'),
                 });
 
                 return null;

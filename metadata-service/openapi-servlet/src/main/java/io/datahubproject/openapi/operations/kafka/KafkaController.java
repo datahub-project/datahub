@@ -5,6 +5,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.config.messaging.KafkaMessagingEnabled;
 import com.linkedin.metadata.trace.MCLTraceReader;
 import com.linkedin.metadata.trace.MCPTraceReader;
 import io.datahubproject.metadata.context.OperationContext;
@@ -41,6 +42,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/openapi/operations/kafka")
 @Slf4j
+@Deprecated
+// Prefer /openapi/operations/messaging/* (transport-neutral). This controller remains for
+// backward compatibility when datahub.messaging.transport=kafka.
+@KafkaMessagingEnabled
 public class KafkaController {
 
   private final OperationContext systemOperationContext;
@@ -67,9 +72,10 @@ public class KafkaController {
       description = "APIs for retrieving Kafka consumer offset information")
   @GetMapping(path = "/mcp/consumer/offsets", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
+      deprecated = true,
       summary = "Get MetadataChangeProposal consumer kafka offsets with lag metrics",
       description =
-          "Retrieves the current offsets and lag information for all partitions of the MCP topic from the consumer group",
+          "Deprecated: use GET /openapi/operations/messaging/mcp/consumer/lag. Retrieves the current offsets and lag information for all partitions of the MCP topic from the consumer group",
       responses = {
         @ApiResponse(
             responseCode = "200",
@@ -139,9 +145,10 @@ public class KafkaController {
       description = "APIs for retrieving Kafka consumer offset information")
   @GetMapping(path = "/mcl/consumer/offsets", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
+      deprecated = true,
       summary = "Get MetadataChangeLog consumer kafka offsets with lag metrics",
       description =
-          "Retrieves the current offsets and lag information for all partitions of the MCL topic from the consumer group",
+          "Deprecated: use GET /openapi/operations/messaging/mcl/consumer/lag. Retrieves the current offsets and lag information for all partitions of the MCL topic from the consumer group",
       responses = {
         @ApiResponse(
             responseCode = "200",
@@ -213,9 +220,10 @@ public class KafkaController {
       path = "/mcl-timeseries/consumer/offsets",
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
+      deprecated = true,
       summary = "Get MetadataChangeLog timeseries consumer kafka offsets with lag metrics",
       description =
-          "Retrieves the current offsets and lag information for all partitions of the MCL timeseries topic from the consumer group",
+          "Deprecated: use GET /openapi/operations/messaging/mcl-timeseries/consumer/lag. Retrieves the current offsets and lag information for all partitions of the MCL timeseries topic from the consumer group",
       responses = {
         @ApiResponse(
             responseCode = "200",

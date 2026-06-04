@@ -17,19 +17,19 @@ const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-background: ${props.theme.colors.bgSurfaceDarker};
+        background: ${props.theme.colors.bgSurfaceDarker};
         border-color: ${props.theme.colors.bgSurfaceDarker};
 
- &:hover,
- &:focus,
- &:focus-within {
-border-color: ${props.theme.colors.borderBrand} !important;
- }
+        &:hover,
+        &:focus,
+        &:focus-within {
+            border-color: ${props.theme.colors.borderBrand} !important;
+        }
 
- .ant-input, .ant-input-clear-icon {
-color: ${props.theme.colors.bg};
+        .ant-input, .ant-input-clear-icon {
+            color: ${props.theme.colors.textBrandOnBgFill};
             background: ${props.theme.colors.bgSurfaceDarker};
- }
+        }
  `}
 `;
 

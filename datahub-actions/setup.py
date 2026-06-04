@@ -46,6 +46,8 @@ lint_requirements = {
 
 base_requirements = {
     f"acryl-datahub[datahub-kafka]{_self_pin}",
+    # pg_queue event source imports metadata-ingestion connection helpers that require psycopg2.
+    "psycopg2-binary<3.0.0",
     # Actual dependencies.
     "typing-inspect",
     "pydantic>=2.4.0,<3.0.0",
@@ -184,6 +186,7 @@ entry_points = {
     ],
     "datahub_actions.transformer.plugins": [],
     "datahub_actions.source.plugins": [],
+    "datahub_actions.filter.plugins": [],
 }
 
 

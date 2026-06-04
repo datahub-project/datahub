@@ -37,6 +37,7 @@
  */
 
 import type { APIRequestContext } from '@playwright/test';
+import { createScriptLogger, type DataHubLogger } from './logger';
 
 // ── Public interface ──────────────────────────────────────────────────────────
 
@@ -59,34 +60,37 @@ export interface ScopedCleanup {
 
 export class ApiScopedCleanup implements ScopedCleanup {
   private readonly trackedUrns: string[] = [];
+  private readonly logger: DataHubLogger;
 
   constructor(
     private readonly request: APIRequestContext,
     private readonly gmsUrl: string,
-  ) {}
+    logger?: DataHubLogger,
+  ) {
+    this.logger = logger ?? createScriptLogger('cleanup');
+  }
 
   track(...urns: string[]): void {
     this.trackedUrns.push(...urns);
   }
 
   async flush(testStatus?: string): Promise<void> {
-    const shouldClean =
-      testStatus === undefined || testStatus === 'passed' || testStatus === 'skipped';
+    const shouldClean = testStatus === undefined || testStatus === 'passed' || testStatus === 'skipped';
 
     if (!shouldClean) {
-      console.log(
-        `[cleanup] Test status is '${testStatus}' — preserving ${this.trackedUrns.length} entities for post-failure investigation`,
+      this.logger.info(
+        `Test status is '${testStatus}' — preserving ${this.trackedUrns.length} entities for post-failure investigation`,
       );
       if (this.trackedUrns.length > 0) {
-        console.log(`[cleanup] URNs to clean up manually:\n  ${this.trackedUrns.join('\n  ')}`);
+        this.logger.info(`URNs to clean up manually`, { urns: this.trackedUrns.join(', ') });
       }
       return;
     }
 
     if (this.trackedUrns.length === 0) return;
 
-    console.log(`[cleanup] Deleting ${this.trackedUrns.length} tracked entities...`);
-    await deleteEntities(this.request, this.gmsUrl, this.trackedUrns);
+    this.logger.info(`Deleting ${this.trackedUrns.length} tracked entities...`);
+    await deleteEntities(this.request, this.gmsUrl, this.trackedUrns, this.logger);
     this.trackedUrns.length = 0;
   }
 }
@@ -107,7 +111,9 @@ export async function deleteEntities(
   request: APIRequestContext,
   gmsUrl: string,
   urns: string[],
+  logger?: DataHubLogger,
 ): Promise<void> {
+  const log = logger ?? createScriptLogger('cleanup');
   const failures: string[] = [];
 
   await Promise.all(
@@ -124,8 +130,8 @@ export async function deleteEntities(
   );
 
   if (failures.length > 0) {
-    console.warn(`[cleanup] Failed to delete ${failures.length} entities:\n  ${failures.join('\n  ')}`);
+    log.warn(`Failed to delete ${failures.length} entities`, { urns: failures.join(', ') });
   } else {
-    console.log(`[cleanup] Deleted ${urns.length} entities`);
+    log.info(`Deleted ${urns.length} entities`);
   }
 }

@@ -6,7 +6,7 @@
 import functools
 import logging
 from datetime import datetime
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Iterable, List, Optional, Set, Tuple, Union
 
 import more_itertools
 
@@ -44,6 +44,7 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.fabric.common.urn_generator import make_onelake_urn
 from datahub.ingestion.source.powerbi.config import (
+    POWERBI_TYPE_TO_DATA_PLATFORM_PAIR,
     Constant,
     PowerBiAppUrlPattern,
     PowerBiDashboardSourceConfig,
@@ -633,6 +634,76 @@ class Mapper:
 
         return dataset_mcps
 
+    def paginated_report_datasource_urns(
+        self,
+        report: powerbi_data_classes.Report,
+    ) -> List[str]:
+        """Resolve a paginated report's embedded datasources to upstream URNs.
+
+        Produces coarse-grained (server[.database]) URNs; table-level lineage
+        would require parsing the .rdl XML.
+        """
+        urns: List[str] = []
+        for ds in report.datasources:
+            if ds.powerbi_dataset_id is not None:
+                # Bound to a shared Power BI dataset; lineage comes from
+                # report.dataset (resolved in PowerBiAPI.get_reports), not here.
+                continue
+
+            # Normalise like dataset_type_mapping does (e.g. "Amazon Redshift"
+            # -> "AmazonRedshift") so spaced API type names still resolve.
+            pair = POWERBI_TYPE_TO_DATA_PLATFORM_PAIR.get(
+                ds.datasource_type
+            ) or POWERBI_TYPE_TO_DATA_PLATFORM_PAIR.get(
+                ds.datasource_type.replace(" ", "")
+            )
+            if pair is None:
+                self.__reporter.info(
+                    title="Unmapped Paginated Report Datasource",
+                    message=(
+                        f"PowerBI datasource type {ds.datasource_type!r} has no "
+                        "DataHub platform mapping; lineage skipped."
+                    ),
+                    context=f"report={report.name}, server={ds.server}",
+                )
+                continue
+
+            # Respect a user-narrowed dataset_type_mapping, consistent with the
+            # M-Query lineage path: a platform excluded from the mapping should
+            # not produce lineage even though it is a known platform.
+            if not self.__config.is_platform_in_dataset_type_mapping(
+                ds.datasource_type
+            ):
+                logger.debug(
+                    "Skipping paginated report datasource for platform %r: not "
+                    "in dataset_type_mapping.",
+                    ds.datasource_type,
+                )
+                continue
+
+            platform_detail = (
+                self.__dataplatform_instance_resolver.get_platform_instance(
+                    PowerBIPlatformDetail(
+                        data_platform_pair=pair,
+                        data_platform_server=ds.server,
+                    )
+                )
+            )
+
+            name_parts = [p for p in [ds.server, ds.database] if p]
+            urns.append(
+                self.lineage_urn_to_lowercase(
+                    builder.make_dataset_urn_with_platform_instance(
+                        platform=pair.datahub_data_platform_name,
+                        name=".".join(name_parts),
+                        platform_instance=platform_detail.platform_instance,
+                        env=platform_detail.env or self.__config.env,
+                    )
+                )
+            )
+
+        return urns
+
     def extract_profile(
         self,
         dataset_mcps: List[MetadataChangeProposalWrapper],
@@ -704,7 +775,9 @@ class Mapper:
         """
         Map PowerBi tile to datahub chart
         """
-        logger.info(f"Converting tile {tile.title}(id={tile.id}) to chart")
+        logger.info(
+            f"Converting tile {tile.title or '(untitled)'}(id={tile.id}) to chart"
+        )
         # Create a URN for chart
         chart_urn = builder.make_chart_urn(
             platform=self.__config.platform_name,
@@ -982,6 +1055,7 @@ class Mapper:
             container_key=self.workspace_key,
             name=workspace.name,
             sub_types=[workspace.type],
+            external_url=workspace.webUrl,
             extra_properties={
                 "workspace_id": workspace.id,
                 "workspace_name": workspace.name,
@@ -1110,16 +1184,12 @@ class Mapper:
     def to_datahub_users(
         self, users: List[powerbi_data_classes.User]
     ) -> List[MetadataChangeProposalWrapper]:
-        """
-        Return user MCPs if create_corp_user=True, empty list otherwise.
-        When True: Emits full user entities (Key + Info).
-        When False: Returns empty (ownership uses URNs only via to_datahub_user_urns).
-        """
-        # Check flag FIRST, return empty if False (soft reference mode)
-        if not self.__config.ownership.create_corp_user:
+        """Build user MCPs; gated by extract_ownership AND create_corp_user."""
+        if not (
+            self.__config.extract_ownership and self.__config.ownership.create_corp_user
+        ):
             return []
 
-        # Opt-in mode: Create full user entities
         user_mcps = []
         for user in self._get_qualified_owners(users):
             user_mcps.extend(self.to_datahub_user(user))
@@ -1145,6 +1215,8 @@ class Mapper:
         When create_corp_user=True (opt-in): Extract URNs from created user MCPs
         When create_corp_user=False (default): Get URNs directly (soft references)
         """
+        if not self.__config.extract_ownership:
+            return []
         if self.__config.ownership.create_corp_user:
             return self.to_urn_set(user_mcps)
         else:
@@ -1491,11 +1563,14 @@ class Mapper:
         )
 
         # collect all upstream datasets; using a set to retain unique urns
-        dataset_urns = {
+        dataset_urns: Set[str] = {
             dataset.entityUrn
             for dataset in ds_mcps
             if dataset.entityType == DatasetUrn.ENTITY_TYPE and dataset.entityUrn
         }
+        # Paginated (RDL) reports without a shared dataset get their lineage
+        # solely from this fallback path.
+        dataset_urns.update(self.paginated_report_datasource_urns(report))
         dataset_edges = [
             EdgeClass(destinationUrn=dataset_urn) for dataset_urn in dataset_urns
         ]
@@ -1865,8 +1940,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         for dashboard in workspace.dashboards.values():
             try:
-                # Fetch PowerBi users for dashboards
-                dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
                 # Increase dashboard and tiles count in report
                 self.reporter.report_dashboards_scanned()
                 self.reporter.report_charts_scanned(count=len(dashboard.tiles))
@@ -1933,34 +2006,77 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         allowed_workspaces = self.get_allowed_workspaces()
 
+        # First get scan results for all workspaces, and fill out self.powerbi_client.dataset_registry
+        # so cross-workspace references work.
         batches = more_itertools.chunked(
             allowed_workspaces, self.source_config.scan_batch_size
         )
+        excluded_workspace_ids: Set[str] = set()
         for batch_workspaces in batches:
-            for workspace in self.powerbi_client.fill_workspaces(
-                batch_workspaces, self.reporter
-            ):
-                logger.info(f"Processing workspace id: {workspace.id}")
-
-                if self.source_config.modified_since:
-                    # As modified_workspaces is not idempotent, hence we checkpoint for each powerbi workspace
-                    # Because job_id is used as a dictionary key, we have to set a new job_id
-                    # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
-                    self.stale_entity_removal_handler.set_job_id(workspace.id)
-                    self.state_provider.register_stateful_ingestion_usecase_handler(
-                        self.stale_entity_removal_handler
+            logger.info(
+                f"Fetching initial metadata for workspaces: {[w.format_name_for_logger() for w in batch_workspaces]}"
+            )
+            try:
+                excluded_workspace_ids.update(
+                    self.powerbi_client.fill_metadata_from_scan_result(batch_workspaces)
+                )
+            except Exception as e:
+                # Phase 1 must not abort the whole ingestion: an unhandled
+                # exception here would mean zero workunits emitted from any
+                # batch. Record one "Incomplete Scan Metadata" warning per
+                # affected workspace (reporter.warning includes the traceback
+                # via exc=) so the gap is discoverable in the source report,
+                # then fall through to Phase 2 with empty scan_result.
+                for ws in batch_workspaces:
+                    self.reporter.warning(
+                        title="Incomplete Scan Metadata",
+                        message=(
+                            "Phase 1 scan batch failed; this workspace "
+                            "will be ingested with empty scan metadata."
+                        ),
+                        context=f"workspace={ws.name} id={ws.id}",
+                        exc=e,
                     )
 
-                    yield from self._apply_workunit_processors(
-                        [
-                            *super().get_workunit_processors(),
-                            self.stale_entity_removal_handler.workunit_processor,
-                        ],
-                        self.get_workspace_workunit(workspace),
-                    )
-                else:
-                    # Maintain backward compatibility
-                    yield from self.get_workspace_workunit(workspace)
+        # Skip Phase 2 for workspaces the scan excluded (inactive or wrong
+        # type) so we don't issue redundant per-workspace API calls.
+        allowed_workspaces = [
+            w for w in allowed_workspaces if w.id not in excluded_workspace_ids
+        ]
+
+        # Then get the rest of the metadata per workspace.
+        for workspace in allowed_workspaces:
+            logger.info(f"Processing workspace id: {workspace.id}")
+            try:
+                self.powerbi_client.fill_regular_metadata_detail(workspace=workspace)
+            except Exception as e:
+                self.reporter.warning(
+                    title="Failed to Fetch Workspace Metadata",
+                    message="Phase 2 metadata fetch failed for this workspace; it will be skipped.",
+                    context=f"workspace={workspace.name} id={workspace.id}",
+                    exc=e,
+                )
+                continue
+
+            if self.source_config.modified_since:
+                # As modified_workspaces is not idempotent, hence we checkpoint for each powerbi workspace
+                # Because job_id is used as a dictionary key, we have to set a new job_id
+                # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
+                self.stale_entity_removal_handler.set_job_id(workspace.id)
+                self.state_provider.register_stateful_ingestion_usecase_handler(
+                    self.stale_entity_removal_handler
+                )
+
+                yield from self._apply_workunit_processors(
+                    [
+                        *super().get_workunit_processors(),
+                        self.stale_entity_removal_handler.workunit_processor,
+                    ],
+                    self.get_workspace_workunit(workspace),
+                )
+            else:
+                # Maintain backward compatibility
+                yield from self.get_workspace_workunit(workspace)
 
     def get_report(self) -> SourceReport:
         return self.reporter

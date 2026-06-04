@@ -4,9 +4,10 @@ import functools
 import json
 import logging
 import re
+import socket
 import time
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import auto
 from json.decoder import JSONDecodeError
@@ -52,6 +53,7 @@ from datahub.configuration.env_vars import (
     get_rest_emitter_default_pool_connections,
     get_rest_emitter_default_pool_maxsize,
     get_rest_emitter_default_retry_max_times,
+    get_rest_sink_default_tcp_keepalive,
 )
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -84,6 +86,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 _DEFAULT_TIMEOUT_SEC = 30  # 30 seconds should be plenty to connect
 _TIMEOUT_LOWER_BOUND_SEC = 1  # if below this, we log a warning
 _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
@@ -97,6 +100,7 @@ _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TR
 _DEFAULT_RETRY_MAX_TIMES = int(get_rest_emitter_default_retry_max_times())
 _DEFAULT_POOL_CONNECTIONS = get_rest_emitter_default_pool_connections()
 _DEFAULT_POOL_MAXSIZE = get_rest_emitter_default_pool_maxsize()
+_DEFAULT_TCP_KEEPALIVE = get_rest_sink_default_tcp_keepalive()
 
 # Multiplier to increase number of retries on 429s
 _429_RETRY_MULTIPLIER = get_rest_emitter_429_retry_multiplier()
@@ -120,6 +124,70 @@ INGEST_MAX_PAYLOAD_BYTES = get_rest_emitter_batch_max_payload_bytes()
 # too much to the backend and hitting a timeout, we try to limit
 # the number of MCPs we send in a batch.
 BATCH_INGEST_MAX_PAYLOAD_LENGTH = get_rest_emitter_batch_max_payload_length()
+
+
+class _KeepAliveHTTPAdapter(HTTPAdapter):
+    """HTTPAdapter that sets TCP keepalive on pooled connections to prevent SSLEOFError on idle connections.
+
+    Degrades gracefully: if keepalive socket options are unavailable on this platform,
+    the adapter behaves identically to the default HTTPAdapter.
+    """
+
+    # TCP_KEEPIDLE / TCP_KEEPINTVL / TCP_KEEPCNT are Linux/macOS only; skipped on other platforms.
+    _TUNING_OPTS = [("TCP_KEEPIDLE", 60), ("TCP_KEEPINTVL", 10), ("TCP_KEEPCNT", 5)]
+
+    @classmethod
+    def _socket_options(cls) -> Optional[List[tuple]]:
+        try:
+            opts: List[tuple] = [(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)]
+            for attr, val in cls._TUNING_OPTS:
+                if hasattr(socket, attr):
+                    opts.append((socket.IPPROTO_TCP, getattr(socket, attr), val))
+            logger.debug("Resolved %d TCP keepalive socket option(s)", len(opts))
+            return opts
+        except Exception as e:
+            logger.debug(
+                "TCP keepalive unavailable on this platform, idle connections will not be kept alive: %s",
+                e,
+            )
+            return None
+
+    def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
+        if opts := self._socket_options():
+            kwargs["socket_options"] = opts
+            logger.debug(
+                "Applying %d TCP keepalive socket option(s) to pool manager", len(opts)
+            )
+        else:
+            logger.debug(
+                "No TCP keepalive socket options applied to pool manager (resolution failed)"
+            )
+        super().init_poolmanager(*args, **kwargs)
+
+    def proxy_manager_for(self, proxy: Any, **proxy_kwargs: Any) -> Any:
+        if opts := self._socket_options():
+            proxy_kwargs["socket_options"] = opts
+            logger.debug(
+                "Applying %d TCP keepalive socket option(s) to proxy manager for %s",
+                len(opts),
+                proxy,
+            )
+        else:
+            logger.debug(
+                "No TCP keepalive socket options applied to proxy manager for %s (resolution failed)",
+                proxy,
+            )
+        return super().proxy_manager_for(proxy, **proxy_kwargs)
+
+    def send(self, request: Any, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return super().send(request, *args, **kwargs)
+        except requests.exceptions.SSLError:
+            logger.debug(
+                "SSL error on pooled connection, retrying with fresh connection"
+            )
+            self.close()
+            return super().send(request, *args, **kwargs)
 
 
 class _WeightedRetry(Retry):
@@ -239,6 +307,8 @@ class RequestsSessionConfig(ConfigModel):
     client_mode: Optional[ClientMode] = _DEFAULT_CLIENT_MODE
     datahub_component: Optional[str] = None
 
+    tcp_keepalive: bool = _DEFAULT_TCP_KEEPALIVE
+
     def build_session(self) -> requests.Session:
         session = requests.Session()
 
@@ -285,7 +355,13 @@ class RequestsSessionConfig(ConfigModel):
                 raise_on_status=False,
             )
 
-        adapter = HTTPAdapter(
+        logger.debug(
+            "Building session with tcp_keepalive=%s; using %s",
+            self.tcp_keepalive,
+            "_KeepAliveHTTPAdapter" if self.tcp_keepalive else "HTTPAdapter",
+        )
+        adapter_cls = _KeepAliveHTTPAdapter if self.tcp_keepalive else HTTPAdapter
+        adapter = adapter_cls(
             pool_connections=self.pool_connections,
             pool_maxsize=self.pool_maxsize,
             max_retries=retry_strategy,
@@ -362,23 +438,36 @@ class RequestsSessionConfig(ConfigModel):
 
 
 @dataclass
+class _ChunkItem:
+    """A single serialized item in a batch chunk."""
+
+    payload: str
+    urn: Optional[str] = None
+    aspect_name: Optional[str] = None
+
+    @property
+    def byte_size(self) -> int:
+        return len(self.payload.encode())
+
+
+@dataclass
 class _Chunk:
-    items: List[str]
+    items: List[_ChunkItem] = field(default_factory=list)
     total_bytes: int = 0
 
-    def add_item(self, item: str) -> bool:
-        item_bytes = len(item.encode())
-        if not self.items:  # Always add at least one item even if over byte limit
-            self.items.append(item)
-            self.total_bytes += item_bytes
-            return True
+    def add_item(
+        self,
+        payload: str,
+        urn: Optional[str] = None,
+        aspect_name: Optional[str] = None,
+    ) -> None:
+        item = _ChunkItem(payload=payload, urn=urn, aspect_name=aspect_name)
         self.items.append(item)
-        self.total_bytes += item_bytes
-        return True
+        self.total_bytes += item.byte_size
 
     @staticmethod
     def join(chunk: "_Chunk") -> str:
-        return "[" + ",".join(chunk.items) + "]"
+        return "[" + ",".join(item.payload for item in chunk.items) + "]"
 
 
 class DataHubRestEmitter(Closeable, Emitter):
@@ -408,6 +497,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         client_mode: Optional[ClientMode] = None,
         datahub_component: Optional[str] = None,
         server_config_refresh_interval: Optional[int] = None,
+        tcp_keepalive: Optional[bool] = None,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -478,6 +568,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             disable_ssl_verification=disable_ssl_verification,
             client_mode=client_mode,
             datahub_component=datahub_component,
+            tcp_keepalive=get_or_else(tcp_keepalive, _DEFAULT_TCP_KEEPALIVE),
         )
 
         self._session = self._session_config.build_session()
@@ -661,7 +752,12 @@ class DataHubRestEmitter(Closeable, Emitter):
                 "so this metadata will likely fail to be emitted."
             )
 
-        self._emit_generic(url, payload)
+        response = self._emit_generic(url, payload)
+        logger.debug(
+            "Sent MCE successfully urn=%s status=%d",
+            mce.proposedSnapshot.urn,
+            response.status_code,
+        )
 
     @overload
     @deprecated("Use emit_mode instead of async_flag")
@@ -694,6 +790,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         ensure_has_system_metadata(mcp)
 
         trace_data: Optional[TraceData] = None
+        response: Optional[requests.Response] = None
 
         if self._openapi_ingestion:
             request = self._to_openapi_request(mcp, emit_mode)
@@ -739,6 +836,15 @@ class DataHubRestEmitter(Closeable, Emitter):
                 )
                 if response
                 else None
+            )
+
+        if response is not None:
+            logger.debug(
+                "Sent MCP successfully urn=%s aspect=%s status=%d trace_id=%s",
+                mcp.entityUrn,
+                mcp.aspectName,
+                response.status_code,
+                trace_data.trace_id if trace_data else None,
             )
 
         if trace_data:
@@ -800,7 +906,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         """
         # Group by entity URL and HTTP method
         batches: Dict[Tuple[str, str], List[_Chunk]] = defaultdict(
-            lambda: [_Chunk(items=[])]
+            lambda: [_Chunk()]
         )  # Initialize with one empty Chunk
 
         for mcp in mcps:
@@ -820,15 +926,20 @@ class DataHubRestEmitter(Closeable, Emitter):
                     current_chunk.total_bytes + item_bytes > INGEST_MAX_PAYLOAD_BYTES
                     or len(current_chunk.items) >= BATCH_INGEST_MAX_PAYLOAD_LENGTH
                 ):
-                    new_chunk = _Chunk(items=[])
+                    new_chunk = _Chunk()
                     batches[key].append(new_chunk)
                     current_chunk = new_chunk
 
-                current_chunk.add_item(serialized_item)
+                current_chunk.add_item(serialized_item, mcp.entityUrn, mcp.aspectName)
 
         trace_data: List[TraceData] = []
+        # Chunks are grouped by (method, url), so track a global index/total to
+        # keep chunk=i/total truthful across all groups.
+        total_chunks = sum(len(group) for group in batches.values())
+        chunk_index = 0
         for (method, url), chunks in batches.items():
             for chunk in chunks:
+                chunk_index += 1
                 response = self._emit_generic(
                     url, payload=_Chunk.join(chunk), method=method
                 )
@@ -838,6 +949,16 @@ class DataHubRestEmitter(Closeable, Emitter):
                     )
                     if response
                     else None
+                )
+                logger.debug(
+                    "Sent MCP batch chunk=%d/%d method=%s items=%d status=%d trace_id=%s urns=%s",
+                    chunk_index,
+                    total_chunks,
+                    method,
+                    len(chunk.items),
+                    response.status_code,
+                    data.trace_id if data else None,
+                    [(item.urn, item.aspect_name) for item in chunk.items],
                 )
                 if data is not None:
                     if _DATAHUB_EMITTER_TRACE:
@@ -909,7 +1030,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             )
 
         trace_data: List[TraceData] = []
-        for mcp_obj_chunk, mcp_chunk in chunks:
+        for chunk_index, (mcp_obj_chunk, mcp_chunk) in enumerate(chunks, start=1):
             # TODO: We're calling json.dumps on each MCP object twice, once to estimate
             # the size when chunking, and again for the actual request.
             payload_dict: dict = {
@@ -926,6 +1047,15 @@ class DataHubRestEmitter(Closeable, Emitter):
                 if response
                 else None
             )
+            logger.debug(
+                "Sent MCP batch chunk=%d/%d items=%d status=%d trace_id=%s urns=%s",
+                chunk_index,
+                len(chunks),
+                len(mcp_chunk),
+                response.status_code,
+                data.trace_id if data else None,
+                [(mcp.entityUrn, mcp.aspectName) for mcp in mcp_chunk],
+            )
             if data is not None:
                 trace_data.append(data)
 
@@ -940,7 +1070,13 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         snapshot = {"buckets": [usage_obj]}
         payload = json.dumps(snapshot)
-        self._emit_generic(url, payload)
+        response = self._emit_generic(url, payload)
+        logger.debug(
+            "Sent usage stats successfully resource=%s bucket=%s status=%d",
+            usageStats.resource,
+            usageStats.bucket,
+            response.status_code,
+        )
 
     def _emit_generic(
         self, url: str, payload: Union[str, Any], method: str = "POST"
@@ -948,24 +1084,33 @@ class DataHubRestEmitter(Closeable, Emitter):
         if not isinstance(payload, str):
             payload = json.dumps(payload)
 
-        curl_command = make_curl_command(self._session, method, url, payload)
         payload_size = len(payload)
         if payload_size > INGEST_MAX_PAYLOAD_BYTES:
             # since we know total payload size here, we could simply avoid sending such payload at all and report a warning, with current approach we are going to cause whole ingestion to fail
             logger.warning(
                 f"Apparent payload size exceeded {INGEST_MAX_PAYLOAD_BYTES}, might fail with an exception due to the size"
             )
-        logger.debug(
-            "Attempting to emit aspect (size: %s) to DataHub GMS; using curl equivalent to:\n%s",
-            payload_size,
-            curl_command,
-        )
+        if _DATAHUB_EMITTER_TRACE:
+            logger.debug(
+                "Attempting to emit aspect (size: %s) to DataHub GMS; using curl equivalent to:\n%s",
+                payload_size,
+                make_curl_command(self._session, method, url, payload),
+            )
         try:
             method_func = getattr(self._session, method.lower())
             response = method_func(url, data=payload) if payload else method_func(url)
             response.raise_for_status()
             return response
         except HTTPError as e:
+            # When tracing is on the curl equivalent was already logged before the
+            # request, so only log it here to avoid emitting it twice on failure.
+            if not _DATAHUB_EMITTER_TRACE:
+                logger.debug(
+                    "Failed to emit to DataHub GMS (status=%s, payload_size=%d bytes); curl equivalent:\n%s",
+                    response.status_code,
+                    payload_size,
+                    make_curl_command(self._session, method, url, payload),
+                )
             try:
                 info: Dict = response.json()
 
@@ -991,6 +1136,12 @@ class DataHubRestEmitter(Closeable, Emitter):
                     "Unable to emit metadata to DataHub GMS", {"message": str(e)}
                 ) from e
         except RequestException as e:
+            if not _DATAHUB_EMITTER_TRACE:
+                logger.debug(
+                    "Failed to emit to DataHub GMS (no response received, payload_size=%d bytes); curl equivalent:\n%s",
+                    payload_size,
+                    make_curl_command(self._session, method, url, payload),
+                )
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", {"message": str(e)}
             ) from e
@@ -1019,6 +1170,11 @@ class DataHubRestEmitter(Closeable, Emitter):
             start_time = datetime.now()
 
             for trace in trace_data:
+                logger.debug(
+                    "awaiting async write trace_id=%s urns=%d",
+                    trace.trace_id,
+                    len(trace.data),
+                )
                 current_backoff = TRACE_INITIAL_BACKOFF
 
                 while trace.data:

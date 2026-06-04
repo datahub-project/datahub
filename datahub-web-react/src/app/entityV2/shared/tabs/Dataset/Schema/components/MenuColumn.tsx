@@ -1,6 +1,7 @@
 import { CopyOutlined } from '@ant-design/icons';
 import { Dropdown, Menu } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { VscGraphLeft } from 'react-icons/vsc';
 import styled from 'styled-components/macro';
 
@@ -9,6 +10,8 @@ import { MenuIcon } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions'
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 
 import { SchemaField } from '@types';
+
+const LINEAGE_TAB = 'Lineage';
 
 export const ImpactAnalysisIcon = styled(VscGraphLeft)`
     transform: scaleX(-1);
@@ -33,6 +36,7 @@ interface Props {
 }
 
 export default function MenuColumn({ field }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const routeToTab = useRouteToTab();
     const { urn } = useEntityData();
     const selectedColumnUrn = generateSchemaFieldUrn(field.fieldPath, urn);
@@ -43,9 +47,9 @@ export default function MenuColumn({ field }: Props) {
                 <Menu>
                     <Menu.Item key="0" onClick={(e) => e.domEvent.stopPropagation()}>
                         <MenuItem
-                            onClick={() => routeToTab({ tabName: 'Lineage', tabParams: { column: field.fieldPath } })}
+                            onClick={() => routeToTab({ tabName: LINEAGE_TAB, tabParams: { column: field.fieldPath } })}
                         >
-                            <ImpactAnalysisIcon /> &nbsp; See Column Lineage
+                            <ImpactAnalysisIcon /> &nbsp; {t('menuColumn.seeColumnLineage')}
                         </MenuItem>
                     </Menu.Item>
                     {navigator.clipboard && (
@@ -55,7 +59,7 @@ export default function MenuColumn({ field }: Props) {
                                     navigator.clipboard.writeText(field.fieldPath);
                                 }}
                             >
-                                <CopyOutlinedIcon /> &nbsp; Copy Column Field Path
+                                <CopyOutlinedIcon /> &nbsp; {t('menuColumn.copyColumnFieldPath')}
                             </MenuItem>
                         </Menu.Item>
                     )}
@@ -66,7 +70,7 @@ export default function MenuColumn({ field }: Props) {
                                     navigator.clipboard.writeText(selectedColumnUrn || '');
                                 }}
                             >
-                                <CopyOutlinedIcon /> &nbsp; Copy Column Urn
+                                <CopyOutlinedIcon /> &nbsp; {t('menuColumn.copyColumnUrn')}
                             </MenuItem>
                         </Menu.Item>
                     )}

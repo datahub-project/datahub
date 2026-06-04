@@ -6,6 +6,7 @@ import com.datahub.authorization.AuthorizationSession;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.mxe.SystemMetadata;
@@ -24,6 +25,8 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A batch of aspects in the context of either an MCP or MCL write path to a data store. The item is
@@ -31,6 +34,8 @@ import org.apache.commons.lang3.StringUtils;
  * SystemMetadata} and record/message created time
  */
 public interface AspectsBatch {
+  Logger log = LoggerFactory.getLogger(AspectsBatch.class);
+
   Collection<? extends BatchItem> getItems();
 
   Collection<? extends BatchItem> getInitialItems();
@@ -172,11 +177,21 @@ public interface AspectsBatch {
 
   static void applyMCPObservers(
       Collection<? extends BatchItem> items, @Nonnull RetrieverContext retrieverContext) {
-    retrieverContext
-        .getAspectRetriever()
-        .getEntityRegistry()
-        .getAllMCPObservers()
-        .forEach(observer -> observer.apply(items, retrieverContext));
+    for (MCPObserver observer :
+        retrieverContext.getAspectRetriever().getEntityRegistry().getAllMCPObservers()) {
+      try {
+        observer.apply(items, retrieverContext);
+      } catch (VirtualMachineError e) {
+        throw e;
+      } catch (Throwable t) {
+        // Belt-and-suspenders around the per-observer apply call. observer.apply() is final and
+        // already catches; this loop guarantees one bad observer cannot stop dispatch to the rest.
+        log.warn(
+            "MCPObserver dispatch failed for {}; ingest continuing.",
+            observer == null ? "null" : observer.getClass().getName(),
+            t);
+      }
+    }
   }
 
   default Stream<MCLItem> applyMCLSideEffects(Collection<MCLItem> items) {

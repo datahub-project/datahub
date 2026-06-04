@@ -1,6 +1,7 @@
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { StyledMenuItem } from '@app/shared/share/v2/styledComponents';
@@ -21,6 +22,7 @@ export default function CopyNameMenuItem({ key, type, name, qualifiedName }: Cop
     /**
      * Whether button has been clicked
      */
+    const { t } = useTranslation('shared.share');
     const [isClicked, setIsClicked] = useState(false);
 
     return (
@@ -35,10 +37,10 @@ export default function CopyNameMenuItem({ key, type, name, qualifiedName }: Cop
                 setIsClicked(true);
             }}
         >
-            <Tooltip title={`Copy the full name of the ${type}`}>
+            <Tooltip title={t('copyName.tooltip', { type })}>
                 {isClicked ? <CheckOutlined /> : <CopyOutlined />}
                 <TextSpan>
-                    <b>Copy Name</b>
+                    <b>{t('copyName.label')}</b>
                 </TextSpan>
             </Tooltip>
         </StyledMenuItem>

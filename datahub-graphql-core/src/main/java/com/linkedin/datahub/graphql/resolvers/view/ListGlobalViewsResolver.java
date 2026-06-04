@@ -113,7 +113,6 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
     andConditions.add(
         new FacetFilterInput(
             VIEW_TYPE_FIELD,
-            null,
             ImmutableList.of(DataHubViewType.GLOBAL.name()),
             false,
             FilterOperator.EQUAL));

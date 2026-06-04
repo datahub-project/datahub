@@ -14,7 +14,7 @@ from datahub_agent_context.context import get_graph
 from datahub_agent_context.mcp_tools.base import (
     clean_gql_response,
     execute_graphql,
-    fetch_global_default_view,
+    resolve_default_view,
 )
 from datahub_agent_context.mcp_tools.search_filter_parser import (
     FILTER_DOCS,
@@ -470,8 +470,8 @@ def _search_documents_impl(
     parsed_filter = parse_filter_string(filter.strip()) if filter else None
     _, or_filters = compile_filters(parsed_filter)
 
-    # Fetch and apply default view
-    view_urn = fetch_global_default_view(graph)
+    # Fetch and apply default view: user personal first, then org global
+    view_urn = resolve_default_view(graph)
 
     # Choose search strategy
     if search_strategy == "semantic":

@@ -7,7 +7,7 @@ import java.net.UnknownHostException;
 import java.util.Set;
 import javax.management.MBeanServer;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.jetty.ee10.servlet.ServletHandler;
+import org.eclipse.jetty.ee11.servlet.ServletHandler;
 import org.eclipse.jetty.http.UriCompliance;
 import org.eclipse.jetty.jmx.MBeanContainer;
 import org.eclipse.jetty.server.Connector;
@@ -17,7 +17,7 @@ import org.eclipse.jetty.server.ServerConnector;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
-import org.springframework.boot.web.embedded.jetty.JettyServletWebServerFactory;
+import org.springframework.boot.jetty.servlet.JettyServletWebServerFactory;
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -39,10 +39,12 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.common",
       "com.linkedin.gms.factory.entity",
       "com.linkedin.gms.factory.kafka",
+      "com.linkedin.gms.factory.messaging",
       "com.linkedin.gms.factory.kafka.common",
       "com.linkedin.gms.factory.kafka.schemaregistry",
       "com.linkedin.metadata.boot.kafka",
       "com.linkedin.metadata.kafka",
+      "com.linkedin.metadata.pgqueue",
       "com.linkedin.metadata.dao.producer",
       "com.linkedin.gms.factory.entity.update.indices",
       "com.linkedin.gms.factory.entityclient",
@@ -50,6 +52,7 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.incident",
       "com.linkedin.gms.factory.timeline.eventgenerator",
       "io.datahubproject.metadata.jobs.common.health.kafka",
+      "io.datahubproject.metadata.jobs.common.health.pgqueue",
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.auth",
       "com.linkedin.gms.factory.search",
@@ -92,12 +95,20 @@ public class CommonApplicationConfig {
             httpConfig.setSendDateHeader(false);
 
             // See https://github.com/jetty/jetty.project/issues/11890
-            // Configure URI compliance to allow encoded slashes
+            // DataHub URNs routinely appear URL-encoded in paths (e.g. /aspects/{urn})
+            // with gen-delims like ':', '(', ')', ',' percent-encoded as %3A/%28/%29/%2C,
+            // plus encoded slashes (%2F) for platform-instance segments. Jetty 12's
+            // RFC3986-strict default rejects these as ambiguous and returns 400 before
+            // the request reaches the servlet, so we explicitly allow the ambiguous-path
+            // violations URN-encoded paths can produce.
             httpConfig.setUriCompliance(
                 UriCompliance.from(
                     Set.of(
                         UriCompliance.Violation.AMBIGUOUS_PATH_SEPARATOR,
                         UriCompliance.Violation.AMBIGUOUS_PATH_ENCODING,
+                        UriCompliance.Violation.AMBIGUOUS_PATH_SEGMENT,
+                        UriCompliance.Violation.AMBIGUOUS_PATH_PARAMETER,
+                        UriCompliance.Violation.AMBIGUOUS_EMPTY_SEGMENT,
                         UriCompliance.Violation.SUSPICIOUS_PATH_CHARACTERS)));
             // set this for Servlet 6+
             server

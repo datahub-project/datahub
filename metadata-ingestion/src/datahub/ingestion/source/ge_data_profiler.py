@@ -56,6 +56,7 @@ from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
+    ProfilerRequest,
     convert_to_cardinality,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -175,24 +176,9 @@ def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
             yield
 
 
-@dataclasses.dataclass
-class GEProfilerRequest:
-    pretty_name: str
-    batch_kwargs: dict
-
-
-# Alias for clearer naming in new code
-# GEProfilerRequest is misleadingly named - it's actually a generic profiling request
-# used by both GE and SQLAlchemy profilers. This alias allows new code to use a
-# more appropriate name without breaking existing code.
-#
-# Migration strategy:
-# 1. New code should use ProfilerRequest instead of GEProfilerRequest
-# 2. Once GE profiler is removed, deprecate GEProfilerRequest with a warning
-# 3. Eventually rename the class itself to ProfilerRequest
-# 4. Consider moving to datahub.ingestion.source.profiling.common since it's
-#    generic profiling infrastructure, not source-specific
-ProfilerRequest = GEProfilerRequest
+# Legacy alias - GEProfilerRequest is the historical name. New code should
+# import ProfilerRequest from datahub.ingestion.source.profiling.common.
+GEProfilerRequest = ProfilerRequest
 
 
 def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> int:

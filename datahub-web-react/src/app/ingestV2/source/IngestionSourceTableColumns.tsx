@@ -3,8 +3,8 @@ import { Play } from '@phosphor-icons/react/dist/csr/Play';
 import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 import { Stop } from '@phosphor-icons/react/dist/csr/Stop';
 import { Image, Typography } from 'antd';
-import cronstrue from 'cronstrue';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
@@ -16,6 +16,7 @@ import { capitalizeMonthsAndDays, formatTimezone } from '@app/ingestV2/source/ut
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { capitalizeFirstLetter, capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
+import { cronToString, removeTimePrefix } from '@utils/cronstrue';
 
 import { Owner } from '@types';
 
@@ -96,6 +97,7 @@ interface NameColumnProps {
 }
 
 export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
+    const { t } = useTranslation('ingestion');
     const theme = useTheme();
     const iconUrl = useGetSourceLogoUrl(type);
     const typeDisplayName = capitalizeFirstLetter(type);
@@ -150,7 +152,7 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                 {!iconUrl && typeDisplayName && <SourceTypeText color="gray">{typeDisplayName}</SourceTypeText>}
             </DisplayNameContainer>
             {record.cliIngestion && (
-                <Tooltip title="This source is ingested from the command-line interface (CLI)">
+                <Tooltip title={t('source.cliTooltip')}>
                     <div data-testid="ingestion-source-cli-pill">
                         <Pill label="CLI" color="blue" size="xs" />
                     </div>
@@ -161,16 +163,17 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
 }
 
 export function ScheduleColumn({ schedule, timezone }: { schedule: string; timezone?: string }) {
+    const { t } = useTranslation('ingestion');
     const theme = useTheme();
     let scheduleText: string;
 
     try {
-        const text = schedule && `${cronstrue.toString(schedule).toLowerCase()} (${formatTimezone(timezone)})`;
-        const cleanedText = text.replace(/^at /, '');
+        const text = schedule && `${cronToString(schedule).toLowerCase()} (${formatTimezone(timezone)})`;
+        const cleanedText = removeTimePrefix(text);
         const finalText = capitalizeFirstLetterOnly(capitalizeMonthsAndDays(cleanedText));
         scheduleText = finalText ?? '-';
     } catch (e) {
-        scheduleText = 'Invalid cron schedule';
+        scheduleText = t('source.invalidCron');
         console.debug('Error parsing cron schedule', e);
     }
     return (
@@ -235,6 +238,9 @@ export function ActionsColumn({
     onDelete,
     navigateToRunHistory,
 }: ActionsColumnProps) {
+    const { t } = useTranslation('ingestion');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
     const items: MenuOption[] = [];
 
     if (!record.cliIngestion)
@@ -246,7 +252,7 @@ export function ActionsColumn({
                         onEdit(record.urn);
                     }}
                 >
-                    Edit
+                    {tc('edit')}
                 </MenuItem>
             ),
         });
@@ -259,7 +265,7 @@ export function ActionsColumn({
                         onView(record.urn);
                     }}
                 >
-                    View
+                    {tc('view')}
                 </MenuItem>
             ),
         });
@@ -272,7 +278,7 @@ export function ActionsColumn({
                         setFocusExecutionUrn(record.lastExecUrn);
                     }}
                 >
-                    View Last Run Result
+                    {t('source.viewLastRunResult')}
                 </MenuItem>
             ),
         });
@@ -286,7 +292,7 @@ export function ActionsColumn({
                         navigateToRunHistory(record);
                     }}
                 >
-                    View Run History
+                    {t('source.viewRunHistory')}
                 </MenuItem>
             ),
         });
@@ -299,7 +305,7 @@ export function ActionsColumn({
                         navigator.clipboard.writeText(record.urn);
                     }}
                 >
-                    Copy Urn
+                    {t('source.copyUrn')}
                 </MenuItem>
             ),
         });
@@ -312,7 +318,7 @@ export function ActionsColumn({
                         setFocusExecutionUrn(record.lastExecUrn);
                     }}
                 >
-                    Details
+                    {tl('details')}
                 </MenuItem>
             ),
         });
@@ -325,7 +331,7 @@ export function ActionsColumn({
                     onDelete(record.urn);
                 }}
             >
-                <Text color="red">Delete </Text>
+                <Text color="red">{tc('delete')}</Text>
             </MenuItem>
         ),
     });
@@ -343,7 +349,7 @@ export function ActionsColumn({
                         e.stopPropagation();
                         onCancel(record.lastExecUrn, record.urn);
                     }}
-                    tooltipText="Stop Execution"
+                    tooltipText={t('source.stopExecution')}
                 />
             );
         }
@@ -356,7 +362,7 @@ export function ActionsColumn({
                     e.stopPropagation();
                     onExecute(record.urn);
                 }}
-                tooltipText="Execute"
+                tooltipText={t('source.execute')}
                 data-testid="run-ingestion-source-button"
             />
         );

@@ -13,7 +13,7 @@ const Container = styled(Button)`
     border: 1px solid ${(props) => props.theme.colors.border};
     background-color: ${(props) => props.theme.colors.bg};
     &&:hover {
-        border: 1px solid ${(props) => props.theme.colors.borderBrand};
+        border: 1px solid ${(props) => props.theme.colors.borderHover};
         background-color: ${(props) => props.theme.colors.bg};
     }
     white-space: unset;
@@ -51,11 +51,12 @@ type Props = {
     name: string;
     description?: string;
     onClick?: () => void;
+    dataTestId?: string;
 };
 
-export const DataPlatformCard = ({ logoUrl, logoComponent, name, description, onClick }: Props) => {
+export const DataPlatformCard = ({ logoUrl, logoComponent, name, description, onClick, dataTestId }: Props) => {
     return (
-        <Container type="link" onClick={onClick}>
+        <Container type="link" onClick={onClick} data-testid={dataTestId}>
             <LogoContainer>
                 {(logoUrl && <PlatformLogo preview={false} src={logoUrl} alt={name} />) || logoComponent}
             </LogoContainer>

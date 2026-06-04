@@ -22,6 +22,14 @@ source:
     topic_routes:
       mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
       pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1}
+    # MCL events are entirely skipped before avrogen deserialization because the
+    # filter only passes EntityChangeEvent_v1 — aligning with the action's own guard.
+    enable_mcl_pre_deserialization_filter: true
+filters:
+  - type: event_type
+    config:
+      filter:
+        EntityChangeEvent_v1: {}
 action:
   type: slack
   config:

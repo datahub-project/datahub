@@ -1,5 +1,6 @@
 import { Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import AddRelatedTermsModal from '@app/entityV2/glossaryTerm/profile/AddRelatedTermsModal';
@@ -12,6 +13,7 @@ import { Button } from '@src/alchemy-components';
 
 import { TermRelationshipType } from '@types';
 
+/* untranslated-text -- dual-use enum: UI label + comparison key; needs label/key decouple */
 export enum RelatedTermTypes {
     hasRelatedTerms = 'Contains',
     isRelatedTerms = 'Inherits',
@@ -48,6 +50,8 @@ const TitleContainer = styled.div`
 const messageStyle = { marginTop: '10%' };
 
 export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, glossaryRelatedTermResult }: Props) {
+    const { t } = useTranslation('entity.types');
+    const { t: tf } = useTranslation('common.feedback');
     const [isShowingAddModal, setIsShowingAddModal] = useState(false);
     const glossaryRelatedTermUrns: Array<string> = [];
     glossaryRelatedTermResult.forEach((item: any) => {
@@ -66,7 +70,7 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
     return (
         <>
             {contentLoading ? (
-                <Message type="loading" content="Loading..." style={messageStyle} />
+                <Message type="loading" content={tf('loading')} style={messageStyle} />
             ) : (
                 <ListWrapper>
                     <TitleContainer>
@@ -79,7 +83,7 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
                                 onClick={() => setIsShowingAddModal(true)}
                                 data-testid="add-related-term-button"
                             >
-                                <CustomIcon iconSvg={addTerm} /> Add Terms
+                                <CustomIcon iconSvg={addTerm} /> {t('glossaryTerm.addTerms')}
                             </Button>
                         )}
                     </TitleContainer>

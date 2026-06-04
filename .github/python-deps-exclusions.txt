@@ -15,4 +15,9 @@
 # ============================================================================
 acryl-datahub
 datahub-agent-context
+# Airflow providers needed for loading test DAGs; must be compatible with
+# whatever Airflow 3.x is being tested so can't be pinned to a specific version
+apache-airflow-providers-snowflake
+apache-airflow-providers-amazon
+apache-airflow-providers-google
 

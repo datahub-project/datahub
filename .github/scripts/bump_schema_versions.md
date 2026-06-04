@@ -1,13 +1,16 @@
 # bump_schema_versions.py
 
-A pre-commit CLI tool that automatically bumps `schemaVersion` annotations on PDL aspect files whenever their content — or the content of any record they include — changes relative to the base branch.
+A pre-commit CLI tool that automatically bumps `schemaVersion` annotations on PDL aspect files whenever their content — or the content of any record/enum/typeref they depend on (via `includes` **or** as a field type) — changes relative to the base branch.
 
 ## Why this exists
 
 DataHub's metadata model is defined in PDL files under `metadata-models/src/main/pegasus/`. Each **aspect** file carries a `schemaVersion` field inside its `@Aspect` annotation. This version must be incremented whenever the aspect's schema changes so that downstream consumers (schema registries, compatibility checks, migration tooling) can detect and react to the change. The `schemaVersion` is optional and when
 missing, defaults to 1.
 
-Without automation this is easy to forget, especially for **implicit** changes — where a shared base record (e.g. `TimeseriesAspectBase`) is modified and every aspect that includes it is silently affected.
+Without automation this is easy to forget, especially for **implicit** changes — where a shared record, enum, or typeref is modified and every aspect that depends on it is silently affected. Two flavors of dependency are tracked:
+
+- `record X includes Y` — the historical case (shared base records like `TimeseriesAspectBase`).
+- Field-type references — e.g. `record X { schedule: optional Y }`. If `Y` is modified, `X` must be bumped even though no `includes` relationship exists. This catches cases like `DataHubIngestionSourceInfo` referencing `DataHubIngestionSourceSchedule`, where both live in the same namespace and no import is needed.
 
 ## Usage
 
@@ -84,11 +87,13 @@ git diff --name-only --diff-filter=ACM <base-branch> -- *.pdl
 
 This captures added, copied, and modified PDL files relative to the base branch, including uncommitted staged and unstaged changes. **Untracked files** (not yet `git add`ed) are not detected.
 
-### Step 2 — Build the include graph
+### Step 2 — Build the dependency graph
 
-All PDL files under `metadata-models/src/main/pegasus/` are scanned once to build a **reverse include map**: for every record, which files include it?
+All PDL files under `metadata-models/src/main/pegasus/` are scanned once to build a **reverse dependency map**: for every record/enum/typeref, which files depend on it?
 
-PDL `includes` resolution follows the language rules:
+Two kinds of edges are recorded:
+
+**1. `includes` clauses.**
 
 ```pdl
 namespace com.linkedin.dataset
@@ -97,11 +102,21 @@ import com.linkedin.timeseries.TimeseriesAspectBase
 record DatasetUsageStatistics includes TimeseriesAspectBase { ... }
 ```
 
-`TimeseriesAspectBase` is resolved to `com.linkedin.timeseries.TimeseriesAspectBase` via the `import` statement (namespace is used as a fallback for unimported names).
+**2. Field-type references** — direct, optional, generic, union members, and types inside inline records.
+
+```pdl
+namespace com.linkedin.ingestion
+
+record DataHubIngestionSourceInfo {
+  schedule: optional DataHubIngestionSourceSchedule   // same-namespace ref
+}
+```
+
+Short names are resolved to FQNs via the file's `import` statements, with the file's own `namespace` as fallback (this is how same-namespace refs like the example above are resolved without needing an explicit import). Identifiers inside strings, comments, `@Annotation = {...}` values, and `import` lines are excluded from the scan.
 
 ### Step 3 — Transitive propagation (BFS)
 
-Starting from the directly changed files, the tool does a breadth-first search through the reverse include graph to find every file that (directly or transitively) depends on any changed record. From that reachable set, only files with an `@Aspect` annotation are eligible for a version bump.
+Starting from the directly changed files, the tool does a breadth-first search through the reverse dependency graph to find every file that (directly or transitively) depends on any changed record. From that reachable set, only files with an `@Aspect` annotation are eligible for a version bump.
 
 ```
 TimeseriesAspectBase.pdl  ← changed
@@ -109,6 +124,9 @@ TimeseriesAspectBase.pdl  ← changed
   └─ included by DatasetProfile.pdl          (aspect → bumped)
   └─ included by ChartUsageStatistics.pdl    (aspect → bumped)
   └─ ...
+
+DataHubIngestionSourceSchedule.pdl  ← changed (non-aspect)
+  └─ used as field type in DataHubIngestionSourceInfo.pdl  (aspect → bumped)
 ```
 
 ### Step 4 — Bump the version
@@ -163,7 +181,7 @@ SKIP  <path>  (reason)          ← only with --verbose
 Reason labels:
 
 - `[direct change]` — the aspect file itself was modified
-- `[implicit (includes changed record)]` — a record this aspect includes was modified
+- `[implicit (depends on changed record)]` — a record/enum/typeref this aspect depends on (via `includes` or as a field type) was modified
 
 ### Example output
 
@@ -172,11 +190,11 @@ Comparing against branch: master
 Found 1 directly changed PDL file(s):
   metadata-models/src/main/pegasus/com/linkedin/timeseries/TimeseriesAspectBase.pdl
 
-BUMP  metadata-models/.../chart/ChartUsageStatistics.pdl         v1 → v2  [implicit (includes changed record)]
-BUMP  metadata-models/.../common/Operation.pdl                    v1 → v2  [implicit (includes changed record)]
-BUMP  metadata-models/.../dashboard/DashboardUsageStatistics.pdl  v1 → v2  [implicit (includes changed record)]
-BUMP  metadata-models/.../dataset/DatasetProfile.pdl              v1 → v2  [implicit (includes changed record)]
-BUMP  metadata-models/.../dataset/DatasetUsageStatistics.pdl      v1 → v2  [implicit (includes changed record)]
+BUMP  metadata-models/.../chart/ChartUsageStatistics.pdl         v1 → v2  [implicit (depends on changed record)]
+BUMP  metadata-models/.../common/Operation.pdl                    v1 → v2  [implicit (depends on changed record)]
+BUMP  metadata-models/.../dashboard/DashboardUsageStatistics.pdl  v1 → v2  [implicit (depends on changed record)]
+BUMP  metadata-models/.../dataset/DatasetProfile.pdl              v1 → v2  [implicit (depends on changed record)]
+BUMP  metadata-models/.../dataset/DatasetUsageStatistics.pdl      v1 → v2  [implicit (depends on changed record)]
 ...
 
 Summary: 9 bumped, 0 skipped, 0 errors

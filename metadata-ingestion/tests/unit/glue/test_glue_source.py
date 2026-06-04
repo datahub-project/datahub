@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Type, cast
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pydantic
 import pytest
@@ -46,6 +46,7 @@ from tests.unit.glue.test_glue_source_stubs import (
     get_databases_response,
     get_databases_response_for_lineage,
     get_databases_response_profiling,
+    get_databases_response_with_mixed_database,
     get_databases_response_with_resource_link,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
@@ -64,9 +65,13 @@ from tests.unit.glue.test_glue_source_stubs import (
     get_tables_lineage_response_1,
     get_tables_response_1,
     get_tables_response_2,
+    get_tables_response_for_mixed_database,
     get_tables_response_for_target_database,
     get_tables_response_profiling_1,
+    mixed_database,
+    normal_table_in_mixed_database,
     resource_link_database,
+    resource_link_table_in_mixed_database,
     tables_1,
     tables_2,
     tables_profiling_1,
@@ -317,6 +322,55 @@ def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_r
         )
 
         assert source.get_all_databases_and_tables() == all_databases_and_tables_result
+
+
+@pytest.mark.parametrize(
+    "ignore_resource_links, expected_tables",
+    [
+        # When ignore_resource_links is True, the table-level resource link
+        # (TargetTable) is dropped and only the normal table is yielded.
+        (True, [normal_table_in_mixed_database]),
+        # When ignore_resource_links is False, both tables are yielded.
+        (
+            False,
+            [normal_table_in_mixed_database, resource_link_table_in_mixed_database],
+        ),
+    ],
+)
+def test_ignore_resource_links_filters_table_level_links(
+    ignore_resource_links, expected_tables
+):
+    """Regression test for CUS-8715.
+
+    Lake Formation supports table-granularity sharing where a regular database
+    contains tables that are resource links (i.e. tables with a TargetTable
+    field). Database-level filtering does not catch these, so the table-level
+    filter must drop them when ignore_resource_links is enabled.
+    """
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="eu-west-1",
+            ignore_resource_links=ignore_resource_links,
+        ),
+    )
+
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response(
+            "get_databases",
+            get_databases_response_with_mixed_database,
+            {},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_for_mixed_database,
+            {"DatabaseName": "mixed-database"},
+        )
+
+        databases, tables = source.get_all_databases_and_tables()
+
+    assert databases == [mixed_database]
+    assert tables == expected_tables
 
 
 def test_platform_must_be_valid():
@@ -1503,3 +1557,235 @@ def test_glue_redact_job_script_secret_fields(secret_name):
     assert _redact_secret_fields_in_dataflow_script(script) == script.replace(
         secret_value, "*****"
     )
+
+
+# ── extract_column_parameters (structured properties) ─────────────────────────
+
+
+def _make_glue_source_with_column_params() -> GlueSource:
+    pipeline_context = PipelineContext(run_id="glue-col-params-test")
+    return GlueSource(
+        ctx=pipeline_context,
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            extract_column_parameters=True,
+        ),
+    )
+
+
+def _make_table_with_column_params() -> Dict[str, Any]:
+    return {
+        "Name": "test_table",
+        "DatabaseName": "test_db",
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "col_a",
+                    "Type": "string",
+                    "Parameters": {
+                        "iceberg.field.id": "1",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+                {
+                    "Name": "col_b",
+                    "Type": "int",
+                    "Parameters": {"iceberg.field.id": "2"},
+                },
+                {
+                    "Name": "col_no_params",
+                    "Type": "boolean",
+                },
+            ]
+        },
+        "PartitionKeys": [
+            {
+                "Name": "dt",
+                "Type": "string",
+                "Parameters": {"iceberg.field.id": "3"},
+            }
+        ],
+    }
+
+
+def test_column_param_property_urn_sanitizes_special_chars() -> None:
+    assert GlueSource._column_param_property_urn("iceberg.field.id") == (
+        "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.id"
+    )
+    assert GlueSource._column_param_property_urn("some-key with spaces!") == (
+        "urn:li:structuredProperty:io.datahubproject.glue.column.some_key_with_spaces_"
+    )
+
+
+def test_get_column_param_workunits_emits_definitions_once() -> None:
+    """Each unique key's StructuredPropertyDefinition should be emitted only once per run."""
+    source = _make_glue_source_with_column_params()
+    table = _make_table_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    definition_urns = [
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(models.StructuredPropertyDefinitionClass) is not None
+    ]
+    # iceberg.field.id appears on col_a, col_b, and dt — definition should be emitted once
+    assert (
+        definition_urns.count(
+            "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.id"
+        )
+        == 1
+    )
+    # iceberg.field.optional only appears on col_a
+    assert (
+        definition_urns.count(
+            "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.optional"
+        )
+        == 1
+    )
+
+
+def test_get_column_param_workunits_skips_columns_without_params() -> None:
+    """Columns with no Parameters should produce no work units."""
+    source = _make_glue_source_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+    table = {
+        "Name": "t",
+        "DatabaseName": "db",
+        "StorageDescriptor": {
+            "Columns": [{"Name": "col_no_params", "Type": "boolean"}]
+        },
+        "PartitionKeys": [],
+    }
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    assert workunits == []
+
+
+def test_get_column_param_workunits_values_assigned_correctly() -> None:
+    """StructuredProperties aspect on each field should carry the correct values."""
+    source = _make_glue_source_with_column_params()
+    table = _make_table_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    # Find the StructuredProperties workunit for col_a (v2 typed field path)
+    col_a_urn = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD),[version=2.0].[type=string].col_a)"
+    col_a_props_wu = next(
+        (
+            wu
+            for wu in workunits
+            if wu.get_urn() == col_a_urn
+            and wu.get_aspect_of_type(models.StructuredPropertiesClass) is not None
+        ),
+        None,
+    )
+    assert col_a_props_wu is not None
+    aspect = col_a_props_wu.get_aspect_of_type(models.StructuredPropertiesClass)
+    assert aspect is not None
+    assigned_urns = {a.propertyUrn for a in aspect.properties}
+    assert (
+        "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.id"
+        in assigned_urns
+    )
+    assert (
+        "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.optional"
+        in assigned_urns
+    )
+    id_assignment = next(
+        a
+        for a in aspect.properties
+        if a.propertyUrn
+        == "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.id"
+    )
+    assert id_assignment.values == ["1"]
+
+
+def test_seen_definitions_not_re_emitted_across_tables() -> None:
+    """Once a definition has been emitted for a key, it must not appear again for a second table."""
+    source = _make_glue_source_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+    table = _make_table_with_column_params()
+
+    first_run = list(source._get_column_param_workunits(table, dataset_urn))
+    second_run = list(source._get_column_param_workunits(table, dataset_urn))
+
+    first_defs = [
+        wu
+        for wu in first_run
+        if wu.get_aspect_of_type(models.StructuredPropertyDefinitionClass) is not None
+    ]
+    second_defs = [
+        wu
+        for wu in second_run
+        if wu.get_aspect_of_type(models.StructuredPropertyDefinitionClass) is not None
+    ]
+    assert len(first_defs) > 0
+    assert second_defs == []
+
+
+def test_get_column_param_workunits_uses_v2_field_path() -> None:
+    """schemaField URNs must use the v2 typed path from get_schema_fields_for_hive_column."""
+    source = _make_glue_source_with_column_params()
+    table = _make_table_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    assignment_urns = {
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(models.StructuredPropertiesClass) is not None
+    }
+    # v2 typed paths must be used
+    assert (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD),[version=2.0].[type=string].col_a)"
+        in assignment_urns
+    )
+    # bare column names must not appear as field paths
+    assert (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD),col_a)"
+        not in assignment_urns
+    )
+
+
+def test_get_column_param_definitions_emitted_via_graph() -> None:
+    """When ctx.graph is set, definitions are emitted synchronously via emit_mcp, not as workunits."""
+    pipeline_context = PipelineContext(run_id="test-graph-emit")
+    pipeline_context.graph = MagicMock(spec=DataHubGraph)
+    source = GlueSource(
+        ctx=pipeline_context,
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            extract_column_parameters=True,
+        ),
+    )
+    table = _make_table_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    # definitions go to graph.emit_mcp, not into the workunit stream
+    assert pipeline_context.graph.emit_mcp.called
+    definition_wus = [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(models.StructuredPropertyDefinitionClass) is not None
+    ]
+    assert definition_wus == []
+    # assignment workunits still flow through the pipeline normally
+    assignment_wus = [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(models.StructuredPropertiesClass) is not None
+    ]
+    assert len(assignment_wus) > 0

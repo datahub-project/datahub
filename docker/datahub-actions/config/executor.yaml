@@ -20,17 +20,21 @@ source:
       schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
     topic_routes:
       mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
-filter: 
-  event_type: "MetadataChangeLogEvent_v1"
-  event:
-    entityType: "dataHubExecutionRequest"
-    changeType: "UPSERT"
-    aspectName:
-      - "dataHubExecutionRequestInput"
-      - "dataHubExecutionRequestSignal"
-    aspect:
-      value:
-        executorId: "${EXECUTOR_ID:-default}"
+    enable_mcl_pre_deserialization_filter: true
+filters:
+  - type: event_type
+    config:
+      filter:
+        MetadataChangeLogEvent_v1:
+          event:
+            - entityType: "dataHubExecutionRequest"
+              changeType: "UPSERT"
+              aspectName:
+                - "dataHubExecutionRequestInput"
+                - "dataHubExecutionRequestSignal"
+              aspect:
+                value:
+                  executorId: "${EXECUTOR_ID:-default}"
 action:
   type: "executor"
   config:

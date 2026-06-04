@@ -3,6 +3,7 @@ import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVerti
 import { Dropdown } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
@@ -101,6 +102,8 @@ export const ApplicationOwnersColumn = React.memo(({ owners }: { owners: Ownersh
 
 export const ApplicationActionsColumn = React.memo(
     ({ applicationUrn, onDelete }: { applicationUrn: string; onDelete: () => void }) => {
+        const { t } = useTranslation('misc');
+        const { t: tc } = useTranslation('common.actions');
         const entityRegistry = useEntityRegistry();
         const url = entityRegistry.getEntityUrl(EntityType.Application, applicationUrn);
 
@@ -109,7 +112,7 @@ export const ApplicationActionsColumn = React.memo(
                 key: '0',
                 label: (
                     <MenuItem onClick={() => window.open(url, '_blank')} data-testid="action-edit">
-                        View
+                        {tc('view')}
                     </MenuItem>
                 ),
             },
@@ -121,7 +124,7 @@ export const ApplicationActionsColumn = React.memo(
                             navigator.clipboard.writeText(applicationUrn);
                         }}
                     >
-                        Copy Urn
+                        {t('applications.copyUrn')}
                     </MenuItem>
                 ),
             },
@@ -129,7 +132,7 @@ export const ApplicationActionsColumn = React.memo(
                 key: '2',
                 label: (
                     <DeleteMenuItem onClick={onDelete} data-testid="action-delete">
-                        Delete
+                        {tc('delete')}
                     </DeleteMenuItem>
                 ),
             },

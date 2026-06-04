@@ -3,12 +3,18 @@ package io.datahubproject.test.search;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -62,6 +68,7 @@ import org.opensearch.client.indices.ResizeRequest;
 import org.opensearch.client.indices.ResizeResponse;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.ReindexRequest;
@@ -338,6 +345,25 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
 
   @Override
   @Nonnull
+  public Map<String, String> partialNgramConfig() {
+    return delegate.partialNgramConfig();
+  }
+
+  @Override
+  @Nonnull
+  public Set<String> indexSettingNamesForComparison(
+      @Nonnull Map<String, Object> targetSettings, @Nonnull Settings storedSettings) {
+    return delegate.indexSettingNamesForComparison(targetSettings, storedSettings);
+  }
+
+  @Override
+  public boolean indexSettingValuesEqual(
+      @Nullable Object targetValue, @Nullable String storedValue) {
+    return delegate.indexSettingValuesEqual(targetValue, storedValue);
+  }
+
+  @Override
+  @Nonnull
   public String getEngineVersion() throws IOException {
     return delegate.getEngineVersion();
   }
@@ -419,11 +445,6 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
   }
 
   @Override
-  public void addBulk(DocWriteRequest<?> writeRequest) {
-    delegate.addBulk(writeRequest);
-  }
-
-  @Override
   public void addBulk(String urn, DocWriteRequest<?> writeRequest) {
     delegate.addBulk(urn, writeRequest);
   }
@@ -447,5 +468,21 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
   @Override
   public void close() throws IOException {
     delegate.close();
+  }
+
+  @Nonnull
+  @Override
+  public KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) throws IOException {
+    return delegate.searchKnn(request);
+  }
+
+  @Override
+  public void createSemanticIndex(@Nonnull SemanticIndexSpec spec) throws IOException {
+    delegate.createSemanticIndex(spec);
+  }
+
+  @Override
+  public void indexEmbeddings(@Nonnull EmbeddingBatch batch) throws IOException {
+    delegate.indexEmbeddings(batch);
   }
 }
