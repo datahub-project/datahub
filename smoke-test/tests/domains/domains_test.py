@@ -1,4 +1,5 @@
 import logging
+import uuid
 from typing import Any, Dict
 
 import pytest
@@ -169,3 +170,97 @@ def test_set_unset_domain(auth_session, ingest_cleanup_data):
         res_data["data"]["dataset"]["domain"]["domain"]["properties"]["name"]
         == "Engineering"
     )
+
+
+_CREATE_DOMAIN_MUTATION = """
+mutation createDomain($input: CreateDomainInput!) {
+  createDomain(input: $input)
+}
+"""
+
+_DELETE_DOMAIN_MUTATION = """
+mutation deleteDomain($urn: String!) {
+  deleteDomain(urn: $urn)
+}
+"""
+
+
+def test_delete_parent_domain_immediately_after_child_deletion(auth_session):
+    """
+    A parent domain whose only child has just been deleted should be
+    immediately deletable -- no sleep or page-refresh should be required.
+
+    Demonstrates a race condition in DomainUtils.hasChildDomains(): it
+    queries OpenSearch (eventually consistent) rather than the primary
+    store (MySQL). When a child is deleted and the parent delete follows
+    immediately, OpenSearch may not yet have indexed the child's removal,
+    causing the parent delete to be rejected with "Cannot delete domain
+    which has child domains" even though the child is already gone.
+
+    The test bypasses TestSessionWrapper's post-mutation consistency sleep
+    so both deletes fire back-to-back with no gap for OpenSearch to catch up.
+
+    References
+    ----------
+    - DomainUtils.java: datahub-graphql-core/.../resolvers/mutate/util/DomainUtils.java
+    - DeleteDomainResolver.java: datahub-graphql-core/.../resolvers/domain/DeleteDomainResolver.java
+    """
+    run_id = uuid.uuid4().hex[:8]
+    parent_id = f"test-domain-race-parent-{run_id}"
+    child_id = f"test-domain-race-child-{run_id}"
+    parent_urn = f"urn:li:domain:{parent_id}"
+    child_urn = f"urn:li:domain:{child_id}"
+
+    try:
+        res = execute_graphql(
+            auth_session,
+            _CREATE_DOMAIN_MUTATION,
+            {"input": {"id": parent_id, "name": f"Race Test Parent {run_id}"}},
+        )
+        assert res["data"]["createDomain"] == parent_urn
+
+        res = execute_graphql(
+            auth_session,
+            _CREATE_DOMAIN_MUTATION,
+            {
+                "input": {
+                    "id": child_id,
+                    "name": f"Race Test Child {run_id}",
+                    "parentDomain": parent_urn,
+                }
+            },
+        )
+        assert res["data"]["createDomain"] == child_urn
+
+        # Delete child then immediately delete parent using the underlying
+        # session directly, bypassing TestSessionWrapper's post-mutation
+        # consistency sleep. This preserves the race window between the
+        # child deletion (MySQL write) and the parent deletion attempt
+        # (OpenSearch child-guard check).
+        endpoint = f"{auth_session.frontend_url()}/api/v2/graphql"
+        headers = {"Authorization": f"Bearer {auth_session.gms_token()}"}
+
+        def raw_graphql(query, variables):
+            resp = auth_session._upstream.post(
+                endpoint,
+                json={"query": query, "variables": variables},
+                headers=headers,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            assert "errors" not in data, f"GraphQL errors: {data.get('errors')}"
+            return data
+
+        res = raw_graphql(_DELETE_DOMAIN_MUTATION, {"urn": child_urn})
+        assert res["data"]["deleteDomain"] is True
+
+        res = raw_graphql(_DELETE_DOMAIN_MUTATION, {"urn": parent_urn})
+        assert res["data"]["deleteDomain"] is True
+
+    finally:
+        # Best-effort cleanup via REST, which bypasses the GraphQL child guard.
+        for urn in (child_urn, parent_urn):
+            try:
+                delete_entity(auth_session, urn)
+            except Exception:
+                pass
