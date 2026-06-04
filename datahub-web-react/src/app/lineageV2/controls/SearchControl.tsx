@@ -5,6 +5,7 @@ import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Input, InputRef } from 'antd';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import { Panel } from 'reactflow';
 import styled from 'styled-components';
@@ -49,6 +50,7 @@ const VerticalDivider = styled.hr<{ margin: number }>`
 `;
 
 export default function SearchControl() {
+    const { t } = useTranslation('lineage');
     const { searchQuery, setSearchQuery, setSearchedEntity } = useContext(LineageVisualizationContext);
     const [isFocused, setIsFocused] = useState(false);
 
@@ -85,7 +87,7 @@ export default function SearchControl() {
                     if (e.shiftKey) prev();
                     else next();
                 }}
-                placeholder={isOpen ? 'Search Graph' : undefined}
+                placeholder={isOpen ? t('controls.search.placeholder') : undefined}
                 width={isOpen ? 330 : 40}
                 prefix={isOpen ? <OpenSearchIcon /> : <ClosedSearchIcon />}
                 suffix={

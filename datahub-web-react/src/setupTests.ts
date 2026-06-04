@@ -36,6 +36,7 @@ import enHomeV2 from '@src/i18n/locales/en/home.v2.json';
 import enHomeV3 from '@src/i18n/locales/en/home.v3.json';
 import enIngestion from '@src/i18n/locales/en/ingestion.json';
 import enIngestionSourceBuilder from '@src/i18n/locales/en/ingestion.sourceBuilder.json';
+import enLineage from '@src/i18n/locales/en/lineage.json';
 import enMisc from '@src/i18n/locales/en/misc.json';
 import enModules from '@src/i18n/locales/en/modules.json';
 import enOnboarding from '@src/i18n/locales/en/onboarding.json';
@@ -83,6 +84,7 @@ i18n.use(initReactI18next).init({
         'home.v3',
         'ingestion',
         'ingestion.sourceBuilder',
+        'lineage',
         'misc',
         'modules',
         'onboarding',
@@ -126,6 +128,7 @@ i18n.use(initReactI18next).init({
             'home.v3': enHomeV3,
             ingestion: enIngestion,
             'ingestion.sourceBuilder': enIngestionSourceBuilder,
+            lineage: enLineage,
             misc: enMisc,
             modules: enModules,
             onboarding: enOnboarding,
