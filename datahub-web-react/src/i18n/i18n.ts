@@ -4,6 +4,8 @@ import resourcesToBackend from 'i18next-resources-to-backend';
 import { initReactI18next } from 'react-i18next';
 
 export const NAMESPACES = [
+    'analytics',
+    'auth',
     'common.actions',
     'common.feedback',
     'common.labels',
@@ -11,12 +13,14 @@ export const NAMESPACES = [
     'entity.ownership',
     'entity.profile.documentation',
     'entity.profile.incident',
+    'entity.profile.tabs',
     'entity.profile.validations',
     'entity.profile.access',
     'entity.profile.queries',
     'entity.profile.schema',
     'entity.profile.stats',
     'entity.profile.view',
+    'entity.shared.containers',
     'entity.types',
     'entity.views',
     'governance.domain',

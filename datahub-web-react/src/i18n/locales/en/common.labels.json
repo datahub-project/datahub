@@ -15,5 +15,6 @@
     "tags": "Tags",
     "title": "Title",
     "type": "Type",
-    "usage": "Usage"
+    "usage": "Usage",
+    "value": "Value"
 }
