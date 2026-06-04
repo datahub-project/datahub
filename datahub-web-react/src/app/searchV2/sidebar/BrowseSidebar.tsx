@@ -1,12 +1,19 @@
-import { Button } from '@components';
+import { Button, Dropdown } from '@components';
 import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
-import { Divider, Typography } from 'antd';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Divider, MenuProps, Typography } from 'antd';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '@app/onboarding/config/SearchOnboardingConfig';
 import { useIsPlatformBrowseMode } from '@app/searchV2/sidebar/BrowseContext';
+import {
+    BrowseSortOrder,
+    BrowseSortProvider,
+    useBrowseSortOrder,
+    useSetBrowseSortOrder,
+} from '@app/searchV2/sidebar/BrowseSortContext';
 import EntityBrowse from '@app/searchV2/sidebar/EntityBrowse';
 import PlatformBrowse from '@app/searchV2/sidebar/PlatformBrowse';
 import { ProfileSidebarResizer } from '@src/app/entityV2/shared/containers/profile/sidebar/ProfileSidebarResizer';
@@ -59,10 +66,17 @@ const StyledSidebar = styled.div`
 const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     align-items: center;
-    justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
+    justify-content: ${(props) => (props.isCollapsed ? 'center' : 'flex-start')};
+    gap: ${(props) => (props.isCollapsed ? '0' : '8px')};
     height: 52px;
     padding: 16px 12px;
     overflow: hidden;
+`;
+
+const HeaderActions = styled.div`
+    display: flex;
+    align-items: center;
+    margin-left: auto;
 `;
 
 const NavigateTitle = styled(Typography.Title)<{ isClosed: boolean }>`
@@ -76,6 +90,43 @@ const NavigateTitle = styled(Typography.Title)<{ isClosed: boolean }>`
         font-weight: bold;
         color: ${(props) => props.theme.colors.textSecondary};
     }
+`;
+
+const SortButton = styled.button<{ $isOpen: boolean }>`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background-color: ${(props) => (props.$isOpen ? props.theme.colors.bgSurface : 'transparent')};
+    color: ${(props) => props.theme.colors.icon};
+    cursor: pointer;
+
+    &:hover {
+        background-color: ${(props) => props.theme.colors.bgSurface};
+    }
+
+    &:focus-visible {
+        outline: 2px solid ${(props) => props.theme.colors.primary};
+        outline-offset: 2px;
+    }
+`;
+
+const SortTrigger = styled.span`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+`;
+
+const MenuLabel = styled.span`
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 12px;
 `;
 
 const ThinDivider = styled(Divider)`
@@ -100,7 +151,87 @@ type Props = {
     visible: boolean;
 };
 
-const BrowseSidebar = ({ visible }: Props) => {
+const SORT_MENU_ITEMS: Array<{ key: BrowseSortOrder; label: string }> = [
+    { key: BrowseSortOrder.ALPHABETICAL_ASC, label: 'Alphabetical (A-Z)' },
+    { key: BrowseSortOrder.ALPHABETICAL_DESC, label: 'Alphabetical (Z-A)' },
+    { key: BrowseSortOrder.RECENTLY_USED, label: 'Recently Used' },
+];
+
+const SortIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" fill="none">
+        <path d="M2 3h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M2 7h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M2 11h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+);
+
+const BrowseSidebarControls = ({ isClosed, onToggleCollapse }: { isClosed: boolean; onToggleCollapse: () => void }) => {
+    const sortOrder = useBrowseSortOrder();
+    const setSortOrder = useSetBrowseSortOrder();
+    const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+
+    const sortMenu: MenuProps = {
+        selectable: true,
+        selectedKeys: [sortOrder],
+        onClick: ({ key }) => {
+            setSortOrder(key as BrowseSortOrder);
+            setIsSortMenuOpen(false);
+        },
+        items: SORT_MENU_ITEMS.map((item) => ({
+            key: item.key,
+            label: (
+                <MenuLabel>
+                    <span>{item.label}</span>
+                    {sortOrder === item.key ? <Check size={14} weight="bold" /> : null}
+                </MenuLabel>
+            ),
+        })),
+    };
+
+    return (
+        <Controls isCollapsed={isClosed}>
+            {!isClosed ? (
+                <NavigateTitle level={5} isClosed={isClosed}>
+                    Navigate
+                </NavigateTitle>
+            ) : null}
+            {!isClosed ? (
+                <Dropdown
+                    open={isSortMenuOpen}
+                    onOpenChange={setIsSortMenuOpen}
+                    menu={sortMenu}
+                    placement="bottomRight"
+                >
+                    <SortTrigger>
+                        <SortButton
+                            type="button"
+                            aria-label="Change browse sort order"
+                            aria-haspopup="menu"
+                            aria-expanded={isSortMenuOpen}
+                            data-testid="browse-sort-toggle"
+                            $isOpen={isSortMenuOpen}
+                        >
+                            <SortIcon />
+                        </SortButton>
+                    </SortTrigger>
+                </Dropdown>
+            ) : null}
+            <HeaderActions>
+                <Button
+                    variant="text"
+                    color="gray"
+                    size="lg"
+                    isCircle
+                    icon={{ icon: isClosed ? ArrowLineRight : ArrowLineLeft }}
+                    isActive={!isClosed}
+                    onClick={onToggleCollapse}
+                />
+            </HeaderActions>
+        </Controls>
+    );
+};
+
+const BrowseSidebarContent = ({ visible }: Props) => {
     const isPlatformBrowseMode = useIsPlatformBrowseMode();
     const [isClosed, setIsClosed] = useState(false);
     const [isHidden, setIsHidden] = useState(false);
@@ -125,22 +256,7 @@ const BrowseSidebar = ({ visible }: Props) => {
                 id="browse-v2"
                 data-testid="browse-v2-results"
             >
-                <Controls isCollapsed={isClosed}>
-                    {!isClosed ? (
-                        <NavigateTitle level={5} isClosed={isClosed}>
-                            Navigate
-                        </NavigateTitle>
-                    ) : null}
-                    <Button
-                        variant="text"
-                        color="gray"
-                        size="lg"
-                        isCircle
-                        icon={{ icon: isClosed ? ArrowLineRight : ArrowLineLeft }}
-                        isActive={!isClosed}
-                        onClick={() => setIsClosed(!isClosed)}
-                    />
-                </Controls>
+                <BrowseSidebarControls isClosed={isClosed} onToggleCollapse={() => setIsClosed(!isClosed)} />
                 <StyledSidebar id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID}>
                     <ThinDivider />
                     <SidebarBody>
@@ -168,6 +284,14 @@ const BrowseSidebar = ({ visible }: Props) => {
                 />
             )}
         </>
+    );
+};
+
+const BrowseSidebar = ({ visible }: Props) => {
+    return (
+        <BrowseSortProvider>
+            <BrowseSidebarContent visible={visible} />
+        </BrowseSortProvider>
     );
 };
 
