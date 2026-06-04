@@ -21,6 +21,7 @@ const MatchingViewsLabel = ({ view, selectedViewUrn, setSelectedViewUrn }: Props
         return (
             <StyledMatchingViewsLabel>
                 <Trans
+                    t={t}
                     i18nKey="embeddedSearch.matchingViews"
                     components={{ strong: <Typography.Text strong /> }}
                     values={{ viewName: view?.name }}

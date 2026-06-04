@@ -295,6 +295,7 @@ export const EmbeddedListSearchResults = ({
                     <PaginationRow>
                         <PaginationInfo>
                             <Trans
+                                t={t}
                                 i18nKey="embeddedSearch.paginationRange"
                                 components={{ bold: <b /> }}
                                 values={{
