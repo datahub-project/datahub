@@ -212,9 +212,6 @@ public class DomainUtils {
             null,
             0,
             pageSize);
-    if (searchResult.getNumEntities() == 0) {
-      return false;
-    }
     // Cross-check each candidate against the primary store (MySQL) which is
     // strongly consistent. Discard stale OpenSearch entries whose deletions
     // have not yet been indexed. Only block deletion if at least one child
@@ -223,6 +220,9 @@ public class DomainUtils {
         searchResult.getEntities().stream()
             .map(SearchEntity::getEntity)
             .collect(Collectors.toSet());
+    if (candidateUrns.isEmpty()) {
+      return false;
+    }
     if (!entityClient.filterExistingUrns(context.getOperationContext(), candidateUrns).isEmpty()) {
       return true;
     }
