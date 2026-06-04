@@ -46,7 +46,18 @@ import enSettingsPermissions from '@src/i18n/locales/en/settings.permissions.jso
 import enSettingsPosts from '@src/i18n/locales/en/settings.posts.json';
 import enSettingsPreferences from '@src/i18n/locales/en/settings.preferences.json';
 import enSettingsTokens from '@src/i18n/locales/en/settings.tokens.json';
+import enSharedBusinessAttribute from '@src/i18n/locales/en/shared.business-attribute.json';
+import enSharedConfirmation from '@src/i18n/locales/en/shared.confirmation.json';
+import enSharedError from '@src/i18n/locales/en/shared.error.json';
+import enSharedHealth from '@src/i18n/locales/en/shared.health.json';
+import enSharedMisc from '@src/i18n/locales/en/shared.misc.json';
+import enSharedProduct from '@src/i18n/locales/en/shared.product.json';
+import enSharedPropagation from '@src/i18n/locales/en/shared.propagation.json';
 import enSharedQueryBuilder from '@src/i18n/locales/en/shared.query-builder.json';
+import enSharedSearch from '@src/i18n/locales/en/shared.search.json';
+import enSharedShare from '@src/i18n/locales/en/shared.share.json';
+import enSharedTags from '@src/i18n/locales/en/shared.tags.json';
+import enSharedTime from '@src/i18n/locales/en/shared.time.json';
 import '@utils/dayjs';
 
 i18n.use(initReactI18next).init({
@@ -94,7 +105,18 @@ i18n.use(initReactI18next).init({
         'settings.posts',
         'settings.preferences',
         'settings.tokens',
+        'shared.business-attribute',
+        'shared.confirmation',
+        'shared.error',
+        'shared.health',
+        'shared.misc',
+        'shared.product',
+        'shared.propagation',
         'shared.query-builder',
+        'shared.search',
+        'shared.share',
+        'shared.tags',
+        'shared.time',
     ],
     resources: {
         en: {
@@ -138,7 +160,18 @@ i18n.use(initReactI18next).init({
             'settings.posts': enSettingsPosts,
             'settings.preferences': enSettingsPreferences,
             'settings.tokens': enSettingsTokens,
+            'shared.business-attribute': enSharedBusinessAttribute,
+            'shared.confirmation': enSharedConfirmation,
+            'shared.error': enSharedError,
+            'shared.health': enSharedHealth,
+            'shared.misc': enSharedMisc,
+            'shared.product': enSharedProduct,
+            'shared.propagation': enSharedPropagation,
             'shared.query-builder': enSharedQueryBuilder,
+            'shared.search': enSharedSearch,
+            'shared.share': enSharedShare,
+            'shared.tags': enSharedTags,
+            'shared.time': enSharedTime,
         },
     },
     interpolation: { escapeValue: false },
