@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Import;
 
 /**
  * Registers scrape auth on the main web server when management shares the application port
- * (e.g. Aiven {@code MANAGEMENT_SERVER_PORT=8080}).
+ * (e.g. {@code MANAGEMENT_SERVER_PORT=8080}).
  */
 @Configuration
 @ConditionalOnManagementPort(ManagementPortType.SAME)
