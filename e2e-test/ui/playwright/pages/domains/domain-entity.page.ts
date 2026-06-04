@@ -142,17 +142,17 @@ export class DomainEntityPage extends BasePage {
     await this.page.waitForLoadState(LOAD_STATES.LOAD);
 
     await this.entityMenuMoveButton.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-    await this.entityMenuMoveButton.click({ force: true });
+    await this.entityMenuMoveButton.click();
 
     await this.parentDomainSelect.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-    await this.parentDomainSelect.click({ force: true });
+    await this.parentDomainSelect.click();
 
     const domainOption = this.getDomainOption(parentName);
-    await domainOption.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-    await domainOption.click({ force: true });
+    await domainOption.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
+    await domainOption.click();
 
     await this.moveDomainConfirmButton.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT });
-    await this.moveDomainConfirmButton.click({ force: true });
+    await this.moveDomainConfirmButton.click();
 
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await expect(this.page.getByText('Moved Domain!')).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
@@ -162,7 +162,7 @@ export class DomainEntityPage extends BasePage {
     await this.page.waitForLoadState(LOAD_STATES.LOAD);
 
     await this.editDocumentationButton.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-    await this.editDocumentationButton.click({ force: true });
+    await this.editDocumentationButton.click();
 
     await this.documentationEditor.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await this.documentationEditor.focus();
@@ -171,41 +171,40 @@ export class DomainEntityPage extends BasePage {
     await this.documentationEditor.pressSequentially(description, { delay: DELAYS.TYPING });
 
     await this.publishButton.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT });
-    await this.publishButton.click({ force: true });
+    await this.publishButton.click();
 
     await expect(this.descriptionViewer.getByText(description)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
   async addLink(url: string, label: string): Promise<void> {
     await this.page.waitForLoadState(LOAD_STATES.LOAD);
-
-    await this.addRelatedButton.click({ force: true });
-
-    // Wait for menu to render after click
+    // Ensure page is ready before clicking
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    await this.addLinkMenuItem.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-    await this.addLinkMenuItem.click({ force: true });
+    await this.addRelatedButton.click();
 
-    await this.urlInput.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
+    await this.addLinkMenuItem.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    await this.addLinkMenuItem.click();
+
+    await this.urlInput.waitFor({ state: 'visible', timeout: TIMEOUTS.EXTRA_LONG });
     await this.urlInput.fill(url);
     await this.labelInput.fill(label);
-    await this.linkFormSubmitButton.click({ force: true });
+    await this.linkFormSubmitButton.click();
 
     await expect(this.linkLabel.getByText(label)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
   async addOwner(displayName: string): Promise<void> {
-    // Open sidebar by clicking collapse tab (toggles sidebar state)
-    if (await this.sidebarCollapseTab.isVisible({ timeout: TIMEOUTS.SHORT }).catch(() => false)) {
-      await this.sidebarCollapseTab.click({ force: true });
-    }
+    // Sidebar is closed by default - open it first to access the add owners button
+    await this.sidebarCollapseTab.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT });
+    await this.sidebarCollapseTab.click();
 
-    await this.addOwnersButton.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-    await this.addOwnersButton.click({ force: true });
+    // Wait for sidebar to open and button to become available
+    await this.addOwnersButton.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
+    await this.addOwnersButton.click();
 
     await this.addOwnersSelect.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-    await this.addOwnersSelect.click({ force: true });
+    await this.addOwnersSelect.click();
 
     // Wait for dropdown search input to appear (triggers on click, may have animation)
     await this.dropdownSearchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
@@ -214,10 +213,10 @@ export class DomainEntityPage extends BasePage {
 
     const ownerOption = this.getOwnerOption(displayName);
     await ownerOption.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-    await ownerOption.click({ force: true });
+    await ownerOption.click();
 
     await this.addOwnerConfirmButton.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT });
-    await this.addOwnerConfirmButton.click({ force: true });
+    await this.addOwnerConfirmButton.click();
 
     // Verify owner was added - just check that the confirm button is gone (modal closed successfully)
     await expect(this.addOwnerConfirmButton).not.toBeVisible({ timeout: TIMEOUTS.SHORT });
@@ -236,9 +235,11 @@ export class DomainEntityPage extends BasePage {
   }
 
   async editDomainName(newName: string): Promise<void> {
+    // Ensure page is fully loaded before manipulating DOM
+    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+
     const editableContainer = this.getEditableContainer();
-    await editableContainer.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT });
-    await editableContainer.scrollIntoViewIfNeeded();
+    await editableContainer.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
 
     const editButton = this.getEditButton(editableContainer);
     await editButton.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT });

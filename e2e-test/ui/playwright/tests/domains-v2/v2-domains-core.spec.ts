@@ -8,7 +8,7 @@
  * - Domain page navigation verification
  *
  * Prerequisites:
- * - Marketing domain must exist in the system
+ * - PlaywrightDomain must exist (seeded via fixtures)
  *
  * Related files:
  * - v2-domains-advanced.spec.ts — Domain operations (move, edit, docs, links, owners)
@@ -19,7 +19,10 @@ import { test, expect } from '../../fixtures/base-test';
 import { DomainEntityPage } from '../../pages/domains/domain-entity.page';
 import { withRandomSuffix } from '../../utils/random';
 
-const MARKETING_DOMAIN_URN = 'urn:li:domain:marketing';
+// Ensure test parent domain is seeded before tests run
+test.use({ featureName: 'domains-v2' });
+
+const PARENT_DOMAIN_URN = 'urn:li:domain:playwright-domain';
 const DOMAIN_URL_PATTERN = '/domain/';
 
 test.describe('Domains V2 Core', () => {
@@ -55,7 +58,6 @@ test.describe('Domains V2 Core', () => {
   });
 
   test('Verify domain list displays', async ({ page, logger }) => {
-    // beforeEach already navigated to /domains
     await page.waitForLoadState('networkidle');
     const domainsPage = new DomainEntityPage(page, logger);
     const summaryCount = await domainsPage.summaryTab.count();
@@ -65,7 +67,7 @@ test.describe('Domains V2 Core', () => {
   test('Verify can view domain and its properties', async ({ page, logger }) => {
     const domainsPage = new DomainEntityPage(page, logger);
 
-    await page.goto(`${DOMAIN_URL_PATTERN}${MARKETING_DOMAIN_URN}`);
+    await page.goto(`${DOMAIN_URL_PATTERN}${PARENT_DOMAIN_URN}`);
     await page.waitForLoadState('load');
 
     expect(page.url()).toContain(DOMAIN_URL_PATTERN);

@@ -7,7 +7,7 @@
  * - Template sections (assets, domains, data products)
  *
  * Prerequisites:
- * - Marketing domain must exist in the system
+ * - PlaywrightDomain must exist (seeded via fixtures)
  *
  * Related files:
  * - v2-domains-core.spec.ts — Domain creation and navigation
@@ -18,7 +18,10 @@ import { test, expect } from '../../fixtures/base-test';
 import { DomainEntityPage } from '../../pages/domains/domain-entity.page';
 import { LOAD_STATES } from '../../utils/constants';
 
-const MARKETING_DOMAIN_URN = 'urn:li:domain:marketing';
+// Ensure test parent domain is seeded before tests run
+test.use({ featureName: 'domains-v2' });
+
+const PARENT_DOMAIN_URN = 'urn:li:domain:playwright-domain';
 const DOMAIN_URL_PATTERN = '/domain/';
 
 test.describe('Domains V2 Summary Tab', () => {
@@ -26,7 +29,7 @@ test.describe('Domains V2 Summary Tab', () => {
     await page.goto('/domains');
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     // Navigate to Marketing domain for all summary tests
-    await page.goto(`${DOMAIN_URL_PATTERN}${MARKETING_DOMAIN_URN}`);
+    await page.goto(`${DOMAIN_URL_PATTERN}${PARENT_DOMAIN_URN}`);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   });
 

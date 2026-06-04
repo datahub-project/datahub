@@ -19,6 +19,7 @@ export const TABLE_LOAD_DELAY = 500;
 // Playwright test timeouts
 export const TIMEOUTS = {
   LONG: 15000, // Initial page loads, element appearance
+  EXTRA_LONG: 20000, // Slow operations, async operations, dynamic content loading
   MEDIUM: 10000, // Standard element visibility
   SHORT: 5000, // Quick interactions, menu closes
   BETWEEN_OPS: 500, // Wait between sequential operations

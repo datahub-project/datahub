@@ -11,7 +11,7 @@
  * Each test creates a unique test domain, performs an operation, then cleans up.
  *
  * Prerequisites:
- * - Marketing domain must exist in the system
+ * - PlaywrightDomain must exist (seeded via fixtures)
  *
  * Related files:
  * - v2-domains-core.spec.ts — Domain creation and navigation
@@ -24,7 +24,10 @@ import { withRandomSuffix } from '../../utils/random';
 import type { ScopedCleanup } from '../../utils/cleanup';
 import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
 
-const MARKETING_DOMAIN_NAME = 'Marketing';
+// Ensure test parent domain is seeded before tests run
+test.use({ featureName: 'domains-v2' });
+
+const PARENT_DOMAIN_NAME = 'PlaywrightDomain';
 const TEST_DOCUMENTATION = 'Test documentation for domains';
 const TEST_LINK_URL = 'https://example.com';
 const TEST_LINK_LABEL = 'Example Link';
@@ -64,7 +67,7 @@ async function runDomainTest(
 test.describe('Domains V2 Advanced Functionality', () => {
   test('Verify Move domain to parent', async ({ page, logger, cleanup }) => {
     await runDomainTest(page, logger, cleanup, 'MoveTest', async (domainsPage) => {
-      await domainsPage.moveDomainToParent(MARKETING_DOMAIN_NAME);
+      await domainsPage.moveDomainToParent(PARENT_DOMAIN_NAME);
     });
   });
 
