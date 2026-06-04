@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { filterForAssetBadge } from '@app/entity/shared/containers/profile/header/utils';
@@ -48,6 +49,7 @@ const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
     )?.description;
 
     const BadgeTooltip = () => {
+        const { t: tc } = useTranslation('common.labels');
         return (
             <TooltipContainer>
                 <Text color="gray" weight="semiBold">
@@ -55,14 +57,14 @@ const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
                 </Text>
                 <ValueContainer>
                     <Text color="gray" size="sm" weight="bold">
-                        Value
+                        {tc('value')}
                     </Text>
                     <Text color="gray">{propRow?.values[0]?.value}</Text>
                 </ValueContainer>
                 {relatedDescription && (
                     <ValueContainer>
                         <Text color="gray" size="sm" weight="bold">
-                            Description
+                            {tc('description')}
                         </Text>
                         <Text color="gray">{relatedDescription}</Text>
                     </ValueContainer>
