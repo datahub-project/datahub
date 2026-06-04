@@ -144,7 +144,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
             </Section>
             <RequiredFieldForm layout="vertical">
                 <Form.Item
-                    tooltip="Enable to run ingestion syncs on a schedule. Running syncs on a schedule helps to keep information up to date"
+                    tooltip="Enable to run ingestion syncs on a schedule. Running syncs on a schedule helps to keep information up to date."
                     label={
                         <Typography.Text strong>
                             Run on a schedule <Typography.Text type="secondary">(Recommended)</Typography.Text>
