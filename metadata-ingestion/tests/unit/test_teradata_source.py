@@ -3,7 +3,7 @@ import re
 import time
 from collections import defaultdict
 from collections.abc import Iterator
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone
 from threading import Event, Thread, current_thread
@@ -4622,7 +4622,6 @@ class TestViewProcessingErrorCounters:
             "view_unknown_errors",
         ]
         source = _create_source_patched({"max_workers": 2})
-        source._effective_max_workers = 2
         self._run_multi_threaded(source, exc)
 
         assert source.report.num_view_processing_failures == 1
@@ -4633,7 +4632,6 @@ class TestViewProcessingErrorCounters:
 
     def test_multi_threaded_successful_view_does_not_increment_failures(self):
         source = _create_source_patched({"max_workers": 2})
-        source._effective_max_workers = 2
         mock_conn = _make_mock_conn()
         mock_inspector = _make_mock_inspector("testdb")
         mock_engine = MagicMock()
@@ -4663,6 +4661,69 @@ class TestViewProcessingErrorCounters:
         assert source.report.view_parse_errors == 0
         assert source.report.view_permission_errors == 0
         assert source.report.view_unknown_errors == 0
+
+    def test_cancelled_future_does_not_increment_error_counter(self) -> None:
+        """fut.result() raising CancelledError must be caught by the dedicated
+        ``except CancelledError: pass`` branch, not ``except Exception``.
+
+        The stall-timeout path increments the counter *before* calling
+        ``fut.cancel()``.  If the outer loop also incremented on CancelledError
+        the counter would be doubled.  This test injects a pre-cancelled future
+        directly into the done-set processing loop to verify the counter stays
+        at zero when only the CancelledError path fires (i.e., the stall-timeout
+        path did NOT run in this scenario)."""
+        source = _create_source_patched({"max_workers": 2})
+        mock_conn = _make_mock_conn()
+        mock_inspector = _make_mock_inspector("testdb")
+        mock_engine = MagicMock()
+
+        cancelled_future: Future = Future()
+        assert cancelled_future.cancel(), "precondition: Future must be cancellable"
+
+        mock_executor = MagicMock()
+        mock_executor.submit.return_value = cancelled_future
+
+        call_count = [0]
+
+        def _fake_wait(fs, timeout, return_when):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # Return the cancelled future as the sole completed future.
+                return ({cancelled_future}, set())
+            return (set(), set())
+
+        with (
+            patch.object(
+                source, "_get_or_create_pooled_engine", return_value=mock_engine
+            ),
+            patch.object(
+                source, "_retry_connect", side_effect=_mock_retry_connect(mock_conn)
+            ),
+            patch.object(source, "_retry_execute"),
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                return_value=mock_inspector,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.ThreadPoolExecutor",
+                return_value=mock_executor,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.wait",
+                side_effect=_fake_wait,
+            ),
+        ):
+            list(
+                source._loop_views_with_connection_pool(
+                    ["view_a"], "testdb", source.config
+                )
+            )
+
+        assert source.report.view_timeout_errors == 0
+        assert source.report.view_parse_errors == 0
+        assert source.report.view_permission_errors == 0
+        assert source.report.view_unknown_errors == 0
+        assert source.report.num_view_processing_failures == 0
 
     @pytest.mark.parametrize(
         "exc, expected_fragment",
@@ -4708,14 +4769,17 @@ def _patch_lineage_fetch(
     rows: list,
     query_sql: str = "SELECT 1",
     query_kind: str = "current_only",
-    sleep_seconds: float = 0.0,
+    fake_db_elapsed: float = 0.0,
 ) -> Iterator[None]:
     """Context manager that patches the minimal set of methods so that
     _fetch_lineage_entries_chunked returns *rows* without hitting a real DB.
 
-    *sleep_seconds* lets tests simulate a slow query by injecting a
-    time.sleep() call inside the patched _execute_with_cursor_fallback.
-    *query_kind* is forwarded as the label in the (sql, kind) tuple returned
+    *fake_db_elapsed* controls the elapsed time reported by the production
+    code's ``time.monotonic()`` measurements.  When non-zero, ``time.monotonic``
+    is patched to return deterministic values (0 on the first call, then
+    *fake_db_elapsed* on all subsequent calls) so slow-query detection is
+    exercised without relying on real wall-clock time.
+    *query_kind* is forwarded as the label in the LineageQuery returned
     by the mocked _make_lineage_queries, matching the real API contract.
     """
     mock_conn = _make_mock_conn()
@@ -4724,11 +4788,9 @@ def _patch_lineage_fetch(
     result_mock.fetchmany.side_effect = [rows, []]
 
     def _fake_execute(conn, sql, **kwargs):
-        if sleep_seconds:
-            time.sleep(sleep_seconds)
         return result_mock
 
-    patches = [
+    patches: List[Any] = [
         patch.object(source, "get_metadata_engine", return_value=MagicMock()),
         patch.object(
             source, "_retry_connect", side_effect=_mock_retry_connect(mock_conn)
@@ -4742,6 +4804,20 @@ def _patch_lineage_fetch(
             return_value=[LineageQuery(sql=query_sql, label=query_kind)],
         ),
     ]
+
+    if fake_db_elapsed > 0.0:
+        # Return values that make query_db_elapsed == fake_db_elapsed:
+        #   call 0 (t_start before execute)  → 0
+        #   call 1 (t_start after execute)   → fake_db_elapsed (elapsed = fake_db_elapsed)
+        #   calls 2+ (fetchmany timing)      → fake_db_elapsed (0 additional overhead)
+        _mono_seq = iter([0.0, fake_db_elapsed] + [fake_db_elapsed] * 50)
+        patches.append(
+            patch(
+                "datahub.ingestion.source.sql.teradata.time.monotonic",
+                side_effect=lambda: next(_mono_seq, fake_db_elapsed),
+            )
+        )
+
     with ExitStack() as stack:
         for p in patches:
             stack.enter_context(p)
@@ -4830,7 +4906,7 @@ class TestLineageQueryTimingReport:
         """A fast query does not increment lineage_slow_queries_detected."""
         source = _make_lineage_source({"lineage_slow_query_log_seconds": 60.0})
 
-        with _patch_lineage_fetch(source, rows=[], sleep_seconds=0.0):
+        with _patch_lineage_fetch(source, rows=[], fake_db_elapsed=0.0):
             list(source._fetch_lineage_entries_chunked())
 
         assert source.report.lineage_slow_queries_detected == 0
@@ -4841,7 +4917,7 @@ class TestLineageQueryTimingReport:
 
         sql = "SELECT * FROM DBC.QryLogV WHERE ts > '2024-01-01'"
         with (
-            _patch_lineage_fetch(source, rows=[], query_sql=sql, sleep_seconds=0.05),
+            _patch_lineage_fetch(source, rows=[], query_sql=sql, fake_db_elapsed=0.1),
             caplog.at_level(
                 logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
             ),
@@ -4872,7 +4948,7 @@ class TestLineageQueryTimingReport:
         distinctive = "SELECT distinctive_marker FROM DBC.QryLogV"
         with (
             _patch_lineage_fetch(
-                source, rows=[], query_sql=distinctive, sleep_seconds=0.05
+                source, rows=[], query_sql=distinctive, fake_db_elapsed=0.1
             ),
             caplog.at_level(
                 logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
@@ -4896,7 +4972,7 @@ class TestLineageQueryTimingReport:
         long_sql = "SELECT " + "x" * 600 + " FROM DBC.QryLogV"
         with (
             _patch_lineage_fetch(
-                source, rows=[], query_sql=long_sql, sleep_seconds=0.05
+                source, rows=[], query_sql=long_sql, fake_db_elapsed=0.1
             ),
             caplog.at_level(
                 logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
@@ -4918,7 +4994,7 @@ class TestLineageQueryTimingReport:
         source = _make_lineage_source({"lineage_slow_query_log_seconds": 0.0})
 
         with (
-            _patch_lineage_fetch(source, rows=[], sleep_seconds=0.05),
+            _patch_lineage_fetch(source, rows=[], fake_db_elapsed=0.1),
             caplog.at_level(
                 logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
             ),
@@ -4960,6 +5036,103 @@ class TestLineageQueryTimingReport:
         assert "query_1 (current_only)" in source.report.lineage_query_timings
 
 
+class TestLineageWatchdog:
+    """The lineage-fetch watchdog emits a stall warning at most once per stall,
+    even when its loop body executes multiple times while the query is stuck."""
+
+    def test_watchdog_stall_warning_fires_exactly_once_per_stall(self) -> None:
+        """The stall_warned flag inside _watchdog prevents repeat firings.
+
+        When the watchdog ticks three times while the query is still blocked,
+        report.warning() must be called exactly once — not once per tick.
+        The test controls the watchdog loop by replacing the Event used for
+        watchdog_stop with a fast-cycling stub, so no real wall-clock time is
+        consumed for the check_interval sleep."""
+        source = _make_lineage_source({"lineage_fetch_stall_warning_seconds": 1})
+        mock_conn = _make_mock_conn()
+        result_mock = MagicMock()
+        result_mock.fetchmany.side_effect = [[], []]
+
+        # Two threading.Event instances we control directly (real events,
+        # not patched), used only for synchronisation between the test
+        # threads — not the watchdog_stop event.
+        main_is_blocked = Event()
+        main_can_continue = Event()
+
+        def _blocking_execute(conn, sql, **kwargs):
+            main_is_blocked.set()  # signal: main thread is inside the execute
+            main_can_continue.wait(timeout=15)
+            return result_mock
+
+        class _ThreeTickEvent:
+            """Replaces watchdog_stop inside _fetch_lineage_entries_chunked.
+
+            wait() returns False ("not stopped") three times so the watchdog
+            body runs three times, then returns True ("stopped") and releases
+            the main thread.  The minimum real check_interval is 10 s, so
+            without this stub the test would take 30 s+."""
+
+            def __init__(self) -> None:
+                self._tick = 0
+
+            def wait(self, timeout: Optional[float] = None) -> bool:
+                # Block until main thread is actually inside the execute so
+                # phase_state["last_event_at"] is already set.
+                main_is_blocked.wait(timeout=15)
+                self._tick += 1
+                if self._tick > 3:
+                    main_can_continue.set()  # release the blocked execute
+                    return True  # stop watchdog loop
+                return False  # run watchdog body again
+
+            def set(self) -> None:
+                pass  # called from the finally-block; safe to ignore
+
+        # time.time() sequence:
+        #   call 0 — initial phase_state["last_event_at"]           → 0.0
+        #   call 1 — logger.info("Executing lineage query…")         → 0.0
+        #            (LogRecord.created internally calls time.time())
+        #   call 2 — _mark_phase("executing_query") before execute   → 0.0
+        #   calls 3-5 — watchdog elapsed computation (×3 ticks)     → 100.0
+        #   calls 6+ — mark_phase / cleanup (don't affect assertion) → 100.0
+        _time_seq = iter([0.0, 0.0, 0.0] + [100.0] * 50)
+
+        with (
+            patch.object(source, "get_metadata_engine", return_value=MagicMock()),
+            patch.object(
+                source, "_retry_connect", side_effect=_mock_retry_connect(mock_conn)
+            ),
+            patch.object(
+                source,
+                "_execute_with_cursor_fallback",
+                side_effect=_blocking_execute,
+            ),
+            patch.object(
+                source,
+                "_make_lineage_queries",
+                return_value=[LineageQuery(sql="SELECT 1", label="current_only")],
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.Event",
+                return_value=_ThreeTickEvent(),
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.time.time",
+                side_effect=lambda: next(_time_seq, 100.0),
+            ),
+        ):
+            list(source._fetch_lineage_entries_chunked())
+
+        stall_warnings = [
+            w
+            for w in source.report.warnings
+            if w.title == "Lineage fetch stall detected"
+        ]
+        assert len(stall_warnings) == 1, (
+            f"Expected exactly 1 stall warning; got {len(stall_warnings)}"
+        )
+
+
 class TestHungViewAbandonPath:
     """The fut.cancel() abandon path keeps num_view_processing_timeouts and
     view_timeout_errors consistent so operators cannot see one counter change
@@ -4988,7 +5161,6 @@ class TestHungViewAbandonPath:
                 "view_processing_heartbeat_seconds": 1,
             }
         )
-        source._effective_max_workers = 2
         mock_conn = _make_mock_conn()
         mock_inspector = _make_mock_inspector("testdb")
         mock_engine = MagicMock()
