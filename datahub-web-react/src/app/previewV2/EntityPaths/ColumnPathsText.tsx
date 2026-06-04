@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
 import React, { useContext } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
@@ -19,6 +20,7 @@ const ResultText = styled.span`
 const DescriptionWrapper = styled.span`
     color: ${(props) => props.theme.colors.textSecondary};
     white-space: nowrap;
+    margin-right: 4px;
 `;
 
 export function getDisplayedColumns(paths: EntityPath[], resultEntityUrn: string) {
@@ -40,6 +42,7 @@ interface Props {
 }
 
 export default function ColumnPathsText({ paths, resultEntityUrn, openModal }: Props) {
+    const { t } = useTranslation('entity.preview');
     const { lineageDirection } = useContext(LineageTabContext);
 
     const displayedColumns = getDisplayedColumns(paths, resultEntityUrn);
@@ -48,21 +51,25 @@ export default function ColumnPathsText({ paths, resultEntityUrn, openModal }: P
 
     return (
         <>
-            {/* eslint-disable i18next/no-literal-string -- (untranslated-text) lineage column-path phrase; deferred to follow-up */}
             <DescriptionWrapper>
-                {lineageDirection === LineageDirection.Downstream ? 'Downstream' : 'Upstream'} column
-                {displayedColumns.length > 1 && 's'}:&nbsp;
+                {t(
+                    lineageDirection === LineageDirection.Downstream
+                        ? 'columnPaths.downstreamColumnsLabel'
+                        : 'columnPaths.upstreamColumnsLabel',
+                    { count: displayedColumns.length },
+                )}
             </DescriptionWrapper>
-            {/* eslint-enable i18next/no-literal-string */}
             <ResultText onClick={openModal}>
                 <Tooltip
                     title={
-                        /* eslint-disable i18next/no-literal-string -- (untranslated-text) lineage column-path phrase; deferred to follow-up */
-                        <span>
-                            Click to see column path{paths.length > 1 && 's'} from{' '}
-                            <ColumnsRelationshipText displayedColumns={displayedColumns} />
-                        </span>
-                        /* eslint-enable i18next/no-literal-string */
+                        <Trans
+                            t={t}
+                            i18nKey="columnPaths.tooltip"
+                            count={paths.length}
+                            components={{
+                                relationship: <ColumnsRelationshipText displayedColumns={displayedColumns} />,
+                            }}
+                        />
                     }
                 >
                     <span>

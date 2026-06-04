@@ -9,8 +9,10 @@ import { initReactI18next } from 'react-i18next';
 import enAnalytics from '@src/i18n/locales/en/analytics.json';
 import enAuth from '@src/i18n/locales/en/auth.json';
 import enCommonActions from '@src/i18n/locales/en/common.actions.json';
+import enCommonCounts from '@src/i18n/locales/en/common.counts.json';
 import enCommonFeedback from '@src/i18n/locales/en/common.feedback.json';
 import enCommonLabels from '@src/i18n/locales/en/common.labels.json';
+import enEntityForm from '@src/i18n/locales/en/entity.form.json';
 import enEntityIdentity from '@src/i18n/locales/en/entity.identity.json';
 import enEntityOwnership from '@src/i18n/locales/en/entity.ownership.json';
 import enEntityPreview from '@src/i18n/locales/en/entity.preview.json';
@@ -54,8 +56,10 @@ i18n.use(initReactI18next).init({
         'analytics',
         'auth',
         'common.actions',
+        'common.counts',
         'common.feedback',
         'common.labels',
+        'entity.form',
         'entity.identity',
         'entity.profile.documentation',
         'entity.ownership',
@@ -95,8 +99,10 @@ i18n.use(initReactI18next).init({
             analytics: enAnalytics,
             auth: enAuth,
             'common.actions': enCommonActions,
+            'common.counts': enCommonCounts,
             'common.feedback': enCommonFeedback,
             'common.labels': enCommonLabels,
+            'entity.form': enEntityForm,
             'entity.identity': enEntityIdentity,
             'entity.profile.documentation': enEntityProfileDocumentation,
             'entity.ownership': enEntityOwnership,
