@@ -22,6 +22,7 @@
     "freshness.lastRefreshed.tooltip": "Data last refreshed",
     "freshness.lastUpdated.sectionTitle": "Last Updated",
     "freshness.lastUpdated.tooltip": "Last updated",
+    "freshness.popoverContent": "{{updateType}} {{lastUpdatedAgo}}",
     "health.assertionsPassing": "All assertions are passing",
     "health.noActiveIncidents": "No active incidents",
     "health.testsPassing": "All tests are passing",

@@ -339,7 +339,7 @@ export default function EditTagTermsModal({
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: t('addTags.error', { error: e.message || '' }),
+                        content: t('add.error', { error: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -379,7 +379,7 @@ export default function EditTagTermsModal({
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: t('addTags.error', { error: e.message || '' }),
+                        content: t('add.error', { error: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -412,7 +412,7 @@ export default function EditTagTermsModal({
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: t('removeTags.error', { error: e.message || '' }),
+                        content: t('remove.error', { error: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -451,7 +451,7 @@ export default function EditTagTermsModal({
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: t('removeTags.error', { error: e.message || '' }),
+                        content: t('remove.error', { error: e.message || '' }),
                         duration: 3,
                     }),
                 );

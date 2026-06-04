@@ -6,6 +6,6 @@
     "entityCountCard.viewCountTooltip": "View {{formattedCount}} {{tooltipDescriptor}}",
     "multiStepForm.disabledNextTooltip": "Please complete all required fields before moving to the next step",
     "noPageFound.backToHome": "Back to Home",
-    "noPageFound.subtitle": "The page you requested was not found,",
+    "noPageFound.subtitle": "The page you requested was not found.",
     "platformIcon.alt": "Platform Logo"
 }
