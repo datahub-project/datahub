@@ -159,7 +159,6 @@ export default function Tag({
                         }
                     >
                         <StyledHighlight $maxWidth={maxWidth} matchStyle={highlightMatchStyle} search={highlightText}>
-
                             {options?.shouldShowEllipses ? (
                                 <span className="test-mini-preview-class">{displayName}</span>
                             ) : (

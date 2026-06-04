@@ -75,9 +75,7 @@ export default function TagTermGroup({
 }: Props) {
     const { t } = useTranslation('shared.tags');
     const theme = useTheme();
-    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
     const entityRegistry = useEntityRegistry();
-    const theme = useTheme();
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
     const tagsEmpty = !editableTags?.tags?.length && !uneditableTags?.tags?.length;
