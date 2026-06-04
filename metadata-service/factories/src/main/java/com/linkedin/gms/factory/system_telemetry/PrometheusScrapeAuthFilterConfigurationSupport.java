@@ -27,7 +27,8 @@ class PrometheusScrapeAuthFilterConfigurationSupport {
   @Bean
   FilterRegistrationBean<PrometheusScrapeAuthFilter> prometheusScrapeAuthFilterRegistration(
       PrometheusScrapeAuthFilter filter) {
-    FilterRegistrationBean<PrometheusScrapeAuthFilter> registration = new FilterRegistrationBean<>();
+    FilterRegistrationBean<PrometheusScrapeAuthFilter> registration =
+        new FilterRegistrationBean<>();
     registration.setFilter(filter);
     registration.addUrlPatterns(PrometheusScrapeAuthFilter.PROMETHEUS_ACTUATOR_PATH);
     registration.setOrder(Ordered.HIGHEST_PRECEDENCE);

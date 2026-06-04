@@ -24,8 +24,7 @@ public class PrometheusScrapeAuthFilterTest {
 
   @BeforeMethod
   public void setUp() {
-    settings =
-        PrometheusScrapeAuthSettings.resolve(true, true, "prometheus", "secret");
+    settings = PrometheusScrapeAuthSettings.resolve(true, true, "prometheus", "secret");
     filter = new PrometheusScrapeAuthFilter(settings);
     filter.validateConfiguration();
     request = mock(HttpServletRequest.class);

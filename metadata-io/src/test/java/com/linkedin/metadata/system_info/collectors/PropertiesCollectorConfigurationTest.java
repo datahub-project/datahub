@@ -84,7 +84,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "postgres.pgQueue.pool.password",
           "postgres.pgCron.admin.password",
           "postgres.pgCron.iam.awsSecretAccessKey",
-          "postgres.pgCron.iam.awsSessionToken");
+          "postgres.pgCron.iam.awsSessionToken",
+          "management.metrics.export.prometheus.auth.password");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -767,6 +768,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "management.metrics.cache.enabled",
           "management.metrics.export.jmx.enabled",
           "management.metrics.export.prometheus.enabled",
+          "management.metrics.export.prometheus.auth.enabled",
+          "management.metrics.export.prometheus.auth.username",
           "management.metrics.tags.application",
           "management.server.port",
           "management.otlp.tracing.export.enabled",
