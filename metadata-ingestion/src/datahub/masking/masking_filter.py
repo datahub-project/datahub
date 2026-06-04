@@ -463,8 +463,8 @@ def _iter_all_loggers() -> list[logging.Logger]:
     return loggers
 
 
-def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> int:
-    """Attach the masking filter to all existing handlers; return how many.
+def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> None:
+    """Attach the masking filter to all existing handlers.
 
     Masking lives on handlers, not the logger: Python skips logger-level filters
     for records propagated from child loggers, so a root-logger filter would miss
@@ -475,7 +475,7 @@ def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> int
     Skip datahub.masking.* loggers: they log to the original stderr by design and
     carry no secrets, so filtering them only risks re-entrancy.
     """
-    added_count = 0
+    added = 0
     for log in _iter_all_loggers():
         if log.name.startswith("datahub.masking"):
             continue
@@ -483,10 +483,9 @@ def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> int
         for handler in list(log.handlers):
             if not any(isinstance(f, SecretMaskingFilter) for f in handler.filters):
                 handler.addFilter(masking_filter)
-                added_count += 1
-    if added_count > 0:
-        logger.debug(f"Installed SecretMaskingFilter on {added_count} handler(s)")
-    return added_count
+                added += 1
+    if added:
+        logger.debug(f"Installed SecretMaskingFilter on {added} handler(s)")
 
 
 def _remove_filter_from_existing_handlers() -> None:
