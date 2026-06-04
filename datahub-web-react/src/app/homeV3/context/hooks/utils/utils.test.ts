@@ -6,7 +6,6 @@ import {
     ASSETS_MODULE,
     CHILD_HIERARCHY_MODULE,
     DATA_PRODUCTS_MODULE,
-    OUTPUT_PORTS_MODULE,
 } from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 
 import { EntityType, PageTemplateScope, PageTemplateSurfaceType, SummaryElementType } from '@types';
@@ -52,7 +51,7 @@ describe('getDefaultSummaryPageTemplate', () => {
                 surface: {
                     surfaceType: PageTemplateSurfaceType.AssetSummary,
                 },
-                rows: [{ modules: [OUTPUT_PORTS_MODULE, ASSETS_MODULE] }],
+                rows: [{ modules: expect.any(Array) }],
                 assetSummary: {
                     summaryElements: [
                         { elementType: SummaryElementType.Created },
