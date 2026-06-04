@@ -181,4 +181,5 @@ src/app/mfeframework/**/*.{ts,tsx}
 src/app/recommendations/**/*.{ts,tsx}
 src/app/tags/**/*.{ts,tsx}
 src/app/utils/**/*.{ts,tsx}
+src/app/onboarding/**/*.{ts,tsx}
 src/app/auth/**/*.{ts,tsx}

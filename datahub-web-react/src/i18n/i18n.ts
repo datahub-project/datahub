@@ -32,6 +32,7 @@ export const NAMESPACES = [
     'ingestion.sourceBuilder',
     'misc',
     'modules',
+    'onboarding',
     'settings.features',
     'settings.page',
     'settings.permissions',
