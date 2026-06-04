@@ -2388,7 +2388,7 @@ ORDER by DataBaseName, TableName;
                             # Count hung views in the same bucket as other timeouts
                             # so num_view_processing_failures + view_timeout_errors
                             # give a complete picture alongside num_view_processing_timeouts.
-                            self.report.increment_view_error("timeout")
+                            self.report.increment_view_error(ViewErrorCategory.TIMEOUT)
                             fut.cancel()
                             started_at_by_future.pop(fut, None)
                             remaining_futures.discard(fut)

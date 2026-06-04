@@ -30,6 +30,7 @@ from datahub.ingestion.source.sql.teradata import (
     TeradataReport,
     TeradataSource,
     TeradataTable,
+    ViewErrorCategory,
     _categorize_view_error,
     _engine_connect_with_retry,
     _execute_with_retry,
@@ -4274,10 +4275,10 @@ class TestErrorCategorizationReport:
     def test_view_error_counters_are_exclusive(self) -> None:
         """increment_view_error routes each category to exactly its own counter."""
         categories = {
-            "timeout": "view_timeout_errors",
-            "parse": "view_parse_errors",
-            "permission": "view_permission_errors",
-            "unknown": "view_unknown_errors",
+            ViewErrorCategory.TIMEOUT: "view_timeout_errors",
+            ViewErrorCategory.PARSE: "view_parse_errors",
+            ViewErrorCategory.PERMISSION: "view_permission_errors",
+            ViewErrorCategory.UNKNOWN: "view_unknown_errors",
         }
         for category, field_name in categories.items():
             report = TeradataReport()
@@ -4299,7 +4300,12 @@ class TestErrorCategorizationReport:
             256,
         )  # m_per_thread must be divisible by len(categories)
         # Rotate through all four categories so every counter is exercised.
-        categories = ["timeout", "parse", "permission", "unknown"]
+        categories = [
+            ViewErrorCategory.TIMEOUT,
+            ViewErrorCategory.PARSE,
+            ViewErrorCategory.PERMISSION,
+            ViewErrorCategory.UNKNOWN,
+        ]
 
         def worker(_: int) -> None:
             for i in range(m_per_thread):
