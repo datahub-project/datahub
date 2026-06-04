@@ -1,5 +1,6 @@
 import { Popover } from '@components';
 import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -30,18 +31,32 @@ type Props = {
     timeProperty?: 'lastModified' | 'lastRefreshed' | 'lastUpdated';
 };
 
+// Lazy getters so i18next.t is invoked at access time (after i18n is initialized),
+// not at module import time.
 const descriptors = {
     lastModified: {
-        sectionTitle: 'Last Modified',
-        tooltip: 'Last modified',
+        get sectionTitle() {
+            return i18next.t('entity.preview:freshness.lastModified.sectionTitle');
+        },
+        get tooltip() {
+            return i18next.t('entity.preview:freshness.lastModified.tooltip');
+        },
     },
     lastRefreshed: {
-        sectionTitle: 'Data Last Refreshed',
-        tooltip: 'Data last refreshed',
+        get sectionTitle() {
+            return i18next.t('entity.preview:freshness.lastRefreshed.sectionTitle');
+        },
+        get tooltip() {
+            return i18next.t('entity.preview:freshness.lastRefreshed.tooltip');
+        },
     },
     lastUpdated: {
-        sectionTitle: 'Last Updated',
-        tooltip: 'Last updated',
+        get sectionTitle() {
+            return i18next.t('entity.preview:freshness.lastUpdated.sectionTitle');
+        },
+        get tooltip() {
+            return i18next.t('entity.preview:freshness.lastUpdated.tooltip');
+        },
     },
 };
 
@@ -65,7 +80,11 @@ const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
 
     return (
         <Popover
-            content={<PopoverContent>{`${updateType} ${lastUpdatedAgo}`}</PopoverContent>}
+            content={
+                /* eslint-disable i18next/no-literal-string -- (untranslated-text) dynamic relative-time join; `updateType` is already translated and `lastUpdatedAgo` is a localized relative-time string with language-varying word order */
+                <PopoverContent>{`${updateType} ${lastUpdatedAgo}`}</PopoverContent>
+                /* eslint-enable i18next/no-literal-string */
+            }
             placement="bottom"
             showArrow={false}
         >
