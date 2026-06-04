@@ -22,7 +22,7 @@ export class AnalyticsPage extends BasePage {
     super(page, logger, logDir);
     this.entityHeader = this.page.getByTestId('entity-header-test-id');
     this.landscapeSummarySection = this.page.getByTestId('analytics-landscape-summary');
-    this.tabViewsChart = this.page.getByTestId('analytics-tab-views-by-entity-type-past-week');
+    this.tabViewsChart = this.page.getByTestId('analytics-tab-views-by-entity-type-(past-week)');
   }
 
   // Helper selectors for dynamic elements
@@ -85,9 +85,8 @@ export class AnalyticsPage extends BasePage {
    */
   async verifyTabViewsChartVisible(): Promise<void> {
     this.logger?.step('verify Tab Views chart visible', {});
-    await this.tabViewsChart.waitFor({ state: 'attached', timeout: TIMEOUTS.LONG });
+    await expect(this.tabViewsChart).toBeVisible({ timeout: TIMEOUTS.LONG });
     await this.tabViewsChart.scrollIntoViewIfNeeded();
-    await expect(this.tabViewsChart).toBeVisible({ timeout: TIMEOUTS.SHORT });
   }
 
   /**
