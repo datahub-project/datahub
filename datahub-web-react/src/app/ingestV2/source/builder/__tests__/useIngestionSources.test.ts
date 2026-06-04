@@ -45,37 +45,12 @@ describe('useIngestionSources', () => {
     });
 
     describe('category field', () => {
-        it('resolves known category via CATEGORY_KEYS', () => {
+        it('passes category through untranslated for use as a grouping key', () => {
             const { result } = renderHook(() => useIngestionSources());
+            // category must stay as the raw English string so groupByCategory / getOrderedByCategoryEntriesOfGroups
+            // can match against their hardcoded English constants in utils.ts
             const bigquery = result.current.ingestionSources.find((s) => s.name === 'bigquery');
-            // "Data Warehouse" → category.dataWarehouse key → "Data Warehouse" in EN locale
             expect(bigquery!.category).toBe('Data Warehouse');
-        });
-
-        it('falls back to raw category value when key is not in CATEGORY_KEYS', () => {
-            const { result } = renderHook(() => useIngestionSources());
-            // Find any source whose category is not in the CATEGORY_KEYS map to verify passthrough.
-            // If all categories are mapped, this test confirms no source has an unmapped category.
-            const unmapped = result.current.ingestionSources.find(
-                (s) =>
-                    s.category !== undefined &&
-                    ![
-                        'BI & Analytics',
-                        'BI Tool',
-                        'Context Document Sources',
-                        'Data Collector',
-                        'Data Lake',
-                        'Data Warehouse',
-                        'Database',
-                        'ETL / ELT',
-                        'ML Platforms',
-                        'Miscellaneous',
-                        'Orchestration',
-                        'Query Engine',
-                    ].includes(s.category),
-            );
-            // All current sources have mapped categories — no unmapped category should exist.
-            expect(unmapped).toBeUndefined();
         });
 
         it('leaves category undefined when absent in source data', () => {
