@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { DefaultTheme } from 'styled-components';
 
 /**
@@ -7,11 +8,11 @@ import { DefaultTheme } from 'styled-components';
 export const percentileToLabel = (pct: number) => {
     /* eslint-disable no-else-return */
     if (pct <= 30) {
-        return 'Low';
+        return i18next.t('entity.shared.stats:percentile.low');
     } else if (pct > 30 && pct <= 80) {
-        return 'Med';
+        return i18next.t('entity.shared.stats:percentile.med');
     }
-    return 'High';
+    return i18next.t('entity.shared.stats:percentile.high');
 };
 
 /**
