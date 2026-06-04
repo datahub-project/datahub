@@ -1287,6 +1287,8 @@ featureFlags:
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true} # If turned on, show the re-designed Stats tab on the entity page
   showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:true} # If turned on, show the re-designed home page
   lineageGraphV3: ${LINEAGE_GRAPH_V3:true} # Enables the redesign of the lineage v2 graph
+  lineageGraphPerfVirtEnabled: ${LINEAGE_GRAPH_PERF_VIRT_ENABLED:true} # Enables viewport-based DOM virtualization in the V2 lineage graph (auto-applied above ~50 nodes). URL/localStorage overrides still apply per-session.
+  lineageGraphPerfOverscanEnabled: ${LINEAGE_GRAPH_PERF_OVERSCAN_ENABLED:false} # Enables the wider overscan-buffered virt path in the V2 lineage graph (auto-applied above ~200 nodes when virt is on). Trades a small pan-cost regression for fewer pop-in artefacts.
   showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
   # product updates for OSS (master):
   productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-core/} # URL to fetch product updates JSON from remote source.

@@ -334,3 +334,54 @@ deletion of all entities of a type.
 - JUnit report written to `test-results/junit.xml`.
 - Screenshots and traces captured on failure.
 - Single worker (`workers: 1`) in CI for stable ordering.
+
+## Performance Benchmarks
+
+Lineage rendering benchmarks live under `tests/lineage-perf/`. They are opt-in
+(skipped unless `LINEAGE_PERF=1`) and use `playwright.no-webserver.config.ts`
+so they run against an already-running DataHub instance.
+
+### Run
+
+```bash
+# Default scenarios + 100/500-node synthetic stress matrix
+yarn perf
+
+# Pass through to playwright (filter, repeat, etc.)
+yarn perf tests/lineage-perf/lineage-perf.spec.ts -g "synthetic"
+
+# N-sample variance sweep — each (scenario, variant) replays N times
+LINEAGE_PERF_REPEAT=5 yarn perf
+```
+
+Useful env vars (see `tests/lineage-perf/lineage-perf.spec.ts` for the full
+list):
+
+| Var                             | Effect                                                                                    |
+| ------------------------------- | ----------------------------------------------------------------------------------------- |
+| `LINEAGE_PERF=1`                | Required to opt into the suite. The `yarn perf` script sets this for you.                 |
+| `LINEAGE_PERF_REPEAT=N`         | Replay each (scenario, variant) N times; rows tagged with `iteration` for variance bands. |
+| `LINEAGE_PERF_SYNTHETIC_SCALES` | Comma-separated total-node sizes for the synthetic stress matrix (default `100,500`).     |
+| `LINEAGE_PERF_CLL_MATRIX`       | Column-level lineage matrix tokens like `100x50` (datasets × columns); off by default.    |
+| `LINEAGE_PERF_MIXED_MATRIX`     | Mixed-entity matrix like `label:ds=20,dj=10,df=5,ch=10,db=5`; off by default.             |
+
+Each run appends rows to `test-results/lineage-perf.json` keyed by
+`(scenario, variant, iteration)`. With repeat enabled, aggregate them into
+p50 / p95 / max bands:
+
+```bash
+yarn perf:aggregate                       # ASCII table on stdout
+yarn perf:aggregate:json                  # machine-readable JSON
+yarn perf:aggregate --scenario synthetic  # filter to one scenario substring
+yarn perf:aggregate --variant overscan    # filter to one variant substring
+```
+
+Bands cover `wallMs`, `longTaskTotalMs`, `longTaskMaxMs`, `requestsDuring`,
+`graphqlRequestsDuring`, and `requestBytesDuring`, plus `timedOut` counts.
+
+Adjacent specs in the same directory:
+
+- `lineage-screenshot-stress.spec.ts` — stress test for the screenshot export
+  path under virtualization (emits a `.tsv` artifact alongside the JSON).
+- `lineage-a11y-audit.spec.ts` — axe-core accessibility audit on small and
+  large lineage graphs.

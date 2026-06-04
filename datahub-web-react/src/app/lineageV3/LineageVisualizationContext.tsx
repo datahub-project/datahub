@@ -10,6 +10,13 @@ interface VisualizationContext {
     isFocused: boolean;
     isDraggingBoundingBox: boolean; // Used to prevent transition when dragging bounding boxes
     setIsDraggingBoundingBox: (dragging: boolean) => void;
+    /**
+     * Temporary escape hatch for code paths that need every node mounted
+     * (e.g. screenshot export). When `true`, virtualisation should treat
+     * every node as visible. Mirrors V2's `forceMountAll`.
+     */
+    forceMountAll: boolean;
+    setForceMountAll: (force: boolean) => void;
 }
 
 const LineageVisualizationContext = React.createContext<VisualizationContext>({
@@ -20,6 +27,8 @@ const LineageVisualizationContext = React.createContext<VisualizationContext>({
     isFocused: false,
     isDraggingBoundingBox: false,
     setIsDraggingBoundingBox: () => {},
+    forceMountAll: false,
+    setForceMountAll: () => {},
 });
 
 export default LineageVisualizationContext;

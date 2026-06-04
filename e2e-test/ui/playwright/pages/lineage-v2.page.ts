@@ -450,4 +450,47 @@ export class LineageV2Page extends BasePage {
     await this.lineageTabDirectionSelect.click();
     await this.lineageTabUpstreamOption.last().click();
   }
+
+  // ── Perf / virtualisation flag plumbing ──────────────────────────────────────
+
+  /**
+   * Set the localStorage key `getLineagePerfFlags()` reads on every lineage
+   * mount. MUST be called before the first navigation — `addInitScript` runs
+   * on document load, not on an in-flight navigation. Empty string clears.
+   */
+  async setPerfFlags(flagString: string): Promise<void> {
+    await this.page.addInitScript((value) => {
+      try {
+        window.localStorage.setItem('datahub.lineagePerfFlags', value);
+      } catch {
+        // localStorage can throw in private-browsing / sandboxed contexts;
+        // tests can fall back to the URL `?lineagePerf=` param if needed.
+      }
+    }, flagString);
+  }
+
+  /**
+   * Drag horizontally and release at the end (no return stroke), leaving the
+   * viewport translated. For regression tests that need a node off-screen.
+   *
+   * React Flow camera convention: `'right'` drags the mouse rightward → camera
+   * moves right → LEFT-side content leaves the viewport. Use `'right'` to
+   * push the upstream node off, `'left'` for downstream.
+   */
+  async sustainedPan(direction: 'left' | 'right', distance = 600): Promise<void> {
+    const canvas = this.page.locator('.react-flow').first();
+    const box = await canvas.boundingBox();
+    if (!box) return;
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const sign = direction === 'right' ? 1 : -1;
+    await this.page.mouse.move(cx, cy);
+    await this.page.mouse.down();
+    // Step incrementally so the React Flow store emits multiple
+    // viewport-transform updates rather than one jump.
+    for (let dx = 0; dx <= distance; dx += 30) {
+      await this.page.mouse.move(cx + sign * dx, cy);
+    }
+    await this.page.mouse.up();
+  }
 }

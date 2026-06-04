@@ -76,6 +76,7 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const [searchQuery, setSearchQuery] = useState('');
     const [isFocused, setIsFocused] = useState(false);
     const [isDraggingBoundingBox, setIsDraggingBoundingBox] = useState(false);
+    const [forceMountAll, setForceMountAll] = useState(false);
     const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
     useFitView(searchedEntity);
@@ -92,6 +93,8 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                 isFocused,
                 isDraggingBoundingBox,
                 setIsDraggingBoundingBox,
+                forceMountAll,
+                setForceMountAll,
             }}
         >
             <LineageSVGs />

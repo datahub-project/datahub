@@ -46,6 +46,11 @@ public class FeatureFlags {
   private boolean showStatsTabRedesign = false;
   private boolean showHomePageRedesign = false;
   private boolean lineageGraphV3 = true;
+  // Server defaults for V2 lineage rendering perf levers. Overridable per-session
+  // by the `?lineagePerf=` URL param and `datahub.lineagePerfFlags` localStorage
+  // entry, but those overrides start from these values rather than hardcoded ones.
+  private boolean lineageGraphPerfVirtEnabled = true;
+  private boolean lineageGraphPerfOverscanEnabled = false;
   private boolean showProductUpdates = false;
   private String productUpdatesJsonUrl;
   private String productUpdatesJsonFallbackResource;
