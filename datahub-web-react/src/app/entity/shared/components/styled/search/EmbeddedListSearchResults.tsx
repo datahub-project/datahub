@@ -1,10 +1,10 @@
 import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
-import { Text, colors } from '@components';
+import { Text } from '@components';
 import { Button, Pagination, Spin, Typography } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import {
     EntityActionProps,
@@ -91,8 +91,8 @@ const WarningMessage = styled.div`
     display: flex;
     margin: 8px 16px 0 16px
     align-items: center;
-    color: ${colors.yellow[1000]};
-    background-color: ${colors.yellow[0]};
+    color: ${(props) => props.theme.colors.textWarning};
+    background-color: ${(props) => props.theme.colors.bgSurfaceWarning};
     border-radius: 8px;
 `;
 
@@ -159,6 +159,7 @@ export const EmbeddedListSearchResults = ({
     handleViewAllClickWarning,
 }: Props) => {
     const { t } = useTranslation('entityV1.shared.components');
+    const theme = useTheme();
     const history = useHistory();
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(
@@ -228,7 +229,7 @@ export const EmbeddedListSearchResults = ({
                     )}
                     {isViewAllMode && (
                         <WarningMessage>
-                            <ExclamationCircleFilled style={{ color: colors.yellow[1000], fontSize: 16 }} />
+                            <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
                             <Text weight="bold" style={{ lineHeight: 'normal' }}>
                                 {t('viewAll.resultsIncomplete')}{' '}
                                 {platform && (

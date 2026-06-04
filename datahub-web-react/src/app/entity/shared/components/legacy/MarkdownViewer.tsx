@@ -3,7 +3,7 @@ import MDEditor from '@uiw/react-md-editor';
 import { Button } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 // String flag passed to styled-components as a DOM attribute marker; not user-visible text.
 const TRUE_ATTRIBUTE_VALUE = 'true';
@@ -35,7 +35,7 @@ const MarkdownContainer = styled.div<{ editable?: string }>`
 
 const CustomButton = styled(Button)`
     padding: 0;
-    color: #6a737d;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const MarkdownViewContainer = styled.div<{
@@ -58,7 +58,7 @@ const MarkdownViewContainer = styled.div<{
             `
             &::after {
                 content: '...';
-                color: #6a737d;
+                color: ${props.theme.colors.textSecondary};
                 position: absolute;
                 bottom: 2rem;
             }
@@ -90,6 +90,7 @@ type Props = {
 export default function MarkdownViewer({ source, limit = 150, editable, onEditClicked, ignoreLimit }: Props) {
     const { t } = useTranslation('entityV1.shared.components');
     const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
     const [height, setHeight] = useState(0);
     const [showAll, setShowAll] = useState(false);
     const ref = useRef(null);
@@ -119,7 +120,7 @@ export default function MarkdownViewer({ source, limit = 150, editable, onEditCl
                     {showAll ? t('markdownViewer.showLess') : tc('showMore')}
                 </CustomButton>
             )}
-            {editable && <EditIcon twoToneColor="#52c41a" onClick={onEditClicked} />}
+            {editable && <EditIcon twoToneColor={theme.colors.iconSuccess} onClick={onEditClicked} />}
         </MarkdownContainer>
     );
 }
