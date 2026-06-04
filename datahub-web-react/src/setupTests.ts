@@ -6,6 +6,8 @@ import '@testing-library/jest-dom/vitest';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
+import enAnalytics from '@src/i18n/locales/en/analytics.json';
+import enAuth from '@src/i18n/locales/en/auth.json';
 import enCommonActions from '@src/i18n/locales/en/common.actions.json';
 import enCommonFeedback from '@src/i18n/locales/en/common.feedback.json';
 import enCommonLabels from '@src/i18n/locales/en/common.labels.json';
@@ -17,8 +19,10 @@ import enEntityProfileIncident from '@src/i18n/locales/en/entity.profile.inciden
 import enEntityProfileQueries from '@src/i18n/locales/en/entity.profile.queries.json';
 import enEntityProfileSchema from '@src/i18n/locales/en/entity.profile.schema.json';
 import enEntityProfileStats from '@src/i18n/locales/en/entity.profile.stats.json';
+import enEntityProfileTabs from '@src/i18n/locales/en/entity.profile.tabs.json';
 import enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
+import enEntitySharedContainers from '@src/i18n/locales/en/entity.shared.containers.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
 import enGovernanceDomain from '@src/i18n/locales/en/governance.domain.json';
 import enGovernanceGlossary from '@src/i18n/locales/en/governance.glossary.json';
@@ -42,6 +46,8 @@ i18n.use(initReactI18next).init({
     fallbackLng: 'en',
     initImmediate: false,
     ns: [
+        'analytics',
+        'auth',
         'common.actions',
         'common.feedback',
         'common.labels',
@@ -49,12 +55,14 @@ i18n.use(initReactI18next).init({
         'entity.profile.documentation',
         'entity.ownership',
         'entity.profile.incident',
+        'entity.profile.tabs',
         'entity.profile.validations',
         'entity.profile.access',
         'entity.profile.queries',
         'entity.profile.schema',
         'entity.profile.stats',
         'entity.profile.view',
+        'entity.shared.containers',
         'entity.views',
         'governance.domain',
         'governance.glossary',
@@ -74,6 +82,8 @@ i18n.use(initReactI18next).init({
     ],
     resources: {
         en: {
+            analytics: enAnalytics,
+            auth: enAuth,
             'common.actions': enCommonActions,
             'common.feedback': enCommonFeedback,
             'common.labels': enCommonLabels,
@@ -81,12 +91,14 @@ i18n.use(initReactI18next).init({
             'entity.profile.documentation': enEntityProfileDocumentation,
             'entity.ownership': enEntityOwnership,
             'entity.profile.incident': enEntityProfileIncident,
+            'entity.profile.tabs': enEntityProfileTabs,
             'entity.profile.validations': enEntityProfileValidations,
             'entity.profile.access': enEntityProfileAccess,
             'entity.profile.queries': enEntityProfileQueries,
             'entity.profile.schema': enEntityProfileSchema,
             'entity.profile.stats': enEntityProfileStats,
             'entity.profile.view': enEntityProfileView,
+            'entity.shared.containers': enEntitySharedContainers,
             'entity.views': enEntityViews,
             'governance.domain': enGovernanceDomain,
             'governance.glossary': enGovernanceGlossary,

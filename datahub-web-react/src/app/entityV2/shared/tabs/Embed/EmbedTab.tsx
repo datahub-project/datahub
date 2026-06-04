@@ -1,5 +1,6 @@
 import { Empty } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -22,11 +23,12 @@ const StyledEmpty = styled(Empty)`
 
 export const EmbedTab = () => {
     const { entityData } = useEntityData();
+    const { t } = useTranslation('entity.profile.tabs');
     const embedRenderUrl = entityData?.embed?.renderUrl;
     return (
         <EmbedContainer>
             {(embedRenderUrl && <StyledIframe src={embedRenderUrl} title={entityData?.urn} frameBorder={0} />) || (
-                <StyledEmpty description="No preview was found." />
+                <StyledEmpty description={t('embed.noPreview')} />
             )}
         </EmbedContainer>
     );

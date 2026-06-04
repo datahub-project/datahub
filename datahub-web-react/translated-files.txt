@@ -1,10 +1,16 @@
+src/app/analyticsDashboardV2/components/AnalyticsPage.tsx
 src/app/domain/**/*.{ts,tsx}
 src/app/domainV2/**/*.{ts,tsx}
 src/app/entityV2/ownership/ManageOwnership.tsx
+src/app/entityV2/shared/tabs/Embed/**/*.{ts,tsx}
+src/app/entityV2/shared/tabs/Entity/**/*.{ts,tsx}
+src/app/entityV2/shared/tabs/ML/**/*.{ts,tsx}
+src/app/entityV2/shared/tabs/Properties/**/*.{ts,tsx}
 src/app/entityV2/ownership/OwnershipBuilderModal.tsx
 src/app/entityV2/ownership/OwnershipList.tsx
 src/app/entityV2/ownership/table/ActionsColumn.tsx
 src/app/entityV2/ownership/table/OwnershipTable.tsx
+src/app/entityV2/shared/containers/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/Dataset/AccessManagement/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/Dataset/Queries/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/Dataset/Schema/**/*.{ts,tsx}
@@ -123,3 +129,4 @@ src/app/recommendations/**/*.{ts,tsx}
 src/app/tags/**/*.{ts,tsx}
 src/app/utils/**/*.{ts,tsx}
 src/app/onboarding/**/*.{ts,tsx}
+src/app/auth/**/*.{ts,tsx}
