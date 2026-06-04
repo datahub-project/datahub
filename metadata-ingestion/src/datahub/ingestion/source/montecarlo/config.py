@@ -1,11 +1,13 @@
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 import pydantic
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -15,6 +17,23 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class MonteCarloAlertsConfig(BaseTimeWindowConfig):
+    """Time window and toggle for alert/incident ingestion as assertion run events."""
+
+    # Override the parent default (1 day) to 30 days for Monte Carlo alerts.
+    start_time: datetime = Field(  # type: ignore[assignment]
+        default_factory=lambda: datetime.now(tz=timezone.utc) - timedelta(days=30),
+        description=(
+            "Earliest alert/incident timestamp to ingest. "
+            "Supports relative syntax like '-30 days'. Default: 30 days ago."
+        ),
+    )
+    enabled: bool = Field(
+        default=True,
+        description="Emit Monte Carlo alerts/incidents as assertion run events (failures).",
+    )
 
 
 class MonteCarloPlatformDetail(ConfigModel):
@@ -72,13 +91,9 @@ class MonteCarloSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMix
         default=True,
         description="Emit Monte Carlo monitors and custom rules as DataHub assertions.",
     )
-    emit_alerts: bool = Field(
-        default=True,
-        description="Emit Monte Carlo alerts/incidents as assertion run events (failures).",
-    )
-    alerts_lookback_days: int = Field(
-        default=30,
-        description="How many days back to fetch alerts/incidents for run-event emission.",
+    alerts: MonteCarloAlertsConfig = Field(
+        default_factory=MonteCarloAlertsConfig,
+        description="Configuration for alert/incident ingestion as assertion run events.",
     )
 
     monitor_pattern: AllowDenyPattern = Field(
@@ -100,10 +115,3 @@ class MonteCarloSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMix
         description="Stateful ingestion configuration. Enables soft-deletion of assertions "
         "whose Monte Carlo monitor no longer exists.",
     )
-
-    @field_validator("alerts_lookback_days")
-    @classmethod
-    def _lookback_must_be_positive(cls, v: int) -> int:
-        if v <= 0:
-            raise ValueError("alerts_lookback_days must be a positive integer")
-        return v

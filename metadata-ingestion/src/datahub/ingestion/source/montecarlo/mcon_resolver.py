@@ -1,13 +1,16 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict, Optional, Protocol, Tuple
+from typing import Dict, Optional, Protocol
 
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
 )
 from datahub.ingestion.source.montecarlo.client import ResolvedTable
-from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
+from datahub.ingestion.source.montecarlo.config import (
+    MonteCarloPlatformDetail,
+    MonteCarloSourceConfig,
+)
 from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
 
 logger = logging.getLogger(__name__)
@@ -86,17 +89,21 @@ class MconResolver:
 
     def _platform_detail(
         self, resource_id: str, connection_type: Optional[str]
-    ) -> Optional[Tuple[str, Optional[str], str]]:
+    ) -> Optional[MonteCarloPlatformDetail]:
         mapped = self.config.connection_to_platform_map.get(resource_id)
         if mapped is not None:
-            return mapped.platform, mapped.platform_instance, mapped.env
+            return mapped
         platform: Optional[str] = None
         if connection_type:
             platform = CONNECTION_TYPE_TO_PLATFORM.get(connection_type.lower())
         platform = platform or self.config.default_platform
         if platform is None:
             return None
-        return platform, self.config.platform_instance, self.config.env
+        return MonteCarloPlatformDetail(
+            platform=platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
 
     def dataset_urn_for_mcon(self, mcon: str) -> Optional[str]:
         if mcon in self._cache:
@@ -126,12 +133,11 @@ class MconResolver:
                         context=f"{mcon} (connection_type={resolved.connection_type})",
                     )
                 else:
-                    platform, platform_instance, env = detail
                     urn = make_dataset_urn_with_platform_instance(
-                        platform=platform,
+                        platform=detail.platform,
                         name=resolved.full_table_id,
-                        platform_instance=platform_instance,
-                        env=env,
+                        platform_instance=detail.platform_instance,
+                        env=detail.env,
                     )
                     self.report.report_mcon_resolved()
         except Exception as e:

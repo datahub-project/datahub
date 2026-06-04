@@ -17,7 +17,6 @@ class MonteCarloSourceReport(StaleEntityRemovalSourceReport):
     mcons_resolved: int = 0
     mcons_resolution_failed: int = 0
     mcons_unmapped_platform: LossyList[str] = field(default_factory=LossyList)
-    alerts_without_monitor: int = 0
     filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_dropped(self, name: str) -> None:

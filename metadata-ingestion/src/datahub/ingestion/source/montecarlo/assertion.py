@@ -41,21 +41,35 @@ logger = logging.getLogger(__name__)
 PLATFORM = "montecarlo"
 
 
+_CLOUD_ASSERTION_CLASS: "Optional[Type[Assertion]]" = None
+_CLOUD_ASSERTION_CLASS_LOADED: bool = False
+
+
 def _load_cloud_assertion_class() -> "Optional[Type[Assertion]]":
-    """Return the DataHub Cloud ``Assertion`` entity class if available.
+    """Return the DataHub Cloud ``Assertion`` entity class if available, cached.
 
     The connector prefers the Cloud SDK's assertion entity (it manages the
     assertionInfo + dataPlatformInstance aspects). When ``acryl-datahub-cloud`` is
     not installed we fall back to emitting equivalent OSS aspects directly, mirroring
     the optional-import pattern in ``datahub.sdk.main_client``.
     """
+    global _CLOUD_ASSERTION_CLASS, _CLOUD_ASSERTION_CLASS_LOADED
+    if _CLOUD_ASSERTION_CLASS_LOADED:
+        return _CLOUD_ASSERTION_CLASS
+    _CLOUD_ASSERTION_CLASS_LOADED = True
     try:
         from acryl_datahub_cloud.sdk.entities.assertion import (  # type: ignore[import-not-found]
             Assertion,
         )
+
+        _CLOUD_ASSERTION_CLASS = Assertion
     except ImportError:
-        return None
-    return Assertion
+        pass
+    except Exception:
+        logger.warning(
+            "Failed to load cloud Assertion class; using OSS fallback.", exc_info=True
+        )
+    return _CLOUD_ASSERTION_CLASS
 
 
 class MonteCarloAssertionKey(DatahubKey):
@@ -98,9 +112,16 @@ class MonteCarloAssertionBuilder:
             return
 
         # Resolve the monitored asset. We use the first MCON that resolves to a URN;
-        # a monitor without a resolvable asset is skipped (warning emitted upstream).
+        # a monitor without a resolvable asset is skipped with a warning.
+        if not definition.entity_mcons:
+            self.report.warning(
+                title="Monitor has no monitored entities",
+                message="Skipping monitor with no entity_mcons; cannot build a dataset URN.",
+                context=f"monitor_uuid={definition.uuid}",
+            )
+            return
+
         dataset_urn: Optional[str] = None
-        field_urn: Optional[str] = None
         for mcon in definition.entity_mcons:
             dataset_urn = self.resolver.dataset_urn_for_mcon(mcon)
             if dataset_urn:
@@ -126,7 +147,7 @@ class MonteCarloAssertionBuilder:
         custom_assertion = CustomAssertionInfoClass(
             type=definition.native_type,
             entity=dataset_urn,
-            field=field_urn,
+            field=None,
             logic=definition.custom_sql,
         )
         yield from self._emit_assertion(
@@ -202,15 +223,18 @@ class MonteCarloAssertionBuilder:
 
     def build_run_event(self, alert: MonteCarloAlert) -> Iterable[MetadataWorkUnit]:
         if alert.monitor_uuid is None:
-            self.report.alerts_without_monitor += 1
             return
         assertion_urn = self._assertion_urn_by_monitor.get(alert.monitor_uuid)
         dataset_urn = self._dataset_by_monitor.get(alert.monitor_uuid)
         if assertion_urn is None or dataset_urn is None:
             # Alert for a monitor we didn't ingest (filtered out, unresolved asset).
-            self.report.alerts_without_monitor += 1
             return
         if alert.created_time is None:
+            self.report.warning(
+                title="Alert skipped: missing timestamp",
+                message="Alert has no createdTime and cannot be emitted as a run event.",
+                context=f"alert_uuid={alert.uuid}",
+            )
             return
 
         native_results: Dict[str, str] = {}

@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
 from pydantic import BaseModel, Field
@@ -114,7 +114,7 @@ class MonteCarloAlert(BaseModel):
     """An alert/incident raised by Monte Carlo, mapped to an assertion failure."""
 
     uuid: str
-    type: Optional[str] = None
+    alert_type: Optional[str] = None
     sub_types: List[str] = Field(default_factory=list)
     severity: Optional[str] = None
     priority: Optional[str] = None
@@ -154,9 +154,16 @@ class MonteCarloClient:
         self.page_size = page_size
 
     def _call(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            response = self._client(query, variables=variables)
+        except Exception as e:
+            raise RuntimeError(
+                f"Monte Carlo API call failed (query={query[:60]!r})"
+            ) from e
+        if response is None:
+            raise RuntimeError(f"Monte Carlo API returned None (query={query[:60]!r})")
         # pycarlo returns a Box (dict-like); normalize to a plain dict so the rest of
         # the code (and mocked unit tests) can use ordinary item access.
-        response = self._client(query, variables=variables)
         if hasattr(response, "to_dict"):
             return response.to_dict()
         return dict(response)
@@ -220,10 +227,7 @@ class MonteCarloClient:
             )
 
     def get_alerts(self) -> Iterable[MonteCarloAlert]:
-        start = datetime.now(timezone.utc) - timedelta(
-            days=self.config.alerts_lookback_days
-        )
-        variables = {"createdTime": {"gte": start.isoformat()}}
+        variables = {"createdTime": {"gte": self.config.alerts.start_time.isoformat()}}
         for raw in self._paginate(_ALERTS_QUERY, "getAlerts", variables):
             alert_id = raw.get("id")
             if not alert_id:
@@ -231,7 +235,7 @@ class MonteCarloClient:
                 continue
             yield MonteCarloAlert(
                 uuid=alert_id,
-                type=raw.get("type"),
+                alert_type=raw.get("type"),
                 sub_types=raw.get("subTypes") or [],
                 severity=raw.get("severity"),
                 priority=raw.get("priority"),

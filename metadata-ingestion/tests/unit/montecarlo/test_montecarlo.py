@@ -17,7 +17,6 @@ from datahub.ingestion.source.montecarlo.client import (
 )
 from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
 from datahub.ingestion.source.montecarlo.mcon_resolver import (
-    CONNECTION_TYPE_TO_PLATFORM,
     MconResolver,
     parse_mcon,
 )
@@ -46,12 +45,11 @@ class FakeResolverClient:
         return self._tables.get(mcon)
 
 
-def test_config_validation() -> None:
+def test_alerts_default_window_is_30_days() -> None:
+    # Replacing alerts_lookback_days=30 — the default window must stay 30 days.
     cfg = make_config()
-    assert cfg.alerts_lookback_days == 30
-    assert cfg.emit_assertions and cfg.emit_alerts
-    with pytest.raises(ValueError):
-        make_config(alerts_lookback_days=0)
+    delta_days = (cfg.alerts.end_time - cfg.alerts.start_time).total_seconds() / 86400
+    assert round(delta_days) == 30
 
 
 def test_parse_mcon() -> None:
@@ -69,11 +67,6 @@ def test_assertion_key_is_stable() -> None:
     guid3 = MonteCarloAssertionKey(monitor_uuid="def").guid()
     assert guid1 == guid2
     assert guid1 != guid3
-
-
-def test_connection_type_maps_to_platform() -> None:
-    assert CONNECTION_TYPE_TO_PLATFORM["snowflake"] == "snowflake"
-    assert CONNECTION_TYPE_TO_PLATFORM["sql-server"] == "mssql"
 
 
 def test_resolver_uses_connection_map_then_connection_type() -> None:
@@ -118,6 +111,25 @@ def test_resolver_falls_back_to_connection_type() -> None:
     assert urn is not None and "bigquery" in urn
 
 
+def test_resolver_uses_default_platform() -> None:
+    """default_platform is used when the connection type has no auto-mapping."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-x++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="exotic-db"
+            )
+        }
+    )
+    cfg = make_config(default_platform="postgres")
+    resolver = MconResolver(cfg, client, report)
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is not None
+    assert "postgres" in urn
+    assert report.mcons_resolved == 1
+
+
 def test_resolver_warns_on_unmapped_platform() -> None:
     report = MonteCarloSourceReport()
     mcon = "MCON++acct++wh-3++table++db.sch.tbl"
@@ -131,6 +143,26 @@ def test_resolver_warns_on_unmapped_platform() -> None:
     resolver = MconResolver(make_config(), client, report)
     assert resolver.dataset_urn_for_mcon(mcon) is None
     assert mcon in report.mcons_unmapped_platform
+
+
+def test_resolver_handles_get_table_exception() -> None:
+    """Exceptions from client.get_table are caught, warned, and cached as None."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-err++table++db.sch.tbl"
+
+    class ErrorClient:
+        calls = 0
+
+        def get_table(self, mcon: str) -> Optional[ResolvedTable]:
+            ErrorClient.calls += 1
+            raise RuntimeError("network error")
+
+    resolver = MconResolver(make_config(), ErrorClient(), report)
+    assert resolver.dataset_urn_for_mcon(mcon) is None
+    assert report.mcons_resolution_failed == 1
+    # Second call should use the cache, not call the client again.
+    assert resolver.dataset_urn_for_mcon(mcon) is None
+    assert ErrorClient.calls == 1
 
 
 def test_resolver_caches_results() -> None:
@@ -245,6 +277,39 @@ def test_build_assertion_skips_unresolvable_asset() -> None:
     assert report.assertions_emitted == 0
 
 
+def test_build_assertion_warns_on_empty_entity_mcons() -> None:
+    """Monitors with no entity_mcons produce a warning and no workunits."""
+    report = MonteCarloSourceReport()
+    cfg = make_config()
+    resolver = MconResolver(cfg, FakeResolverClient({}), report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+    definition = MonteCarloAssertionDef(uuid="mon-empty", entity_mcons=[])
+    assert _build_assertion_workunits(builder, definition) == []
+    assert len(report.warnings) == 1
+
+
+def test_build_assertion_filtered_by_monitor_pattern() -> None:
+    """monitor_pattern deny rules drop the assertion and record it as filtered."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config(monitor_pattern={"deny": ["^Freshness.*"]})
+    resolver = MconResolver(cfg, client, report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+    definition = MonteCarloAssertionDef(
+        uuid="mon-fresh", name="Freshness on orders", entity_mcons=[mcon]
+    )
+    assert _build_assertion_workunits(builder, definition) == []
+    assert report.assertions_emitted == 0
+    assert "Freshness on orders" in report.filtered
+
+
 def test_build_run_event_links_to_ingested_monitor() -> None:
     report = MonteCarloSourceReport()
     mcon = "MCON++acct++wh-2++table++db.sch.tbl"
@@ -286,7 +351,7 @@ def test_build_run_event_skips_unknown_monitor() -> None:
         uuid="alert-2", monitor_uuid="ghost", created_time="2026-05-01T00:00:00+00:00"
     )
     assert list(builder.build_run_event(alert)) == []
-    assert report.alerts_without_monitor == 1
+    assert report.run_events_emitted == 0
 
 
 # --- Client parsing / pagination (against recorded GraphQL dicts) ---
@@ -329,6 +394,25 @@ def test_client_get_monitors_parses_list() -> None:
     assert monitors[0].uuid == "m1"
     assert monitors[0].native_type == "FRESHNESS"
     assert not monitors[0].is_custom_rule
+
+
+def test_client_get_monitors_passes_filter_variables() -> None:
+    """monitor_types_allow and domain_ids are forwarded as GraphQL variables."""
+    captured: Dict[str, Any] = {}
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        captured.update(variables)
+        return {"getMonitors": []}
+
+    cfg = make_config(monitor_types_allow=["FRESHNESS"], domain_ids=["dom-1"])
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = cfg
+    client.page_size = 100
+    client._call = fake_call  # type: ignore[method-assign]
+
+    list(client.get_monitors())
+    assert captured.get("monitorTypes") == ["FRESHNESS"]
+    assert captured.get("domainIds") == ["dom-1"]
 
 
 def test_client_get_custom_rules_paginates() -> None:
@@ -375,3 +459,23 @@ def test_client_get_table_parses_connection_type() -> None:
     assert table is not None
     assert table.full_table_id == "db.sch.tbl"
     assert table.connection_type == "snowflake"
+
+
+def test_resolver_non_obvious_connection_types() -> None:
+    """sql-server and synapse both map to mssql (non-obvious aliases)."""
+    mcon = "MCON++acct++wh++table++db.sch.tbl"
+    for connection_type in ("sql-server", "synapse"):
+        client = FakeResolverClient(
+            {
+                mcon: ResolvedTable(
+                    mcon=mcon,
+                    full_table_id="db.sch.tbl",
+                    connection_type=connection_type,
+                )
+            }
+        )
+        urn = MconResolver(
+            make_config(), client, MonteCarloSourceReport()
+        ).dataset_urn_for_mcon(mcon)
+        assert urn is not None
+        assert "mssql" in urn, f"{connection_type} should resolve to mssql"
