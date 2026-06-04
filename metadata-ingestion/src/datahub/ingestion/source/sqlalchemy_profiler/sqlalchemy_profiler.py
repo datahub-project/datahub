@@ -37,6 +37,7 @@ from datahub.ingestion.source.profiling.common import (
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters import get_adapter
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
@@ -214,7 +215,7 @@ def _is_single_row_query_method(query: Any) -> bool:
 
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import ProfilerRequest
+    from datahub.ingestion.source.profiling.common import ProfilerRequest
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -640,7 +641,7 @@ class SQLAlchemyProfiler:
                 exc=e,
             )
 
-    def _process_numeric_column_stats(
+    def _process_numeric_column_stats(  # noqa: C901
         self,
         runner: "QueryCombinerRunner",
         sql_table: "sa.Table",
@@ -770,7 +771,12 @@ class SQLAlchemyProfiler:
                         f"Quantiles for {col_name}: type={type(quantiles)}, "
                         f"len={len(quantiles) if quantiles else 0}, value={quantiles}"
                     )
-                    column_profile.quantiles = [
+                    # Build the filtered list first; only assign if non-empty.
+                    # Adapters that don't support quantiles (e.g. MySQL has no
+                    # PERCENTILE_CONT) return [None, None, ...], which would
+                    # otherwise leak through as `"quantiles": []` in the JSON
+                    # output. GE omits the field entirely in that case.
+                    quantiles_list = [
                         QuantileClass(quantile=str(q), value=str(v))
                         for q, v in zip(
                             [0.05, 0.25, 0.5, 0.75, 0.95],
@@ -779,6 +785,8 @@ class SQLAlchemyProfiler:
                         )
                         if v is not None
                     ]
+                    if quantiles_list:
+                        column_profile.quantiles = quantiles_list
                 except Exception as e:
                     logger.debug(
                         f"Caught exception while attempting to get column quantiles for column {col_name}. {e}"
@@ -1097,7 +1105,7 @@ class SQLAlchemyProfiler:
         profile: DatasetProfileClass,
         context: ProfilingContext,
         pretty_name: str,
-        platform: str,
+        adapter: PlatformAdapter,
     ) -> Optional[int]:
         """
         Stage 1: Profile row count.
@@ -1109,11 +1117,10 @@ class SQLAlchemyProfiler:
         """
         use_estimation = (
             self.config.profile_table_row_count_estimate_only
-            and platform in ("postgresql", "mysql")
+            and adapter.supports_row_count_estimation()
         )
         logger.debug(
-            f"Getting row count for {pretty_name}: "
-            f"use_estimation={use_estimation}, platform={platform}"
+            f"Getting row count for {pretty_name}: use_estimation={use_estimation}"
         )
 
         # Schedule row count query (returns FutureResult)
@@ -1391,8 +1398,13 @@ class SQLAlchemyProfiler:
             if ignore_table_sampling or col_name in columns_list_to_ignore_sampling:
                 continue
 
-            # Schedule numeric stats for numeric columns
-            if col_type in (ProfilerDataType.INT, ProfilerDataType.FLOAT):
+            # Schedule numeric stats for numeric columns (INT, FLOAT, NUMERIC)
+            # This matches GE profiler which computes stats for all three types
+            if col_type in (
+                ProfilerDataType.INT,
+                ProfilerDataType.FLOAT,
+                ProfilerDataType.NUMERIC,
+            ):
                 numeric_stats_futures[col_name] = {}
                 if self.config.include_field_min_value:
                     numeric_stats_futures[col_name]["min"] = runner.get_column_min(
@@ -1486,7 +1498,12 @@ class SQLAlchemyProfiler:
                 )
 
             # Process column stats by type
-            if col_type in (ProfilerDataType.INT, ProfilerDataType.FLOAT):
+            # INT, FLOAT, and NUMERIC all get the same numeric statistics (matches GE profiler)
+            if col_type in (
+                ProfilerDataType.INT,
+                ProfilerDataType.FLOAT,
+                ProfilerDataType.NUMERIC,
+            ):
                 self._process_numeric_column_stats(
                     runner=runner,
                     sql_table=sql_table,
@@ -1662,17 +1679,36 @@ class SQLAlchemyProfiler:
                         profile=profile,
                         context=context,
                         pretty_name=pretty_name,
-                        platform=platform,
+                        adapter=adapter,
                     )
 
-                    # If row count failed and we got None, skip profiling entirely.
-                    # Emitting a profile without row count creates incomplete/misleading data.
-                    # This matches GE profiler behavior
-                    if row_count is None:
-                        logger.info(
-                            f"Skipping profile for {pretty_name}: row count unavailable"
+                    # Skip column profiling when row_count tells us there's no data to profile:
+                    # - row_count is None: row count query failed (permission error etc.)
+                    # - row_count == 0 AND we used an EXACT count: genuinely empty table.
+                    #
+                    # When `profile_table_row_count_estimate_only=true`, row_count comes from
+                    # the adapter's fast-estimate query (information_schema.tables.table_rows on
+                    # MySQL, pg_class.reltuples on Postgres). Both can return 0 for small or
+                    # recently-modified tables that actually have data — never analyzed yet, or
+                    # stats not refreshed. Treating that 0 as "skip column profiling" would
+                    # silently drop fieldProfiles for non-empty tables. GE never had this
+                    # early-return, so it always proceeded to column-level queries regardless
+                    # of the estimate.
+                    use_estimation = (
+                        self.config.profile_table_row_count_estimate_only
+                        and adapter.supports_row_count_estimation()
+                    )
+                    if row_count is None or (row_count == 0 and not use_estimation):
+                        reason = (
+                            "empty table (rowCount=0)"
+                            if row_count == 0
+                            else "row count unavailable (permission error or query failure)"
                         )
-                        return None
+                        logger.info(
+                            f"Skipping column profiling for {pretty_name}: {reason}"
+                        )
+                        # Return profile with basic table-level metadata but no field profiles
+                        return profile
 
                     # ----------------------------------------------------------------
                     # SETUP: Get columns to profile and sampling configuration

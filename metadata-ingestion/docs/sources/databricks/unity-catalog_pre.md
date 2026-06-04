@@ -1,4 +1,8 @@
-### Prerequisities
+### Overview
+
+The `unity-catalog` module ingests metadata from Databricks into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
+### Prerequisites
 
 - Get your Databricks instance's [workspace url](https://docs.databricks.com/workspace/workspace-details.html#workspace-instance-names-urls-and-ids)
 - Create a [Databricks Service Principal](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#what-is-a-service-principal)
@@ -49,8 +53,25 @@ You can authenticate with Databricks using OAuth, Azure authentication, a Person
 - To `include_usage_statistics` (enabled by default), your service principal must have one of the following:
   - `CAN_MANAGE` permissions on any SQL Warehouses you want to ingest: [guide](https://docs.databricks.com/security/auth-authz/access-control/sql-endpoint-acl.html).
   - When `usage_data_source` is set to `SYSTEM_TABLES` or `AUTO` (default) with `warehouse_id` configured: `SELECT` privilege on `system.query.history` table for improved performance with large query volumes and multi-workspace setups.
-- To ingest `profiling` information with `method: ge`, you need `SELECT` privileges on all profiled tables.
+- To `include_table_constraints` (disabled by default), no additional permissions are required beyond the `SELECT` privilege already listed above. The connector uses the same `tables.get()` API endpoint.
+- To ingest `profiling` information with the default SQLAlchemy profiler (`method: sqlalchemy`), you need `SELECT` privilege on tables and views.
+- To ingest `profiling` information with `method: ge` (requires `pip install 'acryl-datahub[profiling-ge]'`), you need `SELECT` privileges on all profiled tables.
 - To ingest `profiling` information with `method: analyze` and `call_analyze: true` (enabled by default), your service principal must have ownership or `MODIFY` privilege on any tables you want to profile.
   - Alternatively, you can run [ANALYZE TABLE](https://docs.databricks.com/sql/language-manual/sql-ref-syntax-aux-analyze-table.html) yourself on any tables you want to profile, then set `call_analyze` to `false`.
     You will still need `SELECT` privilege on those tables to fetch the results.
 - Check the starter recipe below and replace `workspace_url` and either `token` (for PAT authentication) or `azure_auth` credentials (for Azure authentication) with your information from the previous steps.
+
+#### Permissions for DataHub Cloud Assertions (Observe)
+
+If you plan to use DataHub Cloud's [Freshness](/docs/managed-datahub/observe/freshness-assertions), [Volume](/docs/managed-datahub/observe/volume-assertions), or [Column](/docs/managed-datahub/observe/column-assertions) Assertions on Databricks, the required Unity Catalog privileges depend on which **Source** you select in the assertion builder:
+
+| Source Type                                                                        | Required Privilege(s)                                                                                              | Notes                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Table Statistics**                                                               | `MODIFY` (or ownership) on the target table                                                                        | Runs `ANALYZE TABLE ... COMPUTE STATISTICS` followed by `DESCRIBE TABLE EXTENDED`. On Delta tables this is metadata-only (reads file-level stats from the transaction log). Tables only, not Views. Default Volume Source. |
+| **Information Schema**                                                             | `USE CATALOG` + `USE SCHEMA` on the containing catalog/schema, plus `SELECT` on `system.information_schema.tables` | Queries the Unity Catalog `information_schema.tables` view. Tables only, not Views.                                                                                                                                        |
+| **Audit Log**                                                                      | `SELECT` on `system.access.audit` (requires Unity Catalog system schemas to be enabled)                            | Reads workspace audit events. Tables only.                                                                                                                                                                                 |
+| **File Metadata**                                                                  | `SELECT` on the target table                                                                                       | Reads file-level modification time via Delta transaction log metadata. Delta tables only.                                                                                                                                  |
+| **Query** / **Last Modified Column** / **High Watermark Column** / **Field Value** | `SELECT` on the target table                                                                                       | Runs SQL queries against the table. Works for Tables and Views.                                                                                                                                                            |
+| **DataHub Operation** / **DataHub Dataset Profile**                                | _(none)_                                                                                                           | Uses DataHub metadata only, no Databricks access needed.                                                                                                                                                                   |
+
+In addition, the service principal used for assertion evaluation needs `USE CATALOG` and `USE SCHEMA` on the catalog and schema containing the target tables, and must be granted access to a SQL Warehouse (`CAN_USE` permission) to run statements.

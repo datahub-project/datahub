@@ -2,7 +2,6 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
-import static com.linkedin.metadata.entity.ebean.EbeanAspectDao.TX_ISOLATION;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -482,12 +481,10 @@ public class EbeanEntityServiceTest
   public void testNestedTransactions() throws AssertionError {
     Database server = _aspectDao.getServer();
 
-    try (Transaction transaction =
-        server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
+    try (Transaction transaction = server.beginTransaction(TxScope.requiresNew())) {
       transaction.setBatchMode(true);
       // Work 1
-      try (Transaction transaction2 =
-          server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
+      try (Transaction transaction2 = server.beginTransaction(TxScope.requiresNew())) {
         transaction2.setBatchMode(true);
         // Work 2
         transaction2.commit();
@@ -538,7 +535,7 @@ public class EbeanEntityServiceTest
     try (Transaction transaction =
         ((EbeanAspectDao) _entityServiceImpl.aspectDao)
             .getServer()
-            .beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
+            .beginTransaction(TxScope.requiresNew())) {
       TransactionContext transactionContext = TransactionContext.empty(transaction, 3);
       _entityServiceImpl.aspectDao.insertAspect(
           transactionContext,

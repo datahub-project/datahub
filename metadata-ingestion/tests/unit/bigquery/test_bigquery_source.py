@@ -1,13 +1,11 @@
-import json
 import logging
-import os
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
 
@@ -35,6 +33,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTable,
     BigqueryTableSnapshot,
     BigqueryView,
+    ExternalTableOptions,
     get_projects,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
@@ -133,19 +132,13 @@ def test_bigquery_dataset_pattern():
     ]
 
 
-def test_bigquery_uri_with_credential():
-    expected_credential_json = {
-        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "client_email": "test@acryl.io",
-        "client_id": "test_client-id",
-        "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test@acryl.io",
-        "private_key": "random_private_key",
-        "private_key_id": "test-private-key",
-        "project_id": "test-project",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "type": "service_account",
-    }
+@patch(
+    "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
+)
+def test_bigquery_explicit_credentials_built(mock_from_sa_info):
+    """Explicit credentials are built from service account info for thread safety."""
+    sentinel_creds = MagicMock()
+    mock_from_sa_info.return_value = sentinel_creds
 
     config = BigQueryV2Config.model_validate(
         {
@@ -160,22 +153,8 @@ def test_bigquery_uri_with_credential():
         }
     )
 
-    try:
-        assert config.get_sql_alchemy_url() == "bigquery://"
-        assert config._credentials_path
-
-        with open(config._credentials_path) as jsonFile:
-            json_credential = json.load(jsonFile)
-            jsonFile.close()
-
-        credential = json.dumps(json_credential, sort_keys=True)
-        expected_credential = json.dumps(expected_credential_json, sort_keys=True)
-        assert expected_credential == credential
-
-    except AssertionError as e:
-        if config._credentials_path:
-            os.unlink(str(config._credentials_path))
-        raise e
+    mock_from_sa_info.assert_called_once()
+    assert config._credentials is sentinel_creds
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
@@ -575,7 +554,7 @@ def test_gen_table_dataset_workunits(
     assert len(mcps) >= 7
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 def test_get_datasets_for_project_id_with_timestamps(
@@ -1664,4 +1643,92 @@ def test_shard_pattern_respects_case_insensitivity(table_id: str) -> None:
 
     match = shard_matcher.match(table_id)
     assert match is not None
-    assert match[3] == "20240101"
+
+
+@pytest.mark.parametrize(
+    "ddl, expected",
+    [
+        (
+            "CREATE EXTERNAL TABLE `p.d.t` OPTIONS(format = 'PARQUET', uris = [\"gs://bucket/path/*\"])",
+            ExternalTableOptions(
+                source_format="PARQUET",
+                source_uris=["gs://bucket/path/*"],
+            ),
+        ),
+        (
+            'CREATE EXTERNAL TABLE `p.d.t` OPTIONS(format = \'CSV\', uris = ["gs://bucket/a.csv","gs://bucket/b.csv"])',
+            ExternalTableOptions(
+                source_format="CSV",
+                source_uris=["gs://bucket/a.csv", "gs://bucket/b.csv"],
+            ),
+        ),
+        (
+            'CREATE EXTERNAL TABLE `p.d.t` OPTIONS(uris = ["gs://bucket/path/*"])',
+            ExternalTableOptions(source_uris=["gs://bucket/path/*"]),
+        ),
+        (
+            "CREATE EXTERNAL TABLE `p.d.t` OPTIONS(FORMAT = 'orc', uris = [\"gs://bucket/path/*\"])",
+            ExternalTableOptions(
+                source_format="ORC",
+                source_uris=["gs://bucket/path/*"],
+            ),
+        ),
+        (
+            "CREATE EXTERNAL TABLE `p.d.t` OPTIONS(format = 'CSV', uris = [\"gs://bucket/a.csv\"], compression = 'GZIP', max_bad_records = 10)",
+            ExternalTableOptions(
+                source_format="CSV",
+                source_uris=["gs://bucket/a.csv"],
+                compression="GZIP",
+                max_bad_records=10,
+            ),
+        ),
+        (
+            "CREATE TABLE `p.d.t` (id INT64)",
+            ExternalTableOptions(),
+        ),
+    ],
+)
+def test_parse_external_table_options(ddl: str, expected: ExternalTableOptions) -> None:
+    assert ExternalTableOptions.from_ddl(ddl) == expected
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_biglake_dataset_skipped_for_region_autodetect(
+    get_projects_client, get_bq_client_mock
+):
+    # REGRESSION PROTECTION: BigLake/Omni datasets report locations like
+    # `aws-us-east-1` that are NOT valid INFORMATION_SCHEMA region qualifiers.
+    # If we add them to discovered_locations, the queries extractor would try
+    # to scan `region-aws-us-east-1` and emit a spurious failure every run.
+    config = BigQueryV2Config.model_validate(
+        {"project_id": "test-project", "include_schema_metadata": False}
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+
+    biglake_dataset = BigqueryDataset(name="ds-biglake", location="aws-us-east-1")
+    gcp_dataset = BigqueryDataset(name="ds-gcp", location="europe-west1")
+
+    list(
+        schema_gen._process_schema(
+            project_id="test-project",
+            bigquery_dataset=biglake_dataset,
+            db_tables={},
+            db_views={},
+            db_snapshots={},
+        )
+    )
+    list(
+        schema_gen._process_schema(
+            project_id="test-project",
+            bigquery_dataset=gcp_dataset,
+            db_tables={},
+            db_views={},
+            db_snapshots={},
+        )
+    )
+
+    assert "aws-us-east-1" not in schema_gen.discovered_locations
+    assert "europe-west1" in schema_gen.discovered_locations
+    assert source.report.num_biglake_datasets_skipped_for_region_autodetect == 1

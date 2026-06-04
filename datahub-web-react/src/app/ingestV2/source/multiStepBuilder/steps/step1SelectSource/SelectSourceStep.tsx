@@ -1,5 +1,8 @@
-import { Badge, Icon, SearchBar, colors } from '@components';
+import { Badge, Icon, SearchBar } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -48,7 +51,7 @@ const SectionHeader = styled.div`
     justify-content: space-between;
     font-size: 16px;
     font-weight: 700;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const CardsWrapper = styled.div`
@@ -70,6 +73,7 @@ const RightSection = styled.div`
 `;
 
 export function SelectSourceStep() {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const { updateState, setCurrentStepCompleted, isCurrentStepCompleted, goToNext } = useMultiStepContext<
         MultiStepSourceBuilderState,
         IngestionSourceFormStep
@@ -124,7 +128,8 @@ export function SelectSourceStep() {
     return (
         <StepContainer ref={containerRef}>
             <SearchBar
-                placeholder="Search..."
+                data-testid="source-type-search-input"
+                placeholder={t('multiStep.selectSource.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(value) => handleSearch(value)}
                 width="320px"
@@ -177,8 +182,7 @@ export function SelectSourceStep() {
                                     {!searchQuery && (
                                         <RightSection>
                                             <Icon
-                                                icon={isOpen ? 'CaretDown' : 'CaretRight'}
-                                                source="phosphor"
+                                                icon={isOpen ? CaretDown : CaretRight}
                                                 color="gray"
                                                 size="2xl"
                                                 onClick={() =>

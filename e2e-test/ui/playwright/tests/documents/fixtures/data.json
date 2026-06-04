@@ -1,0 +1,115 @@
+[
+  {
+    "auditHeader": null,
+    "entityType": "document",
+    "entityUrn": "urn:li:document:playwright-external-doc-test",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+      "json": {
+        "title": "Playwright External Document",
+        "description": "A Playwright smoke-test document for asserting the external document profile.",
+        "source": {
+          "sourceType": "EXTERNAL",
+          "externalUrl": "https://notion.so/playwright-external-doc-test",
+          "externalId": "playwright-external-doc-test"
+        },
+        "status": {
+          "state": "PUBLISHED"
+        },
+        "contents": {
+          "text": "# Playwright External Document\n\nThis is a **Playwright** smoke-test document.\n\nIt has multiple paragraphs and some `inline code` to exercise the markdown renderer."
+        },
+        "created": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-playwright-external-documents",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "document",
+    "entityUrn": "urn:li:document:playwright-external-doc-test",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:notion"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-playwright-external-documents",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "document",
+    "entityUrn": "urn:li:document:playwright-external-doc-test",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "documentSettings",
+    "aspect": {
+      "json": {
+        "showInGlobalContext": false,
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-playwright-external-documents",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "document",
+    "entityUrn": "urn:li:document:playwright-external-doc-test",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:datahub",
+            "type": "DATAOWNER"
+          }
+        ],
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-playwright-external-documents",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  }
+]

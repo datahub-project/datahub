@@ -7,7 +7,7 @@ import com.linkedin.common.AuditStamp
  */
  @Aspect = {
    "name": "systemMetadata"
- }
+}
 record SystemMetadata {
   /**
   * The timestamp the metadata was observed at
@@ -50,6 +50,12 @@ record SystemMetadata {
   *    a string in the case where a different aspect versioning scheme is later adopted.
   */
   version: optional string
+
+  /**
+  * Schema version of the aspect data model. Used to determine aspects that need migrations.
+  * Defaults to 1 when not present as a baseline. Incremented when an aspect is modified.
+  */
+  schemaVersion: optional long
 
   /**
   * When the aspect was initially created and who created it, detected by version 0 -> 1 change

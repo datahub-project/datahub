@@ -1,5 +1,4 @@
 import { GraphCard, LineChart } from '@components';
-import dayjs from 'dayjs';
 import React from 'react';
 
 import NoPermission from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/NoPermission';
@@ -9,6 +8,7 @@ import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsT
 import { RowCountData } from '@app/entityV2/shared/useRowCountData';
 import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { pluralize } from '@src/app/shared/textUtil';
+import dayjs from '@utils/dayjs';
 
 const DEFAULT_GRAPH_NAME = 'Row Count';
 const DEFAULT_GRAPH_HEIGHT = '290px';

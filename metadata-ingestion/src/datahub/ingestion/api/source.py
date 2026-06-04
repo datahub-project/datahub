@@ -24,6 +24,11 @@ from pydantic import BaseModel
 from typing_extensions import LiteralString, Self
 
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.env_vars import (
+    get_report_failure_sample_size,
+    get_report_info_sample_size,
+    get_report_warning_sample_size,
+)
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
     auto_patch_last_modified,
@@ -71,6 +76,7 @@ class SourceCapability(Enum):
     DOMAINS = "Domains"
     DATA_PROFILING = "Data Profiling"
     USAGE_STATS = "Dataset Usage"
+    OPERATION_CAPTURE = "Operation Capture"
     PARTITION_SUPPORT = "Partition Support"
     DESCRIPTIONS = "Descriptions"
     LINEAGE_COARSE = "Table-Level Lineage"
@@ -82,6 +88,7 @@ class SourceCapability(Enum):
     CONTAINERS = "Asset Containers"
     CLASSIFICATION = "Classification"
     TEST_CONNECTION = "Test Connection"
+    GLOSSARY_TERMS = "Glossary Terms"
 
 
 class StructuredLogLevel(Enum):
@@ -115,9 +122,9 @@ class StructuredLogs(Report):
     # Underlying Lossy Dicts to Capture Errors, Warnings, and Infos.
     _entries: Dict[StructuredLogLevel, LossyDict[str, StructuredLogEntry]] = field(
         default_factory=lambda: {
-            StructuredLogLevel.ERROR: LossyDict(10),
-            StructuredLogLevel.WARN: LossyDict(10),
-            StructuredLogLevel.INFO: LossyDict(10),
+            StructuredLogLevel.ERROR: LossyDict(get_report_failure_sample_size()),
+            StructuredLogLevel.WARN: LossyDict(get_report_warning_sample_size()),
+            StructuredLogLevel.INFO: LossyDict(get_report_info_sample_size()),
         }
     )
 
@@ -179,7 +186,11 @@ class StructuredLogs(Report):
             logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
 
         if log_key not in entries:
-            context_list: LossyList[str] = LossyList()
+            # Size the per-entry context list to match the level's configured
+            # sample size, so DATAHUB_REPORT_*_SAMPLE_SIZE controls both the
+            # number of distinct entries and the number of grouped contexts
+            # under each entry.
+            context_list: LossyList[str] = LossyList(max_elements=entries.max_elements)
             if context is not None:
                 context_list.append(context)
             entries[log_key] = StructuredLogEntry(
@@ -192,9 +203,38 @@ class StructuredLogs(Report):
             if context is not None:
                 entries[log_key].context.append(context)
 
+    def set_sample_sizes(
+        self,
+        failure_size: Optional[int] = None,
+        warning_size: Optional[int] = None,
+        info_size: Optional[int] = None,
+    ) -> None:
+        """Override the max_elements on the underlying LossyDicts.
+
+        Should be called early (right after source construction). Sources may
+        log warnings/errors during __init__, so existing entries are pruned
+        if they exceed the new limit.
+        """
+        for level, size in (
+            (StructuredLogLevel.ERROR, failure_size),
+            (StructuredLogLevel.WARN, warning_size),
+            (StructuredLogLevel.INFO, info_size),
+        ):
+            if size is None:
+                continue
+            entries = self._entries[level]
+            entries.resize(size)
+            # Also resize the nested context list on any entries that were
+            # already recorded (e.g. during source __init__ before pipeline
+            # applied the configured sample size).
+            for entry in entries.values():
+                entry.context.resize(size)
+
     def _get_of_type(self, level: StructuredLogLevel) -> LossyList[StructuredLogEntry]:
         entries = self._entries[level]
-        result: LossyList[StructuredLogEntry] = LossyList()
+        result: LossyList[StructuredLogEntry] = LossyList(
+            max_elements=entries.max_elements
+        )
         for log in entries.values():
             result.append(log)
         result.set_total(entries.total_key_count())
@@ -233,6 +273,18 @@ class SourceReport(ExamplesReport, IngestionStageReport):
     @property
     def infos(self) -> LossyList[StructuredLogEntry]:
         return self._structured_logs.infos
+
+    def set_sample_sizes(
+        self,
+        failure_size: Optional[int] = None,
+        warning_size: Optional[int] = None,
+        info_size: Optional[int] = None,
+    ) -> None:
+        self._structured_logs.set_sample_sizes(
+            failure_size=failure_size,
+            warning_size=warning_size,
+            info_size=info_size,
+        )
 
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1

@@ -1,10 +1,11 @@
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
+import { SQL_LANGUAGE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
 import { Editor, Modal } from '@src/alchemy-components';
 
 const StyledModal = styled(Modal)`
@@ -36,14 +37,14 @@ const QueryDetails = styled.div`
 const QueryTitle = styled(Typography.Title)<{ secondary?: boolean }>`
     && {
         margin-bottom: 16px;
-        color: ${(props) => (props.secondary && ANTD_GRAY[6]) || undefined};
+        color: ${(props) => (props.secondary && props.theme.colors.textSecondary) || undefined};
     }
 `;
 
 const StyledViewer = styled(Editor)<{ secondary?: boolean }>`
     .remirror-editor.ProseMirror {
         padding: 0;
-        color: ${(props) => (props.secondary && ANTD_GRAY[6]) || undefined};
+        color: ${(props) => (props.secondary && props.theme.colors.textSecondary) || undefined};
     }
 `;
 
@@ -51,7 +52,7 @@ const QueryContainer = styled.div`
     min-height: 50vh;
     max-height: 80vh;
     overflow-y: scroll;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 4px;
 `;
 
@@ -72,18 +73,20 @@ type Props = {
 };
 
 export default function QueryModal({ query, title, description, showDetails = true, onClose }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
+    const { t: tc } = useTranslation('common.actions');
     return (
         <StyledModal
             open
             width={MODAL_WIDTH}
-            title="Query"
+            title={t('queryBuilderModal.formLabelQuery')}
             closable={false}
             onCancel={() => onClose?.()}
             bodyStyle={MODAL_BODY_STYLE}
             dataTestId="query-modal"
             buttons={[
                 {
-                    text: 'Close',
+                    text: tc('close'),
                     onClick: onClose,
                     variant: 'text',
                     buttonDataTestId: 'query-modal-close-button',
@@ -94,16 +97,16 @@ export default function QueryModal({ query, title, description, showDetails = tr
                 <CopyQuery query={query} showCopyText />
             </QueryActions>
             <QueryContainer>
-                <NestedSyntax data-testid="query-modal-query" showLineNumbers language="sql">
+                <NestedSyntax data-testid="query-modal-query" showLineNumbers language={SQL_LANGUAGE}>
                     {query}
                 </NestedSyntax>
             </QueryContainer>
             {showDetails && (
                 <QueryDetails>
                     <QueryTitle level={4} secondary={!title}>
-                        {title || 'No title'}
+                        {title || t('queryCard.noTitle')}
                     </QueryTitle>
-                    <StyledViewer readOnly secondary={!title} content={description || 'No description'} />
+                    <StyledViewer readOnly secondary={!title} content={description || t('queryCard.noDescription')} />
                 </QueryDetails>
             )}
         </StyledModal>

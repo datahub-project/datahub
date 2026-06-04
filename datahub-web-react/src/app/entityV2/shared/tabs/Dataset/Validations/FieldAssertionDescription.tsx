@@ -3,7 +3,6 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import {
     getFieldDescription,
     getFieldOperatorDescription,
@@ -27,7 +26,7 @@ const StyledDescrptionContainer = styled.div`
 `;
 const StyledColumnTag = styled.div`
     align-items: center;
-    background-color: ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     width: fit-content;
     border-radius: 12px;
     height: 24px;
@@ -53,6 +52,8 @@ export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assert
     const parameters = getFieldParametersDescription(assertionInfo);
     let descriptionContent = <>{assertionDescription}</>;
 
+    /* eslint-disable i18next/no-literal-string -- (untranslated-text) Inline prepositions and labels ('of', 'column', 'Values') assembled
+       into description sentence; word order differs by language */
     if (!assertionDescription) {
         descriptionContent = (
             <>
@@ -67,6 +68,7 @@ export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assert
             </>
         );
     }
+    /* eslint-enable i18next/no-literal-string */
 
     return (
         <StyledDescrptionContainer>

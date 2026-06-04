@@ -33,7 +33,6 @@ import {
     ENV,
     EXTRACT_OWNERS,
     EXTRACT_USAGE_HISTORY,
-    FieldType,
     FilterRecipeField,
     INCLUDE_LINEAGE,
     INCLUDE_TABLES,
@@ -132,6 +131,12 @@ import {
     GLUE_REMOVE_STALE_METADATA_ENABLED,
 } from '@app/ingestV2/source/builder/RecipeForm/glue';
 import {
+    HEX_PROJECT_ALLOW,
+    HEX_PROJECT_DENY,
+    HEX_TOKEN,
+    HEX_WORKSPACE_NAME,
+} from '@app/ingestV2/source/builder/RecipeForm/hex';
+import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,
     HIVE_PASSWORD,
@@ -176,6 +181,24 @@ import {
     MARIADB_PASSWORD,
     MARIADB_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/mariadb';
+import {
+    MATILLION_CLIENT_ID,
+    MATILLION_CLIENT_SECRET,
+    MATILLION_ENV,
+    MATILLION_ENVIRONMENT_ALLOW,
+    MATILLION_ENVIRONMENT_DENY,
+    MATILLION_INCLUDE_EXECUTIONS,
+    MATILLION_INCLUDE_UNPUBLISHED,
+    MATILLION_PIPELINE_ALLOW,
+    MATILLION_PIPELINE_DENY,
+    MATILLION_PLATFORM_INSTANCE,
+    MATILLION_PROJECT_ALLOW,
+    MATILLION_PROJECT_DENY,
+    MATILLION_REGION,
+    MATILLION_STATEFUL_INGESTION,
+    MATILLION_STREAMING_ALLOW,
+    MATILLION_STREAMING_DENY,
+} from '@app/ingestV2/source/builder/RecipeForm/matillion-dpc';
 import {
     MSSQL,
     MSSQL_DATABASE,
@@ -243,6 +266,15 @@ import {
     PRESTO_PASSWORD,
     PRESTO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/presto';
+import {
+    RDF_DIALECT,
+    RDF_ENVIRONMENT,
+    RDF_EXTENSIONS,
+    RDF_FORMAT,
+    RDF_PARENT_GLOSSARY_NODE,
+    RDF_RECURSIVE,
+    RDF_SOURCE,
+} from '@app/ingestV2/source/builder/RecipeForm/rdf';
 import {
     REDSHIFT_DATABASE,
     REDSHIFT_HOST_PORT,
@@ -316,14 +348,17 @@ import {
     CSV,
     DATABRICKS,
     DBT_CLOUD,
+    MATILLION_DPC,
     MYSQL,
     NOTION,
     OKTA,
     POWER_BI,
+    RDF,
     SAC,
     VERTICA,
 } from '@app/ingestV2/source/builder/constants';
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
+import { HEX } from '@app/ingestV2/source/conf/hex/hex';
 import { HIVE } from '@app/ingestV2/source/conf/hive/hive';
 import { KAFKA } from '@app/ingestV2/source/conf/kafka/kafka';
 import { LOOKER } from '@app/ingestV2/source/conf/looker/looker';
@@ -350,28 +385,6 @@ interface RecipeFields {
         hasDynamicFields?: boolean;
     };
 }
-
-export const PLATFORM: RecipeField = {
-    name: 'platform',
-    label: 'Platform',
-    helper: 'Data Platform ID in DataHub',
-    tooltip: 'The Data Platform ID in DataHub (e.g. snowflake, bigquery, redshift, mysql, postgres)',
-    type: FieldType.TEXT,
-    fieldPath: 'platform',
-    placeholder: 'snowflake',
-    rules: [{ required: true, message: 'Platform is required' }],
-};
-
-export const DEFAULT_DB: RecipeField = {
-    name: 'default_db',
-    label: 'Default Database',
-    helper: 'Database for assets from connection',
-    tooltip: 'The Database associated with assets from the Looker connection.',
-    type: FieldType.TEXT,
-    fieldPath: 'default_db',
-    placeholder: 'default_db',
-    rules: [{ required: true, message: 'Default Database is required' }],
-};
 
 export const RECIPE_FIELDS: RecipeFields = {
     [SNOWFLAKE]: {
@@ -634,6 +647,28 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific dbt Node (resources) from ingestion.',
     },
+    [MATILLION_DPC]: {
+        fields: [
+            MATILLION_CLIENT_ID,
+            MATILLION_CLIENT_SECRET,
+            MATILLION_REGION,
+            MATILLION_ENV,
+            MATILLION_PLATFORM_INSTANCE,
+        ],
+        filterFields: [
+            MATILLION_PROJECT_ALLOW,
+            MATILLION_PROJECT_DENY,
+            MATILLION_ENVIRONMENT_ALLOW,
+            MATILLION_ENVIRONMENT_DENY,
+            MATILLION_PIPELINE_ALLOW,
+            MATILLION_PIPELINE_DENY,
+            MATILLION_STREAMING_ALLOW,
+            MATILLION_STREAMING_DENY,
+        ],
+        advancedFields: [MATILLION_INCLUDE_EXECUTIONS, MATILLION_INCLUDE_UNPUBLISHED, MATILLION_STATEFUL_INGESTION],
+        filterSectionTooltip:
+            'Include or exclude specific Projects, Environments, Pipelines, and Streaming Pipelines from ingestion.',
+    },
     [POWER_BI]: {
         fields: [POWERBI_TENANT_ID, POWERBI_CLIENT_ID, POWERBI_CLIENT_SECRET],
         filterFields: [WORKSPACE_ID_ALLOW, WORKSPACE_ID_DENY],
@@ -683,6 +718,12 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
             SKIP_USERS_WITHOUT_GROUP,
         ],
+    },
+    [HEX]: {
+        fields: [HEX_WORKSPACE_NAME, HEX_TOKEN],
+        filterFields: [HEX_PROJECT_ALLOW, HEX_PROJECT_DENY],
+        advancedFields: [STATEFUL_INGESTION_ENABLED],
+        filterSectionTooltip: 'Include or exclude specific Hex Projects from ingestion.',
     },
     [NOTION]: {
         fields: [NOTION_API_KEY, NOTION_PAGE_IDS],
@@ -807,6 +848,20 @@ export const RECIPE_FIELDS: RecipeFields = {
             REMOVE_STALE_METADATA_ENABLED,
         ],
         hasDynamicFields: true,
+    },
+    [RDF]: {
+        fields: [RDF_SOURCE],
+        filterFields: [],
+        advancedFields: [
+            RDF_FORMAT,
+            RDF_EXTENSIONS,
+            RDF_RECURSIVE,
+            RDF_ENVIRONMENT,
+            RDF_DIALECT,
+            RDF_PARENT_GLOSSARY_NODE,
+        ],
+        connectionSectionTooltip: 'Configure the RDF source location and basic settings.',
+        advancedSectionTooltip: 'Advanced options for RDF format, file processing, and dialect selection.',
     },
 };
 

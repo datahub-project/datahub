@@ -4,6 +4,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.invite.InviteTokenService;
+import com.datahub.authentication.session.UserSessionEligibilityChecker;
 import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.telemetry.TrackingService;
@@ -15,39 +16,88 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.services.SecretService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.Tracer;
+import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 
+// All dependencies are provided as @Bean methods rather than @MockitoBean fields because
+// this is a minimal @SpringBootTest(classes = {DispatcherServlet.class}) context with no
+// factory beans — @MockitoBean requires an existing bean definition to override, but these
+// services have none in this context (or are registered under different names/subtypes).
 @TestConfiguration
 public class AuthServiceTestConfiguration {
 
   public static String SYSTEM_CLIENT_ID = "systemClientId";
-  @MockBean StatelessTokenService statelessTokenService;
 
-  @MockBean(name = "configurationProvider")
-  ConfigurationProvider configProvider;
+  // StatelessTokenService has no bean definition (production uses StatefulTokenService)
+  @Bean
+  @Primary
+  public StatelessTokenService statelessTokenService() {
+    return Mockito.mock(StatelessTokenService.class);
+  }
 
-  @MockBean NativeUserService nativeUserService;
+  @Bean(name = "configurationProvider")
+  public ConfigurationProvider configProvider() {
+    return Mockito.mock(ConfigurationProvider.class);
+  }
 
-  @MockBean EntityService entityService;
+  @Bean
+  @Primary
+  public NativeUserService nativeUserService() {
+    return Mockito.mock(NativeUserService.class);
+  }
 
-  @MockBean SecretService secretService;
+  @Bean
+  @Primary
+  public UserSessionEligibilityChecker userSessionEligibilityChecker() {
+    return Mockito.mock(UserSessionEligibilityChecker.class);
+  }
 
-  @MockBean InviteTokenService inviteTokenService;
+  @Bean
+  @Primary
+  @SuppressWarnings("unchecked")
+  public EntityService<?> entityService() {
+    return Mockito.mock(EntityService.class);
+  }
 
-  @MockBean TrackingService trackingService;
+  @Bean
+  @Primary
+  public SecretService secretService() {
+    return Mockito.mock(SecretService.class);
+  }
 
-  @MockBean Tracer mockTracer;
+  @Bean
+  @Primary
+  public InviteTokenService inviteTokenService() {
+    return Mockito.mock(InviteTokenService.class);
+  }
 
-  @MockBean SpanContext mockSpanContext;
+  @Bean
+  @Primary
+  public TrackingService trackingService() {
+    return Mockito.mock(TrackingService.class);
+  }
+
+  @Bean
+  @Primary
+  public SpanContext mockSpanContext() {
+    return Mockito.mock(SpanContext.class);
+  }
+
+  @Bean
+  @Primary
+  public Tracer noopTestTracer() {
+    return OpenTelemetry.noop().getTracer("auth-servlet-impl-test");
+  }
 
   @Bean(name = "systemOperationContext")
-  public OperationContext systemOperationContext(ObjectMapper objectMapper) {
+  public OperationContext systemOperationContext(ObjectMapper objectMapper, Tracer noopTestTracer) {
     SystemTelemetryContext mockSystemTelemetryContext =
-        SystemTelemetryContext.builder().tracer(mockTracer).build();
+        SystemTelemetryContext.builder().tracer(noopTestTracer).build();
     return TestOperationContexts.systemContextTraceNoSearchAuthorization(
         () -> ObjectMapperContext.builder().objectMapper(objectMapper).build(),
         () -> mockSystemTelemetryContext);

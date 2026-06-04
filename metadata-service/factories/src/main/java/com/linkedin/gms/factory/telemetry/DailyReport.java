@@ -4,6 +4,7 @@ import static com.linkedin.gms.factory.telemetry.TelemetryUtils.*;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -18,6 +19,7 @@ import com.mixpanel.mixpanelapi.MixpanelAPI;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.annotation.Nonnull;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -356,7 +358,7 @@ public class DailyReport {
 
       // Add platform distribution as flattened properties
       for (NamedBar bar : platformBars) {
-        String platformName = bar.getName();
+        String platformName = extractPlatformName(bar.getName());
 
         // Add null/bounds check
         if (bar.getSegments() == null || bar.getSegments().isEmpty()) {
@@ -375,6 +377,22 @@ public class DailyReport {
     } catch (Exception e) {
       log.warn("Failed to collect platform statistics: {}", e.getMessage());
       report.put("platform_count", 0);
+    }
+  }
+
+  /**
+   * Extracts the platform name from a DataPlatform URN. Uses DataPlatformUrn for proper parsing,
+   * falling back to the raw value if the URN is malformed — this is telemetry code so we'd rather
+   * report a degraded name than lose the data point entirely.
+   */
+  private String extractPlatformName(String platformValue) {
+    if (platformValue == null) {
+      return null;
+    }
+    try {
+      return DataPlatformUrn.createFromString(platformValue).getPlatformNameEntity();
+    } catch (URISyntaxException e) {
+      return platformValue;
     }
   }
 

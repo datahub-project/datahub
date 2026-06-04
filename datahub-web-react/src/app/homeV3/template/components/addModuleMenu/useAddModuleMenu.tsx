@@ -1,5 +1,15 @@
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { TextT } from '@phosphor-icons/react/dist/csr/TextT';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { MenuProps } from 'antd';
+import i18next from 'i18next';
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
 
@@ -20,7 +30,9 @@ const YOUR_ASSETS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:your_assets',
     type: EntityType.DatahubPageModule,
     properties: {
-        name: 'Your Assets',
+        get name() {
+            return i18next.t('modules:yourAssets.moduleName');
+        },
         type: DataHubPageModuleType.OwnedAssets,
         visibility: { scope: PageModuleScope.Global },
         params: {},
@@ -31,7 +43,9 @@ const DOMAINS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:top_domains',
     type: EntityType.DatahubPageModule,
     properties: {
-        name: 'Domains',
+        get name() {
+            return i18next.t('modules:domains.moduleName');
+        },
         type: DataHubPageModuleType.Domains,
         visibility: { scope: PageModuleScope.Global },
         params: {},
@@ -42,7 +56,9 @@ const PLATFORMS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:platforms',
     type: EntityType.DatahubPageModule,
     properties: {
-        name: 'Platforms',
+        get name() {
+            return i18next.t('modules:platforms.moduleName');
+        },
         type: DataHubPageModuleType.Platforms,
         visibility: { scope: PageModuleScope.Global },
         params: {},
@@ -53,7 +69,9 @@ export const ASSETS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:assets',
     type: EntityType.DatahubPageModule,
     properties: {
-        name: 'Assets',
+        get name() {
+            return i18next.t('modules:assets.moduleName');
+        },
         type: DataHubPageModuleType.Assets,
         visibility: { scope: PageModuleScope.Global },
         params: {},
@@ -64,7 +82,9 @@ export const CHILD_HIERARCHY_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:child_hierarchy',
     type: EntityType.DatahubPageModule,
     properties: {
-        name: 'Children',
+        get name() {
+            return i18next.t('modules:childHierarchy.moduleName');
+        },
         type: DataHubPageModuleType.ChildHierarchy,
         visibility: { scope: PageModuleScope.Global },
         params: {},
@@ -75,7 +95,9 @@ export const DATA_PRODUCTS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:data_products',
     type: EntityType.DatahubPageModule,
     properties: {
-        name: 'Data Products',
+        get name() {
+            return i18next.t('modules:dataProducts.moduleName');
+        },
         type: DataHubPageModuleType.DataProducts,
         visibility: { scope: PageModuleScope.Global },
         params: {},
@@ -86,7 +108,9 @@ export const RELATED_TERMS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:related_terms',
     type: EntityType.DatahubPageModule,
     properties: {
-        name: 'Related Terms',
+        get name() {
+            return i18next.t('modules:relatedTerms.moduleName');
+        },
         type: DataHubPageModuleType.RelatedTerms,
         visibility: { scope: PageModuleScope.Global },
         params: {},
@@ -97,7 +121,9 @@ export const LINEAGE_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:lineage',
     type: EntityType.DatahubPageModule,
     properties: {
-        name: 'Lineage',
+        get name() {
+            return i18next.t('modules:lineage.moduleName');
+        },
         type: DataHubPageModuleType.Lineage,
         visibility: { scope: PageModuleScope.Global },
         params: {},
@@ -107,7 +133,9 @@ export const COLUMNS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:columns',
     type: EntityType.DatahubPageModule,
     properties: {
-        name: 'Columns',
+        get name() {
+            return i18next.t('modules:columns.moduleName');
+        },
         type: DataHubPageModuleType.Columns,
         visibility: { scope: PageModuleScope.Global },
         params: {},
@@ -115,6 +143,7 @@ export const COLUMNS_MODULE: PageModuleFragment = {
 };
 
 export default function useAddModuleMenu(position: ModulePositionInput, closeMenu: () => void) {
+    const { t } = useTranslation('modules');
     const { entityType } = useEntityData();
     const {
         addModule,
@@ -146,13 +175,13 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         const items: MenuProps['items'] = [];
 
         const quickLink = {
-            name: 'Quick Link',
+            name: t('link.moduleName'),
             key: 'quick-link',
             label: (
                 <MenuItem
-                    description="Choose links that are important"
-                    title="Quick Link"
-                    icon="LinkSimple"
+                    description={t('link.moduleDescription')}
+                    title={t('link.moduleName')}
+                    icon={LinkSimple}
                     isSmallModule
                 />
             ),
@@ -163,13 +192,13 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         };
 
         const documentation = {
-            name: 'Documentation',
+            name: t('documentation.moduleName'),
             key: 'documentation',
             label: (
                 <MenuItem
-                    description="Pin docs for your DataHub users"
-                    title="Documentation"
-                    icon="TextT"
+                    description={t('documentation.moduleDescription')}
+                    title={t('documentation.moduleName')}
+                    icon={TextT}
                     isSmallModule={false}
                 />
             ),
@@ -180,13 +209,13 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         };
 
         const assetCollection = {
-            name: 'Collection',
+            name: t('assetCollection.moduleName'),
             key: 'asset-collection',
             label: (
                 <MenuItem
-                    description="A curated list of assets of your choosing"
-                    title="Collection"
-                    icon="Stack"
+                    description={t('assetCollection.moduleDescription')}
+                    title={t('assetCollection.moduleName')}
+                    icon={Stack}
                     isSmallModule={false}
                 />
             ),
@@ -197,9 +226,15 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         };
 
         const hierarchyView = {
-            title: 'Hierarchy',
+            title: t('hierarchy.moduleName'),
             key: 'hierarchyView',
-            label: <MenuItem description="Top down view of assets" title="Hierarchy" icon="Globe" />,
+            label: (
+                <MenuItem
+                    description={t('hierarchy.moduleDescription')}
+                    title={t('hierarchy.moduleName')}
+                    icon={Globe}
+                />
+            ),
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.Hierarchy);
             },
@@ -214,19 +249,19 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
 
         items.push({
             key: 'customModulesGroup',
-            label: <GroupItem title="Create Your Own" />,
+            label: <GroupItem title={t('menu.createYourOwn')} />,
             type: 'group',
             children: finalCustomModules,
         });
 
         const yourAssets = {
-            name: 'Your Assets',
+            name: t('yourAssets.moduleName'),
             key: 'your-assets',
             label: (
                 <MenuItem
-                    description="Assets the current user owns"
-                    title="Your Assets"
-                    icon="Database"
+                    description={t('yourAssets.moduleDescription')}
+                    title={t('yourAssets.moduleName')}
+                    icon={Database}
                     isSmallModule={false}
                 />
             ),
@@ -237,13 +272,13 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         };
 
         const domains = {
-            name: 'Domains',
+            name: t('domains.moduleName'),
             key: 'domains',
             label: (
                 <MenuItem
-                    description="Most used domains in your organization"
-                    title="Domains"
-                    icon="Globe"
+                    description={t('domains.moduleDescription')}
+                    title={t('domains.moduleName')}
+                    icon={Globe}
                     isSmallModule={false}
                 />
             ),
@@ -254,13 +289,13 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         };
 
         const platforms = {
-            name: 'Platforms',
+            name: t('platforms.moduleName'),
             key: 'platforms',
             label: (
                 <MenuItem
-                    description="Most used platforms in your organization"
-                    title="Platforms"
-                    icon="Database"
+                    description={t('platforms.moduleDescription')}
+                    title={t('platforms.moduleName')}
+                    icon={Database}
                     isSmallModule={false}
                 />
             ),
@@ -271,13 +306,13 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         };
 
         const assets = {
-            name: 'Assets',
+            name: t('assets.moduleName'),
             key: 'assets',
             label: (
                 <MenuItem
-                    description="Related Assets tagged with the parent entity"
-                    title="Assets"
-                    icon="Database"
+                    description={t('assets.moduleDescription')}
+                    title={t('assets.moduleName')}
+                    icon={Database}
                     isSmallModule={false}
                 />
             ),
@@ -288,13 +323,17 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         };
 
         const childHierarchy = {
-            name: 'Hierarchy',
+            name: t('hierarchy.moduleName'),
             key: 'hierarchy',
             label: (
                 <MenuItem
-                    description="View the hierarchy of this asset's children"
-                    title={entityType === EntityType.Domain ? 'Domains' : 'Contents'}
-                    icon="Globe"
+                    description={t('childHierarchy.moduleDescription')}
+                    title={
+                        entityType === EntityType.Domain
+                            ? t('childHierarchy.menu.domainsTitle')
+                            : t('childHierarchy.menu.contentsTitle')
+                    }
+                    icon={Globe}
                     isSmallModule={false}
                 />
             ),
@@ -305,13 +344,13 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         };
 
         const dataProducts = {
-            name: 'DataProducts',
+            name: t('dataProducts.moduleName'),
             key: 'dataProducts',
             label: (
                 <MenuItem
-                    description="View the data products inside of this domain"
-                    title="Data Products"
-                    icon="FileText"
+                    description={t('dataProducts.moduleDescription')}
+                    title={t('dataProducts.moduleName')}
+                    icon={FileText}
                     isSmallModule={false}
                 />
             ),
@@ -322,13 +361,13 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         };
 
         const relatedTerms = {
-            name: 'RelatedTerms',
+            name: t('relatedTerms.moduleName'),
             key: 'relatedTerms',
             label: (
                 <MenuItem
-                    description="View the related terms inside of this glossary term"
-                    title="Related Terms"
-                    icon="FileText"
+                    description={t('relatedTerms.moduleDescription')}
+                    title={t('relatedTerms.moduleName')}
+                    icon={FileText}
                     isSmallModule={false}
                 />
             ),
@@ -339,13 +378,13 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         };
 
         const lineage = {
-            name: 'Lineage',
+            name: t('lineage.moduleName'),
             key: 'lineage',
             label: (
                 <MenuItem
-                    description="View the lineage of an asset"
-                    title="Lineage"
-                    icon="TreeStructure"
+                    description={t('lineage.moduleDescription')}
+                    title={t('lineage.moduleName')}
+                    icon={TreeStructure}
                     isSmallModule={false}
                 />
             ),
@@ -355,13 +394,13 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-lineage-module',
         };
         const schemaTable = {
-            name: 'Columns',
+            name: t('columns.moduleName'),
             key: 'columns',
             label: (
                 <MenuItem
-                    description="View the columns of this dataset"
-                    title="Columns"
-                    icon="Table"
+                    description={t('columns.moduleDescription')}
+                    title={t('columns.moduleName')}
+                    icon={Table}
                     isSmallModule={false}
                 />
             ),
@@ -389,7 +428,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
 
         items.push({
             key: 'customLargeModulesGroup',
-            label: <GroupItem title="Default" />,
+            label: <GroupItem title={t('menu.default')} />,
             type: 'group',
             children: finalDefaultModules,
         });
@@ -412,12 +451,12 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
 
             const homeDefaults = {
                 key: 'adminCreatedModulesGroup',
-                name: 'Home Defaults',
+                name: t('menu.homeDefaults'),
                 label: (
                     <MenuItem
-                        icon="Database"
-                        title="Home Defaults"
-                        description="Modules created for your organization"
+                        icon={Database}
+                        title={t('menu.homeDefaults')}
+                        description={t('menu.homeDefaultsDescription')}
                         hasChildren
                     />
                 ),
@@ -430,7 +469,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             if (templateType === PageTemplateSurfaceType.HomePage) {
                 items.push({
                     key: 'sharedModulesGroup',
-                    label: <GroupItem title="Shared" />,
+                    label: <GroupItem title={t('menu.shared')} />,
                     type: 'group',
                     children: [homeDefaults],
                 });
@@ -438,7 +477,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         }
 
         return { items };
-    }, [globalTemplate, handleOpenCreateModuleModal, handleAddExistingModule, entityType, templateType]);
+    }, [t, globalTemplate, handleOpenCreateModuleModal, handleAddExistingModule, entityType, templateType]);
 
     return menu;
 }

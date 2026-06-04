@@ -1,4 +1,5 @@
 const { execSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 // --------------------------------------------------------------------------
@@ -26,7 +27,7 @@ try {
     }
 
     const raw = execSync(
-        `git diff --diff-filter=d --name-only ${baseBranch} -- "datahub-web-react/src/**/*.ts" "datahub-web-react/src/**/*.tsx"`,
+        `git diff --diff-filter=d --name-only ${baseBranch}...HEAD -- "datahub-web-react/src/**/*.ts" "datahub-web-react/src/**/*.tsx"`,
         { encoding: 'utf-8', cwd: repoRoot, stdio: 'pipe' },
     );
     changedTsFiles = raw
@@ -49,10 +50,13 @@ const COLOR_ENFORCEMENT_RULES = {
                         'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
                 {
-                    group: [
-                        '@components/theme/foundations/colors',
-                        '**/alchemy-components/theme/foundations/colors',
-                    ],
+                    group: ['**/alchemy-components/theme/foundations/colors'],
+                    message:
+                        'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
+                },
+                {
+                    group: ['@components', '@components/*'],
+                    importNames: ['colors'],
                     message:
                         'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
@@ -76,6 +80,69 @@ const COLOR_ENFORCEMENT_RULES = {
     'rulesdir/no-hardcoded-colors': 'error',
 };
 
+// --------------------------------------------------------------------------
+// i18n string enforcement
+//
+// Only runs on files listed in translated-files.txt. Add a file path to that
+// list once its translations are wired up to opt it into the rule.
+// --------------------------------------------------------------------------
+const translatedFilesPath = path.resolve(__dirname, 'translated-files.txt');
+const translatedFilesContent = fs.existsSync(translatedFilesPath) ? fs.readFileSync(translatedFilesPath, 'utf8') : '';
+const translatedFiles = new Set(translatedFilesContent.split('\n').filter(Boolean));
+
+const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
+    'to',
+    'path',
+    'target',
+    'type',
+    'rel',
+    'href',
+    'name',
+    'form',
+    'entityTypeName',
+    'autoComplete',
+    'preload',
+    'placement',
+    'trigger',
+    'language',
+    'fill',
+    'justifyContent',
+    'field',
+    'tab',
+    '.*Path$',
+    '.*background$',
+    '.*Background$',
+    '.*borderRadius$',
+    '.*BorderRadius$',
+    '.*className$',
+    '.*ClassName$',
+    '.*color$',
+    '.*Color$',
+    '.*height$',
+    '.*Height$',
+    '.*id$',
+    '.*Id$',
+    '.*key$',
+    '.*Key$',
+    '.*margin$',
+    '.*Margin$',
+    '.*padding$',
+    '.*Padding$',
+    '.*size$',
+    '.*Size$',
+    '.*testid$',
+    '.*TestId$',
+    '.*TestID$',
+    '.*variant$',
+    '.*Variant$',
+    '.*weight$',
+    '.*Weight$',
+    '.*width$',
+    '.*Width$',
+    '.*style$',
+    '.*Style$',
+];
+
 // Files that legitimately need raw color values
 const COLOR_RULE_EXCLUDED_FILES = [
     'src/conf/theme/colorThemes/**',
@@ -94,7 +161,7 @@ module.exports = {
         'plugin:vitest/recommended',
         'prettier',
     ],
-    plugins: ['@typescript-eslint', '@stylistic/js', 'react-refresh', 'import-alias', 'rulesdir'],
+    plugins: ['@typescript-eslint', '@stylistic/js', 'react-refresh', 'import-alias', 'rulesdir', 'i18next'],
     parserOptions: {
         ecmaVersion: 2020,
         sourceType: 'module',
@@ -105,6 +172,30 @@ module.exports = {
         tsconfigRootDir: __dirname,
     },
     rules: {
+        'no-restricted-imports': [
+            'error',
+            {
+                paths: [
+                    {
+                        name: 'moment',
+                        message: 'moment was removed for bundle size. Use dayjs instead.',
+                    },
+                    {
+                        name: 'moment-timezone',
+                        message: 'moment-timezone was removed for bundle size. Use dayjs with timezone plugin instead.',
+                    },
+                    {
+                        name: 'moment/moment',
+                        message: 'moment was removed for bundle size. Use dayjs instead.',
+                    },
+                    {
+                        name: 'dayjs',
+                        message:
+                            "Import dayjs from '@utils/dayjs' instead. The utils wrapper registers all required plugins (utc, isoWeek, timezone, etc.) — importing bare 'dayjs' silently skips plugin registration.",
+                    },
+                ],
+            },
+        ],
         '@typescript-eslint/no-explicit-any': 'off',
         '@stylistic/js/comma-dangle': ['error', 'always-multiline'],
         'arrow-body-style': 'off',
@@ -112,6 +203,25 @@ module.exports = {
         'import/no-extraneous-dependencies': 'off',
         'import/no-relative-packages': 'error',
         'import/prefer-default-export': 'off', // TODO: remove this lint rule
+        '@typescript-eslint/no-restricted-imports': [
+            'error',
+            {
+                paths: [
+                    {
+                        name: '@phosphor-icons/react',
+                        message:
+                            'Import Phosphor icons from their individual CSR paths: @phosphor-icons/react/dist/csr/IconName.',
+                        allowTypeImports: true,
+                    },
+                    {
+                        name: '@monaco-editor/react',
+                        importNames: ['loader'],
+                        message:
+                            "Configure Monaco's loader path via `import '@conf/monaco'` instead of calling loader.config() directly.",
+                    },
+                ],
+            },
+        ],
         'no-console': 'off',
         'no-plusplus': 'off',
         'no-prototype-builtins': 'off',
@@ -168,6 +278,11 @@ module.exports = {
             rules: { 'import/no-cycle': 'off' },
         },
         {
+            // The dayjs utils wrapper itself must import bare 'dayjs' to extend plugins.
+            files: ['src/utils/dayjs.ts'],
+            rules: { 'no-restricted-imports': 'off' },
+        },
+        {
             files: ['src/alchemy-components/theme/**/*.ts'],
             rules: { 'import/no-relative-packages': 'off', 'import-alias/import-alias': 'off' },
         },
@@ -178,6 +293,42 @@ module.exports = {
                       files: changedTsFiles,
                       excludedFiles: COLOR_RULE_EXCLUDED_FILES,
                       rules: COLOR_ENFORCEMENT_RULES,
+                  },
+              ]
+            : []),
+        // i18n enforcement — only on files listed in translated-files.txt
+        ...(translatedFiles.size > 0
+            ? [
+                  {
+                      files: [...translatedFiles],
+                      excludedFiles: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
+                      rules: {
+                          'i18next/no-literal-string': [
+                              'error',
+                              {
+                                  mode: 'jsx-only',
+                                  'jsx-attributes': {
+                                      exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
+                                  },
+                                  'object-properties': {
+                                      exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
+                                  },
+                                  words: {
+                                      exclude: [
+                                          '^_blank$',
+                                          '^noopener noreferrer$',
+                                          '^\\*+$',
+                                          '^-$',
+                                          '^[A-Z0-9_]+$',
+                                          '^:\\s*$',
+                                          '^[()]+$',
+                                          // CSS length values in inline styles (e.g. '4px', '0px', '1.5rem')
+                                          '^\\d+(\\.\\d+)?(px|rem|em|%|vw|vh)$',
+                                      ],
+                                  },
+                              },
+                          ],
+                      },
                   },
               ]
             : []),

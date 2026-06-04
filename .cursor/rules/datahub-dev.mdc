@@ -30,9 +30,6 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 
 **Frontend hot-reload:** Run `scripts/dev/datahub-dev.sh frontend` to start the React dev server with hot-reload (instead of rebuilding the frontend container).
 
-**Worktree note:** All Gradle commands inside the tool already pass `-x generateGitPropertiesGlobal`
-to avoid git-related failures in worktrees.
-
 ## Module-to-Container Mapping
 
 | Source directory                  | Container                                     |

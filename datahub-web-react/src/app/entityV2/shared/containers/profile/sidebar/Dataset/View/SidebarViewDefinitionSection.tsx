@@ -1,24 +1,17 @@
-import { Button, Typography } from 'antd';
+import { Button } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 
-const HeaderInfoBody = styled(Typography.Text)`
+const HeaderInfoBody = styled.span`
     font-size: 16px;
-    color: ${ANTD_GRAY[9]};
-`;
-
-const StatsButton = styled(Button)`
-    && {
-        margin: 0px;
-        padding: 0px;
-    }
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const InfoRow = styled.div`
@@ -27,8 +20,11 @@ const InfoRow = styled.div`
 `;
 
 const INFO_ITEM_WIDTH_PX = '150px';
+// eslint-disable-next-line i18next/no-literal-string -- route tab name identifier, not UI text
+const VIEW_DEFINITION_TAB = 'View Definition';
 
 export const SidebarViewDefinitionSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
     const baseEntity = useBaseEntity<GetDatasetQuery>();
 
     const materialized = baseEntity?.dataset?.viewProperties?.materialized;
@@ -38,20 +34,24 @@ export const SidebarViewDefinitionSection = () => {
 
     return (
         <SidebarSection
-            title="Definition"
+            title={t('sidebar.viewDefinition.sectionTitle')}
             content={
                 <>
                     <InfoRow>
-                        <InfoItem title="Materialized" width={INFO_ITEM_WIDTH_PX}>
-                            <HeaderInfoBody>{materialized ? 'True' : 'False'}</HeaderInfoBody>
+                        <InfoItem title={t('sidebar.viewDefinition.materializedLabel')} width={INFO_ITEM_WIDTH_PX}>
+                            <HeaderInfoBody>
+                                {materialized
+                                    ? t('sidebar.viewDefinition.materializedTrue')
+                                    : t('sidebar.viewDefinition.materializedFalse')}
+                            </HeaderInfoBody>
                         </InfoItem>
-                        <InfoItem title="Language" width={INFO_ITEM_WIDTH_PX}>
+                        <InfoItem title={t('sidebar.viewDefinition.languageLabel')} width={INFO_ITEM_WIDTH_PX}>
                             <HeaderInfoBody>{language.toUpperCase()}</HeaderInfoBody>
                         </InfoItem>
                     </InfoRow>
-                    <StatsButton onClick={() => routeToTab({ tabName: 'View Definition' })} type="link">
-                        View full definition &gt;
-                    </StatsButton>
+                    <Button variant="link" color="violet" onClick={() => routeToTab({ tabName: VIEW_DEFINITION_TAB })}>
+                        {t('sidebar.viewDefinition.viewFullDefinitionLink')}
+                    </Button>
                 </>
             }
         />

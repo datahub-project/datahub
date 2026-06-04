@@ -12,13 +12,13 @@ const SummaryText = styled.span`
     font-weight: bold;
 `;
 
-export type LineageDirectionTypeSummary = {
+type LineageDirectionTypeSummary = {
     type: string;
     count: number;
     isEntityType: boolean; // If false, this represents a sub-type.
 };
 
-export type LineageDirectionSummary = {
+type LineageDirectionSummary = {
     total: number;
     types: LineageDirectionTypeSummary[];
 };
@@ -114,6 +114,7 @@ export const getRelatedEntitySummary = (
                                 ? (entityRegistry.getEntityName(type.type as EntityType) ?? '')
                                 : type.type,
                         ).toLocaleLowerCase()}
+                        {/* eslint-disable-next-line i18next/no-literal-string -- list separator punctuation, not translatable UI text */}
                         {idx < summary.types.length - 1 && <>, </>}
                     </SummaryText>
                 );

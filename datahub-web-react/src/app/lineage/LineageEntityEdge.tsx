@@ -3,15 +3,12 @@ import { curveBasis } from '@visx/curve';
 import { Group } from '@visx/group';
 import { LinePath } from '@visx/shape';
 import { Tooltip } from 'antd';
-import dayjs from 'dayjs';
-import LocalizedFormat from 'dayjs/plugin/localizedFormat';
 import React from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { VizEdge } from '@app/lineage/types';
-
-dayjs.extend(LocalizedFormat);
+import dayjs from '@utils/dayjs';
 
 const EdgeTimestamp = styled.div``;
 
@@ -32,6 +29,8 @@ type Props = {
 };
 
 export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Props) {
+    const { t } = useTranslation('lineage');
+    const theme = useTheme();
     const createdOnTimestamp = edge?.createdOn;
     const updatedOnTimestamp = edge?.updatedOn;
     const createdOn = createdOnTimestamp ? dayjs(createdOnTimestamp).format('ll') : undefined;
@@ -47,12 +46,15 @@ export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Prop
                         <>
                             {createdOn && (
                                 <EdgeTimestamp>
-                                    <StyledClockCircleOutlined /> Created {isManual && 'manually '}on {createdOn}
+                                    <StyledClockCircleOutlined />{' '}
+                                    {isManual
+                                        ? t('edge.createdOnManually', { date: createdOn })
+                                        : t('edge.createdOn', { date: createdOn })}
                                 </EdgeTimestamp>
                             )}
                             {updatedOn && !isManual && (
                                 <EdgeTimestamp>
-                                    <StyledEyeOutlined /> Last observed on {updatedOn}
+                                    <StyledEyeOutlined /> {t('edge.lastObservedOn', { date: updatedOn })}
                                 </EdgeTimestamp>
                             )}
                         </>
@@ -73,7 +75,7 @@ export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Prop
                         }}
                         curve={curveBasis}
                         data={edge.curve}
-                        stroke={isHighlighted ? '#1890FF' : ANTD_GRAY[6]}
+                        stroke={isHighlighted ? theme.colors.hyperlinks : theme.colors.border}
                         strokeWidth="1"
                         markerEnd={`url(#triangle-downstream${isHighlighted ? '-highlighted' : ''})`}
                         markerStart={`url(#triangle-upstream${isHighlighted ? '-highlighted' : ''})`}

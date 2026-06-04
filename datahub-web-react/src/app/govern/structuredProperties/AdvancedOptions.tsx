@@ -1,6 +1,9 @@
 import { Icon, Input, Text, Tooltip } from '@components';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Collapse, Form } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     CollapseHeader,
@@ -14,11 +17,13 @@ interface Props {
 }
 
 const AdvancedOptions = ({ isEditMode }: Props) => {
+    const { t } = useTranslation('governance.structured-properties');
+
     return (
         <StyledCollapse
             ghost
             expandIcon={({ isActive }) => (
-                <Icon icon="ChevronRight" color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
+                <Icon icon={CaretRight} color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
             )}
             expandIconPosition="end"
             defaultActiveKey={[]}
@@ -28,7 +33,7 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
                 header={
                     <CollapseHeader>
                         <Text weight="bold" color="gray">
-                            Advanced Options
+                            {t('advancedOptions.title')}
                         </Text>
                     </CollapseHeader>
                 }
@@ -36,30 +41,28 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
             >
                 <InputLabel>
                     <FlexContainer>
-                        Qualified Name
-                        <Tooltip
-                            title="Optionally provide a dot-separated fully qualified name for this property. This name serves as an ID, and must be unique across properties"
-                            showArrow={false}
-                        >
-                            <Icon icon="Info" color="violet" size="lg" />
+                        {t('advancedOptions.qualifiedName')}
+                        <Tooltip title={t('advancedOptions.qualifiedNameTooltip')} showArrow={false}>
+                            <Icon icon={Info} color="violet" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                 </InputLabel>
-                <Tooltip
-                    title={isEditMode && 'Once a property is created, Qualified Name cannot be changed'}
-                    showArrow={false}
-                >
+                <Tooltip title={isEditMode && t('advancedOptions.qualifiedNameDisabledTooltip')} showArrow={false}>
                     <Form.Item
                         name="qualifiedName"
                         rules={[
                             {
                                 pattern: /^[^\s]*$/,
                                 whitespace: true,
-                                message: 'Qualified name cannot contain spaces',
+                                message: t('advancedOptions.qualifiedNameError'),
                             },
                         ]}
                     >
-                        <Input label="" placeholder="Optional - Qualified Name" isDisabled={isEditMode} />
+                        <Input
+                            label=""
+                            placeholder={t('advancedOptions.qualifiedNamePlaceholder')}
+                            isDisabled={isEditMode}
+                        />
                     </Form.Item>
                 </Tooltip>
             </Collapse.Panel>

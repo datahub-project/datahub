@@ -1,24 +1,25 @@
-import { ArrowDownOutlined, ArrowUpOutlined, PartitionOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import React from 'react';
-import { Link } from 'react-router-dom';
+import { Button, Icon, Tooltip } from '@components';
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import React, { useContext } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SidebarLineageLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageLoadingSection';
 import {
     getDirectDownstreamSummary,
     getDirectUpstreamSummary,
     getRelatedEntitySummary,
 } from '@app/entityV2/shared/containers/profile/sidebar/Lineage/utils';
-import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';
+import CompactContext from '@src/app/shared/CompactContext';
 
 import { useGetSearchAcrossLineageCountsQuery } from '@graphql/lineage.generated';
 
@@ -27,7 +28,7 @@ const Section = styled.div`
     align-items: start;
     justify-content: start;
     margin-bottom: 6px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const DirectionText = styled.div`
@@ -35,7 +36,7 @@ const DirectionText = styled.div`
     font-weight: 700;
     line-height: 20px;
     letter-spacing: 0.48px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const SummaryText = styled.div`
@@ -45,12 +46,10 @@ const SummaryText = styled.div`
     line-height: 20px;
 `;
 
-const StyledUpOutlined = styled(ArrowUpOutlined)`
+const DirectionIcon = styled.span`
     margin-right: 4px;
-`;
-
-const StyledDownOutlined = styled(ArrowDownOutlined)`
-    margin-right: 4px;
+    display: flex;
+    align-items: center;
 `;
 
 const DirectionHeader = styled.div`
@@ -61,22 +60,17 @@ const DirectionHeader = styled.div`
     font-size: 12px;
     letter-spacing: 1px;
     height: 20px;
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textTertiary};
     min-width: 100px;
     margin-right: 6px;
 `;
 
-const StyledPartitionOutlined = styled(PartitionOutlined)`
-    color: ${(p) => p.theme.styles['primary-color']};
-    &:hover {
-        color: white;
-    }
-`;
-
 const SidebarLineageSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
     const { urn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
-    const linkProps = useEmbeddedProfileLinkProps();
+    const history = useHistory();
+    const isCompact = useContext(CompactContext);
     const startTimeMillis = useGetDefaultLineageStartTimeMillis();
 
     const separateSiblings = useIsSeparateSiblingsMode();
@@ -101,7 +95,7 @@ const SidebarLineageSection = () => {
 
     return (
         <SidebarSection
-            title="Lineage"
+            title={t('sidebar.lineage.sectionTitle')}
             key="Lineage"
             content={
                 <>
@@ -109,55 +103,72 @@ const SidebarLineageSection = () => {
                     {!loading && <UpstreamHealth />}
                     {!loading && directUpstreamCount > 0 && (
                         <Section key="upstream">
-                            <Tooltip
-                                title="Data assets that this is directly derived from"
-                                placement="left"
-                                showArrow={false}
-                            >
+                            <Tooltip title={t('sidebar.lineage.upstreamTooltip')} placement="left" showArrow={false}>
                                 <DirectionHeader>
-                                    <StyledUpOutlined />
-                                    <DirectionText>UPSTREAM</DirectionText>
+                                    <DirectionIcon>
+                                        <Icon icon={ArrowUp} size="md" />
+                                    </DirectionIcon>
+                                    <DirectionText>{t('sidebar.lineage.upstreamLabel')}</DirectionText>
                                 </DirectionHeader>
                             </Tooltip>
                             <SummaryText>
-                                Depends on {getRelatedEntitySummary(directUpstreamSummary as any, entityRegistry)}
+                                <Trans
+                                    t={t}
+                                    i18nKey="sidebar.lineage.dependsOn"
+                                    components={{
+                                        summary: getRelatedEntitySummary(
+                                            directUpstreamSummary as any,
+                                            entityRegistry,
+                                        ) as React.ReactElement,
+                                    }}
+                                />
                             </SummaryText>
                         </Section>
                     )}
                     {!loading && directDownstreamCount > 0 && (
                         <Section key="downstream">
-                            <Tooltip
-                                title="Data assets that directly depend on this"
-                                placement="left"
-                                showArrow={false}
-                            >
+                            <Tooltip title={t('sidebar.lineage.downstreamTooltip')} placement="left" showArrow={false}>
                                 <DirectionHeader>
-                                    <StyledDownOutlined />
-                                    <DirectionText>DOWNSTREAM</DirectionText>
+                                    <DirectionIcon>
+                                        <Icon icon={ArrowDown} size="md" />
+                                    </DirectionIcon>
+                                    <DirectionText>{t('sidebar.lineage.downstreamLabel')}</DirectionText>
                                 </DirectionHeader>
                             </Tooltip>
                             <SummaryText>
-                                Used by {getRelatedEntitySummary(directDownstreamSummary as any, entityRegistry)}
+                                <Trans
+                                    t={t}
+                                    i18nKey="sidebar.lineage.usedBy"
+                                    components={{
+                                        summary: getRelatedEntitySummary(
+                                            directDownstreamSummary as any,
+                                            entityRegistry,
+                                        ) as React.ReactElement,
+                                    }}
+                                />
                             </SummaryText>
                         </Section>
                     )}
                 </>
             }
             extra={
-                <SectionActionButton
-                    button={
-                        <Tooltip
-                            title="Explore related entities using the lineage graph"
-                            placement="left"
-                            showArrow={false}
-                        >
-                            <Link to={`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`} {...linkProps}>
-                                <StyledPartitionOutlined />
-                            </Link>
-                        </Tooltip>
-                    }
-                    onClick={(e) => e.stopPropagation()}
-                />
+                <Tooltip title={t('sidebar.lineage.exploreGraphTooltip')} placement="left" showArrow={false}>
+                    <Button
+                        variant="text"
+                        color="violet"
+                        size="md"
+                        icon={{ icon: TreeStructure }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const lineagePath = `${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`;
+                            if (isCompact) {
+                                window.open(lineagePath, '_blank');
+                            } else {
+                                history.push(lineagePath);
+                            }
+                        }}
+                    />
+                </Tooltip>
             }
         />
     );

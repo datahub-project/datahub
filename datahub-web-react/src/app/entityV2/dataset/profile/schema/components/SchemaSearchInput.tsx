@@ -1,17 +1,17 @@
 import { Button, Popover, SearchBar } from '@components';
+import { FadersHorizontal } from '@phosphor-icons/react/dist/csr/FadersHorizontal';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import SchemaFilterSelectContent from '@app/entityV2/dataset/profile/schema/components/SchemaFilterSelectContent';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
-import { pluralize } from '@app/shared/textUtil';
 
 const MatchLabelText = styled.span`
     font-size: 12px;
     font-style: normal;
     font-weight: 700;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding-left: 10px;
     margin-top: 5px;
 `;
@@ -48,12 +48,14 @@ const SchemaSearchInput: React.FC<SchemaSearchProps> = ({
     setSchemaFilterSelectOpen,
     numRows,
 }: SchemaSearchProps) => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     return (
         <SearchContainer>
             <SearchBar
                 value={searchInput}
                 disabled={schemaFilterTypes.length === 0}
-                placeholder="Search"
+                placeholder={tc('search')}
                 onChange={setSearchInput}
                 allowClear
                 onKeyDown={(e) => {
@@ -80,13 +82,11 @@ const SchemaSearchInput: React.FC<SchemaSearchProps> = ({
                 <Button
                     variant="text"
                     color={schemaFilterTypes.length < 4 ? 'violet' : 'gray'}
-                    icon={{ icon: 'FadersHorizontal', source: 'phosphor', size: '2xl' }}
+                    icon={{ icon: FadersHorizontal, size: '2xl' }}
                 />
             </Popover>
             {searchInput.length > 0 && (
-                <MatchLabelText>
-                    Matched {matches.length} {pluralize(matches.length, 'column')} of {numRows}
-                </MatchLabelText>
+                <MatchLabelText>{t('dataset.matchedColumnsCount', { count: matches.length, numRows })}</MatchLabelText>
             )}
         </SearchContainer>
     );

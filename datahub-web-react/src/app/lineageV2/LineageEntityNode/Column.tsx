@@ -2,21 +2,19 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Spin, Typography } from 'antd';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageDisplayColumn } from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
 import {
-    HOVER_COLOR,
     LineageDisplayContext,
     LineageNodesContext,
-    SELECT_COLOR,
     createColumnRef,
     onClickPreventSelect,
     useIgnoreSchemaFieldStatus,
@@ -43,20 +41,20 @@ const ColumnWrapper = styled.div<{
 }>`
     border: 1px solid transparent;
 
-    ${({ selected, highlighted, fromSelect }) => {
+    ${({ selected, highlighted, fromSelect, theme }) => {
         if (selected) {
-            return `border: ${SELECT_COLOR} 1px solid; background-color: ${SELECT_COLOR}20;`;
+            return `border: ${theme.colors.borderSelected} 1px solid; background-color: ${theme.colors.bgSelected};`;
         }
         if (highlighted) {
             if (fromSelect) {
-                return `background-color: ${SELECT_COLOR}20;`;
+                return `background-color: ${theme.colors.bgSelected};`;
             }
-            return `background-color: ${HOVER_COLOR}20;`;
+            return `background-color: ${theme.colors.bgHover};`;
         }
-        return 'background-color: white;';
+        return `background-color: ${theme.colors.bg};`;
     }}
     border-radius: 4px;
-    color: ${({ disabled }) => (disabled ? ANTD_GRAY[11] : ANTD_GRAY[7])};
+    color: ${({ disabled, theme }) => (disabled ? theme.colors.textDisabled : theme.colors.text)};
     display: flex;
     font-size: 10px;
     gap: 4px;
@@ -87,7 +85,7 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
 `;
 
 const TypeWrapper = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.text};
     width: 11px;
 `;
 
@@ -98,7 +96,7 @@ const ColumnLinkWrapper = styled(Link)`
     color: inherit;
 
     :hover {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrand};
     }
 `;
 
@@ -124,6 +122,7 @@ export default function Column({
     lineageAsset,
     allNeighborsFetched,
 }: Props) {
+    const { t } = useTranslation('lineage');
     const { config } = useAppConfig();
     const { selectedColumn, hoveredColumn, setSelectedColumn, setHoveredColumn } = useContext(LineageDisplayContext);
     const id = useMemo(() => createColumnRef(parentUrn, fieldPath), [parentUrn, fieldPath]);
@@ -221,7 +220,7 @@ export default function Column({
                     target="_blank"
                     rel="noopener noreferrer"
                 >
-                    <Tooltip title="Explore complete column lineage" mouseEnterDelay={0.3}>
+                    <Tooltip title={t('column.exploreCompleteLineage.tooltip')} mouseEnterDelay={0.3}>
                         <LinkOutIcon />
                     </Tooltip>
                 </ColumnLinkWrapper>
@@ -232,7 +231,7 @@ export default function Column({
 
     return (
         <Tooltip
-            title="Column has no lineage"
+            title={t('column.noLineage.tooltip')}
             open={(showDisabledTooltipOnHover && hoveredColumn === id) || showDisabledTooltipOnSelect}
             placement="right"
             showArrow={false}

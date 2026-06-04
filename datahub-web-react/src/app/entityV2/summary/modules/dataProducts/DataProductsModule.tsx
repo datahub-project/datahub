@@ -1,5 +1,7 @@
 import { InfiniteScrollList } from '@components';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -15,6 +17,7 @@ import { DataHubPageModuleType, Entity } from '@types';
 const DEFAULT_PAGE_SIZE = 10;
 
 export default function DataProductsModule(props: ModuleProps) {
+    const { t } = useTranslation('modules');
     const entityRegistry = useEntityRegistryV2();
     const { urn, entityType } = useEntityData();
     const { loading, fetchEntities, total } = useGetChildDataProducts(DEFAULT_PAGE_SIZE);
@@ -40,10 +43,10 @@ export default function DataProductsModule(props: ModuleProps) {
                 pageSize={DEFAULT_PAGE_SIZE}
                 emptyState={
                     <EmptyContent
-                        icon="FileText"
-                        title="No Data Products"
-                        description="Create a data product underneath this domain to see it in this list"
-                        linkText="Create data products for this domain"
+                        icon={FileText}
+                        title={t('dataProducts.emptyTitle')}
+                        description={t('dataProducts.emptyDescription')}
+                        linkText={t('dataProducts.emptyLink')}
                         onLinkClick={navigateToDataProductsTab}
                     />
                 }

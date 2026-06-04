@@ -1,4 +1,12 @@
-import { IconNames } from '@components';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
+import { SortAscending } from '@phosphor-icons/react/dist/csr/SortAscending';
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { TextT } from '@phosphor-icons/react/dist/csr/TextT';
+import i18next from 'i18next';
+import React from 'react';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, PageTemplateSurfaceType } from '@types';
@@ -14,17 +22,17 @@ export const MODULE_TYPE_TO_DESCRIPTION: Map<DataHubPageModuleType, string> = ne
     [DataHubPageModuleType.Columns, 'View the columns of this dataset'],
 ]);
 
-export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, IconNames> = new Map([
-    [DataHubPageModuleType.AssetCollection, 'Stack'],
-    [DataHubPageModuleType.Domains, 'Globe'],
-    [DataHubPageModuleType.Hierarchy, 'SortAscending'],
-    [DataHubPageModuleType.Link, 'LinkSimple'],
-    [DataHubPageModuleType.OwnedAssets, 'Database'],
-    [DataHubPageModuleType.RichText, 'TextT'],
-    [DataHubPageModuleType.Columns, 'Table'],
+export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, React.ComponentType<any>> = new Map([
+    [DataHubPageModuleType.AssetCollection, Stack],
+    [DataHubPageModuleType.Domains, Globe],
+    [DataHubPageModuleType.Hierarchy, SortAscending],
+    [DataHubPageModuleType.Link, LinkSimple],
+    [DataHubPageModuleType.OwnedAssets, Database],
+    [DataHubPageModuleType.RichText, TextT],
+    [DataHubPageModuleType.Columns, Table],
 ]);
 
-export const DEFAULT_MODULE_ICON = 'Database';
+export const DEFAULT_MODULE_ICON = Database;
 
 // keep this in sync with PageModuleService.java
 export const DEFAULT_MODULE_URNS = [
@@ -81,7 +89,9 @@ export const DEFAULT_TEMPLATE: PageTemplateFragment = {
                         urn: 'urn:li:dataHubPageModule:your_assets',
                         type: EntityType.DatahubPageModule,
                         properties: {
-                            name: 'Your Assets',
+                            get name() {
+                                return i18next.t('modules:yourAssets.moduleName');
+                            },
                             type: DataHubPageModuleType.OwnedAssets,
                             visibility: {
                                 scope: PageModuleScope.Global,
@@ -93,7 +103,9 @@ export const DEFAULT_TEMPLATE: PageTemplateFragment = {
                         urn: 'urn:li:dataHubPageModule:top_domains',
                         type: EntityType.DatahubPageModule,
                         properties: {
-                            name: 'Domains',
+                            get name() {
+                                return i18next.t('modules:domains.moduleName');
+                            },
                             type: DataHubPageModuleType.Domains,
                             visibility: {
                                 scope: PageModuleScope.Global,

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import { Input } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { Document, DocumentSourceType, DocumentState } from '@types';
 
@@ -14,19 +14,19 @@ const PopoverContainer = styled.div`
     max-height: ${(props: { $maxHeight?: number }) => props.$maxHeight || 300}px;
     display: flex;
     flex-direction: column;
-    background: white;
+    background: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
-    box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const HeaderContainer = styled.div`
     padding: 6px 6px;
-    border-bottom: 1px solid ${colors.gray[100]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const SearchContainer = styled.div`
     padding: 8px;
-    border-bottom: 1px solid ${colors.gray[100]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const TreeScrollContainer = styled.div`
@@ -45,23 +45,25 @@ const TreeScrollContainer = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${colors.gray[200]};
+        background: ${(props) => props.theme.colors.bgSurface};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${colors.gray[500]};
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
 const EmptyState = styled.div`
     padding: 24px;
     text-align: center;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
 `;
 
-export interface DocumentPopoverBaseProps {
+const BREADCRUMB_SEPARATOR = ' > ';
+
+interface DocumentPopoverBaseProps {
     /** Optional header content to render above search */
     headerContent?: React.ReactNode;
     /** Callback when a document is selected from tree */
@@ -111,6 +113,8 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
     filterSearchResults,
     sourceTypes,
 }) => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
@@ -152,7 +156,7 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
             <SearchContainer>
                 <Input
                     label=""
-                    placeholder="Search context..."
+                    placeholder={t('documents.searchPlaceholder')}
                     value={searchQuery}
                     setValue={setSearchQuery}
                     disabled={searchDisabled}
@@ -162,9 +166,9 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
             <TreeScrollContainer $maxHeight={maxHeight}>
                 {isSearching ? (
                     <>
-                        {searchLoading && <EmptyState>Searching...</EmptyState>}
+                        {searchLoading && <EmptyState>{t('documents.searching')}</EmptyState>}
                         {!searchLoading && filteredSearchResults.length === 0 && (
-                            <EmptyState>No results found</EmptyState>
+                            <EmptyState>{tc('noResults')}</EmptyState>
                         )}
                         {!searchLoading &&
                             filteredSearchResults.map((doc) => {
@@ -172,7 +176,9 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
                                 let breadcrumb: string | null = null;
                                 if (doc.parentDocuments?.documents && doc.parentDocuments.documents.length > 0) {
                                     const parents = [...doc.parentDocuments.documents].reverse();
-                                    breadcrumb = parents.map((parent) => parent.info?.title || 'Untitled').join(' > ');
+                                    breadcrumb = parents
+                                        .map((parent) => parent.info?.title || t('untitled'))
+                                        .join(BREADCRUMB_SEPARATOR);
                                 }
 
                                 const isSelected = selectedUrn === doc.urn;

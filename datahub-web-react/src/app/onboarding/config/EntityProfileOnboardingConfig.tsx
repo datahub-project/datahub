@@ -1,14 +1,15 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
+import { Trans } from 'react-i18next';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 // Entity profile tabs. Note that the 'rc-tab' prefix for the ID is added by the antd library and may change in the future.
-export const ENTITY_PROFILE_ENTITIES_ID = 'entity-profile-entities';
+const ENTITY_PROFILE_ENTITIES_ID = 'entity-profile-entities';
 export const ENTITY_PROFILE_PROPERTIES_ID = 'entity-profile-properties';
-export const ENTITY_PROFILE_DOCUMENTATION_ID = 'entity-profile-documentation';
+const ENTITY_PROFILE_DOCUMENTATION_ID = 'entity-profile-documentation';
 export const ENTITY_PROFILE_LINEAGE_ID = 'entity-profile-lineage';
-export const ENTITY_PROFILE_SCHEMA_ID = 'entity-profile-schema';
+const ENTITY_PROFILE_SCHEMA_ID = 'entity-profile-schema';
 
 // Entity profile sidebar
 export const ENTITY_PROFILE_OWNERS_ID = 'entity-profile-owners';
@@ -21,184 +22,223 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
         id: ENTITY_PROFILE_ENTITIES_ID,
         selector: `[id^='rc-tabs'][id$='Entities']`,
-        title: 'Entities Tab',
+        title: <Trans i18nKey="onboarding:entityProfile.entitiesTabTitle" />,
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
-                    You can view the <strong>Entities</strong> that belong to a <strong>Container</strong> on this tab.
+                    <Trans
+                        i18nKey="onboarding:entityProfile.entitiesTabDescription"
+                        components={{ bold: <strong /> }}
+                    />
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
         id: ENTITY_PROFILE_PROPERTIES_ID,
         selector: `[id^='rc-tabs'][id$='Properties']`,
-        title: 'Properties Tab',
+        title: <Trans i18nKey="onboarding:entityProfile.propertiesTabTitle" />,
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
-                    You can view an entity&apos;s key-value <strong>Properties</strong> on this tab. These are sourced
-                    from the original Data Platform.
+                    <Trans
+                        i18nKey="onboarding:entityProfile.propertiesTabDescription1"
+                        components={{ bold: <strong /> }}
+                    />
                 </p>
                 <p>
-                    If this tab is disabled, <strong>Properties</strong> have not been ingested for this entity.
+                    <Trans
+                        i18nKey="onboarding:entityProfile.propertiesTabDescription2"
+                        components={{ bold: <strong /> }}
+                    />
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
         id: ENTITY_PROFILE_DOCUMENTATION_ID,
         selector: `[id^='rc-tabs'][id$='Documentation']`,
-        title: 'Documentation Tab',
+        title: <Trans i18nKey="onboarding:entityProfile.documentationTabTitle" />,
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
-                    You can view and edit an entity&apos;s <strong>Documentation</strong> on this tab.
+                    <Trans
+                        i18nKey="onboarding:entityProfile.documentationTabDescription1"
+                        components={{ bold: <strong /> }}
+                    />
                 </p>
                 <p>
-                    <strong>Documentation</strong> should provide descriptive information about this data asset. It can
-                    also contain links to external resources.
+                    <Trans
+                        i18nKey="onboarding:entityProfile.documentationTabDescription2"
+                        components={{ bold: <strong /> }}
+                    />
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
         id: ENTITY_PROFILE_LINEAGE_ID,
         selector: `[id^='rc-tabs'][id$='Lineage']`,
-        title: 'Lineage Tab',
+        title: <Trans i18nKey="onboarding:entityProfile.lineageTabTitle" />,
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
-                    You can view an entity&apos;s <strong>Lineage</strong> on this tab.
+                    <Trans
+                        i18nKey="onboarding:entityProfile.lineageTabDescription1"
+                        components={{ bold: <strong /> }}
+                    />
                 </p>
                 <p>
-                    Data <strong>Lineage</strong> allows you to visualize and understand both the upstream dependencies
-                    and downstream consumers of this entity.
+                    <Trans i18nKey="onboarding:lineageGraph.dataLineageDescription" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    If this tab is disabled, <strong>Lineage</strong> have not been ingested for this entity.
+                    <Trans
+                        i18nKey="onboarding:entityProfile.lineageTabDescription3"
+                        components={{ bold: <strong /> }}
+                    />
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
         id: ENTITY_PROFILE_SCHEMA_ID,
         selector: `[id^='rc-tabs'][id$='Schema']`,
-        title: 'Schema Tab',
+        title: <Trans i18nKey="onboarding:entityProfile.schemaTabTitle" />,
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
-                    You can view a Dataset&apos;s <strong>Schema</strong> on this tab.
+                    <Trans i18nKey="onboarding:entityProfile.schemaTabDescription1" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    You can also view or add <strong>Documentation</strong>, <strong>Tags</strong>, and{' '}
-                    <strong>Glossary Terms</strong> for specific columns.
+                    <Trans i18nKey="onboarding:entityProfile.schemaTabDescription2" components={{ bold: <strong /> }} />
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
         id: ENTITY_PROFILE_OWNERS_ID,
         selector: `#${ENTITY_PROFILE_OWNERS_ID}`,
-        title: 'Owners',
+        title: <Trans i18nKey="common.labels:owners" />,
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
-                    You can view and add <strong>Owners</strong> to this asset here.
+                    <Trans i18nKey="onboarding:entityProfile.ownersTabDescription1" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    <strong>Owners</strong> are <strong>Users</strong> or <strong>Groups</strong> who are responsible
-                    for managing this asset.
+                    <Trans i18nKey="onboarding:entityProfile.ownersTabDescription2" components={{ bold: <strong /> }} />
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
         id: ENTITY_PROFILE_TAGS_ID,
         selector: `#${ENTITY_PROFILE_TAGS_ID}`,
-        title: 'Tags',
+        title: <Trans i18nKey="common.labels:tags" />,
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
-                    You can view and add <strong>Tags</strong> to this asset here.
+                    <Trans i18nKey="onboarding:entityProfile.tagsTabDescription1" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    <strong>Tags</strong> are labels for organizing your data. For example, you can add a Tag to mark an
-                    asset as <strong>Mission Critical</strong>.
+                    <Trans i18nKey="onboarding:entityProfile.tagsTabDescription2" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    Learn more about <strong>Tags</strong>{' '}
-                    <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/tags">
-                        {' '}
-                        here.{' '}
-                    </a>
+                    <Trans
+                        i18nKey="onboarding:entityProfile.tagsLearnMore"
+                        components={{
+                            bold: <strong />,
+                            anchor: (
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    href="https://docs.datahub.com/docs/tags"
+                                />
+                            ),
+                        }}
+                    />
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
         id: ENTITY_PROFILE_GLOSSARY_TERMS_ID,
         selector: `#${ENTITY_PROFILE_GLOSSARY_TERMS_ID}`,
-        title: 'Glossary Terms',
+        title: <Trans i18nKey="onboarding:entityProfile.glossaryTermsTabTitle" />,
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
-                    You can view and add <strong>Glossary Terms</strong> to this asset here.
+                    <Trans
+                        i18nKey="onboarding:entityProfile.glossaryTermsTabDescription1"
+                        components={{ bold: <strong /> }}
+                    />
                 </p>
                 <p>
-                    <strong>Glossary Terms</strong> are structured, standarized labels for organizing your
-                    mission-critical data. For example, if you&apos;re marking assets containing PII fields, you might
-                    add the Term <strong>Email</strong>.
+                    <Trans
+                        i18nKey="onboarding:entityProfile.glossaryTermsTabDescription2"
+                        components={{ bold: <strong /> }}
+                    />
                 </p>
                 <p>
-                    Learn more about <strong>Glossary Terms</strong>{' '}
-                    <a
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        href="https://docs.datahub.com/docs/glossary/business-glossary"
-                    >
-                        {' '}
-                        here.
-                    </a>
+                    <Trans
+                        i18nKey="onboarding:entityProfile.glossaryTermsLearnMore"
+                        components={{
+                            bold: <strong />,
+                            anchor: (
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    href="https://docs.datahub.com/docs/glossary/business-glossary"
+                                />
+                            ),
+                        }}
+                    />
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
         id: ENTITY_PROFILE_DOMAINS_ID,
         selector: `#${ENTITY_PROFILE_DOMAINS_ID}`,
-        title: 'Domain',
+        title: <Trans i18nKey="onboarding:entityProfile.domainTabTitle" />,
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
-                    You can view and set this asset&apos;s <strong>Domain</strong> here.
+                    <Trans i18nKey="onboarding:entityProfile.domainTabDescription1" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    <strong>Domains</strong> are collections of related data assets associated with a specific part of
-                    your organization, such as the <strong>Marketing</strong> department.
+                    <Trans i18nKey="onboarding:domains.introDescription" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    Learn more about <strong>Domains</strong>{' '}
-                    <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/domains">
-                        {' '}
-                        here.
-                    </a>
+                    <Trans
+                        i18nKey="onboarding:entityProfile.domainLearnMore"
+                        components={{
+                            bold: <strong />,
+                            anchor: (
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    href="https://docs.datahub.com/docs/domains"
+                                />
+                            ),
+                        }}
+                    />
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
         id: ENTITY_PROFILE_V2_SIDEBAR_ID,
         selector: `#${ENTITY_PROFILE_V2_SIDEBAR_ID}`,
-        title: 'Introducing the Asset Sidebar',
+        title: <Trans i18nKey="onboarding:entityProfile.sidebarTitle" />,
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
-                    The asset sidebar is a vertically organized set of important information about an asset. It shows up
-                    on the right side of the screen when you view an asset, a search result, a lineage entry and a host
-                    of other places.
+                    <Trans i18nKey="onboarding:entityProfile.sidebarDescription" />
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
 ];

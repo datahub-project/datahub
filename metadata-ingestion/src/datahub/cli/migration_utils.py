@@ -7,15 +7,13 @@ from avrogen.dict_wrapper import DictWrapper
 from datahub.cli import cli_utils
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import (
-    DataHubGraph,
-    RelatedEntity,
-    get_default_graph,
-)
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
+from datahub.ingestion.graph.openapi import RelatedEntity, RelationshipDirection
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ContainerClass,
+    DashboardInfoClass,
     DataJobInputOutputClass,
     DataProcessInfoClass,
     MLFeaturePropertiesClass,
@@ -58,6 +56,7 @@ def get_aspect_name_from_relationship(relationship_type: str, entity_type: str) 
         "Produces": {"datajob": "dataJobInputOutput"},
         "Consumes": {
             "chart": "chartInfo",
+            "dashboard": "dashboardInfo",
             "datajob": "dataJobInputOutput",
             "dataProcess": "dataProcessInfo",
         },
@@ -126,6 +125,24 @@ class UrnListModifier:
             new_urn if x == old_urn else x for x in chartInfo.inputs or []
         ]
         return chartInfo
+
+    @staticmethod
+    def dashboardInfo_modifier(
+        aspect: DictWrapper,
+        relationship_type: str,
+        old_urn: str,
+        new_urn: str,
+    ) -> DictWrapper:
+        assert isinstance(aspect, DashboardInfoClass)
+        dashboardInfo: DashboardInfoClass = aspect
+        dashboardInfo.datasets = [
+            new_urn if x == old_urn else x for x in dashboardInfo.datasets or []
+        ]
+        if dashboardInfo.datasetEdges is not None:
+            for edge in dashboardInfo.datasetEdges:
+                if edge.destinationUrn == old_urn:
+                    edge.destinationUrn = new_urn
+        return dashboardInfo
 
     @staticmethod
     def dataProcessInfo_modifier(
@@ -286,7 +303,7 @@ def get_incoming_relationships(urn: str) -> Iterable[RelatedEntity]:
             "DerivedFrom",
             "IsPartOf",
         ],
-        direction=DataHubGraph.RelationshipDirection.INCOMING,
+        direction=RelationshipDirection.INCOMING,
     )
 
 
@@ -302,5 +319,5 @@ def get_outgoing_relationships(urn: str) -> Iterable[RelatedEntity]:
             "DerivedFrom",
             "IsPartOf",
         ],
-        direction=DataHubGraph.RelationshipDirection.OUTGOING,
+        direction=RelationshipDirection.OUTGOING,
     )

@@ -1,20 +1,20 @@
 import { Loader, PageTitle, SelectOption, SimpleSelect, Text } from '@components';
 import { Alert } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ChartGroup } from '@app/analyticsDashboardV2/components/ChartGroup';
 import { Highlight } from '@app/analyticsDashboardV2/components/Highlight';
 import { useUserContext } from '@app/context/useUserContext';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useGetAnalyticsChartsQuery, useGetMetadataAnalyticsChartsQuery } from '@graphql/analytics.generated';
 import { useListDomainsQuery } from '@graphql/domain.generated';
 import { useGetHighlightsQuery } from '@graphql/highlights.generated';
 
-const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
+const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    background-color: ${(props) => props.theme.colors.bg};
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
@@ -26,12 +26,12 @@ const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolea
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        margin-right: ${props.isV2 ? '24px' : '0'};
-        margin-bottom: ${props.isV2 ? '24px' : '0'};
+        margin-right: 24px;
+        margin-bottom: 24px;
     `}
     border-radius: ${(props) => {
-        if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
-        return props.isV2 ? '8px' : '0';
+        if (props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
+        return '8px';
     }};
     padding: 24px;
     padding-bottom: 48px;
@@ -80,7 +80,7 @@ const EmptyDomainText = styled(Text)`
 `;
 
 export const AnalyticsPage = () => {
-    const isV2 = useIsThemeV2();
+    const { t } = useTranslation('analytics');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const me = useUserContext();
     const canManageDomains = me?.platformPrivileges?.createDomains;
@@ -133,10 +133,10 @@ export const AnalyticsPage = () => {
 
     const domainOptions =
         domainData?.listDomains?.domains?.map((d) => ({ value: d.urn, label: d?.properties?.name || '' })) || [];
-    const options: SelectOption[] = [{ value: 'ALL', label: 'All Domains' }, ...domainOptions];
+    const options: SelectOption[] = [{ value: 'ALL', label: t('allDomains') }, ...domainOptions];
 
     return (
-        <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
+        <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             {isLoading && (
                 <LoaderContainer>
                     <Loader />
@@ -146,7 +146,7 @@ export const AnalyticsPage = () => {
                 <>
                     <HighlightGroup>
                         {highlightError && (
-                            <Alert type="error" message={highlightError?.message || 'Failed to load highlights'} />
+                            <Alert type="error" message={highlightError?.message || t('failedToLoadHighlights')} />
                         )}
                         {highlightData?.getHighlights?.map((highlight) => (
                             <Highlight highlight={highlight} shortenValue key={highlight.title} />
@@ -154,29 +154,29 @@ export const AnalyticsPage = () => {
                     </HighlightGroup>
 
                     {chartError && (
-                        <Alert type="error" message={metadataAnalyticsError?.message || 'Failed to load charts'} />
+                        <Alert type="error" message={metadataAnalyticsError?.message || t('failedToLoadCharts')} />
                     )}
                     {chartData?.getAnalyticsCharts
                         ?.filter((chartGroup) => chartGroup.groupId === 'GlobalMetadataAnalytics')
                         .map((chartGroup) => (
                             <ChartGroup
-                                chartGroup={{ ...chartGroup, title: 'Data Landscape Summary' }}
+                                chartGroup={{ ...chartGroup, title: t('dataLandscapeSummary') }}
                                 key={chartGroup.title}
                             />
                         ))}
 
                     <DomainSection>
-                        <PageTitle title="Domain Landscape Summary" variant="sectionHeader" />
+                        <PageTitle title={t('domainLandscapeSummary')} variant="sectionHeader" />
                         <FilterSection>
                             {domainError && (
                                 <Alert
                                     type="error"
-                                    message={metadataAnalyticsError?.message || 'Failed to load domains'}
+                                    message={metadataAnalyticsError?.message || t('failedToLoadDomains')}
                                 />
                             )}
                             <DomainSelect
                                 showSearch
-                                placeholder="Select domain"
+                                placeholder={t('selectDomain')}
                                 values={[domain]}
                                 onUpdate={onDomainChange}
                                 filterResultsByQuery
@@ -190,7 +190,7 @@ export const AnalyticsPage = () => {
                     </DomainSection>
 
                     {metadataAnalyticsError && (
-                        <Alert type="error" message={metadataAnalyticsError?.message || 'Failed to load charts'} />
+                        <Alert type="error" message={metadataAnalyticsError?.message || t('failedToLoadCharts')} />
                     )}
                     {metadataAnalyticsData?.getMetadataAnalyticsCharts?.map((chartGroup) => (
                         <ChartGroup chartGroup={{ ...chartGroup, title: '' }} key={chartGroup.groupId} />
@@ -200,16 +200,16 @@ export const AnalyticsPage = () => {
                         (!metadataAnalyticsData?.getMetadataAnalyticsCharts?.length ||
                             !metadataAnalyticsData?.getMetadataAnalyticsCharts[0]?.charts?.length) && (
                             <EmptyDomainText size="md" weight="bold" color="gray" colorLevel={600}>
-                                No analytics data for this domain
+                                {t('noDomainData')}
                             </EmptyDomainText>
                         )}
 
-                    {chartError && <Alert type="error" message={chartError?.message || 'Failed to load charts'} />}
+                    {chartError && <Alert type="error" message={chartError?.message || t('failedToLoadCharts')} />}
                     {chartData?.getAnalyticsCharts
                         ?.filter((chartGroup) => chartGroup.groupId === 'DataHubUsageAnalytics')
                         .map((chartGroup) => (
                             <React.Fragment key={chartGroup.title}>
-                                <ChartGroup chartGroup={{ ...chartGroup, title: 'Usage Analytics' }} />
+                                <ChartGroup chartGroup={{ ...chartGroup, title: t('usageAnalytics') }} />
                             </React.Fragment>
                         ))}
                 </>

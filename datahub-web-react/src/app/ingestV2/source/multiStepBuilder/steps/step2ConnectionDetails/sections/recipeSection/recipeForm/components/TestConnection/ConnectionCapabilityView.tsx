@@ -1,5 +1,7 @@
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Icon, Text, spacing } from '@components';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -21,7 +23,7 @@ const CapabilityInfo = styled.div`
 `;
 
 const StyledQuestion = styled(QuestionCircleOutlined)`
-    color: rgba(0, 0, 0, 0.45);
+    color: ${({ theme }) => theme.colors.overlayHeavy};
     margin-left: 4px;
 `;
 
@@ -38,9 +40,9 @@ export function ConnectionCapabilityView({ success, capability, displayMessage, 
         <Container>
             <IconWrapper>
                 {success ? (
-                    <Icon source="phosphor" icon="Check" size="2xl" color="green" colorLevel={1000} />
+                    <Icon icon={Check} size="2xl" color="green" colorLevel={1000} />
                 ) : (
-                    <Icon source="phosphor" icon="X" size="2xl" color="red" colorLevel={1000} />
+                    <Icon icon={X} size="2xl" color="red" colorLevel={1000} />
                 )}
             </IconWrapper>
 

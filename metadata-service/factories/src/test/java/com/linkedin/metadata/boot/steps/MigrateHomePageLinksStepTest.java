@@ -237,7 +237,7 @@ public class MigrateHomePageLinksStepTest {
         .getClassLoader()
         .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
     return new ConfigEntityRegistry(
-        IngestDataPlatformInstancesStepTest.class
+        MigrateHomePageLinksStepTest.class
             .getClassLoader()
             .getResourceAsStream("test-entity-registry.yaml"));
   }

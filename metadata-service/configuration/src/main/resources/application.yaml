@@ -23,6 +23,8 @@ authentication:
   # Disable if you want to skip validation of deleted user's tokens
   enforceExistenceEnabled: ${METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED:true}
 
+  verboseAuthFailureLogging: ${AUTH_VERBOSE_LOGGING:false}
+
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
     # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
@@ -123,6 +125,10 @@ datahub:
   # For special deployment modes intended to point at read replicas. WARNING: THIS WILL DROP WRITE OPERATIONS WITHOUT ERRORS, intended for analytics based deploys to offload work from user serving deploys
   readOnly: ${DATAHUB_READ_ONLY:false}
 
+  # Metadata event transport: kafka unless DATAHUB_MESSAGING_TRANSPORT is set (e.g. pgqueue).
+  messaging:
+    transport: ${DATAHUB_MESSAGING_TRANSPORT:kafka}
+
   gms:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
@@ -133,6 +139,11 @@ datahub:
       path: ${DATAHUB_GMS_SSL_TRUSTSTORE_PATH:#{null}} # Required if useSSL is true
       password: ${DATAHUB_GMS_SSL_TRUSTSTORE_PASSWORD:#{null}} # Required if useSSL is true
       type: ${DATAHUB_GMS_SSL_TRUSTSTORE_TYPE:PKCS12}
+    keystore:
+      path: ${DATAHUB_GMS_SSL_KEYSTORE_PATH:#{null}}
+      password: ${DATAHUB_GMS_SSL_KEYSTORE_PASSWORD:#{null}}
+      type: ${DATAHUB_GMS_SSL_KEYSTORE_TYPE:PKCS12}
+      keyPassword: ${DATAHUB_GMS_SSL_KEY_PASSWORD:#{null}}
     async:
       request-timeout-ms: ${DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS:55000}
 
@@ -193,6 +204,8 @@ entityService:
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:true}
     applyOnBootstrap: ${ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP:false}
+    applyOnPolicyChange: ${ENTITY_SERVICE_RETENTION_APPLY_ON_POLICY_CHANGE:true}
+    overwriteNonSystemPolicies: ${ENTITY_SERVICE_RETENTION_OVERWRITE_NON_SYSTEM_POLICIES:false}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
@@ -232,7 +245,7 @@ searchService:
 timeseriesAspectService:
   query:
     concurrency: ${TIMESERIES_ASPECT_SERVICE_QUERY_CONCURRENCY:10} # parallel threads
-    queueSize: ${TIMESERIES_ASPECT_SERVICE_QUERY)QUEUE_SIZE:500}
+    queueSize: ${TIMESERIES_ASPECT_SERVICE_QUERY_QUEUE_SIZE:500}
     threadKeepAlive: ${TIMESERIES_ASPECT_SERVICE_QUERY_THREAD_KEEP_ALIVE:60}
   limit:
     results:
@@ -251,6 +264,7 @@ configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
   # Priority is given to the `path` setting above (outside jar)
   resource: ${ENTITY_REGISTRY_CONFIG_CLASSPATH:classpath:/entity-registry.yml}
+  useOptimizedLoading: ${CONFIG_ENTITY_REGISTRY_USE_OPTIMIZED_LOADING:true}
 
 platformAnalytics:
   enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
@@ -296,11 +310,12 @@ mclProcessing:
       postgresConfig: # Used then CDC_DB_TYPE is set to postgres
         connector.class: ${DEBEZIUM_CONNECTOR_CLASS:io.debezium.connector.postgresql.PostgresConnector}
         plugin.name: ${DEBEZIUM_PLUGIN_NAME:pgoutput}
+        # Debezium schema is the PostgreSQL namespace (default public); database is from the connector DB config.
         table.include.list: ${CDC_INCLUDE_TABLE:public.metadata_aspect_v2}
         schema.include.list: ${CDC_INCLUDE_SCHEMA:public}
         publication.autocreate.mode: disabled
         publication.name: dbz_publication
-        message.key.columns: public.metadata_aspect_v2:urn
+        message.key.columns: ${CDC_POSTGRES_MESSAGE_KEY_COLUMNS:public.metadata_aspect_v2:urn}
         slot.name: debezium
         database.server.name: datahub
       mysqlConfig: # Used then CDC_DB_TYPE is set to mysql
@@ -318,7 +333,7 @@ visualConfig:
   theme:
     themeId: ${REACT_APP_CUSTOM_THEME_ID:} # we have an enum defined on the frontend that this themeId maps to to render a specific custom theme file
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:assets/platforms/datahublogo.png}
+    logoUrl: ${REACT_APP_LOGO_URL:assets/logos/datahublogo.svg} # we rely on this default constant in frontend - change in datahub-web-react/src/app/homeV2/layout/NavSidebar.tsx if updating
     faviconUrl: ${REACT_APP_FAVICON_URL:assets/icons/favicon.ico}
   appTitle: ${REACT_APP_TITLE:}
   hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
@@ -346,13 +361,14 @@ ebean:
   maxAgeMinutes: ${EBEAN_MAX_AGE_MINUTES:120}
   leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
+  autoCommit: ${EBEAN_DATASOURCE_AUTOCOMMIT:false}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
   postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
   useIamAuth: ${EBEAN_USE_IAM_AUTH:false} # Generic IAM auth for cross-cloud compatibility
   cloudProvider: ${EBEAN_CLOUD_PROVIDER:auto} # auto, aws, gcp, or traditional
   batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
-
-# Only required if entityService.impl is cassandra
+  queryKeysCountForBatch: ${EBEAN_QUERY_KEYS_COUNT_FOR_BATCH:375} # Chunk size for batch queries (default 375). Set to avoid large IN clauses that exceed range_optimizer_max_mem_size.
+  # Only required if entityService.impl is cassandra
 cassandra:
   datasourceUsername: ${CASSANDRA_DATASOURCE_USERNAME:cassandra}
   datasourcePassword: ${CASSANDRA_DATASOURCE_PASSWORD:cassandra}
@@ -361,6 +377,124 @@ cassandra:
   datacenter: ${CASSANDRA_DATACENTER:datacenter1}
   keyspace: ${CASSANDRA_KEYSPACE:datahub}
   useSsl: ${CASSANDRA_USE_SSL:false}
+
+# PostgreSQL optional SqlSetup (pgQueue).
+# postgres.schema: Ebean/metadata tables (default public). pgQueue uses postgres.pgQueue.schema only
+# (default queue)—queue DDL never lands in postgres.schema unless you explicitly set both to the same value.
+# The JDBC URL path selects the database only.
+postgres:
+  schema: public
+  # pg_cron registry DB (postgresql.conf cron.database_name). Defaults reuse EBEAN_DATASOURCE_* env vars; override with DATAHUB_POSTGRES_PG_CRON_ADMIN_* . Jobs still run in the app DB via cron.schedule_in_database.
+  pgCron:
+    cronSchema: ${DATAHUB_POSTGRES_PG_CRON_SCHEMA:cron}
+    admin:
+      jdbcUrl: ${DATAHUB_POSTGRES_PG_CRON_ADMIN_JDBC_URL:jdbc:postgresql://${EBEAN_DATASOURCE_HOST:localhost:5432}/${DATAHUB_POSTGRES_PG_CRON_ADMIN_DATABASE:postgres}}
+      username: ${DATAHUB_POSTGRES_PG_CRON_ADMIN_USERNAME:${EBEAN_DATASOURCE_USERNAME:datahub}}
+      password: ${DATAHUB_POSTGRES_PG_CRON_ADMIN_PASSWORD:${EBEAN_DATASOURCE_PASSWORD:datahub}}
+      driver: ${DATAHUB_POSTGRES_PG_CRON_ADMIN_DRIVER:${ebean.driver:org.postgresql.Driver}}
+    # Same IAM toggles and cloud env as ebean (LocalEbeanConfigFactory / CrossCloudIamUtils).
+    iam:
+      useIamAuth: ${ebean.useIamAuth:false}
+      postgresUseIamAuth: ${ebean.postgresUseIamAuth:false}
+      cloudProvider: ${ebean.cloudProvider:auto}
+      awsRegion: ${AWS_REGION:#{null}}
+      awsAccessKeyId: ${AWS_ACCESS_KEY_ID:#{null}}
+      awsSecretAccessKey: ${AWS_SECRET_ACCESS_KEY:#{null}}
+      awsSessionToken: ${AWS_SESSION_TOKEN:#{null}}
+      googleApplicationCredentials: ${GOOGLE_APPLICATION_CREDENTIALS:#{null}}
+      gcpProject: ${GCP_PROJECT:#{null}}
+      instanceConnectionName: ${INSTANCE_CONNECTION_NAME:#{null}}
+  # PostgreSQL queue DDL + maintenance (SqlSetup when entity store is Postgres). At-least-once; requires pg_partman for the message table; optional pg_cron when enabled.
+  pgQueue:
+    enabled: ${DATAHUB_PGQUEUE_ENABLED:false}
+    # When true (default), SqlSetup seeds postgres.pgQueue topic rows from kafka.topics.*; postgres.pgQueue.topics overlays or adds pg-only settings.
+    inheritKafkaTopics: ${DATAHUB_PGQUEUE_INHERIT_KAFKA_TOPICS:true}
+    # Namespace for *_topic, *_message, *_apply_retention, etc. Default queue (not public / not postgres.schema).
+    schema: ${DATAHUB_PGQUEUE_SCHEMA:queue}
+    # SqlSetup table name prefix (tables: {prefix}_topic, {prefix}_message, etc.)
+    tablePrefix: ${DATAHUB_PGQUEUE_TABLE_PREFIX:metadata_queue}
+    # Producer-side settings: how GMS encodes and compresses messages before enqueuing.
+    producer:
+      # Application-layer payload codec for new enqueues (per-row payload_compression column). NONE or SNAPPY.
+      payloadCompression: ${DATAHUB_PGQUEUE_PAYLOAD_COMPRESSION:SNAPPY}
+      # MIME for topic.default_content_type_id (lookup in *_content_type); message rows omit content_type_id when matching.
+      defaultContentTypeMime: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_CONTENT_TYPE_MIME:application/avro}
+    topicDefaults:
+      partitionCount: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_PARTITION_COUNT:2}
+      visibilityTimeoutSeconds: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_VISIBILITY_TIMEOUT_SECONDS:600}
+      priorityBands: ${DATAHUB_PGQUEUE_PRIORITY_BANDS:[{"range":[0,3],"weight":70},{"range":[4,6],"weight":20},{"range":[7,9],"weight":10}]}
+      retentionMaxAgeSeconds: ${DATAHUB_PGQUEUE_RETENTION_MAX_AGE_SECONDS:604800}
+      # Target max retained completed rows per topic (0 = unlimited). Not enforced on enqueue — pgQueue
+      # maintenance (*_apply_retention / cron) trims oldest completed rows when over this soft limit.
+      maxRowsPerTopic: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_MAX_ROWS_PER_TOPIC:0}
+      maxTotalPayloadBytesPerTopic: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_MAX_TOTAL_PAYLOAD_BYTES:0}
+      # Same-JVM pgQueue poller threads per topic (partition p → thread p % c). Capped to this topic's
+      # partitionCount (and postgres.pgQueue.topicDefaults.partitionCount for the cluster default). Cross-JVM dedup uses group leases in Postgres.
+      consumerConcurrency: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_CONSUMER_CONCURRENCY:1}
+      # When true, messages are purged as soon as all registered consumers have read past them.
+      aggressiveRetention: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_AGGRESSIVE_RETENTION:false}
+    # Per-topic overlays on kafka.topics.* (same logical keys). Prefer inheritKafkaTopics + kafka.topics for names/partitions/retention; use this block for pg-only limits or extra topics.
+    topics:
+      datahubUpgradeHistory:
+        # Soft cap on completed upgrade-history rows (not expressible in Kafka topic config).
+        maxRowsPerTopic: ${DATAHUB_PGQUEUE_TOPIC_DATAHUB_UPGRADE_HISTORY_MAX_ROWS_PER_TOPIC:10}
+      failedMetadataChangeProposal:
+        maxRowsPerTopic: ${DATAHUB_PGQUEUE_TOPIC_FAILED_MCP_MAX_ROWS_PER_TOPIC:100}
+      metadataChangeProposal:
+        aggressiveRetention: true
+      metadataChangeLogVersioned:
+        aggressiveRetention: true
+      metadataChangeLogTimeseries:
+        aggressiveRetention: true
+    retention:
+      # part_config.retention = max(topicDefaults.retentionMaxAgeSeconds, MAX(topic.retention_max_age_seconds)) + buffer (see SqlSetup).
+      # Allowlisted: 1 hour, 6 hours, 12 hours, 1 day, 1 week, 1 month (pg_partman time interval)
+      partmanPartitionInterval: ${DATAHUB_PGQUEUE_RETENTION_PARTMAN_INTERVAL:1 day}
+      partmanPremake: ${DATAHUB_PGQUEUE_RETENTION_PARTMAN_PREMAKE:4}
+    maintenance:
+      cronEnabled: ${DATAHUB_PGQUEUE_MAINTENANCE_CRON_ENABLED:false}
+      intervalSeconds: ${DATAHUB_PGQUEUE_MAINTENANCE_INTERVAL_SECONDS:3600}
+      batchDeleteLimit: ${DATAHUB_PGQUEUE_MAINTENANCE_BATCH_DELETE_LIMIT:5000}
+    # Dedicated runtime connection pool for the queue store (separate from the main ebean.* pool).
+    # Defaults fall through to ebean.* so a single-Postgres deployment works with zero extra config;
+    # override DATAHUB_PGQUEUE_DATASOURCE_* to point pgQueue at a different DB or role.
+    pool:
+      url: ${DATAHUB_PGQUEUE_DATASOURCE_URL:${ebean.url}}
+      driver: ${DATAHUB_PGQUEUE_DATASOURCE_DRIVER:${ebean.driver}}
+      username: ${DATAHUB_PGQUEUE_DATASOURCE_USERNAME:${ebean.username}}
+      password: ${DATAHUB_PGQUEUE_DATASOURCE_PASSWORD:${ebean.password}}
+      minConnections: ${DATAHUB_PGQUEUE_MIN_CONNECTIONS:1}
+      maxConnections: ${DATAHUB_PGQUEUE_MAX_CONNECTIONS:8}
+      maxInactiveTimeSeconds: ${DATAHUB_PGQUEUE_MAX_INACTIVE_TIME_SECONDS:120}
+      maxAgeMinutes: ${DATAHUB_PGQUEUE_MAX_AGE_MINUTES:120}
+      leakTimeMinutes: ${DATAHUB_PGQUEUE_LEAK_TIME_MINUTES:15}
+      waitTimeoutMillis: ${DATAHUB_PGQUEUE_WAIT_TIMEOUT_MILLIS:1000}
+    consumerPoll:
+      emptyPollSleepMillis: ${DATAHUB_PGQUEUE_EMPTY_POLL_SLEEP_MS:100}
+      mclEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MCL_EMPTY_POLL_SLEEP_MS:25}
+      missingTopicSleepMillis: ${DATAHUB_PGQUEUE_MISSING_TOPIC_SLEEP_MS:500}
+      errorRecoverySleepMillis: ${DATAHUB_PGQUEUE_ERROR_RECOVERY_SLEEP_MS:1000}
+
+# MAE consumer (standalone or embedded in GMS): separate ES HTTP tuning from interactive defaults.
+maeConsumer:
+  enabled: ${MAE_CONSUMER_ENABLED:false}
+  elasticsearch:
+    socketTimeoutMs: ${MAE_ELASTICSEARCH_SOCKET_TIMEOUT:120000}
+    connectionRequestTimeoutMs: ${MAE_ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:10000}
+  pgQueue:
+    usageEventsMaxBatch: ${DATAHUB_PGQUEUE_MAE_USAGE_POLL_MAX_BATCH:200}
+    metadataChangeLogMaxBatch: ${DATAHUB_PGQUEUE_MAE_MCL_POLL_MAX_BATCH:50}
+
+# MCE consumer (standalone or embedded in GMS): pgQueue poll tuning when transport=pgqueue.
+mceConsumer:
+  pgQueue:
+    metadataChangeProposalMaxBatch: ${DATAHUB_PGQUEUE_MCE_MCP_POLL_MAX_BATCH:50}
+    batchMetadataChangeProposalMaxBatch: ${DATAHUB_PGQUEUE_MCE_BATCH_MCP_POLL_MAX_BATCH:100}
+
+# PE consumer (standalone or embedded in GMS): pgQueue poll tuning when transport=pgqueue.
+peConsumer:
+  pgQueue:
+    platformEventMaxBatch: ${DATAHUB_PGQUEUE_PE_POLL_MAX_BATCH:50}
 
 elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}
@@ -379,7 +513,8 @@ elasticsearch:
   entityIndex:
     v2:
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED:true}
-      cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V2_CLEANUP:false}
+      cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V2_CLEANUP:true}
+      coalesceBatchUpdates: ${ELASTICSEARCH_ENTITY_INDEX_V2_COALESCE_BATCH_UPDATES:false}
     v3:
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:false}
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}
@@ -411,10 +546,24 @@ elasticsearch:
           spaceType: ${ELASTICSEARCH_SEMANTIC_SPACE_TYPE:cosinesimil}
           efConstruction: ${ELASTICSEARCH_SEMANTIC_EF_CONSTRUCTION:128}
           m: ${ELASTICSEARCH_SEMANTIC_M:16}
+        # nomic-embed-text (Ollama default, 768 dimensions)
+        nomic_embed_text:
+          vectorDimension: ${LOCAL_EMBEDDING_VECTOR_DIMENSION:768}
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
+        # Vertex AI gemini-embedding-001 (3072 dimensions, the model's native output)
+        gemini_embedding_001:
+          vectorDimension: ${VERTEX_AI_EMBEDDING_OUTPUT_DIMENSIONALITY:3072}
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
       # Embedding provider configuration for generating query embeddings
-      # Supports three providers: "aws-bedrock", "openai", "cohere"
+      # Supports: "aws-bedrock", "openai", "cohere", "local", or "vertex_ai"
       embeddingProvider:
-        # Provider type: "aws-bedrock", "openai", or "cohere"
+        # Provider type: "aws-bedrock", "openai", "cohere", "local", or "vertex_ai"
         type: ${EMBEDDING_PROVIDER_TYPE:openai}
 
         # Maximum text length before truncation (Cohere enforces 2048 character limit)
@@ -438,6 +587,21 @@ elasticsearch:
           apiKey: ${COHERE_API_KEY:}
           model: ${COHERE_EMBEDDING_MODEL:embed-english-v3.0}
           endpoint: ${COHERE_EMBEDDING_ENDPOINT:https://api.cohere.ai/v1/embed}
+
+        # Local configuration (used when type is "local")
+        # Compatible with Ollama, LM Studio, llama.cpp, or any OpenAI-compatible server.
+        # Quick start: brew install ollama && ollama pull nomic-embed-text && ollama serve
+        # Inside Docker Compose (quickstart-ai profile), use http://ollama:11434/v1/embeddings
+        local:
+          endpoint: ${LOCAL_EMBEDDING_ENDPOINT:http://localhost:11434/v1/embeddings}
+          model: ${LOCAL_EMBEDDING_MODEL:nomic-embed-text}
+
+        # Google Vertex AI configuration (used when type is "vertex_ai")
+        vertexai:
+          projectId: ${VERTEX_AI_PROJECT_ID:}
+          location: ${VERTEX_AI_LOCATION:us-east1}
+          model: ${VERTEX_AI_EMBEDDING_MODEL:gemini-embedding-001}
+          outputDimensionality: ${VERTEX_AI_EMBEDDING_OUTPUT_DIMENSIONALITY:768}
   # Multi-client shim configuration
   shim:
     # Enable the search client shim (false = use legacy RestHighLevelClient)
@@ -472,6 +636,9 @@ elasticsearch:
     retryInterval: ${ES_BULK_RETRY_INTERVAL:1}
     refreshPolicy: ${ES_BULK_REFRESH_POLICY:NONE}
     enableBatchDelete: ${ES_BULK_ENABLE_BATCH_DELETE:false}
+    # By-query HTTP socket timeout (seconds) for delete/update-by-query RequestOptions (DEFAULT tuning).
+    # Distinct from elasticsearch.buildIndices.slowOperationTimeoutSeconds (system-update / ESIndexBuilder jobs).
+    slowByQueryOperationTimeoutSeconds: ${ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS:180}
   index:
     prefix: ${INDEX_PREFIX:}
     numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:${elasticsearch.dataNodeCount}}
@@ -500,10 +667,43 @@ elasticsearch:
     reindexBatchSize: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE:5000} # documents per scroll batch during reindex
     reindexMaxSlices: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES:256} # max parallel slices (capped from target shard count)
     reindexNoProgressRetryMinutes: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES:5} # minutes without doc-count progress before re-triggering reindex
+    # Parallel reindexing configuration
+    enableParallelReindex: ${ELASTICSEARCH_BUILD_INDICES_ENABLE_PARALLEL_REINDEX:false}
+    taskCheckIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_TASK_CHECK_INTERVAL_SECONDS:60}
+    maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:8}
+    # Cost-based reindexing configuration (P=2 enhancements)
+    normalIndexCostThreshold: ${ELASTICSEARCH_NORMAL_INDEX_COST_THRESHOLD:1000000} # Cost = (docs * shards) / nodes. Example: 1M docs * 5 shards / 3 nodes = 1.67M
+    maxConcurrentNormalReindex: ${ELASTICSEARCH_MAX_CONCURRENT_NORMAL_REINDEX:4}
+    maxConcurrentLargeReindex: ${ELASTICSEARCH_MAX_CONCURRENT_LARGE_REINDEX:2}
+    # Cluster health monitoring for auto-throttling
+    clusterHealthCheckIntervalSeconds: ${ELASTICSEARCH_CLUSTER_HEALTH_CHECK_INTERVAL_SECONDS:30}
+    clusterHeapThresholdPercent: ${ELASTICSEARCH_CLUSTER_HEAP_THRESHOLD_PERCENT:85}
+    # Replica protection and finalization configuration
+    maxConcurrentFinalizations: ${ELASTICSEARCH_MAX_CONCURRENT_FINALIZATIONS:2} # Maximum concurrent index finalizations (limits replica sync operations to prevent cluster overload)
+    replicaSyncTimeoutMinutes: ${ELASTICSEARCH_REPLICA_SYNC_TIMEOUT_MINUTES:20} # Timeout for waiting on replica synchronization before promoting index to active use (minimum 5 minutes)
     slowOperationTimeoutSeconds: ${ELASTICSEARCH_BUILD_INDICES_SLOW_OPERATION_TIMEOUT_SECONDS:180} # socket timeout for count, refresh, createIndex, reindex, listTasks
     countRetryMaxAttempts: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_MAX_ATTEMPTS:2} # getCount retries on timeout/OpenSearchException
     countRetryWaitSeconds: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_WAIT_SECONDS:5} # wait between getCount retries
     createIndexRetryEnabled: ${ELASTICSEARCH_BUILD_INDICES_CREATE_INDEX_RETRY_ENABLED:true} # retry createIndex once on IOException if index does not exist
+    taskPollIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_TASK_POLL_INTERVAL_SECONDS:5} # seconds between listTasks polls for timeseries catch-up reindex
+    # Adaptive throttling configuration
+    clusterHeapYellowThresholdPercent: ${ELASTICSEARCH_BUILD_INDICES_CLUSTER_HEAP_YELLOW_THRESHOLD_PERCENT:75} # Heap threshold for YELLOW tier (triggers throttling before RED)
+    docCountValidationRetryCount: ${ELASTICSEARCH_BUILD_INDICES_DOC_COUNT_VALIDATION_RETRY_COUNT:10} # Number of retries for doc count validation
+    docCountValidationRetrySleepMs: ${ELASTICSEARCH_BUILD_INDICES_DOC_COUNT_VALIDATION_RETRY_SLEEP_MS:2000} # Sleep time between doc count validation retries (milliseconds)
+    normalTierRequestsPerSecond: ${ELASTICSEARCH_BUILD_INDICES_NORMAL_TIER_REQUESTS_PER_SECOND:500} # Requests per second during NORMAL cluster health tier
+    throttledTierRequestsPerSecond: ${ELASTICSEARCH_BUILD_INDICES_THROTTLED_TIER_REQUESTS_PER_SECOND:100} # Requests per second during THROTTLED (RED) cluster health tier
+    normalTierRefreshInterval: ${ELASTICSEARCH_BUILD_INDICES_NORMAL_TIER_REFRESH_INTERVAL:60s} # Refresh interval during NORMAL cluster health tier (allows periodic flushes to reduce heap pressure)
+    throttledTierRefreshInterval: ${ELASTICSEARCH_BUILD_INDICES_THROTTLED_TIER_REFRESH_INTERVAL:30s} # Refresh interval during THROTTLED (RED) cluster health tier (aggressive flush for heap relief)
+    writeRejectionRedThreshold: ${ELASTICSEARCH_BUILD_INDICES_WRITE_REJECTION_RED_THRESHOLD:50} # Delta threshold for write/bulk thread pool rejections to trigger immediate RED state
+    # Circuit breaker stability window configuration (time-based hysteresis)
+    yellowStabilitySeconds: ${ELASTICSEARCH_BUILD_INDICES_YELLOW_STABILITY_SECONDS:30} # Time (seconds) for GREEN -> YELLOW transition to be stable before accepting
+    greenStabilitySeconds: ${ELASTICSEARCH_BUILD_INDICES_GREEN_STABILITY_SECONDS:30} # Time (seconds) for YELLOW -> GREEN transition to be stable before accepting
+    redRecoverySeconds: ${ELASTICSEARCH_BUILD_INDICES_RED_RECOVERY_SECONDS:30} # Time (seconds) for RED -> YELLOW transition to be stable before accepting
+    # Parallel reindex execution and monitoring parameters
+    rethrottleExecutorPoolSize: ${ELASTICSEARCH_BUILD_INDICES_RETHROTTLE_EXECUTOR_POOL_SIZE:8} # Thread pool size for concurrent rethrottle operations
+    minimumReplicasForPromotion: ${ELASTICSEARCH_BUILD_INDICES_MINIMUM_REPLICAS_FOR_PROMOTION:1} # Minimum replicas to restore before promotion
+    incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:${ZDU_STAGE_20:false}} # non-blocking incremental reindex with dual-write
+    rollbackDualWriteEnabled: ${ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED:${ZDU_STAGE_20:false}} # dual-write to old backing index for rollback safety during incremental reindex
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.
@@ -546,6 +746,7 @@ elasticsearch:
         searchQueryTimeReservation: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SEARCH_QUERY_TIME_RESERVATION:0.2} # fraction (0.0-1.0) of total timeout to reserve for second query phase when partialResults is enabled. Default: 0.2 (20%)
       maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:16} # maximum parallel lineage graph queries
       queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
+      sliceFutureDrainTimeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_SLICE_FUTURE_DRAIN_TIMEOUT_SECONDS:2} # seconds (single allOf wait) after canceling slice futures before PIT/scroll cleanup
     validation:
       enabled: ${SEARCH_VALIDATION_ENABLED:true}
       maxLengthEnabled: ${SEARCH_VALIDATION_MAX_LENGTH_ENABLED:true}
@@ -571,35 +772,66 @@ kafka:
     # Each topic can be created by iterating through this dictionary
     # The key name matches the programmatic identifier used in code
     metadataChangeProposal:
+      displayName: MetadataChangeProposal_v1
       name: ${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:MetadataChangeProposal_v1}
+      partitions: ${METADATA_CHANGE_PROPOSAL_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${METADATA_CHANGE_PROPOSAL_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     failedMetadataChangeProposal:
+      displayName: FailedMetadataChangeProposal_v1
       name: ${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:FailedMetadataChangeProposal_v1}
+      partitions: ${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     metadataChangeLogVersioned:
       name: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:MetadataChangeLog_Versioned_v1}
+      displayName: MetadataChangeLog_Versioned_v1
+      pollEnabled: true
+      partitions: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     metadataChangeLogTimeseries:
       name: ${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:MetadataChangeLog_Timeseries_v1}
+      displayName: MetadataChangeLog_Timeseries_v1
+      partitions: ${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
+      pollEnabled: true
       configProperties:
         retention.ms: 7776000000
 
     platformEvent:
       name: ${PLATFORM_EVENT_TOPIC_NAME:PlatformEvent_v1}
+      displayName: PlatformEvent_v1
+      pollEnabled: true
+      partitions: ${PLATFORM_EVENT_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${PLATFORM_EVENT_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     datahubUpgradeHistory:
       name: ${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:DataHubUpgradeHistory_v1}
-      partitions: 1
+      displayName: DataHubUpgradeHistory_v1
+      partitions: ${DATAHUB_UPGRADE_HISTORY_TOPIC_PARTITIONS:1}
+      replicationFactor: ${DATAHUB_UPGRADE_HISTORY_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
       configProperties:
         retention.ms: -1
 
     datahubUsageEvent:
       name: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
+      displayName: DataHubUsageEvent_v1
       enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
+      partitions: ${DATAHUB_USAGE_EVENT_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${DATAHUB_USAGE_EVENT_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
+
+    workEvent:
+      name: ${WORK_EVENT_TOPIC_NAME:WorkEvent_v1}
+      displayName: WorkEvent_v1
+      enabled: ${WORK_EVENT_TOPIC_ENABLED:false}
+      pollEnabled: ${WORK_EVENT_TOPIC_POLL_ENABLED:false}
 
     cdcTopic:
       name: ${CDC_TOPIC_NAME:datahub.metadata_aspect_v2}
       enabled: ${CDC_MCL_PROCESSING_ENABLED:false}
+      partitions: ${CDC_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${CDC_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     # Deprecated Topics (maintained for backward compatibility)
     metadataAuditEvent:
@@ -661,6 +893,8 @@ kafka:
     maxPartitionFetchBytes: ${KAFKA_CONSUMER_MAX_PARTITION_FETCH_BYTES:5242880} # the max bytes consumed per partition
     stopOnDeserializationError: ${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:true} # Stops kafka listener container on deserialization error, allows user to fix problems before moving past problematic offset. If false will log and move forward past the offset
     healthCheckEnabled: ${KAFKA_CONSUMER_HEALTH_CHECK_ENABLED:true} # Sets the health indicator to down when a message listener container has stopped due to a deserialization failure, will force consumer apps to restart through k8s and docker-compose health mechanisms
+    authExceptionRetryIntervalSeconds: ${KAFKA_CONSUMER_AUTH_EXCEPTION_RETRY_INTERVAL_SECONDS:10} # Seconds to wait before retrying after an authentication/authorization exception (e.g. MSK IAM credential rotation). Set to 0 to disable (fatal on first auth exception).
+    maxAuthExceptionRetries: ${KAFKA_CONSUMER_MAX_AUTH_EXCEPTION_RETRIES:3} # Max consecutive auth exception retries before stopping the container. Prevents silent infinite retry on permanent auth failure.
     mcp:
       autoOffsetReset: ${KAFKA_CONSUMER_MCP_AUTO_OFFSET_RESET:earliest}
     mcl:
@@ -705,7 +939,10 @@ neo4j:
   connectionLivenessCheckTimeout: ${NEO4J_CONNECTION_LIVENESS_CHECK_TIMEOUT_IN_SECONDS:-1}
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: ${GMS_LIFECYCLE_TIMEOUT:65s}
   error:
+    # CWE-200: Never include internal details in Spring error responses.
     include-message: never
     include-stacktrace: never
     include-exception: false
@@ -725,10 +962,6 @@ spring:
       protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
   autoconfigure:
     exclude:
-      # hazelcast-spring 5.6+ registers HazelcastObjectExtractionConfiguration which requires a
-      # HazelcastInstance bean. We only create one when searchService.cacheImplementation=hazelcast
-      # (default is caffeine). Excluding this avoids context failure when Hazelcast cache is not used.
-      - com.hazelcast.spring.HazelcastObjectExtractionConfiguration
       # We don't use these
       - org.springframework.boot.actuate.autoconfigure.cassandra.CassandraHealthContributorAutoConfiguration
       - org.springframework.boot.actuate.autoconfigure.cassandra.CassandraReactiveHealthContributorAutoConfiguration
@@ -767,6 +1000,8 @@ management:
       export:
         enabled: false
   # Micrometer Configuration
+  # management.server.port is not set here: use env MANAGEMENT_SERVER_PORT (Docker start.sh defaults to 4319).
+  # When unset, Actuator stays on the main application port.
   metrics:
     cache:
       enabled: false
@@ -786,13 +1021,12 @@ management:
 
 # GMS needs to have its context path, / is used when undefined, DATAHUB_GMS_BASE_PATH otherwise
 server:
+  shutdown: ${SERVER_SHUTDOWN_MODE:immediate}
   server-header: false
   servlet:
     context-path: ${DATAHUB_GMS_BASE_PATH:/}
 
 springdoc:
-  cache:
-    disabled: false
   swagger-ui:
     path: ${path-mappings.${datahub.basePath:}:${datahub.basePath:}}/openapi/swagger-ui
     disable-swagger-default-url: true
@@ -816,6 +1050,8 @@ siblings:
 updateIndices:
   enabled: ${ENABLE_UPDATE_INDICES_HOOK:true}
   consumerGroupSuffix: ${UPDATE_INDICES_CONSUMER_GROUP_SUFFIX:}
+ingestionMetrics:
+  enabled: ${INGESTION_METRICS_ENABLED:true}
 ingestionScheduler:
   enabled: ${ENABLE_INGESTION_SCHEDULER_HOOK:true} # enable to execute ingestion scheduling
   consumerGroupSuffix: ${INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX:}
@@ -826,6 +1062,9 @@ incidents:
     consumerGroupSuffix: ${INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 bootstrap:
+  async:
+    # Parallel bootstrap workers; each uses its own DB connection/transactions. Reduce only if the metadata pool shows errors under startup load.
+    workerThreads: ${BOOTSTRAP_ASYNC_WORKER_THREADS:5}
   policies:
     file: ${BOOTSTRAP_POLICIES_FILE:classpath:boot/policies.json}
     # eg for local file
@@ -899,6 +1138,16 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_BATCH_SIZE:100}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_REPROCESS:false}
+  migrateAspects:
+    enabled: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED:${ZDU_STAGE_20:false}}
+    batchSize: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_BATCH_SIZE:500}
+    delayMs: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_DELAY_MS:1000}
+    limit: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_LIMIT:0}
+  criterionFilterAspectsBlocking:
+    enabled: ${SYSTEM_UPDATE_CRITERION_FILTER_ASPECTS_BLOCKING_ENABLED:false}
+    batchSize: ${SYSTEM_UPDATE_CRITERION_FILTER_ASPECTS_BLOCKING_BATCH_SIZE:500}
+    delayMs: ${SYSTEM_UPDATE_CRITERION_FILTER_ASPECTS_BLOCKING_DELAY_MS:1000}
+    limit: ${SYSTEM_UPDATE_CRITERION_FILTER_ASPECTS_BLOCKING_LIMIT:0}
   schemaFieldsFromSchemaMetadata:
     enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED:false}
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE:500}
@@ -946,6 +1195,14 @@ systemUpdate:
       lePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LE_PIT_EPOCH_MS:}  # Only entities modified <= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
       aspectFilters: []  # Only entities with ANY of these aspects (OR semantics)
       includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
+  ingestEntityTypes:
+    enabled: ${SYSTEM_UPDATE_INGEST_ENTITY_TYPES_ENABLED:true}
+  ingestDefaultGlobalSettings:
+    enabled: ${SYSTEM_UPDATE_INGEST_DEFAULT_GLOBAL_SETTINGS_ENABLED:true}
+  ingestPolicies:
+    enabled: ${SYSTEM_UPDATE_INGEST_POLICIES_ENABLED:true}
+  ingestDataPlatformInstances:
+    enabled: ${SYSTEM_UPDATE_INGEST_DATA_PLATFORM_INSTANCES_ENABLED:true}
   kubernetesScaleDown:
     enabled: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_ENABLED:true}
     useJavaImplementation: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_JAVA_ENABLED:false}
@@ -963,11 +1220,14 @@ systemUpdate:
     rolloutPollSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_POLL_SECONDS:5}
     # Max wait for each deployment rollout (scale down or rolling restart). Default 30m; increase for many pods or slow strategies.
     rolloutMaxWaitSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_MAX_WAIT_SECONDS:1800}
+    # Minimum interval between rollout progress INFO logs while waiting. Default 60s; unset or 0 uses default.
+    rolloutProgressLogIntervalSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_PROGRESS_LOG_INTERVAL_SECONDS:60}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
   systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # applies structured property mappings in system update job
+  dropMissingPropertyValuesWithWarning: ${STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING:true} # drop assignments for hard-deleted/missing definitions with WARN; fail if none remain
 
 # Consistency check configuration (shared by upgrade job and API endpoints)
 consistencyChecks:
@@ -1042,8 +1302,12 @@ featureFlags:
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
-  multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:false} # Enables assets to belong to multiple data products simultaneously
+  multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
+  showTestsInHealthIcon: ${SHOW_TESTS_IN_HEALTH_ICON:false} # If enabled, shows tests status in the health icon on entity pages
+  i18nEnabled: ${I18N_ENABLED:false} # If enabled, internationalization (i18n) features are active
+  createSchemaVersionIndex: ${CREATE_SCHEMA_VERSION_INDEX:${ZDU_STAGE_10:false}} # Creates schemaVersionIndex on metadata_aspect_v2 for ZDU schema version queries
+  aspectMigrationMutatorEnabled: ${ASPECT_MIGRATION_MUTATOR_ENABLED:${ZDU_STAGE_20:false}} # Populates AspectMigrationMutatorChain with registered mutators
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -1160,6 +1424,7 @@ graphQL:
     maxParentDepth: ${GRAPHQL_QUERY_MAX_PARENT_DEPTH:50}
     # Relationship resolution cap per request (cycle/unbounded protection)
     maxVisitedUrns: ${GRAPHQL_QUERY_MAX_VISITED_URNS:20000}
+    slowQueryThresholdMs: ${GRAPHQL_QUERY_SLOW_QUERY_THRESHOLD_MS:1000}
   metrics:
     # Master switch for all GraphQL metrics collection via Micrometer
     # When false, no GraphQL metrics are collected (request-level or field-level)
@@ -1201,6 +1466,41 @@ graphQL:
     # Only enable if you suspect performance issues with object property access
     trivialDataFetchersEnabled: ${GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED:false}
 
+  # Shape logging: threshold-based structured logging for GraphQL requests/responses
+  # Monitors query complexity, field counts, duration, response size, and errors
+  # Expensive response analysis only runs when at least one threshold is crossed
+  # All thresholds are overridable via environment variables (examples below)
+  shapeLogging:
+    # Enable/disable shape logging
+    # Override: GRAPHQL_SHAPE_LOGGING_ENABLED=true
+    enabled: ${GRAPHQL_SHAPE_LOGGING_ENABLED:false}
+
+    # Minimum number of GraphQL field selections to trigger logging (proxy for query complexity)
+    # Typical: 10-20 for simple queries, 50-100 for moderate, 150+ for heavy
+    # Override: GRAPHQL_SHAPE_LOGGING_FIELD_COUNT_THRESHOLD=50
+    fieldCountThreshold: ${GRAPHQL_SHAPE_LOGGING_FIELD_COUNT_THRESHOLD:100}
+
+    # Minimum request duration in milliseconds to trigger logging (slow-query threshold)
+    # Override: GRAPHQL_SHAPE_LOGGING_DURATION_THRESHOLD_MS=1000
+    durationThresholdMs: ${GRAPHQL_SHAPE_LOGGING_DURATION_THRESHOLD_MS:3000}
+
+    # Estimated minimum response size in bytes to trigger logging
+    # Estimate: responseFieldCount * 50 bytes
+    # Default: 1048576 (1 MiB), Example overrides: 262144 (256 KiB), 524288 (512 KiB)
+    # Override: GRAPHQL_SHAPE_LOGGING_RESPONSE_SIZE_THRESHOLD_BYTES=262144
+    responseSizeThresholdBytes: ${GRAPHQL_SHAPE_LOGGING_RESPONSE_SIZE_THRESHOLD_BYTES:1048576}
+
+    # Minimum number of GraphQL errors to trigger logging (set to 1 to log any error)
+    # Override: GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD=2
+    errorCountThreshold: ${GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD:1}
+
+  # OpenTelemetry instrumentation for GraphQL operations and data fetchers
+  # Requires ENABLE_OTEL=true and a configured OTEL exporter
+  otel:
+    # Enable/disable GraphQL OTel instrumentation
+    # Override: ENABLE_OTEL_GRAPHQL_TRACES=true
+    enableOtelGraphqlTraces: ${ENABLE_OTEL_GRAPHQL_TRACES:false}
+
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}
   lineageEnabled: ${CHROME_EXTENSION_LINEAGE_ENABLED:true}
@@ -1227,6 +1527,10 @@ metadataChangeProposal:
       enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
     extensions:
       enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
+    urlValidation:
+      enabled: ${MCP_VALIDATION_URL_ENABLED:true}
+      allowHttp: ${MCP_VALIDATION_URL_ALLOW_HTTP:false}
+      extraDenyHosts: ${MCP_VALIDATION_URL_EXTRA_DENY_HOSTS:}
   sideEffects:
     schemaField:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}
@@ -1268,6 +1572,19 @@ metadataChangeLog:
     batch:
       enabled: ${MCL_CONSUMER_BATCH_ENABLED:false}
       size: ${MCL_CONSUMER_BATCH_SIZE:1048576}
+      maxMessages: ${MCL_CONSUMER_BATCH_MAX_MESSAGES:500}
+      maxAgeMs: ${MCL_CONSUMER_BATCH_MAX_AGE_MS:1000}
+  throttle:
+    timeseries:
+      entityIndex:
+        enabled: ${MCL_TIMESERIES_THROTTLE_ENTITY_INDEX_ENABLED:false}
+      timeseriesIndex:
+        enabled: ${MCL_TIMESERIES_THROTTLE_TIMESERIES_INDEX_ENABLED:false}
+      observe:
+        enabled: ${MCL_TIMESERIES_THROTTLE_OBSERVE_ENABLED:false}
+      refreshPeriodSeconds: ${MCL_TIMESERIES_THROTTLE_REFRESH_SECONDS:3600}
+      refreshOverrides: ${MCL_TIMESERIES_THROTTLE_REFRESH_OVERRIDES:{}}
+      maxCacheUrns: ${MCL_TIMESERIES_THROTTLE_MAX_URNS:10000}
 
 eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}

@@ -968,6 +968,47 @@ JOIN cte_alias ON users.id = cte_alias.user_id
     )
 
 
+def test_snowflake_cte_chain_join_tables() -> None:
+    # When CTE2 references CTE1, and the outer query joins on a column that
+    # traces through the CTE chain, the join metadata should correctly resolve
+    # the physical tables involved. This validates that scope-based table
+    # resolution follows CTE-to-CTE references (not just direct table sources).
+    assert_sql_result(
+        """
+WITH cte1 AS (
+    SELECT t1.id, t1.name
+    FROM my_db.my_schema.t1
+),
+cte2 AS (
+    SELECT cte1.id, t2.value
+    FROM cte1
+    JOIN my_db.my_schema.t2 ON cte1.id = t2.id
+)
+SELECT users.col, cte2.value
+FROM my_db.my_schema.users
+JOIN cte2 ON users.id = cte2.id
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.t1,PROD)": {
+                "ID": "NUMBER",
+                "NAME": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.t2,PROD)": {
+                "ID": "NUMBER",
+                "VALUE": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.users,PROD)": {
+                "ID": "NUMBER",
+                "COL": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_cte_chain_join_tables.json",
+    )
+
+
 def test_snowflake_full_table_name_col_reference() -> None:
     assert_sql_result(
         """

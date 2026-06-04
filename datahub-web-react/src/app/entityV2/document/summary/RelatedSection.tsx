@@ -1,5 +1,7 @@
 import { Button } from '@components';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -7,7 +9,6 @@ import { ALLOWED_RELATED_ASSET_TYPES } from '@app/document/utils/documentUtils';
 import { AddRelatedEntityDropdown } from '@app/entityV2/document/summary/AddRelatedEntityDropdown';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { AndFilterInput, DocumentRelatedAsset, DocumentRelatedDocument, EntityType, FilterOperator } from '@types';
 
@@ -34,7 +35,7 @@ const SectionTitle = styled.h4`
     font-size: 14px;
     font-weight: 600;
     margin: 0;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const List = styled.div`
@@ -46,7 +47,7 @@ const List = styled.div`
 const EmptyState = styled.div`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     text-align: start;
     padding: 0px;
 `;
@@ -96,6 +97,7 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
     onRemoveEntity,
     canEdit = true,
 }) => {
+    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
 
@@ -164,14 +166,14 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
     return (
         <Section>
             <SectionHeader>
-                <SectionTitle>Related</SectionTitle>
+                <SectionTitle>{t('document.relatedTitle')}</SectionTitle>
                 {canEdit && (
                     <AddRelatedEntityDropdown
                         entityTypes={allowedEntityTypes}
                         existingUrns={existingUrns}
                         documentUrn={documentUrn}
                         onConfirm={handleConfirmAdd}
-                        placeholder="Find related assets and context..."
+                        placeholder={t('document.findRelatedPlaceholder')}
                         defaultFilters={defaultFilters}
                         viewUrn={viewUrn}
                         initialSelectedUrns={Array.from(existingUrns)}
@@ -198,7 +200,7 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
                                 {canEdit && onRemoveEntity && (
                                     <TrashButton
                                         variant="text"
-                                        icon={{ icon: 'Trash', source: 'phosphor', color: 'red' }}
+                                        icon={{ icon: Trash, color: 'red' }}
                                         size="md"
                                         className="trash-button"
                                         onClick={(e) => {
@@ -206,7 +208,7 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
                                             e.stopPropagation();
                                             onRemoveEntity(entity.urn);
                                         }}
-                                        aria-label="Remove related entity"
+                                        aria-label={t('document.removeRelatedEntity')}
                                         data-testid={`remove-related-entity-${entity.urn.split(':').pop()}`}
                                     />
                                 )}
@@ -214,7 +216,7 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
                         );
                     })
                 ) : (
-                    <EmptyState>Add related assets or context</EmptyState>
+                    <EmptyState>{t('document.addRelatedEmpty')}</EmptyState>
                 )}
             </List>
         </Section>

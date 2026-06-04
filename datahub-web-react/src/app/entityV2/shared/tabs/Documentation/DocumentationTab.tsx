@@ -2,19 +2,22 @@ import { EditOutlined, ExpandAltOutlined, PlusOutlined } from '@ant-design/icons
 import { Button as AntButton, Typography } from 'antd';
 import queryString from 'query-string';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { DescriptionEditor } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
 import { DescriptionPreviewModal } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreviewModal';
 import { RelatedSection } from '@app/entityV2/shared/tabs/Documentation/components/RelatedSection';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
 import { Button, Editor } from '@src/alchemy-components';
+
+const DOCUMENTATION_TAB_NAME = 'Documentation';
+const DOCUMENTATION_TAB = 'documentation';
 
 const DocumentationContainer = styled.div`
     margin: 0 16px;
@@ -23,10 +26,10 @@ const DocumentationContainer = styled.div`
 `;
 
 const StyledTabToolbar = styled(TabToolbar)`
-    background-color: ${REDESIGN_COLORS.LIGHT_GREY};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-top-left-radius: 4px;
     border-bottom-left-radius: 4px;
-    border-left: 2px solid #5c3fd1;
+    border-left: 2px solid ${(props) => props.theme.colors.borderBrand};
     padding: 8px 20px;
     margin: 2px 14px 2px 12px;
 
@@ -46,6 +49,8 @@ interface Props {
 }
 
 export const DocumentationTab = ({ properties }: { properties?: Props }) => {
+    const { t } = useTranslation('entity.profile.documentation');
+    const { t: tc } = useTranslation('common.actions');
     const hideLinksButton = properties?.hideLinksButton;
     const { urn, entityData } = useEntityData();
 
@@ -63,14 +68,14 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
         const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
         if (editedDescriptions.hasOwnProperty(urn)) {
             routeToTab({
-                tabName: 'Documentation',
+                tabName: DOCUMENTATION_TAB_NAME,
                 tabParams: { editing: true, modal: !!showModal },
             });
         }
     }, [urn, routeToTab, showModal, localStorageDictionary]);
 
     return isEditing && !showModal ? (
-        <DescriptionEditor onComplete={() => routeToTab({ tabName: 'Documentation' })} />
+        <DescriptionEditor onComplete={() => routeToTab({ tabName: DOCUMENTATION_TAB_NAME })} />
     ) : (
         <>
             {displayedDescription || links.length ? (
@@ -80,9 +85,11 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             <AntButton
                                 data-testid="edit-documentation-button"
                                 type="text"
-                                onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
+                                onClick={() =>
+                                    routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { editing: true } })
+                                }
                             >
-                                <EditOutlined /> Edit
+                                <EditOutlined /> {tc('edit')}
                             </AntButton>
                         </div>
                         <div>
@@ -90,7 +97,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                 type="text"
                                 onClick={() =>
                                     routeToTab({
-                                        tabName: 'Documentation',
+                                        tabName: DOCUMENTATION_TAB_NAME,
                                         tabParams: { modal: true },
                                     })
                                 }
@@ -101,10 +108,16 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     </StyledTabToolbar>
                     <div>
                         {displayedDescription ? (
-                            [<Editor content={displayedDescription} readOnly />]
+                            [
+                                <Editor
+                                    content={displayedDescription}
+                                    dataTestId="documentation-editor-content"
+                                    readOnly
+                                />,
+                            ]
                         ) : (
                             <DocumentationContainer>
-                                <Typography.Text type="secondary">No documentation added yet.</Typography.Text>
+                                <Typography.Text type="secondary">{t('emptyState')}</Typography.Text>
                             </DocumentationContainer>
                         )}
                         {!hideLinksButton && <RelatedSection />}
@@ -112,12 +125,14 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                 </>
             ) : (
                 <EmptyTabWrapper>
-                    <EmptyTab tab="documentation" hideImage={false}>
+                    <EmptyTab tab={DOCUMENTATION_TAB} hideImage={false}>
                         <Button
                             data-testid="add-documentation"
-                            onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
+                            onClick={() =>
+                                routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { editing: true } })
+                            }
                         >
-                            <PlusOutlined /> Add Documentation
+                            <PlusOutlined /> {t('addDocumentation')}
                         </Button>
                     </EmptyTab>
                 </EmptyTabWrapper>
@@ -127,7 +142,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     editMode={(isEditing && true) || false}
                     description={displayedDescription}
                     onClose={() => {
-                        routeToTab({ tabName: 'Documentation', tabParams: { editing: false } });
+                        routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { editing: false } });
                     }}
                 />
             )}

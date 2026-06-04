@@ -1,12 +1,15 @@
+import { Avatar } from '@components';
 import { Skeleton } from 'antd';
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { NavLinks } from '@app/homeV2/layout/NavLinks';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -25,7 +28,7 @@ const Content = styled.div`
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    background-color: #3b2d94;
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     border-radius: 32px;
     height: 100%;
     width: 52px;
@@ -39,9 +42,9 @@ const Icon = styled.div`
     width: 44px;
     height: 44px;
     border-radius: 38px;
-    border: 1px solid #32267d;
-    background: #4c39be;
-    box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+    border: 1px solid ${(props) => props.theme.colors.borderBrand};
+    background: ${(props) => props.theme.colors.buttonFillBrand};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     margin-bottom: 10px;
 
     & svg {
@@ -70,11 +73,7 @@ const UserIcon = styled.div`
     border-radius: 38px;
     overflow: hidden;
     margin-bottom: 3px;
-    box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
-
-    .ant-avatar {
-        margin: 0;
-    }
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const SkeletonButton = styled(Skeleton.Button)`
@@ -102,6 +101,7 @@ const NavSkeleton = () => {
 };
 
 export const NavSidebar = () => {
+    const { t } = useTranslation('home.v2');
     const appConfig = useAppConfig();
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
@@ -111,7 +111,7 @@ export const NavSidebar = () => {
     const customLogoUrl = appConfig.config.visualConfig.logoUrl;
     const hasCustomLogo = customLogoUrl && customLogoUrl !== DEFAULT_LOGO;
 
-    const logoComponent = hasCustomLogo ? <CustomLogo alt="logo" src={customLogoUrl} /> : <AcrylIcon />;
+    const logoComponent = hasCustomLogo ? <CustomLogo alt={t('navBar.logoAlt')} src={customLogoUrl} /> : <AcrylIcon />;
 
     return (
         <Container>
@@ -127,11 +127,11 @@ export const NavSidebar = () => {
                         <Spacer />
                         <UserIcon>
                             <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${urn}`}>
-                                <CustomAvatar
-                                    photoUrl={user?.editableProperties?.pictureLink || undefined}
+                                <Avatar
                                     name={user?.editableProperties?.displayName || ''}
-                                    size={44}
-                                    hideTooltip
+                                    imageUrl={user?.editableProperties?.pictureLink || undefined}
+                                    type={AvatarType.user}
+                                    size="xl"
                                 />
                             </Link>
                         </UserIcon>

@@ -3,9 +3,11 @@ import { Loader, Text } from '@components';
 import { message } from 'antd';
 import deepEqual from 'fast-deep-equal';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation, useParams } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
+import { useIngestionContext } from '@app/ingestV2/IngestionContext';
 import { updateListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import { useUpdateIngestionSource } from '@app/ingestV2/source/hooks/useUpdateSource';
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
@@ -29,20 +31,13 @@ import { PageRoutes } from '@conf/Global';
 import { useGetIngestionSourceQuery } from '@graphql/ingestion.generated';
 import { IngestionSource } from '@types';
 
-const STEPS: IngestionSourceFormStep[] = [
-    {
-        label: 'Connection Details',
-        subTitle: <ConnectionDetailsSubTitle />,
-        key: 'connectionDetails',
-        content: <ConnectionDetailsStep />,
-    },
-];
-
 export function IngestionSourceUpdatePage() {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const history = useHistory();
     const location = useLocation();
     const client = useApolloClient();
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const { setCreatedOrUpdatedSource, setShouldRunCreatedOrUpdatedSource } = useIngestionContext();
 
     const ingestionSourcesListQueryInputs = useMemo(() => location.state?.queryInputs, [location.state]);
     const ingestionSourcesListBackUrl = useMemo(() => location.state?.backUrl, [location.state]);
@@ -59,6 +54,18 @@ export function IngestionSourceUpdatePage() {
 
     const updateIngestionSource = useUpdateIngestionSource();
 
+    const STEPS: IngestionSourceFormStep[] = useMemo(
+        () => [
+            {
+                label: t('multiStep.builder.connectionDetailsStepLabel'),
+                subTitle: <ConnectionDetailsSubTitle />,
+                key: 'connectionDetails',
+                content: <ConnectionDetailsStep />,
+            },
+        ],
+        [t],
+    );
+
     const onSubmit = useCallback(
         async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {
             if (!data) return undefined;
@@ -69,6 +76,9 @@ export function IngestionSourceUpdatePage() {
                 const source = ingestionSourceData?.ingestionSource as IngestionSource | undefined;
                 const input = getIngestionSourceMutationInput(data, source);
                 await updateIngestionSource(urn, input, data.owners, source?.ownership?.owners || []);
+
+                setCreatedOrUpdatedSource(urn);
+                setShouldRunCreatedOrUpdatedSource(!!shouldRun);
 
                 if (ingestionSourcesListQueryInputs) {
                     const updatedSource = {
@@ -104,14 +114,12 @@ export function IngestionSourceUpdatePage() {
                 });
 
                 message.success({
-                    content: `Successfully updated ingestion source!`,
+                    content: t('multiStep.updatePage.successMessage'),
                     duration: 3,
                 });
 
                 history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
-                    createdOrUpdatedSourceUrn: urn,
                     sourcesListQueryInputs: ingestionSourcesListQueryInputs,
-                    shouldRun,
                 });
             } catch (e: unknown) {
                 message.destroy();
@@ -128,6 +136,8 @@ export function IngestionSourceUpdatePage() {
         },
         [
             updateIngestionSource,
+            setCreatedOrUpdatedSource,
+            setShouldRunCreatedOrUpdatedSource,
             urn,
             history,
             ingestionSourceData,
@@ -135,6 +145,7 @@ export function IngestionSourceUpdatePage() {
             ingestionSourcesListQueryInputs,
             ingestionSourcesListBackUrl,
             defaultOwnershipType,
+            t,
         ],
     );
 
@@ -198,14 +209,14 @@ export function IngestionSourceUpdatePage() {
     return (
         <DiscardUnsavedChangesConfirmationProvider
             enableRedirectHandling={!isSubmitting}
-            confirmationModalTitle="You have unsaved changes"
+            confirmationModalTitle={t('multiStep.builder.discard.title')}
             confirmationModalContent={
                 <Text color="gray" colorLevel={1700}>
-                    Exiting now will discard your configuration. You can continue setup or exit and start over later
+                    {t('multiStep.builder.discard.description')}
                 </Text>
             }
-            confirmButtonText="Continue Setup"
-            closeButtonText="Exit Without Saving"
+            confirmButtonText={t('multiStep.builder.discard.confirm')}
+            closeButtonText={t('multiStep.builder.discard.close')}
         >
             <IngestionSourceBuilder
                 steps={STEPS}

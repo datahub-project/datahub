@@ -1,4 +1,8 @@
-import { CheckCircle, Info, MegaphoneSimple, WarningCircle, X } from '@phosphor-icons/react';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { MegaphoneSimple } from '@phosphor-icons/react/dist/csr/MegaphoneSimple';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 
 import { AlertActions, AlertContainer, AlertContent, AlertIconWrapper } from '@components/components/Alert/components';
@@ -17,16 +21,24 @@ const DEFAULT_ICONS: Record<AlertVariant, React.ReactNode> = {
  * Inline status banner for success, error, warning, info, and brand messages.
  * Colors are derived from semantic theme tokens based on the variant.
  */
-export function Alert({ variant, title, description, icon, onClose, action, className, style }: AlertProps) {
+export function Alert({
+    variant,
+    title,
+    description,
+    icon,
+    onClose,
+    action,
+    className,
+    style,
+    'data-testid': dataTestId,
+}: AlertProps) {
     const displayIcon = icon ?? DEFAULT_ICONS[variant];
 
-    const hasActions = !!(action || onClose);
-
     return (
-        <AlertContainer $variant={variant} $hasActions={hasActions} className={className} style={style}>
+        <AlertContainer $variant={variant} className={className} style={style} data-testid={dataTestId}>
             <AlertIconWrapper $variant={variant}>{displayIcon}</AlertIconWrapper>
-            <AlertContent>
-                <Text weight="semiBold" size="sm">
+            <AlertContent $variant={variant}>
+                <Text weight="semiBold" size="md">
                     {title}
                 </Text>
                 {description && <Text size="sm">{description}</Text>}

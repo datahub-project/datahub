@@ -4,7 +4,7 @@ import {
   finishEditingDefaultTemplate,
   removeFirstModuleWithTestId,
   resetToOrgDefault,
-  setThemeV2AndHomePageRedesignFlags,
+  setHomePageRedesignFlags,
   shouldBeOnPersonalTemplate,
   shouldShowDefaultTemplate,
   startEditingDefaultTemplate,
@@ -13,7 +13,7 @@ import {
 
 describe("home page templates", () => {
   beforeEach(() => {
-    setThemeV2AndHomePageRedesignFlags(true);
+    setHomePageRedesignFlags(true);
     cy.login();
     cy.visit("/");
     cy.skipIntroducePage();

@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.api.entities.dataproduct.dataproduct import DataProduct
 from datahub.metadata.schema_classes import DomainPropertiesClass
@@ -53,7 +53,7 @@ def check_yaml_golden_file(input_file: str, golden_file: str) -> bool:
     return diff_exists
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.parametrize(
     "data_product_filename, upsert,golden_filename",
     [
@@ -97,7 +97,7 @@ def test_dataproduct_from_yaml(
     check_golden_file(pytestconfig, output_file, golden_file)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dataproduct_from_datahub(
     pytestconfig: pytest.Config,
     test_resources_dir: Path,
@@ -126,7 +126,7 @@ def test_dataproduct_from_datahub(
     check_golden_file(pytestconfig, output_file, golden_file)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.parametrize(
     "original_file",
     [
@@ -165,7 +165,7 @@ def test_dataproduct_patch_yaml(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dataproduct_ownership_type_urn_from_yaml(
     pytestconfig: pytest.Config,
     tmp_path: Path,
@@ -185,7 +185,7 @@ def test_dataproduct_ownership_type_urn_from_yaml(
     check_golden_file(pytestconfig, output_file, golden_file)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dataproduct_ownership_type_urn_patch_yaml(
     tmp_path: Path, test_resources_dir: Path, base_mock_graph: MockDataHubGraph
 ) -> None:

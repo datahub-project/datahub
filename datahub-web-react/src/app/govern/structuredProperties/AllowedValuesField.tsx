@@ -1,5 +1,9 @@
 import { Icon, Text, Tooltip } from '@components';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
 import {
     FieldLabel,
@@ -23,18 +27,18 @@ interface Props {
 }
 
 const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setShowAllowedValuesDrawer }: Props) => {
+    const { t } = useTranslation('governance.structured-properties');
+    const valueType = valueField === 'stringValue' ? t('valueType.text') : t('valueType.number');
+
     return (
         <>
             {isStringOrNumberTypeSelected(selectedValueType) && (
                 <RowContainer>
                     <FieldLabel>
                         <FlexContainer>
-                            Allowed Values
-                            <Tooltip
-                                title="Define the set of valid values for this property. If none are provided, any value will be allowed"
-                                showArrow={false}
-                            >
-                                <Icon icon="Info" color="violet" size="lg" />
+                            {t('allowedValues.title')}
+                            <Tooltip title={t('allowedValues.fieldTooltip')} showArrow={false}>
+                                <Icon icon={Info} color="violet" size="lg" />
                             </Tooltip>
                         </FlexContainer>
                     </FieldLabel>
@@ -51,9 +55,9 @@ const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setS
                                     );
                                 })}
                             </ValuesList>
-                            <Tooltip title="Update allowed values" showArrow={false}>
+                            <Tooltip title={t('allowedValues.updateTooltip')} showArrow={false}>
                                 <StyledIcon
-                                    icon="ChevronRight"
+                                    icon={CaretRight}
                                     color="gray"
                                     onClick={() => setShowAllowedValuesDrawer(true)}
                                 />
@@ -61,11 +65,13 @@ const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setS
                         </ItemsContainer>
                     ) : (
                         <ValueListContainer>
-                            Any
-                            <ValueType>{valueField === 'stringValue' ? 'text' : 'number'} </ValueType>
-                            value will be allowed
-                            <Tooltip title="Update allowed values" showArrow={false}>
-                                <Icon icon="Add" color="gray" onClick={() => setShowAllowedValuesDrawer(true)} />
+                            <Trans
+                                i18nKey="allowedValues.anyValueAllowed"
+                                components={{ type: <ValueType /> }}
+                                values={{ valueType }}
+                            />
+                            <Tooltip title={t('allowedValues.updateTooltip')} showArrow={false}>
+                                <Icon icon={Plus} color="gray" onClick={() => setShowAllowedValuesDrawer(true)} />
                             </Tooltip>
                         </ValueListContainer>
                     )}

@@ -1,57 +1,61 @@
 import { Modal } from '@components';
 import { message } from 'antd';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ModalButton } from '@components/components/Modal/Modal';
 
 import ApplicationDetailsSection from '@app/applications/CreateNewApplicationModal/ApplicationDetailsSection';
-import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
+import { useUserContext } from '@app/context/useUserContext';
+import OwnersSection from '@app/domainV2/OwnersSection';
+import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 
 import { useCreateApplicationMutation } from '@graphql/application.generated';
 import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
 
 type CreateNewApplicationModalProps = {
     open: boolean;
-    onClose: () => void;
+    onCreate: () => void;
+    onClose?: () => void;
 };
 
-/**
- * Modal for creating a new application with owners and applying it to entities
- */
-const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ onClose, open }) => {
-    // Application details state
+const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ onCreate, onClose, open }) => {
+    const { t } = useTranslation('misc');
+    const { t: tc } = useTranslation('common.actions');
+    const { loaded: userLoaded, user } = useUserContext();
+    const initialOwners = useMemo(() => (user ? [user] : []), [user]);
+    const initialOwnerUrns = useMemo(() => initialOwners.map((owner) => owner.urn), [initialOwners]);
     const [applicationName, setApplicationName] = useState('');
     const [applicationDescription, setApplicationDescription] = useState('');
-
-    // Owners state
-    const [pendingOwners, setPendingOwners] = useState<PendingOwner[]>([]);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
-
-    // Loading state
+    const [hasInitializedDefaultOwner, setHasInitializedDefaultOwner] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Mutations
     const [createApplicationMutation] = useCreateApplicationMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
 
-    const onChangeOwners = (newOwners: PendingOwner[]) => {
-        setPendingOwners(newOwners);
-    };
+    useEffect(() => {
+        if (!hasInitializedDefaultOwner && userLoaded) {
+            setSelectedOwnerUrns(user?.urn ? [user.urn] : []);
+            setHasInitializedDefaultOwner(true);
+        }
+    }, [hasInitializedDefaultOwner, user?.urn, userLoaded]);
 
-    /**
-     * Handler for creating the tag and applying it to entities
-     */
+    const clearFields = useCallback(() => {
+        setApplicationName('');
+        setApplicationDescription('');
+        setSelectedOwnerUrns(initialOwnerUrns);
+    }, [initialOwnerUrns]);
+
     const onOk = async () => {
         if (!applicationName) {
-            // this should not happen due to validation in the modal, but doesnt hurt to be safe
-            message.error('Application name is required');
+            message.error(t('applications.nameRequiredError'));
             return;
         }
 
         setIsLoading(true);
 
         try {
-            // Step 1: Create the new application
             const createApplicationResult = await createApplicationMutation({
                 variables: {
                     input: {
@@ -59,6 +63,7 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
                             name: applicationName.trim(),
                             description: applicationDescription,
                         },
+                        shouldAddCreatorAsOwner: false,
                     },
                 },
             });
@@ -66,58 +71,66 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
             const newApplicationUrn = createApplicationResult.data?.createApplication?.urn;
 
             if (!newApplicationUrn) {
-                message.error('Failed to create application. An unexpected error occurred');
+                message.error(t('applications.createError'));
                 setIsLoading(false);
                 return;
             }
 
-            // Step 3: Add owners if any
-            if (pendingOwners.length > 0) {
+            if (selectedOwnerUrns.length > 0) {
+                const ownerInputs = createOwnerInputs(selectedOwnerUrns);
                 await batchAddOwnersMutation({
                     variables: {
                         input: {
-                            owners: pendingOwners,
+                            owners: ownerInputs,
                             resources: [{ resourceUrn: newApplicationUrn }],
                         },
                     },
                 });
             }
 
-            message.success(`Application "${applicationName}" successfully created`);
-            setApplicationName('');
-            setApplicationDescription('');
-            setPendingOwners([]);
-            setSelectedOwnerUrns([]);
-            onClose();
+            message.success(t('applications.createSuccess', { name: applicationName }));
+            clearFields();
+            onCreate();
         } catch (e: any) {
             message.destroy();
-            message.error(`Failed to create application. An unexpected error occurred: ${e.message}`);
+            message.error(t('applications.createErrorDetail', { error: e.message }));
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Modal buttons configuration
+    const onModalClose = useCallback(() => {
+        clearFields();
+        onClose?.();
+    }, [onClose, clearFields]);
+
     const buttons: ModalButton[] = [
         {
-            text: 'Cancel',
+            text: tc('cancel'),
             color: 'violet',
             variant: 'text',
-            onClick: onClose,
+            onClick: onModalClose,
         },
         {
-            text: 'Create',
+            text: tc('create'),
             id: 'createNewApplicationButton',
             color: 'violet',
             variant: 'filled',
             onClick: onOk,
-            disabled: !applicationName || isLoading,
+            disabled: !applicationName || isLoading || !hasInitializedDefaultOwner,
             isLoading,
         },
     ];
 
     return (
-        <Modal title="Create New Application" onCancel={onClose} buttons={buttons} open={open} centered width={500}>
+        <Modal
+            title={t('applications.createModalTitle')}
+            onCancel={onModalClose}
+            buttons={buttons}
+            open={open}
+            centered
+            width={500}
+        >
             <ApplicationDetailsSection
                 applicationName={applicationName}
                 setApplicationName={setApplicationName}
@@ -127,8 +140,8 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
             <OwnersSection
                 selectedOwnerUrns={selectedOwnerUrns}
                 setSelectedOwnerUrns={setSelectedOwnerUrns}
-                existingOwners={[]}
-                onChange={onChangeOwners}
+                isDisabled={!hasInitializedDefaultOwner}
+                isLoading={!hasInitializedDefaultOwner}
             />
         </Modal>
     );

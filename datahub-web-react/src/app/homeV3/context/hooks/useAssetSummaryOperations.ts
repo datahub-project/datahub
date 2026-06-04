@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import {
@@ -18,12 +19,7 @@ import {
 
 import { StructuredPropertyFieldsFragment } from '@graphql/fragments.generated';
 import { PageTemplateFragment, SummaryElementFragment } from '@graphql/template.generated';
-import { SummaryElement, SummaryElementType } from '@types';
-
-// Types for summary element operations
-export interface SummaryElementWithId extends SummaryElement {
-    id: string; // Unique identifier for React keys and operations
-}
+import { SummaryElementType } from '@types';
 
 export interface AddSummaryElementInput {
     elementType: SummaryElementType;
@@ -78,6 +74,8 @@ export function useAssetSummaryOperations(
         personalTemplate: PageTemplateFragment | null,
     ) => Promise<any>,
 ) {
+    const { t } = useTranslation('home.v3');
+
     // Create context object to avoid passing many parameters
     const context: TemplateUpdateContext = useMemo(
         () => ({
@@ -106,7 +104,8 @@ export function useAssetSummaryOperations(
             if (handleValidationError(validationError, 'addSummaryElement')) return;
 
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
-            if (!validateTemplateAvailability(templateToUpdate) || !templateToUpdate) return;
+            if (!validateTemplateAvailability(templateToUpdate, t('error.noTemplateAvailable')) || !templateToUpdate)
+                return;
 
             // Create new summary element
             const newSummaryElement = createSummaryElementFromInput(input);
@@ -128,7 +127,7 @@ export function useAssetSummaryOperations(
             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
 
             // Persist changes
-            persistTemplateChanges(context, updatedTemplate, isPersonal, 'add summary element');
+            persistTemplateChanges(context, updatedTemplate, isPersonal, 'addSummaryElement');
 
             analytics.event({
                 type: EventType.AssetPageAddSummaryElement,
@@ -136,7 +135,7 @@ export function useAssetSummaryOperations(
                 elementType: input.elementType,
             });
         },
-        [context],
+        [context, t],
     );
 
     // Remove a summary element from the template
@@ -147,7 +146,8 @@ export function useAssetSummaryOperations(
             if (handleValidationError(validationError, 'removeSummaryElement')) return;
 
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
-            if (!validateTemplateAvailability(templateToUpdate) || !templateToUpdate) return;
+            if (!validateTemplateAvailability(templateToUpdate, t('error.noTemplateAvailable')) || !templateToUpdate)
+                return;
 
             const currentSummaryElements = templateToUpdate.properties?.assetSummary?.summaryElements || [];
 
@@ -173,7 +173,7 @@ export function useAssetSummaryOperations(
             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
 
             // Persist changes
-            persistTemplateChanges(context, updatedTemplate, isPersonal, 'remove summary element');
+            persistTemplateChanges(context, updatedTemplate, isPersonal, 'removeSummaryElement');
 
             analytics.event({
                 type: EventType.AssetPageRemoveSummaryElement,
@@ -181,7 +181,7 @@ export function useAssetSummaryOperations(
                 elementType,
             });
         },
-        [context],
+        [context, t],
     );
 
     // Replace a summary element in the template
@@ -192,7 +192,8 @@ export function useAssetSummaryOperations(
             if (handleValidationError(validationError, 'replaceSummaryElement')) return;
 
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
-            if (!validateTemplateAvailability(templateToUpdate) || !templateToUpdate) return;
+            if (!validateTemplateAvailability(templateToUpdate, t('error.noTemplateAvailable')) || !templateToUpdate)
+                return;
 
             const currentSummaryElements = templateToUpdate.properties?.assetSummary?.summaryElements || [];
 
@@ -221,7 +222,7 @@ export function useAssetSummaryOperations(
             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
 
             // Persist changes
-            persistTemplateChanges(context, updatedTemplate, isPersonal, 'replace summary element');
+            persistTemplateChanges(context, updatedTemplate, isPersonal, 'replaceSummaryElement');
 
             analytics.event({
                 type: EventType.AssetPageReplaceSummaryElement,
@@ -230,7 +231,7 @@ export function useAssetSummaryOperations(
                 newElementType: input.elementType,
             });
         },
-        [context],
+        [context, t],
     );
 
     return {

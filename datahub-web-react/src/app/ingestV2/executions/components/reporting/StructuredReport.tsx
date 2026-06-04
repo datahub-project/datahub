@@ -1,6 +1,12 @@
-import { Card, Icon, colors } from '@components';
+import { Card, Icon } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import { WarningDiamond } from '@phosphor-icons/react/dist/csr/WarningDiamond';
+import i18next from 'i18next';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { StructuredReportItemList } from '@app/ingestV2/executions/components/reporting/StructuredReportItemList';
 import {
@@ -30,10 +36,10 @@ const StyledPill = styled.div`
     align-items: center;
     gap: 4px;
     border-radius: 200px;
-    background: ${colors.gray[1500]};
+    background: ${(props) => props.theme.colors.bgSurface};
     font-size: 12px;
     font-weight: 500;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const ChevronButton = styled.div`
@@ -44,16 +50,9 @@ const ChevronButton = styled.div`
 `;
 
 const ChevronIcon = styled(Icon)`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
 `;
-
-const ERROR_COLOR = colors.red[0];
-const ERROR_TEXT_COLOR = colors.red[1000];
-const WARNING_COLOR = colors.yellow[0];
-const WARNING_TEXT_COLOR = colors.yellow[1000];
-const INFO_COLOR = colors.gray[1000];
-const INFO_TEXT_COLOR = colors.violet[500];
 
 interface Props {
     report: StructuredReportType;
@@ -67,46 +66,50 @@ export function hasSomethingToShow(report: StructuredReportType): boolean {
 }
 
 export function generateReportTitle(hasErrors: boolean, hasWarnings: boolean, hasInfos: boolean): string {
-    if (hasErrors && hasWarnings && hasInfos) {
-        return 'Errors & Warnings';
-    }
     if (hasErrors && hasWarnings) {
-        return 'Errors & Warnings';
+        return i18next.t('ingestion:report.titleErrorsAndWarnings');
     }
     if (hasErrors && hasInfos) {
-        return 'Errors & Infos';
+        return i18next.t('ingestion:report.titleErrorsAndInfos');
     }
     if (hasWarnings && hasInfos) {
-        return 'Warnings & Infos';
+        return i18next.t('ingestion:report.titleWarningsAndInfos');
     }
     if (hasErrors) {
-        return 'Errors';
+        return i18next.t('ingestion:report.titleErrors');
     }
     if (hasWarnings) {
-        return 'Warnings';
+        return i18next.t('ingestion:report.titleWarnings');
     }
     if (hasInfos) {
-        return 'Infos';
+        return i18next.t('ingestion:report.titleInfos');
     }
     return '';
 }
 
 export function generateReportSubtitle(hasErrors: boolean, hasWarnings: boolean, hasInfos: boolean): string {
-    const parts: string[] = [];
-    if (hasErrors) parts.push('errors');
-    if (hasWarnings) parts.push('warnings');
-    if (hasInfos) parts.push('information');
-
-    let subtitle = 'Ingestion ran with ';
-    if (parts.length === 1) {
-        subtitle += parts[0];
-    } else if (parts.length === 2) {
-        subtitle += parts.join(' and ');
-    } else {
-        subtitle += `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`;
+    if (hasErrors && hasWarnings && hasInfos) {
+        return i18next.t('ingestion:report.subtitleErrorsWarningsInfo');
     }
-    subtitle += '.';
-    return subtitle;
+    if (hasErrors && hasWarnings) {
+        return i18next.t('ingestion:report.subtitleErrorsWarnings');
+    }
+    if (hasErrors && hasInfos) {
+        return i18next.t('ingestion:report.subtitleErrorsInfo');
+    }
+    if (hasWarnings && hasInfos) {
+        return i18next.t('ingestion:report.subtitleWarningsInfo');
+    }
+    if (hasErrors) {
+        return i18next.t('ingestion:report.subtitleErrors');
+    }
+    if (hasWarnings) {
+        return i18next.t('ingestion:report.subtitleWarnings');
+    }
+    if (hasInfos) {
+        return i18next.t('ingestion:report.subtitleInfo');
+    }
+    return '';
 }
 
 export function distributeVisibleItems(
@@ -137,6 +140,14 @@ export function distributeVisibleItems(
 }
 
 export function StructuredReport({ report }: Props) {
+    const theme = useTheme();
+    const errorColor = theme.colors.bgSurfaceError;
+    const errorTextColor = theme.colors.textError;
+    const warningColor = theme.colors.bgSurfaceWarning;
+    const warningTextColor = theme.colors.textWarning;
+    const infoColor = theme.colors.bgSurfaceBrand;
+    const infoTextColor = theme.colors.textBrand;
+
     const warnings = report.items.filter((item) => item.level === StructuredReportItemLevel.WARN);
     const errors = report.items.filter((item) => item.level === StructuredReportItemLevel.ERROR);
     const infos = report.items.filter((item) => item.level === StructuredReportItemLevel.INFO);
@@ -197,7 +208,7 @@ export function StructuredReport({ report }: Props) {
 
     const chevronButton = (
         <ChevronButton onClick={toggleExpanded}>
-            <ChevronIcon icon={isExpanded ? 'CaretUp' : 'CaretDown'} source="phosphor" size="md" />
+            <ChevronIcon icon={isExpanded ? CaretUp : CaretDown} size="md" />
         </ChevronButton>
     );
 
@@ -207,25 +218,25 @@ export function StructuredReport({ report }: Props) {
                 {visibleErrors.length ? (
                     <StructuredReportItemList
                         items={visibleErrors}
-                        color={ERROR_COLOR}
-                        textColor={ERROR_TEXT_COLOR}
-                        icon="WarningDiamond"
+                        color={errorColor}
+                        textColor={errorTextColor}
+                        icon={WarningDiamond}
                     />
                 ) : null}
                 {visibleWarnings.length ? (
                     <StructuredReportItemList
                         items={visibleWarnings}
-                        color={WARNING_COLOR}
-                        textColor={WARNING_TEXT_COLOR}
-                        icon="WarningCircle"
+                        color={warningColor}
+                        textColor={warningTextColor}
+                        icon={WarningCircle}
                     />
                 ) : null}
                 {visibleInfos.length ? (
                     <StructuredReportItemList
                         items={visibleInfos}
-                        color={INFO_COLOR}
-                        textColor={INFO_TEXT_COLOR}
-                        icon="Info"
+                        color={infoColor}
+                        textColor={infoTextColor}
+                        icon={Info}
                     />
                 ) : null}
             </Container>

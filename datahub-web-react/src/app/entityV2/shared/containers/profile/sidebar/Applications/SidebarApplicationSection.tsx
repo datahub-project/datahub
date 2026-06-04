@@ -1,7 +1,9 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Modal, message } from 'antd';
+import { toast } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Modal } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
@@ -40,6 +42,8 @@ interface Props {
 }
 
 export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
     const {
         config: { visualConfig },
     } = useAppConfig();
@@ -66,26 +70,26 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
             },
         })
             .then(() => {
-                message.success({ content: 'Removed Application.', duration: 2 });
+                toast.success(t('sidebar.application.removeSuccess'), { duration: 2 });
                 refetch?.();
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to remove application: \n ${e.message || ''}`, duration: 3 });
+                    toast.error(t('sidebar.application.removeFailed', { message: e.message || '' }), { duration: 3 });
                 }
             });
     };
 
     const onRemoveApplication = (applicationUrn: string) => {
         Modal.confirm({
-            title: `Confirm Application Removal`,
-            content: `Are you sure you want to remove this application?`,
+            title: t('sidebar.application.removeConfirmTitle'),
+            content: t('sidebar.application.removeConfirmContent'),
             onOk() {
                 removeApplication(applicationUrn);
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: tc('yes'),
             maskClosable: true,
             closable: true,
         });
@@ -94,7 +98,7 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
     return (
         <div className="sidebar-application-section">
             <SidebarSection
-                title="Applications"
+                title={t('sidebar.application.sectionTitle')}
                 content={
                     <Content>
                         {applications.length > 0 &&
@@ -127,7 +131,7 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
                     !readOnly && (
                         <SectionActionButton
                             dataTestId="add-applications-button"
-                            button={applications.length > 0 ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                            icon={applications.length > 0 ? PencilSimple : Plus}
                             onClick={(event) => {
                                 setShowModal(true);
                                 event.stopPropagation();

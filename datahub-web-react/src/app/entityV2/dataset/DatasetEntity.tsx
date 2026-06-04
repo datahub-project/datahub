@@ -11,12 +11,16 @@ import {
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import { Columns, ListBullets, Table, TreeStructure } from '@phosphor-icons/react';
+import { Columns } from '@phosphor-icons/react/dist/csr/Columns';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import { GOVERNANCE_TAB_NAME, QUALITY_TAB_NAME } from '@app/entityV2/dataset/constants';
+import { getGovernanceTabName, getQualityTabName } from '@app/entityV2/dataset/constants';
 import { Preview } from '@app/entityV2/dataset/preview/Preview';
 import { OperationsTab } from '@app/entityV2/dataset/profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from '@app/entityV2/dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
@@ -85,6 +89,7 @@ const headerDropdownItems = new Set([
     EntityMenuItems.RAISE_INCIDENT,
     EntityMenuItems.ANNOUNCE,
     EntityMenuItems.LINK_VERSION,
+    EntityMenuItems.CHANGE_HISTORY,
 ]);
 
 /**
@@ -121,9 +126,9 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getPathName = () => this.getGraphName();
 
-    getEntityName = () => 'Dataset';
+    getEntityName = () => i18next.t('entity.types:dataset.name');
 
-    getCollectionName = () => 'Datasets';
+    getCollectionName = () => i18next.t('entity.types:dataset.namePlural');
 
     useEntityQuery = useGetDatasetQuery;
 
@@ -173,27 +178,27 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
         },
         {
-            name: 'Columns',
+            name: i18next.t('common.labels:columns'),
             component: SchemaTab,
-            description: "View this data asset's columns",
+            description: i18next.t('entity.types:sidebar.columnsDescription'),
             icon: Columns,
             properties: {
                 fullHeight: true,
             },
         },
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -248,20 +253,20 @@ export class DatasetEntity implements Entity<Dataset> {
             ...(showSummaryTab
                 ? [
                       {
-                          name: 'Summary',
+                          name: i18next.t('entity.types:tab.summary'),
                           component: SummaryTab,
                           icon: SUMMARY_TAB_ICON,
                       },
                   ]
                 : []),
             {
-                name: 'Columns',
+                name: i18next.t('common.labels:columns'),
                 component: SchemaTab,
                 icon: LayoutOutlined,
                 getCount: useGetColumnTabCount,
             },
             {
-                name: 'View Definition',
+                name: i18next.t('entity.types:dataset.viewDefinitionTab'),
                 component: ViewDefinitionTab,
                 icon: CodeOutlined,
                 display: {
@@ -276,14 +281,14 @@ export class DatasetEntity implements Entity<Dataset> {
             ...(!showSummaryTab
                 ? [
                       {
-                          name: 'Documentation',
+                          name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
                           icon: FileOutlined,
                       },
                   ]
                 : []),
             {
-                name: 'Preview',
+                name: i18next.t('common.actions:preview'),
                 component: EmbedTab,
                 icon: EyeOutlined,
                 display: {
@@ -292,12 +297,12 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
             },
             {
-                name: 'Lineage',
+                name: i18next.t('entity.types:tab.lineage'),
                 component: LineageTab,
                 icon: PartitionOutlined,
             },
             {
-                name: 'Access',
+                name: i18next.t('entity.types:shared.accessTab'),
                 component: AccessManagement,
                 icon: UnlockOutlined,
                 display: {
@@ -306,7 +311,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
             },
             {
-                name: 'Properties',
+                name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
                 icon: UnorderedListOutlined,
                 getCount: (_, dataset: GetDatasetQuery) => {
@@ -317,7 +322,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
             },
             {
-                name: 'Queries',
+                name: i18next.t('entity.types:tab.queries'),
                 component: QueriesTab,
                 icon: ConsoleSqlOutlined,
                 display: {
@@ -326,7 +331,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
             },
             {
-                name: 'Stats',
+                name: i18next.t('entity.types:dataset.statsTab'),
                 component: StatsTabWrapper,
                 icon: FundOutlined,
                 display: {
@@ -339,12 +344,12 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
             },
             {
-                name: QUALITY_TAB_NAME,
+                name: getQualityTabName(),
                 component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
                 icon: CheckCircleOutlined,
             },
             {
-                name: GOVERNANCE_TAB_NAME,
+                name: getGovernanceTabName(),
                 icon: () => (
                     <span
                         style={{
@@ -363,7 +368,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
             },
             {
-                name: 'Runs', // TODO: Rename this to DatasetRunsTab.
+                name: i18next.t('entity.types:tab.runs'), // TODO: Rename this to DatasetRunsTab.
                 component: OperationsTab,
                 display: {
                     visible: (_, dataset: GetDatasetQuery) => {
@@ -375,7 +380,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
             },
             {
-                name: 'Incidents',
+                name: i18next.t('entity.types:tab.incidents'),
                 icon: WarningOutlined,
                 component: IncidentTab,
                 getCount: (_, dataset) => {

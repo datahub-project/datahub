@@ -15,14 +15,14 @@ const secondIconStyles = (isSmall: boolean) => ({
     marginLeft: isSmall ? '-10px' : '-16px',
     zIndex: 0,
     borderRadius: isSmall ? '8px' : '16px',
-    border: '1px solid #FFF',
+    border: '1px solid transparent',
     padding: isSmall ? '4px' : '10px',
 });
 
 const firstIconStyles = (isSmall: boolean) => ({
     zIndex: 1,
     borderRadius: isSmall ? '8px' : '16px',
-    border: '1px solid #FFF',
+    border: '1px solid transparent',
     padding: isSmall ? '4px' : '10px',
 });
 

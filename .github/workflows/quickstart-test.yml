@@ -34,10 +34,10 @@ jobs:
           sudo docker image prune -a -f || true
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
 
@@ -48,10 +48,28 @@ jobs:
       - name: Run quickstart
         run: |
           source metadata-ingestion/venv/bin/activate
-          # Use compose and version mapping files from PR
+          # Use compose and version mapping from PR. Pull pinned release images (default key);
+          # the :quickstart tag is not on Docker Hub until after a green master build publishes it.
+          # head→quickstart mapping is covered by unit tests in test_quickstart_version_mapping.py.
           export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
-          datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml
+          datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml --version default
           docker images
+
+      - name: Store logs
+        if: failure()
+        env:
+          TARGET_DIR: docker_logs/${{ github.job }}
+          COMPOSE_PROJECT_NAME: datahub
+        run: |
+          docker ps -a
+          . .github/scripts/docker_logs.sh
+      - name: Upload logs
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: docker-logs-${{ github.job }}
+          path: docker_logs/${{ github.job }}/
+          retention-days: 5
 
       - name: Run quickstart check
         run: |
@@ -62,7 +80,7 @@ jobs:
         if: false
         env:
           RUN_QUICKSTART: false
-          DATAHUB_VERSION: head
+          DATAHUB_VERSION: quickstart
           CLEANUP_DATA: "false"
           TEST_STRATEGY: cypress
           BATCH_COUNT: 30
@@ -89,7 +107,7 @@ jobs:
           sudo docker image prune -a -f || true
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
       - name: install older datahub cli
@@ -104,7 +122,7 @@ jobs:
           datahub docker check
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install dependencies
         run: |
@@ -138,6 +156,22 @@ jobs:
           echo "y" | datahub docker quickstart --restore
           datahub docker check
 
+      - name: Store logs
+        if: failure()
+        env:
+          TARGET_DIR: docker_logs/${{ github.job }}
+          COMPOSE_PROJECT_NAME: datahub
+        run: |
+          docker ps -a
+          . .github/scripts/docker_logs.sh
+      - name: Upload logs
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: docker-logs-${{ github.job }}
+          path: docker_logs/${{ github.job }}/
+          retention-days: 5
+
   test-quickstart-regression:
     name: Verify upgrades work with latest CLI
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
@@ -145,7 +179,8 @@ jobs:
     strategy:
       matrix:
         # TODO: once more supported versions are added, this should become list last n versions
-        datahub_version: ["v1.1.0", "v1.2.0", "v1.3.0.1", "head"]
+        # Use a published release tag for "latest"; :quickstart is validated on master via docker-unified.
+        datahub_version: ["v1.1.0", "v1.2.0", "v1.3.0.1", "v1.5.0.6"]
       fail-fast: false
     steps:
       - name: Free up disk space
@@ -155,7 +190,7 @@ jobs:
           sudo docker image prune -a -f || true
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
       - name: install datahub cli
@@ -197,7 +232,7 @@ jobs:
           sudo docker image prune -a -f || true
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
       - name: install datahub cli
@@ -230,7 +265,7 @@ jobs:
           sudo docker image prune -a -f || true
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
       - name: install datahub cli
@@ -294,7 +329,7 @@ jobs:
           sudo docker image prune -a -f || true
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install Docker Compose (standalone mode)
         if: matrix.compose_type == 'standalone'
@@ -368,7 +403,7 @@ jobs:
           echo "========================================"
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
 

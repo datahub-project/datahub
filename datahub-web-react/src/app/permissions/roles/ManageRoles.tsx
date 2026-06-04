@@ -1,33 +1,32 @@
-import { Button, Tooltip } from '@components';
-import { Avatar, Empty, Pagination, Typography, message } from 'antd';
+import { Avatar, Button, Modal, Pagination, Pill, SearchBar, Table, Text, Tooltip } from '@components';
 import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
+
+import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
+import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
 
 import analytics, { EventType } from '@app/analytics';
-import { EntityCapabilityType } from '@app/entity/Entity';
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { SearchSelectModal } from '@app/entity/shared/components/styled/search/SearchSelectModal';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 import { clearUserListCache } from '@app/identity/user/cacheUtils';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '@app/onboarding/config/RolesOnboardingConfig';
-import AvatarsGroup from '@app/permissions/AvatarsGroup';
 import RoleDetailsModal from '@app/permissions/roles/RoleDetailsModal';
-import { SearchBar } from '@app/search/SearchBar';
-import { Message } from '@app/shared/Message';
+import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useBatchAssignRoleMutation } from '@graphql/mutations.generated';
 import { useListRolesQuery } from '@graphql/role.generated';
-import { CorpUser, DataHubPolicy, DataHubRole } from '@types';
+import { CorpUser, DataHubPolicy, DataHubRole, EntityType } from '@types';
 
-const SourceContainer = styled.div`
-    overflow: auto;
+const TableScrollContainer = styled.div`
+    flex: 1;
     display: flex;
     flex-direction: column;
+    min-height: 0;
+    overflow: auto;
 `;
 
 const PaginationContainer = styled.div`
@@ -36,32 +35,45 @@ const PaginationContainer = styled.div`
 `;
 
 const RoleName = styled.span`
-    cursor: pointer;
     font-weight: 700;
 `;
 
-const PageContainer = styled.span`
+const PageContainer = styled.div`
     width: 100%;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    gap: 16px;
+    padding-top: 16px;
+    overflow: hidden;
 `;
 
 const ActionsContainer = styled.div`
-    width: 100%;
     display: flex;
-    justify-content: right;
+    justify-content: flex-end;
 `;
 
-const AddUsersButton = styled(Button)`
-    margin-right: 16px;
+const PillsContainer = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+`;
+
+const EmptyContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
 `;
 
 const DEFAULT_PAGE_SIZE = 10;
 
-// TODO: Cleanup the styling.
 export const ManageRoles = () => {
+    const { t } = useTranslation('settings.permissions');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -69,6 +81,7 @@ export const ManageRoles = () => {
     const [isBatchAddRolesModalVisible, setIsBatchAddRolesModalVisible] = useState(false);
     const [focusRole, setFocusRole] = useState<DataHubRole>();
     const [showViewRoleModal, setShowViewRoleModal] = useState(false);
+    const [selectedUserUrns, setSelectedUserUrns] = useState<string[]>([]);
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
     // Role list paging.
@@ -102,6 +115,7 @@ export const ManageRoles = () => {
         setIsBatchAddRolesModalVisible(false);
         setShowViewRoleModal(false);
         setFocusRole(undefined);
+        setSelectedUserUrns([]);
     };
 
     const [batchAssignRoleMutation, { client }] = useBatchAssignRoleMutation();
@@ -125,10 +139,7 @@ export const ManageRoles = () => {
                         roleUrn: focusRole?.urn,
                         userUrns: actorUrns,
                     });
-                    message.success({
-                        content: `Assigned Role to users!`,
-                        duration: 2,
-                    });
+                    showToastMessage(ToastType.SUCCESS, t('roles.assignSuccess'), 2);
                     setTimeout(() => {
                         rolesRefetch();
                         clearUserListCache(client);
@@ -136,8 +147,7 @@ export const ManageRoles = () => {
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to assign Role to users: \n ${e.message || ''}`, duration: 3 });
+                showToastMessage(ToastType.ERROR, t('roles.assignError', { error: e.message || '' }), 3);
             })
             .finally(() => {
                 resetRoleState();
@@ -150,81 +160,113 @@ export const ManageRoles = () => {
 
     const tableColumns = [
         {
-            title: 'Name',
-            dataIndex: 'name',
+            title: t('column.name'),
             key: 'name',
-            render: (_, record: any) => {
-                return (
-                    <>
-                        <RoleName
-                            onClick={() => onViewRole(record.role)}
-                            style={{ color: record?.editable ? '#000000' : ANTD_GRAY[8] }}
-                        >
-                            {record?.name}
-                        </RoleName>
-                    </>
-                );
-            },
+            width: '15%',
+            render: (record: any) => (
+                <RoleName style={{ color: record?.editable ? theme.colors.text : theme.colors.textSecondary }}>
+                    {record?.name}
+                </RoleName>
+            ),
         },
         {
-            title: 'Description',
-            dataIndex: 'description',
+            title: t('column.description'),
             key: 'description',
-            render: (description: string) => description || '',
+            width: '25%',
+            render: (record: any) => record?.description || '',
         },
         {
-            title: 'Users',
-            dataIndex: 'users',
+            title: t('usersLabel'),
             key: 'users',
-            render: (_: any, record: any) => {
-                const numberOfUsers = record?.totalUsers || 0;
+            width: '15%',
+            render: (record: any) => {
+                const allUsers: AvatarItemProps[] = (record?.users || []).map((u) => ({
+                    name: entityRegistry.getDisplayName(
+                        u.urn?.startsWith('urn:li:corpGroup') ? EntityType.CorpGroup : EntityType.CorpUser,
+                        u,
+                    ),
+                    imageUrl: u?.editableProperties?.pictureLink || u?.editableInfo?.pictureLink || undefined,
+                    urn: u?.urn,
+                    type: u.urn?.startsWith('urn:li:corpGroup') ? AvatarType.group : AvatarType.user,
+                }));
+
+                const totalUsers = record?.totalUsers || allUsers.length;
+
+                if (!allUsers.length) {
+                    return null;
+                }
+
+                if (totalUsers === 1) {
+                    return (
+                        <Tooltip title={allUsers[0].name}>
+                            <Avatar
+                                name={allUsers[0].name}
+                                imageUrl={allUsers[0].imageUrl}
+                                type={allUsers[0].type}
+                                size="sm"
+                                showInPill
+                            />
+                        </Tooltip>
+                    );
+                }
+
                 return (
-                    <>
-                        {(!!numberOfUsers && (
-                            <>
-                                <AvatarsGroup
-                                    users={record?.users
-                                        ?.filter((u) => u.urn?.startsWith('urn:li:corpuser'))
-                                        .slice(0, 5)}
-                                    groups={record?.users
-                                        ?.filter((u) => u.urn?.startsWith('urn:li:corpGroup'))
-                                        .slice(0, 5)}
-                                    entityRegistry={entityRegistry}
-                                    maxCount={5}
-                                    size={28}
-                                />
-                                {numberOfUsers > 5 && (
-                                    // Keeping the color same as the avatar component indicator
-                                    <Avatar size={28} style={{ backgroundColor: 'rgb(204,204,204)' }}>
-                                        +{numberOfUsers - 5}
-                                    </Avatar>
-                                )}
-                            </>
-                        )) || <Typography.Text type="secondary">No assigned users</Typography.Text>}
-                    </>
+                    <AvatarStackWithHover
+                        avatars={allUsers}
+                        maxToShow={5}
+                        size="sm"
+                        showRemainingNumber
+                        totalCount={totalUsers}
+                        entityRegistry={entityRegistry as any}
+                        title={t('usersLabel')}
+                    />
                 );
             },
         },
         {
-            dataIndex: 'actions',
-            key: 'actions',
-            render: (_: any, record: any) => {
+            title: t('roleColumnPolicies'),
+            key: 'policies',
+            width: '35%',
+            render: (record: any) => {
+                const policyList = record?.policies || [];
+                if (!policyList.length) {
+                    return null;
+                }
                 return (
-                    <ActionsContainer>
-                        <Tooltip title={`Assign the ${record.name} role to users`}>
-                            <AddUsersButton
-                                variant="text"
-                                onClick={() => {
-                                    setIsBatchAddRolesModalVisible(true);
-                                    setFocusRole(record.role);
-                                }}
-                            >
-                                Add Users
-                            </AddUsersButton>
-                        </Tooltip>
-                    </ActionsContainer>
+                    <PillsContainer>
+                        {policyList.map((policy) => (
+                            <Pill
+                                key={policy.urn}
+                                label={policy?.name || ''}
+                                variant="outline"
+                                color="gray"
+                                size="sm"
+                                clickable={false}
+                            />
+                        ))}
+                    </PillsContainer>
                 );
             },
+        },
+        {
+            title: '',
+            key: 'actions',
+            width: '10%',
+            alignment: 'right' as const,
+            render: (record: any) => (
+                <ActionsContainer>
+                    <Button
+                        variant="text"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsBatchAddRolesModalVisible(true);
+                            setFocusRole(record.role);
+                        }}
+                    >
+                        {t('roles.assignUsersButton')}
+                    </Button>
+                </ActionsContainer>
+            ),
         },
     ];
 
@@ -235,72 +277,66 @@ export const ManageRoles = () => {
         description: role?.description,
         name: role?.name,
         users: role?.users?.relationships?.map((relationship) => relationship.entity as CorpUser),
-        totalUsers: role?.users?.total,
+        totalUsers: role?.users?.total || 0,
         policies: role?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy),
     }));
 
     return (
         <PageContainer>
             <OnboardingTour stepIds={[ROLES_INTRO_ID]} />
-            {rolesLoading && !rolesData && (
-                <Message type="loading" content="Loading roles..." style={{ marginTop: '10%' }} />
-            )}
-            {rolesError && message.error('Failed to load roles! An unexpected error occurred.')}
-            <SourceContainer>
-                <TabToolbar>
-                    <div />
-                    <SearchBar
-                        initialQuery={query || ''}
-                        placeholderText="Search roles..."
-                        hideRecommendations
-                        suggestions={[]}
-                        style={{
-                            maxWidth: 220,
-                            padding: 0,
-                        }}
-                        inputStyle={{
-                            height: 32,
-                            fontSize: 12,
-                        }}
-                        onSearch={() => null}
-                        onQueryChange={(q) => {
-                            setPage(1);
-                            setQuery(q);
-                        }}
-                        entityRegistry={entityRegistry}
+            {rolesError && showToastMessage(ToastType.ERROR, t('roles.loadError'), 3)}
+            <SearchBar
+                placeholder={t('searchRolesPlaceholder')}
+                value={query || ''}
+                onChange={(value) => {
+                    setPage(1);
+                    setQuery(value);
+                }}
+                width="300px"
+                allowClear
+            />
+            {isBatchAddRolesModalVisible && (
+                <Modal
+                    title={t('roles.assignTitle', { roleName: focusRole?.name })}
+                    onCancel={resetRoleState}
+                    buttons={[
+                        { text: tc('cancel'), variant: 'text', onClick: resetRoleState },
+                        {
+                            text: tc('assign'),
+                            variant: 'filled',
+                            disabled: selectedUserUrns.length === 0,
+                            onClick: () => batchAssignRole(selectedUserUrns),
+                        },
+                    ]}
+                >
+                    <ActorsSearchSelect
+                        selectedActorUrns={selectedUserUrns}
+                        onUpdate={(actors) => setSelectedUserUrns(actors.map((a) => a.urn))}
+                        placeholder={t('roles.searchUsersPlaceholder')}
                     />
-                    {isBatchAddRolesModalVisible && (
-                        <SearchSelectModal
-                            titleText={`Assign ${focusRole?.name} Role to Users`}
-                            continueText="Add"
-                            onContinue={batchAssignRole}
-                            onCancel={resetRoleState}
-                            fixedEntityTypes={Array.from(
-                                entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.ROLES),
-                            )}
-                        />
-                    )}
-                </TabToolbar>
-                <StyledTable
-                    columns={tableColumns}
-                    dataSource={tableData}
-                    rowKey="urn"
-                    locale={{
-                        emptyText: <Empty description="No Roles!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                    }}
-                    pagination={false}
-                />
-            </SourceContainer>
+                </Modal>
+            )}
+            <TableScrollContainer>
+                {!rolesLoading && tableData?.length === 0 ? (
+                    <EmptyContainer>
+                        <Text size="md" color="gray">
+                            {t('roles.empty')}
+                        </Text>
+                    </EmptyContainer>
+                ) : (
+                    <Table
+                        columns={tableColumns}
+                        data={tableData || []}
+                        rowKey="urn"
+                        isScrollable
+                        isLoading={rolesLoading}
+                        style={{ tableLayout: 'fixed' }}
+                        onRowClick={(record: any) => onViewRole(record.role)}
+                    />
+                )}
+            </TableScrollContainer>
             <PaginationContainer>
-                <Pagination
-                    style={{ margin: 40 }}
-                    current={page}
-                    pageSize={pageSize}
-                    total={totalRoles}
-                    showLessItems
-                    onChange={onChangePage}
-                    showSizeChanger={false}
-                />
+                <Pagination currentPage={page} itemsPerPage={pageSize} total={totalRoles} onPageChange={onChangePage} />
             </PaginationContainer>
             <RoleDetailsModal role={focusRole as DataHubRole} open={showViewRoleModal} onClose={resetRoleState} />
         </PageContainer>

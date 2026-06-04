@@ -1,7 +1,7 @@
 """Search tools for DataHub."""
 
+import importlib.resources as pkg_resources
 import logging
-import pathlib
 import textwrap
 from typing import Any, Dict, Literal, Optional
 
@@ -10,7 +10,7 @@ from datahub_agent_context.context import get_graph
 from datahub_agent_context.mcp_tools.base import (
     clean_gql_response,
     execute_graphql,
-    fetch_global_default_view,
+    resolve_default_view,
 )
 from datahub_agent_context.mcp_tools.search_filter_parser import (
     FILTER_DOCS,
@@ -19,9 +19,13 @@ from datahub_agent_context.mcp_tools.search_filter_parser import (
 
 logger = logging.getLogger(__name__)
 
-# Load GraphQL queries
-_gql_dir = pathlib.Path(__file__).parent / "gql"
-search_gql = (_gql_dir / "search.gql").read_text()
+# Load GraphQL queries from the canonical copy in datahub.cli.gql
+_gql = pkg_resources.files("datahub.cli.gql")
+search_gql = (
+    _gql.joinpath("fragments.gql").read_text(encoding="utf-8")
+    + "\n"
+    + _gql.joinpath("search.gql").read_text(encoding="utf-8")
+)
 
 
 def search(
@@ -120,8 +124,8 @@ def search(
 
     types, compiled_filters = compile_filters(parsed_filter)
 
-    # Fetch and apply default view (returns None if disabled or not configured)
-    view_urn = fetch_global_default_view(graph)
+    # Fetch and apply default view: user personal first, then org global
+    view_urn = resolve_default_view(graph)
     if view_urn:
         logger.debug(f"Applying default view: {view_urn}")
     else:

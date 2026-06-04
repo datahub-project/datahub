@@ -1,5 +1,6 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
+import { Trans } from 'react-i18next';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
@@ -12,47 +13,43 @@ export const SearchOnboardingConfig: OnboardingStep[] = [
     {
         id: SEARCH_RESULTS_FILTERS_ID,
         selector: `#${SEARCH_RESULTS_FILTERS_ID}`,
-        title: '🕵️ Narrow your search',
+        title: <Trans i18nKey="onboarding:search.filtersTitle" />,
         content: (
-            <Typography.Paragraph>
-                Quickly find relevant assets by applying one or more filters. Try filtering by <strong>Type</strong>,{' '}
-                <strong>Owner</strong>, and more!
-            </Typography.Paragraph>
+            <Text type="div" size="md">
+                <Trans i18nKey="onboarding:search.filtersDescription" components={{ bold: <strong /> }} />
+            </Text>
         ),
     },
     {
         id: SEARCH_RESULTS_ADVANCED_SEARCH_ID,
         selector: `#${SEARCH_RESULTS_ADVANCED_SEARCH_ID}`,
-        title: '💪 Dive deeper with advanced filters',
+        title: <Trans i18nKey="onboarding:search.advancedTitle" />,
         content: (
-            <Typography.Paragraph>
-                <strong>Advanced Filters</strong> offer additional capabilities to create more specific search queries.
-            </Typography.Paragraph>
+            <Text type="div" size="md">
+                <Trans i18nKey="onboarding:search.advancedDescription" components={{ bold: <strong /> }} />
+            </Text>
         ),
     },
     {
         id: SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
         selector: `#${SEARCH_RESULTS_BROWSE_SIDEBAR_ID}`,
-        title: '🧭 Explore and refine your search by platform',
+        title: <Trans i18nKey="onboarding:search.browseTitle" />,
         style: { minWidth: '425px' },
         content: (
-            <Typography.Paragraph>
-                Have a clear idea of the schema or folder you&apos;re searching for? Easily navigate your
-                organization&apos;s platforms inline. Then select a specific container you want to filter your results
-                by.
-            </Typography.Paragraph>
+            <Text type="div" size="md">
+                <Trans i18nKey="onboarding:search.browseDescription" />
+            </Text>
         ),
     },
     {
         id: SEARCH_RESULTS_FILTERS_V2_INTRO,
         prerequisiteStepId: SEARCH_RESULTS_FILTERS_ID,
         selector: `#${SEARCH_RESULTS_FILTERS_V2_INTRO}`,
-        title: 'Filters Have Moved',
+        title: <Trans i18nKey="onboarding:search.filtersMovedTitle" />,
         content: (
-            <Typography.Paragraph>
-                Quickly find relevant assets with our new and improved filter interface! Our latest update has relocated
-                filters to the top of the screen for ease of access.
-            </Typography.Paragraph>
+            <Text type="div" size="md">
+                <Trans i18nKey="onboarding:search.filtersMovedDescription" />
+            </Text>
         ),
     },
 ];

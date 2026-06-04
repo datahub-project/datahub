@@ -1,4 +1,14 @@
+---
+description: "Add a new metadata ingestion source to DataHub by extending the Python ingestion framework with a custom connector."
+---
+
 # Adding a Metadata Ingestion Source
+
+:::tip Build Connectors Faster with DataHub Skills
+
+The fastest way to build a new connector is with **DataHub Skills** — an AI-assisted framework that generates production-ready connectors from a simple configuration. Before diving into the manual steps below, check out the [DataHub Skills guide](./datahub-skills.md) and build your integration in minutes instead of weeks.
+
+:::
 
 There are two ways of adding a metadata ingestion source.
 

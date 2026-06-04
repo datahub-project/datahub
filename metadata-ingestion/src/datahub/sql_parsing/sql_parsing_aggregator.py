@@ -13,7 +13,11 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
-from datahub.configuration.env_vars import get_sql_agg_query_log, get_sql_agg_skip_joins
+from datahub.configuration.env_vars import (
+    get_report_info_sample_size,
+    get_sql_agg_query_log,
+    get_sql_agg_skip_joins,
+)
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -36,6 +40,9 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverInterface,
     _SchemaResolverWithExtras,
+)
+from datahub.sql_parsing.schema_resolver_provider import (
+    provide_schema_resolver,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType, QueryTypeProps
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -458,11 +465,27 @@ class SqlParsingAggregator(Closeable):
             self._schema_resolver = schema_resolver
         elif graph is not None and eager_graph_load and self._need_schemas:
             # Bulk load schemas using the graph client.
-            self._schema_resolver = graph.initialize_schema_resolver_from_datahub(
-                platform=self.platform.urn(),
-                platform_instance=self.platform_instance,
-                env=self.env,
-            )
+            try:
+                self._schema_resolver = provide_schema_resolver(
+                    graph=graph,
+                    platform=self.platform.platform_name,
+                    platform_instance=self.platform_instance,
+                    env=self.env,
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to bulk-load schemas from DataHub. "
+                    "Falling back to lazy-loading schema resolver.",
+                    exc_info=True,
+                )
+                self._schema_resolver = self._exit_stack.enter_context(
+                    SchemaResolver(
+                        platform=self.platform.platform_name,
+                        platform_instance=self.platform_instance,
+                        env=self.env,
+                        graph=graph,
+                    )
+                )
         else:
             # Otherwise, use a lazy-loading schema resolver.
             self._schema_resolver = self._exit_stack.enter_context(
@@ -553,13 +576,16 @@ class SqlParsingAggregator(Closeable):
         self._exit_stack.push(self._table_swaps)
 
         # Usage aggregator. This will only be initialized if usage statistics are enabled.
-        # TODO: Replace with FileBackedDict.
         # TODO: The BaseUsageConfig class is much too broad for our purposes, and has a number of
         # configs that won't be respected here. Using it is misleading.
         self._usage_aggregator: Optional[UsageAggregator[UrnStr]] = None
         if self.generate_usage_statistics:
             assert self.usage_config is not None
-            self._usage_aggregator = UsageAggregator(config=self.usage_config)
+            self._usage_aggregator = UsageAggregator(
+                config=self.usage_config,
+                shared_connection=self._shared_connection,
+            )
+            self._exit_stack.push(self._usage_aggregator)
 
         # Query usage aggregator.
         # Map of query ID -> { bucket -> count }
@@ -1584,7 +1610,7 @@ class SqlParsingAggregator(Closeable):
 
     @classmethod
     def _view_query_id(cls, view_urn: UrnStr) -> str:
-        return f"view_{DatasetUrn.url_encode(view_urn)}"
+        return f"view_{generate_hash(view_urn)}"
 
     @classmethod
     def _known_lineage_query_id(cls) -> str:
@@ -1837,7 +1863,9 @@ class SqlParsingAggregator(Closeable):
         composite_query_id = self._composite_query_id(
             [q.query_id for q in ordered_queries]
         )
-        composed_of_queries_truncated: LossyList[str] = LossyList()
+        composed_of_queries_truncated: LossyList[str] = LossyList(
+            max_elements=get_report_info_sample_size()
+        )
         for query_id in composed_of_queries:
             composed_of_queries_truncated.append(query_id)
         self.report.queries_with_temp_upstreams[composite_query_id] = (

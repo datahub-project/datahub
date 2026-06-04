@@ -1,6 +1,8 @@
-import { Icon, Text, Tooltip, colors } from '@components';
+import { Icon, Text, Tooltip } from '@components';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Dropdown } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
@@ -28,12 +30,18 @@ const StyledDropdownContainer = styled.div`
     }
 `;
 
+const DisabledText = styled(Text)`
+    color: ${(props) => props.theme.colors.textDisabled};
+`;
+
 interface Props {
     module: PageModuleFragment;
     position: ModulePositionInput;
 }
 
 export default function ModuleMenu({ module, position }: Props) {
+    const { t } = useTranslation('modules');
+    const { t: tc } = useTranslation('common.actions');
     const [showRemoveModuleConfirmation, setShowRemoveModuleConfirmation] = useState<boolean>(false);
     const { type } = module.properties;
     const canEdit = !DEFAULT_MODULE_URNS.includes(module.urn);
@@ -70,20 +78,16 @@ export default function ModuleMenu({ module, position }: Props) {
     const menu = {
         items: [
             {
-                title: 'Edit',
+                title: tc('edit'),
                 key: 'edit',
                 label: (
                     <>
                         {!canEdit ? (
-                            <Tooltip title="Default modules are not editable">
-                                <Text color="gray" colorLevel={300}>
-                                    Edit
-                                </Text>
+                            <Tooltip title={t('menu.defaultModulesNotEditable')}>
+                                <DisabledText>{tc('edit')}</DisabledText>
                             </Tooltip>
                         ) : (
-                            <Text color="gray" colorLevel={600}>
-                                Edit
-                            </Text>
+                            <Text>{tc('edit')}</Text>
                         )}
                     </>
                 ),
@@ -96,12 +100,12 @@ export default function ModuleMenu({ module, position }: Props) {
             },
 
             {
-                title: 'Remove',
-                label: 'Remove',
+                title: tc('remove'),
+                label: tc('remove'),
                 key: 'remove',
+                danger: true,
                 style: {
                     ...menuItemStyle,
-                    color: colors.red[500],
                 },
                 onClick: () => setShowRemoveModuleConfirmation(true),
                 'data-testid': 'remove-module',
@@ -117,7 +121,7 @@ export default function ModuleMenu({ module, position }: Props) {
                     dropdownRender={(originNode) => <StyledDropdownContainer>{originNode}</StyledDropdownContainer>}
                     menu={menu}
                 >
-                    <StyledIcon icon="DotsThreeVertical" source="phosphor" size="lg" />
+                    <StyledIcon icon={DotsThreeVertical} size="lg" />
                 </Dropdown>
             </DropdownWrapper>
 
@@ -125,14 +129,10 @@ export default function ModuleMenu({ module, position }: Props) {
                 isOpen={!!showRemoveModuleConfirmation}
                 handleConfirm={handleRemove}
                 handleClose={() => setShowRemoveModuleConfirmation(false)}
-                modalTitle="Remove Module?"
-                modalText={
-                    isAdminCreatedModule
-                        ? 'Are you sure you want to remove this module? You can re-add it later from the Home Defaults section when adding a new module.'
-                        : 'Are you sure you want to remove this module? You can always create a new one later if needed.'
-                }
-                closeButtonText="Cancel"
-                confirmButtonText="Remove"
+                modalTitle={t('menu.removeModuleTitle')}
+                modalText={isAdminCreatedModule ? t('menu.removeAdminModuleText') : t('menu.removeModuleText')}
+                closeButtonText={tc('cancel')}
+                confirmButtonText={tc('remove')}
                 isDeleteModal
             />
         </>

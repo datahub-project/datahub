@@ -1,7 +1,9 @@
 import { FileTextOutlined, TableOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from '@components';
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import { Button as AntButton, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
@@ -85,7 +87,7 @@ type Props = {
     selectedVersion: string;
     versionList: Array<SemanticVersionStruct>;
     showSchemaTimeline: boolean;
-    setShowSchemaTimeline: any;
+    setShowSchemaTimeline: (show: boolean) => void;
     filterText: string;
     setFilterText: (text: string) => void;
     numRows: number;
@@ -116,9 +118,10 @@ export default function SchemaHeader({
     highlightedMatchIndex,
     setHighlightedMatchIndex,
 }: Props) {
+    const { t } = useTranslation('entity.types');
     const [schemaFilterSelectOpen, setSchemaFilterSelectOpen] = useState(false);
 
-    const schemaAuditToggleText = showSchemaTimeline ? 'Close change history' : 'View change history';
+    const schemaAuditToggleText = showSchemaTimeline ? t('dataset.closeChangeHistory') : t('dataset.viewChangeHistory');
 
     const [searchInput, setSearchInput] = useState(filterText);
     useDebounce(() => setFilterText(searchInput), 100, [searchInput]);
@@ -132,12 +135,12 @@ export default function SchemaHeader({
                             {showRaw ? (
                                 <RawButtonTitleContainer>
                                     <TableOutlined style={{ padding: 0, margin: 0 }} />
-                                    <RawButtonTitle>Tabular</RawButtonTitle>
+                                    <RawButtonTitle>{t('dataset.tabularView')}</RawButtonTitle>
                                 </RawButtonTitleContainer>
                             ) : (
                                 <RawButtonTitleContainer>
                                     <FileTextOutlined style={{ padding: 0, margin: 0 }} />
-                                    <RawButtonTitle>Raw</RawButtonTitle>
+                                    <RawButtonTitle>{t('dataset.rawView')}</RawButtonTitle>
                                 </RawButtonTitleContainer>
                             )}
                         </RawButton>
@@ -145,10 +148,10 @@ export default function SchemaHeader({
                     {hasKeySchema && (
                         <KeyValueButtonGroup>
                             <KeyButton $highlighted={showKeySchema} onClick={() => setShowKeySchema(true)}>
-                                Key
+                                {t('dataset.keyToggle')}
                             </KeyButton>
                             <ValueButton $highlighted={!showKeySchema} onClick={() => setShowKeySchema(false)}>
-                                Value
+                                {t('dataset.valueToggle')}
                             </ValueButton>
                         </KeyValueButtonGroup>
                     )}
@@ -181,7 +184,7 @@ export default function SchemaHeader({
                             variant="text"
                             data-testid="schema-blame-button"
                             color={showSchemaTimeline ? 'violet' : 'gray'}
-                            icon={{ icon: 'ClockCounterClockwise', source: 'phosphor', size: '2xl' }}
+                            icon={{ icon: ClockCounterClockwise, size: '2xl' }}
                             onClick={() => setShowSchemaTimeline(!showSchemaTimeline)}
                         />
                     </Tooltip>

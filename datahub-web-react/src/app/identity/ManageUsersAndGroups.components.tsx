@@ -1,8 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Button, PageTitle, Pill } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 export const PageContainer = styled.div`
     padding: 16px 20px;
@@ -14,17 +14,17 @@ export const PageContainer = styled.div`
     overflow: hidden;
 `;
 
-export const PageHeaderContainer = styled.div`
+const PageHeaderContainer = styled.div`
     display: flex;
     justify-content: space-between;
 `;
 
-export const HeaderLeft = styled.div`
+const HeaderLeft = styled.div`
     display: flex;
     flex-direction: column;
 `;
 
-export const HeaderRight = styled.div`
+const HeaderRight = styled.div`
     display: flex;
     align-items: center;
     gap: 12px;
@@ -32,9 +32,11 @@ export const HeaderRight = styled.div`
 
 export const Content = styled.div`
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    color: ${colors.gray[600]};
+    overflow: hidden;
+    color: ${(props) => props.theme.colors.textSecondary};
 
     &&& .ant-tabs-nav {
         margin-bottom: 0;
@@ -66,6 +68,7 @@ type ManageUsersAndGroupsHeaderProps = {
     activeTab: string;
     onInviteUsers: () => void;
     onCreateServiceAccount: () => void;
+    onCreateGroup: () => void;
 };
 
 export const ManageUsersAndGroupsHeader = ({
@@ -75,33 +78,44 @@ export const ManageUsersAndGroupsHeader = ({
     activeTab,
     onInviteUsers,
     onCreateServiceAccount,
+    onCreateGroup,
 }: ManageUsersAndGroupsHeaderProps) => {
-    const isServiceAccountsTab = activeTab === 'service-accounts';
+    const { t } = useTranslation('entity.identity');
 
-    return (
-        <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
-            <HeaderLeft>
-                <PageTitle
-                    title="Manage Users &amp; Groups"
-                    subTitle="View your DataHub users &amp; groups. Take administrative actions."
-                />
-            </HeaderLeft>
-            <HeaderRight>
-                {isServiceAccountsTab ? (
+    const renderActionButton = () => {
+        switch (activeTab) {
+            case 'service-accounts':
+                return (
                     <Button
                         variant="filled"
                         disabled={!canManageServiceAccounts}
                         onClick={onCreateServiceAccount}
                         data-testid="create-service-account-button"
                     >
-                        Create Service Account
+                        {t('serviceAccounts.createButton')}
                     </Button>
-                ) : (
+                );
+            case 'groups':
+                return (
+                    <Button variant="filled" onClick={onCreateGroup} data-testid="create-group-button">
+                        {t('groups.createButton')}
+                    </Button>
+                );
+            default:
+                return (
                     <Button variant="filled" disabled={!canManageUsers} onClick={onInviteUsers}>
-                        Invite Users
+                        {t('users.inviteButton')}
                     </Button>
-                )}
-            </HeaderRight>
+                );
+        }
+    };
+
+    return (
+        <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
+            <HeaderLeft>
+                <PageTitle title={t('pageTitle')} subTitle={t('pageSubTitle')} />
+            </HeaderLeft>
+            <HeaderRight>{renderActionButton()}</HeaderRight>
         </PageHeaderContainer>
     );
 };

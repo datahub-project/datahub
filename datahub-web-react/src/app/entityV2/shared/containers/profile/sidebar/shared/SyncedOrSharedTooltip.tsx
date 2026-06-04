@@ -1,12 +1,10 @@
-import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import { Trans, useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 
-const HeaderText = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.LIGHT_TEXT_DARK_BACKGROUND};
+const HeaderText = styled.span`
     font-size: 14px;
     font-weight: 500;
 `;
@@ -22,17 +20,17 @@ const Wrapper = styled.div`
     margin: 12px 0;
 `;
 
-const ColoredContainer = styled.div<{ backgroundColor: string; textColor: string }>`
-    border-radius: 20px;
-    padding: 4px 12px;
-    background-color: ${(props) => props.backgroundColor};
-    color: ${(props) => props.textColor};
-    font-weight: 500;
-    width: max-content;
+const BoldText = styled.span`
+    font-weight: 600;
 `;
 
-const BoldText = styled(Typography.Text)`
-    font-weight: 600;
+const ColoredContainer = styled.div<{ $bgColor: string; $textColor: string }>`
+    border-radius: 20px;
+    padding: 4px 12px;
+    background-color: ${(props) => props.$bgColor};
+    color: ${(props) => props.$textColor};
+    font-weight: 500;
+    width: max-content;
 `;
 
 interface Props {
@@ -40,24 +38,54 @@ interface Props {
 }
 
 const SyncedOrSharedTooltip = ({ type }: Props) => {
-    const action = type === ActionType.SYNC ? 'Synced' : 'Shared';
+    const { t } = useTranslation('entity.shared.containers');
+    const theme = useTheme();
     return (
         <Container>
             <HeaderText>
-                This represents the time that the entity was last {type === ActionType.SYNC ? 'synchronized' : 'shared'}
+                {type === ActionType.SYNC
+                    ? t('sidebar.syncedOrShared.tooltip.synchronizedHeader')
+                    : t('sidebar.syncedOrShared.tooltip.sharedHeader')}
             </HeaderText>
             <Wrapper>
-                <ColoredContainer backgroundColor={REDESIGN_COLORS.GREEN_LIGHT} textColor={REDESIGN_COLORS.GREEN_800}>
-                    {action} within the <BoldText>past week </BoldText>
+                <ColoredContainer
+                    $bgColor={theme.colors.bgSurfaceSuccess}
+                    $textColor={theme.colors.textOnSurfaceSuccess}
+                >
+                    <Trans
+                        t={t}
+                        i18nKey={
+                            type === ActionType.SYNC
+                                ? 'sidebar.syncedOrShared.tooltip.syncedWithinPastWeek'
+                                : 'sidebar.syncedOrShared.tooltip.sharedWithinPastWeek'
+                        }
+                        components={{ bold: <BoldText /> }}
+                    />
                 </ColoredContainer>
                 <ColoredContainer
-                    backgroundColor={REDESIGN_COLORS.YELLOW_BACKGROUND}
-                    textColor={REDESIGN_COLORS.RED_800}
+                    $bgColor={theme.colors.bgSurfaceWarning}
+                    $textColor={theme.colors.textOnSurfaceWarning}
                 >
-                    {action} within the <BoldText>past month</BoldText>
+                    <Trans
+                        t={t}
+                        i18nKey={
+                            type === ActionType.SYNC
+                                ? 'sidebar.syncedOrShared.tooltip.syncedWithinPastMonth'
+                                : 'sidebar.syncedOrShared.tooltip.sharedWithinPastMonth'
+                        }
+                        components={{ bold: <BoldText /> }}
+                    />
                 </ColoredContainer>
-                <ColoredContainer backgroundColor={REDESIGN_COLORS.RED_LIGHT} textColor={REDESIGN_COLORS.RED_800}>
-                    {action} <BoldText>more than a month ago</BoldText>
+                <ColoredContainer $bgColor={theme.colors.bgSurfaceError} $textColor={theme.colors.textOnSurfaceError}>
+                    <Trans
+                        t={t}
+                        i18nKey={
+                            type === ActionType.SYNC
+                                ? 'sidebar.syncedOrShared.tooltip.syncedMoreThanMonthAgo'
+                                : 'sidebar.syncedOrShared.tooltip.sharedMoreThanMonthAgo'
+                        }
+                        components={{ bold: <BoldText /> }}
+                    />
                 </ColoredContainer>
             </Wrapper>
         </Container>

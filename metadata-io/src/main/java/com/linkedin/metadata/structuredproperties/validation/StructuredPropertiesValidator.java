@@ -70,6 +70,13 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
   @Nonnull private AspectPluginConfig config;
 
+  /**
+   * When true, skip validation for assignments whose definition is missing and reject writes that
+   * would retain no valid assignments (aligned with {@link
+   * com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesAssignmentMutator}).
+   */
+  private boolean dropMissingPropertyValuesWithWarning = false;
+
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
       @Nonnull Collection<? extends BatchItem> mcpItems,
@@ -78,7 +85,8 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
         mcpItems.stream()
             .filter(i -> CHANGE_TYPES.contains(i.getChangeType()))
             .collect(Collectors.toList()),
-        retrieverContext.getAspectRetriever());
+        retrieverContext.getAspectRetriever(),
+        dropMissingPropertyValuesWithWarning);
   }
 
   @Override
@@ -96,6 +104,13 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
   public static Stream<AspectValidationException> validateProposedUpserts(
       @Nonnull Collection<BatchItem> mcpItems, @Nonnull AspectRetriever aspectRetriever) {
+    return validateProposedUpserts(mcpItems, aspectRetriever, false);
+  }
+
+  public static Stream<AspectValidationException> validateProposedUpserts(
+      @Nonnull Collection<BatchItem> mcpItems,
+      @Nonnull AspectRetriever aspectRetriever,
+      boolean dropMissingPropertyValuesWithWarning) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     Map<Urn, Map<String, Aspect>> allStructuredPropertiesAspects =
@@ -103,10 +118,43 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
     // Validate assignments
     for (BatchItem i : exceptions.successful(mcpItems)) {
+      StructuredProperties structuredProperties = i.getAspect(StructuredProperties.class);
+      Set<Urn> missingPropertyUrns = Collections.emptySet();
+      if (dropMissingPropertyValuesWithWarning) {
+        final int assignmentCountBefore =
+            structuredProperties.hasProperties() ? structuredProperties.getProperties().size() : 0;
+        if (assignmentCountBefore > 0) {
+          final Pair<StructuredProperties, Set<Urn>> filtered =
+              StructuredPropertyUtils.filterMissingPropertyDefinitions(
+                  structuredProperties, aspectRetriever);
+          missingPropertyUrns = filtered.getSecond();
+          final boolean noValidAssignmentsRemain =
+              filtered.getFirst().getProperties() == null
+                  || filtered.getFirst().getProperties().isEmpty();
+          if (noValidAssignmentsRemain && !missingPropertyUrns.isEmpty()) {
+            exceptions.addException(
+                i,
+                String.format(
+                    "Structured properties write rejected for %s: no valid property assignments"
+                        + " remain after removing values for non-existent properties: %s",
+                    i.getUrn(), missingPropertyUrns));
+            continue;
+          }
+        }
+      }
+
       for (StructuredPropertyValueAssignment structuredPropertyValueAssignment :
-          i.getAspect(StructuredProperties.class).getProperties()) {
+          structuredProperties.getProperties()) {
 
         Urn propertyUrn = structuredPropertyValueAssignment.getPropertyUrn();
+        if (dropMissingPropertyValuesWithWarning && missingPropertyUrns.contains(propertyUrn)) {
+          log.warn(
+              "Skipping validation for non-existent structured property definition {} on {}",
+              propertyUrn,
+              i.getUrn());
+          continue;
+        }
+
         Map<String, Aspect> propertyAspects =
             allStructuredPropertiesAspects.getOrDefault(propertyUrn, Collections.emptyMap());
 
@@ -122,31 +170,30 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
               String.format(
                   "Unexpected null value found for %s Structured Property Definition.",
                   propertyUrn));
+          continue;
         }
 
         log.debug(
             "Retrieved property definition for {}. {}", propertyUrn, structuredPropertyDefinition);
-        if (structuredPropertyDefinition != null) {
-          PrimitivePropertyValueArray values = structuredPropertyValueAssignment.getValues();
-          // Check cardinality
-          if (structuredPropertyDefinition.getCardinality() == PropertyCardinality.SINGLE) {
-            if (values.size() > 1) {
-              exceptions.addException(
-                  i,
-                  "Property: "
-                      + propertyUrn
-                      + " has cardinality 1, but multiple values were assigned: "
-                      + values);
-            }
+        PrimitivePropertyValueArray values = structuredPropertyValueAssignment.getValues();
+        // Check cardinality
+        if (structuredPropertyDefinition.getCardinality() == PropertyCardinality.SINGLE) {
+          if (values.size() > 1) {
+            exceptions.addException(
+                i,
+                "Property: "
+                    + propertyUrn
+                    + " has cardinality 1, but multiple values were assigned: "
+                    + values);
           }
+        }
 
-          // Check values
-          for (PrimitivePropertyValue value : values) {
-            validateType(i, propertyUrn, structuredPropertyDefinition, value)
-                .ifPresent(exceptions::addException);
-            validateAllowedValues(i, propertyUrn, structuredPropertyDefinition, value)
-                .ifPresent(exceptions::addException);
-          }
+        // Check values
+        for (PrimitivePropertyValue value : values) {
+          validateType(i, propertyUrn, structuredPropertyDefinition, value)
+              .ifPresent(exceptions::addException);
+          validateAllowedValues(i, propertyUrn, structuredPropertyDefinition, value)
+              .ifPresent(exceptions::addException);
         }
       }
     }
@@ -226,7 +273,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     for (BatchItem i : exceptions.successful(mcpItems)) {
       StructuredProperties structuredProperties = i.getAspect(StructuredProperties.class);
 
-      log.info("Validator called with {}", structuredProperties);
+      log.debug("Validator called with {}", structuredProperties);
       Map<Urn, List<StructuredPropertyValueAssignment>> structuredPropertiesMap =
           structuredProperties.getProperties().stream()
               .collect(

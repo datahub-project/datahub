@@ -5,7 +5,8 @@ plugins {
 }
 
 apply from: "../gradle/coverage/java-coverage.gradle"
-
+// Apply shared Pegasus model index generation
+apply from: '../gradle/schema/pegasus-models-index.gradle'
 
 dependencies {
     api spec.product.pegasus.data

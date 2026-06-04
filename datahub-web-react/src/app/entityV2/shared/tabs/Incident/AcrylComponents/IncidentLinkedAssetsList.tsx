@@ -1,6 +1,8 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Plus } from 'phosphor-react';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
@@ -32,6 +34,8 @@ export const IncidentLinkedAssetsList = ({
     setCachedLinkedAssets,
     setIsLinkedAssetsLoading,
 }: IncidentLinkedAssetsListProps) => {
+    const { t } = useTranslation('entity.profile.incident');
+    const { t: tc } = useTranslation('common.actions');
     const [getEntities, { data: resolvedLinkedAssets, loading: entitiesLoading }] = useGetEntitiesLazyQuery();
     const entityRegistry = useEntityRegistryV2();
 
@@ -124,7 +128,7 @@ export const IncidentLinkedAssetsList = ({
                                         <Pill
                                             key={asset.urn}
                                             label={entityRegistry.getDisplayName(asset.type, asset)}
-                                            rightIcon="Close"
+                                            rightIcon={X}
                                             color="violet"
                                             variant="outline"
                                             onClickRightIcon={() => {
@@ -150,8 +154,8 @@ export const IncidentLinkedAssetsList = ({
             </AssetWrapper>
             {isBatchAddAssetListModalVisible && (
                 <SearchSelectModal
-                    titleText="Link assets to incident"
-                    continueText="Add"
+                    titleText={t('editor.linkAssetsModalTitle')}
+                    continueText={tc('add')}
                     onContinue={batchAddAssets}
                     onCancel={() => setIsBatchAddAssetListModalVisible(false)}
                     fixedEntityTypes={Array.from(

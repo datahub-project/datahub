@@ -1,16 +1,19 @@
+import { ShieldWarning } from '@phosphor-icons/react/dist/csr/ShieldWarning';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import CreateServiceAccountModal from '@app/identity/serviceAccount/CreateServiceAccountModal';
 import { ModalFooter, ServiceAccountTable } from '@app/identity/serviceAccount/ServiceAccountList.components';
 import {
+    useServiceAccountDefaultView,
     useServiceAccountListData,
     useServiceAccountListState,
     useServiceAccountRoleAssignment,
+    useServiceAccountViewOptions,
 } from '@app/identity/serviceAccount/ServiceAccountList.hooks';
 import { Message } from '@app/shared/Message';
 import { Button, Icon, Modal, Text } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 const PageContainer = styled.div`
     display: flex;
@@ -27,7 +30,7 @@ const NoPermissionContainer = styled.div`
     padding: 60px 20px;
     text-align: center;
     gap: 16px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type ServiceAccountListProps = {
@@ -40,6 +43,9 @@ export const ServiceAccountList = ({
     isCreatingServiceAccount: externalIsCreating,
     setIsCreatingServiceAccount: externalSetIsCreating,
 }: ServiceAccountListProps) => {
+    const { t } = useTranslation('entity.identity');
+    const { t: tc } = useTranslation('common.actions');
+
     const {
         query,
         setQuery,
@@ -80,6 +86,9 @@ export const ServiceAccountList = ({
         refetch,
     );
 
+    const { viewOptions } = useServiceAccountViewOptions();
+    const { handleDefaultViewChange } = useServiceAccountDefaultView(refetch);
+
     const handleCreateComplete = () => {
         setIsCreatingServiceAccount(false);
     };
@@ -95,12 +104,12 @@ export const ServiceAccountList = ({
     if (!canManageServiceAccounts) {
         return (
             <NoPermissionContainer>
-                <Icon icon="ShieldWarning" source="phosphor" size="4xl" color="gray" />
+                <Icon icon={ShieldWarning} size="4xl" color="gray" />
                 <Text size="lg" weight="semiBold">
-                    Access Denied
+                    {t('serviceAccounts.accessDenied')}
                 </Text>
                 <Text size="md" color="gray">
-                    You do not have permission to manage service accounts.
+                    {t('serviceAccounts.noPermission')}
                 </Text>
             </NoPermissionContainer>
         );
@@ -110,14 +119,17 @@ export const ServiceAccountList = ({
         if (!roleAssignmentState) return '';
         const roleToAssign = selectRoleOptions.find((role) => role.urn === roleAssignmentState.currentRoleUrn);
         return roleToAssign?.urn === 'urn:li:dataHubRole:NoRole' || !roleToAssign
-            ? `Would you like to remove ${roleAssignmentState.serviceAccountName}'s existing role?`
-            : `Would you like to assign the role ${roleToAssign?.name} to ${roleAssignmentState.serviceAccountName}?`;
+            ? t('roleAssignment.removeMessage', { name: roleAssignmentState.serviceAccountName })
+            : t('roleAssignment.assignMessage', {
+                  role: roleToAssign?.name,
+                  name: roleAssignmentState.serviceAccountName,
+              });
     };
 
     return (
         <PageContainer>
-            {!data && loading && <Message type="loading" content="Loading service accounts..." />}
-            {error && <Message type="error" content="Failed to load service accounts! An unexpected error occurred." />}
+            {!data && loading && <Message type="loading" content={t('serviceAccounts.loading')} />}
+            {error && <Message type="error" content={t('serviceAccounts.loadError')} />}
 
             <ServiceAccountTable
                 query={query}
@@ -126,6 +138,7 @@ export const ServiceAccountList = ({
                 serviceAccounts={serviceAccounts}
                 selectRoleOptions={selectRoleOptions}
                 optimisticRoles={optimisticRoles}
+                viewOptions={viewOptions}
                 loading={loading}
                 page={page}
                 pageSize={pageSize}
@@ -135,6 +148,7 @@ export const ServiceAccountList = ({
                 }}
                 onDelete={handleDelete}
                 onRoleChange={handleRoleChange}
+                onDefaultViewChange={handleDefaultViewChange}
                 refetch={refetch}
             />
 
@@ -149,15 +163,15 @@ export const ServiceAccountList = ({
             {roleAssignmentState && (
                 <Modal
                     open={roleAssignmentState.isViewingAssignRole}
-                    title="Confirm Role Assignment"
+                    title={t('roleAssignment.confirmTitle')}
                     onCancel={onCancelRoleAssignment}
                     footer={
                         <ModalFooter>
                             <Button variant="outline" onClick={onCancelRoleAssignment}>
-                                Cancel
+                                {tc('cancel')}
                             </Button>
                             <Button variant="filled" onClick={onConfirmRoleAssignment}>
-                                Confirm
+                                {tc('confirm')}
                             </Button>
                         </ModalFooter>
                     }

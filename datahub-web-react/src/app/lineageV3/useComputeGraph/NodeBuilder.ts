@@ -44,7 +44,7 @@ const MINI_Y_SEP_RATIO = MAIN_Y_SEP_RATIO / 2;
 const TRANSFORMATIONAL_LEAF_OFFSET = 25;
 
 export type LineageVisualizationNode = Node<LineageEntity | LineageFilter | LineageBoundingBox | LineageAnnotationNode>;
-export type LineageVisualizationEdgeData = LineageTableEdgeData | DataJobInputOutputEdgeData;
+type LineageVisualizationEdgeData = LineageTableEdgeData | DataJobInputOutputEdgeData;
 
 export function getNodePriority(node: LineageVisualizationNode) {
     switch (node.type) {
@@ -61,8 +61,9 @@ type Layer = string; // [main (entity) layer, mini (transformation) layer]
 const defaultLayer = '0.0';
 
 function createLayer(main: number, mini: number): Layer {
-    // toLocaleString preserves negative 0, used for transformational nodes directly upstream of home node
-    return `${main.toLocaleString()}.${mini}`;
+    // Object.is detects -0 since String(-0) === "0". Must use ASCII minus for startsWith('-') checks.
+    const mainStr = Object.is(main, -0) ? '-0' : String(main);
+    return `${mainStr}.${mini}`;
 }
 
 function parseLayer(layer?: Layer): { main: number; mini: number } {

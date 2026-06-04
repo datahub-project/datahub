@@ -1,4 +1,6 @@
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -11,11 +13,12 @@ import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps, ModuleSize } from '@app/homeV3/module/types';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetDatasetQuery, useGetDatasetSchemaQuery } from '@graphql/dataset.generated';
 import { EditableSchemaMetadata, EntityType, SchemaMetadata } from '@types';
+
+const SCHEMA_TABLE_FIELDS = ['fieldPath', 'type', 'description'];
 
 const Wrapper = styled.div`
     padding-top: 8px;
@@ -23,6 +26,7 @@ const Wrapper = styled.div`
 `;
 
 export default function ColumnsModule(props: ModuleProps) {
+    const { t } = useTranslation('modules');
     const { urn: entityUrn } = useEntityData();
     const [expandedDrawerFieldPath, setExpandedDrawerFieldPath] = useState<string | null>(null);
     const entityRegistry = useEntityRegistry();
@@ -65,9 +69,9 @@ export default function ColumnsModule(props: ModuleProps) {
         return (
             <LargeModule {...props} loading={false} dataTestId="schema-table-module">
                 <EmptyContent
-                    icon="Database"
-                    title="Schema Not Available"
-                    description="There was an error loading the schema for this dataset"
+                    icon={Database}
+                    title={t('columns.errorTitle')}
+                    description={t('columns.errorDescription')}
                 />
             </LargeModule>
         );
@@ -77,9 +81,9 @@ export default function ColumnsModule(props: ModuleProps) {
         return (
             <LargeModule {...props} loading={loading} dataTestId="schema-table-module">
                 <EmptyContent
-                    icon="Database"
-                    title="No Schema Fields"
-                    description="This dataset has no schema fields to display"
+                    icon={Database}
+                    title={t('columns.emptyTitle')}
+                    description={t('columns.emptyDescription')}
                 />
             </LargeModule>
         );
@@ -92,24 +96,22 @@ export default function ColumnsModule(props: ModuleProps) {
                 loading={loading}
                 dataTestId="columns-module"
                 onClickViewAll={navigateToSchemaTab}
-                viewAllText="View in Columns"
+                viewAllText={t('columns.viewAll')}
             >
                 <Wrapper>
-                    <SchemaEditableContext.Provider value={false}>
-                        <SchemaTable
-                            rows={rows}
-                            schemaMetadata={schemaMetadata}
-                            editableSchemaMetadata={editableSchemaMetadata}
-                            usageStats={usageStats}
-                            expandedRowsFromFilter={expandedRowsFromFilter}
-                            filterText=""
-                            expandedDrawerFieldPath={expandedDrawerFieldPath}
-                            setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
-                            openTimelineDrawer={false}
-                            refetch={refetch}
-                            visibleColumns={size === ModuleSize.FULL ? undefined : ['fieldPath', 'type', 'description']}
-                        />
-                    </SchemaEditableContext.Provider>
+                    <SchemaTable
+                        rows={rows}
+                        schemaMetadata={schemaMetadata}
+                        editableSchemaMetadata={editableSchemaMetadata}
+                        usageStats={usageStats}
+                        expandedRowsFromFilter={expandedRowsFromFilter}
+                        filterText=""
+                        expandedDrawerFieldPath={expandedDrawerFieldPath}
+                        setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
+                        openTimelineDrawer={false}
+                        refetch={refetch}
+                        visibleColumns={size === ModuleSize.FULL ? undefined : SCHEMA_TABLE_FIELDS}
+                    />
                 </Wrapper>
             </LargeModule>
         </SchemaContext.Provider>

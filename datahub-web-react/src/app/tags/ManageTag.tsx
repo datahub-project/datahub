@@ -1,15 +1,15 @@
 import { ColorPicker, Input, Modal } from '@components';
 import { message } from 'antd';
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import { ModalButton } from '@components/components/Modal/Modal';
 
-import OwnersSection from '@app/sharedV2/owners/OwnersSection';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import OwnersSection from '@app/domainV2/OwnersSection';
+import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 import { useBatchAddOwnersMutation, useSetTagColorMutation } from '@src/graphql/mutations.generated';
 import { useGetTagQuery, useUpdateTagMutation } from '@src/graphql/tag.generated';
-import { EntityType, OwnerEntityType } from '@src/types.generated';
 
 const FormSection = styled.div`
     margin-bottom: 16px;
@@ -22,15 +22,13 @@ interface Props {
     isModalOpen?: boolean;
 }
 
-// Interface for pending owner
-interface PendingOwner {
-    ownerUrn: string;
-    ownerEntityType: OwnerEntityType;
-    ownershipTypeUrn: string;
-}
-
 const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
-    const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('misc');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
+    const { t: tl } = useTranslation('common.labels');
+    const theme = useTheme();
+    const defaultTagColor = theme.colors.textBrand;
     const { data, loading, refetch } = useGetTagQuery({
         variables: { urn: tagUrn },
         fetchPolicy: 'cache-first',
@@ -40,67 +38,50 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [updateTagMutation] = useUpdateTagMutation();
 
-    // State to track values
-    const [colorValue, setColorValue] = useState('#1890ff');
+    const [colorValue, setColorValue] = useState(defaultTagColor);
     const [originalColor, setOriginalColor] = useState('');
-
-    // Tag name state (editable)
     const [tagName, setTagName] = useState('');
     const [originalTagName, setOriginalTagName] = useState('');
-
-    // Tag name for display purposes only
-    const [tagDisplayName, setTagDisplayName] = useState('');
-
-    // Description state
     const [description, setDescription] = useState('');
     const [originalDescription, setOriginalDescription] = useState('');
-
-    // Owners state
-    const [owners, setOwners] = useState<any[]>([]);
-    const [pendingOwners, setPendingOwners] = useState<PendingOwner[]>([]);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+    const [originalOwnerUrns, setOriginalOwnerUrns] = useState<string[]>([]);
 
-    const onChangeOwners = (newOwners: PendingOwner[]) => {
-        setPendingOwners(newOwners);
-    };
-
-    // When data loads, set the initial values
     useEffect(() => {
         if (data?.tag) {
-            const tagColor = data.tag.properties?.colorHex || '#1890ff';
+            const tagColor = data.tag.properties?.colorHex || defaultTagColor;
             setColorValue(tagColor);
             setOriginalColor(tagColor);
 
-            // Get the tag name for display and editing
-            const displayName = entityRegistry.getDisplayName(EntityType.Tag, data.tag) || data.tag.name || '';
             const tagNameValue = data.tag.properties?.name || data.tag.name || '';
-            setTagDisplayName(displayName);
             setTagName(tagNameValue);
             setOriginalTagName(tagNameValue);
 
-            // Get the description
             const desc = data.tag.properties?.description || '';
             setDescription(desc);
             setOriginalDescription(desc);
 
-            // Set owners
-            const tagOwners = data.tag.ownership?.owners || [];
-            setOwners(tagOwners);
+            const existingUrns = (data.tag.ownership?.owners || []).map((o) => o.owner.urn);
+            setSelectedOwnerUrns(existingUrns);
+            setOriginalOwnerUrns(existingUrns);
         }
-    }, [data, entityRegistry]);
+    }, [data, defaultTagColor]);
 
-    // Handler functions
     const handleColorChange = (color: string) => {
         setColorValue(color);
     };
 
-    // Check if anything has changed
+    const newOwnerUrns = useMemo(
+        () => selectedOwnerUrns.filter((urn) => !originalOwnerUrns.includes(urn)),
+        [selectedOwnerUrns, originalOwnerUrns],
+    );
+
     const hasChanges = () => {
         return (
             tagName !== originalTagName ||
             colorValue !== originalColor ||
             description !== originalDescription ||
-            pendingOwners.length > 0
+            newOwnerUrns.length > 0
         );
     };
 
@@ -108,142 +89,66 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
         setTagName(originalTagName);
         setColorValue(originalColor);
         setDescription(originalDescription);
-        setPendingOwners([]);
-        setSelectedOwnerUrns([]);
+        setSelectedOwnerUrns(originalOwnerUrns);
     };
 
-    // Save everything together
     const handleSave = async () => {
         try {
-            // Validate required fields
             if (!tagName.trim()) {
-                message.error({
-                    content: 'Tag name is required',
-                    key: 'tagUpdate',
-                    duration: 3,
-                });
+                message.error({ content: t('tags.nameRequiredError'), key: 'tagUpdate', duration: 3 });
                 return;
             }
 
-            message.loading({ content: 'Saving changes...', key: 'tagUpdate' });
-
-            // Track if we made any successful changes
+            message.loading({ content: t('tags.savingChanges'), key: 'tagUpdate' });
             let changesMade = false;
 
-            // Update color if changed
             if (colorValue !== originalColor) {
-                try {
-                    await setTagColorMutation({
-                        variables: {
-                            urn: tagUrn,
-                            colorHex: colorValue,
-                        },
-                    });
-                    changesMade = true;
-                } catch (colorError) {
-                    console.error('Error updating color:', colorError);
-                    throw new Error(
-                        `Failed to update color: ${
-                            colorError instanceof Error ? colorError.message : String(colorError)
-                        }`,
-                    );
-                }
+                await setTagColorMutation({ variables: { urn: tagUrn, colorHex: colorValue } });
+                changesMade = true;
             }
 
-            // Update tag name and/or description if changed
             if (tagName !== originalTagName || description !== originalDescription) {
-                try {
-                    await updateTagMutation({
-                        variables: {
-                            urn: tagUrn,
-                            input: {
-                                urn: tagUrn,
-                                name: tagName,
-                                description: description || undefined,
-                            },
-                        },
-                    });
-                    changesMade = true;
-                } catch (tagUpdateError) {
-                    console.error('Error updating tag:', tagUpdateError);
-                    throw new Error(
-                        `Failed to update tag: ${
-                            tagUpdateError instanceof Error ? tagUpdateError.message : String(tagUpdateError)
-                        }`,
-                    );
-                }
+                await updateTagMutation({
+                    variables: {
+                        urn: tagUrn,
+                        input: { urn: tagUrn, name: tagName, description: description || undefined },
+                    },
+                });
+                changesMade = true;
             }
 
-            // Add pending owners if any
-            if (pendingOwners.length > 0) {
-                try {
-                    await batchAddOwnersMutation({
-                        variables: {
-                            input: {
-                                owners: pendingOwners,
-                                resources: [{ resourceUrn: tagUrn }],
-                            },
-                        },
-                    });
-                    changesMade = true;
-                } catch (ownerError) {
-                    console.error('Error adding owners:', ownerError);
-                    throw new Error(
-                        `Failed to add owners: ${
-                            ownerError instanceof Error ? ownerError.message : String(ownerError)
-                        }`,
-                    );
-                }
+            if (newOwnerUrns.length > 0) {
+                const ownerInputs = createOwnerInputs(newOwnerUrns);
+                await batchAddOwnersMutation({
+                    variables: {
+                        input: { owners: ownerInputs, resources: [{ resourceUrn: tagUrn }] },
+                    },
+                });
+                changesMade = true;
             }
 
             if (changesMade) {
-                message.success({
-                    content: 'Tag updated successfully!',
-                    key: 'tagUpdate',
-                    duration: 2,
-                });
+                message.success({ content: t('tags.updateSuccess'), key: 'tagUpdate', duration: 2 });
             }
 
-            // Refetch to update the UI
             await refetch();
-
-            // Call the onSave callback if provided
-            if (onSave) {
-                onSave();
-            }
-
-            // Close the modal
+            onSave?.();
             onClose();
         } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            message.error({
-                content: `Failed to update tag: ${errorMessage}`,
-                key: 'tagUpdate',
-                duration: 3,
-            });
+            const errorMessage = error instanceof Error ? error.message : tf('unknownError');
+            message.error({ content: t('tags.updateError', { error: errorMessage }), key: 'tagUpdate', duration: 3 });
         }
     };
 
     if (loading) {
-        return <div>Loading...</div>;
+        return <div>{tf('loading')}</div>;
     }
 
     const buttons: ModalButton[] = [
+        { text: tc('cancel'), color: 'violet', variant: 'text', onClick: onClose },
+        { text: tc('reset'), color: 'violet', variant: 'outline', onClick: handleReset, disabled: !hasChanges() },
         {
-            text: 'Cancel',
-            color: 'violet',
-            variant: 'text',
-            onClick: onClose,
-        },
-        {
-            text: 'Reset',
-            color: 'violet',
-            variant: 'outline',
-            onClick: handleReset,
-            disabled: !hasChanges(),
-        },
-        {
-            text: 'Save',
+            text: tc('save'),
             color: 'violet',
             variant: 'filled',
             onClick: handleSave,
@@ -252,17 +157,13 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
         },
     ];
 
-    // Only render modal if isModalOpen is true
     if (!isModalOpen) {
         return null;
     }
 
-    // Dynamic modal title
-    const modalTitle = tagDisplayName ? `Edit Tag` : 'Edit Tag';
-
     return (
         <Modal
-            title={modalTitle}
+            title={t('tags.editModalTitle')}
             onCancel={onClose}
             buttons={buttons}
             open={isModalOpen}
@@ -273,38 +174,28 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
             <div>
                 <FormSection>
                     <Input
-                        label="Name"
+                        label={tl('name')}
                         value={tagName}
                         setValue={setTagName}
-                        placeholder="Enter tag name"
+                        placeholder={t('tags.namePlaceholder')}
                         isRequired
                         data-testid="tag-name-field"
                     />
                 </FormSection>
-
                 <FormSection>
                     <Input
-                        label="Description"
+                        label={tl('description')}
                         value={description}
                         setValue={setDescription}
-                        placeholder="Tag description"
+                        placeholder={t('tags.descriptionPlaceholderEdit')}
                         type="textarea"
                         data-testid="tag-description-field"
                     />
                 </FormSection>
-
                 <FormSection>
-                    <ColorPicker initialColor={colorValue} onChange={handleColorChange} label="Color" />
+                    <ColorPicker initialColor={colorValue} onChange={handleColorChange} label={t('tags.color')} />
                 </FormSection>
-
-                <OwnersSection
-                    selectedOwnerUrns={selectedOwnerUrns}
-                    setSelectedOwnerUrns={setSelectedOwnerUrns}
-                    existingOwners={owners}
-                    onChange={onChangeOwners}
-                    sourceRefetch={refetch}
-                    isEditForm
-                />
+                <OwnersSection selectedOwnerUrns={selectedOwnerUrns} setSelectedOwnerUrns={setSelectedOwnerUrns} />
             </div>
         </Modal>
     );

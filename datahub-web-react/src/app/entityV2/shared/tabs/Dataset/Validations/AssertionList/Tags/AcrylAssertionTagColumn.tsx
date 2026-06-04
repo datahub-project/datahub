@@ -1,12 +1,11 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { message } from 'antd';
-import { Plus } from 'phosphor-react';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SelectItemPopover } from '@src/alchemy-components/components/SelectItemsPopover';
 import DataHubTooltip from '@src/alchemy-components/components/Tooltip/Tooltip';
-import { getColor } from '@src/alchemy-components/theme/utils';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { handleBatchError } from '@src/app/entityV2/shared/utils';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import Tag from '@src/app/sharedV2/tags/tag/Tag';
@@ -30,12 +29,12 @@ const StyledPill = styled.div<{ color?: string; backgroundColor?: string }>`
     background-color: ${(props) => props.backgroundColor || 'none'};
     height: 24px;
     width: 24px;
-    color: ${(props) => props.color || '#5F6685'};
+    color: ${(props) => props.color || props.theme.colors.icon};
     border-radius: 100px;
     transition: all 0.2s;
     &:hover {
-        color: black;
-        background-color: ${getColor('gray', 100)};
+        color: ${(props) => props.theme.colors.text};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
@@ -46,7 +45,7 @@ const AdditionalPillCount = styled.div`
     align-items: center;
     font-size: 12px;
     font-family: Mulish;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const TooltipTitleWrapper = styled.div`
@@ -55,7 +54,7 @@ const TooltipTitleWrapper = styled.div`
 `;
 
 const TooltipMoreText = styled.div`
-    color: ${getColor('gray', 500)};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     margin-bottom: 4px;
 `;
@@ -68,6 +67,7 @@ interface AcrylAssertionTagColumnProps {
 }
 
 export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = ({ record, refetch }) => {
+    const { t } = useTranslation('entity.profile.validations');
     const [popoverVisible, setPopoverVisible] = useState(false);
 
     const { recommendedData: allGlobalTags } = useGetRecommendations([EntityType.Tag]);
@@ -114,7 +114,9 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                                     />
                                 ))}
                             {(record?.tags?.length ?? 0) > MAX_TAGS_FOR_HOVER ? (
-                                <TooltipMoreText>+ {record.tags.length - MAX_TAGS_FOR_HOVER} more</TooltipMoreText>
+                                <TooltipMoreText>
+                                    {t('assertionList.tagsMore', { count: record.tags.length - MAX_TAGS_FOR_HOVER })}
+                                </TooltipMoreText>
                             ) : null}
                         </TooltipTitleWrapper>
                     }
@@ -157,7 +159,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                 },
             });
         } catch (e) {
-            message.error(handleBatchError(newTags, e, 'Failed to add entities.'));
+            message.error(handleBatchError(newTags, e, t('tags.failedToAddEntities')));
         }
     };
 
@@ -173,7 +175,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                 },
             });
         } catch (e) {
-            message.error(handleBatchError(removedTags, e, 'Failed to remove entities.'));
+            message.error(handleBatchError(removedTags, e, t('tags.failedToRemoveEntities')));
         }
     };
 
@@ -190,7 +192,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                 }
 
                 // Notify success and refresh UI
-                message.success('Tags Updated!', 2);
+                message.success(t('tags.tagsUpdated'), 2);
                 setPopoverVisible(false);
                 refetch?.();
             } catch (e) {
@@ -206,7 +208,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
             selectedItems={selectedTags}
             refetch={refetch}
             onClose={handleClosePopover}
-            entityType={EntityType.Tag}
+            entityTypes={[EntityType.Tag]}
             handleSelectionChange={handleSelectionChange}
             visible={popoverVisible}
             onVisibleChange={setPopoverVisible}

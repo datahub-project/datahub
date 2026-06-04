@@ -58,7 +58,6 @@ const deleteGlossary = (message) => {
 
 describe("glossary sidebar navigation test", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     Cypress.on("uncaught:exception", (err, runnable) => false);
     cy.login();
     cy.skipIntroducePage();

@@ -3,6 +3,17 @@
 This is the canonical reference for working with the DataHub codebase. It applies to all coding
 agents (Claude Code, Cursor, Codex CLI, Devin, etc.) and human developers alike.
 
+## Code Navigation (LSP)
+
+Prefer LSP tools over Grep for code navigation tasks:
+
+- Use `goToDefinition` to find where something is defined
+- Use `findReferences` to find all call sites
+- Use `workspaceSymbol` to find symbols by name
+- Use diagnostics after any edit to catch type errors immediately
+
+See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
+
 ## Essential Commands
 
 **Build and test:**
@@ -26,12 +37,6 @@ agents (Claude Code, Cursor, Codex CLI, Devin, etc.) and human developers alike.
 ./gradlew :datahub-web-react:mdPrettierWrite        # Format markdown files
 ./gradlew :datahub-web-react:graphqlPrettierWrite   # Format GraphQL schemas
 ./gradlew :datahub-web-react:githubActionsPrettierWrite # Format GitHub Actions
-```
-
-If you are using git worktrees then exclude this as that might cause git related failures when running any gradle command.
-
-```
-./gradlew ... -x generateGitPropertiesGlobal
 ```
 
 **IMPORTANT: Verifying Python code changes:**
@@ -167,6 +172,65 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
 3. **Frontend changes** in `datahub-web-react/` consume GraphQL APIs
 4. **Ingestion changes** in `metadata-ingestion/` emit metadata to backend APIs
 
+## Working on Docs
+
+The docs site is a **Docusaurus 2** app in `docs-website/`. It runs on **port 3001** (not 3000, to avoid
+conflicting with the frontend dev server).
+
+### Quick start
+
+```bash
+scripts/dev/datahub-dev.sh docs            # fast start (assumes prior build)
+scripts/dev/datahub-dev.sh docs --build    # full rebuild (runs docGen + yarnGenerate first)
+```
+
+Or via Gradle directly: `./gradlew :docs-website:yarnStart` (always does a full build).
+
+### How the docs site is assembled
+
+The final site is served from `docs-website/genDocs/` (gitignored). It is assembled at build time
+from multiple hand-authored sources plus several generation steps:
+
+1. **Gradle generation tasks** produce `docs/generated/` (connector docs, entity reference, schemas)
+2. **`generateDocsDir.ts`** discovers all markdown in the repo, applies transformations (frontmatter,
+   link rewriting, `{{ inline }}` directives), and writes the result to `genDocs/`
+3. **Docusaurus** serves from `genDocs/`, additionally generating GraphQL API docs and Python SDK docs
+
+See `docs-website/AGENTS.md` for full pipeline details.
+
+### Where docs live
+
+| Path                                           | What to edit                                    | Detail guide                                |
+| ---------------------------------------------- | ----------------------------------------------- | ------------------------------------------- |
+| `docs/`                                        | Hand-authored feature guides, API docs, how-tos | _(this section)_                            |
+| `metadata-ingestion/docs/sources/<connector>/` | Connector docs (`*_pre.md`, `*_post.md`, etc.)  | `metadata-ingestion/docs/sources/AGENTS.md` |
+| `metadata-models/docs/entities/`               | Entity descriptions (input to `modelDocGen`)    | `metadata-models/docs/AGENTS.md`            |
+| `docs-website/src/pages/`                      | Custom React pages (e.g. `/integrations`)       | `docs-website/AGENTS.md`                    |
+| `docs-website/src/learn/`                      | Blog / learning articles (served at `/learn`)   | `docs-website/AGENTS.md`                    |
+| `docs-website/sidebars.js`                     | Sidebar navigation tree                         | `docs-website/AGENTS.md`                    |
+| `docs-website/static/`                         | Images, logos, static assets                    | `docs-website/AGENTS.md`                    |
+| `docs/generated/`                              | **Never edit** — auto-generated                 |                                             |
+| `docs-website/genDocs/`                        | **Never edit** — assembled output               |                                             |
+
+### Adding or editing a hand-authored doc
+
+1. Create/edit the markdown file in `docs/`
+2. Add an entry in `docs-website/sidebars.js` (the doc ID is the file path minus `.md`)
+3. Run `scripts/dev/datahub-dev.sh docs` to preview
+
+If `sidebars.js` is missing the entry, the build will warn about an unaccounted file.
+
+### Adding a DataHub Cloud release note
+
+Release notes live in `docs/managed-datahub/release-notes/` and follow the naming convention `v_0_3_<N>.md`.
+
+**CRITICAL**: Adding the markdown file alone is not enough — you must also add it to `sidebars.js`:
+
+1. Create `docs/managed-datahub/release-notes/v_0_3_<N>.md`
+2. Add `"docs/managed-datahub/release-notes/v_0_3_<N>"` as the **first entry** under `"DataHub Cloud Release History"` in `docs-website/sidebars.js` (newer releases go at the top)
+
+Forgetting step 2 means the release note is published but never appears in the sidebar navigation.
+
 ## Code Standards
 
 ### General Principles
@@ -184,6 +248,7 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
   - **Data Structures**: Prefer dataclasses/pydantic for internal data, return dataclasses over tuples
   - **Code Quality**: Avoid global state, use named arguments, don't re-export in `__init__.py`, refactor repetitive code
   - **Error Handling**: Robust error handling with layers of protection for known failure points
+  - **Security**: Never pass credentials to third-party SDKs via `os.environ`. Use the SDK's programmatic injection mechanism (a settings object, client constructor argument, or credential provider). Writing secrets to the process environment exposes them via `/proc/<pid>/environ` and to any code in the same process. See [`looker_lib_wrapper.py`](metadata-ingestion/src/datahub/ingestion/source/looker/looker_lib_wrapper.py) (`_DataHubLookerApiSettings`) for the canonical pattern.
 - **TypeScript**: Use Prettier formatting, strict types (no `any`), React Testing Library
 
 ### Frontend Theming (Colors)
@@ -376,7 +441,7 @@ When creating PRs, follow the template in `.github/pull_request_template.md`:
 <type>[optional scope]: <description>
 ```
 
-Types: `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `style`, `build`, `ci`
+Types: `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `style`, `build`, `ci`, `chore`
 
 Example: `feat(parser): add ability to parse arrays`
 
@@ -403,8 +468,9 @@ A stdlib-only Python CLI for agent-driven development. No venv needed — runs w
 scripts/dev/datahub-dev.sh <command>
 ```
 
-Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `setup`, `frontend`,
-`status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
+Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `stop`, `suspend`,
+`setup`, `frontend`, `docs`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`,
+`sync-flags`, `reset`, `nuke`, `instances list/clean`, `shell-env`).
 
 ### End-to-End Workflow
 
@@ -416,9 +482,6 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 5. **Iterate**: Repeat steps 2–4
 
 **Frontend hot-reload:** Run `scripts/dev/datahub-dev.sh frontend` to start the React dev server with hot-reload (instead of rebuilding the frontend container).
-
-**Worktree note:** All Gradle commands inside the tool already pass `-x generateGitPropertiesGlobal`
-to avoid git-related failures in worktrees.
 
 ### Module-to-Container Mapping
 
@@ -460,10 +523,107 @@ The flag manifest at `scripts/generated/flag-classification.json` is **auto-gene
 (gitignored). Run `scripts/dev/datahub-dev.sh sync-flags` after adding fields to `FeatureFlags.java`
 or after a fresh clone.
 
+### Stopping DataHub
+
+`scripts/dev/datahub-dev.sh stop` shuts down all containers without restarting.
+
+When starting, `datahub-dev start` automatically detects and stops conflicting DataHub instances
+from other worktrees/compose projects that occupy the same ports.
+
+### Remote Runners
+
+`datahub-dev.sh` supports a **runner plugin** that proxies operations to a remote machine
+(EC2, Kubernetes pod, or any SSH-accessible host) instead of running Docker locally.
+
+**Configure a runner** in `~/.datahub/dev/config.json`:
+
+```json
+{
+  "max_local_instances": 2,
+  "max_remote_instances": 10,
+  "runner": "/path/to/your-runner.sh"
+}
+```
+
+Or export `DATAHUB_RUNNER=/path/to/runner.sh` in your shell for a one-off session.
+
+**Remote lifecycle** (all commands work identically to local once a runner is set):
+
+```bash
+# One-time bootstrap — provisions the remote environment
+scripts/dev/datahub-dev.sh setup --remote
+
+# Start — syncs changed local files, runs quickstartDebug on the remote,
+#          then sets up port tunnels so local ports reach the remote instance
+scripts/dev/datahub-dev.sh start
+
+# Stop containers only (remote compute keeps running)
+scripts/dev/datahub-dev.sh stop
+
+# Stop containers AND halt the remote compute (no billing while suspended).
+# 'start' will automatically resume the instance when needed.
+scripts/dev/datahub-dev.sh suspend
+
+# All other commands (status, wait, rebuild, test, flag, env, nuke, …)
+# proxy through the runner transparently — use them exactly as you would locally.
+scripts/dev/datahub-dev.sh status
+```
+
+**Multi-instance management** — each git worktree gets its own isolated instance
+(separate Docker project, volumes, and port assignment):
+
+```bash
+# List all registered instances (local and remote) with their ports and status
+scripts/dev/datahub-dev.sh instances list
+
+# Remove stale entries for worktrees that no longer exist
+scripts/dev/datahub-dev.sh instances clean
+
+# Print export statements for the current instance's CLI environment
+eval $(scripts/dev/datahub-dev.sh shell-env)
+# → sets DATAHUB_GMS_URL to the correct local port (tunnel or direct)
+```
+
+**Port assignment** — each instance gets a slot; ports = base + slot × 1000:
+
+| Slot | GMS   | Frontend | Notes                     |
+| ---- | ----- | -------- | ------------------------- |
+| 0    | 8080  | 9002     | First local instance      |
+| 1    | 9080  | 10002    | Second local instance     |
+| 2    | 10080 | 11002    | First remote instance     |
+| …    | …     | …        | Each worktree is isolated |
+
+**Backwards compatibility / opting out of isolation** — if the new per-worktree
+project names cause problems (lost data in old volumes, tooling that expects
+`datahub-*` container names, CI environments that don't need isolation), set
+`compose_project` in `~/.datahub/dev/config.json`:
+
+```json
+{ "compose_project": "datahub" }
+```
+
+This reverts to the old single-instance behaviour: one `datahub` Docker project,
+same container names, existing volumes fully accessible. The env var
+`COMPOSE_PROJECT_NAME=datahub` has the same effect without touching the config file.
+
+**Runner interface** — a runner is any executable that speaks four verbs:
+
+```bash
+runner init                        # one-time environment bootstrap
+runner sync                        # push changed local files to the remote
+runner exec -- <cmd> [args...]     # execute a command in the remote workspace
+runner tunnel <local:remote> ...   # set up port forwarding
+runner resume                      # start compute if stopped (no-op if running)
+runner suspend                     # stop containers + halt compute
+```
+
+A reference Kubernetes runner is at `scripts/dev/runners/k8s.sh`.
+
 ### Recovery Escalation
 
 **When to use each:**
 
+- `stop`: Just shut down DataHub — no restart, no data loss
 - `reset`: GMS returns 503 and doesn't recover, frontend shows "Unable to connect", tests fail
   with connection errors
 - `nuke --keep-data`: Containers in restart loops, port conflicts, `reset` didn't fix it

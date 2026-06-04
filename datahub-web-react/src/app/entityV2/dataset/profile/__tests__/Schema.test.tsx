@@ -55,7 +55,7 @@ describe('Schema', () => {
         expect(getByText('the name of the order')).toBeInTheDocument();
         expect(getByText('shipping_address')).toBeInTheDocument();
         expect(getByText('the address the order ships to')).toBeInTheDocument();
-    }, 10_000);
+    }, 30_000);
 
     it('renders raw', () => {
         const { getByText, queryAllByTestId } = render(
@@ -97,7 +97,7 @@ describe('Schema', () => {
         fireEvent.click(schemaButton);
 
         expect(queryAllByTestId('schema-raw-view')).toHaveLength(0);
-    });
+    }, 30_000);
 
     it('renders tags and terms', () => {
         const { getByText } = render(

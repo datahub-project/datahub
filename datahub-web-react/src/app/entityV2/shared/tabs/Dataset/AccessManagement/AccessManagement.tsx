@@ -1,9 +1,9 @@
 import { Table } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import {
     RoleAccessData,
     renderAccessButton,
@@ -18,12 +18,12 @@ const StyledTable = styled(Table)`
     height: inherit;
 
     &&& .ant-table-cell {
-        background-color: #fff;
+        background-color: ${(props) => props.theme.colors.bg};
     }
     &&& .ant-table-thead .ant-table-cell {
         font-weight: 600;
         font-size: 12px;
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
     &&
         .ant-table-thead
@@ -31,7 +31,7 @@ const StyledTable = styled(Table)`
         > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
             [colspan]
         )::before {
-        border: 1px solid ${ANTD_GRAY[4]};
+        border: 1px solid ${(props) => props.theme.colors.bgSurface};
     }
 ` as typeof Table;
 
@@ -39,8 +39,8 @@ const StyledTable = styled(Table)`
  * Styled component for empty access state display
  */
 const EmptyAccessSection = styled.section`
-    background-color: ${REDESIGN_COLORS.WHITE};
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    background-color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.text};
     width: 83px;
     text-align: center;
     border-radius: 3px;
@@ -64,6 +64,8 @@ const renderAccessCell = (hasAccess: boolean, record: RoleAccessData) => {
  * and "Request" (enabled) buttons for roles they can request access to.
  */
 export default function AccessManagement() {
+    const { t } = useTranslation('entity.profile.access');
+    const { t: tl } = useTranslation('common.labels');
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const entityUrn = baseEntity?.dataset?.urn as string;
 
@@ -74,12 +76,12 @@ export default function AccessManagement() {
 
     const columns = [
         {
-            title: 'Role Name',
+            title: t('accessManagement.columnRoleName'),
             dataIndex: 'name',
             key: 'name',
         },
         {
-            title: 'Description',
+            title: tl('description'),
             dataIndex: 'description',
             key: 'description',
             render: (roleDescription) => {
@@ -87,12 +89,12 @@ export default function AccessManagement() {
             },
         },
         {
-            title: 'Access Type',
+            title: t('accessManagement.columnAccessType'),
             dataIndex: 'accessType',
             key: 'accessType',
         },
         {
-            title: 'Access',
+            title: t('accessManagement.columnAccess'),
             dataIndex: 'hasAccess',
             key: 'hasAccess',
             render: renderAccessCell,
@@ -107,7 +109,7 @@ export default function AccessManagement() {
             dataSource={tableData}
             columns={columns}
             pagination={false}
-            aria-label="Access management roles table"
+            aria-label={t('accessManagement.tableAriaLabel')}
         />
     );
 }

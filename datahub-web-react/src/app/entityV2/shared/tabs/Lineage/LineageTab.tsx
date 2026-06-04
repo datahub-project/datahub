@@ -1,5 +1,5 @@
-import { colors } from '@components';
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -11,7 +11,6 @@ import LineageExplorer from '@app/lineage/LineageExplorer';
 import LineageGraph from '@app/lineageV2/LineageGraph';
 import { useLineageV2 } from '@app/lineageV2/useLineageV2';
 import TabFullsizedContext from '@app/shared/TabFullsizedContext';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { LineageDirection } from '@types';
 
@@ -24,7 +23,7 @@ const LineageTabWrapper = styled.div`
 `;
 
 const LineageSwitchWrapper = styled.div`
-    border: 1px solid ${colors.violet[600]};
+    border: 1px solid ${(props) => props.theme.colors.textBrand};
     border-radius: 4.5px;
     display: flex;
     margin: 13px 11px;
@@ -32,9 +31,9 @@ const LineageSwitchWrapper = styled.div`
 `;
 
 const LineageViewSwitch = styled.div<{ selected: boolean }>`
-    background: ${({ selected, theme }) => (selected ? `${getColor('primary', 600, theme)}` : '#fff')};
+    background: ${({ selected, theme }) => (selected ? theme.colors.buttonFillBrand : theme.colors.bg)};
     border-radius: 3px;
-    color: ${({ selected, theme }) => (selected ? '#fff' : `${getColor('primary', 600, theme)}`)};
+    color: ${({ selected, theme }) => (selected ? theme.colors.bg : theme.colors.textBrand)};
     cursor: pointer;
     display: flex;
     font-size: 10px;
@@ -69,6 +68,7 @@ export function LineageTab({ properties, renderType }: Props) {
 }
 
 function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirection }) {
+    const { t } = useTranslation('lineage');
     const { isTabFullsize } = useContext(TabFullsizedContext);
     const { urn, entityType } = useEntityData();
     const isLineageV2 = useLineageV2();
@@ -80,10 +80,10 @@ function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirecti
                 <LineageTabHeader>
                     <LineageSwitchWrapper>
                         <LineageViewSwitch selected={isVisualizeView} onClick={() => setVisualizeView(true)}>
-                            Explorer
+                            {t('viewSwitch.explorer')}
                         </LineageViewSwitch>
                         <LineageViewSwitch selected={!isVisualizeView} onClick={() => setVisualizeView(false)}>
-                            Impact Analysis
+                            {t('viewSwitch.impactAnalysis')}
                         </LineageViewSwitch>
                     </LineageSwitchWrapper>
                 </LineageTabHeader>

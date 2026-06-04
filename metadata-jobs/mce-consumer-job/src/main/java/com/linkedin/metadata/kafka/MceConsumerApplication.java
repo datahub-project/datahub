@@ -4,24 +4,31 @@ import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.cassandra.CassandraAutoConfiguration;
-import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
+import org.springframework.boot.cassandra.autoconfigure.CassandraAutoConfiguration;
+import org.springframework.boot.elasticsearch.autoconfigure.ElasticsearchClientAutoConfiguration;
+import org.springframework.boot.elasticsearch.autoconfigure.ElasticsearchRestClientAutoConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.PropertySource;
 
 @SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 @SpringBootApplication(
-    exclude = {ElasticsearchRestClientAutoConfiguration.class, CassandraAutoConfiguration.class})
+    exclude = {
+      ElasticsearchClientAutoConfiguration.class,
+      ElasticsearchRestClientAutoConfiguration.class,
+      CassandraAutoConfiguration.class
+    })
 @ComponentScan(
     basePackages = {
       "com.linkedin.metadata.boot.kafka",
+      "com.linkedin.metadata.boot.pgqueue",
       "com.linkedin.gms.factory.auth",
       "com.linkedin.gms.factory.common",
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.entity",
       "com.linkedin.gms.factory.entityregistry",
       "com.linkedin.gms.factory.entityclient",
+      "com.linkedin.gms.factory.event",
       "com.linkedin.gms.factory.kafka",
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.secret",
@@ -29,10 +36,12 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.restli.server",
       "com.linkedin.metadata.restli",
       "com.linkedin.metadata.kafka",
+      "com.linkedin.metadata.pgqueue",
       "com.linkedin.metadata.dao.producer",
       "com.linkedin.gms.factory.form",
       "com.linkedin.metadata.dao.producer",
       "io.datahubproject.metadata.jobs.common.health.kafka",
+      "io.datahubproject.metadata.jobs.common.health.pgqueue",
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.plugins",
       "com.linkedin.gms.factory.system_telemetry"

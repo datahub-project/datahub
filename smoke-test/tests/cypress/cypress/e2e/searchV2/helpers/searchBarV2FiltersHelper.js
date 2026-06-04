@@ -29,7 +29,10 @@ export class SearchBarV2FiltersHelper {
   selectOption(filterName, text) {
     this.getDropdown(filterName).within(() => {
       cy.contains(text).click();
-      cy.get("input[type='checkbox']").should("be.checked");
+      cy.contains(text)
+        .closest("label")
+        .find("[data-checked]")
+        .should("have.attr", "data-checked", "true");
     });
   }
 
@@ -68,9 +71,10 @@ export class SearchBarV2FiltersHelper {
     values.forEach((value) => {
       this.search(filterName, value);
       this.getDropdown(filterName).within(() => {
-        cy.contains(value).within(() =>
-          cy.get("input[type='checkbox']").should("be.checked"),
-        );
+        cy.contains(value)
+          .closest("label")
+          .find("[data-checked]")
+          .should("have.attr", "data-checked", "true");
       });
     });
 
@@ -83,9 +87,10 @@ export class SearchBarV2FiltersHelper {
     values.forEach((value) => {
       this.search(filterName, value);
       this.getDropdown(filterName).within(() => {
-        cy.contains(value).within(() =>
-          cy.get("input[type='checkbox']").should("not.be.checked"),
-        );
+        cy.contains(value)
+          .closest("label")
+          .find("[data-checked]")
+          .should("have.attr", "data-checked", "false");
       });
     });
 
