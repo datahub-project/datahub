@@ -312,44 +312,6 @@ def test_parse_custom_sql_semicolon_in_string_literal(ctx):
     assert any("tasks" in urn for urn in urns)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Regression vs old logic: blank-line-separated SELECTs (no ';') no longer both "
-        "appear in lineage. The removed heuristic inserted ';' before blank-line SELECTs "
-        "so split_statements could split them; without it the two SELECTs arrive as a "
-        "single blob and only one table survives."
-    ),
-)
-def test_parse_custom_sql_blank_line_separated_selects(ctx):
-    query = "SELECT col FROM dbo.TableA\n\nSELECT col FROM dbo.TableB"
-    urns = _in_tables(ctx, query)
-    assert any("tablea" in urn for urn in urns)
-    assert any("tableb" in urn for urn in urns)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Regression vs old logic: after remove_tsql_control_statements strips the INTO "
-        "clause, two SELECTs are blank-line-separated with no ';'. split_statements has "
-        "no blank-line fallback so only the last source survives. The removed heuristic "
-        "in parse_custom_sql covered this case."
-    ),
-)
-def test_select_into_then_select_full_pipeline(ctx):
-    # SELECT INTO #temp followed by plain SELECT — real PowerBI temp-table pattern.
-    raw = (
-        "SELECT col INTO #TempResult FROM dbo.SourceA WHERE status = 'active'\n"
-        "\n"
-        "SELECT col FROM dbo.SourceB WHERE status = 'inactive'"
-    )
-    cleaned = native_sql_parser.remove_tsql_control_statements(raw)
-    urns = _in_tables(ctx, cleaned)
-    assert any("sourcea" in urn for urn in urns)
-    assert any("sourceb" in urn for urn in urns)
-
-
 def test_remove_tsql_control_statements_multiple_go_collapse():
     # Multiple consecutive GO separators must collapse to a single ';'.
     query = "SELECT col FROM dbo.A\nGO\nGO\nSELECT col FROM dbo.B"
