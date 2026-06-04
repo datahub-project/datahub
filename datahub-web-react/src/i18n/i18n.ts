@@ -36,6 +36,7 @@ export const NAMESPACES = [
     'home.v3',
     'ingestion',
     'ingestion.sourceBuilder',
+    'lineage',
     'misc',
     'modules',
     'onboarding',
