@@ -66,6 +66,7 @@ const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setS
                     ) : (
                         <ValueListContainer>
                             <Trans
+                                t={t}
                                 i18nKey="allowedValues.anyValueAllowed"
                                 components={{ type: <ValueType /> }}
                                 values={{ valueType }}
