@@ -1,5 +1,6 @@
 import { Input } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FixedSizeGrid as Grid } from 'react-window';
 import styled from 'styled-components';
 
@@ -72,6 +73,7 @@ const GridContainer = styled.div`
 `;
 
 export const ChatIconPicker = ({ onIconPick, color }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const icons = useMuiIcons();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedIcon, setSelectedIcon] = useState<string>('');
@@ -100,7 +102,7 @@ export const ChatIconPicker = ({ onIconPick, color }: Props) => {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search icons..."
+                placeholder={t('iconPicker.searchPlaceholder')}
             />
             <GridContainer>
                 <Grid
