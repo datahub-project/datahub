@@ -125,6 +125,7 @@ function PlatformContentView(props: Props) {
                             ))}
                     </LogoIcon>
                     <PlatformText>
+                        {/* eslint-disable-next-line i18next/no-literal-string -- separator joining platform names, not standalone UI text */}
                         <span>{showSiblingPlatformNames ? platformNames.join(' & ') : platformName}</span>
                     </PlatformText>
                     <PlatformDivider data-testid="platform-divider" />
@@ -143,6 +144,7 @@ function PlatformContentView(props: Props) {
                 title={getParentContainerNames(parentContainers)}
                 overlayStyle={areContainersTruncated ? {} : { display: 'none' }}
             >
+                {/* eslint-disable-next-line i18next/no-literal-string -- visual truncation indicator, not translatable UI text */}
                 {areContainersTruncated && <Ellipsis>...</Ellipsis>}
                 <ParentContainersWrapper ref={parentContainersRef}>
                     {remainingParentContainers &&
