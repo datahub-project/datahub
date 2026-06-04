@@ -29,6 +29,7 @@ import enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
 import enEntitySharedContainers from '@src/i18n/locales/en/entity.shared.containers.json';
 import enEntityTypes from '@src/i18n/locales/en/entity.types.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
+import enEntityV1SharedEntityDropdown from '@src/i18n/locales/en/entityV1.shared.entityDropdown.json';
 import enGovernanceDomain from '@src/i18n/locales/en/governance.domain.json';
 import enGovernanceGlossary from '@src/i18n/locales/en/governance.glossary.json';
 import enGovernanceStructuredProperties from '@src/i18n/locales/en/governance.structured-properties.json';
@@ -76,6 +77,7 @@ i18n.use(initReactI18next).init({
         'entity.shared.containers',
         'entity.types',
         'entity.views',
+        'entityV1.shared.entityDropdown',
         'governance.domain',
         'governance.glossary',
         'governance.structured-properties',
@@ -119,6 +121,7 @@ i18n.use(initReactI18next).init({
             'entity.shared.containers': enEntitySharedContainers,
             'entity.types': enEntityTypes,
             'entity.views': enEntityViews,
+            'entityV1.shared.entityDropdown': enEntityV1SharedEntityDropdown,
             'governance.domain': enGovernanceDomain,
             'governance.glossary': enGovernanceGlossary,
             'governance.structured-properties': enGovernanceStructuredProperties,
