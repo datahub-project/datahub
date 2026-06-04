@@ -126,7 +126,7 @@ export function ScheduleSection() {
                         Run on a schedule
                     </Text>
                     <Text size="sm" weight="bold" color="gray" colorLevel={1700}>
-                        (recommended)
+                        (Recommended)
                     </Text>
                 </SwitchLabel>
                 <Icon
