@@ -17,6 +17,7 @@ src/app/entityV2/shared/tabs/Dataset/Schema/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/Dataset/Validations/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/Documentation/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/Incident/**/*.{ts,tsx}
+src/app/entityV2/summary/**/*.{ts,tsx}
 src/app/entityV2/view/builder/constants.ts
 src/app/entityV2/view/builder/SelectedFilterValues.tsx
 src/app/entityV2/view/builder/SelectFilterValuesTab.tsx
