@@ -5,6 +5,7 @@ import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass'
 import { Group } from '@visx/group';
 import { Button, Input } from 'antd';
 import React, { useContext, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, centerY, iconX, width } from '@app/lineage/constants';
@@ -50,6 +51,7 @@ interface Props {
 }
 
 export default function NodeColumnsHeader({ node, filterText, setFilterText }: Props) {
+    const { t } = useTranslation('lineage');
     const [isSearchBarVisible, setIsSearchBarVisible] = useState(false);
     const { expandTitles, collapsedColumnsNodes, setCollapsedColumnsNodes } = useContext(LineageExplorerContext);
     const areColumnsCollapsed = !!collapsedColumnsNodes[node?.data?.urn || 'noop'];
@@ -88,11 +90,13 @@ export default function NodeColumnsHeader({ node, filterText, setFilterText }: P
                 <HeaderWrapper>
                     {areColumnsCollapsed ? (
                         <ExpandCollapseText onClick={expandColumns}>
-                            Show&nbsp; <DownOutlined />
+                            <Trans i18nKey="lineage:columns.show" />
+                            &nbsp; <DownOutlined />
                         </ExpandCollapseText>
                     ) : (
                         <ExpandCollapseText onClick={collapseColumns}>
-                            Hide&nbsp; <UpOutlined />
+                            <Trans i18nKey="lineage:columns.hide" />
+                            &nbsp; <UpOutlined />
                         </ExpandCollapseText>
                     )}
                     {!areColumnsCollapsed && (
@@ -100,7 +104,7 @@ export default function NodeColumnsHeader({ node, filterText, setFilterText }: P
                             {isSearchBarVisible && (
                                 <StyledInput
                                     defaultValue={filterText}
-                                    placeholder="Find column..."
+                                    placeholder={t('columns.findPlaceholder')}
                                     onChange={(e) => setFilterText(e.target.value)}
                                     onBlur={hideIfSearchIsEmpty}
                                     allowClear

@@ -2,6 +2,7 @@ import { toast } from '@components';
 import { Lightning } from '@phosphor-icons/react/dist/csr/Lightning';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
@@ -70,6 +71,7 @@ export default function TermContent({
     refetch,
     showOneAndCount,
 }: Props) {
+    const { t } = useTranslation('shared.tags');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { reloadByKeyType } = useReloadableContext();
@@ -97,7 +99,7 @@ export default function TermContent({
             })
                 .then(({ errors }) => {
                     if (!errors) {
-                        toast.success('Removed Term!', { duration: 2 });
+                        toast.success(t('removeTermSuccess'), { duration: 2 });
                         // Reload modules
                         // RelatedTerms - to update related terms in case some of them was removed
                         // ChildHierarchy - to update contents module in glossary node
@@ -119,7 +121,7 @@ export default function TermContent({
                 })
                 .then(refetch)
                 .catch((e) => {
-                    toast.error(`Failed to remove term: \n ${e.message || ''}`, { duration: 3 });
+                    toast.error(t('removeTermError', { error: e.message || '' }), { duration: 3 });
                 });
         }
     };
@@ -160,8 +162,8 @@ export default function TermContent({
                         onCloseModal?.();
                     }}
                     handleConfirm={removeTerm}
-                    modalTitle={`Do you want to remove ${termName} term?`}
-                    modalText={`Are you sure you want to remove the ${termName} term?`}
+                    modalTitle={t('removeTermConfirmTitle', { name: termName })}
+                    modalText={t('removeTermConfirmContent', { name: termName })}
                 />
             </StopPropagation>
         </TermContainer>

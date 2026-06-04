@@ -2,6 +2,7 @@ import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Typography } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
@@ -130,6 +131,7 @@ export default function TagTermGroup({
     showOneAndCount,
     showAddButton = true,
 }: Props) {
+    const { t } = useTranslation('shared.tags');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
@@ -245,7 +247,7 @@ export default function TagTermGroup({
                 if (maxShow && renderedTags > maxShow) return null;
 
                 return (
-                    <Tooltip title="This tag is managed within another platform">
+                    <Tooltip title={t('managedTagTooltip')}>
                         <Tag
                             tag={tag}
                             entityUrn={entityUrn}
@@ -309,10 +311,14 @@ export default function TagTermGroup({
                 );
             })}
             {showEmptyMessage && canAddTag && tagsEmpty && (
+                /* eslint-disable i18next/no-literal-string -- empty-state text lives in EMPTY_MESSAGES constants (out of scope); only the trailing "." is local punctuation */
                 <EmptyText type="secondary">{EMPTY_MESSAGES.tags.title}.</EmptyText>
+                /* eslint-enable i18next/no-literal-string */
             )}
             {showEmptyMessage && canAddTerm && termsEmpty && (
+                /* eslint-disable i18next/no-literal-string -- empty-state text lives in EMPTY_MESSAGES constants (out of scope); only the trailing "." is local punctuation */
                 <EmptyText type="secondary">{EMPTY_MESSAGES.terms.title}.</EmptyText>
+                /* eslint-enable i18next/no-literal-string */
             )}
             {canAddTag && !readOnly && showAddButton && (
                 <NoElementButton
@@ -323,7 +329,7 @@ export default function TagTermGroup({
                     {...buttonProps}
                 >
                     <StyledPlusIcon />
-                    <AddText data-testid="schema-field-add-tags-button">Add tags</AddText>
+                    <AddText data-testid="schema-field-add-tags-button">{t('addTagsButtonLower')}</AddText>
                 </NoElementButton>
             )}
             {canAddTerm && !readOnly && showAddButton && (
@@ -335,7 +341,7 @@ export default function TagTermGroup({
                     {...buttonProps}
                 >
                     <StyledPlusIcon />
-                    <AddText data-testid="schema-field-add-terms-button">Add terms</AddText>
+                    <AddText data-testid="schema-field-add-terms-button">{t('addTermsButtonLower')}</AddText>
                 </NoElementButton>
             )}
             <AddTagTerm

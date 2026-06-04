@@ -1,6 +1,7 @@
 import { toast } from '@components';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
@@ -71,6 +72,7 @@ export default function Tag({
     options,
 }: Props) {
     const theme = useTheme();
+    const { t } = useTranslation('shared.tags');
     const entityRegistry = useEntityRegistry();
     const isEmbeddedProfile = useIsEmbeddedProfile();
     const [removeTagMutation] = useRemoveTagMutation();
@@ -109,12 +111,12 @@ export default function Tag({
             })
                 .then(({ errors }) => {
                     if (!errors) {
-                        toast.success('Removed Tag!', { duration: 2 });
+                        toast.success(t('removeTagSuccess'), { duration: 2 });
                     }
                 })
                 .then(refetch)
                 .catch((e) => {
-                    toast.error(`Failed to remove tag: \n ${e.message || ''}`, { duration: 3 });
+                    toast.error(t('removeTagError', { error: e.message || '' }), { duration: 3 });
                 });
         }
     };
@@ -157,6 +159,7 @@ export default function Tag({
                         }
                     >
                         <StyledHighlight $maxWidth={maxWidth} matchStyle={highlightMatchStyle} search={highlightText}>
+
                             {options?.shouldShowEllipses ? (
                                 <span className="test-mini-preview-class">{displayName}</span>
                             ) : (
@@ -177,8 +180,8 @@ export default function Tag({
                 isOpen={showConfirmDelete}
                 handleClose={() => setShowConfirmDelete(false)}
                 handleConfirm={() => removeTag(tag)}
-                modalTitle={`Delete Tag '${displayName}'`}
-                modalText="Are you sure you want to remove this tag?"
+                modalTitle={t('deleteTagTitle', { name: displayName })}
+                modalText={t('removeTagConfirmation')}
             />
         </>
     );

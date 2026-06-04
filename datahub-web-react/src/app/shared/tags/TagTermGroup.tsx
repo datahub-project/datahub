@@ -6,6 +6,7 @@ import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Button, Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
 import Highlight from 'react-highlighter';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
@@ -72,6 +73,9 @@ export default function TagTermGroup({
     refetch,
     readOnly,
 }: Props) {
+    const { t } = useTranslation('shared.tags');
+    const theme = useTheme();
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
     const entityRegistry = useEntityRegistry();
     const theme = useTheme();
     const [showAddModal, setShowAddModal] = useState(false);
@@ -175,11 +179,13 @@ export default function TagTermGroup({
             })}
             {showEmptyMessage && canAddTag && tagsEmpty && (
                 <Typography.Paragraph type="secondary">
+                    {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) EMPTY_MESSAGES content from shared constants; only punctuation separator is literal */}
                     {EMPTY_MESSAGES.tags.title}. {EMPTY_MESSAGES.tags.description}
                 </Typography.Paragraph>
             )}
             {showEmptyMessage && canAddTerm && termsEmpty && (
                 <Typography.Paragraph type="secondary">
+                    {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) EMPTY_MESSAGES content from shared constants; only punctuation separator is literal */}
                     {EMPTY_MESSAGES.terms.title}. {EMPTY_MESSAGES.terms.description}
                 </Typography.Paragraph>
             )}
@@ -193,7 +199,7 @@ export default function TagTermGroup({
                     {...buttonProps}
                 >
                     <Plus size={14} weight="bold" />
-                    <span>Add Tags</span>
+                    <span>{t('addTagsButton')}</span>
                 </NoElementButton>
             )}
             {canAddTerm && !readOnly && (
@@ -206,7 +212,7 @@ export default function TagTermGroup({
                     {...buttonProps}
                 >
                     <Plus size={14} weight="bold" />
-                    <span>Add Terms</span>
+                    <span>{t('addTermsButton')}</span>
                 </NoElementButton>
             )}
             {showAddModal &&

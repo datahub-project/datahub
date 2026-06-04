@@ -5,6 +5,7 @@ import { Button, Divider, Typography, message } from 'antd';
 import ColorHash from 'color-hash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChromePicker } from 'react-color';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -89,14 +90,14 @@ const DescriptionLabel = styled(Typography.Text)`
         font-weight: bold;
         font-size: 14px;
         line-height: 28px;
-        color: rgb(38, 38, 38);
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
 const EmptyValue = styled.div`
     &:after {
         content: 'None';
-        color: #b7b7b7;
+        color: ${(props) => props.theme.colors.textTertiary};
         font-style: italic;
         font-weight: 100;
     }
@@ -188,6 +189,10 @@ export default function TagStyleEntity({
     useGetSearchResults = useWrappedSearchResults,
     hideDeleteAction = false,
 }: Props) {
+    const { t } = useTranslation('shared.tags');
+    const { t: tcFeedback } = useTranslation('common.feedback');
+    const { t: tcActions } = useTranslation('common.actions');
+    const { t: tcLabels } = useTranslation('common.labels');
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { error, data, refetch } = useGetTagQuery({ variables: { urn } });
@@ -245,17 +250,17 @@ export default function TagStyleEntity({
                     },
                 });
                 message.destroy();
-                message.success({ content: 'Color Saved!', duration: 2 });
+                message.success({ content: t('colorSaved'), duration: 2 });
                 setDisplayColorPicker(false);
             } catch (e: unknown) {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to save tag color: \n ${e.message || ''}`, duration: 2 });
+                    message.error({ content: t('saveColorError', { error: e.message || '' }), duration: 2 });
                 }
             }
             refetch?.();
         }
-    }, [urn, colorValue, displayColorPicker, setTagColorMutation, setDisplayColorPicker, refetch]);
+    }, [urn, colorValue, displayColorPicker, setTagColorMutation, setDisplayColorPicker, refetch, t]);
 
     const colorPickerRef = useRef(null);
 
@@ -306,11 +311,11 @@ export default function TagStyleEntity({
 
     // Save the description
     const handleSaveDescription = async (desc: string) => {
-        message.loading({ content: 'Saving...' });
+        message.loading({ content: tcFeedback('saving') });
         try {
             await updateDescriptionValue(desc);
             message.destroy();
-            message.success({ content: 'Description Updated', duration: 2 });
+            message.success({ content: t('descriptionUpdated'), duration: 2 });
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateDescription,
@@ -320,7 +325,7 @@ export default function TagStyleEntity({
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to update description: \n ${e.message || ''}`, duration: 2 });
+                message.error({ content: t('updateDescriptionError', { error: e.message || '' }), duration: 2 });
             }
         }
         refetch?.();
@@ -332,7 +337,7 @@ export default function TagStyleEntity({
             {/* Tag Title */}
             <TagHeader>
                 <div>
-                    <TitleLabel>Tag</TitleLabel>
+                    <TitleLabel>{t('tagLabel')}</TitleLabel>
                     <TagName>
                         <ColorPicker>
                             <ColorPickerButton style={{ backgroundColor: colorValue }} onClick={handlePickerClick} />
@@ -361,11 +366,11 @@ export default function TagStyleEntity({
             </TagHeader>
             <Divider />
             {/* Tag Description */}
-            <DescriptionLabel>About</DescriptionLabel>
+            <DescriptionLabel>{t('about')}</DescriptionLabel>
             <Paragraph
                 style={{ fontSize: '12px', lineHeight: '15px', padding: '5px 0px' }}
                 editable={{ onChange: handleSaveDescription }}
-                ellipsis={{ rows: 2, expandable: true, symbol: 'Read more' }}
+                ellipsis={{ rows: 2, expandable: true, symbol: tcActions('readMore') }}
             >
                 {updatedDescription || <EmptyValue />}
             </Paragraph>
@@ -373,15 +378,15 @@ export default function TagStyleEntity({
             {/* Tag Charts, Datasets and Owners */}
             <DetailsLayout>
                 <StatsBox>
-                    <StatsLabel>Applied to</StatsLabel>
+                    <StatsLabel>{t('appliedTo')}</StatsLabel>
                     {facetLoading && (
                         <div>
-                            <EmptyStatsText>Loading...</EmptyStatsText>
+                            <EmptyStatsText>{tcFeedback('loading')}</EmptyStatsText>
                         </div>
                     )}
                     {!facetLoading && aggregations && aggregations?.length === 0 && (
                         <div>
-                            <EmptyStatsText>No entities</EmptyStatsText>
+                            <EmptyStatsText>{t('noEntities')}</EmptyStatsText>
                         </div>
                     )}
                     {!facetLoading &&
@@ -410,6 +415,7 @@ export default function TagStyleEntity({
                                     >
                                         <span data-testid={`stats-${aggregation?.value}`}>
                                             {aggregation?.count}{' '}
+                                            {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) interpolated entity collection name from registry; only the ">" separator is literal */}
                                             {entityRegistry.getCollectionName(aggregation?.value as EntityType)} &gt;
                                         </span>
                                     </StatsButton>
@@ -418,22 +424,23 @@ export default function TagStyleEntity({
                         })}
                 </StatsBox>
                 <div>
-                    <StatsLabel>Owners</StatsLabel>
+                    <StatsLabel>{tcLabels('owners')}</StatsLabel>
                     <div>
                         {data?.tag?.ownership?.owners?.map((owner) => (
                             <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} hidePopOver />
                         ))}
                         {ownersEmpty && (
                             <Typography.Paragraph type="secondary">
+                                {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) EMPTY_MESSAGES content from shared constants; only punctuation separator is literal */}
                                 {EMPTY_MESSAGES.owners.title}. {EMPTY_MESSAGES.owners.description}
                             </Typography.Paragraph>
                         )}
                         <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
                             <PlusOutlined />
                             {ownersEmpty ? (
-                                <OwnerButtonEmptyTitle>Add Owners</OwnerButtonEmptyTitle>
+                                <OwnerButtonEmptyTitle>{t('addOwners')}</OwnerButtonEmptyTitle>
                             ) : (
-                                <OwnerButtonTitle>Add Owners</OwnerButtonTitle>
+                                <OwnerButtonTitle>{t('addOwners')}</OwnerButtonTitle>
                             )}
                         </Button>
                     </div>

@@ -1,6 +1,7 @@
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import Text from 'antd/lib/typography/Text';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { DEFAULT_SYSTEM_ACTOR_URNS } from '@app/entity/shared/constants';
@@ -48,6 +49,7 @@ interface Props {
 }
 
 export default function EntityEdge({ entity, removeEntity, createdOn, createdActor }: Props) {
+    const { t } = useTranslation('lineage');
     const entityRegistry = useEntityRegistry();
     const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
@@ -57,7 +59,7 @@ export default function EntityEdge({ entity, removeEntity, createdOn, createdAct
     return (
         <EntityItem data-testid="lineage-entity-item">
             <NameAndLogoWrapper>
-                {platformLogoUrl && <PlatformLogo src={platformLogoUrl} alt="platform logo" />}{' '}
+                {platformLogoUrl && <PlatformLogo src={platformLogoUrl} alt={t('manualLineage.platformLogoAlt')} />}{' '}
                 <EntityName ellipsis={{ tooltip: entityRegistry.getDisplayName(entity.type, entity) }}>
                     {entityRegistry.getDisplayName(entity.type, entity)}
                 </EntityName>

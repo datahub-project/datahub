@@ -1,5 +1,6 @@
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
@@ -60,6 +61,8 @@ interface RelatedSectionProps {
 }
 
 export default function RelatedSection({ hideLinksButton }: RelatedSectionProps) {
+    const { t } = useTranslation('entity.profile.summary');
+    const { t: ta } = useTranslation('common.actions');
     const { urn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const [isAddLinkModalVisible, setIsAddLinkModalVisible] = useState(false);
@@ -173,7 +176,7 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
         <>
             <SectionHeader>
                 <SectionTitle weight="bold" color="gray" colorLevel={600} size="sm">
-                    Resources
+                    {t('links.resourcesTitle')}
                 </SectionTitle>
                 {supportsRelatedDocuments && !hideLinksButton && menuItems.length > 0 && (
                     <Popover
@@ -198,14 +201,14 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
                         }}
                     >
                         <Menu items={menuItems} placement="bottomRight">
-                            <Tooltip title="Add related link or context">
+                            <Tooltip title={t('links.addTooltip')}>
                                 <Button
                                     variant="text"
                                     color="gray"
                                     size="xs"
                                     icon={{ icon: Plus, size: 'lg' }}
                                     style={{ padding: '0 2px' }}
-                                    aria-label="Add related link or context"
+                                    aria-label={t('links.addTooltip')}
                                     data-testid="add-related-button"
                                 />
                             </Tooltip>
@@ -239,15 +242,15 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
                 </ListContainer>
             )}
 
-            {!hasContent && !documentsLoading && <EmptyState>No related links or context yet</EmptyState>}
+            {!hasContent && !documentsLoading && <EmptyState>{t('links.empty')}</EmptyState>}
 
             <ConfirmationModal
                 isOpen={showConfirmDelete}
                 handleClose={handleCancelDelete}
                 handleConfirm={handleDelete}
-                modalTitle="Confirm Delete"
-                modalText="Are you sure you want to delete this link?"
-                confirmButtonText="Delete"
+                modalTitle={t('links.deleteConfirmTitle')}
+                modalText={t('links.deleteConfirmText')}
+                confirmButtonText={ta('delete')}
                 isDeleteModal
             />
             {showEditLinkModal && <EditLinkModal link={selectedLink} onClose={handleCloseUpdate} />}

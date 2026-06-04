@@ -2,6 +2,7 @@ import { Badge, Icon, SearchBar } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -72,6 +73,7 @@ const RightSection = styled.div`
 `;
 
 export function SelectSourceStep() {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const { updateState, setCurrentStepCompleted, isCurrentStepCompleted, goToNext } = useMultiStepContext<
         MultiStepSourceBuilderState,
         IngestionSourceFormStep
@@ -127,7 +129,7 @@ export function SelectSourceStep() {
         <StepContainer ref={containerRef}>
             <SearchBar
                 data-testid="source-type-search-input"
-                placeholder="Search..."
+                placeholder={t('multiStep.selectSource.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(value) => handleSearch(value)}
                 width="320px"
