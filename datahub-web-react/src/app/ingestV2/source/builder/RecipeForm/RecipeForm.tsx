@@ -1,8 +1,10 @@
 import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from '@components';
 import { Collapse, Form, Typography, message } from 'antd';
+import i18next from 'i18next';
 import { get } from 'lodash';
 import React, { Fragment, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
@@ -62,7 +64,7 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     try {
         recipeObj = YAML.parse(displayRecipe);
     } catch (e) {
-        message.warn('Found invalid YAML. Please check your recipe configuration.');
+        message.warn(i18next.t('ingestion.sourceBuilder:recipeForm.invalidYaml.error'));
         return {};
     }
     if (recipeObj) {
@@ -139,6 +141,8 @@ function RecipeForm({
     goToPrevious,
     selectedSource,
 }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
+    const { t: tc } = useTranslation('common.actions');
     const { type } = state;
     const version = state.config?.version;
     const { fields, advancedFields, filterFields, filterSectionTooltip, advancedSectionTooltip, defaultOpenSections } =
@@ -208,7 +212,11 @@ function RecipeForm({
             onValuesChange={updateFormValues}
         >
             <StyledCollapse defaultActiveKey="0">
-                <Collapse.Panel forceRender header={<SectionHeader icon={<ApiOutlined />} text="Connection" />} key="0">
+                <Collapse.Panel
+                    forceRender
+                    header={<SectionHeader icon={<ApiOutlined />} text={t('recipeForm.connection.title')} />}
+                    key="0"
+                >
                     {visibleFields.map((field, i) => (
                         <FormField
                             key={field.name}
@@ -239,7 +247,7 @@ function RecipeForm({
                         header={
                             <SectionHeader
                                 icon={<FilterOutlined />}
-                                text="Filter"
+                                text={t('recipeForm.filter.title')}
                                 sectionTooltip={filterSectionTooltip}
                             />
                         }
@@ -271,7 +279,7 @@ function RecipeForm({
                         header={
                             <SectionHeader
                                 icon={<SettingOutlined />}
-                                text="Settings"
+                                text={t('recipeForm.settings.title')}
                                 sectionTooltip={advancedSectionTooltip}
                             />
                         }
@@ -292,9 +300,9 @@ function RecipeForm({
             )}
             <ControlsContainer>
                 <Button variant="outline" color="gray" disabled={isEditing} onClick={goToPrevious}>
-                    Previous
+                    {tc('previous')}
                 </Button>
-                <Button data-testid="recipe-builder-next-button">Next</Button>
+                <Button data-testid="recipe-builder-next-button">{tc('next')}</Button>
             </ControlsContainer>
         </RequiredFieldForm>
     );

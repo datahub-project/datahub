@@ -205,6 +205,7 @@ function LineageCard(
                 <CardWrapper {...props} ref={ref}>
                     <PlatformIconsWrapper>
                         {platformIcons.map((icon) => (
+                            /* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) internal alt fallback, not user-facing */
                             <PlatformIcon key={icon} src={icon} alt="Platform" />
                         ))}
                     </PlatformIconsWrapper>

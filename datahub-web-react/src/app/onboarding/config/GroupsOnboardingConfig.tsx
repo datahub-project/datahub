@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { Trans } from 'react-i18next';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
@@ -9,30 +10,33 @@ const GROUPS_CREATE_GROUP_ID = 'groups-create-group';
 export const GroupsOnboardingConfig: OnboardingStep[] = [
     {
         id: GROUPS_INTRO_ID,
-        title: 'Groups',
+        title: <Trans i18nKey="onboarding:groups.introTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    Welcome to Datahub <strong>Groups</strong>!
+                    <Trans i18nKey="onboarding:groups.introWelcome" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    <strong>Groups</strong> are collections of users which can be used to assign ownership to assets and
-                    manage access.
+                    <Trans i18nKey="onboarding:groups.introDescription1" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    <strong>Groups</strong> can be created natively within DataHub, or synced from your Identity
-                    Provider.
+                    <Trans i18nKey="onboarding:groups.introDescription2" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    Learn more about <strong>Groups</strong>{' '}
-                    <a
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        href="https://docs.datahub.com/docs/authorization/groups"
-                    >
-                        {' '}
-                        here.
-                    </a>
+                    <Trans
+                        i18nKey="onboarding:groups.learnMore"
+                        components={{
+                            bold: <strong />,
+                            anchor: (
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    href="https://docs.datahub.com/docs/authorization/groups"
+                                />
+                            ),
+                        }}
+                    />
                 </p>
             </Text>
         ),
@@ -40,11 +44,11 @@ export const GroupsOnboardingConfig: OnboardingStep[] = [
     {
         id: GROUPS_CREATE_GROUP_ID,
         selector: `#${GROUPS_CREATE_GROUP_ID}`,
-        title: 'Create a new Group',
+        title: <Trans i18nKey="onboarding:groups.createTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    Click here to create a new <strong>Group</strong>.
+                    <Trans i18nKey="onboarding:groups.create" components={{ bold: <strong /> }} />
                 </p>
             </Text>
         ),

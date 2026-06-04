@@ -2,6 +2,7 @@ import { DeliveredProcedureOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Pagination, Table, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -57,6 +58,8 @@ function getStatusForStyling(status: DataProcessRunStatus, resultType: DataProce
 const PAGE_SIZE = 20;
 
 export const OperationsTab = () => {
+    const { t } = useTranslation('entity.types');
+    const { t: tl } = useTranslation('common.labels');
     const { urn, entityData } = useEntityData();
     const [page, setPage] = useState(1);
 
@@ -64,7 +67,7 @@ export const OperationsTab = () => {
 
     const columns = [
         {
-            title: 'Time',
+            title: t('shared.timeColumn'),
             dataIndex: 'time',
             key: 'time',
             render: (value) => (
@@ -74,24 +77,24 @@ export const OperationsTab = () => {
             ),
         },
         {
-            title: 'Duration',
+            title: t('shared.durationColumn'),
             dataIndex: 'duration',
             key: 'duration',
             render: (durationMs: number) => formatDuration(durationMs),
         },
         {
-            title: 'Run ID',
+            title: t('shared.runIdColumn'),
             dataIndex: 'name',
             key: 'name',
         },
         {
-            title: 'Task',
+            title: t('dataJob.name'),
             dataIndex: 'parentTemplate',
             key: 'parentTemplate',
             render: (parentTemplate) => <CompactEntityNameList entities={[parentTemplate]} />,
         },
         {
-            title: 'Status',
+            title: tl('status'),
             dataIndex: 'status',
             key: 'status',
             render: (status: any, row) => {
@@ -104,7 +107,7 @@ export const OperationsTab = () => {
                         <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
                             {Icon && <Icon style={{ color }} />}
                             <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                                {text || 'N/A'}
+                                {text || tl('na')}
                             </Typography.Text>
                         </div>
                     </>
@@ -112,13 +115,13 @@ export const OperationsTab = () => {
             },
         },
         {
-            title: 'Inputs',
+            title: t('shared.inputs'),
             dataIndex: 'inputs',
             key: 'inputs',
             render: (inputs) => <CompactEntityNameList entities={inputs} />,
         },
         {
-            title: 'Outputs',
+            title: t('shared.outputs'),
             dataIndex: 'outputs',
             key: 'outputs',
             render: (outputs) => <CompactEntityNameList entities={outputs} />,
@@ -129,7 +132,7 @@ export const OperationsTab = () => {
             key: 'externalUrl',
             render: (externalUrl) =>
                 externalUrl && (
-                    <Tooltip title="View task run details">
+                    <Tooltip title={t('shared.viewTaskRunDetails')}>
                         <ExternalUrlLink href={safeUrl(externalUrl)}>
                             <DeliveredProcedureOutlined />
                         </ExternalUrlLink>
@@ -223,7 +226,7 @@ export const OperationsTab = () => {
             {loading && (
                 <LoadingContainer>
                     <LoadingSvg height={80} width={80} />
-                    <LoadingText>Fetching runs...</LoadingText>
+                    <LoadingText>{t('shared.fetchingRuns')}</LoadingText>
                 </LoadingContainer>
             )}
             {!loading && (

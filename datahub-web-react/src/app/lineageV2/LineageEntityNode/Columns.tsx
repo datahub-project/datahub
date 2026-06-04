@@ -2,6 +2,7 @@ import { PartitionOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Pagination } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import { useUpdateNodeInternals } from 'reactflow';
 import styled from 'styled-components';
@@ -127,6 +128,7 @@ function Columns(props: Props) {
         setOnlyWithLineage,
     } = props;
 
+    const { t } = useTranslation('lineage');
     const updateNodeInternals = useUpdateNodeInternals();
     useEffect(() => {
         updateNodeInternals(entity.urn); // Register new column handle positions with React Flow
@@ -176,7 +178,7 @@ function Columns(props: Props) {
             {showAllColumns && (
                 <SearchBarWrapper>
                     <ColumnSearch searchText={filterText} setSearchText={setFilterText} />
-                    <Tooltip title="Only show columns with lineage" placement="right" mouseEnterDelay={0.5}>
+                    <Tooltip title={t('node.onlyWithLineageTooltip')} placement="right" mouseEnterDelay={0.5}>
                         <FilterLineageIcon
                             count={numColumnsWithLineage}
                             selected={onlyWithLineage}

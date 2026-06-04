@@ -1,4 +1,5 @@
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -67,6 +68,7 @@ export function LineageTab({ properties, renderType }: Props) {
 }
 
 function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirection }) {
+    const { t } = useTranslation('lineage');
     const { isTabFullsize } = useContext(TabFullsizedContext);
     const { urn, entityType } = useEntityData();
     const isLineageV2 = useLineageV2();
@@ -78,10 +80,10 @@ function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirecti
                 <LineageTabHeader>
                     <LineageSwitchWrapper>
                         <LineageViewSwitch selected={isVisualizeView} onClick={() => setVisualizeView(true)}>
-                            Explorer
+                            {t('viewSwitch.explorer')}
                         </LineageViewSwitch>
                         <LineageViewSwitch selected={!isVisualizeView} onClick={() => setVisualizeView(false)}>
-                            Impact Analysis
+                            {t('viewSwitch.impactAnalysis')}
                         </LineageViewSwitch>
                     </LineageSwitchWrapper>
                 </LineageTabHeader>

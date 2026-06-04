@@ -1,5 +1,6 @@
 import { Form, Input, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { SecretBuilderState } from '@app/ingestV2/secret/types';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
@@ -19,6 +20,9 @@ type Props = {
 };
 
 export const SecretBuilderModal = ({ initialState, editSecret, open, onSubmit, onUpdate, onCancel }: Props) => {
+    const { t } = useTranslation('ingestion');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
 
@@ -48,7 +52,7 @@ export const SecretBuilderModal = ({ initialState, editSecret, open, onSubmit, o
         onCancel?.();
     };
 
-    const titleText = editSecret ? 'Edit Secret' : 'Create a new Secret';
+    const titleText = editSecret ? t('secret.editTitle') : t('secret.createTitle');
 
     return (
         <Modal
@@ -59,12 +63,12 @@ export const SecretBuilderModal = ({ initialState, editSecret, open, onSubmit, o
             zIndex={1051} // one higher than other modals - needed for managed ingestion forms
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onCloseModal,
                 },
                 {
-                    text: !editSecret ? 'Create' : 'Update',
+                    text: !editSecret ? tc('create') : tc('update'),
                     variant: 'filled',
                     buttonDataTestId: 'secret-modal-create-button',
                     id: 'createSecretButton',
@@ -102,62 +106,55 @@ export const SecretBuilderModal = ({ initialState, editSecret, open, onSubmit, o
                     setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0))
                 }
             >
-                <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
-                    <Typography.Paragraph>
-                        Give your secret a name. This is what you&apos;ll use to reference the secret from your recipes.
-                    </Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong>{tl('name')}</Typography.Text>}>
+                    <Typography.Paragraph>{t('secret.nameHelp')}</Typography.Paragraph>
                     <Form.Item
                         data-testid="secret-modal-name-input"
                         name={NAME_FIELD_NAME}
                         rules={[
                             {
                                 required: true,
-                                message: 'Enter a name.',
+                                message: t('secret.nameRequired'),
                             },
                             { whitespace: false },
                             { min: 1, max: 50 },
                             {
                                 pattern: /^[a-zA-Z_]+[a-zA-Z0-9_]*$/,
-                                message:
-                                    'Please start the secret name with a letter, followed by letters, digits, or underscores only.',
+                                message: t('secret.namePattern'),
                             },
                         ]}
                         hasFeedback
                     >
-                        <Input placeholder="A name for your secret" disabled={editSecret !== undefined} />
+                        <Input placeholder={t('secret.namePlaceholder')} disabled={editSecret !== undefined} />
                     </Form.Item>
                 </Form.Item>
-                <Form.Item label={<Typography.Text strong>Value</Typography.Text>}>
-                    <Typography.Paragraph>
-                        The value of your secret, which will be encrypted and stored securely within DataHub.
-                    </Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong>{tl('value')}</Typography.Text>}>
+                    <Typography.Paragraph>{t('secret.valueHelp')}</Typography.Paragraph>
                     <Form.Item
                         data-testid="secret-modal-value-input"
                         name={VALUE_FIELD_NAME}
                         rules={[
                             {
                                 required: true,
-                                message: 'Enter a value.',
+                                message: t('secret.valueRequired'),
                             },
                             // { whitespace: true },
                             { min: 1 },
                         ]}
                         hasFeedback
                     >
-                        <Input.TextArea placeholder="The value of your secret" autoComplete="false" />
+                        <Input.TextArea placeholder={t('secret.valuePlaceholder')} autoComplete="false" />
                     </Form.Item>
                 </Form.Item>
-                <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
-                    <Typography.Paragraph>
-                        An optional description to help keep track of your secret.
-                    </Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong>{tl('description')}</Typography.Text>}>
+                    <Typography.Paragraph>{t('secret.descriptionHelp')}</Typography.Paragraph>
                     <Form.Item
                         data-testid="secret-modal-description-input"
                         name={DESCRIPTION_FIELD_NAME}
                         rules={[{ whitespace: true }, { min: 1, max: 500 }]}
                         hasFeedback
                     >
-                        <Input.TextArea placeholder="A description for your secret" />
+                        <Input.TextArea placeholder={t('secret.descriptionPlaceholder')} />
                     </Form.Item>
                 </Form.Item>
             </Form>

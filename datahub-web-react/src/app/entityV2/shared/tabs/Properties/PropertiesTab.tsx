@@ -1,5 +1,6 @@
 import { Empty, Table } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -19,6 +20,8 @@ import { TabRenderType } from '@app/entityV2/shared/types';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
 import { Maybe, StructuredProperties } from '@src/types.generated';
+
+const PROPERTY_ROW_KEY = 'qualifiedName';
 
 const StyledTable = styled(Table)`
     &&& .ant-table-cell-with-append {
@@ -49,6 +52,8 @@ interface Props {
 }
 
 export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }: Props) => {
+    const { t } = useTranslation('entity.profile.tabs');
+    const { t: tc } = useTranslation('common.labels');
     const fieldPath = properties?.fieldPath;
     const fieldUrn = properties?.fieldUrn;
     const fieldProperties = properties?.fieldProperties;
@@ -83,11 +88,11 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     const propertyTableColumns = [
         {
             width: '40%',
-            title: 'Name',
+            title: tc('name'),
             render: (propertyRow: PropertyRow) => <NameColumn propertyRow={propertyRow} filterText={filterText} />,
         },
         {
-            title: 'Value',
+            title: tc('value'),
             ellipsis: true,
             render: (propertyRow: PropertyRow) => (
                 <ValuesColumn
@@ -138,9 +143,11 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
                     columns={propertyTableColumns}
                     dataSource={dataSource}
                     locale={{
-                        emptyText: <EmptyText description="No properties found" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: (
+                            <EmptyText description={t('properties.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                        ),
                     }}
-                    rowKey="qualifiedName"
+                    rowKey={PROPERTY_ROW_KEY}
                     expandable={{
                         expandedRowKeys: [...Array.from(expandedRows)],
                         defaultExpandAllRows: false,

@@ -3,6 +3,7 @@ import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
 import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React, { useContext } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -65,6 +66,7 @@ const DirectionHeader = styled.div`
 `;
 
 const SidebarLineageSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
     const { urn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
@@ -93,7 +95,7 @@ const SidebarLineageSection = () => {
 
     return (
         <SidebarSection
-            title="Lineage"
+            title={t('sidebar.lineage.sectionTitle')}
             key="Lineage"
             content={
                 <>
@@ -101,46 +103,56 @@ const SidebarLineageSection = () => {
                     {!loading && <UpstreamHealth />}
                     {!loading && directUpstreamCount > 0 && (
                         <Section key="upstream">
-                            <Tooltip
-                                title="Data assets that this is directly derived from"
-                                placement="left"
-                                showArrow={false}
-                            >
+                            <Tooltip title={t('sidebar.lineage.upstreamTooltip')} placement="left" showArrow={false}>
                                 <DirectionHeader>
                                     <DirectionIcon>
                                         <Icon icon={ArrowUp} size="md" />
                                     </DirectionIcon>
-                                    <DirectionText>UPSTREAM</DirectionText>
+                                    <DirectionText>{t('sidebar.lineage.upstreamLabel')}</DirectionText>
                                 </DirectionHeader>
                             </Tooltip>
                             <SummaryText>
-                                Depends on {getRelatedEntitySummary(directUpstreamSummary as any, entityRegistry)}
+                                <Trans
+                                    t={t}
+                                    i18nKey="sidebar.lineage.dependsOn"
+                                    components={{
+                                        summary: getRelatedEntitySummary(
+                                            directUpstreamSummary as any,
+                                            entityRegistry,
+                                        ) as React.ReactElement,
+                                    }}
+                                />
                             </SummaryText>
                         </Section>
                     )}
                     {!loading && directDownstreamCount > 0 && (
                         <Section key="downstream">
-                            <Tooltip
-                                title="Data assets that directly depend on this"
-                                placement="left"
-                                showArrow={false}
-                            >
+                            <Tooltip title={t('sidebar.lineage.downstreamTooltip')} placement="left" showArrow={false}>
                                 <DirectionHeader>
                                     <DirectionIcon>
                                         <Icon icon={ArrowDown} size="md" />
                                     </DirectionIcon>
-                                    <DirectionText>DOWNSTREAM</DirectionText>
+                                    <DirectionText>{t('sidebar.lineage.downstreamLabel')}</DirectionText>
                                 </DirectionHeader>
                             </Tooltip>
                             <SummaryText>
-                                Used by {getRelatedEntitySummary(directDownstreamSummary as any, entityRegistry)}
+                                <Trans
+                                    t={t}
+                                    i18nKey="sidebar.lineage.usedBy"
+                                    components={{
+                                        summary: getRelatedEntitySummary(
+                                            directDownstreamSummary as any,
+                                            entityRegistry,
+                                        ) as React.ReactElement,
+                                    }}
+                                />
                             </SummaryText>
                         </Section>
                     )}
                 </>
             }
             extra={
-                <Tooltip title="Explore related entities using the lineage graph" placement="left" showArrow={false}>
+                <Tooltip title={t('sidebar.lineage.exploreGraphTooltip')} placement="left" showArrow={false}>
                     <Button
                         variant="text"
                         color="violet"

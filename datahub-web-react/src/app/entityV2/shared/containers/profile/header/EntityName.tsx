@@ -1,5 +1,6 @@
 import { Typography, message } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components/macro';
 
@@ -53,6 +54,7 @@ interface Props {
 }
 
 function EntityName(props: Props) {
+    const { t } = useTranslation('entity.shared.containers');
     const theme = useTheme();
     const { isNameEditable } = props;
     const { isClosed: isSidebarClosed } = useContext(EntitySidebarContext);
@@ -88,7 +90,7 @@ function EntityName(props: Props) {
         updateName({ variables: { input: { name, urn } } })
             .then(() => {
                 setIsEditing(false);
-                message.success({ content: 'Name Updated', duration: 2 });
+                message.success({ content: t('entityName.updateSuccess'), duration: 2 });
                 refetch();
                 if (isInGlossaryContext) {
                     const parentNodeToUpdate = getParentNodeToUpdate(entityData, entityType);
@@ -132,7 +134,7 @@ function EntityName(props: Props) {
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to update name: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: t('entityName.updateFailed', { message: e.message || '' }), duration: 3 });
                 }
             });
     };
@@ -163,6 +165,7 @@ function EntityName(props: Props) {
                 tooltip: { showArrow: false, overlayInnerStyle: { color: theme.colors.textSecondary } },
             }}
             key={`${updatedName}-${key}`}
+            data-testid="entity-name-editable"
         >
             {updatedName}
         </EntityTitle>

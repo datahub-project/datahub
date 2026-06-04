@@ -1,5 +1,6 @@
 import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityContext, useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
@@ -17,6 +18,9 @@ interface Props {
 }
 
 export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
+    const { t } = useTranslation('modules');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
     const { entityType, urn } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
     const { setShouldRefetchEmbeddedListSearch, entityState } = useEntityContext();
@@ -53,10 +57,10 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchAddGlossaryTermModalVisible(false);
-                    message.loading({ content: 'Updating...', duration: 3 });
+                    message.loading({ content: tf('updating'), duration: 3 });
                     setTimeout(() => {
                         message.success({
-                            content: `Added Glossary Term to entities!`,
+                            content: t('assets.addedTermSuccess'),
                             duration: 2,
                         });
                         refetch?.();
@@ -68,7 +72,7 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
                 message.destroy();
                 message.error(
                     handleBatchError(entityUrns, e, {
-                        content: `Failed to add glossary term: \n ${e.message || ''}`,
+                        content: t('assets.addTermError', { error: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -92,10 +96,10 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetDomainModalVisible(false);
-                    message.loading({ content: 'Updating...', duration: 3 });
+                    message.loading({ content: tf('updating'), duration: 3 });
                     setTimeout(() => {
                         message.success({
-                            content: `Added assets to Domain!`,
+                            content: t('assets.addedToDomainSuccess'),
                             duration: 3,
                         });
                         refetch?.();
@@ -113,7 +117,7 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
                 message.destroy();
                 message.error(
                     handleBatchError(entityUrns, e, {
-                        content: `Failed to add assets to Domain: \n ${e.message || ''}`,
+                        content: t('assets.addToDomainError', { error: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -135,10 +139,10 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetDataProductModalVisible(false);
-                    message.loading({ content: 'Updating...', duration: 3 });
+                    message.loading({ content: tf('updating'), duration: 3 });
                     setTimeout(() => {
                         message.success({
-                            content: `Added assets to Data Product!`,
+                            content: t('assets.addedToDataProductSuccess'),
                             duration: 3,
                         });
                         refetch?.();
@@ -155,7 +159,7 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
                 message.destroy();
                 message.error(
                     handleBatchError(entityUrns, e, {
-                        content: `Failed to add assets to Data Product. An unknown error occurred.`,
+                        content: t('assets.addToDataProductError'),
                         duration: 3,
                     }),
                 );
@@ -169,8 +173,8 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
         <>
             {isBatchAddGlossaryTermModalVisible && (
                 <SearchSelectModal
-                    titleText="Add Glossary Term to assets"
-                    continueText="Add"
+                    titleText={t('assets.addTermModalTitle')}
+                    continueText={tc('add')}
                     onContinue={batchAddGlossaryTerms}
                     onCancel={() => setIsBatchAddGlossaryTermModalVisible(false)}
                     fixedEntityTypes={Array.from(
@@ -180,8 +184,8 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             )}
             {isBatchSetDomainModalVisible && (
                 <SearchSelectModal
-                    titleText="Add assets to Domain"
-                    continueText="Add"
+                    titleText={t('assets.addToDomainModalTitle')}
+                    continueText={tc('add')}
                     onContinue={batchSetDomain}
                     onCancel={() => setIsBatchSetDomainModalVisible(false)}
                     fixedEntityTypes={Array.from(
@@ -191,8 +195,8 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             )}
             {isBatchSetDataProductModalVisible && (
                 <SearchSelectModal
-                    titleText="Add assets to Data Product"
-                    continueText="Add"
+                    titleText={t('assets.addToDataProductModalTitle')}
+                    continueText={tc('add')}
                     onContinue={batchSetDataProduct}
                     onCancel={() => setIsBatchSetDataProductModalVisible(false)}
                     fixedEntityTypes={Array.from(

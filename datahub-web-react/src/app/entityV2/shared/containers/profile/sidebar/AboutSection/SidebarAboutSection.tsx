@@ -1,6 +1,7 @@
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { EMPTY_MESSAGES, ENTITY_TYPES_WITH_NEW_SUMMARY_TAB } from '@app/entityV2/shared/constants';
@@ -21,6 +22,11 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 const LINE_LIMIT = 5;
 
+/* eslint-disable i18next/no-literal-string -- route tab name identifiers, not UI text */
+const SUMMARY_TAB = 'Summary';
+const DOCUMENTATION_TAB = 'Documentation';
+/* eslint-enable i18next/no-literal-string */
+
 interface Properties {
     hideLinksButton?: boolean;
 }
@@ -31,6 +37,7 @@ interface Props {
 }
 
 export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const isLineageMode = useIsLineageMode();
@@ -56,7 +63,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
     return (
         <>
             <SidebarSection
-                title="Documentation"
+                title={t('sidebar.about.documentationTitle')}
                 content={
                     <>
                         {displayedDescription && (
@@ -83,11 +90,11 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                                             showNewSummaryTab
                                         ) {
                                             routeToTab({
-                                                tabName: 'Summary',
+                                                tabName: SUMMARY_TAB,
                                                 tabParams: { editingDescription: true },
                                             });
                                         } else {
-                                            routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
+                                            routeToTab({ tabName: DOCUMENTATION_TAB, tabParams: { editing: true } });
                                         }
                                     } else {
                                         const url = getEntityPath(
@@ -96,7 +103,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                                             entityRegistry,
                                             isLineageMode,
                                             isHideSiblingMode,
-                                            'Documentation',
+                                            DOCUMENTATION_TAB,
                                             {
                                                 editing: true,
                                             },

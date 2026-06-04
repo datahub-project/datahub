@@ -1,0 +1,16 @@
+{
+    "embed.noPreview": "No preview was found.",
+    "entity.consumesCount": "Consumes {{count}} {{entityName}}",
+    "entity.containsAssets_one": "Contains {{count}} asset",
+    "entity.containsAssets_other": "Contains {{count}} assets",
+    "entity.containsCount": "Contains {{count}} {{entityName}}",
+    "entity.foundInCount": "Found in {{count}} {{entityName}}",
+    "entity.list.loadError": "Failed to load results! An unexpected error occurred.",
+    "entity.paginationRange": "<b>{{start}} - {{end}}</b> of <b>{{total}}</b>",
+    "entity.partOf": "Part of {{entityName}}",
+    "properties.cardinality.multiSelect": "Multi-Select",
+    "properties.cardinality.singleSelect": "Single-Select",
+    "properties.empty": "No properties found",
+    "properties.optionsTooltip.title": "Property Options",
+    "properties.structuredProperty.title": "Structured Property"
+}

@@ -1,4 +1,5 @@
 import { ListDashes } from '@phosphor-icons/react/dist/csr/ListDashes';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -38,9 +39,9 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
 
     getPathName: () => string = () => this.getGraphName();
 
-    getCollectionName: () => string = () => 'Structured Properties';
+    getCollectionName: () => string = () => i18next.t('entity.types:structuredProperty.namePlural');
 
-    getEntityName: () => string = () => 'Structured Property';
+    getEntityName: () => string = () => i18next.t('entity.types:structuredProperty.name');
 
     renderProfile: (urn: string) => JSX.Element = (_urn) => <div />; // not used right now
 

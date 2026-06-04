@@ -4,6 +4,7 @@ import { Infinity } from '@phosphor-icons/react/dist/csr/Infinity';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { IncidentTab } from '@app/entity/shared/tabs/Incident/IncidentTab';
@@ -69,9 +70,9 @@ export class MLFeatureEntity implements Entity<MlFeature> {
 
     getPathName = () => 'features';
 
-    getEntityName = () => 'Feature';
+    getEntityName = () => i18next.t('entity.types:mlFeature.name');
 
-    getCollectionName = () => 'Features';
+    getCollectionName = () => i18next.t('entity.types:mlFeature.namePlural');
 
     getOverridePropertiesFromEntity = (feature?: MlFeature | null): GenericEntityProperties => {
         return {
@@ -92,28 +93,28 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Feature Tables',
+                    name: i18next.t('entity.types:tab.featureTables'),
                     component: FeatureTableTab,
                     icon: Infinity,
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
                     icon: TreeStructure,
                     supportsFullsize: true,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: ListBullets,
                 },
                 {
-                    name: 'Incidents',
+                    name: i18next.t('entity.types:tab.incidents'),
                     icon: WarningCircle,
                     component: IncidentTab,
                     getCount: (_, mlFeature) => {
@@ -164,18 +165,18 @@ export class MLFeatureEntity implements Entity<MlFeature> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
         },
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];

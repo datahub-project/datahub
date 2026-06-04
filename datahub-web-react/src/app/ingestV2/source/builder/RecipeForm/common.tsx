@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { get, omit, set } from 'lodash';
 import React from 'react';
 
@@ -117,13 +118,20 @@ function setDateValueOnRecipe(recipe: any, value: Dayjs | undefined, fieldPath: 
 const databaseAllowFieldPath = 'source.config.database_pattern.allow';
 export const DATABASE_ALLOW: FilterRecipeField = {
     name: 'database_pattern.allow',
-    label: 'Allow Patterns',
-    helper: 'Regex patterns to include specific databases (e.g. prod_.*).',
-    tooltip:
-        'Only include specific Databases by providing the name of a Database, or a Regular Expression (REGEX). If not provided, all Databases will be included.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.allowPatterns');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.databasePatternAllow.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.databasePatternAllow.tooltip');
+    },
     placeholder: 'database_name',
     type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: databaseAllowFieldPath,
     rules: null,
     section: 'Databases',
@@ -136,13 +144,20 @@ export const DATABASE_ALLOW: FilterRecipeField = {
 const databaseDenyFieldPath = 'source.config.database_pattern.deny';
 export const DATABASE_DENY: FilterRecipeField = {
     name: 'database_pattern.deny',
-    label: 'Deny Patterns',
-    helper: 'Regex patterns to exclude databases. Deny overrides allow.',
-    tooltip:
-        'Exclude specific Databases by providing the name of a Database, or a Regular Expression (REGEX). If not provided, all Databases will be included. Deny patterns always take precedence over Allow patterns.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.denyPatterns');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.databasePatternDeny.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.databasePatternDeny.tooltip');
+    },
     placeholder: 'database_name',
     type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: databaseDenyFieldPath,
     rules: null,
     section: 'Databases',
@@ -155,15 +170,22 @@ export const DATABASE_DENY: FilterRecipeField = {
 const schemaAllowFieldPath = 'source.config.schema_pattern.allow';
 export const SCHEMA_ALLOW: FilterRecipeField = {
     name: 'schema_pattern.allow',
-    label: 'Allow Patterns',
-    helper: 'Include specific Schemas',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.allowPatterns');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.schemaPatternAllow.helper');
+    },
     // TODO: Change this to FULLY qualified names once the allow / deny consistency track is completed.
-    tooltip:
-        'Only include specific Schemas by providing the name of a Schema, or a Regular Expression (REGEX) to include specific Schemas. If not provided, all Schemas inside allowed Databases will be included.',
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.schemaPatternAllow.tooltip');
+    },
     placeholder: 'company_schema',
     type: FieldType.LIST,
     rule: FilterRule.INCLUDE,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: schemaAllowFieldPath,
     rules: null,
     section: 'Schemas',
@@ -175,14 +197,21 @@ export const SCHEMA_ALLOW: FilterRecipeField = {
 const schemaDenyFieldPath = 'source.config.schema_pattern.deny';
 export const SCHEMA_DENY: FilterRecipeField = {
     name: 'schema_pattern.deny',
-    label: 'Deny Patterns',
-    helper: 'Exclude specific Schemas',
-    tooltip:
-        'Exclude specific Schemas by providing the name of a Schema, or a Regular Expression (REGEX). If not provided, all Schemas inside allowed Databases will be included. Deny patterns always take precedence over Allow patterns.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.denyPatterns');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.schemaPatternDeny.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.schemaPatternDeny.tooltip');
+    },
     placeholder: 'company_schema',
     type: FieldType.LIST,
     rule: FilterRule.EXCLUDE,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: schemaDenyFieldPath,
     rules: null,
     section: 'Schemas',
@@ -194,14 +223,21 @@ export const SCHEMA_DENY: FilterRecipeField = {
 const tableAllowFieldPath = 'source.config.table_pattern.allow';
 export const TABLE_ALLOW: FilterRecipeField = {
     name: 'table_pattern.allow',
-    label: 'Allow Patterns',
-    helper: 'Include Tables with names',
-    tooltip:
-        'Only include Tables with particular names by providing the fully qualified name of a Table, or a Regular Expression (REGEX). If not provided, all Tables inside allowed Databases and Schemas will be included in ingestion.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.allowPatterns');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.tablePatternAllow.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.tablePatternAllow.tooltip');
+    },
     placeholder: 'database_name.company_schema.table_name',
     type: FieldType.LIST,
     rule: FilterRule.INCLUDE,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: tableAllowFieldPath,
     rules: null,
     section: 'Tables',
@@ -213,14 +249,21 @@ export const TABLE_ALLOW: FilterRecipeField = {
 const tableDenyFieldPath = 'source.config.table_pattern.deny';
 export const TABLE_DENY: FilterRecipeField = {
     name: 'table_pattern.deny',
-    label: 'Deny Patterns',
-    helper: 'Exclude Tables with names',
-    tooltip:
-        'Exclude Tables with particular names by providing the fully qualified name of a Table, or a Regular Expression (REGEX). If not provided, all Tables inside allowed Databases and Schemas will be included in ingestion. Deny patterns always take precedence over Allow patterns.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.denyPatterns');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.tablePatternDeny.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.tablePatternDeny.tooltip');
+    },
     placeholder: 'database_name.company_schema.table_name',
     type: FieldType.LIST,
     rule: FilterRule.EXCLUDE,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: tableDenyFieldPath,
     rules: null,
     section: 'Tables',
@@ -232,14 +275,21 @@ export const TABLE_DENY: FilterRecipeField = {
 const viewAllowFieldPath = 'source.config.view_pattern.allow';
 export const VIEW_ALLOW: FilterRecipeField = {
     name: 'view_pattern.allow',
-    label: 'Allow Patterns',
-    helper: 'Include Views with names',
-    tooltip:
-        'Only include Views with particular names by providing the fully qualified name of a View, or a Regular Expression (REGEX). If not provided, all Views inside allowed Databases and Schemas will be included in ingestion.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.allowPatterns');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.viewPatternAllow.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.viewPatternAllow.tooltip');
+    },
     placeholder: 'database_name.company_schema.view_name',
     type: FieldType.LIST,
     rule: FilterRule.INCLUDE,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: viewAllowFieldPath,
     rules: null,
     section: 'Views',
@@ -251,14 +301,21 @@ export const VIEW_ALLOW: FilterRecipeField = {
 const viewDenyFieldPath = 'source.config.view_pattern.deny';
 export const VIEW_DENY: FilterRecipeField = {
     name: 'view_pattern.deny',
-    label: 'Deny Patterns',
-    helper: 'Exclude Views with names',
-    tooltip:
-        'Exclude Views with particular names by providing the fully qualified name of a View, or a Regular Expression (REGEX). If not provided, all Views inside allowed Databases and Schemas will be included in ingestion. Deny patterns always take precedence over Allow patterns.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.denyPatterns');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.viewPatternDeny.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.viewPatternDeny.tooltip');
+    },
     placeholder: 'database_name.company_schema.view_name',
     type: FieldType.LIST,
     rule: FilterRule.EXCLUDE,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: viewDenyFieldPath,
     rules: null,
     section: 'Views',
@@ -272,9 +329,15 @@ const includeLineageFieldPathA = 'source.config.include_table_lineage';
 const includeLineageFieldPathB = 'source.config.include_view_lineage';
 export const INCLUDE_LINEAGE: RecipeField = {
     name: 'include_lineage',
-    label: 'Include Lineage',
-    helper: 'Include Table and View lineage',
-    tooltip: 'Include Table and View lineage in your ingestion.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.includeLineage');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.includeLineage.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.includeLineage.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: includeLineageFieldPathA,
     rules: null,
@@ -289,9 +352,15 @@ export const INCLUDE_LINEAGE: RecipeField = {
 
 export const INCLUDE_TABLE_LINEAGE: RecipeField = {
     name: 'include_table_lineage',
-    label: 'Include Table Lineage',
-    helper: 'Extract Table-Level lineage',
-    tooltip: 'Extract Table-Level lineage metadata. Enabling this may increase the duration of the sync.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.includeTableLineage');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.includeTableLineage.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.includeTableLineage.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.include_table_lineage',
     rules: null,
@@ -300,9 +369,15 @@ export const INCLUDE_TABLE_LINEAGE: RecipeField = {
 const isProfilingEnabledFieldPath = 'source.config.profiling.enabled';
 export const TABLE_PROFILING_ENABLED: RecipeField = {
     name: 'profiling.enabled',
-    label: 'Enable Table Profiling',
-    helper: 'Generate Data Profiles for Tables',
-    tooltip: 'Generate Data Profiles for extracted Tables. Enabling this may increase the duration of the sync.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.enableTableProfiling');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.enableTableProfiling.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.enableTableProfiling.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: isProfilingEnabledFieldPath,
     rules: null,
@@ -311,10 +386,15 @@ export const TABLE_PROFILING_ENABLED: RecipeField = {
 const isTableProfilingOnlyFieldPath = 'source.config.profiling.profile_table_level_only';
 export const COLUMN_PROFILING_ENABLED: RecipeField = {
     name: 'column_profiling.enabled',
-    label: 'Enable Column Profiling',
-    helper: 'Generate Column Data Profiles',
-    tooltip:
-        'Generate Data Profiles for the Columns in extracted Tables. Enabling this may increase the duration of the sync.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.enableColumnProfiling');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.enableColumnProfiling.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.enableColumnProfiling.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: isTableProfilingOnlyFieldPath,
     rules: null,
@@ -328,9 +408,15 @@ export const COLUMN_PROFILING_ENABLED: RecipeField = {
 
 export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     name: 'stateful_ingestion.enabled',
-    label: 'Enable Stateful Ingestion',
-    helper: 'Remove stale assets from DataHub',
-    tooltip: 'Remove stale assets from DataHub once they have been deleted in the ingestion source.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.enableStatefulIngestion');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.enableStatefulIngestion.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.enableStatefulIngestion.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.stateful_ingestion.enabled',
     rules: null,
@@ -338,8 +424,12 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
 
 export const TABLE_LINEAGE_MODE: RecipeField = {
     name: 'table_lineage_mode',
-    label: 'Table Lineage Mode',
-    helper: 'Select table lineage collector mode',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.tableLineageMode');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.tableLineageMode.helper');
+    },
     tooltip: (
         <div>
             <p>
@@ -359,17 +449,38 @@ export const TABLE_LINEAGE_MODE: RecipeField = {
     fieldPath: 'source.config.table_lineage_mode',
     rules: null,
     options: [
-        { label: 'stl_scan_based', value: 'stl_scan_based' },
-        { label: 'sql_based', value: 'sql_based' },
-        { label: 'mixed', value: 'mixed' },
+        {
+            get label() {
+                return i18next.t('ingestion.sourceBuilder:fields.tableLineageMode.stlScanBased');
+            },
+            value: 'stl_scan_based',
+        },
+        {
+            get label() {
+                return i18next.t('ingestion.sourceBuilder:fields.tableLineageMode.sqlBased');
+            },
+            value: 'sql_based',
+        },
+        {
+            get label() {
+                return i18next.t('ingestion.sourceBuilder:fields.tableLineageMode.mixed');
+            },
+            value: 'mixed',
+        },
     ],
 };
 
 export const INGEST_TAGS: RecipeField = {
     name: 'ingest_tags',
-    label: 'Ingest Tags',
-    helper: 'Ingest Tags from source',
-    tooltip: 'Ingest Tags from the source. Be careful: This can override Tags entered by users of DataHub.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.ingestTags');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.ingestTags.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.ingestTags.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.ingest_tags',
     rules: null,
@@ -377,9 +488,15 @@ export const INGEST_TAGS: RecipeField = {
 
 export const INGEST_OWNER: RecipeField = {
     name: 'ingest_owner',
-    label: 'Ingest Owner',
-    helper: 'Ingest Owner from source',
-    tooltip: 'Ingest Owner from source. Be careful: This cah override Owners added by users of DataHub.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.ingestOwner');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.ingestOwner.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.ingestOwner.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.ingest_owner',
     rules: null,
@@ -388,9 +505,15 @@ export const INGEST_OWNER: RecipeField = {
 const includeTablesPath = 'source.config.include_tables';
 export const INCLUDE_TABLES: RecipeField = {
     name: 'include_tables',
-    label: 'Include Tables',
-    helper: 'Extract Tables from source',
-    tooltip: 'Extract Tables from source.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.includeTables');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.includeTables.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.includeTables.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: includeTablesPath,
     // Always set include views indicator to true by default.
@@ -408,9 +531,15 @@ export const INCLUDE_TABLES: RecipeField = {
 const includeViewsPath = 'source.config.include_views';
 export const INCLUDE_VIEWS: RecipeField = {
     name: 'include_views',
-    label: 'Include Views',
-    helper: 'Extract Views from source',
-    tooltip: 'Extract Views from source.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.includeViews');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.includeViews.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.includeViews.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: includeViewsPath,
     // Always set include views indicator to true by default.
@@ -427,8 +556,12 @@ export const INCLUDE_VIEWS: RecipeField = {
 
 export const GIT_INFO_REPO: RecipeField = {
     name: 'git_info.repo',
-    label: 'Git Repository',
-    helper: 'URL or name of Git repository',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.gitInfoRepo');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.gitInfoRepo.helper');
+    },
     tooltip: (
         <div>
             <p>URL or name of your Git repository. Supports GitHub, GitLab, and other Git platforms. Examples:</p>
@@ -446,10 +579,15 @@ export const GIT_INFO_REPO: RecipeField = {
 
 export const EXTRACT_USAGE_HISTORY: RecipeField = {
     name: 'extract_usage_history',
-    label: 'Extract Usage History',
-    helper: 'Ingest usage statistics for dashboards',
-    tooltip:
-        'Experimental (Subject to breaking change) -- Whether to ingest usage statistics for dashboards. Setting this to True will query looker system activity explores to fetch historical dashboard usage.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.extractUsageHistory');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.extractUsageHistory.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.extractUsageHistory.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.extract_usage_history',
     rules: null,
@@ -457,10 +595,15 @@ export const EXTRACT_USAGE_HISTORY: RecipeField = {
 
 export const EXTRACT_OWNERS: RecipeField = {
     name: 'extract_owners',
-    label: 'Extract Owners',
-    helper: 'Extracts ownership from Looker',
-    tooltip:
-        'When enabled, extracts ownership from Looker directly. When disabled, ownership is left empty for dashboards and charts.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.extractOwners');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.extractOwners.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.extractOwners.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.extract_owners',
     rules: null,
@@ -468,10 +611,15 @@ export const EXTRACT_OWNERS: RecipeField = {
 
 export const SKIP_PERSONAL_FOLDERS: RecipeField = {
     name: 'skip_personal_folders',
-    label: 'Skip Personal Folders',
-    helper: 'Skip dashboards in personal folders',
-    tooltip:
-        'Whether to skip ingestion of dashboards in personal folders. Setting this to True will only ingest dashboards in the Shared folder space.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.skipPersonalFolders');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.skipPersonalFolders.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.skipPersonalFolders.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.skip_personal_folders',
     rules: null,
@@ -480,10 +628,15 @@ export const SKIP_PERSONAL_FOLDERS: RecipeField = {
 const startTimeFieldPath = 'source.config.start_time';
 export const START_TIME: RecipeField = {
     name: 'start_time',
-    label: 'Start Time',
-    helper: 'Earliest date for processing logs',
-    tooltip:
-        'Earliest date used when processing audit logs for lineage, usage, and more. Default: Last full day in UTC or last time DataHub ingested usage (if stateful ingestion is enabled). Tip: Set this to an older date (e.g. 1 month ago) to bootstrap your first ingestion run, and then reduce for subsequent runs. Changing this may increase the duration of the sync.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.startTime');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:fields.startTime.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.startTime.tooltip');
+    },
     placeholder: 'Select date and time',
     type: FieldType.DATE,
     fieldPath: startTimeFieldPath,
@@ -501,8 +654,12 @@ export const START_TIME: RecipeField = {
 const envFieldPath = 'source.config.env';
 export const ENV: RecipeField = {
     name: 'env',
-    label: 'Environment',
-    tooltip: 'Optional environment label (e.g. PROD/DEV/STG). Defaults to PROD.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.env');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.env.tooltip');
+    },
     type: FieldType.TEXT,
     fieldPath: envFieldPath,
     placeholder: 'PROD',
@@ -546,8 +703,12 @@ export function getColumnProfilingCheckboxValue(recipe: any) {
 const profilingEnabledFieldName = 'profiling_enabled';
 export const PROFILING_ENABLED: RecipeField = {
     name: profilingEnabledFieldName,
-    label: 'Table Profiling',
-    tooltip: 'Run profiling queries for table statistics.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.tableProfiling');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.tableProfiling.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: profilingEnabledFieldPath,
     rules: null,
@@ -560,9 +721,12 @@ export const PROFILING_ENABLED: RecipeField = {
 
 export const PROFILING_TABLE_LEVEL_ONLY: RecipeField = {
     name: 'profile_table_level_only',
-    label: 'Column Profiling',
-    tooltip:
-        'Run column-level profiling in addition to table stats. Substantially increases time and cost. Requires Table Profiling enabled.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.columnProfiling');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.columnProfiling.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: profilingTableLevelOnlyFieldPath,
     dynamicDisabled: (values) => !!get(values, profilingEnabledFieldName) !== true,
@@ -592,9 +756,12 @@ export function setRemoveStaleMetadataOnRecipe(recipe: any, value: boolean): any
 
 export const REMOVE_STALE_METADATA_ENABLED: RecipeField = {
     name: 'remove_stale_metadata',
-    label: 'Remove Stale Metadata',
-    tooltip:
-        'Automatically remove deleted tables from DataHub. Maintains catalog accuracy when Glue tables are dropped.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.removeStaleMetadata');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:fields.removeStaleMetadata.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: statefulIngestionEnabledFieldPath,
     rules: null,

@@ -1,5 +1,6 @@
 import { Modal } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import RunDetailsContent from '@app/ingestV2/runDetails/RunDetailsContent';
 
@@ -17,6 +18,7 @@ type Props = {
 };
 
 export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
+    const { t } = useTranslation('ingestion');
     const [titlePill, setTitlePill] = React.useState<React.ReactNode>(null);
     const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
 
@@ -24,7 +26,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
         <Modal
             width="1400px"
             bodyStyle={modalBodyStyle}
-            title="Run Details"
+            title={t('runDetails.title')}
             titlePill={titlePill}
             open={open}
             onCancel={onClose}

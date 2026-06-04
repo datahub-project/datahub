@@ -6,6 +6,9 @@ import styled from 'styled-components';
 
 import { CountStyle } from '@app/entityV2/shared/SidebarStyledComponents';
 
+// eslint-disable-next-line i18next/no-literal-string -- numeric overflow indicator, not translatable UI text
+const OVERFLOW_COUNT_DISPLAY = '10+';
+
 const Wrapper = styled.div`
     border: none;
     background: transparent;
@@ -93,7 +96,9 @@ export const SidebarSection = ({
                 <HeaderLeft>
                     <Title>{title}</Title>
                     {count > 0 && (
-                        <CountStyle>{showFullCount ? <>{count}</> : <>{count > 10 ? '10+' : count}</>}</CountStyle>
+                        <CountStyle>
+                            {showFullCount ? <>{count}</> : <>{count > 10 ? OVERFLOW_COUNT_DISPLAY : count}</>}
+                        </CountStyle>
                     )}
                     {collapsedContent}
                 </HeaderLeft>

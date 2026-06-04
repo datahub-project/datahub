@@ -2,6 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Pill, Tooltip } from '@components';
 import { Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled, { useTheme } from 'styled-components';
@@ -204,6 +205,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         numDownstreams,
     } = props;
 
+    const { t } = useTranslation('lineage');
+    const { t: tcLabel } = useTranslation('common.labels');
     const theme = useTheme();
     const history = useHistory();
     const location = useLocation();
@@ -282,7 +285,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            <Tooltip title="Explore parent lineage" mouseEnterDelay={0.5}>
+                            <Tooltip title={t('node.exploreParentLineage.tooltip')} mouseEnterDelay={0.5}>
                                 <LinkOut />
                             </Tooltip>
                         </LinkOutWrapper>
@@ -301,9 +304,9 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
             extraDetails = (
                 <DataJobLastRunWrapper>
                     {lastRunEvent?.status === DataProcessRunStatus.Started ? (
-                        <>Running</>
+                        <>{t('node.dataJob.running')}</>
                     ) : (
-                        <>Last run {toRelativeTimeString(time)}</>
+                        <>{t('node.dataJob.lastRun', { time: toRelativeTimeString(time) })}</>
                     )}
                     {!!lastRunEvent?.status && (
                         <LastRunIcon
@@ -363,7 +366,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                     childrenText={
                         !!numColumnsTotal && (
                             <ChildrenTextWrapper>
-                                Columns
+                                {tcLabel('columns')}
                                 <Pill label={`${numColumnsTotal}`} size="xs" />
                             </ChildrenTextWrapper>
                         )
@@ -486,10 +489,13 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     );
 
     if (isGhost) {
-        const message = entity?.status?.removed ? 'has been deleted' : 'does not exist in DataHub';
         // Put below context path popover
         return (
-            <Tooltip title={`This entity ${message}`} mouseEnterDelay={0.3} overlayStyle={{ zIndex: 10 }}>
+            <Tooltip
+                title={entity?.status?.removed ? t('node.ghost.deleted') : t('node.ghost.notFound')}
+                mouseEnterDelay={0.3}
+                overlayStyle={{ zIndex: 10 }}
+            >
                 {contents}
             </Tooltip>
         );

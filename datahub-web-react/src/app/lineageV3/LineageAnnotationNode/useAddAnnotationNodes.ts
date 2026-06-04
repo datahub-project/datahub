@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { useCallback } from 'react';
 import { Node } from 'reactflow';
 
@@ -53,7 +54,10 @@ function useAddAnnotationNodes() {
                     type: LINEAGE_ANNOTATION_NODE,
                     position: { x: annotationX, y: annotationY },
                     data: {
-                        label: `${levelInfo.shownEntities} of ${levelInfo.totalEntities} shown`,
+                        label: i18next.t('lineage:node.annotation.shownOfTotal', {
+                            shown: levelInfo.shownEntities,
+                            total: levelInfo.totalEntities,
+                        }),
                     },
                     selectable: false,
                     connectable: false,

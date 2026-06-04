@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import analytics from '@app/analytics';
@@ -20,6 +21,8 @@ import { Button, Card, Heading, Pill, Text } from '@src/alchemy-components';
 import { ExecutionRequestResult, Maybe } from '@src/types.generated';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+
+const RUN_ID_FIELD = 'runId';
 
 // Base flex container with common spacing
 const FlexContainer = styled.div`
@@ -129,6 +132,7 @@ type RenderIngestionContentsProps = {
 };
 
 const IngestionContents: React.FC<RenderIngestionContentsProps> = ({ items, getKey, getLabel }) => {
+    const { t } = useTranslation('ingestion');
     return (
         <IngestionBoxesContainer>
             {items.map((item) => (
@@ -142,7 +146,11 @@ const IngestionContents: React.FC<RenderIngestionContentsProps> = ({ items, getK
                                 size="sm"
                                 variant="filled"
                                 color="gray"
-                                label={item.count === 0 ? 'Missing' : `${item.percent} of Total`}
+                                label={
+                                    item.count === 0
+                                        ? t('assets.missing')
+                                        : t('assets.percentOfTotal', { percent: item.percent })
+                                }
                             />
                         </IngestionBoxTopRow>
                     }
@@ -159,6 +167,9 @@ const IngestionContents: React.FC<RenderIngestionContentsProps> = ({ items, getK
 };
 
 export default function IngestedAssets({ id, executionResult, urn }: Props) {
+    const { t } = useTranslation('ingestion');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
 
@@ -248,11 +259,11 @@ export default function IngestedAssets({ id, executionResult, urn }: Props) {
         <>
             {error && <Message type="error" content="" />}
             <Heading type="h4" size="lg" weight="bold">
-                Assets
+                {t('assets.title')}
             </Heading>
-            <Text style={{ color: theme.colors.text }}>Types and counts for this ingestion run.</Text>
-            {loading && <Text style={{ color: theme.colors.text }}>Loading...</Text>}
-            {!loading && total === 0 && <Text>No assets were ingested.</Text>}
+            <Text style={{ color: theme.colors.text }}>{t('assets.subtitle')}</Text>
+            {loading && <Text style={{ color: theme.colors.text }}>{tf('loading')}</Text>}
+            {!loading && total === 0 && <Text>{t('assets.empty')}</Text>}
             {!loading && total > 0 && (
                 <>
                     <MainContainer>
@@ -261,12 +272,12 @@ export default function IngestedAssets({ id, executionResult, urn }: Props) {
                                 title={formatNumber(total)}
                                 button={
                                     <Button style={{ width: '110px' }} variant="text" onClick={handleViewAllClick}>
-                                        View All
+                                        {tc('viewAll')}
                                     </Button>
                                 }
                                 subTitle={
                                     <Text size="md" style={{ marginTop: 2, color: theme.colors.text }}>
-                                        Total Assets Ingested
+                                        {t('assets.totalIngested')}
                                     </Text>
                                 }
                             />
@@ -291,16 +302,16 @@ export default function IngestedAssets({ id, executionResult, urn }: Props) {
                     {ingestionContents && (
                         <IngestionContentsContainer>
                             <Heading type="h5" size="lg" weight="bold">
-                                Coverage
+                                {t('assets.coverageTitle')}
                             </Heading>
                             <SubTitleContainer>
                                 <Text lineHeight="sm" style={{ color: theme.colors.text }}>
-                                    Additional metadata collected during this ingestion run.
+                                    {t('assets.coverageSubtitle')}
                                 </Text>
                             </SubTitleContainer>
                             <SectionSmallTitle>
                                 <Text weight="bold" size="sm">
-                                    Lineage
+                                    {t('assets.lineage')}
                                 </Text>
                             </SectionSmallTitle>
                             <IngestionContents
@@ -312,13 +323,17 @@ export default function IngestedAssets({ id, executionResult, urn }: Props) {
                                 <>
                                     <SectionSmallTitle>
                                         <Text weight="bold" size="sm">
-                                            Statistics
+                                            {t('assets.statistics')}
                                         </Text>
                                     </SectionSmallTitle>
                                     <IngestionContents
                                         items={otherIngestionContents}
                                         getKey={(item) => item.type || ''}
-                                        getLabel={(item) => item.type || ''}
+                                        getLabel={(item) => {
+                                            if (item.type === 'Profiling') return t('assets.profiling');
+                                            if (item.type === 'Usage') return t('assets.usage');
+                                            return item.type || '';
+                                        }}
                                     />
                                 </>
                             )}
@@ -328,11 +343,11 @@ export default function IngestedAssets({ id, executionResult, urn }: Props) {
             )}
             {showAssetSearch && (
                 <EmbeddedListSearchModal
-                    title="View Ingested Assets"
+                    title={t('assets.viewIngestedAssetsTitle')}
                     searchBarStyle={{ width: 600, marginRight: 40 }}
                     fixedFilters={{
                         unionType: UnionType.AND,
-                        filters: [{ field: 'runId', values: [id] }],
+                        filters: [{ field: RUN_ID_FIELD, values: [id] }],
                     }}
                     isViewAllMode
                     handleViewAllClickWarning={handleViewAllClickWarning}

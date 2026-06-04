@@ -1,6 +1,7 @@
 import { Modal } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import DataProductBuilderForm from '@app/entityV2/domain/DataProductsTab/DataProductBuilderForm';
 import { DataProductBuilderState } from '@app/entityV2/domain/DataProductsTab/types';
@@ -22,6 +23,8 @@ type Props = {
 };
 
 export default function CreateDataProductModal({ domain, onCreateDataProduct, onClose }: Props) {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const [builderState, updateBuilderState] = useState<DataProductBuilderState>(DEFAULT_STATE);
     const [createDataProductMutation] = useCreateDataProductMutation();
     const { reloadByKeyType } = useReloadableContext();
@@ -40,7 +43,7 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
         })
             .then(({ data, errors }) => {
                 if (!errors) {
-                    message.success('Created Data Product!');
+                    message.success(t('dataProduct.createSuccess'));
                     if (data?.createDataProduct) {
                         const updateDataProduct = { ...data.createDataProduct, domain: { domain } };
                         onCreateDataProduct(updateDataProduct as DataProduct);
@@ -57,25 +60,25 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
             .catch(() => {
                 onClose();
                 message.destroy();
-                message.error({ content: 'Failed to create Data Product. An unexpected error occurred' });
+                message.error({ content: t('dataProduct.createError') });
             });
     }
 
     return (
         <Modal
-            title="Create Data Product"
+            title={t('dataProduct.createTitle')}
             onCancel={onClose}
             open
             width={725}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onClose,
                     buttonDataTestId: 'cancel-button',
                 },
                 {
-                    text: 'Create',
+                    text: tc('create'),
                     onClick: createDataProduct,
                     variant: 'filled',
                     disabled: !builderState.name,

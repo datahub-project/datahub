@@ -1,6 +1,7 @@
 import { Button, Icon, Input, Popover, SimpleSelect, spacing } from '@components';
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { FilterRecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
@@ -45,6 +46,8 @@ const RemoveIconCell = styled.div`
     height: 100%;
 `;
 
+const FILTER_REGEX_PLACEHOLDER = '^my_db$';
+
 interface Props {
     fields: FilterRecipeField[];
     recipe: string;
@@ -52,6 +55,7 @@ interface Props {
 }
 
 export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const supportedFields = useMemo(() => filterOutUnsupportedFields(fields), [fields]);
     const ruleSelectOptions = useMemo(() => getOptionsForTypeSelect(), []);
     // FYI: assuming that each filter has both allow and deny version
@@ -136,24 +140,24 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
     return (
         <>
             <SectionName
-                name="Asset Filters"
-                description="Optional. Leave blank to ingest all accessible assets. Create include rules to allow specific assets, exclude rules to block them, or both."
+                name={t('multiStep.filters.title')}
+                description={t('multiStep.filters.description')}
                 topRowRightItems={
                     <Button size="sm" onClick={onAddFilterClick}>
-                        Add Filter
+                        {t('multiStep.filters.addFilter')}
                     </Button>
                 }
             />
             <FiltersGridContainer>
                 {/* Header Row */}
                 <FilterHeaderCell>
-                    <FieldLabel label="Filter Type" />
+                    <FieldLabel label={t('multiStep.filters.filterType')} />
                 </FilterHeaderCell>
                 <FilterHeaderCell>
-                    <FieldLabel label="Asset Type" />
+                    <FieldLabel label={t('multiStep.filters.assetType')} />
                 </FilterHeaderCell>
                 <FilterHeaderCell>
-                    <FieldLabel label="Name or Pattern" />
+                    <FieldLabel label={t('multiStep.filters.nameOrPattern')} />
                     <Popover content={<RegexTooltipContent />}>
                         <Icon icon={Info} color="gray" size="lg" />
                     </Popover>
@@ -170,7 +174,7 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
                                 showClear={false}
                                 width="full"
                                 minWidth="fit-content"
-                                placeholder="Filter Type"
+                                placeholder={t('multiStep.filters.filterType')}
                                 size="lg"
                             />
                         </FilterCell>
@@ -182,7 +186,7 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
                                 showClear={false}
                                 width="full"
                                 minWidth="fit-content"
-                                placeholder={filter.subtype ? `[${filter.subtype}]` : 'Asset Type'}
+                                placeholder={filter.subtype ? `[${filter.subtype}]` : t('multiStep.filters.assetType')}
                                 size="lg"
                             />
                         </FilterCell>
@@ -190,7 +194,7 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
                             <Input
                                 value={filter.value}
                                 setValue={(value) => updateFilterValue(filter.key, value)}
-                                placeholder="^my_db$"
+                                placeholder={FILTER_REGEX_PLACEHOLDER}
                             />
                         </FilterCell>
                         {showDeleteButton && (

@@ -1,5 +1,6 @@
 import { Input } from 'antd';
 import React, { Dispatch, SetStateAction } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { onClickPreventSelect } from '@app/lineageV2/common';
@@ -27,12 +28,13 @@ interface Props {
 }
 
 export default function ColumnSearch({ searchText, setSearchText }: Props) {
+    const { t } = useTranslation('lineage');
     // Add nodrag class to prevent node from being selected on click
     // See https://reactflow.dev/api-reference/types/node-props#notes
     return (
         <SearchInput
             defaultValue={searchText}
-            placeholder="Find column"
+            placeholder={t('column.search.placeholder')}
             onChange={(e) => setSearchText(e.target.value.trim())}
             onClick={onClickPreventSelect}
         />

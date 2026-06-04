@@ -1,5 +1,6 @@
 import { Select, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { OwnershipTypeEntity } from '@src/types.generated';
@@ -17,11 +18,12 @@ interface Props {
 }
 
 export default function OwnershipTypesSelect({ selectedOwnerTypeUrn, ownershipTypes, onSelectOwnerType }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
     return (
         <StyledSelect
             value={selectedOwnerTypeUrn}
             onChange={(v) => onSelectOwnerType(v as string)}
-            placeholder="Select ownership type..."
+            placeholder={t('sidebar.ownership.selectTypePlaceholder')}
         >
             {ownershipTypes.map((ownershipType: OwnershipTypeEntity | undefined) => {
                 const ownershipTypeUrn = ownershipType?.urn || '';

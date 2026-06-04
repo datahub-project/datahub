@@ -1,6 +1,8 @@
 import { CheckCircleOutlined } from '@ant-design/icons';
 import { message } from 'antd';
+import i18next from 'i18next';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { FontWeightOptions, SizeOptions } from '@components/theme/config';
 
@@ -25,10 +27,12 @@ export function getRecipeJson(recipeYaml: string, hideWarnings?: boolean) {
         recipeJson = yamlToJson(recipeYaml);
     } catch (e) {
         if (!hideWarnings) {
-            const messageText = (e as any).parsedLine
-                ? `Please fix line ${(e as any).parsedLine} in your recipe.`
-                : 'Please check your recipe configuration.';
-            message.warn(`Found invalid YAML. ${messageText}`);
+            const { parsedLine } = e as any;
+            message.warn(
+                parsedLine
+                    ? i18next.t('ingestion.sourceBuilder:recipeForm.invalidYaml.fixLine.error', { line: parsedLine })
+                    : i18next.t('ingestion.sourceBuilder:recipeForm.invalidYaml.error'),
+            );
         }
         return null;
     }
@@ -75,6 +79,7 @@ function TestConnectionButton({
     hideIcon,
     renderModal,
 }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const [isLoading, setIsLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [pollingInterval, setPollingInterval] = useState<null | NodeJS.Timeout>(null);
@@ -117,9 +122,7 @@ function TestConnectionButton({
                 }
 
                 if (result.status === EXECUTION_REQUEST_STATUS_FAILURE) {
-                    message.error(
-                        'Something went wrong with your connection test. Please check your recipe and try again.',
-                    );
+                    message.error(t('testConnection.failure.error'));
                     setIsModalVisible(false);
                 }
                 if (result.structuredReport) {
@@ -133,7 +136,7 @@ function TestConnectionButton({
                 setIsLoading(false);
             }
         }
-    }, [resultData, pollingInterval, loading, recipe, selectedSource?.urn, hasEmittedAnalytics]);
+    }, [resultData, pollingInterval, loading, recipe, selectedSource?.urn, hasEmittedAnalytics, t]);
 
     useEffect(() => {
         if (!isModalVisible && pollingInterval) {
@@ -152,9 +155,7 @@ function TestConnectionButton({
                     }),
                 )
                 .catch(() => {
-                    message.error(
-                        'There was an unexpected error when trying to test your connection. Please try again.',
-                    );
+                    message.error(t('testConnection.unexpectedError.error'));
                 });
 
             analytics.event({
@@ -211,7 +212,7 @@ function TestConnectionButton({
             <Button variant="outline" type="button" size={size} onClick={testConnection}>
                 {!hideIcon && <CheckCircleOutlined />}
                 <Text weight={textWeight} lineHeight="none">
-                    Test Connection
+                    {t('testConnection.button')}
                 </Text>
             </Button>
             {isModalVisible &&

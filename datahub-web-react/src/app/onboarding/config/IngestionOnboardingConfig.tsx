@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { Trans } from 'react-i18next';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
@@ -11,24 +12,26 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
     {
         id: INGESTION_CREATE_SOURCE_ID,
         selector: `#${INGESTION_CREATE_SOURCE_ID}`,
-        title: 'Create a new Ingestion Source',
+        title: <Trans i18nKey="onboarding:ingestion.createSourceTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    Configure new Integrations from DataHub to your <strong>Data Platforms</strong>, including
-                    Transactional Databases like <strong>MySQL</strong>, Data Warehouses such as{' '}
-                    <strong>Snowflake</strong>, Dashboarding tools like <strong>Looker</strong>, and more!
+                    <Trans i18nKey="onboarding:ingestion.createSourceDescription" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    Learn more about ingestion and view the full list of supported Integrations{' '}
-                    <a
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        href="https://docs.datahub.com/docs/metadata-ingestion"
-                    >
-                        {' '}
-                        here.
-                    </a>
+                    <Trans
+                        i18nKey="onboarding:ingestion.learnMore"
+                        components={{
+                            anchor: (
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    href="https://docs.datahub.com/docs/metadata-ingestion"
+                                />
+                            ),
+                        }}
+                    />
                 </p>
             </Text>
         ),
@@ -36,10 +39,12 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
     {
         id: INGESTION_REFRESH_SOURCES_ID,
         selector: `#${INGESTION_REFRESH_SOURCES_ID}`,
-        title: 'Refresh Ingestion Sources',
+        title: <Trans i18nKey="onboarding:ingestion.refreshTitle" />,
         content: (
             <Text type="div" size="md">
-                <p>Click to force a refresh of running ingestion sources.</p>
+                <p>
+                    <Trans i18nKey="onboarding:ingestion.refreshDescription" />
+                </p>
             </Text>
         ),
     },

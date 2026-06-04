@@ -63,13 +63,14 @@ jobs:
           DATAHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Publish
         id: cloudflare
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        uses: cloudflare/pages-action@f0a1cd58cd66095dee69bfa18fa5efd1dde93bca # v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: ${{ vars.CLOUDFLARE_WHEELS_PROJECT_NAME }}
           workingDirectory: python-build
+          directory: site
           gitHubToken: ${{ github.token }}
-          command: pages deploy site --project-name=${{ vars.CLOUDFLARE_WHEELS_PROJECT_NAME }}
 
       - name: Set PyPI index URL output
         id: set-pypi-url

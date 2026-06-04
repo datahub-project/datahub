@@ -1,6 +1,7 @@
 import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components/macro';
@@ -75,6 +76,8 @@ type Props = {
  * TODO: Add use of apollo cache to improve fetching performance.
  */
 export default function GroupProfile({ urn }: Props) {
+    const { t } = useTranslation('entity.types');
+    const { t: tf } = useTranslation('common.feedback');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
@@ -84,12 +87,12 @@ export default function GroupProfile({ urn }: Props) {
 
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
     const isExternalGroup: boolean = data?.corpGroup?.origin?.type === OriginType.External;
-    const externalGroupType: string = data?.corpGroup?.origin?.externalType || 'outside DataHub';
+    const externalGroupType: string = data?.corpGroup?.origin?.externalType || t('group.outsideDataHubFallback');
     const groupName = data?.corpGroup ? entityRegistry.getDisplayName(EntityType.CorpGroup, data.corpGroup) : undefined;
 
     const finalTabs = [
         {
-            name: 'About',
+            name: t('tab.about'),
             icon: BookOpen,
             component: EntitySidebarSectionsTab,
             display: {
@@ -198,7 +201,7 @@ export default function GroupProfile({ urn }: Props) {
         >
             <EntityHead />
             {error && <ErrorSection />}
-            {loading && <Message type="loading" content="Loading..." style={messageStyle} />}
+            {loading && <Message type="loading" content={tf('loading')} style={messageStyle} />}
             {data && data?.corpGroup && (
                 <GroupProfileWrapper>
                     <Col xl={7} lg={7} md={7} sm={24} xs={24} style={{ height: '100%', overflow: 'auto' }}>

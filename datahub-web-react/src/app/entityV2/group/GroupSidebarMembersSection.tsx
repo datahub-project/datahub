@@ -1,5 +1,6 @@
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import GroupMembersSideBarSectionContent from '@app/entityV2/group/GroupMembersSidebarSectionContent';
 import { getExternalGroupMembershipTooltip } from '@app/entityV2/group/utils';
@@ -23,11 +24,12 @@ export const GroupSidebarMembersSection = ({
     isExternalGroup = false,
     externalGroupType,
 }: Props) => {
+    const { t } = useTranslation('entity.types');
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const externalGroupTip = isExternalGroup ? getExternalGroupMembershipTooltip(externalGroupType) : undefined;
     return (
         <SidebarSection
-            title="Members"
+            title={t('group.membersSectionTitle')}
             count={groupMemberRelationships?.total || undefined}
             showFullCount
             content={

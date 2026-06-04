@@ -1,5 +1,6 @@
 import { Button, List, Space, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -20,6 +21,7 @@ const ViewRawButtonContainer = styled.div`
 `;
 
 export default function Lineage({ upstreamLineage, downstreamLineage }: Props) {
+    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const location = useLocation();
@@ -31,7 +33,7 @@ export default function Lineage({ upstreamLineage, downstreamLineage }: Props) {
             <div>
                 <ViewRawButtonContainer>
                     <Button onClick={() => navigateToLineageUrl({ location, history, isLineageMode: true })}>
-                        View Graph
+                        {t('dataset.viewGraph')}
                     </Button>
                 </ViewRawButtonContainer>
             </div>
@@ -40,7 +42,7 @@ export default function Lineage({ upstreamLineage, downstreamLineage }: Props) {
                     style={{ marginTop: '24px', padding: '16px 32px' }}
                     bordered
                     dataSource={upstreamEntities}
-                    header={<Typography.Title level={3}>Upstream</Typography.Title>}
+                    header={<Typography.Title level={3}>{t('dataset.upstream')}</Typography.Title>}
                     renderItem={(item) => (
                         <List.Item style={{ paddingTop: '20px' }}>
                             {entityRegistry.renderPreview(item?.type || EntityType.Dataset, PreviewType.PREVIEW, item)}
@@ -51,7 +53,7 @@ export default function Lineage({ upstreamLineage, downstreamLineage }: Props) {
                     style={{ marginTop: '12px', padding: '16px 32px' }}
                     bordered
                     dataSource={downstreamEntities}
-                    header={<Typography.Title level={3}>Downstream</Typography.Title>}
+                    header={<Typography.Title level={3}>{t('dataset.downstream')}</Typography.Title>}
                     renderItem={(item) => (
                         <List.Item style={{ paddingTop: '20px' }}>
                             {entityRegistry.renderPreview(item?.type || EntityType.Dataset, PreviewType.PREVIEW, item)}

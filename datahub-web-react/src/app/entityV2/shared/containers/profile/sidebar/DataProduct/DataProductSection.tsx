@@ -1,6 +1,7 @@
 import { toast } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData, useMutationUrn, useRootEntityData } from '@app/entity/shared/EntityContext';
@@ -34,6 +35,7 @@ interface Props {
 }
 
 export default function DataProductSection({ readOnly }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
     const { reloadByKeyType, bypassCacheForUrn } = useReloadableContext();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [showRemoveModal, setShowRemoveModal] = useState(false);
@@ -107,7 +109,7 @@ export default function DataProductSection({ readOnly }: Props) {
                 },
             })
                 .then(() => {
-                    toast.success('Removed from Data Product.', { duration: 2 });
+                    toast.success(t('sidebar.dataProduct.removedFromSuccess'), { duration: 2 });
                     setDataProducts((prev) => prev.filter((dp) => dp.urn !== dataProductToRemove));
                     setShowRemoveModal(false);
                     setDataProductToRemove(null);
@@ -131,7 +133,7 @@ export default function DataProductSection({ readOnly }: Props) {
         } else {
             batchSetDataProductMutation({ variables: { input: { resourceUrns: associatedUrns } } })
                 .then(() => {
-                    toast.success('Removed Data Product.', { duration: 2 });
+                    toast.success(t('sidebar.dataProduct.removedSuccess'), { duration: 2 });
                     setDataProducts([]);
                     setShowRemoveModal(false);
                     setDataProductToRemove(null);
@@ -158,7 +160,9 @@ export default function DataProductSection({ readOnly }: Props) {
     return (
         <>
             <SidebarSection
-                title={isMultipleDataProductsEnabled ? 'Data Products' : 'Data Product'}
+                title={t('sidebar.dataProduct.sectionTitle', {
+                    context: isMultipleDataProductsEnabled ? 'multiProducts' : undefined,
+                })}
                 content={
                     <Content>
                         {dataProducts.length > 0 ? (
@@ -216,8 +220,8 @@ export default function DataProductSection({ readOnly }: Props) {
                     setDataProductToRemove(null);
                 }}
                 handleConfirm={removeDataProduct}
-                modalTitle="Confirm Data Product Removal"
-                modalText="Are you sure you want to remove this asset from the data product?"
+                modalTitle={t('sidebar.dataProduct.removeConfirmTitle')}
+                modalText={t('sidebar.dataProduct.removeConfirmContent')}
             />
         </>
     );

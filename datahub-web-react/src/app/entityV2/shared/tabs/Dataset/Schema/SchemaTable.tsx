@@ -402,7 +402,7 @@ export default function SchemaTable({
 
             if (tableRef.current) {
                 const tableBody = tableRef.current.querySelector('.ant-table-body');
-                const row = tableBody?.querySelector(`[data-row-key="${expandedDrawerFieldPath}"]`);
+                const row = tableBody?.querySelector(`[data-row-key="${CSS.escape(expandedDrawerFieldPath)}"]`);
                 if (row) {
                     row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                 }

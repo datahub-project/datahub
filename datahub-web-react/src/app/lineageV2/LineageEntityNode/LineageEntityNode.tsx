@@ -1,5 +1,6 @@
 import { HomeOutlined } from '@ant-design/icons';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NodeProps } from 'reactflow';
 import styled from 'styled-components';
 
@@ -37,6 +38,7 @@ const HomeNodeBubble = styled.div`
 `;
 
 export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
+    const { t } = useTranslation('lineage');
     const { data, selected, dragging } = props;
     const { urn, type, entity, id, fetchStatus, isExpanded, filters } = data;
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
@@ -72,7 +74,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
             {urn === rootUrn && (
                 <HomeNodeBubble>
                     <HomeOutlined style={{ marginRight: 4 }} />
-                    Home
+                    {t('node.homePill.label')}
                 </HomeNodeBubble>
             )}
             <NodeContents

@@ -1,5 +1,6 @@
 import { List, Pagination, Typography } from 'antd';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { PreviewType } from '@app/entityV2/Entity';
@@ -8,6 +9,8 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { SearchCfg } from '@src/conf';
 
 import { EntityType } from '@types';
+
+const LOADING_MARGIN_TOP = '10%';
 
 const ScrollWrapper = styled.div`
     overflow: auto;
@@ -101,6 +104,8 @@ export const EntityList = ({
     setNumResultsPerPage,
 }: EntityListProps) => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.profile.tabs');
+    const { t: tc } = useTranslation('common.feedback');
 
     return (
         <>
@@ -113,15 +118,20 @@ export const EntityList = ({
                     )}
                 />
             </ScrollWrapper>
-            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-            {error && <Message type="error" content="Failed to load results! An unexpected error occurred." />}
+            {loading && <Message type="loading" content={tc('loading')} style={{ marginTop: LOADING_MARGIN_TOP }} />}
+            {error && <Message type="error" content={t('entity.list.loadError')} />}
             {showPagination && (
                 <PaginationInfoContainer>
                     <PaginationInfo>
-                        <b>
-                            {lastResultIndex > 0 ? ((page as number) - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                        </b>{' '}
-                        of <b>{totalAssets}</b>
+                        <Trans
+                            i18nKey="entity.paginationRange"
+                            values={{
+                                start: lastResultIndex > 0 ? ((page as number) - 1) * pageSize + 1 : 0,
+                                end: lastResultIndex,
+                                total: totalAssets,
+                            }}
+                            components={{ b: <b /> }}
+                        />
                     </PaginationInfo>
                     <StyledPagination
                         current={page}

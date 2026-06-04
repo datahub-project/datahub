@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -31,6 +32,7 @@ function stripLeadingTitle(content: string, title: string): string {
 }
 
 export const ExternalDocumentInlineContentSection: React.FC = () => {
+    const { t } = useTranslation('entity.types');
     const { entityData } = useEntityData();
     const document = entityData as Document;
 
@@ -41,13 +43,13 @@ export const ExternalDocumentInlineContentSection: React.FC = () => {
 
     const title = document?.info?.title || '';
     const content = stripLeadingTitle(rawContent, title);
-    const platform = getExternalUrlDisplayName(entityData) || 'source system';
+    const platform = getExternalUrlDisplayName(entityData) || t('document.sourceSystemFallback');
 
     return (
         <Section data-testid="external-document-inline-content-section">
             <Alert
                 variant="info"
-                title={`Text extracted from ${platform} · images and rich content not included`}
+                title={t('document.textExtractedFrom', { platform })}
                 data-testid="external-document-inline-banner"
             />
             <CompactMarkdownViewer content={content} lineLimit={null} hideShowMore scrollableY={false} />

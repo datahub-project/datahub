@@ -2,6 +2,7 @@ import { toast } from '@components';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
@@ -44,6 +45,7 @@ interface Props {
 }
 
 export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const updateOnly = properties?.updateOnly;
     const { entityData, entityType } = useEntityData();
     const refetch = useRefetch();
@@ -60,7 +62,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
     const removeDomain = (urnToRemoveFrom) => {
         unsetDomainMutation({ variables: { entityUrn: urnToRemoveFrom } })
             .then(() => {
-                toast.success('Removed Domain.', { duration: 2 });
+                toast.success(t('sidebar.domain.removedSuccess'), { duration: 2 });
                 refetch?.();
                 // Reload modules
                 // Assets - as assets module in domain summary tab could be updated
@@ -79,7 +81,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
             .catch((e: unknown) => {
                 toast.destroy();
                 if (e instanceof Error) {
-                    toast.error(`Failed to remove domain: \n ${e.message || ''}`, { duration: 3 });
+                    toast.error(t('sidebar.domain.removeFailed', { message: e.message || '' }), { duration: 3 });
                 }
             });
     };
@@ -87,7 +89,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
     return (
         <div id={ENTITY_PROFILE_DOMAINS_ID} className="sidebar-domain-section">
             <SidebarSection
-                title="Domain"
+                title={t('sidebar.domain.sectionTitle')}
                 content={
                     <Content>
                         {domain && (
@@ -137,8 +139,8 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                     removeDomain(domainToRemove);
                     setDomainToRemove(undefined);
                 }}
-                modalTitle="Confirm Domain Removal"
-                modalText="Are you sure you want to remove this domain?"
+                modalTitle={t('sidebar.domain.removeConfirmTitle')}
+                modalText={t('sidebar.domain.removeConfirmContent')}
             />
         </div>
     );

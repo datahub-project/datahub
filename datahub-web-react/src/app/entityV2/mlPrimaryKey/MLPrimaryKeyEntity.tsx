@@ -1,5 +1,6 @@
 import { PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { Key } from '@phosphor-icons/react/dist/csr/Key';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -55,9 +56,9 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
 
     getPathName = () => 'mlPrimaryKeys';
 
-    getEntityName = () => 'ML Primary Key';
+    getEntityName = () => i18next.t('entity.types:mlPrimaryKey.name');
 
-    getCollectionName = () => 'ML Primary Keys';
+    getCollectionName = () => i18next.t('entity.types:mlPrimaryKey.namePlural');
 
     getOverridePropertiesFromEntity = (key?: MlPrimaryKey | null): GenericEntityProperties => {
         return {
@@ -77,20 +78,20 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
-                    name: 'Feature Tables',
+                    name: i18next.t('entity.types:tab.featureTables'),
                     component: FeatureTableTab,
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
                     supportsFullsize: true,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                 },
             ]}
@@ -131,18 +132,18 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: PartitionOutlined,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
         },
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: UnorderedListOutlined,
         },
     ];

@@ -2,6 +2,7 @@ import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import { Typography } from 'antd';
+import i18next from 'i18next';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -108,11 +109,11 @@ function healthMessage({ message, status, type }: Health) {
     if (status === HealthStatus.Pass) {
         switch (type) {
             case HealthStatusType.Assertions:
-                return 'All assertions are passing';
+                return i18next.t('entity.preview:health.assertionsPassing');
             case HealthStatusType.Incidents:
-                return 'No active incidents';
+                return i18next.t('entity.preview:health.noActiveIncidents');
             case HealthStatusType.Tests:
-                return 'All tests are passing';
+                return i18next.t('entity.preview:health.testsPassing');
             default:
                 return null;
         }

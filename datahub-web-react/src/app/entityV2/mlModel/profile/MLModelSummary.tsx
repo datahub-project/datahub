@@ -1,6 +1,7 @@
 import { Pill } from '@components';
 import { Space, Table, Tabs, Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -28,7 +29,7 @@ const InfoItemContainer = styled.div<{ justifyContent }>`
 
 const InfoItemContent = styled.div`
     padding-top: 8px;
-    width: 100px;
+    min-width: 100px;
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
@@ -78,6 +79,7 @@ const renderTypePill = (type: string | object) => {
 
 const renderRequiredPill = (required: boolean | undefined) => {
     if (required === undefined) return '-';
+    /* eslint-disable i18next/no-literal-string -- (untranslated-text) boolean pill display label (True/False); programmatic boolean rendering */
     return (
         <Pill
             label={required ? 'True' : 'False'}
@@ -86,6 +88,7 @@ const renderRequiredPill = (required: boolean | undefined) => {
             clickable={false}
         />
     );
+    /* eslint-enable i18next/no-literal-string */
 };
 
 const renderDefault = (defaultValue: object) => {
@@ -101,23 +104,26 @@ const renderShape = (shape: object) => {
     return String(shape);
 };
 
-const propertyTableColumns = [
-    {
-        title: 'Name',
-        dataIndex: 'name',
-        width: 450,
-    },
-    {
-        title: 'Value',
-        dataIndex: 'value',
-    },
-];
-
 export default function MLModelSummary() {
     const baseEntity = useBaseEntity<GetMlModelQuery>();
     const model = baseEntity?.mlModel;
     const entityRegistry = useEntityRegistry();
     const [expandedItemsRows, setExpandedItemsRows] = useState<Set<string>>(new Set());
+    const { t } = useTranslation('entity.types');
+    const { t: tl } = useTranslation('common.labels');
+    const { t: tc } = useTranslation('common.actions');
+
+    const propertyTableColumns = [
+        {
+            title: tl('name'),
+            dataIndex: 'name',
+            width: 450,
+        },
+        {
+            title: t('mlModel.valueColumn'),
+            dataIndex: 'value',
+        },
+    ];
 
     const renderItems = (items: object | null, record: object, index: number) => {
         if (!items) return '-';
@@ -150,7 +156,7 @@ export default function MLModelSummary() {
                             setExpandedItemsRows(newExpanded);
                         }}
                     >
-                        {isExpanded ? 'Show less' : 'Read more'}
+                        {isExpanded ? tc('showLess') : tc('readMore')}
                     </Typography.Link>
                 </ReadMoreLink>
             </TruncatedItems>
@@ -265,11 +271,11 @@ export default function MLModelSummary() {
     const hasSignatureData = Object.values(signatureData).some((data) => data && data.length > 0);
 
     const signatureTableColumns = [
-        { title: 'Name', dataIndex: 'name', width: 200 },
-        { title: 'Type', dataIndex: 'type', width: 200, render: renderTypePill },
-        { title: 'Required', dataIndex: 'required', width: 100, render: renderRequiredPill },
+        { title: tl('name'), dataIndex: 'name', width: 200 },
+        { title: tl('type'), dataIndex: 'type', width: 200, render: renderTypePill },
+        { title: t('mlModel.requiredColumn'), dataIndex: 'required', width: 100, render: renderRequiredPill },
         {
-            title: 'Items',
+            title: t('mlModel.itemsColumn'),
             dataIndex: 'items',
             width: 300,
             render: (items, record, index) => renderItems(items, record, index),
@@ -277,10 +283,10 @@ export default function MLModelSummary() {
     ];
 
     const parametersTableColumns = [
-        { title: 'Name', dataIndex: 'name', width: 200 },
-        { title: 'Type', dataIndex: 'type', width: 200, render: renderTypePill },
-        { title: 'Default', dataIndex: 'default', width: 150, render: renderDefault },
-        { title: 'Shape', dataIndex: 'shape', width: 150, render: renderShape },
+        { title: tl('name'), dataIndex: 'name', width: 200 },
+        { title: tl('type'), dataIndex: 'type', width: 200, render: renderTypePill },
+        { title: t('mlModel.defaultColumn'), dataIndex: 'default', width: 150, render: renderDefault },
+        { title: t('mlModel.shapeColumn'), dataIndex: 'shape', width: 150, render: renderShape },
     ];
 
     const signatureTabs: Array<{ key: string; label: string; children: React.ReactNode }> = [];
@@ -288,7 +294,7 @@ export default function MLModelSummary() {
     if (signatureData.inputs && signatureData.inputs.length > 0) {
         signatureTabs.push({
             key: 'inputs',
-            label: 'Inputs',
+            label: t('shared.inputs'),
             children: (
                 <Table
                     pagination={false}
@@ -303,7 +309,7 @@ export default function MLModelSummary() {
     if (signatureData.outputs && signatureData.outputs.length > 0) {
         signatureTabs.push({
             key: 'outputs',
-            label: 'Outputs',
+            label: t('shared.outputs'),
             children: (
                 <Table
                     pagination={false}
@@ -318,7 +324,7 @@ export default function MLModelSummary() {
     if (signatureData.parameters && signatureData.parameters.length > 0) {
         signatureTabs.push({
             key: 'parameters',
-            label: 'Parameters',
+            label: t('mlModel.parametersTab'),
             children: (
                 <Table
                     pagination={false}
@@ -345,6 +351,7 @@ export default function MLModelSummary() {
                             <JobLink to={entityRegistry.getEntityUrl(EntityType.DataProcessInstance, urn)}>
                                 {name || urn}
                             </JobLink>
+                            {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) decorative comma join separator */}
                             {index < trainingJobs.length - 1 && ', '}
                         </span>
                     );
@@ -356,23 +363,29 @@ export default function MLModelSummary() {
     return (
         <TabContent>
             <Space direction="vertical" style={{ width: '100%' }} size="large">
-                <Typography.Title level={3}>Model Details</Typography.Title>
+                <Typography.Title level={3}>{t('mlModel.modelDetails')}</Typography.Title>
                 <InfoItemContainer justifyContent="left">
-                    <InfoItem title="Version">
+                    <InfoItem title={t('shared.versionLabel')}>
                         <InfoItemContent>{model?.versionProperties?.version?.versionTag}</InfoItemContent>
                     </InfoItem>
-                    <InfoItem title="Registered At">
-                        <TimestampPopover timestamp={model?.properties?.created?.time} title="Registered At" />
+                    <InfoItem title={t('mlModel.registeredAt')}>
+                        <TimestampPopover
+                            timestamp={model?.properties?.created?.time}
+                            title={t('mlModel.registeredAt')}
+                        />
                     </InfoItem>
-                    <InfoItem title="Last Modified At">
-                        <TimestampPopover timestamp={model?.properties?.lastModified?.time} title="Last Modified At" />
+                    <InfoItem title={tl('lastModifiedAt')}>
+                        <TimestampPopover
+                            timestamp={model?.properties?.lastModified?.time}
+                            title={tl('lastModifiedAt')}
+                        />
                     </InfoItem>
-                    <InfoItem title="Created By">
+                    <InfoItem title={t('shared.createdBy')}>
                         <InfoItemContent>{model?.properties?.created?.actor || '-'}</InfoItemContent>
                     </InfoItem>
                 </InfoItemContainer>
                 <InfoItemContainer justifyContent="left">
-                    <InfoItem title="Aliases">
+                    <InfoItem title={t('mlModel.aliases')}>
                         <InfoItemContent>
                             {model?.versionProperties?.aliases?.map((alias) => (
                                 <Pill
@@ -384,17 +397,17 @@ export default function MLModelSummary() {
                             ))}
                         </InfoItemContent>
                     </InfoItem>
-                    <InfoItem title="Source Run">
+                    <InfoItem title={t('mlModel.sourceRun')}>
                         <InfoItemContent>{renderTrainingJobs()}</InfoItemContent>
                     </InfoItem>
                 </InfoItemContainer>
-                <Typography.Title level={3}>Training Metrics</Typography.Title>
+                <Typography.Title level={3}>{t('mlModel.trainingMetrics')}</Typography.Title>
                 <Table
                     pagination={false}
                     columns={propertyTableColumns}
                     dataSource={model?.properties?.trainingMetrics as MlMetric[]}
                 />
-                <Typography.Title level={3}>Hyper Parameters</Typography.Title>
+                <Typography.Title level={3}>{t('mlModel.hyperParameters')}</Typography.Title>
                 <Table
                     pagination={false}
                     columns={propertyTableColumns}
@@ -402,7 +415,7 @@ export default function MLModelSummary() {
                 />
                 {hasSignatureData && (
                     <>
-                        <Typography.Title level={3}>Model Signature</Typography.Title>
+                        <Typography.Title level={3}>{t('mlModel.modelSignature')}</Typography.Title>
                         {signatureTabs.length > 0 ? <Tabs items={signatureTabs} /> : null}
                     </>
                 )}

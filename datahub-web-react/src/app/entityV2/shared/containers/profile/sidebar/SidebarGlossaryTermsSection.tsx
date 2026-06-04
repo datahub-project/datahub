@@ -1,5 +1,6 @@
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export const SidebarGlossaryTermsSection = ({ readOnly, properties }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const mutationUrn = useMutationUrn();
@@ -46,7 +48,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly, properties }: Props) => 
     return (
         <div id={ENTITY_PROFILE_GLOSSARY_TERMS_ID}>
             <SidebarSection
-                title="Terms"
+                title={t('sidebar.glossaryTerms.sectionTitle')}
                 content={
                     <Content>
                         {!areTermsEmpty ? (

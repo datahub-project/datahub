@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { Trans } from 'react-i18next';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
@@ -9,29 +10,33 @@ export const POLICIES_CREATE_POLICY_ID = 'policies-create-policy';
 export const PoliciesOnboardingConfig: OnboardingStep[] = [
     {
         id: POLICIES_INTRO_ID,
-        title: 'Policies',
+        title: <Trans i18nKey="onboarding:policies.introTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    Welcome to DataHub <strong>Policies</strong>!
+                    <Trans i18nKey="onboarding:policies.introWelcome" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    In most cases, <strong>Roles</strong> are the best option for granting privileges to DataHub users.
+                    <Trans i18nKey="onboarding:policies.introDescription1" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    When more fine-grained control over user and group permissions is required, then{' '}
-                    <strong>Policies</strong> will do the trick.
+                    <Trans i18nKey="onboarding:policies.introDescription2" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    Learn more about <strong>Policies</strong>{' '}
-                    <a
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        href="https://docs.datahub.com/docs/authorization/policies"
-                    >
-                        {' '}
-                        here.
-                    </a>
+                    <Trans
+                        i18nKey="onboarding:policies.learnMore"
+                        components={{
+                            bold: <strong />,
+                            anchor: (
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    href="https://docs.datahub.com/docs/authorization/policies"
+                                />
+                            ),
+                        }}
+                    />
                 </p>
             </Text>
         ),
@@ -39,11 +44,11 @@ export const PoliciesOnboardingConfig: OnboardingStep[] = [
     {
         id: POLICIES_CREATE_POLICY_ID,
         selector: `#${POLICIES_CREATE_POLICY_ID}`,
-        title: 'Create a new Policy',
+        title: <Trans i18nKey="onboarding:policies.createTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    Click here to create a new <strong>Policy</strong>.
+                    <Trans i18nKey="onboarding:policies.create" components={{ bold: <strong /> }} />
                 </p>
             </Text>
         ),

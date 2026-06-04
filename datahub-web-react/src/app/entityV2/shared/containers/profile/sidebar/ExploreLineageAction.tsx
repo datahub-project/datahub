@@ -1,6 +1,7 @@
 import { Button, Tooltip } from '@components';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -9,6 +10,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import CompactContext from '@src/app/shared/CompactContext';
 
 export const ExploreLineageAction = () => {
+    const { t } = useTranslation('entity.shared.containers');
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const isCompact = useContext(CompactContext);
@@ -25,11 +27,7 @@ export const ExploreLineageAction = () => {
     };
 
     return (
-        <Tooltip
-            placement="left"
-            showArrow={false}
-            title={`Visually explore the upstreams and downstreams of ${entityName}`}
-        >
+        <Tooltip placement="left" showArrow={false} title={t('sidebar.lineage.exploreTooltip', { entityName })}>
             <Button variant="text" color="violet" size="md" icon={{ icon: TreeStructure }} onClick={handleClick} />
         </Tooltip>
     );

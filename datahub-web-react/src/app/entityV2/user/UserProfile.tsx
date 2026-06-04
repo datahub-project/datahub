@@ -1,6 +1,7 @@
 import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
@@ -35,7 +36,9 @@ interface Props {
 }
 
 enum TabType {
+    /* untranslated-text -- enum doubles as route path + identity key */
     Assets = 'Owner Of',
+    /* untranslated-text -- enum doubles as route path + identity key */
     Groups = 'Groups',
 }
 
@@ -92,6 +95,7 @@ const ContentColumn = styled(Col)`
  * Responsible for reading & writing users.
  */
 export default function UserProfile({ urn }: Props) {
+    const { t } = useTranslation('entity.types');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
@@ -168,7 +172,7 @@ export default function UserProfile({ urn }: Props) {
 
     const finalTabs = [
         {
-            name: 'About',
+            name: t('tab.about'),
             icon: BookOpen,
             component: EntitySidebarSectionsTab,
             display: {

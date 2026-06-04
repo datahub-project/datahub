@@ -2,6 +2,7 @@ import { CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Button, Select } from 'antd';
 import * as React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 
@@ -49,6 +50,7 @@ export default function ColumnsLineageSelect({
     setSelectedColumn,
     setIsColumnLevelLineage,
 }: Props) {
+    const { t } = useTranslation('lineage');
     const { entityData } = useEntityData();
     const location = useLocation();
     const history = useHistory();
@@ -59,7 +61,7 @@ export default function ColumnsLineageSelect({
         setSelectedColumn(column);
     }
 
-    const columnButtonTooltip = isColumnLevelLineage ? 'Hide column level lineage' : 'Show column level lineage';
+    const columnButtonTooltip = isColumnLevelLineage ? t('columnLineage.hideTooltip') : t('columnLineage.showTooltip');
 
     return (
         <>
@@ -69,7 +71,7 @@ export default function ColumnsLineageSelect({
                     onChange={selectColumn}
                     showSearch
                     allowClear
-                    placeholder="Select column"
+                    placeholder={t('columnLineage.selectColumnPlaceholder')}
                     optionFilterProp="label"
                 >
                     {entityWithSchema?.schemaMetadata?.fields?.map((field) => {
@@ -104,7 +106,7 @@ export default function ColumnsLineageSelect({
                 >
                     <ImpactAnalysisIcon />
                     <TextWrapper>
-                        <b>Column Lineage</b>
+                        <Trans i18nKey="lineage:columnLineage.buttonLabel" components={{ b: <b /> }} />
                         <CaretDownOutlined style={{ fontSize: '10px', marginLeft: 4 }} />
                     </TextWrapper>
                 </StyledButton>

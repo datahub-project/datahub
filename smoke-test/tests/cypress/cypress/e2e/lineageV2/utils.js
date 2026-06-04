@@ -124,8 +124,9 @@ export function ensureTitleHasText(nodeUrn, direction, text) {
 }
 
 export function checkMatches(nodeUrn, direction, matchesNumber) {
+  const label = matchesNumber === "1" ? "1 match" : `${matchesNumber} matches`;
   getFilteringNode(nodeUrn, direction).within(() => {
-    cy.getWithTestId("matches").should("have.text", `${matchesNumber} matches`);
+    cy.getWithTestId("matches").should("have.text", label);
   });
 }
 

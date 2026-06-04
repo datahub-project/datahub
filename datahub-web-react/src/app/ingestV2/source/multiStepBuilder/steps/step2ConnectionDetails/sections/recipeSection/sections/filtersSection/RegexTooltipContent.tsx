@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const ContentContainer = styled.div`
@@ -9,18 +10,37 @@ const ContentContainer = styled.div`
     padding: 8px;
 `;
 
+const EXAMPLE_EXACT = 'public.customers';
+const EXAMPLE_PATTERN = 'public.sales_.*';
+const EXAMPLE_MULTIPLE = 'public.orders, analytics.*';
+
 export default function RegexTooltipContent() {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     return (
         <ContentContainer>
-            <Text>Use fully qualified names based on your filter type.</Text>
-            <Text weight="semiBold"> Examples:</Text>
+            <Text>{t('multiStep.filters.tooltip.intro')}</Text>
+            <Text weight="semiBold"> {t('multiStep.filters.tooltip.examples')}</Text>
             <Text>
                 <ul>
-                    <li>Exact: public.customers</li>
-                    <li>Pattern: public.sales_.*</li>
-                    <li>Multiple: public.orders, analytics.*</li>
+                    <li>
+                        <Trans t={t} i18nKey="multiStep.filters.tooltip.exact" values={{ example: EXAMPLE_EXACT }} />
+                    </li>
+                    <li>
+                        <Trans
+                            t={t}
+                            i18nKey="multiStep.filters.tooltip.pattern"
+                            values={{ example: EXAMPLE_PATTERN }}
+                        />
+                    </li>
+                    <li>
+                        <Trans
+                            t={t}
+                            i18nKey="multiStep.filters.tooltip.multiple"
+                            values={{ example: EXAMPLE_MULTIPLE }}
+                        />
+                    </li>
                 </ul>
-                Separate entries with commas.
+                {t('multiStep.filters.tooltip.separator')}
             </Text>
         </ContentContainer>
     );

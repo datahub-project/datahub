@@ -1,6 +1,7 @@
 import { Modal } from '@components';
 import { Select, Tag, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
@@ -38,6 +39,8 @@ interface Props {
 function AddRelatedTermsModal(props: Props) {
     const { onClose, relationshipType } = props;
 
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const [inputValue, setInputValue] = useState('');
     const [selectedUrns, setSelectedUrns] = useState<any[]>([]);
@@ -62,13 +65,13 @@ function AddRelatedTermsModal(props: Props) {
         })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to move: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('glossaryTerm.moveError', { error: e.message || '' }), duration: 3 });
             })
             .finally(() => {
-                message.loading({ content: 'Adding...', duration: 2 });
+                message.loading({ content: t('glossaryTerm.adding'), duration: 2 });
                 setTimeout(() => {
                     message.success({
-                        content: 'Added Related Terms!',
+                        content: t('glossaryTerm.addedRelatedTermsSuccess'),
                         duration: 2,
                     });
                     refetch();
@@ -182,17 +185,17 @@ function AddRelatedTermsModal(props: Props) {
 
     return (
         <Modal
-            title="Add Related Terms"
+            title={t('glossaryTerm.addRelatedTermsTitle')}
             open
             onCancel={onClose}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onClose,
                 },
                 {
-                    text: 'Add',
+                    text: tc('add'),
                     onClick: addTerms,
                     variant: 'filled',
                     disabled: !selectedUrns.length,
@@ -205,7 +208,7 @@ function AddRelatedTermsModal(props: Props) {
                     autoFocus
                     mode="multiple"
                     filterOption={false}
-                    placeholder="Search for Glossary Terms..."
+                    placeholder={t('glossaryTerm.searchForTermsPlaceholder')}
                     showSearch
                     defaultActiveFirstOption={false}
                     onSelect={(asset: any) => onSelectValue(asset)}

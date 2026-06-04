@@ -1,10 +1,10 @@
 import { LoadingOutlined, SubnodeOutlined } from '@ant-design/icons';
 import { AutoComplete, Empty } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import EntityRegistry from '@app/entity/EntityRegistry';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import LineageEntityView from '@app/lineage/manage/LineageEntityView';
 import { Direction } from '@app/lineage/types';
 import { getValidEntityTypes } from '@app/lineage/utils/manageLineageUtils';
@@ -44,15 +44,20 @@ const LoadingWrapper = styled.div`
     svg {
         height: 15px;
         width: 15px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
-function getPlaceholderText(validEntityTypes: EntityType[], entityRegistry: EntityRegistry) {
-    let placeholderText = 'Search for ';
+function getPlaceholderText(
+    validEntityTypes: EntityType[],
+    entityRegistry: EntityRegistry,
+    t: (key: string) => string,
+) {
     if (!validEntityTypes.length) {
-        placeholderText = `${placeholderText} entities to add...`;
-    } else if (validEntityTypes.length === 1) {
+        return t('add.searchPlaceholderDefault');
+    }
+    let placeholderText = 'Search for ';
+    if (validEntityTypes.length === 1) {
         placeholderText = `${placeholderText} ${entityRegistry.getCollectionName(validEntityTypes[0])}...`;
     } else {
         validEntityTypes.forEach((type, index) => {
@@ -83,6 +88,7 @@ export default function AddEntityEdge({
     entityUrn,
     entityType,
 }: Props) {
+    const { t } = useTranslation('lineage');
     const entityRegistry = useEntityRegistry();
     const [getAutoCompleteResults, { data: autoCompleteResults, loading }] =
         useGetAutoCompleteMultipleResultsLazyQuery();
@@ -128,13 +134,13 @@ export default function AddEntityEdge({
         .filter((entity) => entity && !existsInEntitiesToAdd(entity, entitiesToAdd) && entity.urn !== entityUrn)
         .map((entity) => renderSearchResult(entity));
 
-    const placeholderText = getPlaceholderText(validEntityTypes, entityRegistry);
+    const placeholderText = getPlaceholderText(validEntityTypes, entityRegistry, t);
 
     return (
         <AddEdgeWrapper>
             <AddLabel>
                 <AddIcon />
-                Add {lineageDirection}
+                {lineageDirection === Direction.Upstream ? t('add.addUpstream') : t('add.addDownstream')}
             </AddLabel>
             <StyledAutoComplete
                 autoFocus
@@ -144,7 +150,7 @@ export default function AddEntityEdge({
                 onSearch={handleSearch}
                 onSelect={(urn: any) => selectEntity(urn)}
                 filterOption={false}
-                notFoundContent={(queryText.length > 3 && <Empty description="No Assets Found" />) || undefined}
+                notFoundContent={(queryText.length > 3 && <Empty description={t('add.noAssetsFound')} />) || undefined}
             >
                 {loading && (
                     <AutoComplete.Option value="loading">

@@ -1,5 +1,6 @@
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import GroupOwnerSidebarSectionContent from '@app/entityV2/group/GroupOwnerSidebarSectionContent';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
@@ -14,11 +15,12 @@ type Props = {
 };
 
 export const GroupSidebarOwnersSection = ({ ownership, refetch, urn }: Props) => {
+    const { t: tl } = useTranslation('common.labels');
     const [showAddOwnerModal, setShowAddOwnerModal] = useState(false);
 
     return (
         <SidebarSection
-            title="Owners"
+            title={tl('owners')}
             count={ownership?.owners?.length}
             content={
                 <GroupOwnerSidebarSectionContent

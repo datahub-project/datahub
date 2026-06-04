@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
@@ -13,6 +14,7 @@ type Props = {
 };
 
 export const GroupAssets = ({ urn }: Props) => {
+    const { t } = useTranslation('entity.types');
     return (
         <GroupAssetsWrapper>
             <EmbeddedListSearchSection
@@ -22,7 +24,7 @@ export const GroupAssets = ({ urn }: Props) => {
                     filters: [{ field: 'owners', values: [urn] }],
                 }}
                 emptySearchQuery="*"
-                placeholderText="Filter entities..."
+                placeholderText={t('shared.filterEntitiesPlaceholder')}
             />
         </GroupAssetsWrapper>
     );

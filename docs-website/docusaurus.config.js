@@ -455,6 +455,85 @@ module.exports = {
         ],
       },
     ],
+    // Hotfix release notes live as appended sections in the base release page
+    // (not standalone .md files). We can't use @docusaurus/plugin-client-redirects
+    // because its PathnameSchema rejects hash fragments in `to`. Instead, write
+    // meta-refresh stub files directly in postBuild — same mechanism the redirect
+    // plugin uses internally, but with anchor support.
+    function hotfixReleaseNoteRedirects() {
+      const RELEASE_NOTES_BASE = '/docs/managed-datahub/release-notes';
+      const HOTFIX_REDIRECTS = [
+        ['v_1_0_1',    'v_1_0_0',  'v101'],
+        ['v_1_0_2',    'v_1_0_0',  'v102'],
+        ['v_0_3_17_1', 'v_0_3_17', 'v03171'],
+        ['v_0_3_17_2', 'v_0_3_17', 'v03172'],
+        ['v_0_3_17_3', 'v_0_3_17', 'v03173'],
+        ['v_0_3_17_4', 'v_0_3_17', 'v03174'],
+        ['v_0_3_17_5', 'v_0_3_17', 'v03175'],
+        ['v_0_3_16_1', 'v_0_3_16', 'v03161-acryl'],
+        ['v_0_3_16_2', 'v_0_3_16', 'v03162-acryl'],
+        ['v_0_3_16_3', 'v_0_3_16', 'v03163-acryl'],
+        ['v_0_3_16_4', 'v_0_3_16', 'v03164-acryl'],
+        ['v_0_3_16_5', 'v_0_3_16', 'v03165-acryl'],
+        ['v_0_3_16_6', 'v_0_3_16', 'v03166-acryl'],
+        ['v_0_3_16_7', 'v_0_3_16', 'v03167-acryl'],
+        ['v_0_3_15_4', 'v_0_3_15', 'v03154-acryl'],
+        ['v_0_3_15_5', 'v_0_3_15', 'v03155-acryl'],
+        ['v_0_3_15_6', 'v_0_3_15', 'v03156-acryl'],
+        ['v_0_3_14_1', 'v_0_3_14', 'v03141-acryl'],
+        ['v_0_3_13_1', 'v_0_3_13', 'v03131-acryl'],
+        ['v_0_3_13_2', 'v_0_3_13', 'v03132-acryl'],
+        ['v_0_3_13_3', 'v_0_3_13', 'v03133-acryl'],
+        ['v_0_3_12_1', 'v_0_3_12', 'v03121'],
+        ['v_0_3_12_2', 'v_0_3_12', 'v03122'],
+        ['v_0_3_12_3', 'v_0_3_12', 'v03123'],
+        ['v_0_3_12_4', 'v_0_3_12', 'v03124'],
+        ['v_0_3_11_1', 'v_0_3_11', 'v03111'],
+        ['v_0_3_10_1', 'v_0_3_10', 'v03101'],
+        ['v_0_3_10_2', 'v_0_3_10', 'v03102'],
+        ['v_0_3_10_3', 'v_0_3_10', 'v03103'],
+        ['v_0_3_10_4', 'v_0_3_10', 'v03104'],
+        ['v_0_3_9_2',  'v_0_3_9',  'v0392'],
+        ['v_0_3_8_2',  'v_0_3_8',  'v0382'],
+        ['v_0_3_7_3',  'v_0_3_7',  'v0373'],
+        ['v_0_3_7_4',  'v_0_3_7',  'v0374'],
+        ['v_0_3_7_5',  'v_0_3_7',  'v0375'],
+        ['v_0_3_7_6',  'v_0_3_7',  'v0376'],
+        ['v_0_3_7_7',  'v_0_3_7',  'v0377'],
+        ['v_0_3_7_8',  'v_0_3_7',  'v0378'],
+      ];
+      return {
+        name: 'hotfix-release-note-redirects',
+        async postBuild({ outDir, baseUrl }) {
+          const fs = require('fs-extra');
+          const path = require('path');
+          const joinUrl = (...parts) =>
+            ('/' + parts.join('/')).replace(/\/+/g, '/');
+          for (const [fromSlug, toSlug, anchor] of HOTFIX_REDIRECTS) {
+            const fromPath = joinUrl(baseUrl, RELEASE_NOTES_BASE, fromSlug);
+            const toUrl =
+              joinUrl(baseUrl, RELEASE_NOTES_BASE, toSlug) + '/#' + anchor;
+            const filePath = path.join(outDir, fromPath, 'index.html');
+            const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Redirecting…</title>
+<link rel="canonical" href="${toUrl}">
+<meta name="robots" content="noindex">
+<meta http-equiv="refresh" content="0; url=${toUrl}">
+</head>
+<body>
+<p><a href="${toUrl}">Click here if you are not redirected.</a></p>
+<script>window.location.replace(${JSON.stringify(toUrl)} + window.location.search);</script>
+</body>
+</html>
+`;
+            await fs.outputFile(filePath, html);
+          }
+        },
+      };
+    },
     ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
     "docusaurus-plugin-sass",
     [

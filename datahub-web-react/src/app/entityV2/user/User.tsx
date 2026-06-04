@@ -1,4 +1,5 @@
 import { User } from '@phosphor-icons/react/dist/csr/User';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewContext, PreviewType } from '@app/entityV2/Entity';
@@ -38,9 +39,9 @@ export class UserEntity implements Entity<CorpUser> {
 
     getPathName: () => string = () => 'user';
 
-    getEntityName = () => 'Person';
+    getEntityName = () => i18next.t('entity.types:user.name');
 
-    getCollectionName: () => string = () => 'People';
+    getCollectionName: () => string = () => i18next.t('entity.types:user.namePlural');
 
     renderProfile = (urn: string) => <UserProfile urn={urn} />;
 

@@ -1,4 +1,5 @@
 import React, { useContext, useState } from 'react';
+import { Trans } from 'react-i18next';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 
@@ -108,12 +109,18 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
             <CustomHandle type="source" position={Position.Right} isConnectable={false} />
             <TitleWrapper>
                 <Title data-testid="title">
-                    <TitleCount>{Math.min(numerator, denominator)}</TitleCount> of{' '}
-                    <TitleCount>
-                        {denominator}
-                        {showGhostEntities && '+'}
-                    </TitleCount>{' '}
-                    shown
+                    <Trans
+                        i18nKey="lineage:filter.shownOfTotal"
+                        values={{
+                            shown: Math.min(numerator, denominator),
+                            total: denominator,
+                            plus: showGhostEntities ? '+' : '',
+                        }}
+                        components={{
+                            shown: <TitleCount />,
+                            total: <TitleCount />,
+                        }}
+                    />
                 </Title>
                 <ShowMoreButton data={data} numMatches={numMatches} />
             </TitleWrapper>

@@ -66,7 +66,11 @@ export default function constructTree(
     entityRegistry: EntityRegistry,
     updatedLineages: UpdatedLineages,
 ): NodeData {
-    if (!entityAndType?.entity) return { name: 'loading...', children: [] };
+    if (!entityAndType?.entity)
+        return {
+            name: 'loading...',
+            children: [],
+        }; /* untranslated-text -- internal NodeData stub for graph rendering, not user-visible */
     const constructedNodes = {};
 
     let updatedFetchedEntities = fetchedEntities;

@@ -1,6 +1,8 @@
 import { ArrowDownOutlined, ArrowUpOutlined, MoreOutlined } from '@ant-design/icons';
 import { Dropdown, Popover, Tooltip } from 'antd';
+import i18next from 'i18next';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entity/shared/constants';
@@ -14,7 +16,6 @@ import FocusIcon from '@images/focus.svg';
 
 const DROPDOWN_Z_INDEX = 1;
 const POPOVER_Z_INDEX = 2;
-const UNAUTHORIZED_TEXT = "You aren't authorized to edit lineage for this entity.";
 
 const StyledImage = styled.img`
     width: 12px;
@@ -27,20 +28,33 @@ const UnderlineWrapper = styled.span`
 
 const MenuItemContent = styled.div``;
 
-function PopoverContent({ centerEntity, direction }: { centerEntity?: () => void; direction: string }) {
+function PopoverContent({
+    centerEntity,
+    direction,
+}: {
+    centerEntity?: () => void;
+    direction: 'upstream' | 'downstream';
+}) {
     return (
         <div>
-            <UnderlineWrapper onClick={centerEntity}>Focus</UnderlineWrapper> on this entity to make {direction} edits.
+            <Trans
+                i18nKey={
+                    direction === 'upstream'
+                        ? 'lineage:manageLineage.focusPopoverContentUpstream'
+                        : 'lineage:manageLineage.focusPopoverContentDownstream'
+                }
+                components={{ focus: <UnderlineWrapper onClick={centerEntity} /> }}
+            />
         </div>
     );
 }
 
 function getDownstreamDisabledPopoverContent(canEditLineage: boolean, isDashboard: boolean, centerEntity?: () => void) {
     if (!canEditLineage) {
-        return UNAUTHORIZED_TEXT;
+        return i18next.t('lineage:manageLineage.unauthorized');
     }
     if (isDashboard) {
-        return 'Dashboard entities have no downstream lineage';
+        return i18next.t('lineage:manageLineage.dashboardNoDownstream');
     }
     return <PopoverContent centerEntity={centerEntity} direction="downstream" />;
 }
@@ -74,6 +88,7 @@ export default function ManageLineageMenu({
     canEditLineage,
     disableDropdown,
 }: Props) {
+    const { t } = useTranslation('lineage');
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [lineageDirection, setLineageDirection] = useState<Direction>(Direction.Upstream);
 
@@ -100,7 +115,7 @@ export default function ManageLineageMenu({
                           <Popover
                               content={
                                   !canEditLineage ? (
-                                      UNAUTHORIZED_TEXT
+                                      t('manageLineage.unauthorized')
                                   ) : (
                                       <PopoverContent centerEntity={centerEntity} direction="upstream" />
                                   )
@@ -109,7 +124,7 @@ export default function ManageLineageMenu({
                           >
                               <MenuItemContent>
                                   <ArrowUpOutlined />
-                                  &nbsp; Edit Upstream
+                                  &nbsp; {t('manageLineage.editUpstream')}
                               </MenuItemContent>
                           </Popover>
                       </MenuItemStyle>
@@ -130,7 +145,7 @@ export default function ManageLineageMenu({
                           >
                               <MenuItemContent>
                                   <ArrowDownOutlined />
-                                  &nbsp; Edit Downstream
+                                  &nbsp; {t('manageLineage.editDownstream')}
                               </MenuItemContent>
                           </Popover>
                       </MenuItemStyle>
@@ -142,8 +157,8 @@ export default function ManageLineageMenu({
                   key: 2,
                   label: (
                       <MenuItemStyle onClick={centerEntity}>
-                          <StyledImage src={FocusIcon} alt="focus on entity" />
-                          &nbsp; Focus on Entity
+                          <StyledImage src={FocusIcon} alt={t('manageLineage.focusOnEntityAlt')} />
+                          &nbsp; {t('manageLineage.focusOnEntity')}
                       </MenuItemStyle>
                   ),
               }
@@ -152,7 +167,7 @@ export default function ManageLineageMenu({
 
     return (
         <>
-            <Tooltip title={disableDropdown ? UNAUTHORIZED_TEXT : ''}>
+            <Tooltip title={disableDropdown ? t('manageLineage.unauthorized') : ''}>
                 <div>
                     <Dropdown
                         overlayStyle={{ zIndex: DROPDOWN_Z_INDEX }}

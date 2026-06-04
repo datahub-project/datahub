@@ -1,6 +1,7 @@
 import { Pagination, SearchBar, SimpleSelect } from '@components';
 import { InputRef, message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import { useDebounce, usePrevious } from 'react-use';
 import styled from 'styled-components';
@@ -144,6 +145,9 @@ export const IngestionSourceList = ({
     searchQuery: searchQueryFromUrl,
     setSearchQuery: setSearchQueryFromUrl,
 }: Props) => {
+    const { t } = useTranslation('ingestion');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
     const location = useLocation();
 
     const {
@@ -320,14 +324,14 @@ export const IngestionSourceList = ({
                     setSourcesToRefetch((prev) => new Set(prev).add(urn));
                     analytics.event({ type: EventType.ExecuteIngestionSourceEvent });
                     message.success({
-                        content: `Successfully submitted ingestion execution request!`,
+                        content: t('source.executeSuccess'),
                         duration: 3,
                     });
                 })
                 .catch((e) => {
                     message.destroy();
                     message.error({
-                        content: `Failed to submit ingestion execution request!: \n ${e.message || ''}`,
+                        content: t('source.executeError', { error: e.message || '' }),
                         duration: 3,
                     });
                     setExecutedUrns((prev) => {
@@ -337,7 +341,7 @@ export const IngestionSourceList = ({
                     });
                 });
         },
-        [createExecutionRequestMutation],
+        [createExecutionRequestMutation, t],
     );
 
     const onCreateOrUpdateIngestionSourceSuccess = () => {
@@ -384,7 +388,7 @@ export const IngestionSourceList = ({
                         outcome: shouldRun ? 'save_and_run' : 'save',
                     });
                     message.success({
-                        content: `Successfully updated ingestion source!`,
+                        content: t('source.updateSuccess'),
                         duration: 3,
                     });
                     if (shouldRun) executeIngestionSource(focusSourceUrn);
@@ -396,7 +400,7 @@ export const IngestionSourceList = ({
                 .catch((e) => {
                     message.destroy();
                     message.error({
-                        content: `Failed to update ingestion source!: \n ${e.message || ''}`,
+                        content: t('source.updateError', { error: e.message || '' }),
                         duration: 3,
                     });
                 })
@@ -407,7 +411,7 @@ export const IngestionSourceList = ({
             // Create
             createIngestionSource({ variables: { input } })
                 .then((result) => {
-                    message.loading({ content: 'Loading...', duration: 2 });
+                    message.loading({ content: tf('loading'), duration: 2 });
                     const newUrn = result?.data?.createIngestionSource || PLACEHOLDER_URN;
 
                     const newSource: IngestionSource = {
@@ -445,7 +449,7 @@ export const IngestionSourceList = ({
                         outcome: shouldRun ? 'save_and_run' : 'save',
                     });
                     message.success({
-                        content: `Successfully created ingestion source!`,
+                        content: t('source.createSuccess'),
                         duration: 3,
                     });
                     if (result.data?.createIngestionSource) {
@@ -460,7 +464,7 @@ export const IngestionSourceList = ({
                     console.error(e);
                     message.destroy();
                     message.error({
-                        content: `Failed to create ingestion source!: \n ${e.message || ''}`,
+                        content: t('source.createErrorInterpolated', { error: e.message || '' }),
                         duration: 3,
                     });
                 })
@@ -513,7 +517,7 @@ export const IngestionSourceList = ({
                 analytics.event({
                     type: EventType.DeleteIngestionSourceEvent,
                 });
-                message.success({ content: 'Removed ingestion source.', duration: 2 });
+                message.success({ content: t('source.removeSuccess'), duration: 2 });
                 const newRemovedUrns = [...removedUrns, sourceUrnToDelete];
                 setRemovedUrns(newRemovedUrns);
                 setTimeout(() => {
@@ -524,7 +528,7 @@ export const IngestionSourceList = ({
                 message.destroy();
                 if (e instanceof Error) {
                     message.error({
-                        content: `Failed to remove ingestion source: \n ${e.message || ''}`,
+                        content: t('source.removeError', { error: e.message || '' }),
                         duration: 3,
                     });
                 }
@@ -532,7 +536,7 @@ export const IngestionSourceList = ({
             .finally(() => {
                 setSourceUrnToDelete(null);
             });
-    }, [client, page, pageSize, query, refetch, removeIngestionSourceMutation, removedUrns, sourceUrnToDelete]);
+    }, [client, page, pageSize, query, refetch, removeIngestionSourceMutation, removedUrns, sourceUrnToDelete, t]);
 
     const onSubmit = (recipeBuilderState: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => {
         const existingOwners: Owner[] = focusSource?.ownership?.owners ?? [];
@@ -628,15 +632,13 @@ export const IngestionSourceList = ({
 
     return (
         <>
-            {error && (
-                <Message type="error" content="Failed to load ingestion sources! An unexpected error occurred." />
-            )}
+            {error && <Message type="error" content={t('source.loadError')} />}
             <SourceContainer>
                 <HeaderContainer>
                     <StyledTabToolbar>
                         <SearchContainer>
                             <StyledSearchBar
-                                placeholder="Search..."
+                                placeholder={t('source.searchPlaceholder')}
                                 value={searchInput || ''}
                                 onChange={(value) => handleSearchInputChange(value)}
                                 ref={searchInputRef}
@@ -644,9 +646,9 @@ export const IngestionSourceList = ({
                             />
                             <StyledSimpleSelect
                                 options={[
-                                    { label: 'All', value: '0' },
-                                    { label: 'UI', value: '1' },
-                                    { label: 'CLI', value: '2' },
+                                    { label: tc('all'), value: '0' },
+                                    { label: t('filters.ui'), value: '1' },
+                                    { label: t('filters.cli'), value: '2' },
                                 ]}
                                 values={[sourceFilter.toString()]}
                                 onUpdate={(values) => setSourceFilterFromUrl(Number(values[0]))}
@@ -662,7 +664,7 @@ export const IngestionSourceList = ({
                     </StyledTabToolbar>
                 </HeaderContainer>
                 {!loading && data?.listIngestionSources?.total === 0 ? (
-                    <EmptySources sourceType="sources" isEmptySearchResult={!!query} />
+                    <EmptySources sourceType={t('source.sourcesNoun')} isEmptySearchResult={!!query} />
                 ) : (
                     <>
                         <TableContainer>
@@ -728,19 +730,19 @@ export const IngestionSourceList = ({
                 isOpen={!!sourceUrnToExecute}
                 handleConfirm={handleConfirmExecute}
                 handleClose={() => setSourceUrnToExecute(null)}
-                modalTitle="Confirm Source Execution"
-                modalText="Click 'Execute' to run this ingestion source."
-                closeButtonText="Cancel"
-                confirmButtonText="Execute"
+                modalTitle={t('source.executeConfirmTitle')}
+                modalText={t('source.executeConfirmText')}
+                closeButtonText={tc('cancel')}
+                confirmButtonText={t('source.execute')}
             />
             <ConfirmationModal
                 isOpen={!!sourceUrnToDelete}
                 handleConfirm={handleConfirmDelete}
                 handleClose={() => setSourceUrnToDelete(null)}
-                modalTitle="Confirm Ingestion Source Removal"
-                modalText="Are you sure you want to remove this ingestion source? Removing will terminate any scheduled ingestion runs."
-                closeButtonText="Cancel"
-                confirmButtonText="Yes"
+                modalTitle={t('source.removeConfirmTitle')}
+                modalText={t('source.removeConfirmText')}
+                closeButtonText={tc('cancel')}
+                confirmButtonText={tc('yes')}
             />
             {/* For refetching and polling */}
             {selectedTab === TabType.Sources &&

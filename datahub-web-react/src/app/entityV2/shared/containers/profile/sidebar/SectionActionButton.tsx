@@ -1,5 +1,6 @@
 import { Button, Tooltip } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import type { IconProps } from '@components/components/Icon/types';
@@ -38,7 +39,8 @@ type Props = {
 };
 
 const SectionActionButton = ({ tip, icon, button, onClick, actionPrivilege = true, dataTestId }: Props) => {
-    const tooltipTitle = tip ?? (!actionPrivilege ? 'You do not have permission to change this.' : undefined);
+    const { t } = useTranslation('entity.shared.containers');
+    const tooltipTitle = tip ?? (!actionPrivilege ? t('sidebar.noPermissionTooltip') : undefined);
     // Wrapper needed so the Tooltip has a hover target: the disabled inner control gets
     // `pointer-events: none`, which swallows mouse events and prevents the Tooltip from
     // firing when disabled.
