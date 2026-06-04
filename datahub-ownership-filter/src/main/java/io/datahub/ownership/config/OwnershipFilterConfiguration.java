@@ -89,8 +89,14 @@ public class OwnershipFilterConfiguration {
             FieldArgumentMutators mutators,
             CachedGroupResolver groups,
             AdminBypass admins,
-            DomainPlatformAccessResolver accessResolver) {
-        return new OwnershipInstrumentation(builder, mutators, groups, admins, accessResolver);
+            DomainPlatformAccessResolver accessResolver,
+            // Default OFF: the home-page Domains/Platforms modules render stock (unfiltered).
+            // Set OWNERSHIP_FILTER_RECOMMENDATIONS_ENABLED=true to scope them to the actor's access.
+            @Value("${OWNERSHIP_FILTER_RECOMMENDATIONS_ENABLED:false}") boolean recommendationsFilterEnabled) {
+        log.info("OwnershipInstrumentation: home-page recommendation filtering {}",
+                recommendationsFilterEnabled ? "ENABLED" : "disabled (stock home page)");
+        return new OwnershipInstrumentation(
+                builder, mutators, groups, admins, accessResolver, recommendationsFilterEnabled);
     }
 
     @Bean

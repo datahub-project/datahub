@@ -58,7 +58,7 @@ class OwnershipInstrumentationTest {
                 .thenReturn(new DomainPlatformAccessResolver.AccessSets(
                         Set.of("urn:li:domain:CBP"), Set.of("urn:li:dataPlatform:mysql")));
         instrumentation = new OwnershipInstrumentation(
-                new OwnershipFilterBuilder(), new FieldArgumentMutators(), groups, admins, accessResolver);
+                new OwnershipFilterBuilder(), new FieldArgumentMutators(), groups, admins, accessResolver, true);
 
         when(groups.groupsFor(any(), eq(alice))).thenReturn(List.of(g1));
         when(groups.groupsFor(any(), eq(bob))).thenReturn(List.of());
@@ -150,6 +150,22 @@ class OwnershipInstrumentationTest {
     }
 
     @Test
+    void listRecommendationsWrappedOnlyWhenRecommendationFilteringEnabled() {
+        DataFetcher<?> raw = env -> "x";
+        OwnershipInstrumentation off = new OwnershipInstrumentation(
+                new OwnershipFilterBuilder(), new FieldArgumentMutators(), groups, admins, accessResolver, false);
+        OwnershipInstrumentation on = new OwnershipInstrumentation(
+                new OwnershipFilterBuilder(), new FieldArgumentMutators(), groups, admins, accessResolver, true);
+
+        // Disabled (default): listRecommendations is NOT wrapped -> stock, unfiltered home page.
+        assertThat(off.instrumentDataFetcher(raw, fieldFetchParams("listRecommendations"), null)).isSameAs(raw);
+        // Enabled: it IS wrapped so domain/platform cards get scoped.
+        assertThat(on.instrumentDataFetcher(raw, fieldFetchParams("listRecommendations"), null)).isNotSameAs(raw);
+        // Asset search stays gated regardless of the flag (the real security boundary).
+        assertThat(off.instrumentDataFetcher(raw, fieldFetchParams("searchAcrossEntities"), null)).isNotSameAs(raw);
+    }
+
+    @Test
     void adminBypassesFilterInjection() throws Exception {
         AtomicReference<Map<String, Object>> seen = new AtomicReference<>();
         DataFetcher<?> capturing = env -> {
@@ -172,7 +188,7 @@ class OwnershipInstrumentationTest {
         when(failingGroups.groupsFor(any(), any())).thenThrow(boom);
 
         OwnershipInstrumentation inst = new OwnershipInstrumentation(
-                new OwnershipFilterBuilder(), new FieldArgumentMutators(), failingGroups, admins, accessResolver);
+                new OwnershipFilterBuilder(), new FieldArgumentMutators(), failingGroups, admins, accessResolver, true);
 
         DataFetcher<?> wrapped = inst.instrumentDataFetcher(
                 env -> "should not be called",

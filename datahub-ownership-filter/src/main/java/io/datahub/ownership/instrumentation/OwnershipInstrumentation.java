@@ -89,18 +89,27 @@ public class OwnershipInstrumentation extends SimplePerformantInstrumentation {
     private final CachedGroupResolver groupResolver;
     private final AdminBypass adminBypass;
     private final DomainPlatformAccessResolver accessResolver;
+    /**
+     * When false (default), the home-page {@code listRecommendations} domain/platform cards are left
+     * UNFILTERED — i.e. stock DataHub behavior. Asset search filtering (the security boundary) is
+     * unaffected by this flag. Enable only if you want the home-page Domains/Platforms modules
+     * scoped to what the actor can access.
+     */
+    private final boolean recommendationsFilterEnabled;
 
     public OwnershipInstrumentation(
             @Nonnull OwnershipFilterBuilder filterBuilder,
             @Nonnull FieldArgumentMutators mutators,
             @Nonnull CachedGroupResolver groupResolver,
             @Nonnull AdminBypass adminBypass,
-            @Nonnull DomainPlatformAccessResolver accessResolver) {
+            @Nonnull DomainPlatformAccessResolver accessResolver,
+            boolean recommendationsFilterEnabled) {
         this.filterBuilder = filterBuilder;
         this.mutators = mutators;
         this.groupResolver = groupResolver;
         this.adminBypass = adminBypass;
         this.accessResolver = accessResolver;
+        this.recommendationsFilterEnabled = recommendationsFilterEnabled;
     }
 
     @Override
@@ -109,7 +118,11 @@ public class OwnershipInstrumentation extends SimplePerformantInstrumentation {
             InstrumentationFieldFetchParameters parameters,
             @Nullable InstrumentationState state) {
         String fieldName = parameters.getExecutionStepInfo().getFieldDefinition().getName();
-        if (!mutators.isOwnershipGated(fieldName) && !LIST_RECOMMENDATIONS.equals(fieldName)) {
+        // listRecommendations is only intercepted when recommendation filtering is explicitly
+        // enabled; otherwise the home page renders stock (unfiltered) domains/platforms.
+        boolean gated = mutators.isOwnershipGated(fieldName)
+                || (recommendationsFilterEnabled && LIST_RECOMMENDATIONS.equals(fieldName));
+        if (!gated) {
             return dataFetcher;
         }
         return env -> intercept(dataFetcher, env, fieldName);
