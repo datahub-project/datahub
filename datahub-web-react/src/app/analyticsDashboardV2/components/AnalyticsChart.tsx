@@ -15,6 +15,7 @@ import { AnalyticsChart as AnalyticsChartType, BarChart as BarChartType, TimeSer
 
 type Props = {
     chartData: AnalyticsChartType;
+    testId?: string;
 };
 
 const TableWrapper = styled.div`
@@ -139,9 +140,15 @@ type StackedBarChartProps = {
     stackedBarChartData: any[];
     allSegmentLabels: string[];
     segmentColors: string[];
+    testId?: string;
 };
 
-const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, segmentColors }: StackedBarChartProps) => {
+const StackedBarChartWithTooltip = ({
+    stackedBarChartData,
+    allSegmentLabels,
+    segmentColors,
+    testId,
+}: StackedBarChartProps) => {
     const theme = useTheme();
     const { tooltipData, tooltipLeft, tooltipTop, showTooltip, hideTooltip } = useTooltip<{
         label: string;
@@ -276,7 +283,7 @@ const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, seg
     );
 
     return (
-        <ChartWithLegendContainer>
+        <ChartWithLegendContainer data-testid={testId}>
             <ChartArea ref={setContainerRefs}>
                 <ParentSize>
                     {({ width, height }) =>
@@ -391,6 +398,7 @@ const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, seg
                         return (
                             <LegendItem
                                 key={segmentLabel}
+                                data-testid={`analytics-entity-type-${segmentLabel.toLowerCase()}`}
                                 $isSelected={isSelected}
                                 onClick={() => handleLegendClick(segmentLabel)}
                             >
@@ -405,7 +413,7 @@ const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, seg
     );
 };
 
-export const AnalyticsChart = ({ chartData }: Props) => {
+export const AnalyticsChart = ({ chartData, testId }: Props) => {
     const theme = useTheme();
     const isTable = chartData.__typename === 'TableChart';
 
@@ -513,6 +521,7 @@ export const AnalyticsChart = ({ chartData }: Props) => {
                             stackedBarChartData={stackedBarChartData}
                             allSegmentLabels={allSegmentLabels}
                             segmentColors={segmentColors}
+                            testId={testId}
                         />
                     )}
                 />
