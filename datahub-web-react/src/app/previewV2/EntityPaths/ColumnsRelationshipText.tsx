@@ -24,6 +24,7 @@ export default function ColumnsRelationshipText({ displayedColumns }: Props) {
     const displayedFieldPath = decodeSchemaField(downgradeV2FieldPath(selectedColumn) || '');
 
     return (
+        /* eslint-disable i18next/no-literal-string -- (untranslated-text) lineage relationship phrase: direction-reversed word order; deferred to follow-up */
         <>
             {lineageDirection === LineageDirection.Downstream ? (
                 <span>
@@ -37,5 +38,6 @@ export default function ColumnsRelationshipText({ displayedColumns }: Props) {
                 </span>
             )}
         </>
+        /* eslint-enable i18next/no-literal-string */
     );
 }
