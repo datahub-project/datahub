@@ -31,6 +31,7 @@ import enGovernanceGlossary from '@src/i18n/locales/en/governance.glossary.json'
 import enGovernanceStructuredProperties from '@src/i18n/locales/en/governance.structured-properties.json';
 import enHomeV2 from '@src/i18n/locales/en/home.v2.json';
 import enHomeV3 from '@src/i18n/locales/en/home.v3.json';
+import enIngestion from '@src/i18n/locales/en/ingestion.json';
 import enIngestionSourceBuilder from '@src/i18n/locales/en/ingestion.sourceBuilder.json';
 import enMisc from '@src/i18n/locales/en/misc.json';
 import enModules from '@src/i18n/locales/en/modules.json';
@@ -74,6 +75,7 @@ i18n.use(initReactI18next).init({
         'governance.structured-properties',
         'home.v2',
         'home.v3',
+        'ingestion',
         'ingestion.sourceBuilder',
         'misc',
         'modules',
@@ -113,6 +115,7 @@ i18n.use(initReactI18next).init({
             'governance.structured-properties': enGovernanceStructuredProperties,
             'home.v2': enHomeV2,
             'home.v3': enHomeV3,
+            ingestion: enIngestion,
             'ingestion.sourceBuilder': enIngestionSourceBuilder,
             misc: enMisc,
             modules: enModules,

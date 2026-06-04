@@ -29,6 +29,7 @@ export const NAMESPACES = [
     'governance.structured-properties',
     'home.v2',
     'home.v3',
+    'ingestion',
     'ingestion.sourceBuilder',
     'misc',
     'modules',
