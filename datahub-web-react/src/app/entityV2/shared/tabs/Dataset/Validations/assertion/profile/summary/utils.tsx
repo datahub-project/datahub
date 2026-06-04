@@ -5,6 +5,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 
+import { CustomAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/CustomAssertionDescription';
 import { DatasetAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
 import { FieldAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/FieldAssertionDescription';
 import {
@@ -365,7 +366,9 @@ export const useBuildAssertionPrimaryLabel = (
 ): JSX.Element => {
     const { t } = useTranslation('entity.profile.validations');
     let primaryLabel = <Typography.Text>{t('datasetDescription.fallback.noDescription')}</Typography.Text>;
-    if (assertionInfo?.description && assertionInfo?.type !== AssertionType.Field) {
+    if (assertionInfo?.type === AssertionType.Custom && assertionInfo?.customAssertion?.logic) {
+        primaryLabel = <CustomAssertionDescription assertionInfo={assertionInfo} />;
+    } else if (assertionInfo?.description && assertionInfo?.type !== AssertionType.Field) {
         primaryLabel = <Typography.Text>{assertionInfo.description}</Typography.Text>;
     } else {
         switch (assertionInfo?.type) {
