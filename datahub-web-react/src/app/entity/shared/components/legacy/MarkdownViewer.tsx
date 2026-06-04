@@ -2,7 +2,11 @@ import { EditOutlined } from '@ant-design/icons';
 import MDEditor from '@uiw/react-md-editor';
 import { Button } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+// String flag passed to styled-components as a DOM attribute marker; not user-visible text.
+const TRUE_ATTRIBUTE_VALUE = 'true';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -84,6 +88,8 @@ type Props = {
 };
 
 export default function MarkdownViewer({ source, limit = 150, editable, onEditClicked, ignoreLimit }: Props) {
+    const { t } = useTranslation('entityV1.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const [height, setHeight] = useState(0);
     const [showAll, setShowAll] = useState(false);
     const ref = useRef(null);
@@ -100,17 +106,17 @@ export default function MarkdownViewer({ source, limit = 150, editable, onEditCl
     }, [ref, source]);
 
     return (
-        <MarkdownContainer editable={editable ? 'true' : undefined}>
+        <MarkdownContainer editable={editable ? TRUE_ATTRIBUTE_VALUE : undefined}>
             <MarkdownViewContainer
-                showall={height >= limit && showAll ? 'true' : undefined}
+                showall={height >= limit && showAll ? TRUE_ATTRIBUTE_VALUE : undefined}
                 limit={ignoreLimit ? undefined : `${limit}`}
-                over={height >= limit && !ignoreLimit ? 'true' : undefined}
+                over={height >= limit && !ignoreLimit ? TRUE_ATTRIBUTE_VALUE : undefined}
             >
                 <MarkdownView ref={ref} source={source} />
             </MarkdownViewContainer>
             {height >= limit && !ignoreLimit && (
                 <CustomButton type="link" onClick={() => setShowAll(!showAll)}>
-                    {showAll ? 'show less' : 'show more'}
+                    {showAll ? t('markdownViewer.showLess') : tc('showMore')}
                 </CustomButton>
             )}
             {editable && <EditIcon twoToneColor="#52c41a" onClick={onEditClicked} />}
