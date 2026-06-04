@@ -1,6 +1,7 @@
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import AllowedValuesField from '@app/govern/structuredProperties/AllowedValuesField';
 import RequiredAsterisk from '@app/govern/structuredProperties/RequiredAsterisk';
@@ -20,6 +21,9 @@ import {
 } from '@app/govern/structuredProperties/utils';
 import { Icon, SimpleSelect, Text, Tooltip } from '@src/alchemy-components';
 import { AllowedValue, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
+
+const ALLOWED_TYPES_FIELD_PATH = ['typeQualifier', 'allowedTypes'];
+const ENTITY_TYPES_FIELD = 'entityTypes';
 
 interface Props {
     selectedProperty: StructuredPropertyEntity | undefined;
@@ -48,6 +52,7 @@ const StructuredPropsFormSection = ({
     valueField,
     setShowAllowedValuesDrawer,
 }: Props) => {
+    const { t } = useTranslation('governance.structured-properties');
     const {
         handleSelectChange,
         handleSelectUpdateChange,
@@ -76,32 +81,23 @@ const StructuredPropsFormSection = ({
                 <RowContainer>
                     <FieldLabel>
                         <FlexContainer>
-                            Allowed Entity Types
-                            <Tooltip
-                                title="Choose the types of entities that are allowed as values for this property"
-                                showArrow={false}
-                            >
+                            {t('allowedEntityTypes.title')}
+                            <Tooltip title={t('allowedEntityTypes.tooltip')} showArrow={false}>
                                 <Icon icon={Info} color="violet" size="lg" />
                             </Tooltip>
                         </FlexContainer>
                         {isEditMode && (
                             <SubTextContainer>
                                 <Text size="sm" weight="medium">
-                                    <Tooltip
-                                        title="Once a property is created, entity types cannot be removed"
-                                        showArrow={false}
-                                    >
-                                        (Add-only)
+                                    <Tooltip title={t('addOnlyTooltip')} showArrow={false}>
+                                        {t('addOnly')}
                                     </Tooltip>
                                 </Text>
                             </SubTextContainer>
                         )}
                     </FieldLabel>
                     <Tooltip
-                        title={
-                            !formValues?.typeQualifier?.allowedTypes?.length &&
-                            'Any entity type will be accepted as a value'
-                        }
+                        title={!formValues?.typeQualifier?.allowedTypes?.length && t('allowedEntityTypes.anyTooltip')}
                         showArrow={false}
                     >
                         <Form.Item name={['typeQualifier', 'allowedTypes']}>
@@ -109,10 +105,10 @@ const StructuredPropsFormSection = ({
                                 options={getEntitiesListOptions(SEARCHABLE_ENTITY_TYPES)}
                                 onUpdate={(values) =>
                                     isEditMode
-                                        ? handleSelectUpdateChange(['typeQualifier', 'allowedTypes'], values)
-                                        : handleSelectChange(['typeQualifier', 'allowedTypes'], values)
+                                        ? handleSelectUpdateChange(ALLOWED_TYPES_FIELD_PATH, values)
+                                        : handleSelectChange(ALLOWED_TYPES_FIELD_PATH, values)
                                 }
-                                placeholder="Any"
+                                placeholder={t('allowedEntityTypes.anyPlaceholder')}
                                 isMultiSelect
                                 values={formValues?.typeQualifier?.allowedTypes}
                                 disabledValues={disabledTypeQualifierValues}
@@ -126,23 +122,17 @@ const StructuredPropsFormSection = ({
             <RowContainer>
                 <FieldLabel>
                     <FlexContainer>
-                        Applies to
+                        {t('appliesTo.title')}
                         <RequiredAsterisk />
-                        <Tooltip
-                            title="Select the types of entities that this property can be added to"
-                            showArrow={false}
-                        >
+                        <Tooltip title={t('appliesTo.tooltip')} showArrow={false}>
                             <Icon icon={Info} color="violet" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                     {isEditMode && (
                         <SubTextContainer>
                             <Text size="sm" weight="medium">
-                                <Tooltip
-                                    title="Once a property is created entity types cannot be removed"
-                                    showArrow={false}
-                                >
-                                    (Add-only)
+                                <Tooltip title={t('addOnlyTooltip')} showArrow={false}>
+                                    {t('addOnly')}
                                 </Tooltip>
                             </Text>
                         </SubTextContainer>
@@ -154,7 +144,7 @@ const StructuredPropsFormSection = ({
                     rules={[
                         {
                             required: true,
-                            message: 'Please select asset types this applies to',
+                            message: t('appliesTo.error'),
                         },
                     ]}
                 >
@@ -162,16 +152,16 @@ const StructuredPropsFormSection = ({
                         options={getEntitiesListOptions(APPLIES_TO_ENTITIES)}
                         onUpdate={(values) =>
                             isEditMode
-                                ? handleSelectUpdateChange('entityTypes', values)
-                                : handleSelectChange('entityTypes', values)
+                                ? handleSelectUpdateChange(ENTITY_TYPES_FIELD, values)
+                                : handleSelectChange(ENTITY_TYPES_FIELD, values)
                         }
-                        placeholder="Select Entity Types"
+                        placeholder={t('appliesTo.placeholder')}
                         isMultiSelect
                         values={formValues?.entityTypes ? formValues?.entityTypes : undefined}
                         disabledValues={disabledEntityTypeValues}
                         width="full"
                         showSelectAll
-                        selectAllLabel="All Asset Types"
+                        selectAllLabel={t('appliesTo.allAssetTypes')}
                         data-testid="structured-props-select-input-applies-to"
                         optionListTestId="applies-to-options-list"
                     />

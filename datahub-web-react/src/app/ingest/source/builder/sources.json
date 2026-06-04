@@ -443,7 +443,8 @@
         "name": "hex",
         "displayName": "Hex",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/hex/",
-        "recipe": "source:\n  type: hex\n  config:\n    workspace_name: # Your Hex Workspace name\n     token: # Your PAT or Workspace token"
+        "recipe": "source:\n  type: hex\n  config:\n    workspace_name: # Your Hex workspace name\n    token: # Your Workspace Token or PAT",
+        "description": "Import Projects, Components, lineage, run history, and AI context documents from Hex."
     },
     {
         "urn": "urn:li:dataPlatform:grafana",
