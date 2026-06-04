@@ -1,5 +1,3 @@
-# Copyright 2026 Acryl Data, Inc.
-# SPDX-License-Identifier: Apache-2.0
 """
 Acceptance test demonstrating a race condition in domain deletion.
 
