@@ -2347,11 +2347,13 @@ ORDER by DataBaseName, TableName;
                         except Exception as e:
                             _error_category = _categorize_view_error(e)
                             self._warn_view_error(schema, view_name, _error_category, e)
-                            # Belt-and-suspenders: fut is already complete (it came from
-                            # done_set), but fut.result(timeout=1) can raise in exotic
-                            # race conditions. DB errors are NOT re-raised here —
-                            # process_single_view catches them internally and reports via
-                            # increment_view_error before returning [].
+                            # fut.result() can raise for infrastructure-level exceptions
+                            # (e.g. concurrent.futures internals) that are NOT caught by
+                            # process_single_view.  In those cases no error has been
+                            # counted yet, so we count and warn here.
+                            # process_single_view catches all DB exceptions internally
+                            # (see its CONTRACT docstring), so this path will NOT fire
+                            # for normal DB errors — no double-counting occurs.
                             self.report.increment_view_error(_error_category)
                         completed_count += 1
 
@@ -2446,21 +2448,21 @@ ORDER by DataBaseName, TableName;
         ``message`` uses compile-time string literals (required by ``report.warning()``);
         dynamic data (schema, view name) is placed in ``context``.
         """
-        if error_category == "timeout":
+        if error_category is ViewErrorCategory.TIMEOUT:
             self.report.warning(
                 title="View processing error",
                 message="View processing timed out — consider increasing view_processing_timeout_seconds or optimizing the view SQL.",
                 context=f"{schema}.{view_name}",
                 exc=exc,
             )
-        elif error_category == "permission":
+        elif error_category is ViewErrorCategory.PERMISSION:
             self.report.warning(
                 title="View processing error",
                 message="Permission denied processing view — check database access rights for the ingestion user.",
                 context=f"{schema}.{view_name}",
                 exc=exc,
             )
-        elif error_category == "parse":
+        elif error_category is ViewErrorCategory.PARSE:
             self.report.warning(
                 title="View processing error",
                 message="SQL parse error in view definition — check the view SQL for syntax issues.",

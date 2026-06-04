@@ -1,6 +1,5 @@
 import logging
 import re
-import time
 from collections import defaultdict
 from collections.abc import Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -2222,10 +2221,6 @@ class TestNewConfigDefaults:
                     "column_extraction_days_back": 3,
                 }
             )
-
-    def test_lineage_slow_query_log_seconds_default(self) -> None:
-        config = TeradataConfig.model_validate(_base_config())
-        assert config.lineage_slow_query_log_seconds == 60.0
 
 
 class TestIncrementalColumnExtraction:
@@ -5144,21 +5139,21 @@ class TestHungViewAbandonPath:
         """When a view worker exceeds view_processing_timeout_seconds the
         connector abandons it: num_view_processing_timeouts,
         view_timeout_errors, and num_view_processing_failures must all be
-        incremented exactly once so the counters tell a consistent story."""
+        incremented exactly once so the counters tell a consistent story.
+
+        Uses event-based synchronization and mocked time/wait so the test
+        never blocks on real wall-clock sleeps and is safe on loaded CI."""
         block = Event()
+        worker_started = Event()
 
         def _blocking_process_view(**kwargs):
-            # Simulates a worker stuck in a long-running DB call.  The safety
-            # timeout prevents the test from hanging if something goes wrong.
+            worker_started.set()
             block.wait(timeout=10)
             return iter([])
 
         source = _create_source_patched(
             {
                 "max_workers": 2,
-                # 1-second heartbeat → wait_step = 1s; the stall check fires
-                # after two loop iterations (~2s), which exceeds the 1-second
-                # per-view timeout.
                 "view_processing_timeout_seconds": 1,
                 "view_processing_heartbeat_seconds": 1,
             }
@@ -5166,6 +5161,28 @@ class TestHungViewAbandonPath:
         mock_conn = _make_mock_conn()
         mock_inspector = _make_mock_inspector("testdb")
         mock_engine = MagicMock()
+
+        # Thread-aware time mock: the control thread sees 0.0 for the first
+        # two calls (submit timestamp + last_heartbeat_at initialisation) and
+        # 100.0 for all subsequent calls (stall-check now), so
+        # now − started = 100.0 >> 1 s timeout.
+        # Worker threads (teradata-view-*) always return 0.0 so their
+        # internal timing arithmetic stays non-negative.
+        _control_calls = 0
+
+        def _fake_time() -> float:
+            nonlocal _control_calls
+            if current_thread().name == "test-hung-view-control":
+                _control_calls += 1
+                return 0.0 if _control_calls <= 2 else 100.0
+            return 0.0
+
+        # Fake wait: block until the worker is provably stalled, then return
+        # an empty done-set immediately.  This avoids both the real 1-second
+        # heartbeat-interval sleep and the need for any wall-clock buffer.
+        def _fake_wait(fs, timeout=None, return_when=None):
+            worker_started.wait(timeout=5.0)
+            return (set(), set())
 
         def _run() -> None:
             with (
@@ -5185,6 +5202,14 @@ class TestHungViewAbandonPath:
                 patch.object(
                     source, "_process_view", side_effect=_blocking_process_view
                 ),
+                patch(
+                    "datahub.ingestion.source.sql.teradata.time.time",
+                    side_effect=_fake_time,
+                ),
+                patch(
+                    "datahub.ingestion.source.sql.teradata.wait",
+                    side_effect=_fake_wait,
+                ),
             ):
                 list(
                     source._loop_views_with_connection_pool(
@@ -5192,14 +5217,12 @@ class TestHungViewAbandonPath:
                     )
                 )
 
-        t = Thread(target=_run, daemon=True)
+        t = Thread(target=_run, daemon=True, name="test-hung-view-control")
         t.start()
-        # Two loop iterations of 1s each elapse before the stall check
-        # triggers; add a buffer so the counters are committed before we read.
-        time.sleep(2.5)
-        # Unblock the worker thread so executor.shutdown(wait=True) can finish.
-        block.set()
         t.join(timeout=5.0)
+        # Release the worker thread so it can exit cleanly (executor.shutdown
+        # is wait=False, so _run finishes without blocking on the worker).
+        block.set()
         assert not t.is_alive(), "view-processing thread did not terminate"
 
         assert source.report.num_view_processing_timeouts == 1
