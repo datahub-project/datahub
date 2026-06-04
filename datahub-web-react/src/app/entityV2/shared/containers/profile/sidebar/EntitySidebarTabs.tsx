@@ -297,7 +297,7 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                 {!hideCollapse && (
                     <Tab
                         tab={
-                            <TabIconContainer>
+                            <TabIconContainer data-testid="entity-sidebar-collapse-tab">
                                 <IconWrapper>
                                     <Icon icon={isClosed ? ArrowLineLeft : ArrowLineRight} size="lg" color="inherit" />
                                 </IconWrapper>

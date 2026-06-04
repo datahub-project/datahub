@@ -1,6 +1,6 @@
 import { Modal, Skeleton } from 'antd';
 import React, { useContext } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
@@ -83,12 +83,16 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
         <Modal
             data-testid="entity-paths-modal"
             title={
-                /* eslint-disable i18next/no-literal-string -- (untranslated-text) lineage column-path phrase: direction-dependent word order + nested JSX; deferred to follow-up */
                 <Header>
-                    Column path{paths.length > 1 && 's'} from{' '}
-                    <ColumnsRelationshipText displayedColumns={displayedColumns} />
+                    <Trans
+                        t={t}
+                        i18nKey="columnPaths.modalTitle"
+                        count={paths.length}
+                        components={{
+                            relationship: <ColumnsRelationshipText displayedColumns={displayedColumns} />,
+                        }}
+                    />
                 </Header>
-                /* eslint-enable i18next/no-literal-string */
             }
             width="75vw"
             open

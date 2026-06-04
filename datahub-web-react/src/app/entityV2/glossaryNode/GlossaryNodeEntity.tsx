@@ -1,5 +1,6 @@
 import { AppstoreOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
+import i18next from 'i18next';
 import React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -59,9 +60,9 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     getPathName = () => 'glossaryNode';
 
-    getCollectionName = () => 'Term Groups';
+    getCollectionName = () => i18next.t('entity.types:glossaryNode.namePlural');
 
-    getEntityName = () => 'Term Group';
+    getEntityName = () => i18next.t('entity.types:glossaryNode.name');
 
     useEntityQuery = useGetGlossaryNodeQuery;
 
@@ -118,20 +119,20 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             ...(showSummaryTab
                 ? [
                       {
-                          name: 'Summary',
+                          name: i18next.t('entity.types:tab.summary'),
                           component: SummaryTab,
                       },
                   ]
                 : []),
             {
-                name: 'Contents',
+                name: i18next.t('entity.types:tab.contents'),
                 component: ChildrenTabWrapper,
                 icon: AppstoreOutlined,
             },
             ...(!showSummaryTab
                 ? [
                       {
-                          name: 'Documentation',
+                          name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
                           icon: FileOutlined,
                           properties: {
@@ -141,7 +142,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                   ]
                 : []),
             {
-                name: 'Properties',
+                name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
                 icon: UnorderedListOutlined,
             },
@@ -150,9 +151,9 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: UnorderedListOutlined,
         },
     ];

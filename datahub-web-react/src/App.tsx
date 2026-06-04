@@ -44,6 +44,7 @@ const errorLink = onError((error) => {
         }
     }
     // Disabled behavior for now -> Components are expected to handle their errors.
+    //
     // if (graphQLErrors && graphQLErrors.length) {
     //     const firstError = graphQLErrors[0];
     //     const { extensions } = firstError;
