@@ -3,6 +3,7 @@ import { Modal } from '@components';
 import { Spin, Steps } from 'antd';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -22,14 +23,14 @@ const StepsContainer = styled.div`
 `;
 
 /**
- * Mapping from the step type to the title for the step
+ * Mapping from the step type to its translation key suffix under `steps.titles.*`.
  */
-enum IngestionSourceBuilderStepTitles {
-    SELECT_TEMPLATE = 'Choose Data Source',
-    DEFINE_RECIPE = 'Configure Connection',
-    CREATE_SCHEDULE = 'Sync Schedule',
-    NAME_SOURCE = 'Finish up',
-}
+const IngestionSourceBuilderStepTitleKeys = {
+    SELECT_TEMPLATE: 'selectTemplate',
+    DEFINE_RECIPE: 'defineRecipe',
+    CREATE_SCHEDULE: 'createSchedule',
+    NAME_SOURCE: 'nameSource',
+};
 
 /**
  * Mapping from the step type to the component implementing that step.
@@ -74,8 +75,9 @@ export const IngestionSourceBuilderModal = ({
     selectedSourceType,
     setSelectedSourceType,
 }: Props) => {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const isEditing = initialState !== undefined;
-    const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
+    const titleText = isEditing ? t('modal.editTitle') : t('modal.connectTitle');
     const initialStep = isEditing
         ? IngestionSourceBuilderStep.DEFINE_RECIPE
         : IngestionSourceBuilderStep.SELECT_TEMPLATE;
@@ -173,7 +175,10 @@ export const IngestionSourceBuilderModal = ({
                     <StepsContainer>
                         <Steps current={currentStepIndex}>
                             {Object.keys(IngestionSourceBuilderStep).map((item) => (
-                                <Steps.Step key={item} title={IngestionSourceBuilderStepTitles[item]} />
+                                <Steps.Step
+                                    key={item}
+                                    title={t(`steps.titles.${IngestionSourceBuilderStepTitleKeys[item]}`)}
+                                />
                             ))}
                         </Steps>
                     </StepsContainer>

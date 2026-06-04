@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
@@ -18,6 +19,7 @@ const SectionWrapper = styled.div`
 `;
 
 export default function StatsTab() {
+    const { t } = useTranslation('entity.profile.stats');
     const baseEntity = useBaseEntity<GetDatasetQuery>();
 
     const [viewType, setViewType] = useState(ViewType.LATEST);
@@ -53,15 +55,17 @@ export default function StatsTab() {
 
     const fullTableReportedAt =
         latestFullTableProfile &&
-        `Reported on ${toLocalDateString(latestFullTableProfile?.timestampMillis)} at ${toLocalTimeString(
-            latestFullTableProfile?.timestampMillis,
-        )}`;
+        t('statsTab.reportedAt', {
+            date: toLocalDateString(latestFullTableProfile?.timestampMillis),
+            time: toLocalTimeString(latestFullTableProfile?.timestampMillis),
+        });
 
     const partitionReportedAt =
         latestPartitionProfile &&
-        `Reported on ${toLocalDateString(latestPartitionProfile?.timestampMillis)} at ${toLocalTimeString(
-            latestPartitionProfile?.timestampMillis,
-        )}`;
+        t('statsTab.reportedAt', {
+            date: toLocalDateString(latestPartitionProfile?.timestampMillis),
+            time: toLocalTimeString(latestPartitionProfile?.timestampMillis),
+        });
 
     const totalSqlQueries = usageStats?.aggregations?.totalSqlQueries;
     const queryCountLast30Days = baseEntity.dataset?.statsSummary?.queryCountLast30Days;

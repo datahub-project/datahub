@@ -1,5 +1,6 @@
 import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import i18next from 'i18next';
 import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -59,11 +60,11 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
 
     getPathName = () => 'dataProcessInstance';
 
-    getEntityName = () => 'Process Instance';
+    getEntityName = () => i18next.t('entity.types:dataProcessInstance.name');
 
     getGraphName = () => 'dataProcessInstance';
 
-    getCollectionName = () => 'Process Instances';
+    getCollectionName = () => i18next.t('entity.types:dataProcessInstance.namePlural');
 
     useEntityQuery = useGetDataProcessInstanceQuery;
 
@@ -79,16 +80,16 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             }
             tabs={[
                 {
-                    name: 'Summary',
+                    name: i18next.t('entity.types:tab.summary'),
                     component: DataProcessInstanceSummary,
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
                     supportsFullsize: true,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                 },
             ]}
@@ -101,9 +102,9 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
