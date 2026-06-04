@@ -1,6 +1,7 @@
 import { AppstoreOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -30,6 +31,8 @@ const StyledHeaderWrapper = styled(SummaryTabHeaderWrapper)`
 `;
 
 export const AssetsSection = () => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { urn, entityType } = useEntityData();
@@ -58,9 +61,12 @@ export const AssetsSection = () => {
     return (
         <AssetsSectionWrapper>
             <StyledHeaderWrapper>
-                <SummaryTabHeaderTitle icon={<AppstoreOutlined />} title={`Assets (${contentsCount})`} />
+                <SummaryTabHeaderTitle
+                    icon={<AppstoreOutlined />}
+                    title={t('shared.assetsCountTitle', { count: contentsCount })}
+                />
                 <Button type="link" onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}>
-                    View all
+                    {tc('viewAll')}
                 </Button>
             </StyledHeaderWrapper>
             {loading && <ContentSectionLoading />}
@@ -88,6 +94,7 @@ export const AssetsSection = () => {
                                 name={typeName}
                                 count={summary.count}
                                 icon={getContentTypeIcon(entityRegistry, summary.entityType, summary.type)}
+                                /* untranslated-text -- entity-type name resolved at runtime, pluralized client-side */
                                 tooltipDescriptor={pluralize(count, typeName)}
                                 link={link}
                             />

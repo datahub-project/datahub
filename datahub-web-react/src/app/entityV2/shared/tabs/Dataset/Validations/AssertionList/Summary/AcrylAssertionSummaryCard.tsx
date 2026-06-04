@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -98,6 +99,7 @@ type Props = {
 };
 
 export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
+    const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
@@ -144,7 +146,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
                 <ChartSectionContainer>
                     {/* **********************Render Assertion Summary Card Summary Section**************************** */}
                     <AcrylAssertionSummarySection group={group} visibleStatus={visibleStatuses} />
-                    <Button variant="text">View All</Button>
+                    <Button variant="text">{tc('viewAll')}</Button>
                 </ChartSectionContainer>
 
                 {/* **********************Render Progress bar **************************** */}

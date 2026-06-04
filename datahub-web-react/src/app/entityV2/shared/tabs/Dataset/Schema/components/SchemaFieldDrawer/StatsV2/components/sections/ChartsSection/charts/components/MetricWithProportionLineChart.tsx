@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import MetricLineChart, {
     MetricLineChartProps,
@@ -9,7 +10,8 @@ import { Datum } from '@src/alchemy-components/components/LineChart/types';
 import { isValuePresent } from '@src/app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { decimalToPercentStr } from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
 import { TimeInterval, groupTimeData } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
-import { pluralize } from '@src/app/shared/textUtil';
+
+const PIPE_SEPARATOR = '|';
 
 interface MetricWithProportionLineChartProps extends MetricLineChartProps {
     proportionMetric: string;
@@ -19,6 +21,7 @@ export default function MetricWithProportionLineChart({
     proportionMetric,
     ...props
 }: MetricWithProportionLineChartProps) {
+    const { t } = useTranslation('entity.profile.schema');
     const { properties } = useStatsTabContext();
     const fieldPath = properties?.expandedField?.fieldPath;
     const profiles = properties?.profiles;
@@ -48,7 +51,12 @@ export default function MetricWithProportionLineChart({
 
         return (
             <>
-                {datum.y} {pluralize(datum.y, 'Row')} {proportionPercent !== null && <>| {proportionPercent}</>}
+                {t('statsV2Charts.rowLabel', { count: datum.y })}{' '}
+                {proportionPercent !== null && (
+                    <>
+                        {PIPE_SEPARATOR} {proportionPercent}
+                    </>
+                )}
             </>
         );
     };

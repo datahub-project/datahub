@@ -2,9 +2,7 @@ package com.linkedin.datahub.upgrade.loadindices.config;
 
 import com.linkedin.datahub.upgrade.loadindices.LoadIndices;
 import com.linkedin.datahub.upgrade.loadindices.LoadIndicesIndexManager;
-import com.linkedin.datahub.upgrade.loadindices.NoOpKafkaEventProducer;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
-import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -17,7 +15,6 @@ import io.ebean.Database;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,18 +24,6 @@ import org.springframework.context.annotation.Import;
 @Configuration
 @Import(SystemAuthenticationFactory.class)
 public class LoadIndicesConfig {
-
-  /**
-   * Provides a no-op KafkaEventProducer for LoadIndices upgrade operations. This prevents
-   * connection attempts to Kafka during index loading.
-   */
-  @Bean(name = "kafkaEventProducer")
-  @ConditionalOnMissingBean(name = "kafkaEventProducer")
-  @Nonnull
-  public KafkaEventProducer noOpKafkaEventProducer() {
-    log.info("Creating NoOpKafkaEventProducer for LoadIndices upgrade operations");
-    return new NoOpKafkaEventProducer();
-  }
 
   @Bean(name = "loadIndicesIndexManager")
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)

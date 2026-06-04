@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { formatNumber } from '@app/shared/formatNumber';
@@ -14,7 +15,15 @@ interface Props {
 }
 
 const QueryStat = ({ queryCountLast30Days }: Props) => {
-    return <Container>{formatNumber(queryCountLast30Days)} queries</Container>;
+    const { t } = useTranslation('entity.preview');
+    return (
+        <Container>
+            {t('queriesCount', {
+                count: queryCountLast30Days ?? 0,
+                formattedCount: formatNumber(queryCountLast30Days),
+            })}
+        </Container>
+    );
 };
 
 export default QueryStat;

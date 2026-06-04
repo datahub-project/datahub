@@ -1,5 +1,6 @@
 import { Button } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useVisibilityObserver } from '@app/entityV2/summary/documentation/useVisibilityObserver';
@@ -34,6 +35,7 @@ interface Props {
 }
 
 export default function DescriptionViewer({ children }: Props) {
+    const { t } = useTranslation('entity.profile.summary');
     const [isExpanded, setIsExpanded] = useState(false);
 
     const { elementRef, hasMore } = useVisibilityObserver(MAX_VIEW_HEIGHT, [children]);
@@ -51,7 +53,7 @@ export default function DescriptionViewer({ children }: Props) {
                         setIsExpanded((val) => !val);
                     }}
                 >
-                    {isExpanded ? 'View Less' : 'View More'}
+                    {isExpanded ? t('documentation.viewLess') : t('documentation.viewMore')}
                 </StyledButton>
             )}
         </Wrapper>

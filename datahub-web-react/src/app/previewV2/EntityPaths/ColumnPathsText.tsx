@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
 import React, { useContext } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
@@ -19,6 +20,7 @@ const ResultText = styled.span`
 const DescriptionWrapper = styled.span`
     color: ${(props) => props.theme.colors.textSecondary};
     white-space: nowrap;
+    margin-right: 4px;
 `;
 
 export function getDisplayedColumns(paths: EntityPath[], resultEntityUrn: string) {
@@ -40,6 +42,7 @@ interface Props {
 }
 
 export default function ColumnPathsText({ paths, resultEntityUrn, openModal }: Props) {
+    const { t } = useTranslation('entity.preview');
     const { lineageDirection } = useContext(LineageTabContext);
 
     const displayedColumns = getDisplayedColumns(paths, resultEntityUrn);
@@ -49,16 +52,24 @@ export default function ColumnPathsText({ paths, resultEntityUrn, openModal }: P
     return (
         <>
             <DescriptionWrapper>
-                {lineageDirection === LineageDirection.Downstream ? 'Downstream' : 'Upstream'} column
-                {displayedColumns.length > 1 && 's'}:&nbsp;
+                {t(
+                    lineageDirection === LineageDirection.Downstream
+                        ? 'columnPaths.downstreamColumnsLabel'
+                        : 'columnPaths.upstreamColumnsLabel',
+                    { count: displayedColumns.length },
+                )}
             </DescriptionWrapper>
             <ResultText onClick={openModal}>
                 <Tooltip
                     title={
-                        <span>
-                            Click to see column path{paths.length > 1 && 's'} from{' '}
-                            <ColumnsRelationshipText displayedColumns={displayedColumns} />
-                        </span>
+                        <Trans
+                            t={t}
+                            i18nKey="columnPaths.tooltip"
+                            count={paths.length}
+                            components={{
+                                relationship: <ColumnsRelationshipText displayedColumns={displayedColumns} />,
+                            }}
+                        />
                     }
                 >
                     <span>

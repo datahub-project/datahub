@@ -18,6 +18,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.event.hook.PlatformEventHook;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.PlatformEvent;
 import io.datahubproject.metadata.context.OperationContext;
@@ -332,12 +333,10 @@ public class PlatformEventProcessorTest {
       // Verify that the consumer record methods were called
       // Note: some methods may be called multiple times (e.g., for logging and metrics)
       verify(specificMockRecord, times(1)).key();
-      verify(specificMockRecord, times(2))
-          .topic(); // Called twice: once for metrics, once for logging
+      verify(specificMockRecord, times(1)).topic();
       verify(specificMockRecord, times(1)).partition();
       verify(specificMockRecord, times(1)).offset();
-      verify(specificMockRecord, times(2))
-          .timestamp(); // Called twice: once for lag calculation, once for logging
+      verify(specificMockRecord, times(1)).timestamp();
       verify(specificMockRecord, times(1)).serializedValueSize();
       verify(specificMockRecord, times(1)).value(); // Called to get the GenericRecord
     }
@@ -459,10 +458,12 @@ public class PlatformEventProcessorTest {
       // Verify timer was recorded
       Timer timer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-              "topic",
+              MetricUtils.MESSAGING_QUEUE_TIME,
+              MetricUtils.MESSAGING_SYSTEM,
+              MetricUtils.MESSAGING_SYSTEM_KAFKA,
+              MetricUtils.MESSAGING_TOPIC,
               "PlatformEvent_v1",
-              "consumer.group",
+              MetricUtils.MESSAGING_CONSUMER_GROUP,
               "generic-platform-event-job-client");
 
       assertNotNull(timer);
@@ -518,18 +519,22 @@ public class PlatformEventProcessorTest {
       // Verify separate timers for different topics
       Timer timer1 =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-              "topic",
+              MetricUtils.MESSAGING_QUEUE_TIME,
+              MetricUtils.MESSAGING_SYSTEM,
+              MetricUtils.MESSAGING_SYSTEM_KAFKA,
+              MetricUtils.MESSAGING_TOPIC,
               "PlatformEvent_v1",
-              "consumer.group",
+              MetricUtils.MESSAGING_CONSUMER_GROUP,
               "generic-platform-event-job-client");
 
       Timer timer2 =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-              "topic",
+              MetricUtils.MESSAGING_QUEUE_TIME,
+              MetricUtils.MESSAGING_SYSTEM,
+              MetricUtils.MESSAGING_SYSTEM_KAFKA,
+              MetricUtils.MESSAGING_TOPIC,
               "PlatformEvent_v2",
-              "consumer.group",
+              MetricUtils.MESSAGING_CONSUMER_GROUP,
               "generic-platform-event-job-client");
 
       assertEquals(timer1.count(), 1);
@@ -576,10 +581,12 @@ public class PlatformEventProcessorTest {
       // Verify timer was still recorded despite hook failure
       Timer timer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-              "topic",
+              MetricUtils.MESSAGING_QUEUE_TIME,
+              MetricUtils.MESSAGING_SYSTEM,
+              MetricUtils.MESSAGING_SYSTEM_KAFKA,
+              MetricUtils.MESSAGING_TOPIC,
               "PlatformEvent_v1",
-              "consumer.group",
+              MetricUtils.MESSAGING_CONSUMER_GROUP,
               "generic-platform-event-job-client");
 
       assertEquals(timer.count(), 1);
@@ -644,10 +651,12 @@ public class PlatformEventProcessorTest {
       // Verify timer was recorded with custom consumer group
       Timer timer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-              "topic",
+              MetricUtils.MESSAGING_QUEUE_TIME,
+              MetricUtils.MESSAGING_SYSTEM,
+              MetricUtils.MESSAGING_SYSTEM_KAFKA,
+              MetricUtils.MESSAGING_TOPIC,
               "PlatformEvent_v1",
-              "consumer.group",
+              MetricUtils.MESSAGING_CONSUMER_GROUP,
               customConsumerGroup);
 
       assertNotNull(timer);
@@ -692,10 +701,12 @@ public class PlatformEventProcessorTest {
       // Verify timer statistics
       Timer timer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-              "topic",
+              MetricUtils.MESSAGING_QUEUE_TIME,
+              MetricUtils.MESSAGING_SYSTEM,
+              MetricUtils.MESSAGING_SYSTEM_KAFKA,
+              MetricUtils.MESSAGING_TOPIC,
               "PlatformEvent_v1",
-              "consumer.group",
+              MetricUtils.MESSAGING_CONSUMER_GROUP,
               "generic-platform-event-job-client");
 
       assertEquals(timer.count(), queueTimes.length);
@@ -742,10 +753,12 @@ public class PlatformEventProcessorTest {
     // Verify timer was still recorded even for null record
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-            "topic",
+            MetricUtils.MESSAGING_QUEUE_TIME,
+            MetricUtils.MESSAGING_SYSTEM,
+            MetricUtils.MESSAGING_SYSTEM_KAFKA,
+            MetricUtils.MESSAGING_TOPIC,
             "PlatformEvent_v1",
-            "consumer.group",
+            MetricUtils.MESSAGING_CONSUMER_GROUP,
             "generic-platform-event-job-client");
 
     assertEquals(timer.count(), 1);
@@ -757,6 +770,86 @@ public class PlatformEventProcessorTest {
 
     // Verify hook was NOT invoked
     verify(mockHook1, never()).invoke(any(OperationContext.class), any(PlatformEvent.class));
+  }
+
+  @Test
+  public void testConsumePgQueueSuccessful() throws Exception {
+    List<PlatformEventHook> hooks = Arrays.asList(mockHook1, mockHook2);
+    processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    setConsumerGroupId(processor, "generic-platform-event-job-client");
+
+    GenericRecord pgRecord = mock(GenericRecord.class);
+    InboundMetadataEnvelope<GenericRecord> envelope =
+        InboundMetadataEnvelope.<GenericRecord>builder()
+            .messagingSystem(MetricUtils.MESSAGING_SYSTEM_PGQUEUE)
+            .logicalTopic("PlatformEvent_v1")
+            .key("test-key")
+            .payload(pgRecord)
+            .enqueuedAtMillis(System.currentTimeMillis())
+            .consumerGroupId("generic-platform-event-job-client")
+            .kafkaPartition(0)
+            .kafkaOffset(42L)
+            .serializedValueSize(1024)
+            .priority(1)
+            .build();
+
+    try (MockedStatic<EventUtils> mockedEventUtils = Mockito.mockStatic(EventUtils.class)) {
+      mockedEventUtils
+          .when(() -> EventUtils.avroToPegasusPE(pgRecord))
+          .thenReturn(mockPlatformEvent);
+
+      processor.consumeEnvelope(envelope);
+
+      verify(mockMetricUtils, times(1))
+          .histogram(eq(PlatformEventProcessor.class), eq("kafkaLag"), anyLong());
+      verify(mockMetricUtils, times(1))
+          .increment(eq(PlatformEventProcessor.class), eq("received_pe_count"), eq(1d));
+      verify(mockMetricUtils, times(1))
+          .increment(eq(PlatformEventProcessor.class), eq("consumed_pe_count"), eq(1d));
+
+      verify(mockHook1, times(1)).invoke(any(OperationContext.class), eq(mockPlatformEvent));
+      verify(mockHook2, times(1)).invoke(any(OperationContext.class), eq(mockPlatformEvent));
+    }
+  }
+
+  @Test
+  public void testConsumePgQueueWithHookFailure() throws Exception {
+    List<PlatformEventHook> hooks = Arrays.asList(mockHook1, mockHook2);
+    processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    setConsumerGroupId(processor, "generic-platform-event-job-client");
+
+    doThrow(new RuntimeException("Hook 1 failed"))
+        .when(mockHook1)
+        .invoke(any(OperationContext.class), any(PlatformEvent.class));
+
+    GenericRecord pgRecord = mock(GenericRecord.class);
+    InboundMetadataEnvelope<GenericRecord> envelope =
+        InboundMetadataEnvelope.<GenericRecord>builder()
+            .messagingSystem(MetricUtils.MESSAGING_SYSTEM_PGQUEUE)
+            .logicalTopic("PlatformEvent_v1")
+            .key("test-key")
+            .payload(pgRecord)
+            .enqueuedAtMillis(System.currentTimeMillis())
+            .consumerGroupId("generic-platform-event-job-client")
+            .kafkaPartition(0)
+            .kafkaOffset(42L)
+            .serializedValueSize(1024)
+            .priority(1)
+            .build();
+
+    try (MockedStatic<EventUtils> mockedEventUtils = Mockito.mockStatic(EventUtils.class)) {
+      mockedEventUtils
+          .when(() -> EventUtils.avroToPegasusPE(pgRecord))
+          .thenReturn(mockPlatformEvent);
+
+      processor.consumeEnvelope(envelope);
+
+      verify(mockHook1, times(1)).invoke(any(OperationContext.class), eq(mockPlatformEvent));
+      verify(mockHook2, times(1)).invoke(any(OperationContext.class), eq(mockPlatformEvent));
+
+      verify(mockMetricUtils, times(1))
+          .increment(eq(PlatformEventProcessor.class), eq("consumed_pe_count"), eq(1d));
+    }
   }
 
   // Helper method to set consumer group ID via reflection

@@ -56,8 +56,7 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                 },
             })
                 .then(() => {
-                    setName('');
-                    setDescription('');
+                    setOwnershipTypeBuilderState({ name: '', description: '' });
                     onClose();
                     toast.success(t('createSuccess'));
                     setTimeout(() => {
@@ -82,8 +81,7 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                 },
             })
                 .then(() => {
-                    setName('');
-                    setDescription('');
+                    setOwnershipTypeBuilderState({ name: '', description: '' });
                     onClose();
                     toast.success(t('updateSuccess'));
                     setTimeout(() => {
