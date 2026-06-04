@@ -2443,8 +2443,8 @@ ORDER by DataBaseName, TableName;
 
         The ``message`` text is chosen based on ``error_category`` so operators
         see actionable guidance without having to read the full exception context.
-        All strings are compile-time literals to satisfy the ``LiteralString``
-        constraint of ``report.warning()``.
+        ``message`` uses compile-time string literals (required by ``report.warning()``);
+        dynamic data (schema, view name) is placed in ``context``.
         """
         if error_category == "timeout":
             self.report.warning(
@@ -2919,7 +2919,7 @@ ORDER by DataBaseName, TableName;
                             total_count_all_queries += len(batch)
                             _mark_phase("fetching_batches", query_index)
 
-                            logger.info(
+                            logger.debug(
                                 f"Query {query_index} - Fetched batch {batch_count}: {len(batch)} lineage entries (query total: {query_total_count})"
                             )
                             yield from batch
