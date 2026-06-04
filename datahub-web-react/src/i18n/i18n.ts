@@ -44,6 +44,7 @@ export const NAMESPACES = [
     'settings.posts',
     'settings.preferences',
     'settings.tokens',
+    'search',
     'shared.business-attribute',
     'shared.confirmation',
     'shared.error',

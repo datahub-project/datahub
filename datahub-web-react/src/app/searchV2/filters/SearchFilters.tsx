@@ -2,6 +2,7 @@ import { Icon, Tooltip } from '@components';
 import { List } from '@phosphor-icons/react/dist/csr/List';
 import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SEARCH_RESULTS_FILTERS_ID } from '@app/onboarding/config/SearchOnboardingConfig';
@@ -145,6 +146,7 @@ export default function SearchFilters({
     setShowSelectMode,
     downloadSearchResults,
 }: Props) {
+    const { t } = useTranslation('search');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const { isFullViewCard, setIsFullViewCard, selectedSortOption, setSelectedSortOption } = useSearchContext();
     // Filter out the available filters if `basicFilters` is true
@@ -177,12 +179,12 @@ export default function SearchFilters({
                     />
                     <CustomSwitch>
                         <IconContainer isActive={isFullViewCard} onClick={() => setIsFullViewCard(true)}>
-                            <Tooltip showArrow={false} title="Full Card View">
+                            <Tooltip showArrow={false} title={t('filters.fullCardView')}>
                                 <Icon icon={Rows} size="md" />
                             </Tooltip>
                         </IconContainer>
                         <IconContainer isActive={!isFullViewCard} onClick={() => setIsFullViewCard(false)}>
-                            <Tooltip showArrow={false} title="Compact Card View">
+                            <Tooltip showArrow={false} title={t('filters.compactCardView')}>
                                 <Icon icon={List} size="md" />
                             </Tooltip>
                         </IconContainer>

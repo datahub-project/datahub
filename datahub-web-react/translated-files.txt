@@ -135,6 +135,8 @@ src/app/permissions/policy/usePolicy.ts
 src/app/permissions/roles/ManageRoles.tsx
 src/app/permissions/roles/RoleDetailsModal.tsx
 src/app/permissions/roles/cacheUtils.ts
+src/app/search/**/*.{ts,tsx}
+src/app/searchV2/**/*.{ts,tsx}
 src/app/settingsV2/AccessTokenModal.tsx
 src/app/settingsV2/AccessTokens.tsx
 src/app/settingsV2/CreateTokenModal.tsx

@@ -40,6 +40,7 @@ import enLineage from '@src/i18n/locales/en/lineage.json';
 import enMisc from '@src/i18n/locales/en/misc.json';
 import enModules from '@src/i18n/locales/en/modules.json';
 import enOnboarding from '@src/i18n/locales/en/onboarding.json';
+import enSearch from '@src/i18n/locales/en/search.json';
 import enSettingsFeatures from '@src/i18n/locales/en/settings.features.json';
 import enSettingsPage from '@src/i18n/locales/en/settings.page.json';
 import enSettingsPermissions from '@src/i18n/locales/en/settings.permissions.json';
@@ -105,6 +106,7 @@ i18n.use(initReactI18next).init({
         'settings.posts',
         'settings.preferences',
         'settings.tokens',
+        'search',
         'shared.business-attribute',
         'shared.confirmation',
         'shared.error',
@@ -160,6 +162,7 @@ i18n.use(initReactI18next).init({
             'settings.posts': enSettingsPosts,
             'settings.preferences': enSettingsPreferences,
             'settings.tokens': enSettingsTokens,
+            search: enSearch,
             'shared.business-attribute': enSharedBusinessAttribute,
             'shared.confirmation': enSharedConfirmation,
             'shared.error': enSharedError,
