@@ -144,7 +144,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
             </Section>
             <RequiredFieldForm layout="vertical">
                 <Form.Item
-                    tooltip="Enable to run ingestion syncs on a schedule. Running syncs on a schedule helps to keep information up to date."
+                    tooltip="Keep metadata current by automatically syncing on a regular interval"
                     label={
                         <Typography.Text strong>
                             Run on a schedule <Typography.Text type="secondary">(Recommended)</Typography.Text>
@@ -159,51 +159,55 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                         </WarningContainer>
                     )}
                 </Form.Item>
-                <StyledFormItem required label={<Typography.Text strong>Schedule</Typography.Text>}>
-                    <Schedule>
-                        {advancedCronCheck ? (
-                            <CronInput
-                                placeholder={DAILY_MIDNIGHT_CRON_INTERVAL}
-                                autoFocus
-                                value={scheduleCronInterval}
-                                onChange={(e) => setScheduleCronInterval(e.target.value)}
-                            />
-                        ) : (
-                            <Cron
-                                value={scheduleCronInterval}
-                                setValue={setScheduleCronInterval}
-                                clearButton={false}
-                                className="cron-builder"
-                                leadingZero
-                            />
-                        )}
-                        <AdvancedSchedule>
-                            <AdvancedCheckBox type="secondary">Show Advanced</AdvancedCheckBox>
-                            <Checkbox
-                                checked={advancedCronCheck}
-                                onChange={(event) => setAdvancedCronCheck(event.target.checked)}
-                            />
-                        </AdvancedSchedule>
-                    </Schedule>
-                    <CronText>
-                        {cronAsText.error && <>Invalid cron schedule. Cron must be of UNIX form:</>}
-                        {!cronAsText.text && (
-                            <Typography.Paragraph keyboard style={{ marginTop: 4 }}>
-                                minute, hour, day, month, day of week
-                            </Typography.Paragraph>
-                        )}
-                        {cronAsText.text && (
-                            <>
-                                <CronSuccessCheck />
-                                {cronAsText.text}
-                            </>
-                        )}
-                    </CronText>
-                </StyledFormItem>
-                <Form.Item required label={<Typography.Text strong>Timezone</Typography.Text>}>
-                    <ItemDescriptionText>Choose a timezone for the schedule.</ItemDescriptionText>
-                    <TimezoneSelect value={scheduleTimezone} onChange={setScheduleTimezone} />
-                </Form.Item>
+                {scheduleEnabled && (
+                    <>
+                        <StyledFormItem required label={<Typography.Text strong>Schedule</Typography.Text>}>
+                            <Schedule>
+                                {advancedCronCheck ? (
+                                    <CronInput
+                                        placeholder={DAILY_MIDNIGHT_CRON_INTERVAL}
+                                        autoFocus
+                                        value={scheduleCronInterval}
+                                        onChange={(e) => setScheduleCronInterval(e.target.value)}
+                                    />
+                                ) : (
+                                    <Cron
+                                        value={scheduleCronInterval}
+                                        setValue={setScheduleCronInterval}
+                                        clearButton={false}
+                                        className="cron-builder"
+                                        leadingZero
+                                    />
+                                )}
+                                <AdvancedSchedule>
+                                    <AdvancedCheckBox type="secondary">Show Advanced</AdvancedCheckBox>
+                                    <Checkbox
+                                        checked={advancedCronCheck}
+                                        onChange={(event) => setAdvancedCronCheck(event.target.checked)}
+                                    />
+                                </AdvancedSchedule>
+                            </Schedule>
+                            <CronText>
+                                {cronAsText.error && <>Invalid cron schedule. Cron must be of UNIX form:</>}
+                                {!cronAsText.text && (
+                                    <Typography.Paragraph keyboard style={{ marginTop: 4 }}>
+                                        minute, hour, day, month, day of week
+                                    </Typography.Paragraph>
+                                )}
+                                {cronAsText.text && (
+                                    <>
+                                        <CronSuccessCheck />
+                                        {cronAsText.text}
+                                    </>
+                                )}
+                            </CronText>
+                        </StyledFormItem>
+                        <Form.Item required label={<Typography.Text strong>Timezone</Typography.Text>}>
+                            <ItemDescriptionText>Choose a timezone for the schedule.</ItemDescriptionText>
+                            <TimezoneSelect value={scheduleTimezone} onChange={setScheduleTimezone} />
+                        </Form.Item>
+                    </>
+                )}
             </RequiredFieldForm>
             <ControlsContainer>
                 <Button variant="outline" color="gray" onClick={prev}>

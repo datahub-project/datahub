@@ -1,4 +1,5 @@
 import { Icon, Switch, Text } from '@components';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
@@ -19,6 +20,12 @@ const SectionContainer = styled.div`
     display: flex;
     flex-direction: column;
     gap: 16px;
+`;
+
+const ScheduleToggleRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
 `;
 
 const SwitchLabel = styled.div`
@@ -107,21 +114,28 @@ export function ScheduleSection() {
     return (
         <SectionContainer data-testid="sync-schedule-section">
             <SectionName name="Sync Schedule" description={subtitle} />
-            <SwitchLabel>
-                <Text size="sm" weight="bold" color="gray" colorLevel={600}>
-                    Run on a schedule
-                </Text>
-                <Text size="sm" weight="bold" color="gray" colorLevel={1700}>
-                    (recommended)
-                </Text>
-            </SwitchLabel>
-            <Switch
-                label="Keep metadata current by automatically syncing on a regular interval"
-                checked={scheduleEnabled}
-                onChange={(e) => setScheduleEnabled(e.target.checked)}
-                labelPosition="right"
-                data-testid="schedule-enabled-switch"
-            />
+            <ScheduleToggleRow>
+                <Switch
+                    label=""
+                    checked={scheduleEnabled}
+                    onChange={(e) => setScheduleEnabled(e.target.checked)}
+                    data-testid="schedule-enabled-switch"
+                />
+                <SwitchLabel>
+                    <Text size="sm" weight="bold" color="gray" colorLevel={600}>
+                        Run on a schedule
+                    </Text>
+                    <Text size="sm" weight="bold" color="gray" colorLevel={1700}>
+                        (Recommended)
+                    </Text>
+                </SwitchLabel>
+                <Icon
+                    icon={Info}
+                    color="gray"
+                    size="md"
+                    tooltipText="Keep metadata current by automatically syncing on a regular interval"
+                />
+            </ScheduleToggleRow>
             {!scheduleEnabled && (
                 <WarningContainer>
                     <Icon icon={Warning} color="yellow" colorLevel={1000} size="md" />
@@ -130,15 +144,19 @@ export function ScheduleSection() {
                     </Text>
                 </WarningContainer>
             )}
-            <CronField
-                scheduleCronInterval={scheduleCronInterval}
-                setScheduleCronInterval={setScheduleCronInterval}
-                cronAsText={cronAsText}
-            />
-            <TimezoneContainer>
-                <Text color="gray">Choose a timezone for the schedule.</Text>
-                <TimezoneSelect value={scheduleTimezone} onChange={setScheduleTimezone} />
-            </TimezoneContainer>
+            {scheduleEnabled && (
+                <>
+                    <CronField
+                        scheduleCronInterval={scheduleCronInterval}
+                        setScheduleCronInterval={setScheduleCronInterval}
+                        cronAsText={cronAsText}
+                    />
+                    <TimezoneContainer>
+                        <Text color="gray">Choose a timezone for the schedule.</Text>
+                        <TimezoneSelect value={scheduleTimezone} onChange={setScheduleTimezone} />
+                    </TimezoneContainer>
+                </>
+            )}
         </SectionContainer>
     );
 }
