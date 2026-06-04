@@ -19,6 +19,12 @@ export default function useCancelExecution(refetch?: () => void) {
                     },
                 },
             })
+                .then(() => {
+                    message.success({
+                        content: i18next.t('ingestion:executions.cancelSuccess'),
+                        duration: 3,
+                    });
+                })
                 .catch((e) => {
                     message.destroy();
                     message.error({
@@ -27,11 +33,7 @@ export default function useCancelExecution(refetch?: () => void) {
                     });
                 })
                 .finally(() => {
-                    message.success({
-                        content: i18next.t('ingestion:executions.cancelSuccess'),
-                        duration: 3,
-                    });
-                    // Refresh once a job was cancelled.
+                    // Refresh regardless of outcome to re-sync the executions list.
                     if (refetch) setTimeout(() => refetch(), REFETCH_TIMEOUT_MS);
                 });
         },

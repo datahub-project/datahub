@@ -66,9 +66,6 @@ export function hasSomethingToShow(report: StructuredReportType): boolean {
 }
 
 export function generateReportTitle(hasErrors: boolean, hasWarnings: boolean, hasInfos: boolean): string {
-    if (hasErrors && hasWarnings && hasInfos) {
-        return i18next.t('ingestion:report.titleErrorsAndWarnings');
-    }
     if (hasErrors && hasWarnings) {
         return i18next.t('ingestion:report.titleErrorsAndWarnings');
     }
