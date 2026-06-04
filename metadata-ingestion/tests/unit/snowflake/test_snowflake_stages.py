@@ -2,8 +2,6 @@ from datetime import datetime
 from typing import List, Optional, Tuple
 from unittest.mock import MagicMock
 
-import pytest
-
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -13,7 +11,6 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_stages import (
     SnowflakeStagesExtractor,
-    _dataset_path_is_rooted_at,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
@@ -170,7 +167,10 @@ class TestSnowflakeStagesExtractor:
         entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
         assert entry is not None
         assert len(entry.dataset_urns) == 1
-        assert "s3" in entry.dataset_urns[0]
+        # Exact prefix match — a looser `"s3" in ...` would accept a typo'd platform.
+        assert entry.dataset_urns[0].startswith(
+            "urn:li:dataset:(urn:li:dataPlatform:s3,"
+        )
         assert entry.stage.url == "s3://my-bucket/data/"
 
     def test_external_stage_container_has_url_in_properties(self) -> None:
@@ -204,8 +204,12 @@ class TestSnowflakeStagesExtractor:
         ext_entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STG")
         assert int_entry is not None and int_entry.dataset_urns
         assert ext_entry is not None and ext_entry.dataset_urns
-        assert "snowflake" in int_entry.dataset_urns[0]
-        assert "s3" in ext_entry.dataset_urns[0]
+        assert int_entry.dataset_urns[0].startswith(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        )
+        assert ext_entry.dataset_urns[0].startswith(
+            "urn:li:dataset:(urn:li:dataPlatform:s3,"
+        )
 
     def test_stage_pattern_filtering(self) -> None:
         config = _make_config()
@@ -304,7 +308,7 @@ class TestGraphResolvedExternalStageLineage:
         extractor = _run_with_graph([stage], graph)
         entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT")
         assert entry is not None
-        assert entry.dataset_urns == []
+        assert entry.dataset_urns == ()
         assert extractor.report.external_stage_lineage_resolved == 0
         assert extractor.report.external_stage_lineage_unresolved == 1
 
@@ -317,7 +321,9 @@ class TestGraphResolvedExternalStageLineage:
         entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT")
         assert entry is not None
         assert len(entry.dataset_urns) == 1
-        assert "s3" in entry.dataset_urns[0]
+        assert entry.dataset_urns[0].startswith(
+            "urn:li:dataset:(urn:li:dataPlatform:s3,"
+        )
 
     def test_graph_query_failure_warns_and_skips(self) -> None:
         stage = _make_external_stage("ext", "s3://my-bucket/folder/")
@@ -327,7 +333,7 @@ class TestGraphResolvedExternalStageLineage:
         extractor = _run_with_graph([stage], graph)
         entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT")
         assert entry is not None
-        assert entry.dataset_urns == []
+        assert entry.dataset_urns == ()
         assert extractor.report.external_stage_lineage_unresolved == 1
 
     def test_graph_query_failure_does_not_poison_cache(self) -> None:
@@ -344,7 +350,7 @@ class TestGraphResolvedExternalStageLineage:
         extractor = _run_with_graph([stage_a, stage_b], graph)
         a = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.A")
         b = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.B")
-        assert a is not None and a.dataset_urns == []
+        assert a is not None and a.dataset_urns == ()
         assert b is not None and len(b.dataset_urns) == 1
         assert graph.get_urns_by_filter.call_count == 2
         # Direct cache inspection: only the successful result should be cached.
@@ -363,8 +369,9 @@ class TestGraphResolvedExternalStageLineage:
         _run_with_graph([stage], graph, platform_instance="prod_s3")
         kwargs = graph.get_urns_by_filter.call_args.kwargs
         assert kwargs["platform_instance"] == "prod_s3"
+        # The bulk fetch is scoped to the bucket, not the full stage path.
         urn_prefix = kwargs["extraFilters"][0]["values"][0]
-        assert "prod_s3.my-bucket/folder" in urn_prefix
+        assert urn_prefix == "urn:li:dataset:(urn:li:dataPlatform:s3,prod_s3.my-bucket"
 
     def test_gcs_stage_resolves_via_graph(self) -> None:
         stage = _make_external_stage("ext", "gcs://my-bucket/folder/")
@@ -379,9 +386,9 @@ class TestGraphResolvedExternalStageLineage:
         extractor = _run_with_graph([stage], graph)
         entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT")
         assert entry is not None
-        assert entry.dataset_urns == [
-            "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/folder/table_a,PROD)"
-        ]
+        assert entry.dataset_urns == (
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/folder/table_a,PROD)",
+        )
         assert graph.get_urns_by_filter.call_args.kwargs["platform"] == "gcs"
 
     def test_azure_stage_resolves_via_graph(self) -> None:
@@ -400,12 +407,15 @@ class TestGraphResolvedExternalStageLineage:
         extractor = _run_with_graph([stage], graph)
         entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT")
         assert entry is not None
-        assert entry.dataset_urns == [
-            "urn:li:dataset:(urn:li:dataPlatform:abs,container/folder/table_a,PROD)"
-        ]
+        assert entry.dataset_urns == (
+            "urn:li:dataset:(urn:li:dataPlatform:abs,container/folder/table_a,PROD)",
+        )
         kwargs = graph.get_urns_by_filter.call_args.kwargs
         assert kwargs["platform"] == "abs"
-        assert "container/folder" in kwargs["extraFilters"][0]["values"][0]
+        # Scoped to the container (bucket), not the full stage path.
+        assert kwargs["extraFilters"][0]["values"][0] == (
+            "urn:li:dataset:(urn:li:dataPlatform:abs,container"
+        )
 
     def test_url_results_are_cached_within_run(self) -> None:
         stage_a = _make_external_stage("a", "s3://bucket/x/")
@@ -428,7 +438,7 @@ class TestGraphResolvedExternalStageLineage:
         extractor = _run_with_graph([stage], graph)
         graph.get_urns_by_filter.assert_not_called()
         entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT")
-        assert entry is not None and entry.dataset_urns == []
+        assert entry is not None and entry.dataset_urns == ()
 
     def test_empty_path_skips_graph_and_reports_unresolved(self) -> None:
         # Degenerate input: `s3://` strips to empty path. The guard prevents
@@ -438,8 +448,23 @@ class TestGraphResolvedExternalStageLineage:
         extractor = _run_with_graph([stage], graph)
         graph.get_urns_by_filter.assert_not_called()
         entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT")
-        assert entry is not None and entry.dataset_urns == []
+        assert entry is not None and entry.dataset_urns == ()
         assert extractor.report.external_stage_lineage_unresolved == 1
+
+    def test_gcs_empty_path_skips_graph_and_reports_unresolved(self) -> None:
+        # gcs:// strips to an empty path; make_dataset_urn_with_platform_instance
+        # rejects an empty name with InvalidUrnError (not ValueError). The parser
+        # must catch both so extraction continues with a structured warning.
+        stage = _make_external_stage("ext", "gcs://")
+        graph = MagicMock()
+        extractor = _run_with_graph([stage], graph)
+        graph.get_urns_by_filter.assert_not_called()
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT")
+        assert entry is not None and entry.dataset_urns == ()
+        assert any(
+            "Failed to parse external stage URL" in str(w.title)
+            for w in extractor.report.warnings
+        )
 
     def test_internal_stage_does_not_query_graph(self) -> None:
         # Internal stages resolve to a synthetic Snowflake URN, never the graph.
@@ -454,59 +479,12 @@ class TestGraphResolvedExternalStageLineage:
         graph = MagicMock()
         extractor = _run_with_graph([stage], graph)
         entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT")
-        assert entry is not None and entry.dataset_urns == []
+        assert entry is not None and entry.dataset_urns == ()
         # The malformed URL should be reported; production must not crash extraction.
         assert any(
             "Failed to parse external stage URL" in str(w.title)
             for w in extractor.report.warnings
         )
-
-
-_S3_BUCKET_FOLDER_PREFIX = "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/folder"
-_GCS_BUCKET_FOLDER_PREFIX = "urn:li:dataset:(urn:li:dataPlatform:gcs,bucket/folder"
-
-
-@pytest.mark.parametrize(
-    "dataset_urn, urn_prefix, expected",
-    [
-        # Child folder under the stage path → match.
-        (
-            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/folder/t,PROD)",
-            _S3_BUCKET_FOLDER_PREFIX,
-            True,
-        ),
-        # Exact-path dataset (next char is `,`) → match.
-        (
-            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/folder,PROD)",
-            _S3_BUCKET_FOLDER_PREFIX,
-            True,
-        ),
-        # `bucket/folder_other` shares characters but is a sibling → reject.
-        (
-            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/folder_other,PROD)",
-            _S3_BUCKET_FOLDER_PREFIX,
-            False,
-        ),
-        # GCS dataset under an s3 prefix → reject (different platform).
-        (
-            "urn:li:dataset:(urn:li:dataPlatform:gcs,bucket/folder/t,PROD)",
-            _S3_BUCKET_FOLDER_PREFIX,
-            False,
-        ),
-        # GCS dataset under a gcs prefix → match (parametrize covers all platforms).
-        (
-            "urn:li:dataset:(urn:li:dataPlatform:gcs,bucket/folder/t,PROD)",
-            _GCS_BUCKET_FOLDER_PREFIX,
-            True,
-        ),
-        # Malformed URN missing the dataPlatform segment → reject.
-        ("urn:li:something-else:foo", _S3_BUCKET_FOLDER_PREFIX, False),
-    ],
-)
-def test_dataset_path_is_rooted_at(
-    dataset_urn: str, urn_prefix: str, expected: bool
-) -> None:
-    assert _dataset_path_is_rooted_at(dataset_urn, urn_prefix) is expected
 
 
 class TestExternalStageConfigValidators:

@@ -352,6 +352,9 @@ class SnowflakePipesExtractor:
             output_datasets.append(target_urn)
 
         stages_without_urn: List[str] = []
+        # dict.fromkeys preserves insertion order and dedups in O(n); the previous
+        # ``if urn not in input_datasets`` was O(n*m) per pipe.
+        deduped: Dict[str, None] = dict.fromkeys(input_datasets)
         for entry in stage_entries:
             if not entry.dataset_urns:
                 stages_without_urn.append(
@@ -361,8 +364,8 @@ class SnowflakePipesExtractor:
                 )
                 continue
             for urn in entry.dataset_urns:
-                if urn not in input_datasets:
-                    input_datasets.append(urn)
+                deduped.setdefault(urn)
+        input_datasets = list(deduped)
 
         if stages_without_urn:
             # Stage was found, but its underlying dataset URN couldn't be resolved

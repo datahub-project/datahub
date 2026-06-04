@@ -502,9 +502,9 @@ class TestSnowflakePipesExtractor:
             "TEST_DB.PUBLIC.INT_STAGE": StageLookupEntry(
                 stage=internal_stage,
                 container_key=MagicMock(),
-                dataset_urns=[
-                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.int_stage,PROD)"
-                ],
+                dataset_urns=(
+                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.int_stage,PROD)",
+                ),
             ),
         }
         wus = _collect_workunits([pipe], stage_lookup)
@@ -530,9 +530,9 @@ class TestSnowflakePipesExtractor:
             "TEST_DB.PUBLIC.EXT_STAGE": StageLookupEntry(
                 stage=ext_stage,
                 container_key=MagicMock(),
-                dataset_urns=[
-                    "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/data/,PROD)"
-                ],
+                dataset_urns=(
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/data/,PROD)",
+                ),
             ),
         }
         wus = _collect_workunits([pipe], stage_lookup)
@@ -559,10 +559,10 @@ class TestSnowflakePipesExtractor:
             "TEST_DB.PUBLIC.EXT_STAGE": StageLookupEntry(
                 stage=ext_stage,
                 container_key=MagicMock(),
-                dataset_urns=[
+                dataset_urns=(
                     "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/folder/table_a,PROD)",
                     "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/folder/table_b,PROD)",
-                ],
+                ),
             ),
         }
         wus = _collect_workunits([pipe], stage_lookup)
@@ -599,18 +599,18 @@ class TestSnowflakePipesExtractor:
             "TEST_DB.PUBLIC.STAGE_A": StageLookupEntry(
                 stage=stage_a,
                 container_key=MagicMock(),
-                dataset_urns=[
+                dataset_urns=(
                     shared_urn,
                     "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/folder/a_only,PROD)",
-                ],
+                ),
             ),
             "TEST_DB.PUBLIC.STAGE_B": StageLookupEntry(
                 stage=stage_b,
                 container_key=MagicMock(),
-                dataset_urns=[
+                dataset_urns=(
                     shared_urn,
                     "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/folder/b_only,PROD)",
-                ],
+                ),
             ),
         }
         wus = _collect_workunits([pipe], stage_lookup)
@@ -630,6 +630,137 @@ class TestSnowflakePipesExtractor:
             shared_urn,
         ]
 
+    def test_pipe_empty_dataset_urns_warns_and_skips_inputs(self) -> None:
+        # A stage present in the lookup but with no resolved dataset_urns (unsupported
+        # external storage scheme, or graph-resolution returned no matches) must:
+        #  - emit the structured warning naming the stage FQN in context,
+        #  - omit it from inputDatasets,
+        #  - still emit DataJobInputOutput when an output target exists.
+        pipe = _make_pipe(definition="COPY INTO target_table FROM @ext_stage")
+        ext_stage = _make_external_stage("ext_stage", "ftp://unsupported/path/")
+
+        config = _make_config()
+        report = SnowflakeV2Report()
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config, structured_reporter=report
+        )
+        data_dict = MagicMock()
+        data_dict.get_pipes_for_schema.return_value = [pipe]
+        stages_extractor = SnowflakeStagesExtractor(
+            config=config,
+            report=report,
+            data_dictionary=data_dict,
+            identifiers=identifiers,
+        )
+        stages_extractor.stage_lookup = {
+            "TEST_DB.PUBLIC.EXT_STAGE": StageLookupEntry(
+                stage=ext_stage,
+                container_key=MagicMock(),
+                dataset_urns=(),
+            ),
+        }
+        extractor = SnowflakePipesExtractor(
+            config=config,
+            report=report,
+            data_dictionary=data_dict,
+            identifiers=identifiers,
+            stages_extractor=stages_extractor,
+        )
+        wus = list(extractor.get_workunits("TEST_DB", "PUBLIC"))
+
+        ios = [
+            wu.metadata.aspect
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(wu.metadata.aspect, DataJobInputOutputClass)
+        ]
+        assert len(ios) == 1
+        assert ios[0].inputDatasets == []
+        assert len(ios[0].outputDatasets) == 1
+
+        messages = [w.message for w in report.warnings]
+        assert any("no resolvable dataset URN" in m for m in messages), (
+            f"Expected stages_without_urn warning; got: {messages}"
+        )
+        # The warning context uses the stage's own case-preserved name, not the
+        # uppercased lookup key.
+        contexts = [str(w.context) for w in report.warnings]
+        assert any("TEST_DB.PUBLIC.ext_stage" in c for c in contexts), (
+            f"Expected stage FQN in warning context; got: {contexts}"
+        )
+
+    def test_pipe_with_mix_of_resolved_and_empty_urns_emits_partial_lineage(
+        self,
+    ) -> None:
+        # A pipe whose COPY references one resolved stage and one stage with empty
+        # dataset_urns must still emit lineage for the resolved stage, warn about
+        # the empty one, and dedup across the two correctly.
+        pipe = _make_pipe(
+            definition=(
+                "COPY INTO target_table FROM ("
+                " SELECT $1 FROM @stage_ok"
+                " UNION ALL"
+                " SELECT $1 FROM @stage_empty"
+                ")"
+            ),
+        )
+        stage_ok = _make_external_stage("stage_ok", "s3://bucket-ok/data/")
+        stage_empty = _make_external_stage("stage_empty", "ftp://unsupported/")
+
+        config = _make_config()
+        report = SnowflakeV2Report()
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config, structured_reporter=report
+        )
+        data_dict = MagicMock()
+        data_dict.get_pipes_for_schema.return_value = [pipe]
+        stages_extractor = SnowflakeStagesExtractor(
+            config=config,
+            report=report,
+            data_dictionary=data_dict,
+            identifiers=identifiers,
+        )
+        stages_extractor.stage_lookup = {
+            "TEST_DB.PUBLIC.STAGE_OK": StageLookupEntry(
+                stage=stage_ok,
+                container_key=MagicMock(),
+                dataset_urns=(
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-ok/data/,PROD)",
+                ),
+            ),
+            "TEST_DB.PUBLIC.STAGE_EMPTY": StageLookupEntry(
+                stage=stage_empty,
+                container_key=MagicMock(),
+                dataset_urns=(),
+            ),
+        }
+        extractor = SnowflakePipesExtractor(
+            config=config,
+            report=report,
+            data_dictionary=data_dict,
+            identifiers=identifiers,
+            stages_extractor=stages_extractor,
+        )
+        wus = list(extractor.get_workunits("TEST_DB", "PUBLIC"))
+
+        ios = [
+            wu.metadata.aspect
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(wu.metadata.aspect, DataJobInputOutputClass)
+        ]
+        assert len(ios) == 1
+        assert ios[0].inputDatasets == [
+            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-ok/data/,PROD)"
+        ]
+
+        messages = [w.message for w in report.warnings]
+        assert any("no resolvable dataset URN" in m for m in messages)
+        contexts = [str(w.context) for w in report.warnings]
+        assert any("TEST_DB.PUBLIC.stage_empty" in c for c in contexts)
+        # The resolved stage must NOT show up in the unresolved warning.
+        assert not any("stage_ok" in c for c in contexts)
+
     def test_pipe_with_union_all_stages_emits_lineage_for_each(self) -> None:
         """A pipe whose COPY unions two stages should yield two input datasets
         and a comma-joined ``stage_name`` custom property."""
@@ -648,16 +779,16 @@ class TestSnowflakePipesExtractor:
             "TEST_DB.PUBLIC.STAGE_US": StageLookupEntry(
                 stage=stage_us,
                 container_key=MagicMock(),
-                dataset_urns=[
-                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-us/data/,PROD)"
-                ],
+                dataset_urns=(
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-us/data/,PROD)",
+                ),
             ),
             "TEST_DB.PUBLIC.STAGE_EU": StageLookupEntry(
                 stage=stage_eu,
                 container_key=MagicMock(),
-                dataset_urns=[
-                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-eu/data/,PROD)"
-                ],
+                dataset_urns=(
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-eu/data/,PROD)",
+                ),
             ),
         }
         wus = _collect_workunits([pipe], stage_lookup)
@@ -709,16 +840,16 @@ class TestSnowflakePipesExtractor:
             "TEST_DB.PUBLIC.STAGE_US": StageLookupEntry(
                 stage=stage_us,
                 container_key=MagicMock(),
-                dataset_urns=[
-                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-us/,PROD)"
-                ],
+                dataset_urns=(
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-us/,PROD)",
+                ),
             ),
             "TEST_DB.PUBLIC.STAGE_EU": StageLookupEntry(
                 stage=stage_eu,
                 container_key=MagicMock(),
-                dataset_urns=[
-                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-eu/,PROD)"
-                ],
+                dataset_urns=(
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-eu/,PROD)",
+                ),
             ),
         }
 
