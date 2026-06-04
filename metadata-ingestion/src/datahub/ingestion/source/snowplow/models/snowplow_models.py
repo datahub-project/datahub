@@ -951,7 +951,7 @@ class Enrichment(BaseModel):
             filename=name,
             enabled=enabled,
             content=EnrichmentContent(
-                schema=schema_key,
+                schema_ref=schema_key,
                 data=EnrichmentContentData(
                     enabled=enabled,
                     name=name,
