@@ -254,3 +254,110 @@ def test_go_separated_cte_does_not_leak_alias(ctx):
     urns = _in_tables(ctx, native_sql_parser.remove_tsql_control_statements(raw))
     assert any("src" in u for u in urns) and any("other" in u for u in urns)
     assert not any("my_cte" in u for u in urns)
+
+
+def test_parse_custom_sql_subquery_with_blank_lines_not_split(ctx):
+    # The old blank-line heuristic inserted ';' before the inner SELECT, breaking the
+    # subquery. The new _is_single_statement path leaves it intact.
+    query = (
+        "SELECT outer_q.col FROM (\n"
+        "\n"
+        "    SELECT id AS col FROM dbo.Source\n"
+        "\n"
+        ") AS outer_q"
+    )
+    urns = _in_tables(ctx, query)
+    assert any("source" in urn for urn in urns)
+    assert not any("outer_q" in urn for urn in urns)
+
+
+def test_parse_custom_sql_union_all_with_blank_lines(ctx):
+    # UNION ALL with blank lines between branches is a single statement; the old
+    # heuristic would have inserted ';' before the second branch.
+    query = "SELECT col FROM dbo.TableA\n\nUNION ALL\n\nSELECT col FROM dbo.TableB"
+    urns = _in_tables(ctx, query)
+    assert any("tablea" in urn for urn in urns)
+    assert any("tableb" in urn for urn in urns)
+
+
+def test_parse_custom_sql_multiple_ctes(ctx):
+    # Multiple named CTEs (WITH a AS (...), b AS (...)) — comma between definitions
+    # and blank lines around them must not be mistaken for statement boundaries.
+    query = (
+        "WITH active AS (\n"
+        "    SELECT id, name FROM dbo.Users WHERE active = 1\n"
+        "),\n"
+        "\n"
+        "orders AS (\n"
+        "    SELECT user_id, COUNT(*) AS cnt FROM dbo.Orders GROUP BY user_id\n"
+        ")\n"
+        "\n"
+        "SELECT a.name, o.cnt FROM active a JOIN orders o ON o.user_id = a.id"
+    )
+    urns = _in_tables(ctx, query)
+    assert any("users" in urn for urn in urns)
+    assert any("orders" in urn for urn in urns)
+    assert not any("active" in urn for urn in urns)
+
+
+def test_parse_custom_sql_semicolon_in_string_literal(ctx):
+    # ';' inside a string literal must not route the query to the multi-statement path.
+    # The old code checked `";" in normalized` which fired on this.
+    query = (
+        "SELECT id, 'status; pending' AS label\n"
+        "FROM dbo.Tasks\n"
+        "WHERE category = 'type; A'"
+    )
+    urns = _in_tables(ctx, query)
+    assert any("tasks" in urn for urn in urns)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Regression vs old logic: blank-line-separated SELECTs (no ';') no longer both "
+        "appear in lineage. The removed heuristic inserted ';' before blank-line SELECTs "
+        "so split_statements could split them; without it the two SELECTs arrive as a "
+        "single blob and only one table survives."
+    ),
+)
+def test_parse_custom_sql_blank_line_separated_selects(ctx):
+    query = "SELECT col FROM dbo.TableA\n\nSELECT col FROM dbo.TableB"
+    urns = _in_tables(ctx, query)
+    assert any("tablea" in urn for urn in urns)
+    assert any("tableb" in urn for urn in urns)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Regression vs old logic: after remove_tsql_control_statements strips the INTO "
+        "clause, two SELECTs are blank-line-separated with no ';'. split_statements has "
+        "no blank-line fallback so only the last source survives. The removed heuristic "
+        "in parse_custom_sql covered this case."
+    ),
+)
+def test_select_into_then_select_full_pipeline(ctx):
+    # SELECT INTO #temp followed by plain SELECT — real PowerBI temp-table pattern.
+    raw = (
+        "SELECT col INTO #TempResult FROM dbo.SourceA WHERE status = 'active'\n"
+        "\n"
+        "SELECT col FROM dbo.SourceB WHERE status = 'inactive'"
+    )
+    cleaned = native_sql_parser.remove_tsql_control_statements(raw)
+    urns = _in_tables(ctx, cleaned)
+    assert any("sourcea" in urn for urn in urns)
+    assert any("sourceb" in urn for urn in urns)
+
+
+def test_remove_tsql_control_statements_multiple_go_collapse():
+    # Multiple consecutive GO separators must collapse to a single ';'.
+    query = "SELECT col FROM dbo.A\nGO\nGO\nSELECT col FROM dbo.B"
+    actual = native_sql_parser.remove_tsql_control_statements(query)
+    assert actual.count(";") == 1
+    assert "dbo.A" in actual and "dbo.B" in actual
+
+
+def test_is_single_statement_none_platform():
+    # None platform must not crash — falls back gracefully to the default dialect.
+    assert native_sql_parser._is_single_statement("SELECT a FROM dbo.A", None)  # type: ignore[arg-type]
