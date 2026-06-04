@@ -64,6 +64,7 @@ export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.Hierarchy,
     DataHubPageModuleType.RichText,
     DataHubPageModuleType.Assets,
+    DataHubPageModuleType.OutputPorts,
     DataHubPageModuleType.ChildHierarchy,
     DataHubPageModuleType.RelatedTerms,
     DataHubPageModuleType.DataProducts,

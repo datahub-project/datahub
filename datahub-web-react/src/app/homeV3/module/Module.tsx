@@ -4,6 +4,7 @@ import AssetsModule from '@app/entityV2/summary/modules/assets/AssetsModule';
 import ChildHierarchyModule from '@app/entityV2/summary/modules/childHierarchy/ChildHierarchyModule';
 import DataProductsModule from '@app/entityV2/summary/modules/dataProducts/DataProductsModule';
 import LineageModule from '@app/entityV2/summary/modules/lineage/LineageModule';
+import OutputPortsModule from '@app/entityV2/summary/modules/outputPorts/OutputPortsModule';
 import RelatedTermsModule from '@app/entityV2/summary/modules/relatedTerms/RelatedTermsModule';
 import ColumnsModule from '@app/entityV2/summary/modules/schemaTable/ColumnsModule';
 import ModuleErrorBoundary from '@app/homeV3/module/components/ModuleErrorBoundary';
@@ -32,6 +33,7 @@ function Module(props: ModuleProps) {
         if (module.properties.type === DataHubPageModuleType.RichText) return DocumentationModule;
         if (module.properties.type === DataHubPageModuleType.Hierarchy) return HierarchyViewModule;
         if (module.properties.type === DataHubPageModuleType.Assets) return AssetsModule;
+        if (module.properties.type === DataHubPageModuleType.OutputPorts) return OutputPortsModule;
         if (module.properties.type === DataHubPageModuleType.ChildHierarchy) return ChildHierarchyModule;
         if (module.properties.type === DataHubPageModuleType.DataProducts) return DataProductsModule;
         if (module.properties.type === DataHubPageModuleType.RelatedTerms) return RelatedTermsModule;
