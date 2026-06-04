@@ -133,7 +133,19 @@ class OmniSourceConfig(
         default=True,
         description=(
             "Upper-case database, schema, and table name components in URNs when the "
-            "resolved platform is Snowflake. Snowflake identifiers are case-insensitive "
-            "and DataHub's Snowflake connector stores them in upper case by default."
+            "resolved platform is Snowflake. Superseded by convert_urns_to_lowercase: "
+            "if that flag is True, all URNs are lowercased after normalization regardless "
+            "of this setting. Set convert_urns_to_lowercase=True when your warehouse "
+            "connector uses lowercase URNs to ensure lineage stitches correctly."
+        ),
+    )
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description=(
+            "Convert all emitted dataset URNs to lowercase. Enable when the upstream "
+            "warehouse connector uses convert_urns_to_lowercase=True (the default for "
+            "Snowflake and other sources) so that Omni lineage edges resolve to the "
+            "correct entities in DataHub. Any warehouse source that uses this flag "
+            "requires Omni to set it too for lineage to stitch correctly."
         ),
     )
