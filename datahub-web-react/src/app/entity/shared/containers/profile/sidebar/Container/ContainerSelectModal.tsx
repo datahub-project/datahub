@@ -44,7 +44,7 @@ export const ParentWrapper = styled.div`
 `;
 
 export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride, titleOverride }: Props) => {
-    const { t } = useTranslation('entityV1.shared.containers');
+    const { t } = useTranslation('entity.shared.containers');
     const { t: tc } = useTranslation('common.actions');
     const [containerSearch, { data: platforSearchData }] = useGetSearchResultsLazyQuery();
     const entityRegistry = useEntityRegistry();

@@ -11,7 +11,7 @@ interface Props {
 }
 
 export default function VerificationAuditStamp({ formUrn }: Props) {
-    const { t } = useTranslation('entityV1.shared.containers');
+    const { t } = useTranslation('entity.shared.containers');
     const entityRegistry = useEntityRegistry();
     const { entityData } = useEntityData();
     const verifiedAuditStamp = getVerificationAuditStamp(entityData, formUrn);

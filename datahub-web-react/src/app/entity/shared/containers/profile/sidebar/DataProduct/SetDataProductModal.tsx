@@ -45,7 +45,7 @@ export default function SetDataProductModal({
     setDataProduct,
     refetch,
 }: Props) {
-    const { t } = useTranslation('entityV1.shared.containers');
+    const { t } = useTranslation('entity.shared.containers');
     const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
@@ -76,7 +76,7 @@ export default function SetDataProductModal({
             variables: { input: { resourceUrns: urns, dataProductUrn: selectedDataProduct.urn } },
         })
             .then(() => {
-                message.success({ content: t('dataProductModal.updateSuccess'), duration: 3 });
+                message.success({ content: t('sidebar.dataProduct.updatedSuccess'), duration: 3 });
                 setDataProduct?.(selectedDataProduct);
                 onModalClose();
                 setSelectedDataProduct(null);
@@ -122,7 +122,7 @@ export default function SetDataProductModal({
 
     return (
         <Modal
-            title={titleOverride || t('dataProductModal.title')}
+            title={titleOverride || t('sidebar.dataProduct.setModalTitle')}
             open
             onCancel={onModalClose}
             footer={
@@ -144,7 +144,7 @@ export default function SetDataProductModal({
                 showSearch
                 mode="multiple"
                 defaultActiveFirstOption={false}
-                placeholder={t('dataProductModal.searchPlaceholder')}
+                placeholder={t('sidebar.dataProduct.searchPlaceholder')}
                 onSelect={(urn: string) => onSelectDataProduct(urn)}
                 onDeselect={onDeselect}
                 onSearch={(value: string) => setQuery(value.trim())}

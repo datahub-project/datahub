@@ -40,7 +40,7 @@ export default function IncompleteView({
     isUserAssigned,
     openFormModal,
 }: Props) {
-    const { t } = useTranslation('entityV1.shared.containers');
+    const { t } = useTranslation('entity.shared.containers');
     return (
         <CTAWrapper shouldDisplayBackground={isUserAssigned}>
             <FlexWrapper>
@@ -57,12 +57,12 @@ export default function IncompleteView({
                 <div>
                     <Title>
                         {showVerificationStyles
-                            ? t('formInfo.incomplete.awaitingVerification')
-                            : t('formInfo.incomplete.awaitingDocumentation')}
+                            ? t('sidebar.formInfo.awaitingVerificationTitle')
+                            : t('sidebar.formInfo.awaitingDocumentationTitle')}
                     </Title>
                     {isUserAssigned && (
                         <>
-                            {t('formInfo.incomplete.description')}
+                            {t('sidebar.formInfo.assignedBodyText')}
                             <RequiredPromptsRemaining numRemaining={numRequiredPromptsRemaining} />
                             <OptionalPromptsRemaining numRemaining={numOptionalPromptsRemaining} />
                         </>
@@ -72,8 +72,8 @@ export default function IncompleteView({
             {!!openFormModal && isUserAssigned && (
                 <StyledButton type="primary" onClick={openFormModal}>
                     {showVerificationStyles
-                        ? t('formInfo.incomplete.completeVerification')
-                        : t('formInfo.incomplete.completeDocumentation')}
+                        ? t('sidebar.formInfo.completeVerificationButton')
+                        : t('sidebar.formInfo.completeDocumentationButton')}
                 </StyledButton>
             )}
         </CTAWrapper>

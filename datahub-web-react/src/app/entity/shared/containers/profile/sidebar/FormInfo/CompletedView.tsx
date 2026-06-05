@@ -39,7 +39,7 @@ export default function CompletedView({
     shouldDisplayBackground,
     openFormModal,
 }: Props) {
-    const { t } = useTranslation('entityV1.shared.containers');
+    const { t } = useTranslation('entity.shared.containers');
     return (
         <CTAWrapper shouldDisplayBackground={shouldDisplayBackground}>
             <FlexWrapper>
@@ -54,8 +54,8 @@ export default function CompletedView({
                 <div>
                     <Title>
                         {showVerificationStyles
-                            ? t('formInfo.completed.verifiedTitle')
-                            : t('formInfo.completed.documentedTitle')}
+                            ? t('sidebar.formInfo.verifiedTitle')
+                            : t('sidebar.formInfo.documentedTitle')}
                     </Title>
                     <VerificationAuditStamp formUrn={formUrn} />
                     {isUserAssigned && (

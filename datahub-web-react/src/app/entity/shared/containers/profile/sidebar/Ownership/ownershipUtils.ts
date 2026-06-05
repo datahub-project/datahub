@@ -11,29 +11,29 @@ const getOwnershipTypeDetails = (): Map<OwnershipType, { name: string; descripti
         [
             OwnershipType.TechnicalOwner,
             {
-                name: i18next.t('entityV1.shared.containers:ownershipType.technicalOwner'),
-                description: i18next.t('entityV1.shared.containers:ownershipType.technicalOwnerDescription'),
+                name: i18next.t('entity.shared.containers:sidebar.ownership.type.technicalOwnerName'),
+                description: i18next.t('entity.shared.containers:sidebar.ownership.type.technicalOwnerDescription'),
             },
         ],
         [
             OwnershipType.BusinessOwner,
             {
-                name: i18next.t('entityV1.shared.containers:ownershipType.businessOwner'),
-                description: i18next.t('entityV1.shared.containers:ownershipType.businessOwnerDescription'),
+                name: i18next.t('entity.shared.containers:sidebar.ownership.type.businessOwnerName'),
+                description: i18next.t('entity.shared.containers:sidebar.ownership.type.businessOwnerDescription'),
             },
         ],
         [
             OwnershipType.DataSteward,
             {
-                name: i18next.t('entityV1.shared.containers:ownershipType.dataSteward'),
-                description: i18next.t('entityV1.shared.containers:ownershipType.dataStewardDescription'),
+                name: i18next.t('entity.shared.containers:sidebar.ownership.type.dataStewardName'),
+                description: i18next.t('entity.shared.containers:sidebar.ownership.type.dataStewardDescription'),
             },
         ],
         [
             OwnershipType.None,
             {
                 name: i18next.t('common.labels:none'),
-                description: i18next.t('entityV1.shared.containers:ownershipType.noneDescription'),
+                description: i18next.t('entity.shared.containers:sidebar.ownership.type.noneDescription'),
             },
         ],
     ]);
@@ -45,6 +45,6 @@ export const getNameFromType = (type: OwnershipType) => {
 export const getDescriptionFromType = (type: OwnershipType) => {
     return (
         getOwnershipTypeDetails().get(type)?.description ||
-        i18next.t('entityV1.shared.containers:ownershipType.noDescription')
+        i18next.t('entity.shared.containers:ownershipType.noDescription')
     );
 };

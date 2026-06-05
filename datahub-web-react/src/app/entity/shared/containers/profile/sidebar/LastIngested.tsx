@@ -85,7 +85,7 @@ const PreviewImage = styled(Image)`
 `;
 
 function TooltipContent() {
-    const { t } = useTranslation('entityV1.shared.containers');
+    const { t } = useTranslation('entity.shared.containers');
     return (
         <div>
             <TooltipSection>
@@ -120,7 +120,7 @@ interface Props {
 }
 
 function LastIngested({ lastIngested }: Props) {
-    const { t } = useTranslation('entityV1.shared.containers');
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);

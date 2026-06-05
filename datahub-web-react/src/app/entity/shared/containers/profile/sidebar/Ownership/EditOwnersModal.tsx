@@ -57,7 +57,7 @@ export const EditOwnersModal = ({
     defaultValues,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const { t } = useTranslation('entityV1.shared.containers');
+    const { t } = useTranslation('entity.shared.containers');
     const { t: tc } = useTranslation('common.actions');
     const { t: tcl } = useTranslation('common.labels');
 
@@ -116,14 +116,14 @@ export const EditOwnersModal = ({
                     },
                 },
             });
-            message.success({ content: t('editOwnersModal.addSuccess'), duration: 2 });
+            message.success({ content: t('sidebar.ownership.ownersAddedSuccess'), duration: 2 });
             emitAnalytics();
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
                 message.error(
                     handleBatchError(urns, e, {
-                        content: t('editOwnersModal.addError', { message: e.message || '' }),
+                        content: t('sidebar.ownership.ownersAddFailed', { message: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -144,14 +144,14 @@ export const EditOwnersModal = ({
                     },
                 },
             });
-            message.success({ content: t('editOwnersModal.removeSuccess'), duration: 2 });
+            message.success({ content: t('sidebar.ownership.ownersRemovedSuccess'), duration: 2 });
             emitAnalytics();
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
                 message.error(
                     handleBatchError(urns, e, {
-                        content: t('editOwnersModal.removeError', { message: e.message || '' }),
+                        content: t('sidebar.ownership.ownersRemoveFailed', { message: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -201,7 +201,9 @@ export const EditOwnersModal = ({
         <Modal
             title={
                 title ||
-                (operationType === OperationType.ADD ? t('editOwnersModal.addTitle') : t('editOwnersModal.removeTitle'))
+                (operationType === OperationType.ADD
+                    ? t('sidebar.ownership.addOwnersTitle')
+                    : t('sidebar.ownership.removeOwnersTitle'))
             }
             open
             onCancel={onModalClose}
@@ -220,12 +222,12 @@ export const EditOwnersModal = ({
         >
             <Form layout="vertical" colon={false}>
                 <Form.Item key="owners" name="owners" label={<Typography.Text strong>{tcl('owner')}</Typography.Text>}>
-                    <Typography.Paragraph>{t('editOwnersModal.findUserOrGroup')}</Typography.Paragraph>
+                    <Typography.Paragraph>{t('sidebar.ownership.findUserOrGroupText')}</Typography.Paragraph>
                     <FormSection>
                         <ActorsSearchSelect
                             selectedActorUrns={selectedActorUrns}
                             onUpdate={handleActorsUpdate}
-                            placeholder={t('editOwnersModal.searchPlaceholder')}
+                            placeholder={t('sidebar.ownership.searchUsersPlaceholder')}
                             width="full"
                             dataTestId="users-group-search"
                         />
@@ -233,7 +235,7 @@ export const EditOwnersModal = ({
                 </Form.Item>
                 {!hideOwnerType && (
                     <Form.Item label={<Typography.Text strong>{tcl('type')}</Typography.Text>}>
-                        <Typography.Paragraph>{t('editOwnersModal.chooseType')}</Typography.Paragraph>
+                        <Typography.Paragraph>{t('sidebar.ownership.chooseOwnerTypeText')}</Typography.Paragraph>
                         <Form.Item name="type">
                             {ownershipTypesLoading && <Select />}
                             {!ownershipTypesLoading && (

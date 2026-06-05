@@ -8,6 +8,6 @@ interface Props {
 }
 
 export default function RequiredPromptsRemaining({ numRemaining }: Props) {
-    const { t } = useTranslation('entityV1.shared.containers');
+    const { t } = useTranslation('entity.shared.containers');
     return <SubTitle addMargin>{t('formInfo.requiredQuestionsRemainingCount', { count: numRemaining })}</SubTitle>;
 }

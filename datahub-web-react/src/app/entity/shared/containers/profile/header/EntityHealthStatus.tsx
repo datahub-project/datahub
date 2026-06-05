@@ -35,7 +35,7 @@ type Props = {
 };
 
 export const EntityHealthStatus = ({ type, message, baseUrl }: Props) => {
-    const { t } = useTranslation('entityV1.shared.containers');
+    const { t } = useTranslation('entity.shared.containers');
     const title = getHealthTypeName(type);
     const redirectPath = getHealthRedirectPath(type);
     const fullPath = `${baseUrl}/${redirectPath}`;

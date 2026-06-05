@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default function OptionalPromptsRemaining({ numRemaining }: Props) {
-    const { t } = useTranslation('entityV1.shared.containers');
+    const { t } = useTranslation('entity.shared.containers');
     if (numRemaining <= 0) return null;
 
     return (

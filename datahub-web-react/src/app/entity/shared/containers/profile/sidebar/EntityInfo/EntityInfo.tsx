@@ -44,7 +44,7 @@ interface Props {
 }
 
 export default function EntityInfo({ formUrn }: Props) {
-    const { t } = useTranslation('entityV1.shared.containers');
+    const { t } = useTranslation('entity.shared.containers');
     const entityRegistry = useEntityRegistry();
     const { entityType, entityData } = useEntityData();
     const entityName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : '';

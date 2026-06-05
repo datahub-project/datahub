@@ -57,7 +57,7 @@ const SearchResultContainer = styled.div`
 const LOADING_OPTION_VALUE = 'loading';
 
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
-    const { t } = useTranslation('entityV1.shared.containers');
+    const { t } = useTranslation('entity.shared.containers');
     const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
@@ -166,7 +166,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: t('domainModal.updateSuccess'), duration: 2 });
+                    message.success({ content: t('sidebar.domain.updatedSuccess'), duration: 2 });
                     refetch?.();
                     onModalClose();
                     setSelectedDomain(undefined);
@@ -176,7 +176,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: t('domainModal.addError', { message: e.message || '' }),
+                        content: t('sidebar.domain.addFailed', { message: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -201,7 +201,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
 
     return (
         <Modal
-            title={titleOverride || t('domainModal.title')}
+            title={titleOverride || t('sidebar.domain.setModalTitle')}
             open
             onCancel={onModalClose}
             footer={
@@ -226,7 +226,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             showSearch
                             mode="multiple"
                             defaultActiveFirstOption={false}
-                            placeholder={t('domainModal.searchPlaceholder')}
+                            placeholder={t('sidebar.domain.searchPlaceholder')}
                             onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
                             onDeselect={onDeselectDomain}
                             onSearch={(value: string) => {
@@ -243,7 +243,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
                             notFoundContent={
                                 <Empty
-                                    description={t('domainModal.notFound')}
+                                    description={t('sidebar.domain.emptyText')}
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                                     style={{ color: theme.colors.textSecondary }}
                                 />
