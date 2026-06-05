@@ -13,6 +13,7 @@ import com.linkedin.datahub.upgrade.system.ingestion.IngestEntityTypes;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.migrations.MigrateAspects;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
+import com.linkedin.datahub.upgrade.system.restoreindices.RestoreDbtSiblingsIndices;
 import com.linkedin.datahub.upgrade.system.retention.IngestRetentionPolicies;
 import com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromSchemaMetadata;
 import com.linkedin.datahub.upgrade.system.schemafield.MigrateSchemaFieldDocIds;
@@ -251,5 +252,12 @@ public class NonBlockingConfigs {
         batchSize,
         delayMs,
         limit);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade restoreDbtSiblingsIndices(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Value("${systemUpdate.restoreDbtSiblingsIndices.enabled}") final boolean enabled) {
+    return new RestoreDbtSiblingsIndices(entityService, enabled);
   }
 }
