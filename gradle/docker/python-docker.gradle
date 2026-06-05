@@ -1,0 +1,36 @@
+// Shared configuration for Python Docker image builds.
+// Apply this script after docker.gradle in any Python Docker build.gradle:
+//
+//   apply from: "../../gradle/docker/docker.gradle"
+//   apply from: "../../gradle/docker/python-docker.gradle"
+//
+// Provides:
+//   - netrc secret injection (via DATAHUB_NETRC_PATH or docker/snippets/uv/.netrc)
+//   - resolveUvBuildArgs(Map) — adds UV_PROFILE, DEFAULT_INDEX_URL, EXTRA_INDEX_URLS
+
+def netrcFile = {
+  def path = System.getenv("DATAHUB_NETRC_PATH") ?: "${rootProject.projectDir}/docker/snippets/uv/.netrc"
+  def file = new File(path)
+  return file.exists() ? file.absolutePath : null
+}()
+
+if (netrcFile) {
+  docker {
+    netrcPath = netrcFile
+  }
+}
+
+ext.resolveUvBuildArgs = { Map args ->
+  def pipMirrorUrl     = gradle.ext['datahub.dependencies.python.pipMirrorUrl']
+  def pipExtraIndexUrl = gradle.ext['datahub.dependencies.python.pipExtraIndexUrl']
+  def uvProfile        = gradle.ext['datahub.dependencies.python.uvProfile']
+  def effectiveProfile = (uvProfile == 'default' && pipExtraIndexUrl) ? 'custom' : uvProfile
+  args.UV_PROFILE = effectiveProfile
+  if (effectiveProfile == 'custom') {
+    args.DEFAULT_INDEX_URL = pipMirrorUrl
+    if (pipExtraIndexUrl) {
+      args.EXTRA_INDEX_URLS = pipExtraIndexUrl
+    }
+  }
+  return args
+}

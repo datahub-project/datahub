@@ -5,6 +5,8 @@ pluginManagement {
   }
 }
 
+apply from: 'gradle/validation/url-validation.gradle'
+
 // Resolve Maven repository URLs: legacy single-word properties take precedence for backward
 // compatibility, then the new namespaced properties (whose defaults live in gradle.properties).
 // Stored in gradle.ext so they're available to buildSrc's buildscript phase, which runs before root
@@ -21,6 +23,19 @@ def apkRepoUrl      = getProperty('datahub.dependencies.apkrepo.url')
 def githubBaseUrl    = hasProperty('githubMirrorUrl')    ? getProperty('githubMirrorUrl')    : getProperty('datahub.dependencies.github.baseURL')
 def pipMirrorUrl     = hasProperty('pipMirrorUrl')       ? getProperty('pipMirrorUrl')       : getProperty('datahub.dependencies.python.pipMirrorUrl')
 def pipExtraIndexUrl = hasProperty('pipExtraIndexUrls')  ? getProperty('pipExtraIndexUrls')  : getProperty('datahub.dependencies.python.pipExtraIndexUrl')
+def uvProfile        = getProperty('datahub.dependencies.python.uvProfile')
+
+// Validate all URL overrides before storing — catches typos and blocks non-http(s) values.
+def validate  = gradle.ext.validateUrl
+def validateMultiple = gradle.ext.validateUrls
+validate(mavenCentralUrl)
+validate(confluentUrl)
+validate(linkedinUrl)
+validate(nodeDistUrl)
+validate(apkRepoUrl)
+validate(githubBaseUrl)
+validate(pipMirrorUrl)
+validateMultiple(pipExtraIndexUrl)
 
 gradle.ext['datahub.dependencies.maven.central']              = mavenCentralUrl
 gradle.ext['datahub.dependencies.maven.confluent']            = confluentUrl
@@ -30,6 +45,7 @@ gradle.ext['datahub.dependencies.apkrepo.url']                = apkRepoUrl
 gradle.ext['datahub.dependencies.github.baseURL']             = githubBaseUrl
 gradle.ext['datahub.dependencies.python.pipMirrorUrl']        = pipMirrorUrl
 gradle.ext['datahub.dependencies.python.pipExtraIndexUrl']    = pipExtraIndexUrl
+gradle.ext['datahub.dependencies.python.uvProfile']           = uvProfile
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)

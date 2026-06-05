@@ -1,4 +1,5 @@
 apply plugin: 'com.github.node-gradle.node'
+apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
 
 ext {
   python_executable = 'python3'
