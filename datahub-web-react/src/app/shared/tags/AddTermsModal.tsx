@@ -6,13 +6,14 @@ import styled from 'styled-components';
 
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
 import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { deriveGlossaryLabelFromUrn } from '@app/glossaryV2/utils';
 import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
 import { OperationType, isAddOperation, useBatchTagTermMutation } from '@app/shared/tags/useBatchTagTermMutation';
 import { useEntityPickerState } from '@app/shared/tags/useEntityPickerState';
 import { useGlossaryTreeEntities } from '@app/shared/tags/useGlossaryTreeEntities';
 import { TermTreeOption, useTermTreeOptions } from '@app/shared/tags/useTermTreeOptions';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Modal, SimpleSelect } from '@src/alchemy-components';
+import { Loader, Modal, SimpleSelect } from '@src/alchemy-components';
 import { getModalDomContainer } from '@utils/focus';
 
 import { Entity, EntityType, GlossaryTerm, ResourceRefInput } from '@types';
@@ -41,14 +42,20 @@ const OptionRow = styled.div<{ $depth: number; $offsetForCaret?: boolean }>`
     padding-left: ${(props) => props.$depth * 16 + (props.$offsetForCaret ? CARET_COLUMN_WIDTH : 0)}px;
 `;
 
-// Node rows are hierarchy headers only — hide the alchemy SimpleSelect's adjacent checkbox so they
-// read as static headers rather than disabled options. They render their own caret inline, so they
-// don't need the caret-column offset.
-const NodeRow = styled(OptionRow)`
+// Base for rows that aren't real selectable options (node headers, loading placeholders): takes
+// the full row width and hides the alchemy SimpleSelect's adjacent checkbox via the sibling
+// combinator so the row reads as static rather than a disabled option with a greyed-out tick.
+const NonSelectableRow = styled(OptionRow)`
     flex: 1;
     & ~ * {
         display: none !important;
     }
+`;
+
+// Synthetic loading row inserted by `useTermTreeOptions` while a node's children are being fetched.
+const LoadingRow = styled(NonSelectableRow)`
+    color: ${(props) => props.theme.colors.textSecondary};
+    font-size: 12px;
 `;
 
 const CaretButton = styled.button`
@@ -111,6 +118,7 @@ export default function AddTermsModal({
         entities: treeEntities,
         entityCache: treeEntityCache,
         expandedNodes,
+        fetchingNodes,
         expandNode,
         collapseNode,
         isLoading: treeLoading,
@@ -129,17 +137,15 @@ export default function AddTermsModal({
         [treeEntityCache, entityCache],
     );
 
-    const computeTermColor = useCallback(
-        (entity: Entity): string => getGlossaryTermColor(entity as GlossaryTerm, generateColor),
-        [generateColor],
-    );
-
     const { visibleOptions, allOptions, disabledValues, nodesWithChildren } = useTermTreeOptions({
         entities: sourceEntities,
         excludeUrns: existingUrns,
         // While searching, show every result flat — the user is disambiguating with the text query,
         // not the tree. While browsing, only show rows whose ancestors the user has expanded.
         expandedNodes: isSearching ? undefined : expandedNodes,
+        // Drop inline loading rows under any node currently fetching its children. Skipped while
+        // searching since the flat result list doesn't have parent rows to hang the loader under.
+        loadingNodeUrns: isSearching ? undefined : fetchingNodes,
     });
 
     // Render the currently-selected URNs as extras so SimpleSelect can render the chip strip
@@ -151,17 +157,21 @@ export default function AddTermsModal({
             .map<TermTreeOption>((urn) => {
                 const entity = mergedEntityCache[urn];
                 if (entity) {
+                    const name = entityRegistry.getDisplayName(entity.type, entity);
+                    // `getDisplayName` falls back to the URN if `properties.name`/`name` are missing,
+                    // so guard against that leaking into the chip label.
+                    const label = name && !name.startsWith('urn:') ? name : deriveGlossaryLabelFromUrn(urn);
                     return {
                         value: entity.urn,
-                        label: entityRegistry.getDisplayName(entity.type, entity),
+                        label,
                         entity,
-                        color: computeTermColor(entity),
+                        color: getGlossaryTermColor(entity as GlossaryTerm, generateColor),
                     };
                 }
-                return { value: urn, label: urn };
+                return { value: urn, label: deriveGlossaryLabelFromUrn(urn) };
             });
         return [...allOptions, ...extras];
-    }, [allOptions, urns, mergedEntityCache, entityRegistry, computeTermColor]);
+    }, [allOptions, urns, mergedEntityCache, entityRegistry, generateColor]);
 
     const handleCaretClick = useCallback(
         (nodeUrn: string) => {
@@ -174,6 +184,13 @@ export default function AddTermsModal({
     const renderOption = useCallback(
         (option: TermTreeOption) => {
             const depth = option.depth || 0;
+            if (option.isLoadingPlaceholder) {
+                return (
+                    <LoadingRow $depth={depth} $offsetForCaret>
+                        <Loader size="xs" justifyContent="flex-start" alignItems="center" />
+                    </LoadingRow>
+                );
+            }
             if (option.isNode) {
                 // A node should show a caret if either (a) we already know it has descendant rows
                 // (term lineages from the search path), or (b) it's a standalone node entity that
@@ -182,7 +199,7 @@ export default function AddTermsModal({
                 const isExpanded = expandedNodes.has(option.value);
                 const CaretIcon = isExpanded ? CaretDown : CaretRight;
                 return (
-                    <NodeRow $depth={depth} data-testid={`tag-term-option-${option.label}`}>
+                    <NonSelectableRow $depth={depth} data-testid={`tag-term-option-${option.label}`}>
                         <CaretButton
                             type="button"
                             aria-label={isExpanded ? `Collapse ${option.label}` : `Expand ${option.label}`}
@@ -202,7 +219,7 @@ export default function AddTermsModal({
                             color={option.color ?? generateColor(option.value)}
                             icon={BookmarksSimple}
                         />
-                    </NodeRow>
+                    </NonSelectableRow>
                 );
             }
             const hasAncestors = (option.ancestorUrns?.length ?? 0) > 0;

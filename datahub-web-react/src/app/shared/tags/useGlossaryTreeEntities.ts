@@ -21,12 +21,17 @@ interface UseGlossaryTreeEntitiesResult {
     entityCache: Record<string, Entity>;
     /** URNs of nodes whose children have been requested (drives the rendered expand state). */
     expandedNodes: Set<string>;
+    /** URNs of nodes with an in-flight child fetch. Used by the modal to render an inline loading
+     * row directly under the expanded node (rather than a global loader at the top). */
+    fetchingNodes: Set<string>;
     /** Expand a node: triggers a lazy `scrollAcrossEntities` fetch (if not already cached) and adds
      * the node to `expandedNodes`. */
     expandNode: (nodeUrn: string) => void;
     /** Collapse a node: just removes the node from `expandedNodes`; the fetched children stay cached
      * so re-expanding is instant. */
     collapseNode: (nodeUrn: string) => void;
+    /** True only while the initial root nodes/terms queries are in flight. Per-node child fetches
+     * are surfaced separately via `fetchingNodes` so they can be rendered inline. */
     isLoading: boolean;
 }
 
@@ -178,8 +183,9 @@ export function useGlossaryTreeEntities(): UseGlossaryTreeEntitiesResult {
         entities,
         entityCache,
         expandedNodes,
+        fetchingNodes,
         expandNode,
         collapseNode,
-        isLoading: rootNodesLoading || rootTermsLoading || fetchingNodes.size > 0,
+        isLoading: rootNodesLoading || rootTermsLoading,
     };
 }

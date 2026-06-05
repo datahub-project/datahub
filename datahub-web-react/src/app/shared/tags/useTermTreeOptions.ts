@@ -16,6 +16,9 @@ export interface TermTreeOption extends SelectOption {
     /** When true, this node row currently has no fetched children — useful for showing an
      * inline-loading placeholder while a `useGlossaryTreeEntities` expand is in flight. */
     isEmptyNode?: boolean;
+    /** When true, this is a synthetic placeholder row (no real entity) showing that the parent
+     * node's children are being fetched. Rendered as an inline loader; never selectable. */
+    isLoadingPlaceholder?: boolean;
 }
 
 interface UseTermTreeOptionsArgs {
@@ -29,6 +32,9 @@ interface UseTermTreeOptionsArgs {
      * this set. Pass `undefined` (or all node URNs) for "everything visible" — used by the search
      * path which flattens the tree. */
     expandedNodes?: Set<string>;
+    /** URNs of expanded nodes whose child fetch is still in flight. Each one gets an inline
+     * loading-placeholder row emitted directly under it. */
+    loadingNodeUrns?: Set<string>;
 }
 
 interface UseTermTreeOptionsResult {
@@ -46,6 +52,9 @@ interface UseTermTreeOptionsResult {
 
 type GlossaryEntity = GlossaryTerm | GlossaryNode;
 
+// Shared empty set so `loadingNodeUrns` defaults don't allocate per render.
+const EMPTY_URN_SET: ReadonlySet<string> = new Set();
+
 /** Extract a glossary entity's parent chain (direct-parent-first, per GraphQL convention). */
 function getParentChain(entity: GlossaryEntity): GlossaryNode[] {
     return (entity.parentNodes?.nodes || []) as GlossaryNode[];
@@ -61,121 +70,226 @@ function getRootUrn(entity: GlossaryEntity): string {
 }
 
 /**
- * Builds a tree-ordered flat list of `SelectOption`s for glossary terms so an alchemy `SimpleSelect`
- * can render them as an indented hierarchy (node header → indented term children) with native
- * multi-select checkboxes.
+ * Group glossary entities into top-level subtrees keyed by their root URN.
  *
- * Accepts both `GlossaryTerm` and `GlossaryNode` entities so the modal can show standalone node
- * headers before any of their children are fetched (the lazy-expand flow). Output order is driven
- * by the order roots first appear in `entities`: expanding a node never re-shuffles the list —
- * it just inserts the new children in-place under the existing header.
+ * Filters out non-glossary entities and any URN in `excludeSet` in one pass. The `rootOrder`
+ * array preserves first-appearance order so that expanding a node never reshuffles roots — the
+ * root anchors its group at the position the caller passed it in.
+ */
+export function groupGlossaryEntitiesByRoot(
+    entities: Entity[],
+    excludeSet: ReadonlySet<string>,
+): { groupsByRoot: Map<string, GlossaryEntity[]>; rootOrder: string[] } {
+    const groupsByRoot = new Map<string, GlossaryEntity[]>();
+    const rootOrder: string[] = [];
+    entities.forEach((entity) => {
+        if (excludeSet.has(entity.urn)) return;
+        if (entity.type !== EntityType.GlossaryTerm && entity.type !== EntityType.GlossaryNode) return;
+        const e = entity as GlossaryEntity;
+        const rootUrn = getRootUrn(e);
+        const bucket = groupsByRoot.get(rootUrn);
+        if (bucket) {
+            bucket.push(e);
+        } else {
+            groupsByRoot.set(rootUrn, [e]);
+            rootOrder.push(rootUrn);
+        }
+    });
+    return { groupsByRoot, rootOrder };
+}
+
+/**
+ * Partition entities in a single root group by their direct-parent relationship within the group.
  *
- * Each rendered row:
- *   - Each unique node in any ancestor chain emits an indented header row (`isNode: true`).
+ * The `childMap` lets the DFS walk emit each parent immediately followed by its children. Any
+ * entity whose direct parent isn't in the group is a "subgroup root" — either a true tree root or
+ * a search-path term whose ancestors weren't loaded as separate entities. We start the DFS from
+ * those.
+ */
+export function partitionGroupByDirectParent(groupEntities: GlossaryEntity[]): {
+    childMap: Map<string, GlossaryEntity[]>;
+    subgroupRoots: GlossaryEntity[];
+} {
+    const groupUrnSet = new Set(groupEntities.map((e) => e.urn));
+    const childMap = new Map<string, GlossaryEntity[]>();
+    const subgroupRoots: GlossaryEntity[] = [];
+    groupEntities.forEach((e) => {
+        const chain = getParentChain(e);
+        const directParentUrn = chain.length > 0 ? chain[0].urn : null;
+        if (directParentUrn === null || !groupUrnSet.has(directParentUrn)) {
+            subgroupRoots.push(e);
+        } else {
+            const siblings = childMap.get(directParentUrn) || [];
+            siblings.push(e);
+            childMap.set(directParentUrn, siblings);
+        }
+    });
+    return { childMap, subgroupRoots };
+}
+
+interface BuildTermTreeOptionsArgs {
+    entities: Entity[];
+    excludeSet: ReadonlySet<string>;
+    loadingSet: ReadonlySet<string>;
+    /** Display name resolver. The hook wires this through `entityRegistry.getDisplayName`;
+     * tests can inject a deterministic stub. */
+    getDisplayName: (entity: GlossaryEntity) => string;
+    /** Palette-derived color for a URN, used when an entity has no `displayProperties.colorHex`. */
+    getFallbackColor: (urn: string) => string;
+}
+
+/**
+ * Pure, hook-free builder for the flat tree-ordered options list. Exported so it can be
+ * exercised in isolation — the hook itself is just memoization wiring on top.
+ *
+ * Each row rendered:
+ *   - Every unique node in any ancestor chain emits an indented header row (`isNode: true`).
  *   - Standalone node entities not already emitted as ancestors appear at their natural depth.
  *   - Term rows render one depth-level below their direct parent.
+ *   - For each node currently in `loadingSet` that hasn't received children yet, a synthetic
+ *     `isLoadingPlaceholder` row is inserted right under the node's header.
  *
- * Node URNs go in `disabledValues` so users can only check off term rows. Visibility is filtered
- * via `expandedNodes`: a row is hidden if any of its ancestors aren't in that set.
+ * Output order is depth-first within each root group: a parent and its descendants are emitted
+ * contiguously, before any sibling of the parent. The root order from `entities` is preserved.
+ */
+export function buildTermTreeOptions({
+    entities,
+    excludeSet,
+    loadingSet,
+    getDisplayName,
+    getFallbackColor,
+}: BuildTermTreeOptionsArgs): TermTreeOption[] {
+    const result: TermTreeOption[] = [];
+    const seenNodeUrns = new Set<string>();
+
+    // Group entities by their root URN, preserving the order in which each root first appears.
+    // This is what guarantees that expanding a node doesn't promote it to the top of the list —
+    // the root anchors its group at its natural position regardless of how many children later
+    // pile in under it.
+    const { groupsByRoot, rootOrder } = groupGlossaryEntitiesByRoot(entities, excludeSet);
+
+    // Emit a chain of ancestor headers (root → leaf), skipping any already-seen URNs so a
+    // shared ancestor only appears once.
+    //
+    // Every node in the chain inherits the *root* node's color, even if a descendant has its own
+    // `displayProperties.colorHex`. This mirrors the glossary sidebar (`NodeItem` propagates
+    // `iconColor` down through recursion), where a child of "Adoption" reads the same pink
+    // bookmark icon as Adoption itself rather than its own URN-hashed color. Term rows already
+    // pick up the root color via `topNode` below — this brings node headers in line.
+    const emitNodeChain = (chain: GlossaryNode[]) => {
+        if (chain.length === 0) return;
+        const rootNode = chain[0];
+        const subtreeColor = rootNode.displayProperties?.colorHex || getFallbackColor(rootNode.urn);
+        chain.forEach((node, depth) => {
+            if (seenNodeUrns.has(node.urn)) return;
+            seenNodeUrns.add(node.urn);
+            result.push({
+                value: node.urn,
+                label: getDisplayName(node),
+                isNode: true,
+                depth,
+                color: subtreeColor,
+                ancestorUrns: chain.slice(0, depth).map((n) => n.urn),
+            });
+        });
+    };
+
+    rootOrder.forEach((rootUrn) => {
+        const groupEntities = groupsByRoot.get(rootUrn) || [];
+        const { childMap, subgroupRoots } = partitionGroupByDirectParent(groupEntities);
+
+        // Insert a synthetic loading-placeholder row right under a node whose child fetch is
+        // still in flight (and whose children haven't arrived yet — once they're in `childMap`
+        // the DFS walk will emit them directly and the loader is no longer needed). Placed
+        // inside the same DFS walk so the loader sits visually where the children are about
+        // to appear, rather than at the top of the dropdown.
+        const maybeEmitLoadingPlaceholder = (nodeUrn: string, parentDepth: number, ancestorChain: string[]) => {
+            if (!loadingSet.has(nodeUrn) || childMap.has(nodeUrn)) return;
+            result.push({
+                value: `${nodeUrn}::loading`,
+                label: 'Loading',
+                isLoadingPlaceholder: true,
+                depth: parentDepth + 1,
+                ancestorUrns: [...ancestorChain, nodeUrn],
+            });
+        };
+
+        const emitEntity = (entity: GlossaryEntity) => {
+            const reversedParents = [...getParentChain(entity)].reverse(); // root → direct-parent
+            if (entity.type === EntityType.GlossaryTerm) {
+                const term = entity as GlossaryTerm;
+                emitNodeChain(reversedParents);
+                const termDepth = reversedParents.length;
+                const topNode = reversedParents[0];
+                const termColor = topNode
+                    ? topNode.displayProperties?.colorHex || getFallbackColor(topNode.urn)
+                    : getFallbackColor(term.urn);
+                result.push({
+                    value: term.urn,
+                    label: getDisplayName(term),
+                    entity: term,
+                    depth: termDepth,
+                    color: termColor,
+                    ancestorUrns: reversedParents.map((n) => n.urn),
+                });
+            } else {
+                const node = entity as GlossaryNode;
+                const fullChain = [...reversedParents, node];
+                emitNodeChain(fullChain);
+                // Mark as "empty" if no direct children are loaded yet — the caret stays
+                // visible so the browse flow can trigger a fetch on click.
+                if (!childMap.has(node.urn)) {
+                    const lastOption = result[result.length - 1];
+                    if (lastOption && lastOption.value === node.urn) {
+                        lastOption.isEmptyNode = true;
+                    }
+                }
+                maybeEmitLoadingPlaceholder(
+                    node.urn,
+                    fullChain.length - 1,
+                    reversedParents.map((n) => n.urn),
+                );
+            }
+            // DFS: emit children right after their parent, before any siblings of the parent.
+            (childMap.get(entity.urn) || []).forEach(emitEntity);
+        };
+
+        subgroupRoots.forEach(emitEntity);
+    });
+
+    return result;
+}
+
+/**
+ * Hook wrapper around {@link buildTermTreeOptions} that memoizes derived state for `SimpleSelect`.
+ *
+ * The pure builder is exported separately for unit testing; this hook just supplies the entity
+ * registry and color palette and derives `visibleOptions` / `disabledValues` / `nodesWithChildren`
+ * from the flat options list.
  */
 export function useTermTreeOptions({
     entities,
     excludeUrns,
     expandedNodes,
+    loadingNodeUrns,
 }: UseTermTreeOptionsArgs): UseTermTreeOptionsResult {
     const entityRegistry = useEntityRegistry();
     const generateColor = useGenerateGlossaryColorFromPalette();
 
     const excludeSet = useMemo(() => new Set(excludeUrns || []), [excludeUrns]);
+    const loadingSet = loadingNodeUrns ?? EMPTY_URN_SET;
 
-    const allOptions = useMemo<TermTreeOption[]>(() => {
-        const result: TermTreeOption[] = [];
-        const seenNodeUrns = new Set<string>();
-
-        // Group entities by their root URN, preserving the order in which each root first appears.
-        // This is what guarantees that expanding a node doesn't promote it to the top of the list —
-        // the root anchors its group at its natural position regardless of how many children later
-        // pile in under it.
-        const groupsByRoot = new Map<string, GlossaryEntity[]>();
-        const rootOrder: string[] = [];
-        entities.forEach((entity) => {
-            if (excludeSet.has(entity.urn)) return;
-            if (entity.type !== EntityType.GlossaryTerm && entity.type !== EntityType.GlossaryNode) return;
-            const e = entity as GlossaryEntity;
-            const rootUrn = getRootUrn(e);
-            const bucket = groupsByRoot.get(rootUrn);
-            if (bucket) bucket.push(e);
-            else {
-                groupsByRoot.set(rootUrn, [e]);
-                rootOrder.push(rootUrn);
-            }
-        });
-
-        // Emit a chain of ancestor headers (root → leaf), skipping any already-seen URNs so a
-        // shared ancestor only appears once.
-        const emitNodeChain = (chain: GlossaryNode[]) => {
-            chain.forEach((node, depth) => {
-                if (seenNodeUrns.has(node.urn)) return;
-                seenNodeUrns.add(node.urn);
-                result.push({
-                    value: node.urn,
-                    label: entityRegistry.getDisplayName(node.type, node),
-                    isNode: true,
-                    depth,
-                    color: node.displayProperties?.colorHex || generateColor(node.urn),
-                    ancestorUrns: chain.slice(0, depth).map((n) => n.urn),
-                });
-            });
-        };
-
-        rootOrder.forEach((rootUrn) => {
-            const groupEntities = groupsByRoot.get(rootUrn) || [];
-
-            // A node is "empty" if no later entity in this group references it as an ancestor.
-            // The browse flow uses this to decide whether to render an inline-loading placeholder
-            // on the caret column.
-            const referencedAsAncestor = new Set<string>();
-            groupEntities.forEach((e) => {
-                getParentChain(e).forEach((p) => referencedAsAncestor.add(p.urn));
-            });
-
-            groupEntities.forEach((entity) => {
-                const reversedParents = [...getParentChain(entity)].reverse(); // root → direct-parent
-                if (entity.type === EntityType.GlossaryTerm) {
-                    const term = entity as GlossaryTerm;
-                    emitNodeChain(reversedParents);
-                    const termDepth = reversedParents.length;
-                    const topNode = reversedParents[0];
-                    const termColor = topNode
-                        ? topNode.displayProperties?.colorHex || generateColor(topNode.urn)
-                        : generateColor(term.urn);
-                    result.push({
-                        value: term.urn,
-                        label: entityRegistry.getDisplayName(term.type, term),
-                        entity: term,
-                        depth: termDepth,
-                        color: termColor,
-                        ancestorUrns: reversedParents.map((n) => n.urn),
-                    });
-                } else {
-                    const node = entity as GlossaryNode;
-                    const fullChain = [...reversedParents, node];
-                    emitNodeChain(fullChain);
-                    // If this node was just emitted as a leaf row (i.e. it's still the last result)
-                    // and nothing else in the group references it as an ancestor, mark it empty
-                    // so the modal can render a "click to load" affordance.
-                    if (!referencedAsAncestor.has(node.urn)) {
-                        const lastOption = result[result.length - 1];
-                        if (lastOption && lastOption.value === node.urn) {
-                            lastOption.isEmptyNode = true;
-                        }
-                    }
-                }
-            });
-        });
-
-        return result;
-    }, [entities, excludeSet, entityRegistry, generateColor]);
+    const allOptions = useMemo<TermTreeOption[]>(
+        () =>
+            buildTermTreeOptions({
+                entities,
+                excludeSet,
+                loadingSet,
+                getDisplayName: (entity) => entityRegistry.getDisplayName(entity.type, entity),
+                getFallbackColor: generateColor,
+            }),
+        [entities, excludeSet, loadingSet, entityRegistry, generateColor],
+    );
 
     const nodesWithChildren = useMemo(() => {
         const withChildren = new Set<string>();
@@ -193,7 +307,11 @@ export function useTermTreeOptions({
         });
     }, [allOptions, expandedNodes]);
 
-    const disabledValues = useMemo(() => allOptions.filter((o) => o.isNode).map((o) => o.value), [allOptions]);
+    // Headers and loading placeholders should never be selectable.
+    const disabledValues = useMemo(
+        () => allOptions.filter((o) => o.isNode || o.isLoadingPlaceholder).map((o) => o.value),
+        [allOptions],
+    );
 
     return {
         allOptions,

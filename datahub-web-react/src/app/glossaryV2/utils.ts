@@ -30,6 +30,24 @@ export function updateGlossarySidebar(
     setUrnsToUpdate([...urnsToUpdate, ...parentNodesToUpdate]);
 }
 
+/**
+ * Derive a human-readable label from a glossary URN as a last-resort fallback when no entity is
+ * available to render. Glossary URNs encode the hierarchical name after the type prefix using
+ * dots, e.g. `urn:li:glossaryTerm:Adoption.HighRisk` → "HighRisk". The leaf segment is what
+ * users recognize; the ancestor chain (`Adoption.`) is encoded by the entity's separate
+ * `parentNodes` chain when it's hydrated.
+ *
+ * Used by `AddTermsModal`'s chip strip when a selected URN's entity isn't in the merged cache
+ * (e.g. `defaultValues` from `AdvancedFilterSelectValueModal` whose facet aggregation didn't
+ * include the entity). Without this, the chip would render the raw URN like `urn:li:...`.
+ */
+export function deriveGlossaryLabelFromUrn(urn: string): string {
+    const lastColon = urn.lastIndexOf(':');
+    const id = lastColon >= 0 ? urn.slice(lastColon + 1) : urn;
+    const lastDot = id.lastIndexOf('.');
+    return lastDot >= 0 ? id.slice(lastDot + 1) : id;
+}
+
 /** Default page size for a single fetch of a glossary node's direct children. Real glossaries
  * with more than 50 children per node are rare; consumers that need pagination can scroll. */
 export const DEFAULT_GLOSSARY_CHILDREN_COUNT = 50;

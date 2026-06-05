@@ -1,6 +1,11 @@
 import { renderHook } from '@testing-library/react-hooks';
 
-import { useTermTreeOptions } from '@app/shared/tags/useTermTreeOptions';
+import {
+    buildTermTreeOptions,
+    groupGlossaryEntitiesByRoot,
+    partitionGroupByDirectParent,
+    useTermTreeOptions,
+} from '@app/shared/tags/useTermTreeOptions';
 
 import { Entity, EntityType, GlossaryNode, GlossaryTerm, ParentNodesResult } from '@types';
 
@@ -106,6 +111,38 @@ describe('useTermTreeOptions', () => {
         expect(rootRow.color).toBe(FIXTURE_COLOR);
         // Term rows inherit the root node's color (so all terms in a lineage share one color).
         expect(termRow.color).toBe(FIXTURE_COLOR);
+    });
+
+    it('propagates the root color to descendant node headers (matches the sidebar)', () => {
+        // Regression: `Adoption.PetProperties` used to render with its own URN-hashed color
+        // (e.g. orange) in the modal, while the sidebar showed it with Adoption's color (pink)
+        // because `NodeItem` passes `iconColor` recursively. The two views must agree, so
+        // intermediate node headers in a chain inherit from the topmost ancestor.
+        const adoption = makeNode('urn:li:glossaryNode:adoption', 'Adoption');
+        const petProperties = makeNode('urn:li:glossaryNode:petProperties', 'PetProperties', [adoption]);
+        const petName = makeTerm('urn:li:glossaryTerm:petName', 'PetName', [petProperties, adoption]);
+
+        const { result } = renderHook(() => useTermTreeOptions({ entities: [adoption, petProperties, petName] }));
+
+        const [adoptionRow, petPropertiesRow, petNameRow] = result.current.allOptions;
+        const expectedColor = `color-for-${adoption.urn}`;
+        expect(adoptionRow.color).toBe(expectedColor);
+        expect(petPropertiesRow.color).toBe(expectedColor);
+        expect(petNameRow.color).toBe(expectedColor);
+    });
+
+    it('a descendant node ignores its own colorHex when its ancestor sets the subtree color', () => {
+        // Mirrors the sidebar's `iconColor || node.displayProperties.colorHex` precedence:
+        // once a root is picked, its color wins even if a descendant has its own colorHex.
+        const ROOT_COLOR = 'fixture-root-color';
+        const CHILD_COLOR = 'fixture-child-color'; // Should be ignored.
+        const adoption = makeNode('urn:li:glossaryNode:adoption', 'Adoption', [], ROOT_COLOR);
+        const petProperties = makeNode('urn:li:glossaryNode:petProperties', 'PetProperties', [adoption], CHILD_COLOR);
+
+        const { result } = renderHook(() => useTermTreeOptions({ entities: [adoption, petProperties] }));
+
+        const [, petPropertiesRow] = result.current.allOptions;
+        expect(petPropertiesRow.color).toBe(ROOT_COLOR);
     });
 
     it('drops a term listed in excludeUrns and skips its lineage when all terms are excluded', () => {
@@ -219,6 +256,64 @@ describe('useTermTreeOptions', () => {
         ]);
     });
 
+    it('inserts an inline loading placeholder under a node whose child fetch is in flight', () => {
+        // When the modal expands a node, `useGlossaryTreeEntities` tracks it in `fetchingNodes`
+        // until the scrollAcrossEntities query resolves. During that window, the hook should
+        // surface a synthetic loading row right under the node, not a global spinner.
+        const root = makeNode('urn:li:glossaryNode:root', 'Root');
+        const { result } = renderHook(() =>
+            useTermTreeOptions({
+                entities: [root],
+                loadingNodeUrns: new Set(['urn:li:glossaryNode:root']),
+            }),
+        );
+
+        const labels = result.current.allOptions.map((o) => o.label);
+        expect(labels).toEqual(['Root', 'Loading']);
+        const loadingRow = result.current.allOptions[1];
+        expect(loadingRow.isLoadingPlaceholder).toBe(true);
+        expect(loadingRow.depth).toBe(1);
+        expect(loadingRow.ancestorUrns).toEqual(['urn:li:glossaryNode:root']);
+        // Loading rows must not be selectable.
+        expect(result.current.disabledValues).toContain(loadingRow.value);
+    });
+
+    it('drops the loading placeholder once the node has fetched children', () => {
+        // Race-condition guard: if `fetchingNodes` is still populated in the same render where
+        // the children arrive, we shouldn't render both the loader and the freshly-loaded
+        // children. Once any child is in the entities list, the loader is no longer needed.
+        const root = makeNode('urn:li:glossaryNode:root', 'Root');
+        const child = makeTerm('urn:li:glossaryTerm:c1', 'Child1', [root]);
+        const { result } = renderHook(() =>
+            useTermTreeOptions({
+                entities: [root, child],
+                loadingNodeUrns: new Set(['urn:li:glossaryNode:root']),
+            }),
+        );
+
+        const labels = result.current.allOptions.map((o) => o.label);
+        expect(labels).toEqual(['Root', 'Child1']);
+    });
+
+    it('emits descendants in depth-first order so children sit directly under their parent node', () => {
+        // Regression: when a parent node has both a deep-nested branch and a sibling leaf, the
+        // deep branch's children used to render *after* the sibling because they came later in
+        // the entities array. The hook now walks each subtree DFS so the parent → child
+        // relationship is visually preserved.
+        const adoption = makeNode('urn:li:glossaryNode:adoption', 'Adoption');
+        const petProperties = makeNode('urn:li:glossaryNode:petProperties', 'PetProperties', [adoption]);
+        const daysInStatus = makeTerm('urn:li:glossaryTerm:daysInStatus', 'DaysInStatus', [adoption]);
+        const petName = makeTerm('urn:li:glossaryTerm:petName', 'PetName', [petProperties, adoption]);
+
+        const { result } = renderHook(() =>
+            useTermTreeOptions({ entities: [adoption, petProperties, daysInStatus, petName] }),
+        );
+
+        const labels = result.current.allOptions.map((o) => o.label);
+        // PetName must follow PetProperties (its parent), not DaysInStatus (which was inserted earlier).
+        expect(labels).toEqual(['Adoption', 'PetProperties', 'PetName', 'DaysInStatus']);
+    });
+
     it('skips a standalone GlossaryNode that already showed up as a term ancestor', () => {
         // Root is both passed in as a standalone node AND appears as a term's parent. It should
         // only be emitted once, not duplicated.
@@ -231,5 +326,84 @@ describe('useTermTreeOptions', () => {
         expect(labels).toEqual(['Root', 'Term1']);
         // Since a term was emitted under root, root is no longer "empty".
         expect(result.current.allOptions[0].isEmptyNode).toBeFalsy();
+    });
+});
+
+describe('groupGlossaryEntitiesByRoot', () => {
+    it('preserves first-appearance order of roots while bucketing descendants', () => {
+        const adoption = makeNode('urn:li:glossaryNode:adoption', 'Adoption');
+        const classification = makeNode('urn:li:glossaryNode:classification', 'Classification');
+        const adoptionTerm = makeTerm('urn:li:glossaryTerm:t1', 'AdoptionT', [adoption]);
+
+        const { groupsByRoot, rootOrder } = groupGlossaryEntitiesByRoot(
+            [adoption, classification, adoptionTerm],
+            new Set(),
+        );
+
+        expect(rootOrder).toEqual([adoption.urn, classification.urn]);
+        expect(groupsByRoot.get(adoption.urn)?.map((e) => e.urn)).toEqual([adoption.urn, adoptionTerm.urn]);
+        expect(groupsByRoot.get(classification.urn)?.map((e) => e.urn)).toEqual([classification.urn]);
+    });
+
+    it('drops excluded URNs and non-glossary entities', () => {
+        const root = makeNode('urn:li:glossaryNode:root', 'Root');
+        const term = makeTerm('urn:li:glossaryTerm:t1', 'T1', [root]);
+        const nonGlossary = { urn: 'urn:li:dataset:1', type: EntityType.Dataset } as unknown as Entity;
+
+        const { rootOrder } = groupGlossaryEntitiesByRoot([root, term, nonGlossary], new Set([term.urn]));
+
+        expect(rootOrder).toEqual([root.urn]);
+    });
+});
+
+describe('partitionGroupByDirectParent', () => {
+    it('routes each entity to its direct parent and collects subgroup roots', () => {
+        const root = makeNode('urn:li:glossaryNode:root', 'Root');
+        const mid = makeNode('urn:li:glossaryNode:mid', 'Mid', [root]);
+        const t1 = makeTerm('urn:li:glossaryTerm:t1', 'T1', [mid, root]);
+        // Entity whose direct parent isn't in the group (a search-path orphan) becomes a subgroup root.
+        const orphan = makeTerm('urn:li:glossaryTerm:orphan', 'Orphan', [
+            makeNode('urn:li:glossaryNode:notInGroup', 'NotInGroup'),
+        ]);
+
+        const { childMap, subgroupRoots } = partitionGroupByDirectParent([root, mid, t1, orphan]);
+
+        expect(subgroupRoots.map((e) => e.urn)).toEqual([root.urn, orphan.urn]);
+        expect(childMap.get(root.urn)?.map((e) => e.urn)).toEqual([mid.urn]);
+        expect(childMap.get(mid.urn)?.map((e) => e.urn)).toEqual([t1.urn]);
+    });
+});
+
+describe('buildTermTreeOptions (pure)', () => {
+    // Direct invocation of the pure builder — no hook context required. Useful for asserting
+    // that the dependency-injected `getDisplayName` / `getFallbackColor` are actually wired
+    // through, and for guarding the contract the hook depends on without rendering React.
+    const getDisplayName = (entity: GlossaryNode | GlossaryTerm) => (entity as any).properties?.name ?? entity.urn;
+    const getFallbackColor = (urn: string) => `color-for-${urn}`;
+
+    it('returns an empty list for an empty input', () => {
+        expect(
+            buildTermTreeOptions({
+                entities: [],
+                excludeSet: new Set(),
+                loadingSet: new Set(),
+                getDisplayName,
+                getFallbackColor,
+            }),
+        ).toEqual([]);
+    });
+
+    it('builds a DFS-ordered tree without needing a React context', () => {
+        const root = makeNode('urn:li:glossaryNode:root', 'Root');
+        const term = makeTerm('urn:li:glossaryTerm:t1', 'T1', [root]);
+        const options = buildTermTreeOptions({
+            entities: [root, term],
+            excludeSet: new Set(),
+            loadingSet: new Set(),
+            getDisplayName,
+            getFallbackColor,
+        });
+        expect(options.map((o) => o.label)).toEqual(['Root', 'T1']);
+        expect(options[1].color).toBe(`color-for-${root.urn}`); // Term inherits root's color via fallback.
     });
 });
