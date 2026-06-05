@@ -39,6 +39,7 @@ import enGovernanceGlossary from '@src/i18n/locales/en/governance.glossary.json'
 import enGovernanceStructuredProperties from '@src/i18n/locales/en/governance.structured-properties.json';
 import enHomeV2 from '@src/i18n/locales/en/home.v2.json';
 import enHomeV3 from '@src/i18n/locales/en/home.v3.json';
+import enIngestSources from '@src/i18n/locales/en/ingest.sources.json';
 import enIngestion from '@src/i18n/locales/en/ingestion.json';
 import enIngestionSourceBuilder from '@src/i18n/locales/en/ingestion.sourceBuilder.json';
 import enLineage from '@src/i18n/locales/en/lineage.json';
@@ -64,72 +65,14 @@ import enSharedSearch from '@src/i18n/locales/en/shared.search.json';
 import enSharedShare from '@src/i18n/locales/en/shared.share.json';
 import enSharedTags from '@src/i18n/locales/en/shared.tags.json';
 import enSharedTime from '@src/i18n/locales/en/shared.time.json';
+import { NAMESPACES } from '@src/i18n/namespaces';
 import '@utils/dayjs';
 
 i18n.use(initReactI18next).init({
     lng: 'en',
     fallbackLng: 'en',
     initImmediate: false,
-    ns: [
-        'analytics',
-        'auth',
-        'common.actions',
-        'common.counts',
-        'common.feedback',
-        'common.labels',
-        'entity.form',
-        'entity.identity',
-        'entity.profile.documentation',
-        'entity.ownership',
-        'entity.preview',
-        'entity.profile.incident',
-        'entity.profile.tabs',
-        'entity.profile.validations',
-        'entity.profile.access',
-        'entity.profile.queries',
-        'entity.profile.schema',
-        'entity.profile.stats',
-        'entity.profile.summary',
-        'entity.profile.timeline',
-        'entity.profile.view',
-        'entity.shared.components',
-        'entity.shared.containers',
-        'entity.shared.entityDropdown',
-        'entity.types',
-        'entity.views',
-        'entityV1.shared.components',
-        'entityV1.shared.entityDropdown',
-        'governance.domain',
-        'governance.glossary',
-        'governance.structured-properties',
-        'home.v2',
-        'home.v3',
-        'ingestion',
-        'ingestion.sourceBuilder',
-        'lineage',
-        'misc',
-        'modules',
-        'onboarding',
-        'settings.features',
-        'settings.page',
-        'settings.permissions',
-        'settings.posts',
-        'settings.preferences',
-        'settings.tokens',
-        'search',
-        'shared.business-attribute',
-        'shared.confirmation',
-        'shared.error',
-        'shared.health',
-        'shared.misc',
-        'shared.product',
-        'shared.propagation',
-        'shared.query-builder',
-        'shared.search',
-        'shared.share',
-        'shared.tags',
-        'shared.time',
-    ],
+    ns: [...NAMESPACES],
     resources: {
         en: {
             analytics: enAnalytics,
@@ -165,6 +108,7 @@ i18n.use(initReactI18next).init({
             'governance.structured-properties': enGovernanceStructuredProperties,
             'home.v2': enHomeV2,
             'home.v3': enHomeV3,
+            'ingest.sources': enIngestSources,
             ingestion: enIngestion,
             'ingestion.sourceBuilder': enIngestionSourceBuilder,
             lineage: enLineage,
