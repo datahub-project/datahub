@@ -27,7 +27,7 @@
     "expiresAtFormat": "{{date}} at {{time}} ({{timezone}})",
     "expiresInLabel": "Expires in",
     "generateNewToken": "Generate new token",
-    "learnMoreDescription": "To learn more about the DataHub APIs, check out the <link>DataHub Docs</link>.",
+    "learnMoreDescription": "To learn more about the DataHub APIs, check out the <docsLink>DataHub Docs</docsLink>.",
     "learnMoreSectionTitle": "Learn More",
     "loadError": "Failed to load tokens.",
     "nameLabel": "Token Name",
@@ -60,7 +60,7 @@
     "tokenCopyLabel": "Token",
     "tokenNeverExpires": "This token will never expire.",
     "tokenSectionTitle": "Token",
-    "tokenUsageDescription": "To use the token, provide it as a <kbd>Bearer</kbd> token in the <kbd>Authorization</kbd> header when making API requests:",
+    "tokenUsageDescription": "To use the token, provide it as a <keyboard>Bearer</keyboard> token in the <keyboard>Authorization</keyboard> header when making API requests:",
     "tokenWillExpireOn": "The token will expire on {{date}} at {{time}}.",
     "updateError": "Failed to update the token.",
     "usageSectionTitle": "Usage"

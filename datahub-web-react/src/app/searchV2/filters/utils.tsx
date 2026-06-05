@@ -1,4 +1,5 @@
 import { FolderFilled } from '@ant-design/icons';
+import i18next from 'i18next';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -45,7 +46,7 @@ import {
     TYPE_NAMES_FILTER_NAME,
     UNIT_SEPARATOR,
 } from '@app/searchV2/utils/constants';
-import { capitalizeFirstLetterOnly, forcePluralize, pluralizeIfIrregular } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
 import { DATE_TYPE_URN, URN_TYPE_URN } from '@src/app/shared/constants';
@@ -158,7 +159,7 @@ function getEntitySubtypeFilterIconAndLabel(filterValue: string, entityRegistry:
     // If this includes a delimiter, it is a subType
     if (filterValue.includes(FILTER_DELIMITER)) {
         const [type, subType] = filterValue.split(FILTER_DELIMITER);
-        label = capitalizeFirstLetterOnly(pluralizeIfIrregular(subType));
+        label = capitalizeFirstLetterOnly(i18next.t('search:filters.pluralizedTypeLabel', { type: subType }));
         icon = <SubTypeIcon>{getTypeIcon(entityRegistry, type as EntityType, subType, false, size || 12)}</SubTypeIcon>;
     } else {
         icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT);
@@ -219,7 +220,7 @@ export function getFilterIconAndLabel(
         label = newLabel;
     } else if (filterField === TYPE_NAMES_FILTER_NAME) {
         icon = getSubTypeIcon(filterValue);
-        label = capitalizeFirstLetterOnly(forcePluralize(filterValue));
+        label = capitalizeFirstLetterOnly(i18next.t('search:filters.pluralizedTypeLabel', { type: filterValue }));
     } else if (filterField === PLATFORM_FILTER_NAME) {
         const logoUrl = (filterEntity as DataPlatform)?.properties?.logoUrl;
         icon = logoUrl ? (

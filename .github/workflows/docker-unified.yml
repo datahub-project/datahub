@@ -94,6 +94,7 @@ jobs:
       test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
       test_runner_type_small: ${{ steps.set-runner.outputs.test_runner_type_small }}
       use_depot_cache: ${{ steps.set-runner.outputs.use_depot_cache }}
+      playwright_timeout: ${{ steps.set-runner.outputs.playwright_timeout }}
       uv_cache_key: ${{ steps.uv-cache-key.outputs.uv_cache_key }}
       uv_cache_key_prefix: ${{ steps.uv-cache-key.outputs.uv_cache_key_prefix }}
       yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
@@ -202,13 +203,23 @@ jobs:
               echo "test_runner_type=depot-ubuntu-24.04-4"
               echo "test_runner_type_small=depot-ubuntu-24.04-small"
               echo "use_depot_cache=true"
+              echo "playwright_timeout=20"
             } >> "$GITHUB_OUTPUT"
           else
             echo "build_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
             if [[ "${{ env.HAS_DEPOT_LABEL }}" == "true" ]]; then
-              echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
+              {
+                echo "test_runner_type=depot-ubuntu-24.04-4"
+                echo "playwright_timeout=20"
+              } >> "$GITHUB_OUTPUT"
             else
-              echo "test_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+              # Fork PRs on ubuntu-latest build Docker images locally during the job
+              # (no Depot cache available), which easily exceeds the 20-minute budget.
+              # Give these runs extra headroom.
+              {
+                echo "test_runner_type=ubuntu-latest"
+                echo "playwright_timeout=45"
+              } >> "$GITHUB_OUTPUT"
             fi
             {
               echo "test_runner_type_small=ubuntu-latest"
@@ -1207,7 +1218,7 @@ jobs:
     name: Playwright E2E Tests (Shard ${{ matrix.shard }}/${{ matrix.shard_count }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
     needs: [setup, base_build]
-    timeout-minutes: 20
+    timeout-minutes: ${{ fromJson(needs.setup.outputs.playwright_timeout || '20') }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.playwright_matrix || '{"include":[]}') }}
@@ -1430,7 +1441,7 @@ jobs:
         if: always()
         continue-on-error: true
         with:
-          role-to-assume: ${{ secrets.PLAYWRIGHT_REPORTS_OSS_ROLE_ARN }}
+          role-to-assume: ${{ vars.PLAYWRIGHT_TEST_REPORT_PUBLISH_ROLE_ARN }}
           aws-region: us-west-2
 
       - name: Publish Playwright report to S3
@@ -1444,13 +1455,14 @@ jobs:
           GH_EVENT_NAME: ${{ github.event_name }}
           GH_RUN_ID: ${{ github.run_id }}
           GH_RUN_ATTEMPT: ${{ github.run_attempt }}
+          PLAYWRIGHT_REPORTS_S3_BUCKET: ${{ vars.PLAYWRIGHT_REPORTS_S3_BUCKET }}
         run: |
           if [[ ! -d playwright-report ]] || [[ -z "$(ls -A playwright-report 2>/dev/null)" ]]; then
             echo "No playwright-report directory — skipping S3 upload"
             exit 0
           fi
 
-          BUCKET="datahub-oss-ci-build-artifacts.dev.dh-int.zone"
+          BUCKET="${PLAYWRIGHT_REPORTS_S3_BUCKET}"
 
           WORKFLOW_NAME=$(echo "$GH_WORKFLOW" \
             | tr '[:upper:]' '[:lower:]' \
