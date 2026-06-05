@@ -2,10 +2,10 @@ import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { getFormAssociations } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
 
-import { FormAssociation, Owner } from '@types';
+import { FormAssociation, Maybe, Owner } from '@types';
 
 function isOwnerWithType(
-    owners: Owner[] | undefined,
+    owners: Maybe<Owner[]> | undefined,
     userUrn: string,
     ownershipTypeUrns: string[] | undefined,
 ): boolean {
@@ -21,7 +21,11 @@ function isOwnerWithType(
     return !!userOwnership.ownershipType && ownershipTypeUrns.includes(userOwnership.ownershipType.urn);
 }
 
-export function isAssignedToForm(formAssociation: FormAssociation, owners: Owner[] | undefined, userUrn: string) {
+export function isAssignedToForm(
+    formAssociation: FormAssociation,
+    owners: Maybe<Owner[]> | undefined,
+    userUrn: string,
+) {
     const { isAssignedToMe, owners: isAssignedToOwners, ownershipTypes } = formAssociation.form.info.actors;
 
     if (isAssignedToMe) {
