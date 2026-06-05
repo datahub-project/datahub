@@ -8,9 +8,7 @@ import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
-import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
-import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
 import com.linkedin.metadata.boot.steps.RestoreFormInfoIndicesStep;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
@@ -64,10 +62,6 @@ public class BootstrapManagerFactory {
         BootstrapConfigurationSupport.requireAsyncWorkerThreads(_configurationProvider);
     final RestoreGlossaryIndices restoreGlossaryIndicesStep =
         new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
-    final RestoreDbtSiblingsIndices restoreDbtSiblingsIndices =
-        new RestoreDbtSiblingsIndices(_entityService);
-    final RemoveClientIdAspectStep removeClientIdAspectStep =
-        new RemoveClientIdAspectStep(_entityService);
     final RestoreColumnLineageIndices restoreColumnLineageIndices =
         new RestoreColumnLineageIndices(_entityService);
     final WaitForSystemUpdateStep waitForSystemUpdateStep =
@@ -79,8 +73,6 @@ public class BootstrapManagerFactory {
             ImmutableList.of(
                 waitForSystemUpdateStep,
                 restoreGlossaryIndicesStep,
-                removeClientIdAspectStep,
-                restoreDbtSiblingsIndices,
                 restoreColumnLineageIndices,
                 restoreFormInfoIndicesStep));
 

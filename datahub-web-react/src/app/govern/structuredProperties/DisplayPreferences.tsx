@@ -198,6 +198,7 @@ const DisplayPreferences = ({
                     modalText={
                         <p>
                             <Trans
+                                t={t}
                                 i18nKey="display.replaceBadgeConfirmation"
                                 components={{
                                     pill: (

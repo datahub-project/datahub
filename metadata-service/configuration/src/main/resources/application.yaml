@@ -361,7 +361,7 @@ ebean:
   maxAgeMinutes: ${EBEAN_MAX_AGE_MINUTES:120}
   leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
-  autoCommit: ${EBEAN_DATASOURCE_AUTOCOMMIT:true}
+  autoCommit: ${EBEAN_DATASOURCE_AUTOCOMMIT:false}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
   postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
   useIamAuth: ${EBEAN_USE_IAM_AUTH:false} # Generic IAM auth for cross-cloud compatibility
@@ -1201,6 +1201,8 @@ systemUpdate:
       includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
   ingestEntityTypes:
     enabled: ${SYSTEM_UPDATE_INGEST_ENTITY_TYPES_ENABLED:true}
+  restoreDbtSiblingsIndices:
+    enabled: ${SYSTEM_UPDATE_RESTORE_DBT_SIBLINGS_INDICES_ENABLED:true}
   ingestDefaultGlobalSettings:
     enabled: ${SYSTEM_UPDATE_INGEST_DEFAULT_GLOBAL_SETTINGS_ENABLED:true}
   ingestPolicies:

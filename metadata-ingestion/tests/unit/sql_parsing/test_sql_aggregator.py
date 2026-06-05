@@ -28,6 +28,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     DownstreamColumnRef,
 )
 from datahub.testing import mce_helpers
+from datahub.utilities.file_backed_collections import FileBackedCounter
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
@@ -1651,3 +1652,28 @@ def test_lineage_consistency_multiple_missing_tables() -> None:
     # Verify metrics: 3 tables were added (2, 3, 4)
     assert aggregator.report.num_tables_added_from_column_lineage == 3
     assert aggregator.report.num_queries_with_lineage_inconsistencies_fixed == 1
+
+
+def test_usage_aggregator_uses_shared_connection() -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=False,
+        generate_usage_statistics=True,
+        generate_operations=False,
+        usage_config=BaseUsageConfig(),
+        query_log=QueryLogSetting.STORE_ALL,
+    )
+    try:
+        assert aggregator._usage_aggregator is not None
+        assert aggregator._shared_connection is not None
+        # Usage store reuses the shared connection, not a second DB. The default
+        # counter backend is a FileBackedCounter; narrow the protocol type to reach _conn.
+        counts = aggregator._usage_aggregator._counts
+        assert isinstance(counts, FileBackedCounter)
+        assert counts._conn is aggregator._shared_connection
+        assert (
+            aggregator._usage_aggregator._resources._conn
+            is aggregator._shared_connection
+        )
+    finally:
+        aggregator.close()

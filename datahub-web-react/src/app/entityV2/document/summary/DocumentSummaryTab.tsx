@@ -2,6 +2,7 @@ import { Button, Tooltip } from '@components';
 import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -115,6 +116,7 @@ interface DocumentSummaryTabProps {
 }
 
 export const DocumentSummaryTab: React.FC<DocumentSummaryTabProps> = ({ onDelete, onMove }) => {
+    const { t } = useTranslation('entity.types');
     const { urn, entityData } = useEntityData();
     const document = entityData as Document;
     const history = useHistory();
@@ -151,9 +153,10 @@ export const DocumentSummaryTab: React.FC<DocumentSummaryTabProps> = ({ onDelete
                                 {[...parentDocuments].reverse().map((parent, index) => (
                                     <React.Fragment key={parent.urn}>
                                         <BreadcrumbLink onClick={() => handleParentClick(parent.urn)}>
-                                            {parent.info?.title || 'Untitled'}
+                                            {parent.info?.title || t('document.untitledFallback')}
                                         </BreadcrumbLink>
                                         {index < parentDocuments.length - 1 && (
+                                            // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) decorative breadcrumb separator
                                             <BreadcrumbSeparator>/</BreadcrumbSeparator>
                                         )}
                                     </React.Fragment>
@@ -167,16 +170,16 @@ export const DocumentSummaryTab: React.FC<DocumentSummaryTabProps> = ({ onDelete
 
                     {/* Top right buttons - History and Expand (when in modal) */}
                     <TopRightButtonsContainer>
-                        <Tooltip title="View change history">
+                        <Tooltip title={t('document.viewChangeHistory')}>
                             <TopRightButton
                                 variant="text"
                                 onClick={() => setIsHistoryDrawerOpen(true)}
-                                aria-label="View change history"
+                                aria-label={t('document.viewChangeHistory')}
                                 icon={{ icon: Clock, size: '2xl' }}
                             />
                         </Tooltip>
                         {isInsideModal && (
-                            <Tooltip title="Go to document profile">
+                            <Tooltip title={t('document.goToDocumentProfile')}>
                                 <TopRightButton
                                     variant="text"
                                     onClick={handleGoToDocument}

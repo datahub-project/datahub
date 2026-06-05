@@ -1,5 +1,6 @@
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -38,6 +39,7 @@ export const Preview = ({
     headerDropdownItems?: Set<EntityMenuItems>;
     propagationDetails?: AttributionDetails;
 }): JSX.Element => {
+    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
     return (
         <DefaultPreviewCard
@@ -56,7 +58,7 @@ export const Preview = ({
             domain={domain}
             entityTitleSuffix={
                 <UrlButton href={resolveRuntimePath(getRelatedAssetsUrl(entityRegistry, urn))}>
-                    View Related Assets
+                    {t('glossaryTerm.viewRelatedAssets')}
                 </UrlButton>
             }
             headerDropdownItems={headerDropdownItems}

@@ -101,8 +101,15 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     'form',
     'entityTypeName',
     'autoComplete',
+    'preload',
     'placement',
     'trigger',
+    'language',
+    'fill',
+    'justifyContent',
+    'field',
+    'tab',
+    '.*Path$',
     '.*background$',
     '.*Background$',
     '.*borderRadius$',
@@ -125,12 +132,15 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     '.*Size$',
     '.*testid$',
     '.*TestId$',
+    '.*TestID$',
     '.*variant$',
     '.*Variant$',
     '.*weight$',
     '.*Weight$',
     '.*width$',
     '.*Width$',
+    '.*style$',
+    '.*Style$',
 ];
 
 // Files that legitimately need raw color values
@@ -306,7 +316,8 @@ module.exports = {
                                   words: {
                                       exclude: [
                                           '^_blank$',
-                                          '^\\*$',
+                                          '^noopener noreferrer$',
+                                          '^\\*+$',
                                           '^-$',
                                           '^[A-Z0-9_]+$',
                                           '^:\\s*$',
