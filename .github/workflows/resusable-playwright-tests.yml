@@ -46,7 +46,6 @@ on:
         required: false
         type: string
         default: acryldata
-
 jobs:
   playwright_test:
     name: Playwright E2E Tests (Shard ${{ inputs.shard }}/${{ inputs.shard_count }})
@@ -81,14 +80,8 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
-
-      - name: Login to DockerHub
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
-        with:
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-
+      
+      # Path 1: Pull images from depot cache (docker-unified non fork trigger)
       - name: Set up Depot CLI
         if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id != '' }}
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
@@ -100,7 +93,8 @@ jobs:
         run: |
           depot pull --project "${{ vars.DEPOT_PROJECT_ID }}" "$DEPOT_BUILD_ID"
           docker images
-
+      
+      # Path 2: Build images in the job
       - name: Build images (fork — no depot cache)
         if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' }}
         timeout-minutes: 60
@@ -114,7 +108,14 @@ jobs:
           read -ra extra_flags <<< "$LOCAL_BUILD_FLAGS"
           ./gradlew "$BUILD_TASK" -Ptag="$DATAHUB_VERSION" "${extra_flags[@]}"
           docker images
-
+      
+      # Path 3: Pull images from ECR for given datahub_version (on workflow_dispatch)
+      - name: Login to DockerHub
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
       - name: Run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false

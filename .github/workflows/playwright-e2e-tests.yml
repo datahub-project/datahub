@@ -19,9 +19,6 @@ on:
         default: "quickstart"
         type: string
 
-env:
-  PROFILE_NAME: "${{ github.event.inputs.profileName || 'quickstart-consumers' }}"
-
 permissions:
   contents: read
 
