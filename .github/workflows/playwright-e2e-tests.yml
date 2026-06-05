@@ -28,6 +28,7 @@ jobs:
     runs-on: ubuntu-slim
     outputs:
       test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
+      playwright_timeout: ${{ steps.set-runner.outputs.playwright_timeout }}
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Check out the repo
@@ -43,6 +44,13 @@ jobs:
         id: set-runner
         run: |
           echo "test_runner_type=${{ steps.determine-runners.outputs.default-runner }}" >> "$GITHUB_OUTPUT"
+          # Give ubuntu-latest (non-Depot) runs 45 min to survive a cold start;
+          # Depot runners are fast enough to stay within 20 min.
+          if [[ "${{ steps.determine-runners.outputs.depot-config-set }}" == "true" ]]; then
+            echo "playwright_timeout=20" >> "$GITHUB_OUTPUT"
+          else
+            echo "playwright_timeout=45" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set shard count
         id: set-shard-count
@@ -82,7 +90,7 @@ jobs:
     name: Playwright E2E (Shard ${{ matrix.shard }}/${{ matrix.shard_count }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
     needs: [setup]
-    timeout-minutes: 20
+    timeout-minutes: ${{ fromJson(needs.setup.outputs.playwright_timeout || '20') }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix || '{"include":[]}') }}

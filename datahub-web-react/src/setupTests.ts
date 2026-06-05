@@ -26,9 +26,12 @@ import enEntityProfileSummary from '@src/i18n/locales/en/entity.profile.summary.
 import enEntityProfileTabs from '@src/i18n/locales/en/entity.profile.tabs.json';
 import enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
+import enEntitySharedComponents from '@src/i18n/locales/en/entity.shared.components.json';
 import enEntitySharedContainers from '@src/i18n/locales/en/entity.shared.containers.json';
+import enEntitySharedEntityDropdown from '@src/i18n/locales/en/entity.shared.entityDropdown.json';
 import enEntityTypes from '@src/i18n/locales/en/entity.types.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
+import enEntityV1SharedEntityDropdown from '@src/i18n/locales/en/entityV1.shared.entityDropdown.json';
 import enGovernanceDomain from '@src/i18n/locales/en/governance.domain.json';
 import enGovernanceGlossary from '@src/i18n/locales/en/governance.glossary.json';
 import enGovernanceStructuredProperties from '@src/i18n/locales/en/governance.structured-properties.json';
@@ -36,16 +39,29 @@ import enHomeV2 from '@src/i18n/locales/en/home.v2.json';
 import enHomeV3 from '@src/i18n/locales/en/home.v3.json';
 import enIngestion from '@src/i18n/locales/en/ingestion.json';
 import enIngestionSourceBuilder from '@src/i18n/locales/en/ingestion.sourceBuilder.json';
+import enLineage from '@src/i18n/locales/en/lineage.json';
 import enMisc from '@src/i18n/locales/en/misc.json';
 import enModules from '@src/i18n/locales/en/modules.json';
 import enOnboarding from '@src/i18n/locales/en/onboarding.json';
+import enSearch from '@src/i18n/locales/en/search.json';
 import enSettingsFeatures from '@src/i18n/locales/en/settings.features.json';
 import enSettingsPage from '@src/i18n/locales/en/settings.page.json';
 import enSettingsPermissions from '@src/i18n/locales/en/settings.permissions.json';
 import enSettingsPosts from '@src/i18n/locales/en/settings.posts.json';
 import enSettingsPreferences from '@src/i18n/locales/en/settings.preferences.json';
 import enSettingsTokens from '@src/i18n/locales/en/settings.tokens.json';
+import enSharedBusinessAttribute from '@src/i18n/locales/en/shared.business-attribute.json';
+import enSharedConfirmation from '@src/i18n/locales/en/shared.confirmation.json';
+import enSharedError from '@src/i18n/locales/en/shared.error.json';
+import enSharedHealth from '@src/i18n/locales/en/shared.health.json';
+import enSharedMisc from '@src/i18n/locales/en/shared.misc.json';
+import enSharedProduct from '@src/i18n/locales/en/shared.product.json';
+import enSharedPropagation from '@src/i18n/locales/en/shared.propagation.json';
 import enSharedQueryBuilder from '@src/i18n/locales/en/shared.query-builder.json';
+import enSharedSearch from '@src/i18n/locales/en/shared.search.json';
+import enSharedShare from '@src/i18n/locales/en/shared.share.json';
+import enSharedTags from '@src/i18n/locales/en/shared.tags.json';
+import enSharedTime from '@src/i18n/locales/en/shared.time.json';
 import '@utils/dayjs';
 
 i18n.use(initReactI18next).init({
@@ -73,9 +89,12 @@ i18n.use(initReactI18next).init({
         'entity.profile.stats',
         'entity.profile.summary',
         'entity.profile.view',
+        'entity.shared.components',
         'entity.shared.containers',
+        'entity.shared.entityDropdown',
         'entity.types',
         'entity.views',
+        'entityV1.shared.entityDropdown',
         'governance.domain',
         'governance.glossary',
         'governance.structured-properties',
@@ -83,6 +102,7 @@ i18n.use(initReactI18next).init({
         'home.v3',
         'ingestion',
         'ingestion.sourceBuilder',
+        'lineage',
         'misc',
         'modules',
         'onboarding',
@@ -92,7 +112,19 @@ i18n.use(initReactI18next).init({
         'settings.posts',
         'settings.preferences',
         'settings.tokens',
+        'search',
+        'shared.business-attribute',
+        'shared.confirmation',
+        'shared.error',
+        'shared.health',
+        'shared.misc',
+        'shared.product',
+        'shared.propagation',
         'shared.query-builder',
+        'shared.search',
+        'shared.share',
+        'shared.tags',
+        'shared.time',
     ],
     resources: {
         en: {
@@ -116,9 +148,12 @@ i18n.use(initReactI18next).init({
             'entity.profile.stats': enEntityProfileStats,
             'entity.profile.summary': enEntityProfileSummary,
             'entity.profile.view': enEntityProfileView,
+            'entity.shared.components': enEntitySharedComponents,
             'entity.shared.containers': enEntitySharedContainers,
+            'entity.shared.entityDropdown': enEntitySharedEntityDropdown,
             'entity.types': enEntityTypes,
             'entity.views': enEntityViews,
+            'entityV1.shared.entityDropdown': enEntityV1SharedEntityDropdown,
             'governance.domain': enGovernanceDomain,
             'governance.glossary': enGovernanceGlossary,
             'governance.structured-properties': enGovernanceStructuredProperties,
@@ -126,6 +161,7 @@ i18n.use(initReactI18next).init({
             'home.v3': enHomeV3,
             ingestion: enIngestion,
             'ingestion.sourceBuilder': enIngestionSourceBuilder,
+            lineage: enLineage,
             misc: enMisc,
             modules: enModules,
             onboarding: enOnboarding,
@@ -135,7 +171,19 @@ i18n.use(initReactI18next).init({
             'settings.posts': enSettingsPosts,
             'settings.preferences': enSettingsPreferences,
             'settings.tokens': enSettingsTokens,
+            search: enSearch,
+            'shared.business-attribute': enSharedBusinessAttribute,
+            'shared.confirmation': enSharedConfirmation,
+            'shared.error': enSharedError,
+            'shared.health': enSharedHealth,
+            'shared.misc': enSharedMisc,
+            'shared.product': enSharedProduct,
+            'shared.propagation': enSharedPropagation,
             'shared.query-builder': enSharedQueryBuilder,
+            'shared.search': enSharedSearch,
+            'shared.share': enSharedShare,
+            'shared.tags': enSharedTags,
+            'shared.time': enSharedTime,
         },
     },
     interpolation: { escapeValue: false },

@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
 import { FallbackProps, ErrorBoundary as ReactErrorBoundary } from 'react-error-boundary';
+import { useTranslation } from 'react-i18next';
 
 import ErrorFallback, { ErrorVariant } from '@app/sharedV2/ErrorHandling/ErrorFallback';
 
@@ -22,13 +23,14 @@ const logError = (error: Error, info: { componentStack: string }) => {
 };
 
 export const ErrorBoundary = ({ children, variant = 'route', fallback, resetKeys }: ErrorBoundaryProps) => {
+    const { t } = useTranslation('shared.error');
     const FallbackComponent =
         fallback ||
         (() => (
             <ErrorFallback
                 variant={variant}
                 // Custom message for on-prem customers
-                actionMessage="Please report the error messages from your browser to your DataHub Administrator"
+                actionMessage={t('boundary.onPremActionMessage')}
             />
         ));
 

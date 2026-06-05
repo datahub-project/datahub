@@ -1,7 +1,5 @@
 import i18next from 'i18next';
 
-import { forcePluralize } from '@app/shared/textUtil';
-
 import { OwnershipType, OwnershipTypeEntity } from '@types';
 
 /**
@@ -58,7 +56,10 @@ export const getNameFromType = (type: OwnershipType) => {
 
 export function getOwnershipTypeName(ownershipType?: OwnershipTypeEntity | null) {
     return (
-        (ownershipType?.info?.name && forcePluralize(ownershipType?.info?.name)) ||
+        (ownershipType?.info?.name &&
+            i18next.t('entity.shared.containers:sidebar.ownership.type.pluralName', {
+                name: ownershipType?.info?.name,
+            })) ||
         i18next.t('entity.shared.containers:sidebar.ownership.type.otherName')
     );
 }
