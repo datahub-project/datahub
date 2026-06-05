@@ -10,6 +10,7 @@
     "changeHistoryGraph.statName": "change history",
     "changeHistoryGraph.title": "Change History",
     "changeHistoryPopover.noChangesThisDay": "No changes this day",
+    "changeHistoryPopover.operationNamePlural": "{{name}}s",
     "changeHistoryPopover.noData": "No data reported",
     "changeHistoryPopover.change_one": "{{formattedCount}} Change",
     "changeHistoryPopover.change_other": "{{formattedCount}} Changes",
