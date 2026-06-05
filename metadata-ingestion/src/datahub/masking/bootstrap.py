@@ -92,7 +92,7 @@ def initialize_secret_masking(
     global _bootstrap_completed, _bootstrap_error
 
     # Check if masking is disabled via environment variable
-    from datahub.masking.secret_registry import _current_exec, is_masking_enabled
+    from datahub.masking.secret_registry import is_masking_enabled
 
     if not is_masking_enabled():
         logger.warning(
@@ -160,8 +160,7 @@ def initialize_secret_masking(
     # Open a secret scope for this execution (idempotent within one context).
     # Secrets registered after this belong to this execution and are dropped by
     # the matching shutdown_secret_masking(), without affecting other executions.
-    if _current_exec.get() is None:
-        registry.begin_execution()
+    registry.ensure_execution()
 
 
 def shutdown_secret_masking() -> None:

@@ -108,6 +108,15 @@ class SecretRegistry:
         _current_exec.set(exec_id)
         return exec_id
 
+    def ensure_execution(self) -> str:
+        """Open a secret scope for the current context only if it doesn't already
+        have one; returns the active execution id. Idempotent within a context,
+        so a repeated initialize_secret_masking() won't start a second scope."""
+        exec_id = _current_exec.get()
+        if exec_id is not None:
+            return exec_id
+        return self.begin_execution()
+
     def end_execution(self) -> bool:
         """Drop the current execution's secrets. Returns True if other
         executions are still active (so the caller should NOT fully tear down)."""
