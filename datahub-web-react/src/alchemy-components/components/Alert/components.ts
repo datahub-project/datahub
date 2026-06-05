@@ -2,7 +2,7 @@ import styled from 'styled-components';
 
 import { AlertVariant } from '@components/components/Alert/types';
 
-import { radius, spacing } from '@src/alchemy-components/theme';
+import { radius, spacing, typography } from '@src/alchemy-components/theme';
 
 const VARIANT_THEME_MAP: Record<AlertVariant, { bg: string; text: string; icon: string }> = {
     success: { bg: 'bgSurfaceSuccess', text: 'textSuccess', icon: 'iconSuccess' },
@@ -99,7 +99,7 @@ export const AlertErrorMessage = styled.div(({ theme }) => ({
     backgroundColor: theme.colors.bg,
     borderRadius: radius.md,
     padding: `${spacing.xxsm} ${spacing.xsm}`,
-    fontFamily: "'SF Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace",
+    fontFamily: typography.fonts.mono,
     fontSize: '13px',
     overflowWrap: 'break-word' as const,
     wordBreak: 'break-all' as const,
