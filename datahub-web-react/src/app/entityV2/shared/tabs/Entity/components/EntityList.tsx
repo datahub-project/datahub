@@ -130,7 +130,7 @@ export const EntityList = ({
                                 end: lastResultIndex,
                                 total: totalAssets,
                             }}
-                            components={{ b: <b /> }}
+                            components={{ bold: <b /> }}
                         />
                     </PaginationInfo>
                     <StyledPagination
