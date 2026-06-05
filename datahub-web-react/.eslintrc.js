@@ -109,6 +109,9 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     'justifyContent',
     'field',
     'tab',
+    'commandName',
+    'optionLabelProp',
+    'classNames',
     '.*Path$',
     '.*background$',
     '.*Background$',
@@ -149,6 +152,12 @@ const COLOR_RULE_EXCLUDED_FILES = [
     'src/conf/theme/*.ts',
     'src/conf/theme/*.json',
     'src/alchemy-components/theme/**',
+    // Legacy deprecated palette-definition files (REDESIGN_COLORS / ANTD_GRAY / ANTD_GRAY_V2).
+    // These DEFINE the raw palettes that the color initiative is migrating away from; their
+    // usages are caught via no-restricted-imports. The definitions must remain until all
+    // consumers migrate, so exclude them from no-hardcoded-colors (like the theme palettes above).
+    'src/app/entity/shared/constants.ts',
+    'src/app/entityV2/shared/constants.ts',
 ];
 
 module.exports = {
