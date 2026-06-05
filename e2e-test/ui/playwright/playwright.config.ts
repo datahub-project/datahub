@@ -1,5 +1,4 @@
 // Playwright configuration for DataHub E2E tests
-// trigger-ci
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
