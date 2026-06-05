@@ -30,6 +30,7 @@ export const NAMESPACES = [
     'entity.shared.entityDropdown',
     'entity.types',
     'entity.views',
+    'entityV1.shared.components',
     'entityV1.shared.entityDropdown',
     'governance.domain',
     'governance.glossary',
