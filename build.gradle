@@ -89,6 +89,9 @@ buildscript {
   // Align with Spring Boot 4.0.6 / reactor-bom 2025.0.5; io.netty transitives aligned via eachDependency + nettyVersion.
   ext.reactorNettyVersion = '1.3.5'
 
+  ext.nodeVersion = '22.16.0'
+  ext.yarnVersion = '1.22.22'
+
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
 
   apply from: './repositories.gradle'
