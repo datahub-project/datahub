@@ -106,8 +106,14 @@ def initialize_secret_masking(
 
     # The filter + exception hook are installed once for the process lifetime;
     # they are harmless when no secrets are registered. Only secrets are scoped
-    # per execution (begin_execution below). `force` is accepted for backward
+    # per execution (ensure_execution below). `force` is accepted for backward
     # compatibility but no longer gates anything — installation is idempotent.
+    #
+    # The whole install-check + scope registration is done under _bootstrap_lock
+    # (the same lock shutdown holds across its teardown), so a concurrent
+    # shutdown can't decide it is the last execution and uninstall the filter
+    # between our completion-check and our scope registration — which would let
+    # this execution run unmasked.
     with _bootstrap_lock:
         if not _bootstrap_completed:
             try:
@@ -157,10 +163,10 @@ def initialize_secret_masking(
                 logger.error(f"Failed to initialize secret masking: {e}", exc_info=True)
                 return  # Don't raise - graceful degradation
 
-    # Open a secret scope for this execution (idempotent within one context).
-    # Secrets registered after this belong to this execution and are dropped by
-    # the matching shutdown_secret_masking(), without affecting other executions.
-    registry.ensure_execution()
+        # Open a secret scope for this execution (idempotent within one context).
+        # Secrets registered after this belong to this execution and are dropped
+        # by the matching shutdown_secret_masking(), without affecting others.
+        registry.ensure_execution()
 
 
 def shutdown_secret_masking() -> None:
@@ -174,25 +180,31 @@ def shutdown_secret_masking() -> None:
 
     try:
         registry = SecretRegistry.get_instance()
-        # Remove this execution's secrets; bail out if others are still active.
-        if registry.end_execution():
-            return
+        # Hold _bootstrap_lock across the "am I the last execution?" decision and
+        # the teardown, so it is atomic w.r.t. a concurrent initialize that is
+        # checking _bootstrap_completed and registering a new scope. Otherwise an
+        # execution starting in this window would skip re-install and then have
+        # the filter uninstalled out from under it (running unmasked).
+        with _bootstrap_lock:
+            # Remove this execution's secrets; bail out if others are still active.
+            if registry.end_execution():
+                return
 
-        # Last execution finished — fully tear down.
-        uninstall_masking_filter()
+            # Last execution finished — fully tear down.
+            uninstall_masking_filter()
 
-        # Restore original exception hook
-        if _original_excepthook is not None:
-            sys.excepthook = _original_excepthook
-            _original_excepthook = None
+            # Restore original exception hook
+            if _original_excepthook is not None:
+                sys.excepthook = _original_excepthook
+                _original_excepthook = None
 
-        # Reset masking-safe loggers to restore normal logging
-        from datahub.masking.logging_utils import reset_masking_safe_loggers
+            # Reset masking-safe loggers to restore normal logging
+            from datahub.masking.logging_utils import reset_masking_safe_loggers
 
-        reset_masking_safe_loggers()
+            reset_masking_safe_loggers()
 
-        _bootstrap_completed = False
-        _bootstrap_error = None
+            _bootstrap_completed = False
+            _bootstrap_error = None
 
         logger.info("Secret masking shutdown completed")
     except Exception as e:

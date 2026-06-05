@@ -132,10 +132,6 @@ class SecretRegistry:
             self._rebuild_locked()
             return bool(active)
 
-    def has_active_executions(self) -> bool:
-        with self._registry_lock:
-            return any(g != _GLOBAL_GROUP for g in self._groups)
-
     def _current_group_locked(self) -> Dict[str, str]:
         exec_id = _current_exec.get() or _GLOBAL_GROUP
         return self._groups.setdefault(exec_id, {})

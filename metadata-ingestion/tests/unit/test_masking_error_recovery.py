@@ -765,6 +765,69 @@ class TestConcurrentExecutions:
         shutdown_secret_masking()
         assert SecretRegistry.get_instance().get_count() == 0
 
+    def test_execution_starting_during_teardown_is_masked(self):
+        """A new execution C beginning *while the last active execution A is
+        tearing down* must not run unmasked. A's teardown (decide-it-is-last +
+        uninstall) must be atomic with C's (check-bootstrap + register-scope),
+        or C registers secrets, sees bootstrap still complete so skips re-install,
+        and A then strips the filter out from under it. Never under-mask."""
+        from datahub.masking.logging_utils import reset_masking_safe_loggers
+
+        secret_c = "secretC_value_cccccc"
+
+        cap = StringIO()
+        child = logging.getLogger("datahub.ingestion.source.teardown_race_test")
+        child.setLevel(logging.INFO)
+        handler = logging.StreamHandler(cap)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        child.addHandler(handler)
+
+        teardown_entered = threading.Event()
+        c_logged = threading.Event()
+        result: dict[str, str] = {}
+
+        # reset_masking_safe_loggers runs late in A's teardown, after the filter
+        # is uninstalled but before _bootstrap_completed flips to False — i.e.
+        # inside the leak window. Use it to release C into that window.
+        def slow_reset() -> None:
+            teardown_entered.set()
+            # Wait for C to log. Under the fix C is blocked on the bootstrap lock
+            # A holds, so this times out and A finishes first (no deadlock).
+            c_logged.wait(timeout=2.0)
+            reset_masking_safe_loggers()
+
+        def execution_c() -> None:
+            teardown_entered.wait(5)
+            initialize_secret_masking(force=True)
+            SecretRegistry.get_instance().register_secret("C_TOKEN", secret_c)
+            cap.truncate(0)
+            cap.seek(0)
+            child.warning(f"connecting with {secret_c}")
+            result["c_output"] = cap.getvalue()
+            c_logged.set()
+            shutdown_secret_masking()
+
+        # A is the sole active execution (main-thread context).
+        initialize_secret_masking(force=True)
+        SecretRegistry.get_instance().register_secret("A_TOKEN", "secretA_value_aaaa")
+
+        tc = threading.Thread(target=execution_c)
+        with mock.patch(
+            "datahub.masking.logging_utils.reset_masking_safe_loggers", slow_reset
+        ):
+            tc.start()
+            shutdown_secret_masking()  # A tears down while C races to start.
+            tc.join(10)
+
+        out = result.get("c_output", "")
+        assert secret_c not in out, f"C's secret leaked during A's teardown: {out!r}"
+        assert "***REDACTED:C_TOKEN***" in out
+
+        try:
+            child.removeHandler(handler)
+        finally:
+            child.handlers.clear()
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
