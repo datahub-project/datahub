@@ -213,9 +213,9 @@ jobs:
                 echo "playwright_timeout=20"
               } >> "$GITHUB_OUTPUT"
             else
-              # Fork PRs on ubuntu-latest have no warm Yarn/Chromium cache; the cold
-              # start (yarn install + browser download + quickstart) easily exceeds the
-              # 20-minute budget, so we give these runs extra headroom.
+              # Fork PRs on ubuntu-latest build Docker images locally during the job
+              # (no Depot cache available), which easily exceeds the 20-minute budget.
+              # Give these runs extra headroom.
               {
                 echo "test_runner_type=ubuntu-latest"
                 echo "playwright_timeout=45"

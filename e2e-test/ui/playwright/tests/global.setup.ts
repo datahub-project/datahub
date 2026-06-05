@@ -1,4 +1,3 @@
-// TODO: remove — dummy change to trigger Playwright CI on workflow-only PRs
 /**
  * Global Setup — runs ONCE before all test projects (after auth-setup).
  *
