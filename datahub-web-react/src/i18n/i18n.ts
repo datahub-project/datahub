@@ -34,6 +34,7 @@ export const NAMESPACES = [
     'home.v3',
     'ingestion',
     'ingestion.sourceBuilder',
+    'lineage',
     'misc',
     'modules',
     'onboarding',
@@ -43,7 +44,19 @@ export const NAMESPACES = [
     'settings.posts',
     'settings.preferences',
     'settings.tokens',
+    'search',
+    'shared.business-attribute',
+    'shared.confirmation',
+    'shared.error',
+    'shared.health',
+    'shared.misc',
+    'shared.product',
+    'shared.propagation',
     'shared.query-builder',
+    'shared.search',
+    'shared.share',
+    'shared.tags',
+    'shared.time',
 ] as const;
 
 if (import.meta.env.DEV) {

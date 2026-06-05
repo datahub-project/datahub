@@ -2,6 +2,7 @@ import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import * as QueryString from 'query-string';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -74,6 +75,7 @@ type Props = {
 };
 
 export const MatchedFieldList = ({ customFieldRenderer, matchSuffix }: Props) => {
+    const { t } = useTranslation('search');
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const searchContext = useSearchContext();
@@ -109,13 +111,17 @@ export const MatchedFieldList = ({ customFieldRenderer, matchSuffix }: Props) =>
                     <Tooltip
                         title={
                             matchSuffix
-                                ? `Matches ${pluralize(groupedMatch.matchedFields.length, label)} ${matchSuffix}`
+                                ? t('matches.matchedField.tooltipCount', {
+                                      count: groupedMatch.matchedFields.length,
+                                      label,
+                                      suffix: matchSuffix,
+                                  })
                                 : undefined
                         }
                     >
                         <MatchContainer>
                             <MatchHeader>
-                                <b>Matches:</b>
+                                <b>{t('matches.matchedField.matchesLabel')}</b>
                                 {pluralize(groupedMatch.matchedFields.length, label)}
                             </MatchHeader>
                             <MatchText key={groupedMatch.fieldName}>

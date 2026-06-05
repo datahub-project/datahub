@@ -1,6 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import AddEntityEdge from '@app/lineage/manage/AddEntityEdge';
@@ -58,6 +59,9 @@ export default function ManageLineageModal({
     entityType,
     entityPlatform,
 }: Props) {
+    const { t } = useTranslation('lineage');
+    const { t: tcAction } = useTranslation('common.actions');
+    const { t: tcFeedback } = useTranslation('common.feedback');
     const entityRegistry = useEntityRegistry();
     const [entitiesToAdd, setEntitiesToAdd] = useState<Entity[]>([]);
     const [entitiesToRemove, setEntitiesToRemove] = useState<Entity[]>([]);
@@ -79,15 +83,15 @@ export default function ManageLineageModal({
                 if (res.data?.updateLineage) {
                     closeModal();
                     if (showLoading) {
-                        message.loading('Loading...');
+                        message.loading(tcFeedback('loading'));
                     } else {
-                        message.success('Updated lineage!');
+                        message.success(t('manualLineage.updatedLineageSuccess'));
                     }
                     setTimeout(() => {
                         refetchEntity();
                         if (showLoading) {
                             message.destroy();
-                            message.success('Updated lineage!');
+                            message.success(t('manualLineage.updatedLineageSuccess'));
                         }
                     }, 2000);
 
@@ -110,7 +114,7 @@ export default function ManageLineageModal({
                 }
             })
             .catch((error) => {
-                message.error(error.message || 'Error updating lineage');
+                message.error(error.message || t('manualLineage.updateLineageError'));
             });
     }
 
@@ -118,17 +122,23 @@ export default function ManageLineageModal({
 
     return (
         <StyledModal
-            title={<TitleText>Manage {lineageDirection} Lineage</TitleText>}
+            title={
+                <TitleText>
+                    {lineageDirection === Direction.Upstream
+                        ? t('manageLineage.modalTitleUpstream')
+                        : t('manageLineage.modalTitleDownstream')}
+                </TitleText>
+            }
             open
             onCancel={closeModal}
             keyboard
             footer={
                 <ModalFooter>
                     <Button onClick={closeModal} type="text">
-                        Cancel
+                        {tcAction('cancel')}
                     </Button>
                     <Button onClick={saveLineageChanges} disabled={isSaveDisabled}>
-                        Save Changes
+                        {tcAction('saveChanges')}
                     </Button>
                 </ModalFooter>
             }
