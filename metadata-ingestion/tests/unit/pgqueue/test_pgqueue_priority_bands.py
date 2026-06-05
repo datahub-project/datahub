@@ -22,7 +22,6 @@ from datahub.pgqueue.priority_bands import (
     PriorityBand,
     PriorityBandConfig,
     resolve_priority_bands_json,
-    weighted_fair_fetch,
 )
 
 
@@ -118,57 +117,6 @@ class TestPriorityBandConfig:
         )
         limits = config.batch_limits(9)
         assert limits == [3, 3, 3]
-
-
-class TestWeightedFairFetch:
-    def test_all_bands_full(self) -> None:
-        config = PriorityBandConfig.parse(DEFAULT_BANDS_JSON)
-        result = weighted_fair_fetch(
-            config,
-            10,
-            lambda min_p, max_p, lim: [f"p{min_p}-{max_p}"] * lim,
-        )
-        assert len(result) == 10
-
-    def test_empty_queue(self) -> None:
-        config = PriorityBandConfig.parse(DEFAULT_BANDS_JSON)
-        result: list[str] = weighted_fair_fetch(
-            config, 10, lambda min_p, max_p, lim: []
-        )
-        assert result == []
-
-    def test_zero_limit(self) -> None:
-        config = PriorityBandConfig.parse(DEFAULT_BANDS_JSON)
-        result = weighted_fair_fetch(
-            config,
-            0,
-            lambda min_p, max_p, lim: ["should-not-be-called"],
-        )
-        assert result == []
-
-    def test_redistribution(self) -> None:
-        config = PriorityBandConfig.parse(DEFAULT_BANDS_JSON)
-
-        def _fetch(min_p: int, max_p: int, lim: int) -> list:
-            if min_p == 0:
-                return ["high"]
-            return [f"other-{i}" for i in range(min(lim, 20))]
-
-        result = weighted_fair_fetch(config, 10, _fetch)
-        assert len(result) == 10
-        assert result[0] == "high"
-
-    def test_single_band_passthrough(self) -> None:
-        config = PriorityBandConfig.parse('[{"range":[0,9],"weight":100}]')
-        calls: list = []
-
-        def _fetch(min_p: int, max_p: int, lim: int) -> list:
-            calls.append((min_p, max_p, lim))
-            return ["a", "b"]
-
-        result = weighted_fair_fetch(config, 5, _fetch)
-        assert len(result) == 2
-        assert calls == [(0, 9, 5)]
 
 
 class TestPriorityConstants:

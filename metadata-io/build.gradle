@@ -124,6 +124,10 @@ dependencies {
   implementation externalDependency.guava
   implementation externalDependency.reflections
 
+  // XXHash64 JNI for graph/search id fingerprints (XXHashFactory.nativeInstance — no Java fallback)
+  implementation externalDependency.lz4Java
+
+  implementation externalDependency.snappy
   implementation externalDependency.neo4jJavaDriver
   implementation externalDependency.graphqlJava
   implementation externalDependency.slf4jApi
@@ -183,6 +187,8 @@ dependencies {
   testImplementation externalDependency.testContainersOpenSearch
   testImplementation externalDependency.testContainersCassandra
   testImplementation externalDependency.testContainersNeo4j
+  testImplementation externalDependency.testContainersPostgresql
+  testImplementation externalDependency.postgresql
   testImplementation externalDependency.lombok
   testFixturesApi externalDependency.springBootTest
   testImplementation spec.product.pegasus.restliServer
@@ -285,6 +291,38 @@ task testOpenSearch(type: Test) {
   description = 'Runs only the testng-opensearch.xml test suite'
 }
 
+tasks.register('jacocoSqlSetupCoverageReport', JacocoReport) {
+  dependsOn testPostgresql
+  reports {
+    xml.required = true
+    xml.outputLocation = rootProject.layout.buildDirectory.file(
+        "coverage-reports/${rootProject.relativePath(project.projectDir)}/jacoco-sqlsetup.xml")
+    html.required = true
+  }
+  executionData.setFrom(fileTree(layout.buildDirectory.dir('jacoco')).include('testPostgresql.exec'))
+  sourceSets sourceSets.main
+}
+
+task testPostgresql(type: Test) {
+  doFirst {
+    maxParallelForks = 1
+  }
+  useTestNG() {
+    suites 'src/test/resources/testng-postgresql.xml'
+  }
+  testLogging {
+    events "failed", "skipped", "passed"
+    exceptionFormat "full"
+    showStandardStreams = true
+  }
+
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
+
+  group = 'verification'
+  description = 'Runs PostgreSQL Testcontainers suite (testng-postgresql.xml)'
+  finalizedBy jacocoSqlSetupCoverageReport
+}
+
 task testOther(type: Test) {
   doFirst {
     maxParallelForks = 1
@@ -325,6 +363,16 @@ tasks.withType(Test) {
           "-XX:+UseG1GC",
           "-XX:MaxGCPauseMillis=${gcPauseMillis}"
   ]
+
+  // PostgresTestcontainers: align with docker-compose.prerequisites.yml defaults (published multi-arch image).
+  if (!System.getenv('DATAHUB_POSTGRES_IMAGE')) {
+    def raw = project.findProperty('dockerRegistry') ?: 'acryldata'
+    def reg = (raw.toString() == 'linkedin') ? 'acryldata' : raw.toString()
+    environment 'DATAHUB_POSTGRES_IMAGE', "${reg}/datahub-postgres"
+  }
+  if (!System.getenv('DATAHUB_POSTGRES_VERSION')) {
+    environment 'DATAHUB_POSTGRES_VERSION', '17.5-extensions-v1'
+  }
 }
 
 clean {

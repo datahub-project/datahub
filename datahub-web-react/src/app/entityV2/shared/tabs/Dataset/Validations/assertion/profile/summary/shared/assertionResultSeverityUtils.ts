@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import React from 'react';
 
 import LowSeverityIcon from '@src/images/incident-chart-bar-one.svg?react';
@@ -16,11 +17,11 @@ export const getAssertionResultSeverityDisplay = (result?: AssertionResult): Sev
 
     switch (String(result.severity).toUpperCase()) {
         case 'HIGH':
-            return { label: 'High severity', icon: HighSeverityIcon };
+            return { label: i18next.t('entity.profile.validations:severity.high'), icon: HighSeverityIcon };
         case 'MEDIUM':
-            return { label: 'Medium severity', icon: MediumSeverityIcon };
+            return { label: i18next.t('entity.profile.validations:severity.medium'), icon: MediumSeverityIcon };
         case 'LOW':
-            return { label: 'Low severity', icon: LowSeverityIcon };
+            return { label: i18next.t('entity.profile.validations:severity.low'), icon: LowSeverityIcon };
         default:
             return undefined;
     }

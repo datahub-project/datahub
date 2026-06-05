@@ -270,14 +270,13 @@ export const SchemaFieldDrawerTabs = ({ tabs, selectedTab, onSelectTab }: Props)
             <UnborderedTabs
                 animated={false}
                 tabPosition="right"
-                activeKey={selectedTab?.name || ''}
-                onTabClick={(name: string) => onSelectTab(name)}
+                activeKey={selectedTab?.key || ''}
+                onTabClick={(key: string) => onSelectTab(key)}
             >
                 {tabs.map((tab) => {
                     const TabIcon = tab.icon;
                     const SelectedTabIcon = tab.selectedIcon || tab.icon;
-                    const { name } = tab;
-                    const isSelected = selectedTab?.name === tab.name;
+                    const isSelected = selectedTab?.key === tab.key;
 
                     return (
                         <Tab
@@ -285,7 +284,7 @@ export const SchemaFieldDrawerTabs = ({ tabs, selectedTab, onSelectTab }: Props)
                                 <TabIconContainer $isSelected={isSelected}>
                                     <IconWrapper
                                         $isSelected={isSelected}
-                                        data-testid={`${name}-field-drawer-tab-header`}
+                                        data-testid={`${tab.key}-field-drawer-tab-header`}
                                     >
                                         {isSelected ? (
                                             <SelectedTabIcon size={20} weight="fill" />
@@ -293,10 +292,10 @@ export const SchemaFieldDrawerTabs = ({ tabs, selectedTab, onSelectTab }: Props)
                                             <TabIcon size={20} weight="regular" />
                                         )}
                                     </IconWrapper>
-                                    <TabTextWithTooltip text={name} isSelected={isSelected} />
+                                    <TabTextWithTooltip text={tab.name} isSelected={isSelected} />
                                 </TabIconContainer>
                             }
-                            key={tab.name}
+                            key={tab.key}
                         />
                     );
                 })}

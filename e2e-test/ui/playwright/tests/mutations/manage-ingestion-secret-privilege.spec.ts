@@ -14,7 +14,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
-import { PoliciesPage } from '../../pages/policies.page';
+import { PoliciesPage } from '../../pages/settings/policies.page';
 
 const testId = Math.floor(Math.random() * 100000);
 const platformPolicyName = `Platform test policy ${testId}`;
@@ -40,7 +40,7 @@ test.describe.skip('Manage Ingestion and Secret Privileges', () => {
     logger,
     logDir,
   }) => {
-    const policiesPage = new PoliciesPage(page, logger, logDir);
+    const policiesPage = new PoliciesPage(page, { logger, logDir });
     logger.step('navigate to policies');
     await policiesPage.navigate();
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -47,6 +48,7 @@ interface Props {
 }
 
 function GlossaryEntitiesList(props: Props) {
+    const { t } = useTranslation('governance.glossary');
     const { nodes, terms } = props;
     const entityRegistry = useEntityRegistry();
     const { entityData } = useEntityData();
@@ -54,7 +56,7 @@ function GlossaryEntitiesList(props: Props) {
 
     return (
         <>
-            {nodes.length > 0 && isGlossaryEntityPage ? <SectionTitle>Term Groups</SectionTitle> : null}
+            {nodes.length > 0 && isGlossaryEntityPage ? <SectionTitle>{t('section.termGroups')}</SectionTitle> : null}
             {nodes.length ? (
                 <GlossaryNodes isGrid={!isGlossaryEntityPage}>
                     {nodes.map((node) => (
@@ -71,7 +73,9 @@ function GlossaryEntitiesList(props: Props) {
                     ))}
                 </GlossaryNodes>
             ) : null}
-            {isGlossaryEntityPage && terms.length > 0 ? <SectionTitle>Glossary Terms</SectionTitle> : null}
+            {isGlossaryEntityPage && terms.length > 0 ? (
+                <SectionTitle>{t('section.glossaryTerms')}</SectionTitle>
+            ) : null}
             {isGlossaryEntityPage && terms.length ? (
                 <GlossaryTerms>
                     {terms.map((term) => (

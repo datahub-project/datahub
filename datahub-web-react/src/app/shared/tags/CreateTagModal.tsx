@@ -1,5 +1,6 @@
 import { Button, Input, Modal, Space, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { handleBatchError } from '@app/entity/shared/utils';
@@ -22,6 +23,8 @@ const FullWidthSpace = styled(Space)`
 `;
 
 export default function CreateTagModal({ onClose, onBack, open, tagName, resources }: CreateTagModalProps) {
+    const { t } = useTranslation('shared.tags');
+    const { t: tc } = useTranslation('common.actions');
     const [stagedDescription, setStagedDescription] = useState('');
     const [batchAddTagsMutation] = useBatchAddTagsMutation();
 
@@ -55,7 +58,7 @@ export default function CreateTagModal({ onClose, onBack, open, tagName, resourc
                         message.destroy();
                         message.error(
                             handleBatchError(resources, e, {
-                                content: `Failed to add tag: \n ${e.message || ''}`,
+                                content: t('createTag.addError', { error: e.message || '' }),
                                 duration: 3,
                             }),
                         );
@@ -69,7 +72,7 @@ export default function CreateTagModal({ onClose, onBack, open, tagName, resourc
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to create tag: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('createTag.error', { error: e.message || '' }), duration: 3 });
                 onClose();
             });
     };
@@ -81,23 +84,23 @@ export default function CreateTagModal({ onClose, onBack, open, tagName, resourc
 
     return (
         <Modal
-            title={`Create ${tagName}`}
+            title={t('createTag.title', { tagName })}
             open={open}
             onCancel={onClose}
             footer={
                 <>
                     <Button onClick={onBack} type="text">
-                        Back
+                        {tc('back')}
                     </Button>
                     <Button id="createTagButton" onClick={onOk} disabled={disableCreate}>
-                        Create
+                        {tc('create')}
                     </Button>
                 </>
             }
         >
             <FullWidthSpace direction="vertical">
                 <Input.TextArea
-                    placeholder="Add a description for your new tag..."
+                    placeholder={t('createTag.descriptionPlaceholder')}
                     value={stagedDescription}
                     onChange={(e) => setStagedDescription(e.target.value)}
                 />

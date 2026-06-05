@@ -642,6 +642,11 @@ module.exports = {
           id: "docs/managed-datahub/remote-executor/monitoring",
           className: "saasOnly",
         },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/remote-executor/removing-sqs-dependency",
+          className: "saasOnly",
+        },
       ],
     },
     {
@@ -716,6 +721,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_1_1_0",
         "docs/managed-datahub/release-notes/v_1_0_0",
         "docs/managed-datahub/release-notes/v_0_3_17",
         "docs/managed-datahub/release-notes/v_0_3_16",

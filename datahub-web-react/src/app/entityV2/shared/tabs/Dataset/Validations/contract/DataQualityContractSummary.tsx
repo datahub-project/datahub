@@ -1,5 +1,6 @@
 import { Table, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { DatasetAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
@@ -43,11 +44,13 @@ type Props = {
 };
 
 export const DataQualityContractSummary = ({ contracts, showAction = false }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
+    const { t: tl } = useTranslation('common.labels');
     const assertions: Assertion[] = contracts?.map((contract) => contract.assertion);
 
     const columns = [
         {
-            title: () => <ColumnHeader>Assertion</ColumnHeader>,
+            title: () => <ColumnHeader>{t('contractColumn.assertion')}</ColumnHeader>,
             render: (assertion: Assertion) => (
                 <>
                     {assertion.info?.datasetAssertion && (
@@ -69,7 +72,9 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
             ),
         },
         {
-            title: () => <ColumnHeader style={{ display: 'flex', justifyContent: 'center' }}>Status</ColumnHeader>,
+            title: () => (
+                <ColumnHeader style={{ display: 'flex', justifyContent: 'center' }}>{tl('status')}</ColumnHeader>
+            ),
             render: (assertion: Assertion) => <DataContractAssertionStatus assertion={assertion} />,
         },
     ];
@@ -81,7 +86,7 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
 
     return (
         <Container>
-            <TitleText>DATA QUALITY</TitleText>
+            <TitleText>{t('contractSection.dataQuality')}</TitleText>
             <SummaryContainer>
                 <StyledTable
                     pagination={false}
@@ -90,10 +95,10 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                     footer={() => (
                         <DataContractSummaryFooter
                             assertions={assertions}
-                            passingText="Meeting data quality contract"
-                            failingText="Violating data quality contract"
-                            errorText="Data quality contract assertions are completing with errors"
-                            actionText="view data quality assertions"
+                            passingText={t('contractStatus.passingText.dataQuality')}
+                            failingText={t('contractStatus.failingText.dataQuality')}
+                            errorText={t('contractStatus.errorText.dataQuality')}
+                            actionText={t('contractStatus.action.viewDataQuality')}
                             showAction={showAction}
                         />
                     )}
