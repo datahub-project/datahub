@@ -61,14 +61,14 @@ export const SchemaTimelineSection = () => {
     const theme = useTheme();
     const { urn } = useEntityData();
 
-    const getChangeTitle = (operation: ChangeOperationType | null | undefined, fieldPath?: string | null): string => {
+    const getChangeTitle = (operation: ChangeOperationType | null | undefined, fieldPath: string): string => {
         switch (operation) {
             case ChangeOperationType.Add:
-                return t('changeAdded', { fieldPath });
+                return t('schemaTimeline.changeAdded', { fieldPath });
             case ChangeOperationType.Modify:
-                return t('changeModified', { fieldPath });
+                return t('schemaTimeline.changeModified', { fieldPath });
             case ChangeOperationType.Remove:
-                return t('changeRemoved', { fieldPath });
+                return t('schemaTimeline.changeRemoved', { fieldPath });
             default:
                 return '';
         }
@@ -85,7 +85,7 @@ export const SchemaTimelineSection = () => {
     transactions?.forEach((transaction) => {
         const time = new Date(transaction.timestampMillis).toDateString();
         transaction.changes?.forEach((change) => {
-            const fieldPath = change.parameters?.find((parameter) => parameter.key === 'fieldPath')?.value;
+            const fieldPath = change.parameters?.find((parameter) => parameter.key === 'fieldPath')?.value ?? '';
             const entry = {
                 // operation: change.operation,
                 // description: change.description,
