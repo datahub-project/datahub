@@ -152,13 +152,15 @@ def _platform_names_have_2_parts(platform: str) -> bool:
 
 def _drop_hive_dot(urn: str) -> str:
     """
-    This is special handling for hive and glue platforms where "hive." is coming in urn's id because of the way SQL
-    is written in lookml. Glue tables queried via Presto/Athena use the same `hive.<db>.<table>` syntax.
+    Special handling for platforms where "hive." appears in the URN's dataset
+    identifier because LookML SQL references tables as ``hive.<db>.<table>``.
 
-    Example: urn:li:dataset:(urn:li:dataPlatform:hive,hive.my_database.my_table,PROD)
-    Example: urn:li:dataset:(urn:li:dataPlatform:glue,hive.my_database.my_table,PROD)
+    This applies to the ``hive`` platform and to ``glue`` (whose Data Catalog
+    implements a Hive Metastore-compatible API and is queried by engines such as
+    Presto and Athena using the same ``hive.<db>.<table>`` SQL syntax).
 
-    Here we need to transform hive.my_database.my_table to my_database.my_table
+    Example: urn:li:dataset:(urn:li:dataPlatform:glue,us-east-1.hive.analytics.my_table,PROD)
+          -> urn:li:dataset:(urn:li:dataPlatform:glue,us-east-1.analytics.my_table,PROD)
     """
     if urn.startswith(
         (
