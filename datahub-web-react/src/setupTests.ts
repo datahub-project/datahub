@@ -24,6 +24,7 @@ import enEntityProfileSchema from '@src/i18n/locales/en/entity.profile.schema.js
 import enEntityProfileStats from '@src/i18n/locales/en/entity.profile.stats.json';
 import enEntityProfileSummary from '@src/i18n/locales/en/entity.profile.summary.json';
 import enEntityProfileTabs from '@src/i18n/locales/en/entity.profile.tabs.json';
+import enEntityProfileTimeline from '@src/i18n/locales/en/entity.profile.timeline.json';
 import enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
 import enEntitySharedComponents from '@src/i18n/locales/en/entity.shared.components.json';
@@ -88,6 +89,7 @@ i18n.use(initReactI18next).init({
         'entity.profile.schema',
         'entity.profile.stats',
         'entity.profile.summary',
+        'entity.profile.timeline',
         'entity.profile.view',
         'entity.shared.components',
         'entity.shared.containers',
@@ -147,6 +149,7 @@ i18n.use(initReactI18next).init({
             'entity.profile.schema': enEntityProfileSchema,
             'entity.profile.stats': enEntityProfileStats,
             'entity.profile.summary': enEntityProfileSummary,
+            'entity.profile.timeline': enEntityProfileTimeline,
             'entity.profile.view': enEntityProfileView,
             'entity.shared.components': enEntitySharedComponents,
             'entity.shared.containers': enEntitySharedContainers,
