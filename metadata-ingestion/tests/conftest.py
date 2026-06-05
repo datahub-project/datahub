@@ -22,7 +22,10 @@ os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 
 # We need our imports to go below the os.environ updates, since mere act
 # of importing some datahub modules will load env variables.
-from datahub.masking.bootstrap import shutdown_secret_masking  # noqa: E402
+from datahub.masking.bootstrap import (  # noqa: E402
+    is_bootstrapped,
+    shutdown_secret_masking,
+)
 from datahub.masking.secret_registry import SecretRegistry  # noqa: E402
 from datahub.testing.pytest_hooks import (  # noqa: F401,E402
     load_golden_flags,
@@ -48,17 +51,14 @@ def mock_time():
 
 @pytest.fixture(autouse=True)
 def _reset_secret_masking():
-    """Keep process-global secret masking from leaking across tests.
-
-    Masking installs a filter on every logging handler and populates a singleton
-    SecretRegistry. Tests that trigger it (the ingest CLI, initialize_secret_masking,
-    or SecretStr config validation) don't always tear it down, which would mask
-    later tests' captured log output. Reset after each test for isolation
-    (shutdown also clears bootstrap state so a later init re-installs cleanly).
-    """
+    """Reset process-global secret masking after each test so it can't leak into
+    another test's caplog. Global because the leaking test (ingest CLI,
+    initialize_secret_masking, SecretStr validation) and the affected test are
+    usually in different files. No-op unless masking was actually active."""
     yield
-    shutdown_secret_masking()
-    SecretRegistry.reset_instance()
+    if is_bootstrapped() or SecretRegistry.get_instance().get_count() > 0:
+        shutdown_secret_masking()
+        SecretRegistry.reset_instance()
 
 
 def pytest_ignore_collect(
