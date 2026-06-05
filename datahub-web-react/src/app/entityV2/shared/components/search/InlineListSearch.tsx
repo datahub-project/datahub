@@ -1,5 +1,6 @@
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 
 import { MatchLabelText, SearchContainer, StyledInput } from '@app/entityV2/shared/components/search/styledComponents';
@@ -27,6 +28,7 @@ export const InlineListSearch: React.FC<InlineListSearchProps> = ({
     entityTypeName,
     options,
 }) => {
+    const { t } = useTranslation('entity.shared.components');
     const [localSearchText, setLocalSearchText] = useState(searchText);
 
     useDebounce(
@@ -41,14 +43,18 @@ export const InlineListSearch: React.FC<InlineListSearchProps> = ({
         <SearchContainer>
             <StyledInput
                 value={localSearchText}
-                placeholder={options?.placeholder || 'Search...'}
+                placeholder={options?.placeholder || t('search.searchPlaceholder')}
                 onChange={(e) => setLocalSearchText(e.target.value)}
                 icon={options?.hidePrefix ? undefined : { icon: MagnifyingGlass }}
                 label=""
             />
             {searchText && !options?.hideMatchCountText && (
                 <MatchLabelText data-testid="inline-search-matched-result-text">
-                    Matched {matchResultCount} {pluralize(matchResultCount, entityTypeName)} of {numRows}
+                    {t('search.matched', {
+                        matchResultCount,
+                        entityType: pluralize(matchResultCount, entityTypeName),
+                        numRows,
+                    })}
                 </MatchLabelText>
             )}
         </SearchContainer>
