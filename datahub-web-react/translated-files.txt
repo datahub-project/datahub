@@ -222,7 +222,7 @@ src/app/analyticsDashboard/**/*.{ts,tsx}
 src/app/preview/**/*.{ts,tsx}
 src/app/previewV2/**/*.{ts,tsx}
 src/app/entity/shared/containers/**/*.{ts,tsx}
-src/app/entity/shared/entityForm/schemaFieldPrompts/DropdownHeader.tsx
+src/app/entity/shared/entityForm/**/*.{ts,tsx}
 src/app/entity/shared/EntityDropdown/**/*.{ts,tsx}
 src/app/entity/shared/*.{ts,tsx}
 src/app/entity/shared/entity/**/*.{ts,tsx}

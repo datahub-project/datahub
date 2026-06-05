@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AppLogoLink from '@app/shared/AppLogoLink';
@@ -28,12 +29,13 @@ const TitleWrapper = styled.div`
 `;
 
 export default function FormPageHeader() {
+    const { t } = useTranslation('entity.form');
     return (
         <StyledDivider>
             <Header>
                 <TitleWrapper>
                     <AppLogoLink />
-                    <HeaderText>Complete Documentation Requests</HeaderText>
+                    <HeaderText>{t('pageTitle')}</HeaderText>
                 </TitleWrapper>
             </Header>
         </StyledDivider>
