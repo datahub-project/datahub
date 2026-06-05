@@ -2,7 +2,7 @@ import json
 import logging
 import unittest.mock
 from hashlib import md5
-from typing import Any, Callable, Dict, Iterable, List, Optional, Type
+from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Optional, Type
 
 import jsonref
 import jsonschema
@@ -90,6 +90,17 @@ class FieldPath:
     path: List[FieldElement] = Field(default_factory=list)
     is_key_schema: bool = False
     use_v2_paths_always: bool = True
+    # Track Python object ids of schemas visited along this path.
+    # jsonref resolves recursive $ref targets to the same Python object, so
+    # id() equality detects cycles even when oneOf merging changes the surface dict.
+    # Note: id() values are safe here because the referenced objects (jsonref proxies
+    # and resolved dicts) remain alive for the entire schema traversal, preventing
+    # id reuse by the allocator.
+    visited_schema_ids: FrozenSet[int] = Field(default_factory=frozenset)
+    # Safety net: maximum nesting depth to prevent hangs from unforeseen vectors
+    # (e.g. future jsonref behavior changes, non-$ref structural recursion).
+    MAX_COMPLEX_DEPTH: int = 50
+    complex_depth: int = 0
 
     def _needs_v2_path(self) -> bool:
         if self.use_v2_paths_always:
@@ -124,6 +135,46 @@ class FieldPath:
                 return f"map(str,{type_override.type.valueType})"
         return None
 
+    @staticmethod
+    def _get_schema_identity(schema: Dict) -> int:
+        """Get a stable identity for recursion tracking.
+
+        For JsonRef proxies (resolved $ref), use the __subject__ identity —
+        all proxies referencing the same $ref target share the same __subject__
+        object. For plain dicts (e.g. after oneOf merge), use their own id().
+        """
+        try:
+            subject = object.__getattribute__(schema, "__subject__")
+            return id(subject)
+        except AttributeError:
+            return id(schema)
+
+    def is_recursive_by_identity(self, schema: Dict) -> bool:
+        """Check if this schema's underlying object was already visited in this path.
+
+        This catches recursive $ref cycles that the string-based get_recursive() misses
+        when oneOf/anyOf branches merge parent properties into the schema, changing its
+        string representation while the underlying $ref target remains the same object.
+        """
+        return self._get_schema_identity(schema) in self.visited_schema_ids
+
+    def is_depth_exceeded(self) -> bool:
+        """Safety net: check if traversal has exceeded maximum nesting depth."""
+        return self.complex_depth >= self.MAX_COMPLEX_DEPTH
+
+    def with_visited_schema(self, schema: Dict) -> "FieldPath":
+        """Return a new FieldPath that includes the given schema in its visited set."""
+        fpath = FieldPath(
+            is_key_schema=self.is_key_schema,
+            use_v2_paths_always=self.use_v2_paths_always,
+        )
+        fpath.path = [x for x in self.path]
+        fpath.visited_schema_ids = self.visited_schema_ids | {
+            self._get_schema_identity(schema)
+        }
+        fpath.complex_depth = self.complex_depth + 1
+        return fpath
+
     def get_recursive(self, schema: Dict) -> Optional[str]:
         """Return a recursive type if found"""
         schema_str = str(schema)
@@ -139,15 +190,25 @@ class FieldPath:
 
     def clone_plus(self, element: FieldElement) -> "FieldPath":
         """Add a new element to a path and return a new fieldpath"""
-        fpath = FieldPath(is_key_schema=self.is_key_schema)
+        fpath = FieldPath(
+            is_key_schema=self.is_key_schema,
+            use_v2_paths_always=self.use_v2_paths_always,
+        )
         fpath.path = [x for x in self.path]
         fpath.path.append(element)
+        fpath.visited_schema_ids = self.visited_schema_ids
+        fpath.complex_depth = self.complex_depth
         return fpath
 
     def expand_type(self, type: str, type_schema: Dict) -> "FieldPath":
         """Expand the type of the last element of the path and return a new fieldpath"""
-        fpath = FieldPath(is_key_schema=self.is_key_schema)
+        fpath = FieldPath(
+            is_key_schema=self.is_key_schema,
+            use_v2_paths_always=self.use_v2_paths_always,
+        )
         fpath.path = [x.clone() for x in self.path]
+        fpath.visited_schema_ids = self.visited_schema_ids
+        fpath.complex_depth = self.complex_depth
         if fpath.path:
             fpath.path[-1].type.append(type)
             fpath.path[-1].schema_types.append(str(type_schema))
@@ -361,28 +422,47 @@ class JsonSchemaTranslator:
             # This happens in the case of recursive fields, we short-circuit by making this just be an object
             schema = {}
 
-        if datahub_field_type == RecordTypeClass:
-            # have we seen this schema before?
-            recursive_type = field_path.get_recursive(schema)
-            if recursive_type:
-                yield SchemaField(
-                    fieldPath=field_path.expand_type(
-                        recursive_type, schema
-                    ).as_string(),
-                    nativeDataType=native_type_override or recursive_type,
-                    type=type_override
-                    or SchemaFieldDataTypeClass(type=RecordTypeClass()),
-                    nullable=nullable,
-                    description=JsonSchemaTranslator._get_description_from_any_schema(
-                        schema
-                    ),
-                    jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(
-                        schema, required
-                    ),
-                    isPartOfKey=field_path.is_key_schema,
-                    recursive=True,
+        # Early recursion detection by object identity — applies to ALL complex types.
+        # jsonref resolves recursive $ref to the same __subject__, so this catches
+        # cycles that the string-based check misses when oneOf merges properties.
+        # This must fire before the union handler expands oneOf branches.
+        if (
+            field_path.is_recursive_by_identity(schema)
+            or field_path.is_depth_exceeded()
+        ):
+            if field_path.is_depth_exceeded():
+                logger.warning(
+                    f"Schema traversal reached max depth ({field_path.MAX_COMPLEX_DEPTH}); "
+                    f"marking field as recursive: {field_path.as_string()}"
                 )
-                return  # important to break the traversal here
+            # Use the schema's own description if available; otherwise generate
+            # a helpful note indicating this is a recursive reference and what
+            # definition it points back to.
+            description = JsonSchemaTranslator._get_description_from_any_schema(schema)
+            if not description:
+                ref_target = schema.get("title") or discriminated_type
+                description = f"Recursive reference to {ref_target}"
+            yield SchemaField(
+                fieldPath=field_path.expand_type(
+                    discriminated_type, schema
+                ).as_string(),
+                nativeDataType=native_type_override or discriminated_type,
+                type=type_override
+                or SchemaFieldDataTypeClass(type=datahub_field_type()),
+                nullable=nullable,
+                description=description,
+                jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(
+                    schema, required
+                ),
+                isPartOfKey=field_path.is_key_schema,
+                recursive=True,
+            )
+            return
+
+        # Register this schema in the visited set for all descendants
+        field_path = field_path.with_visited_schema(schema)
+
+        if datahub_field_type == RecordTypeClass:
             if field_path.has_field_name():
                 # generate a field for the struct if we have a field path
                 yield SchemaField(
