@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 
 import { MatchLabelText, SearchContainer, StyledInput } from '@app/entityV2/shared/components/search/styledComponents';
-import { pluralize } from '@src/app/shared/textUtil';
 
 interface InlineListSearchProps {
     searchText: string;
@@ -51,8 +50,8 @@ export const InlineListSearch: React.FC<InlineListSearchProps> = ({
             {searchText && !options?.hideMatchCountText && (
                 <MatchLabelText data-testid="inline-search-matched-result-text">
                     {t('search.matched', {
-                        matchResultCount,
-                        entityType: pluralize(matchResultCount, entityTypeName),
+                        count: matchResultCount,
+                        entityType: entityTypeName,
                         numRows,
                     })}
                 </MatchLabelText>

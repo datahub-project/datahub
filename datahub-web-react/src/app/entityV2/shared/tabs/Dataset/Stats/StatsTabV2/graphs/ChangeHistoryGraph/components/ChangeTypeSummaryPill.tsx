@@ -8,7 +8,6 @@ import {
 import { Pill } from '@src/alchemy-components';
 import { ColorOptions } from '@src/alchemy-components/theme/config';
 import { abbreviateNumber } from '@src/app/dataviz/utils';
-import { pluralize } from '@src/app/shared/textUtil';
 
 const GROUP_TO_PILL_COLOR_MAPPING = new Map<string, ColorOptions>([
     [AggregationGroup.Purple, 'violet'],
@@ -27,7 +26,7 @@ type ChangeTypeSummaryPillProps = {
 
 export default function ChangeTypeSummaryPill({ operation, onClick, selected }: ChangeTypeSummaryPillProps) {
     const label = useMemo(() => {
-        return `${abbreviateNumber(operation.value)} ${pluralize(operation.value, operation.name)}`;
+        return `${abbreviateNumber(operation.value)} ${operation.name}`;
     }, [operation]);
 
     const colorScheme = useMemo(
