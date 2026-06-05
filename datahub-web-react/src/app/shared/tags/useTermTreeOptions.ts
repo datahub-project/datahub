@@ -236,9 +236,15 @@ export function buildTermTreeOptions({
                 const node = entity as GlossaryNode;
                 const fullChain = [...reversedParents, node];
                 emitNodeChain(fullChain);
-                // Mark as "empty" if no direct children are loaded yet — the caret stays
-                // visible so the browse flow can trigger a fetch on click.
-                if (!childMap.has(node.urn)) {
+                // Mark as "empty" if children haven't been fetched yet but the node *might*
+                // have some — the caret stays visible so the browse flow can trigger a fetch.
+                // If `childrenCount` is present and reports zero on both axes, it's a true
+                // leaf node (e.g. an empty term group) and we suppress the caret to match the
+                // glossary sidebar. When `childrenCount` is missing, we conservatively show
+                // the caret since we can't prove it's empty.
+                const count = node.childrenCount;
+                const knownEmpty = count != null && (count.termsCount ?? 0) === 0 && (count.nodesCount ?? 0) === 0;
+                if (!childMap.has(node.urn) && !knownEmpty) {
                     const lastOption = result[result.length - 1];
                     if (lastOption && lastOption.value === node.urn) {
                         lastOption.isEmptyNode = true;

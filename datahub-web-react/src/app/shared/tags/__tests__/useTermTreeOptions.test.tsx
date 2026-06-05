@@ -22,7 +22,13 @@ vi.mock('@app/useEntityRegistry', () => ({
     useEntityRegistry: mockUseEntityRegistry,
 }));
 
-const makeNode = (urn: string, name: string, parents: GlossaryNode[] = [], colorHex?: string): GlossaryNode => {
+const makeNode = (
+    urn: string,
+    name: string,
+    parents: GlossaryNode[] = [],
+    colorHex?: string,
+    childrenCount?: { termsCount?: number; nodesCount?: number },
+): GlossaryNode => {
     const parentNodes: ParentNodesResult = { count: parents.length, nodes: parents };
     return {
         urn,
@@ -30,6 +36,7 @@ const makeNode = (urn: string, name: string, parents: GlossaryNode[] = [], color
         properties: { name },
         displayProperties: colorHex ? { colorHex } : undefined,
         parentNodes,
+        ...(childrenCount ? { childrenCount } : {}),
     } as unknown as GlossaryNode;
 };
 
@@ -228,6 +235,49 @@ describe('useTermTreeOptions', () => {
         // Only the leaf (mid) is marked empty; the synthesized root ancestor isn't.
         expect(result.current.allOptions[0].isEmptyNode).toBeFalsy();
         expect(result.current.allOptions[1].isEmptyNode).toBe(true);
+    });
+
+    it('does not mark a node empty when its childrenCount reports zero on both axes', () => {
+        // Regression: nodes the GraphQL fragment knows are leaves (e.g. an empty term group like
+        // "Leads") used to get `isEmptyNode: true` because no children were in the current entity
+        // list yet — which made the modal render a caret the sidebar does not.
+        const leaf = makeNode('urn:li:glossaryNode:leaf', 'Leads', [], undefined, {
+            termsCount: 0,
+            nodesCount: 0,
+        });
+
+        const { result } = renderHook(() => useTermTreeOptions({ entities: [leaf] }));
+
+        expect(result.current.allOptions).toHaveLength(1);
+        expect(result.current.allOptions[0].isEmptyNode).toBeFalsy();
+    });
+
+    it('still marks a node empty when childrenCount reports children on either axis', () => {
+        // A node with non-zero termsCount or nodesCount is expandable — the caret must stay
+        // visible so the user can trigger the lazy fetch.
+        const withTerms = makeNode('urn:li:glossaryNode:hasTerms', 'HasTerms', [], undefined, {
+            termsCount: 3,
+            nodesCount: 0,
+        });
+        const withNodes = makeNode('urn:li:glossaryNode:hasNodes', 'HasNodes', [], undefined, {
+            termsCount: 0,
+            nodesCount: 2,
+        });
+
+        const { result } = renderHook(() => useTermTreeOptions({ entities: [withTerms, withNodes] }));
+
+        expect(result.current.allOptions[0].isEmptyNode).toBe(true);
+        expect(result.current.allOptions[1].isEmptyNode).toBe(true);
+    });
+
+    it('falls back to marking a node empty when childrenCount is missing (unknown)', () => {
+        // We can't prove a node is a leaf without `childrenCount`, so the safe default is to
+        // keep the caret visible — clicking it will issue a fetch and resolve the unknown.
+        const unknown = makeNode('urn:li:glossaryNode:unknown', 'Unknown');
+
+        const { result } = renderHook(() => useTermTreeOptions({ entities: [unknown] }));
+
+        expect(result.current.allOptions[0].isEmptyNode).toBe(true);
     });
 
     it('preserves the natural order of root nodes when one of them gets expanded with child terms', () => {
