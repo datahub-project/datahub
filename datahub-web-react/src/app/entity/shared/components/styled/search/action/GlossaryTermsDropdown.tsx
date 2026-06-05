@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import ActionDropdown from '@app/entity/shared/components/styled/search/action/ActionDropdown';
 import AddTermsModal from '@app/shared/tags/AddTermsModal';
@@ -12,23 +13,24 @@ type Props = {
 
 // eslint-disable-next-line
 export default function GlossaryTermsDropdown({ urns, disabled = false, refetch }: Props) {
+    const { t } = useTranslation('entityV1.shared.components');
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [operationType, setOperationType] = useState(OperationType.ADD);
 
     return (
         <>
             <ActionDropdown
-                name="Glossary Terms"
+                name={t('action.glossaryTerms.name')}
                 actions={[
                     {
-                        title: 'Add Glossary Terms',
+                        title: t('action.glossaryTerms.add'),
                         onClick: () => {
                             setOperationType(OperationType.ADD);
                             setIsEditModalVisible(true);
                         },
                     },
                     {
-                        title: 'Remove Glossary Terms',
+                        title: t('action.glossaryTerms.remove'),
                         onClick: () => {
                             setOperationType(OperationType.REMOVE);
                             setIsEditModalVisible(true);

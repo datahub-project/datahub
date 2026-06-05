@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ContainerSelectModal } from '@app/entity/shared/containers/profile/sidebar/Container/ContainerSelectModal';
 import { SetDomainModal } from '@app/entity/shared/containers/profile/sidebar/Domain/SetDomainModal';
@@ -43,10 +44,12 @@ export const AdvancedFilterSelectValueModal = ({
     initialValues,
     facet,
 }: Props) => {
+    const { t } = useTranslation('search');
+
     if (filterField === OWNERS_FILTER_NAME) {
         return (
             <EditOwnersModal
-                title="Select Owners"
+                title={t('advancedFilter.selectOwners')}
                 urns={[]}
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
@@ -64,7 +67,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === DOMAINS_FILTER_NAME) {
         return (
             <SetDomainModal
-                titleOverride="Select Domain"
+                titleOverride={t('advancedFilter.selectDomain')}
                 urns={[]}
                 defaultValue={
                     initialValues?.map((urn) => ({
@@ -84,7 +87,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === CONTAINER_FILTER_NAME) {
         return (
             <ContainerSelectModal
-                titleOverride="Select Container"
+                titleOverride={t('advancedFilter.selectContainer')}
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
                     entity: facet?.aggregations?.find((aggregation) => aggregation.value === urn)?.entity,
@@ -105,7 +108,7 @@ export const AdvancedFilterSelectValueModal = ({
                     urn,
                     entity: facet?.aggregations?.find((aggregation) => aggregation.value === urn)?.entity,
                 }))}
-                titleOverride="Select Platform"
+                titleOverride={t('advancedFilter.selectPlatform')}
                 onCloseModal={onCloseModal}
                 onOk={(platformUrns) => {
                     onSelect(platformUrns);
@@ -118,7 +121,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === FIELD_PATHS_FILTER_NAME) {
         return (
             <EditTextModal
-                title="Filter by Column"
+                title={t('advancedFilter.filterByColumn')}
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
                 onOk={(newValue) => {
@@ -132,7 +135,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === DESCRIPTION_FILTER_NAME || filterField === FIELD_DESCRIPTIONS_FILTER_NAME) {
         return (
             <EditTextModal
-                title="Filter by Description"
+                title={t('advancedFilter.filterByDescription')}
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
                 onOk={(newValue) => {
@@ -146,7 +149,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === ORIGIN_FILTER_NAME) {
         return (
             <EditTextModal
-                title="Filter by Environment"
+                title={t('advancedFilter.filterByEnvironment')}
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
                 onOk={(newValue) => {
@@ -160,7 +163,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === TYPE_NAMES_FILTER_NAME) {
         return (
             <EditTextModal
-                title="Filter by Sub Type"
+                title={t('advancedFilter.filterBySubType')}
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
                 onOk={(newValue) => {
@@ -174,7 +177,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === ENTITY_FILTER_NAME) {
         return (
             <ChooseEntityTypeModal
-                title="Filter by Entity Type"
+                title={t('advancedFilter.filterByEntityType')}
                 defaultValues={initialValues}
                 onCloseModal={onCloseModal}
                 onOk={(newValues) => {

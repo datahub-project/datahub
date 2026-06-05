@@ -1,6 +1,7 @@
 import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { Select } from 'antd';
 import React, { MouseEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useDomainsContext } from '@app/domain/DomainsContext';
@@ -36,6 +37,7 @@ interface Props {
 }
 
 export default function DomainParentSelect({ selectedParentUrn, setSelectedParentUrn, isMoving }: Props) {
+    const { t } = useTranslation('entityV1.shared.entityDropdown');
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContext();
     const domainUrn = entityData?.urn;
@@ -82,7 +84,7 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
                 showSearch
                 allowClear
                 clearIcon={<XCircle weight="fill" onClick={handleClear} />}
-                placeholder="Select"
+                placeholder={t('parentSelect.placeholder')}
                 filterOption={false}
                 value={selectedParentName}
                 onSelect={onSelectParent}

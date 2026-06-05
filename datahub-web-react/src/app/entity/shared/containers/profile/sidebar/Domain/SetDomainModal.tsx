@@ -1,6 +1,7 @@
 import { Loader } from '@components';
 import { Button, Empty, Form, Modal, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
 import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
@@ -40,7 +41,13 @@ const SearchResultContainer = styled.div`
     justify-content: center;
 `;
 
+// Programmatic Select.Option value for the loading row — not display copy.
+const LOADING_OPTION_VALUE = 'loading';
+
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const theme = useTheme();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
@@ -148,7 +155,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Updated Domain!', duration: 2 });
+                    message.success({ content: t('sidebar.domain.updatedSuccess'), duration: 2 });
                     refetch?.();
                     onModalClose();
                     setSelectedDomain(undefined);
@@ -158,7 +165,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to add assets to Domain: \n ${e.message || ''}`,
+                        content: t('sidebar.domain.addFailed', { message: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -183,16 +190,16 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
 
     return (
         <Modal
-            title={titleOverride || 'Set Domain'}
+            title={titleOverride || t('sidebar.domain.setModalTitle')}
             open
             onCancel={onModalClose}
             footer={
                 <>
                     <Button onClick={onModalClose} type="text">
-                        Cancel
+                        {tc('cancel')}
                     </Button>
                     <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
-                        Add
+                        {tc('add')}
                     </Button>
                 </>
             }
@@ -208,7 +215,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             showSearch
                             mode="multiple"
                             defaultActiveFirstOption={false}
-                            placeholder="Search for Domains..."
+                            placeholder={t('sidebar.domain.searchPlaceholder')}
                             onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
                             onDeselect={onDeselectDomain}
                             onSearch={(value: string) => {
@@ -225,14 +232,14 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
                             notFoundContent={
                                 <Empty
-                                    description="No Domains Found"
+                                    description={t('sidebar.domain.emptyText')}
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                                     style={{ color: theme.colors.textSecondary }}
                                 />
                             }
                         >
                             {loading ? (
-                                <Select.Option value="loading">
+                                <Select.Option value={LOADING_OPTION_VALUE}>
                                     <Loader size="xs" padding={8} />
                                 </Select.Option>
                             ) : (

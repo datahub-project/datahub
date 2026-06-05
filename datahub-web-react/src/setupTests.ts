@@ -24,11 +24,16 @@ import enEntityProfileSchema from '@src/i18n/locales/en/entity.profile.schema.js
 import enEntityProfileStats from '@src/i18n/locales/en/entity.profile.stats.json';
 import enEntityProfileSummary from '@src/i18n/locales/en/entity.profile.summary.json';
 import enEntityProfileTabs from '@src/i18n/locales/en/entity.profile.tabs.json';
+import enEntityProfileTimeline from '@src/i18n/locales/en/entity.profile.timeline.json';
 import enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
+import enEntitySharedComponents from '@src/i18n/locales/en/entity.shared.components.json';
 import enEntitySharedContainers from '@src/i18n/locales/en/entity.shared.containers.json';
+import enEntitySharedEntityDropdown from '@src/i18n/locales/en/entity.shared.entityDropdown.json';
 import enEntityTypes from '@src/i18n/locales/en/entity.types.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
+import enEntityV1SharedComponents from '@src/i18n/locales/en/entityV1.shared.components.json';
+import enEntityV1SharedEntityDropdown from '@src/i18n/locales/en/entityV1.shared.entityDropdown.json';
 import enGovernanceDomain from '@src/i18n/locales/en/governance.domain.json';
 import enGovernanceGlossary from '@src/i18n/locales/en/governance.glossary.json';
 import enGovernanceStructuredProperties from '@src/i18n/locales/en/governance.structured-properties.json';
@@ -40,6 +45,7 @@ import enLineage from '@src/i18n/locales/en/lineage.json';
 import enMisc from '@src/i18n/locales/en/misc.json';
 import enModules from '@src/i18n/locales/en/modules.json';
 import enOnboarding from '@src/i18n/locales/en/onboarding.json';
+import enSearch from '@src/i18n/locales/en/search.json';
 import enSettingsFeatures from '@src/i18n/locales/en/settings.features.json';
 import enSettingsPage from '@src/i18n/locales/en/settings.page.json';
 import enSettingsPermissions from '@src/i18n/locales/en/settings.permissions.json';
@@ -84,10 +90,15 @@ i18n.use(initReactI18next).init({
         'entity.profile.schema',
         'entity.profile.stats',
         'entity.profile.summary',
+        'entity.profile.timeline',
         'entity.profile.view',
+        'entity.shared.components',
         'entity.shared.containers',
+        'entity.shared.entityDropdown',
         'entity.types',
         'entity.views',
+        'entityV1.shared.components',
+        'entityV1.shared.entityDropdown',
         'governance.domain',
         'governance.glossary',
         'governance.structured-properties',
@@ -105,6 +116,7 @@ i18n.use(initReactI18next).init({
         'settings.posts',
         'settings.preferences',
         'settings.tokens',
+        'search',
         'shared.business-attribute',
         'shared.confirmation',
         'shared.error',
@@ -139,10 +151,15 @@ i18n.use(initReactI18next).init({
             'entity.profile.schema': enEntityProfileSchema,
             'entity.profile.stats': enEntityProfileStats,
             'entity.profile.summary': enEntityProfileSummary,
+            'entity.profile.timeline': enEntityProfileTimeline,
             'entity.profile.view': enEntityProfileView,
+            'entity.shared.components': enEntitySharedComponents,
             'entity.shared.containers': enEntitySharedContainers,
+            'entity.shared.entityDropdown': enEntitySharedEntityDropdown,
             'entity.types': enEntityTypes,
             'entity.views': enEntityViews,
+            'entityV1.shared.components': enEntityV1SharedComponents,
+            'entityV1.shared.entityDropdown': enEntityV1SharedEntityDropdown,
             'governance.domain': enGovernanceDomain,
             'governance.glossary': enGovernanceGlossary,
             'governance.structured-properties': enGovernanceStructuredProperties,
@@ -160,6 +177,7 @@ i18n.use(initReactI18next).init({
             'settings.posts': enSettingsPosts,
             'settings.preferences': enSettingsPreferences,
             'settings.tokens': enSettingsTokens,
+            search: enSearch,
             'shared.business-attribute': enSharedBusinessAttribute,
             'shared.confirmation': enSharedConfirmation,
             'shared.error': enSharedError,
