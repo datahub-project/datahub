@@ -11,7 +11,6 @@ import { useSearchContext } from '@app/search/context/SearchContext';
 import { useEntityType, useMatchedFieldsForList, useSearchResult } from '@app/search/context/SearchResultContext';
 import { GroupedMatch } from '@app/searchV2/matches/GroupedMatch';
 import { getColumnsTabUrlPath, getMatchedFieldLabel } from '@app/searchV2/matches/utils';
-import { pluralize } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { MatchedField } from '@types';
@@ -122,7 +121,10 @@ export const MatchedFieldList = ({ customFieldRenderer, matchSuffix }: Props) =>
                         <MatchContainer>
                             <MatchHeader>
                                 <b>{t('matches.matchedField.matchesLabel')}</b>
-                                {pluralize(groupedMatch.matchedFields.length, label)}
+                                {t('matches.matchedField.fieldLabelCount', {
+                                    count: groupedMatch.matchedFields.length,
+                                    label,
+                                })}
                             </MatchHeader>
                             <MatchText key={groupedMatch.fieldName}>
                                 <GroupedMatch
