@@ -49,6 +49,9 @@ export class DatasetPage extends BasePage {
   readonly businessAttributeOption: Locator;
   readonly addAttributeFromModalBtn: Locator;
 
+  // ── Schema Field Drawer ────────────────────────────────────────────────────
+  readonly fieldDrawer: Locator;
+
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
 
@@ -58,7 +61,7 @@ export class DatasetPage extends BasePage {
     this.datasetName = page.getByTestId('dataset-name');
     this.schemaTab = page.getByTestId('schema-tab');
     this.lineageTab = page.getByTestId('lineage-tab');
-    this.propertiesTab = page.getByTestId('properties-tab');
+    this.propertiesTab = page.getByTestId('Properties-entity-tab-header');
 
     // eslint-disable-next-line playwright/no-raw-locators -- HTML id set by EntityProfileCard; no data-testid equivalent
     this.sidebarGlossarySection = page.locator('#entity-profile-glossary-terms');
@@ -93,6 +96,8 @@ export class DatasetPage extends BasePage {
     this.businessAttributeModalInput = page.getByTestId('business-attribute-modal-input');
     this.businessAttributeOption = page.getByTestId('business-attribute-option');
     this.addAttributeFromModalBtn = page.getByTestId('add-attribute-from-modal-btn');
+
+    this.fieldDrawer = page.getByTestId('schema-field-drawer-content');
   }
 
   // ── Dynamic locators ──────────────────────────────────────────────────────
@@ -179,6 +184,11 @@ export class DatasetPage extends BasePage {
     await this.waitForPageLoad();
   }
 
+  async viewProperties(): Promise<void> {
+    await this.propertiesTab.click();
+    await this.waitForPageLoad();
+  }
+
   async getDatasetName(): Promise<string> {
     return (await this.datasetName.textContent()) || '';
   }
@@ -187,6 +197,16 @@ export class DatasetPage extends BasePage {
     if (await this.modalCloseButton.isVisible()) {
       await this.modalCloseButton.click();
     }
+  }
+
+  async clickSchemaFieldByName(fieldName: string): Promise<void> {
+    this.logger?.step('clickSchemaFieldByName', { fieldName });
+    await this.page.getByText(fieldName, { exact: true }).click();
+  }
+
+  async waitForFieldDrawer(timeout: number = 15000): Promise<void> {
+    this.logger?.step('waitForFieldDrawer');
+    await this.fieldDrawer.waitFor({ state: 'visible', timeout });
   }
 
   async clickSchemaField(fieldName: string): Promise<void> {

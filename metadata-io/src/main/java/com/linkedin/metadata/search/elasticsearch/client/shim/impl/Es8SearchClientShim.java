@@ -558,7 +558,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     if (aggregations == null) {
       return Collections.emptyMap();
     }
-    JsonNode mappings = objectMapper.readTree(aggregations.toString());
+    JsonNode mappings = objectMapper.readTree(normalizeQueryJson(aggregations.toString()));
     return mappings.properties().stream()
         .collect(
             Collectors.toMap(
@@ -1875,6 +1875,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                 jacksonJsonpMapper));
   }
 
+  /** Normalizes legacy OpenSearch HLRC JSON (queries, rescores, aggregations) for ES 8.18+. */
   private String normalizeQueryJson(String jsonString) {
     try {
       return LegacyRangeQueryNormalizer.normalize(jsonString, objectMapper);

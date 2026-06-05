@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import {
     DATE_TYPE_URN,
     NUMBER_TYPE_URN,
@@ -46,59 +48,91 @@ export type StructuredProp = {
 export const valueTypes = [
     {
         urn: STRING_TYPE_URN,
-        label: 'Text',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.textLabel');
+        },
         value: 'string',
         cardinality: PropertyCardinality.Single,
-        description: 'A string value',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.textDescription');
+        },
     },
     {
         urn: STRING_TYPE_URN,
-        label: 'Text - List',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.textListLabel');
+        },
         value: 'stringList',
         cardinality: PropertyCardinality.Multiple,
-        description: 'A list of string values',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.textListDescription');
+        },
     },
     {
         urn: NUMBER_TYPE_URN,
-        label: 'Number',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.numberLabel');
+        },
         value: 'number',
         cardinality: PropertyCardinality.Single,
-        description: 'An integer or decimal',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.numberDescription');
+        },
     },
     {
         urn: NUMBER_TYPE_URN,
-        label: 'Number - List',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.numberListLabel');
+        },
         value: 'numberList',
         cardinality: PropertyCardinality.Multiple,
-        description: 'A list of integers or decimals',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.numberListDescription');
+        },
     },
     {
         urn: URN_TYPE_URN,
-        label: 'Entity',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.entityLabel');
+        },
         value: 'entity',
         cardinality: PropertyCardinality.Single,
-        description: 'A reference to a DataHub asset',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.entityDescription');
+        },
     },
     {
         urn: URN_TYPE_URN,
-        label: 'Entity - List',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.entityListLabel');
+        },
         value: 'entityList',
         cardinality: PropertyCardinality.Multiple,
-        description: 'A reference to a list of DataHub assets',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.entityListDescription');
+        },
     },
     {
         urn: RICH_TEXT_TYPE_URN,
-        label: 'Rich Text',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.richTextLabel');
+        },
         value: 'richText',
         cardinality: PropertyCardinality.Single,
-        description: 'A freeform string of markdown text ',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.richTextDescription');
+        },
     },
     {
         urn: DATE_TYPE_URN,
-        label: 'Date',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.dateLabel');
+        },
         value: 'date',
         cardinality: PropertyCardinality.Single,
-        description: 'A specific date',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.dateDescription');
+        },
     },
 ];
 

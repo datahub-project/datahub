@@ -19,7 +19,6 @@ import io.opentelemetry.api.trace.StatusCode;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -37,8 +36,6 @@ import org.slf4j.MDC;
 @Slf4j
 public class MCLBatchKafkaListener
     extends AbstractKafkaListener<MetadataChangeLog, MetadataChangeLogHook, GenericRecord> {
-
-  private static final String WILDCARD = "*";
 
   @Override
   @Nonnull
@@ -61,11 +58,7 @@ public class MCLBatchKafkaListener
 
   @Override
   protected boolean shouldSkipProcessing(MetadataChangeLog event) {
-    String entityType = event.hasEntityType() ? event.getEntityType() : null;
-    String aspectName = event.hasAspectName() ? event.getAspectName() : null;
-
-    return aspectsToDrop.getOrDefault(entityType, Collections.emptySet()).contains(aspectName)
-        || aspectsToDrop.getOrDefault(WILDCARD, Collections.emptySet()).contains(aspectName);
+    return MCLKafkaListener.shouldSkipMcl(event, aspectsToDrop);
   }
 
   @Override
@@ -144,10 +137,15 @@ public class MCLBatchKafkaListener
       systemOperationContext
           .getMetricUtils()
           .ifPresent(
-              metricUtils -> {
-                long queueTimeMs = System.currentTimeMillis() - consumerRecord.timestamp();
-                metricUtils.histogram(this.getClass(), "kafkaLag", queueTimeMs);
-              });
+              metricUtils ->
+                  MetricUtils.recordInboundMessageQueueLag(
+                      metricUtils,
+                      this.getClass(),
+                      consumerRecord.topic(),
+                      consumerGroupId,
+                      consumerRecord.timestamp(),
+                      MetricUtils.MESSAGING_SYSTEM_KAFKA,
+                      null));
 
       final GenericRecord record = consumerRecord.value();
 

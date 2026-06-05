@@ -2,6 +2,7 @@ import { Icon } from '@components';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Typography } from 'antd';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 const ExploreForEntity = styled.span`
@@ -29,14 +30,21 @@ const ReturnKey = styled(Typography.Text)`
 `;
 
 function ViewAllSearchItem({ searchTarget: searchText }: { searchTarget?: string }) {
+    const { t } = useTranslation('search');
     return (
         <ViewAllContainer>
             <ExploreForEntity>
                 <Icon icon={MagnifyingGlass} />
                 <ExploreForEntityText>
-                    View all results for <Typography.Text strong>{searchText}</Typography.Text>
+                    <Trans
+                        t={t}
+                        i18nKey="viewAllResultsFor"
+                        values={{ searchText }}
+                        components={{ strong: <Typography.Text strong /> }}
+                    />
                 </ExploreForEntityText>
             </ExploreForEntity>
+            {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) keyboard return symbol, UI decoration */}
             <ReturnKey keyboard disabled>
                 ⮐ return
             </ReturnKey>

@@ -362,4 +362,21 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
     // Dataset URN name casing
     assertTrue(config.has("datasetUrnNameCasing"));
   }
+
+  // =================================
+  // pgQueue Config Exposure Tests
+  // =================================
+
+  @Test
+  public void testDoGet_PgQueueDisabled_NoPgQueueSection() throws Exception {
+    configServlet.doGet(request, response);
+
+    String responseContent = responseWriter.toString();
+    JsonNode config = operationContext.getObjectMapper().readValue(responseContent, JsonNode.class);
+
+    assertNotNull(config);
+    assertTrue(
+        !config.has("pgQueue") || config.path("pgQueue").isMissingNode(),
+        "pgQueue section should not be present when pgQueue is disabled");
+  }
 }

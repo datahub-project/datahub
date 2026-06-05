@@ -1,5 +1,6 @@
 import { Divider, Empty } from 'antd';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { BrowseProvider } from '@app/searchV2/sidebar/BrowseContext';
@@ -25,6 +26,7 @@ type Props = {
 };
 
 const PlatformBrowse = ({ visible, collapsed = false, expand, hideSidebar, unhideSidebar }: Props) => {
+    const { t } = useTranslation('search');
     const { error, platformAggregations, retry } = useSidebarPlatforms({
         skip: !visible,
     });
@@ -41,7 +43,7 @@ const PlatformBrowse = ({ visible, collapsed = false, expand, hideSidebar, unhid
 
     return (
         <>
-            {isEmpty && <Empty description="No matching platforms found" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+            {isEmpty && <Empty description={t('sidebar.noMatchingPlatforms')} image={Empty.PRESENTED_IMAGE_SIMPLE} />}
             <BrowsePlatformIcons>
                 {platformAggregations
                     ?.sort((a, b) => b.count - a.count)

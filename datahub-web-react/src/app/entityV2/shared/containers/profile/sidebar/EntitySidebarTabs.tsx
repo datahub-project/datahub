@@ -3,6 +3,7 @@ import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { Tabs } from 'antd';
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
@@ -164,6 +165,7 @@ const TabTextWithTooltip = ({ text, isSelected }: { text: string; isSelected?: b
         }
     }, [text]);
 
+    // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) computed tooltip fallback based on external tab name
     const tooltipText = text === 'Props' ? 'Structured Properties' : text;
 
     return (
@@ -259,6 +261,7 @@ const TabsWrapper = styled.div`
 `;
 
 export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideCollapse }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData } = useEntityData();
     const baseEntity = useBaseEntity<T>();
     const { isClosed, setSidebarClosed } = useContext(EntitySidebarContext);
@@ -294,7 +297,7 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                 {!hideCollapse && (
                     <Tab
                         tab={
-                            <TabIconContainer>
+                            <TabIconContainer data-testid="entity-sidebar-collapse-tab">
                                 <IconWrapper>
                                     <Icon icon={isClosed ? ArrowLineLeft : ArrowLineRight} size="lg" color="inherit" />
                                 </IconWrapper>
@@ -327,13 +330,13 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                                         text={(() => {
                                             switch (name) {
                                                 case 'Summary':
-                                                    return 'Summary';
+                                                    return t('sidebar.tabs.summaryLabel');
                                                 case 'Properties':
-                                                    return 'Props';
+                                                    return t('sidebar.tabs.propsAbbreviation');
                                                 case 'Columns':
-                                                    return 'Columns';
+                                                    return t('sidebar.tabs.columnsLabel');
                                                 case 'Lineage':
-                                                    return 'Lineage';
+                                                    return t('sidebar.tabs.lineageLabel');
                                                 default:
                                                     return name;
                                             }

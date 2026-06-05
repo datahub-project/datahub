@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # full / slim / locked variants (see APP_ENV). Base OS: Wolfi (Chainguard); override via BASE_IMAGE.
 # The full variant has additional deps preinstalled, like a JRE and Oracle client.
 ARG APP_ENV=full
@@ -47,14 +48,6 @@ RUN for f in /usr/bin/unix_chkpwd /usr/sbin/unix_chkpwd; do \
 RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 && \
     ln -sf /usr/bin/python3 /usr/bin/python
 
-ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-ARG PIP_EXTRA_INDEX_URL=""
-ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
-ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
-ENV UV_INDEX_URL=${PIP_MIRROR_URL}
-RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
-    if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
-
 USER datahub
 WORKDIR $HOME
 RUN uv venv --python "${PYTHON_VERSION}"
@@ -64,6 +57,17 @@ ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 # Use the system CA bundle. uv: https://github.com/astral-sh/uv/issues/1474
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+
+ARG UV_PROFILE=default
+ARG DEFAULT_INDEX_URL=""
+ARG EXTRA_INDEX_URLS=""
+RUN --mount=type=bind,source=./docker/snippets/uv,target=/tmp/uv-config \
+    mkdir -p $HOME/.config/uv && \
+    if [ "${UV_PROFILE}" = "custom" ]; then \
+        DEFAULT_INDEX_URL="${DEFAULT_INDEX_URL}" EXTRA_INDEX_URLS="${EXTRA_INDEX_URLS}" bash /tmp/uv-config/generate-config.sh > $HOME/.config/uv/uv.toml; \
+    else \
+        cp /tmp/uv-config/profiles/${UV_PROFILE}.toml $HOME/.config/uv/uv.toml; \
+    fi
 
 FROM python-base AS ingestion-base-slim
 
@@ -143,7 +147,8 @@ USER datahub
 
 # Build bundled venvs using our self-contained script (standard s3 with PySpark)
 WORKDIR /tmp
-RUN ./build_bundled_venvs_unified.sh
+RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    ./build_bundled_venvs_unified.sh
 
 USER datahub
 
@@ -187,7 +192,8 @@ USER datahub
 
 # Build bundled venvs using our self-contained script (s3-slim without PySpark)
 WORKDIR /tmp
-RUN ./build_bundled_venvs_unified.sh
+RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    ./build_bundled_venvs_unified.sh
 
 USER datahub
 
@@ -231,7 +237,8 @@ USER datahub
 
 # Build bundled venvs using our self-contained script (s3-slim without PySpark)
 WORKDIR /tmp
-RUN ./build_bundled_venvs_unified.sh
+RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    ./build_bundled_venvs_unified.sh
 
 USER datahub
 
@@ -284,12 +291,14 @@ COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
 USER datahub
-RUN echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
+COPY --chown=datahub:datahub ./docker/datahub-actions/config-postgres-pgqueue /etc/datahub/actions/system/conf-postgres-pgqueue
 
 USER datahub
 
@@ -303,11 +312,14 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 
 # Install metadata-ingestion with base extras (network enabled, can install more at runtime)
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
   uv pip install -e '/metadata-ingestion/[base,s3,gcs,abs]'
 
 # Install datahub-actions with all extras
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
   uv pip install -e '/datahub-actions/[all]'
+RUN rm -rf $HOME/.config/uv
 
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
@@ -356,12 +368,14 @@ COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
 USER datahub
-RUN echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
+COPY --chown=datahub:datahub ./docker/datahub-actions/config-postgres-pgqueue /etc/datahub/actions/system/conf-postgres-pgqueue
 
 USER datahub
 
@@ -375,11 +389,14 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 
 # Install metadata-ingestion with SLIM extras (no PySpark, network enabled for flexibility)
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
   uv pip install -e '/metadata-ingestion/[base,s3-slim,gcs-slim,abs-slim]'
 
 # Install datahub-actions with all extras
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
   uv pip install -e '/datahub-actions/[all]'
+RUN rm -rf $HOME/.config/uv
 
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
@@ -422,11 +439,13 @@ COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
 USER datahub
 # Install only datahub-actions, NOT metadata-ingestion
-RUN echo "-e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    echo "-e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
+COPY --chown=datahub:datahub ./docker/datahub-actions/config-postgres-pgqueue /etc/datahub/actions/system/conf-postgres-pgqueue
 
 USER datahub
 
@@ -438,7 +457,9 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 
 # Install ONLY datahub-actions into the default venv (not metadata-ingestion)
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
   uv pip install -e '/datahub-actions/[all]'
+RUN rm -rf $HOME/.config/uv
 
 # No uv/pip in the final locked image: build is done; package managers are unnecessary attack surface.
 # Script file avoids Docker RUN treating $v / $sp as empty Docker env vars (see docker/snippets/strip_pip_uv_from_venvs.sh).
