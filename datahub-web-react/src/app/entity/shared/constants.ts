@@ -2,6 +2,10 @@ import i18next from 'i18next';
 
 import { EntityType } from '@types';
 
+// These DEFINE the deprecated raw palettes that the color initiative is migrating away from, so
+// hardcoded hex values here are intentional. Usages are caught via no-restricted-imports; the
+// definitions must remain until all consumers migrate to semantic tokens.
+/* eslint-disable rulesdir/no-hardcoded-colors */
 // TODO(Gabe): integrate this w/ the theme
 export const REDESIGN_COLORS = {
     GREY: '#e5e5e5',
@@ -30,6 +34,7 @@ export const ANTD_GRAY_V2 = {
     8: '#5E666E',
     10: '#1B1E22',
 };
+/* eslint-enable rulesdir/no-hardcoded-colors */
 
 export const EMPTY_MESSAGES = {
     documentation: {
