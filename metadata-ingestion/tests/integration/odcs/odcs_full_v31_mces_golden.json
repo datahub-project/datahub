@@ -350,6 +350,54 @@
     }
 },
 {
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:414c5f1bf6abc06097ccc7d76743d186",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.rule": "true",
+                "odcs.scope": "property",
+                "odcs.rule.name": "email_unique",
+                "odcs.rule.library": "unique"
+            },
+            "type": "FIELD",
+            "fieldAssertion": {
+                "type": "FIELD_METRIC",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
+                "fieldMetricAssertion": {
+                    "field": {
+                        "path": "email",
+                        "type": "",
+                        "nativeType": ""
+                    },
+                    "metric": "UNIQUE_PERCENTAGE",
+                    "operator": "EQUAL_TO",
+                    "parameters": {
+                        "value": {
+                            "value": "100",
+                            "type": "NUMBER"
+                        }
+                    }
+                }
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.customers,PROD)",
     "changeType": "UPSERT",
@@ -628,6 +676,22 @@
     }
 },
 {
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:414c5f1bf6abc06097ccc7d76743d186",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.orders,PROD)",
     "changeType": "UPSERT",
@@ -751,52 +815,6 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:63f899c862dc0c26daac89d73764f6c0",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "odcs.rule": "true",
-                "odcs.scope": "property",
-                "odcs.rule.name": "email_unique",
-                "odcs.rule.library": "unique"
-            },
-            "type": "FIELD",
-            "fieldAssertion": {
-                "type": "FIELD_VALUES",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
-                "fieldValuesAssertion": {
-                    "field": {
-                        "path": "email",
-                        "type": "",
-                        "nativeType": ""
-                    },
-                    "operator": "EQUAL_TO",
-                    "failThreshold": {
-                        "type": "COUNT",
-                        "value": 0
-                    },
-                    "excludeNulls": true
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1705320000000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
     "entityUrn": "urn:li:assertion:87229ac204d2c4e112a306d5ee0a6f39",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -855,22 +873,6 @@
 {
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:ae9dc71043f9fac6a3ba22a08394adf0",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:63f899c862dc0c26daac89d73764f6c0",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

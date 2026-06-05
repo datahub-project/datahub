@@ -17,6 +17,13 @@ source:
         platform: snowflake
         env: PROD
         platform_instance: prod
+      # Use match_any as a catch-all so contracts whose `servers[].server` value
+      # isn't enumerated above still bind to a platform. Omit it to require an
+      # explicit mapping per server.
+      # - server: "*"
+      #   platform: snowflake
+      #   env: PROD
+      #   match_any: true
 
     # Optional knobs — uncomment to override defaults.
     #
@@ -30,6 +37,7 @@ source:
     #   "orders.v1":
     #     - "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.sales.orders,PROD)"
     # follow_symlinks: false                    # follow symlinks when scanning a directory
+    # file_extensions: [".yaml", ".yml", ".odcs.yaml", ".odcs.yml"]  # extensions scanned in a directory
     # max_input_file_bytes: 5242880             # 5 MB; larger files are skipped with a warning
     #
     # Replicate contract-level ownership/tags to every logical dataset on each

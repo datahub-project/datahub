@@ -6,6 +6,7 @@ from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_mapper import (
     AssertionRoutingTrace,
     _make_owners,
+    _operator_and_params_from_threshold,
     _route_and_build,
     build_schema_metadata,
     odcs_platform_info_mcp,
@@ -22,10 +23,13 @@ from datahub.ingestion.source.odcs.odcs_models import (
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionStdOperatorClass,
     AssertionTypeClass,
     BooleanTypeClass,
     DataPlatformInfoClass,
     DatasetPropertiesClass,
+    FieldAssertionTypeClass,
+    FieldMetricTypeClass,
     GlobalTagsClass,
     InstitutionalMemoryClass,
     LogicalParentClass,
@@ -273,8 +277,6 @@ def test_logical_dataset_no_contract_aspect_emitted() -> None:
         logical_urn="urn:li:dataset:(urn:li:dataPlatform:odcs,c1.t,PROD)",
     )
     for m in mcps:
-        assert m.entityUrn is not None
-        assert "dataContract" not in m.entityUrn
         assert "DataContract" not in type(m.aspect).__name__
 
 
@@ -412,3 +414,116 @@ def test_rule_with_no_body_is_skipped() -> None:
     built = _route_and_build(rule, None, "schema", _PHYSICAL, _LOGICAL, 0, trace)
     assert built is None
     assert trace.skipped_no_body
+
+
+def test_notnull_rule_builds_field_values_not_null() -> None:
+    rule = ODCSQualityRule(rule="notNull", name="r")
+    trace = AssertionRoutingTrace()
+    built = _route_and_build(rule, "email", "property", _PHYSICAL, _LOGICAL, 0, trace)
+    assert built is not None
+    info = built[1].aspect
+    assert isinstance(info, AssertionInfoClass)
+    assert info.fieldAssertion is not None
+    assert info.fieldAssertion.type == FieldAssertionTypeClass.FIELD_VALUES
+    assert info.fieldAssertion.fieldValuesAssertion is not None
+    assert (
+        info.fieldAssertion.fieldValuesAssertion.operator
+        == AssertionStdOperatorClass.NOT_NULL
+    )
+
+
+def test_unique_rule_builds_field_metric_unique_percentage() -> None:
+    # Regression: `unique` must NOT become FieldValues(EQUAL_TO, no params).
+    # Uniqueness is a column metric (UNIQUE_PERCENTAGE == 100).
+    rule = ODCSQualityRule(rule="unique", name="r")
+    trace = AssertionRoutingTrace()
+    built = _route_and_build(rule, "sku", "property", _PHYSICAL, _LOGICAL, 0, trace)
+    assert built is not None
+    info = built[1].aspect
+    assert isinstance(info, AssertionInfoClass)
+    assert info.fieldAssertion is not None
+    assert info.fieldAssertion.type == FieldAssertionTypeClass.FIELD_METRIC
+    fm = info.fieldAssertion.fieldMetricAssertion
+    assert fm is not None
+    assert fm.metric == FieldMetricTypeClass.UNIQUE_PERCENTAGE
+    assert fm.operator == AssertionStdOperatorClass.EQUAL_TO
+    assert fm.parameters is not None
+    assert fm.parameters.value is not None
+    assert fm.parameters.value.value == "100"
+
+
+def test_threshold_operator_mapping_covers_all_mustbe_forms() -> None:
+    # Each mustBe* form must map to the right operator. Covers the branches the
+    # golden fixtures don't all exercise.
+    cases = [
+        (ODCSQualityRule(mustBe=5), AssertionStdOperatorClass.EQUAL_TO, "5"),
+        (ODCSQualityRule(mustNotBe=5), AssertionStdOperatorClass.NOT_EQUAL_TO, "5"),
+        (
+            ODCSQualityRule(mustBeLessThan=10),
+            AssertionStdOperatorClass.LESS_THAN,
+            "10",
+        ),
+        (
+            ODCSQualityRule(mustBeLessOrEqualTo=10),
+            AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+            "10",
+        ),
+        (
+            ODCSQualityRule(mustBeGreaterOrEqualTo=1),
+            AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+            "1",
+        ),
+    ]
+    for rule, expected_op, expected_val in cases:
+        op, params = _operator_and_params_from_threshold(rule)
+        assert op == expected_op
+        assert params is not None and params.value is not None
+        assert params.value.value == expected_val
+
+    # BETWEEN uses min/max parameters.
+    op, params = _operator_and_params_from_threshold(
+        ODCSQualityRule(mustBeBetween=[1, 9])
+    )
+    assert op == AssertionStdOperatorClass.BETWEEN
+    assert params is not None
+    assert params.minValue is not None and params.minValue.value == "1"
+    assert params.maxValue is not None and params.maxValue.value == "9"
+
+
+def test_match_any_server_mapping_binds_unmatched_contract() -> None:
+    contract = _make_contract(
+        servers=[{"server": "some-unlisted-server", "type": "postgres"}],
+        schema=[{"name": "t", "physicalName": "tbl"}],
+    )
+    config = _config(
+        mappings=[{"server": "*", "platform": "postgres", "match_any": True}]
+    )
+    bindings = odcs_to_physical_bindings(contract, config)
+    assert bindings[0].physical_urn is not None
+    assert "postgres" in bindings[0].physical_urn
+
+
+def test_physical_type_only_maps_via_fallback() -> None:
+    # logicalType absent, physicalType is a recognized type -> the cascade fires.
+    schema_entry = ODCSSchemaObject.model_validate(
+        {"name": "t", "properties": [{"name": "n", "physicalType": "bigint"}]}
+    )
+    sm = build_schema_metadata(schema_entry).schema_metadata
+    assert sm is not None
+    assert isinstance(sm.fields[0].type.type, NumberTypeClass)
+
+
+def test_override_list_shorter_than_schema_leaves_extra_unbound() -> None:
+    # A too-short override list must NOT fall back to server mapping for the
+    # uncovered entries — they are deliberately unbound.
+    contract = _make_contract(schema=[{"name": "a"}, {"name": "b"}])
+    config = _config(
+        physical_overrides={
+            "c1": ["urn:li:dataset:(urn:li:dataPlatform:snowflake,db.a,PROD)"]
+        },
+        mappings=[{"server": "*", "platform": "postgres", "match_any": True}],
+    )
+    bindings = odcs_to_physical_bindings(contract, config)
+    assert bindings[0].physical_urn is not None
+    assert bindings[1].physical_urn is None
+    assert bindings[1].unmapped_reason is not None

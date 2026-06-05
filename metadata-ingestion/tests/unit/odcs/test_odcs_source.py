@@ -314,6 +314,38 @@ def test_emit_logical_parent_false_skips_physical_aspect(
     assert _aspects_of(workunits, AssertionInfoClass)
 
 
+def test_emit_assertions_false_keeps_logical_parent_drops_assertions(
+    tmp_path: pathlib.Path,
+) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        path=str(contract_file),
+        servers_to_platform=_POSTGRES_MAPPING,
+        emit_assertions=False,
+    )
+    workunits = list(src.get_workunits_internal())
+    assert _aspects_of(workunits, AssertionInfoClass) == []
+    # logicalParent still emitted (binding resolved, flag independent).
+    assert _aspects_of(workunits, LogicalParentClass)
+
+
+def test_platform_info_emitted_once_across_multiple_files(
+    tmp_path: pathlib.Path,
+) -> None:
+    body2 = _VALID_CONTRACT_BODY.replace("id: test-contract-1", "id: test-contract-2")
+    _write(tmp_path / "a.odcs.yaml", _VALID_CONTRACT_BODY)
+    _write(tmp_path / "b.odcs.yaml", body2)
+    src = _make_source(
+        tmp_path, path=str(tmp_path), servers_to_platform=_POSTGRES_MAPPING
+    )
+    workunits = list(src.get_workunits_internal())
+    assert len(_aspects_of(workunits, DataPlatformInfoClass)) == 1
+    # Both contracts were processed.
+    assert src.report.logical_datasets_emitted == 2
+
+
 # ---------------------------------------------------------------------------
 # Soft-delete behavior — scoped to logical odcs Dataset + Assertion only
 # ---------------------------------------------------------------------------

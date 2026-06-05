@@ -130,7 +130,9 @@ class ODCSSourceConfig(EnvConfigMixin):
         default_factory=dict,
         description="Map of ODCS contract `id` to a list of explicit physical DataHub Dataset URNs, "
         "one per `schema[]` entry in order. Bypasses the `servers_to_platform` lookup for the named "
-        "contracts. Use an empty string in the list to leave a given schema entry unbound.",
+        "contracts. Use an empty string to leave a given schema entry unbound. When supplied, the "
+        "list is authoritative: any entry left empty — or omitted by a list shorter than `schema[]` — "
+        "is treated as deliberately unbound and does NOT fall back to `servers_to_platform`.",
     )
     logical_dataset_name_template: str = Field(
         default="{contract_id}.{schema_name}",

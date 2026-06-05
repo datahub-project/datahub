@@ -14,14 +14,14 @@ Rules that carry no executable intent at all are skipped (never fabricated). Whe
 binding resolves, no assertions are emitted at all (strict gating) — the rule count is still
 recorded on the logical dataset via `odcs.qualityRuleCount`.
 
-| ODCS `quality[]` rule                | DataHub aspect                                |
-| ------------------------------------ | --------------------------------------------- |
-| Library `unique` (with `column`)     | `FieldAssertionInfo` + `FieldValuesAssertion` |
-| Library `notNull` (with `column`)    | `FieldAssertionInfo` + `FieldValuesAssertion` |
-| Library `rowCount`                   | `VolumeAssertionInfo`                         |
-| `type: sql` with a non-empty `query` | `SqlAssertionInfo`                            |
-| Anything else with operator or body  | `CustomAssertionInfo` (logic preserved)       |
-| Anything else with no operator/body  | Skipped with a warning                        |
+| ODCS `quality[]` rule                | DataHub aspect                                                             |
+| ------------------------------------ | -------------------------------------------------------------------------- |
+| Library `notNull` (with `column`)    | `FieldAssertionInfo` + `FieldValuesAssertion` (`NOT_NULL`)                 |
+| Library `unique` (with `column`)     | `FieldAssertionInfo` + `FieldMetricAssertion` (`UNIQUE_PERCENTAGE` == 100) |
+| Library `rowCount`                   | `VolumeAssertionInfo`                                                      |
+| `type: sql` with a non-empty `query` | `SqlAssertionInfo`                                                         |
+| Anything else with operator or body  | `CustomAssertionInfo` (logic preserved)                                    |
+| Anything else with no operator/body  | Skipped with a warning                                                     |
 
 :::warning Routing is explicit; nothing is fabricated
 
@@ -78,6 +78,22 @@ to a known DataHub type fall back to `NullType` and are recorded in
 - **Assertions require a physical binding** (strict gating). Quality rules on a contract with
   no resolvable physical dataset produce no assertions; only the `odcs.qualityRuleCount`
   provenance counter is recorded.
+- **Nested-column assertions and field-path resolution.** Field-scoped assertions
+  (`notNull`, `unique`, and property-scoped custom rules) reference the column by the path
+  given in the ODCS contract — `rule.column`, or the dotted property path for nested
+  `properties[]` (e.g. `address.city`). These resolve cleanly for top-level columns. For a
+  nested column to anchor to a field on the **physical** dataset, that dataset must use the
+  same dotted naming; SQL connectors that emit v2-encoded field paths for nested structs will
+  not match, and the assertion will have no field anchor in the UI. Top-level columns (the
+  common case) are unaffected.
+- **Property-level `unique: true` is not yet emitted as an assertion.** Uniqueness expressed
+  via the idiomatic ODCS property flag (`properties[].unique: true`) is currently not
+  materialized; express it as a `quality[]` rule (`rule: unique` with a `column`) to get a
+  `FieldMetricAssertion`. Property-flag support is a planned follow-up.
+- **Disabling `emit_assertions` after a prior run soft-deletes earlier assertions.** If a run
+  with `emit_assertions: true` is followed by one with `emit_assertions: false` (and
+  `state_file_path` set), the assertions from the earlier run fall out of state and are
+  marked removed — expected cleanup, but worth knowing.
 - File loading is capped at 5 MB by default (`max_input_file_bytes`). Larger YAML files
   are skipped with a warning before parsing.
 - Out of scope: SLA, pricing, support channels, `customProperties` → DataHub
@@ -110,7 +126,17 @@ gating). Check `report.physical_bindings_resolved`: if it is `0`, no binding was
 
 Logical Models are in private beta and require the `LOGICAL_MODELS_ENABLED` feature flag
 (off by default). Enable it to view logical datasets and their `logicalParent` links. The
-metadata is still ingested while the flag is off — it just isn't displayed.
+metadata is still ingested while the flag is off — it just isn't displayed. The flag is set
+on the GMS service (for self-hosted OSS, the `LOGICAL_MODELS_ENABLED` environment variable on
+the `datahub-gms` container; on DataHub Cloud, ask your administrator to enable it). The
+source also emits a run-summary warning whenever it produced logical datasets but resolved
+no physical bindings, so a "nothing showed up" run is visible in the ingestion report.
+
+#### Where do the emitted assertions appear?
+
+When a physical binding resolves, assertions are attached to the **physical** dataset — open
+that dataset in the UI and look under its **Quality / Assertions** tab (not the logical
+`odcs` dataset). `report.assertions_emitted` counts how many were produced.
 
 #### My `range`/`freshness`/`<vendor>` quality rule shows up as a Custom Assertion
 

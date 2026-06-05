@@ -1,5 +1,4 @@
 import json
-import time
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple, Type
 
@@ -44,6 +43,8 @@ from datahub.metadata.schema_classes import (
     EnumTypeClass,
     FieldAssertionInfoClass,
     FieldAssertionTypeClass,
+    FieldMetricAssertionClass,
+    FieldMetricTypeClass,
     FieldValuesAssertionClass,
     FieldValuesFailThresholdClass,
     FieldValuesFailThresholdTypeClass,
@@ -92,9 +93,10 @@ _OWNER_ROLE_MAP: Dict[str, str] = {
 # Rule-kind vocabularies recognized by `_route_and_build`. Named here so the
 # membership checks read intentionally and the accepted spellings (camelCase
 # and snake_case, both of which appear in real ODCS documents) live in one
-# place.
-_FIELD_RULE_KINDS = frozenset(("unique", "notNull", "not_null"))
+# place. notNull -> a NOT_NULL FieldValuesAssertion; unique -> a UNIQUE_PERCENTAGE
+# FieldMetricAssertion (uniqueness is a column metric, not a per-row value check).
 _NOT_NULL_RULE_KINDS = frozenset(("notNull", "not_null"))
+_UNIQUE_RULE_KINDS = frozenset(("unique",))
 _VOLUME_RULE_KINDS = frozenset(("rowCount", "row_count"))
 
 # ODCS `logicalType` (and a few common `physicalType` spellings) -> the DataHub
@@ -129,6 +131,8 @@ _LOGICAL_TYPE_MAP: Dict[str, Type] = {
     "object": RecordTypeClass,
     "record": RecordTypeClass,
     "struct": RecordTypeClass,
+    "json": RecordTypeClass,
+    "variant": RecordTypeClass,
     "array": ArrayTypeClass,
     "list": ArrayTypeClass,
     "map": MapTypeClass,
@@ -275,18 +279,36 @@ def odcs_to_physical_bindings(
     for index, schema_entry in enumerate(contract.schema_):
         logical_urn = odcs_to_logical_dataset_urn(contract, schema_entry, config)
 
-        override: Optional[str] = None
-        if overrides is not None and index < len(overrides):
-            override = overrides[index] or None
-        if override:
-            bindings.append(
-                PhysicalBinding(
-                    index=index,
-                    schema_entry=schema_entry,
-                    logical_urn=logical_urn,
-                    physical_urn=override,
+        # When an override list is supplied for this contract, it is
+        # authoritative: it must have one entry per schema[] entry. An empty
+        # string — or an index past the end of a too-short list — means the
+        # author deliberately left this entry unbound, NOT "fall back to
+        # servers_to_platform" (that would silently re-bind entries the author
+        # excluded).
+        if overrides is not None:
+            override = (overrides[index] if index < len(overrides) else "") or None
+            if override:
+                bindings.append(
+                    PhysicalBinding(
+                        index=index,
+                        schema_entry=schema_entry,
+                        logical_urn=logical_urn,
+                        physical_urn=override,
+                    )
                 )
-            )
+            else:
+                bindings.append(
+                    PhysicalBinding(
+                        index=index,
+                        schema_entry=schema_entry,
+                        logical_urn=logical_urn,
+                        physical_urn=None,
+                        unmapped_reason=(
+                            "physical_urn_overrides entry is empty or the override "
+                            "list is shorter than schema[]; left unbound by config"
+                        ),
+                    )
+                )
             continue
 
         physical_name = schema_entry.physicalName or schema_entry.name
@@ -505,7 +527,7 @@ def _institutional_memory_mcp(
     seen: set = set()
     elements: List[InstitutionalMemoryMetadataClass] = []
     defs = list(schema_entry.authoritativeDefinitions or [])
-    for prop in schema_entry.properties or []:
+    for _, prop in _walk_properties(schema_entry.properties):
         defs.extend(prop.authoritativeDefinitions or [])
     for d in defs:
         if not d.url or d.url in seen:
@@ -515,8 +537,11 @@ def _institutional_memory_mcp(
             InstitutionalMemoryMetadataClass(
                 url=d.url,
                 description=d.type or "ODCS authoritative definition",
+                # Fixed epoch (not wall-clock): the link content is stable across
+                # runs, so a fresh timestamp each run would churn the aspect and
+                # cause needless write amplification.
                 createStamp=AuditStampClass(
-                    time=int(time.time() * 1000),
+                    time=0,
                     actor="urn:li:corpuser:datahub",
                 ),
             )
@@ -816,6 +841,48 @@ def _build_field_values_assertion(
     )
 
 
+def _build_field_metric_assertion(
+    rule: ODCSQualityRule,
+    metric: str,
+    operator: str,
+    value: float,
+    dataset_urn: str,
+    column: str,
+    logical_urn: str,
+    scope: str,
+    fallback_index: int,
+) -> Tuple[str, MetadataChangeProposalWrapper]:
+    """Build a FieldMetricAssertion (e.g. uniqueness) against a column.
+
+    Used for ODCS `unique` rules: uniqueness is a column-level metric
+    (UNIQUE_PERCENTAGE == 100), not a per-row value comparison, so it cannot be
+    modeled as a FieldValuesAssertion.
+    """
+    assertion_urn = _stable_assertion_urn(
+        logical_urn=logical_urn,
+        dataset_urn=dataset_urn,
+        rule_name=rule.name,
+        rule_kind="field_metric",
+        column=column,
+        fallback_index=fallback_index,
+    )
+    field_spec = SchemaFieldSpecClass(path=column, type="", nativeType="")
+    info = _assertion_info_template(rule, scope, AssertionTypeClass.FIELD)
+    info.fieldAssertion = FieldAssertionInfoClass(
+        type=FieldAssertionTypeClass.FIELD_METRIC,
+        entity=dataset_urn,
+        fieldMetricAssertion=FieldMetricAssertionClass(
+            field=field_spec,
+            metric=metric,
+            operator=operator,
+            parameters=AssertionStdParametersClass(value=_num(value)),
+        ),
+    )
+    return assertion_urn, MetadataChangeProposalWrapper(
+        entityUrn=assertion_urn, aspect=info
+    )
+
+
 def _build_volume_assertion(
     rule: ODCSQualityRule,
     dataset_urn: str,
@@ -965,15 +1032,25 @@ def _route_and_build(
     rule_type = (rule.type or "").strip().lower()
     rule_label = rule.name or f"<unnamed:{scope}:{index}>"
 
-    if column and rule_kind in _FIELD_RULE_KINDS:
-        operator = (
-            AssertionStdOperatorClass.NOT_NULL
-            if rule_kind in _NOT_NULL_RULE_KINDS
-            else AssertionStdOperatorClass.EQUAL_TO
-        )
+    # Library `notNull` on a column -> FieldValuesAssertion(NOT_NULL).
+    if column and rule_kind in _NOT_NULL_RULE_KINDS:
         return _build_field_values_assertion(
             rule=rule,
-            operator=operator,
+            operator=AssertionStdOperatorClass.NOT_NULL,
+            dataset_urn=dataset_urn,
+            column=column,
+            logical_urn=logical_urn,
+            scope=scope,
+            fallback_index=index,
+        )
+
+    # Library `unique` on a column -> FieldMetricAssertion(UNIQUE_PERCENTAGE == 100).
+    if column and rule_kind in _UNIQUE_RULE_KINDS:
+        return _build_field_metric_assertion(
+            rule=rule,
+            metric=FieldMetricTypeClass.UNIQUE_PERCENTAGE,
+            operator=AssertionStdOperatorClass.EQUAL_TO,
+            value=100,
             dataset_urn=dataset_urn,
             column=column,
             logical_urn=logical_urn,

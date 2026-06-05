@@ -127,6 +127,9 @@ class ODCSSource(Source):
         # `odcs` Dataset and Assertion URNs — never physical datasets.
         self._current_state: Dict[str, Dict[str, List[str]]] = {}
         self._prior_state: Dict[str, Dict[str, List[str]]] = self._load_prior_state()
+        # Logical `odcs` dataset URNs emitted this run, to detect collisions when
+        # two contracts resolve to the same {contract_id}.{schema_name}.
+        self._seen_logical_urns: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ODCSSource":
@@ -564,11 +567,48 @@ class ODCSSource(Source):
         emitted_dataset_urns: List[str] = []
         emitted_assertion_urns: List[str] = []
 
+        # Record state in a finally so that an exception part-way through the
+        # binding loop does not leave _current_state without this file's URNs —
+        # which would make the next run soft-delete everything from the prior run.
+        try:
+            yield from self._emit_bindings(
+                contract,
+                bindings,
+                file_path,
+                source_file,
+                emitted_dataset_urns,
+                emitted_assertion_urns,
+            )
+        finally:
+            self._record_state(file_path, emitted_dataset_urns, emitted_assertion_urns)
+
+    def _emit_bindings(
+        self,
+        contract: ODCSContract,
+        bindings: list,
+        file_path: pathlib.Path,
+        source_file: str,
+        emitted_dataset_urns: List[str],
+        emitted_assertion_urns: List[str],
+    ) -> Iterable[MetadataWorkUnit]:
         for binding in bindings:
             schema_entry = binding.schema_entry
             logical_urn = binding.logical_urn
             self.report.logical_datasets_emitted += 1
             emitted_dataset_urns.append(logical_urn)
+
+            if logical_urn in self._seen_logical_urns:
+                self.report.warning(
+                    title="Duplicate logical ODCS dataset URN",
+                    message=(
+                        "Two ODCS schema entries resolved to the same logical "
+                        "dataset URN; their aspects collide (last-writer-wins). "
+                        "Use distinct contract `id`/schema names or set "
+                        "logical_dataset_name_template to include {contract_version}."
+                    ),
+                    context=f"file={file_path} urn={logical_urn}",
+                )
+            self._seen_logical_urns.add(logical_urn)
 
             logical_mcps, unmapped_types = odcs_to_logical_dataset_mcps(
                 contract=contract,
@@ -639,8 +679,6 @@ class ODCSSource(Source):
                     yield mcp.as_workunit()
                 emitted_assertion_urns.extend(assertion_urns)
 
-        self._record_state(file_path, emitted_dataset_urns, emitted_assertion_urns)
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Register the `odcs` platform once per run (no boot-time registry entry).
         yield odcs_platform_info_mcp().as_workunit()
@@ -658,6 +696,27 @@ class ODCSSource(Source):
                 )
                 self.report.files_skipped.append(str(file_path))
                 self.report.contracts_skipped += 1
+
+        # Surface the silent-by-default case: logical datasets were emitted but
+        # nothing bound to a physical dataset. With no binding there are no
+        # assertions, and the logical `odcs` datasets only render once the
+        # LOGICAL_MODELS_ENABLED feature flag is enabled (off by default in OSS),
+        # so the run can otherwise look like it did nothing.
+        if (
+            self.report.logical_datasets_emitted > 0
+            and self.report.physical_bindings_resolved == 0
+        ):
+            self.report.warning(
+                title="ODCS emitted logical datasets but resolved no physical bindings",
+                message=(
+                    f"{self.report.logical_datasets_emitted} logical `odcs` dataset(s) "
+                    "were emitted with no physical binding, so no assertions were "
+                    "produced. Logical Models also require the LOGICAL_MODELS_ENABLED "
+                    "feature flag (off by default) to render in the UI. Configure "
+                    "`servers_to_platform` or `physical_urn_overrides` to bind physical "
+                    "datasets and emit assertions."
+                ),
+            )
 
         # End-of-run: diff prior vs. current state and emit Status(removed=true).
         yield from self._emit_soft_deletes()

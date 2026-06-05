@@ -532,6 +532,54 @@
     }
 },
 {
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:10f87102cd8db54340d75e10a1987507",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.rule": "true",
+                "odcs.scope": "property",
+                "odcs.rule.name": "sku_unique",
+                "odcs.rule.library": "unique"
+            },
+            "type": "FIELD",
+            "fieldAssertion": {
+                "type": "FIELD_METRIC",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,products,PROD)",
+                "fieldMetricAssertion": {
+                    "field": {
+                        "path": "sku",
+                        "type": "",
+                        "nativeType": ""
+                    },
+                    "metric": "UNIQUE_PERCENTAGE",
+                    "operator": "EQUAL_TO",
+                    "parameters": {
+                        "value": {
+                            "value": "100",
+                            "type": "NUMBER"
+                        }
+                    }
+                }
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.products,PROD)",
     "changeType": "UPSERT",
@@ -709,6 +757,22 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:10f87102cd8db54340d75e10a1987507",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -942,68 +1006,6 @@
                     "tag": "urn:li:tag:customer-data"
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:c3b50c8958e58395a69dfb209cc67d4e",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:c3b50c8958e58395a69dfb209cc67d4e",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "odcs.rule": "true",
-                "odcs.scope": "property",
-                "odcs.rule.name": "sku_unique",
-                "odcs.rule.library": "unique"
-            },
-            "type": "FIELD",
-            "fieldAssertion": {
-                "type": "FIELD_VALUES",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,products,PROD)",
-                "fieldValuesAssertion": {
-                    "field": {
-                        "path": "sku",
-                        "type": "",
-                        "nativeType": ""
-                    },
-                    "operator": "EQUAL_TO",
-                    "failThreshold": {
-                        "type": "COUNT",
-                        "value": 0
-                    },
-                    "excludeNulls": true
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1705320000000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            }
         }
     },
     "systemMetadata": {
