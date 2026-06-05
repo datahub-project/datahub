@@ -80,7 +80,7 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
-      
+
       # Path 1: Pull images from depot cache (docker-unified non fork trigger)
       - name: Set up Depot CLI
         if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id != '' }}
@@ -93,7 +93,7 @@ jobs:
         run: |
           depot pull --project "${{ vars.DEPOT_PROJECT_ID }}" "$DEPOT_BUILD_ID"
           docker images
-      
+
       # Path 2: Build images in the job
       - name: Build images (fork — no depot cache)
         if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' }}
@@ -108,7 +108,7 @@ jobs:
           read -ra extra_flags <<< "$LOCAL_BUILD_FLAGS"
           ./gradlew "$BUILD_TASK" -Ptag="$DATAHUB_VERSION" "${extra_flags[@]}"
           docker images
-      
+
       # Path 3: Pull images from ECR for given datahub_version (on workflow_dispatch)
       - name: Login to DockerHub
         if: ${{ github.event_name == 'workflow_dispatch' }}
