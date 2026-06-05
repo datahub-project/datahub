@@ -1,5 +1,6 @@
 import { Modal, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import ActionDropdown from '@app/entity/shared/components/styled/search/action/ActionDropdown';
 import SetDataProductModal from '@app/entity/shared/containers/profile/sidebar/DataProduct/SetDataProductModal';
@@ -15,6 +16,9 @@ type Props = {
 
 // eslint-disable-next-line
 export default function DataProductsDropdown({ urns, disabled = false, refetch }: Props) {
+    const { t } = useTranslation('entityV1.shared.components');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
 
@@ -28,9 +32,9 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.loading({ content: 'Loading...', duration: 2 });
+                    message.loading({ content: tf('loading'), duration: 2 });
                     setTimeout(() => {
-                        message.success({ content: 'Removed Data Product!', duration: 2 });
+                        message.success({ content: t('action.dataProduct.removed'), duration: 2 });
                         refetch?.();
                     }, 2000);
                 }
@@ -39,7 +43,7 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to remove assets from Data Product: \n ${e.message || ''}`,
+                        content: t('action.dataProduct.removeError', { message: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -49,25 +53,25 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
     return (
         <>
             <ActionDropdown
-                name="Data Product"
+                name={t('action.dataProduct.name')}
                 actions={[
                     {
-                        title: 'Set Data Product',
+                        title: t('action.dataProduct.set'),
                         onClick: () => {
                             setIsEditModalVisible(true);
                         },
                     },
                     {
-                        title: 'Unset Data Product',
+                        title: t('action.dataProduct.unset'),
                         onClick: () => {
                             Modal.confirm({
-                                title: `If you continue, Data Product will be removed for the selected assets.`,
-                                content: `Are you sure you want to unset Data Product for these assets?`,
+                                title: t('action.dataProduct.unsetConfirmTitle'),
+                                content: t('action.dataProduct.unsetConfirmContent'),
                                 onOk() {
                                     batchUnsetDataProducts();
                                 },
                                 onCancel() {},
-                                okText: 'Yes',
+                                okText: tc('yes'),
                                 maskClosable: true,
                                 closable: true,
                             });
