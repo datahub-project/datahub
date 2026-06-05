@@ -532,7 +532,7 @@ jobs:
         env:
           DOCKER_CACHE: GITHUB
         run: |
-          BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstartDebugConsumers' }}"
+          BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}"
           echo "Using build task: $BUILD_TASK"
           ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
           docker images
@@ -713,7 +713,7 @@ jobs:
         env:
           DOCKER_CACHE: GITHUB
         run: |
-          BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstartDebugConsumers' }}"
+          BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}"
           echo "Using build task: $BUILD_TASK"
           ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
           docker images
@@ -951,7 +951,7 @@ jobs:
         env:
           DOCKER_CACHE: GITHUB
         run: |
-          BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstartDebugConsumers' }}"
+          BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}"
           echo "Using build task: $BUILD_TASK"
           ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
           docker images
@@ -1208,7 +1208,7 @@ jobs:
       shard_count: ${{ matrix.shard_count }}
       test_runner_type: ${{ needs.setup.outputs.test_runner_type }}
       depot_build_id: ${{ needs.setup.outputs.use_depot_cache == 'true' && needs.base_build.outputs.build_id || '' }}
-      image_build_task: ${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstartConsumers' }}
+      image_build_task: ${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}
       local_build_flags: "-PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=acryldata"
       datahub_version: ${{ needs.setup.outputs.tag }}
       profile_name: ${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}
