@@ -690,5 +690,81 @@ class TestLogRecordAttributes:
         assert "REDACTED" in record.stack_info
 
 
+class TestConcurrentExecutions:
+    """Masking must be correct when two executions overlap in one process
+    (the dispatcher runs each execution on its own thread). One execution's
+    teardown must not unmask or wipe another execution that is still running."""
+
+    def setup_method(self):
+        shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+
+    def teardown_method(self):
+        shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+
+    def test_shutdown_of_one_execution_does_not_unmask_another(self):
+        secret_a = "secretA_value_aaaaaa"
+        secret_b = "secretB_value_bbbbbb"
+
+        cap = StringIO()
+        child = logging.getLogger("datahub.ingestion.source.concurrent_test")
+        child.setLevel(logging.INFO)
+        handler = logging.StreamHandler(cap)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        child.addHandler(handler)
+
+        a_ready = threading.Event()
+        b_registered = threading.Event()
+        a_done = threading.Event()
+        result: dict[str, str] = {}
+
+        def execution_a():
+            initialize_secret_masking(force=True)
+            SecretRegistry.get_instance().register_secret("A_TOKEN", secret_a)
+            a_ready.set()
+            b_registered.wait(5)
+            # A finishes and tears down WHILE B is still active.
+            shutdown_secret_masking()
+            a_done.set()
+
+        def execution_b():
+            a_ready.wait(5)
+            initialize_secret_masking(force=True)
+            SecretRegistry.get_instance().register_secret("B_TOKEN", secret_b)
+            b_registered.set()
+            a_done.wait(5)
+            # B logs its secret AFTER A has torn down. It must still be masked.
+            cap.truncate(0)
+            cap.seek(0)
+            child.warning(f"connecting with {secret_b}")
+            result["b_output"] = cap.getvalue()
+            shutdown_secret_masking()
+
+        ta = threading.Thread(target=execution_a)
+        tb = threading.Thread(target=execution_b)
+        ta.start()
+        tb.start()
+        ta.join(10)
+        tb.join(10)
+
+        out = result.get("b_output", "")
+        assert secret_b not in out, f"B's secret leaked after A's teardown: {out!r}"
+        assert "***REDACTED:B_TOKEN***" in out
+
+        try:
+            child.removeHandler(handler)
+        finally:
+            child.handlers.clear()
+
+    def test_secrets_dropped_when_execution_ends(self):
+        # Bounded memory: an execution's secrets are gone after it shuts down.
+        initialize_secret_masking(force=True)
+        SecretRegistry.get_instance().register_secret("X_TOKEN", "value_xyz_123456")
+        assert SecretRegistry.get_instance().get_count() > 0
+        shutdown_secret_masking()
+        assert SecretRegistry.get_instance().get_count() == 0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -92,7 +92,7 @@ def initialize_secret_masking(
     global _bootstrap_completed, _bootstrap_error
 
     # Check if masking is disabled via environment variable
-    from datahub.masking.secret_registry import is_masking_enabled
+    from datahub.masking.secret_registry import _current_exec, is_masking_enabled
 
     if not is_masking_enabled():
         logger.warning(
@@ -102,80 +102,90 @@ def initialize_secret_masking(
         _bootstrap_completed = True  # Mark as completed to avoid repeated warnings
         return
 
-    # Thread-safe initialization: acquire lock for entire operation
+    registry = SecretRegistry.get_instance()
+
+    # The filter + exception hook are installed once for the process lifetime;
+    # they are harmless when no secrets are registered. Only secrets are scoped
+    # per execution (begin_execution below). `force` is accepted for backward
+    # compatibility but no longer gates anything — installation is idempotent.
     with _bootstrap_lock:
-        # Prevent double initialization
-        if _bootstrap_completed and not force:
-            logger.debug("Secret masking already initialized")
-            return
-
-        try:
-            logger.info("Initializing secret masking infrastructure")
-
-            # Get registry
-            registry = SecretRegistry.get_instance()
-
-            # Install logging filter + stdout wrapper
-            install_masking_filter(
-                secret_registry=registry,
-                max_message_size=max_message_size,
-                install_stdout_wrapper=True,
-            )
-
-            # Install custom exception hook to mask unhandled exceptions
-            _install_exception_hook(registry)
-
-            # Configure warnings to use logging
-            logging.captureWarnings(True)
-
-            # Disable HTTP debug output (prevent deadlock)
+        if not _bootstrap_completed:
             try:
-                import http.client
+                logger.info("Initializing secret masking infrastructure")
 
-                http.client.HTTPConnection.debuglevel = 0
-            except Exception:
-                pass
+                # Install logging filter + stdout wrapper (idempotent)
+                install_masking_filter(
+                    secret_registry=registry,
+                    max_message_size=max_message_size,
+                    install_stdout_wrapper=True,
+                )
 
-            # Set HTTP-related loggers to INFO (not DEBUG)
-            for logger_name in [
-                "urllib3",
-                "urllib3.connectionpool",
-                "urllib3.util.retry",
-                "requests",
-            ]:
+                # Install custom exception hook to mask unhandled exceptions
+                _install_exception_hook(registry)
+
+                # Configure warnings to use logging
+                logging.captureWarnings(True)
+
+                # Disable HTTP debug output (prevent deadlock)
                 try:
-                    logging.getLogger(logger_name).setLevel(logging.INFO)
+                    import http.client
+
+                    http.client.HTTPConnection.debuglevel = 0
                 except Exception:
                     pass
 
-            _bootstrap_completed = True
-            _bootstrap_error = None
-            logger.info(
-                "Secret masking infrastructure initialized successfully. "
-                "Secrets will be registered automatically as they are loaded."
-            )
+                # Set HTTP-related loggers to INFO (not DEBUG)
+                for logger_name in [
+                    "urllib3",
+                    "urllib3.connectionpool",
+                    "urllib3.util.retry",
+                    "requests",
+                ]:
+                    try:
+                        logging.getLogger(logger_name).setLevel(logging.INFO)
+                    except Exception:
+                        pass
 
-        except Exception as e:
-            _bootstrap_error = e
-            logger.error(f"Failed to initialize secret masking: {e}", exc_info=True)
-            # Don't raise - graceful degradation
+                _bootstrap_completed = True
+                _bootstrap_error = None
+                logger.info(
+                    "Secret masking infrastructure initialized successfully. "
+                    "Secrets will be registered automatically as they are loaded."
+                )
+            except Exception as e:
+                _bootstrap_error = e
+                logger.error(f"Failed to initialize secret masking: {e}", exc_info=True)
+                return  # Don't raise - graceful degradation
+
+    # Open a secret scope for this execution (idempotent within one context).
+    # Secrets registered after this belong to this execution and are dropped by
+    # the matching shutdown_secret_masking(), without affecting other executions.
+    if _current_exec.get() is None:
+        registry.begin_execution()
 
 
 def shutdown_secret_masking() -> None:
-    """Shutdown secret masking system."""
+    """End the current execution's masking scope.
+
+    Drops only this execution's secrets. If other executions are still running,
+    masking stays installed (their secrets must keep being masked). Only when the
+    last active execution ends do we fully tear down the filter/exception hook.
+    """
     global _bootstrap_completed, _bootstrap_error, _original_excepthook
 
     try:
+        registry = SecretRegistry.get_instance()
+        # Remove this execution's secrets; bail out if others are still active.
+        if registry.end_execution():
+            return
+
+        # Last execution finished — fully tear down.
         uninstall_masking_filter()
 
         # Restore original exception hook
         if _original_excepthook is not None:
             sys.excepthook = _original_excepthook
             _original_excepthook = None
-
-        # Clear registry
-        registry = SecretRegistry.get_instance()
-        registry.clear()
 
         # Reset masking-safe loggers to restore normal logging
         from datahub.masking.logging_utils import reset_masking_safe_loggers
