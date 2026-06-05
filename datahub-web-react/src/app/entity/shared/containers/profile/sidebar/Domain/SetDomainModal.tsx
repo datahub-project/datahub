@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { Button, Empty, Form, Modal, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +11,7 @@ import { handleBatchError } from '@app/entity/shared/utils';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import ClickOutside from '@app/shared/ClickOutside';
 import { DomainLabel } from '@app/shared/DomainLabel';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getModalDomContainer } from '@utils/focus';
@@ -34,18 +34,6 @@ type SelectedDomain = {
     type: EntityType;
     urn: string;
 };
-
-const LoadingWrapper = styled.div`
-    padding: 8px;
-    display: flex;
-    justify-content: center;
-
-    svg {
-        height: 15px;
-        width: 15px;
-        color: ${(props) => props.theme.colors.textSecondary};
-    }
-`;
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -251,9 +239,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                         >
                             {loading ? (
                                 <Select.Option value={LOADING_OPTION_VALUE}>
-                                    <LoadingWrapper>
-                                        <LoadingOutlined />
-                                    </LoadingWrapper>
+                                    <Loader size="xs" padding={8} />
                                 </Select.Option>
                             ) : (
                                 domainSearchOptions

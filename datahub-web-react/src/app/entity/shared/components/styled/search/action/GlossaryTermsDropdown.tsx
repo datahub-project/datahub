@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ActionDropdown from '@app/entity/shared/components/styled/search/action/ActionDropdown';
-import EditTagTermsModal, { OperationType } from '@app/shared/tags/AddTagsTermsModal';
-
-import { EntityType } from '@types';
+import AddTermsModal from '@app/shared/tags/AddTermsModal';
+import { OperationType } from '@app/shared/tags/useBatchTagTermMutation';
 
 type Props = {
     urns: Array<string>;
@@ -41,16 +40,13 @@ export default function GlossaryTermsDropdown({ urns, disabled = false, refetch 
                 disabled={disabled}
             />
             {isEditModalVisible && (
-                <EditTagTermsModal
-                    type={EntityType.GlossaryTerm}
+                <AddTermsModal
                     open
                     onCloseModal={() => {
                         setIsEditModalVisible(false);
                         refetch?.();
                     }}
-                    resources={urns.map((urn) => ({
-                        resourceUrn: urn,
-                    }))}
+                    resources={urns.map((urn) => ({ resourceUrn: urn }))}
                     operationType={operationType}
                 />
             )}

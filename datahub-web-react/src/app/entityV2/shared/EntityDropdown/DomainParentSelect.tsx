@@ -1,4 +1,4 @@
-import { CloseCircleFilled } from '@ant-design/icons';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { Empty, Select } from 'antd';
 import React, { MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,7 @@ import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
 import useParentSelector from '@app/entityV2/shared/EntityDropdown/useParentSelector';
 import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useDomainsContext } from '@src/app/domainV2/DomainsContext';
 
@@ -79,7 +79,7 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
                 autoFocus
                 showSearch
                 allowClear
-                clearIcon={<CloseCircleFilled onClick={handleClear} />}
+                clearIcon={<XCircle weight="fill" onClick={handleClear} />}
                 filterOption={false}
                 defaultActiveFirstOption={false}
                 placeholder={t('domainSelect.placeholder')}
