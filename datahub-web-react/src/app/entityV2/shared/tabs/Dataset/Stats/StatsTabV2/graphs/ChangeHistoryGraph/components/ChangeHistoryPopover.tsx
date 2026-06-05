@@ -17,6 +17,9 @@ import { pluralizeIfIrregular } from '@src/app/shared/textUtil';
 import { OperationType } from '@src/types.generated';
 import dayjs from '@utils/dayjs';
 
+// dayjs format token (localized weekday + date), not user-visible text.
+const DAY_HEADER_FORMAT = 'dddd, MMM DD ’YY';
+
 const Container = styled.div`
     display: flex;
     flex-direction: column;
@@ -151,7 +154,7 @@ export default function ChangeHistoryPopover({
     return (
         <Container data-testid={`day-popover-${datum.key}`}>
             <Text size="sm" color="gray" type="div">
-                {dayjs(datum.day).format('dddd, MMM DD ’YY')}
+                {dayjs(datum.day).format(DAY_HEADER_FORMAT)}
             </Text>
             {renderChanges()}
         </Container>

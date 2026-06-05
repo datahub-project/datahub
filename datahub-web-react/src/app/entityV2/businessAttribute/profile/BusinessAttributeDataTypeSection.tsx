@@ -1,6 +1,7 @@
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Select, message } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SchemaFieldDataType } from '@app/businessAttribute/businessAttributeUtils';
@@ -30,6 +31,7 @@ const SelectWrapper = styled.div`
 // Ensures that any newly added datatype is automatically included in the user dropdown.
 const DATA_TYPES = Object.values(SchemaFieldDataType);
 export const BusinessAttributeDataTypeSection = ({ readOnly }: Props) => {
+    const { t } = useTranslation('entity.types');
     const { urn, entityData } = useEntityData();
     const [originalDescription, setOriginalDescription] = useState<string | null>(null);
     const [isEditing, setEditing] = useState(false);
@@ -53,13 +55,16 @@ export const BusinessAttributeDataTypeSection = ({ readOnly }: Props) => {
             .then(() => {
                 setEditing(false);
                 setOriginalDescription(value);
-                message.success({ content: 'Data Type Updated', duration: 2 });
+                message.success({ content: t('businessAttribute.dataTypeUpdated'), duration: 2 });
                 refetch();
             })
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to update Data Type: \n ${e.message || ''}`, duration: 3 });
+                    message.error({
+                        content: t('businessAttribute.dataTypeUpdateError', { error: e.message || '' }),
+                        duration: 3,
+                    });
                 }
             });
     };
@@ -71,7 +76,7 @@ export const BusinessAttributeDataTypeSection = ({ readOnly }: Props) => {
 
     return (
         <SidebarSection
-            title="Data Type"
+            title={t('businessAttribute.dataTypeLabel')}
             content={
                 <>
                     {originalDescription}
@@ -79,7 +84,7 @@ export const BusinessAttributeDataTypeSection = ({ readOnly }: Props) => {
                         <SelectWrapper>
                             <DataTypeSelect
                                 data-testid="add-data-type-option"
-                                placeholder="A data type for business attribute"
+                                placeholder={t('businessAttribute.dataTypePlaceholder')}
                                 onChange={handleChange}
                             >
                                 {DATA_TYPES.map((dataType: SchemaFieldDataType) => (

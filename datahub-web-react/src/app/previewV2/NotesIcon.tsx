@@ -1,9 +1,8 @@
 import { Popover } from '@components';
 import { CampaignOutlined } from '@mui/icons-material';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-
-import { pluralize } from '@app/shared/textUtil';
 
 import { Post } from '@types';
 
@@ -26,8 +25,9 @@ interface Props {
 }
 
 export default function NotesIcon({ notes, className }: Props) {
+    const { t } = useTranslation('entity.preview');
     return (
-        <Popover content={() => <div>{`${notes.length} ${pluralize(notes.length, 'note')}`}</div>} placement="bottom">
+        <Popover content={() => <div>{t('notesCount', { count: notes.length })}</div>} placement="bottom">
             <IconWrapper count={notes.length} className={className}>
                 <CampaignOutlined fontSize="inherit" />
                 <Count>{notes.length}</Count>

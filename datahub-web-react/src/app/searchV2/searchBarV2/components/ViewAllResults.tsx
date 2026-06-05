@@ -1,6 +1,7 @@
 import { ArrowElbowDownLeft } from '@phosphor-icons/react/dist/csr/ArrowElbowDownLeft';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import KeyIcon from '@app/searchV2/searchBarV2/components/KeyIcon';
@@ -26,15 +27,19 @@ interface Props {
 }
 
 export default function ViewAllResults({ searchText, dataTestId }: Props) {
+    const { t } = useTranslation('search');
+
     return (
         <Container data-testid={dataTestId}>
             <LeftInternalContainer>
                 <MagnifyingGlass size={16} />
                 <Text>
-                    View all results for&nbsp;
-                    <Text type="span" weight="semiBold">
-                        {searchText}
-                    </Text>
+                    <Trans
+                        t={t}
+                        i18nKey="searchBar.viewAllResults"
+                        values={{ query: searchText }}
+                        components={{ bold: <Text type="span" weight="semiBold" /> }}
+                    />
                 </Text>
             </LeftInternalContainer>
             <KeyIcon icon={ArrowElbowDownLeft} />

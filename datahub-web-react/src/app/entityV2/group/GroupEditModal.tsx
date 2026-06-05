@@ -1,6 +1,7 @@
 import { Modal } from '@components';
 import { Form, Input, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useUpdateCorpGroupPropertiesMutation } from '@graphql/group.generated';
 
@@ -30,6 +31,10 @@ export default function GroupEditModal({
     handleTitleUpdate,
     updateName,
 }: Props) {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
+    const { t: tl } = useTranslation('common.labels');
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
     const [form] = Form.useForm();
 
@@ -60,7 +65,7 @@ export default function GroupEditModal({
         })
             .then(() => {
                 message.success({
-                    content: `Changes saved.`,
+                    content: tf('changesSaved'),
                     duration: 3,
                 });
                 onSave(); // call the refetch function once save
@@ -74,7 +79,7 @@ export default function GroupEditModal({
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('shared.saveChangesError', { error: e.message || '' }), duration: 3 });
             });
         handleTitleUpdate(data?.name || '');
         onClose();
@@ -82,18 +87,18 @@ export default function GroupEditModal({
 
     return (
         <Modal
-            title="Edit Profile"
+            title={t('shared.editProfileTitle')}
             open={visible}
             onCancel={onClose}
             dataTestId="group-edit-profile-modal"
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onClose,
                 },
                 {
-                    text: 'Save Changes',
+                    text: tc('saveChanges'),
                     onClick: onSaveChanges,
                     variant: 'filled',
                     disabled: saveButtonEnabled,
@@ -118,7 +123,7 @@ export default function GroupEditModal({
                 }}
             >
                 {canEditGroupName && (
-                    <Form.Item name="name" label={<Typography.Text strong>Name</Typography.Text>}>
+                    <Form.Item name="name" label={<Typography.Text strong>{tl('name')}</Typography.Text>}>
                         <Input
                             data-testid="group-profile-name-input"
                             value={data.name}
@@ -128,11 +133,11 @@ export default function GroupEditModal({
                 )}
                 <Form.Item
                     name="email"
-                    label={<Typography.Text strong>Email</Typography.Text>}
+                    label={<Typography.Text strong>{t('shared.emailLabel')}</Typography.Text>}
                     rules={[
                         {
                             type: 'email',
-                            message: 'Please enter valid email',
+                            message: t('shared.invalidEmailError'),
                         },
                         { whitespace: true },
                         { min: 2, max: 50 },
@@ -141,6 +146,7 @@ export default function GroupEditModal({
                 >
                     <Input
                         data-testid="group-profile-email-input"
+                        // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) example-value placeholder, intentionally English
                         placeholder="engineering@example.com"
                         value={data.email}
                         onChange={(event) => setData({ ...data, email: event.target.value })}
@@ -148,12 +154,13 @@ export default function GroupEditModal({
                 </Form.Item>
                 <Form.Item
                     name="slack"
-                    label={<Typography.Text strong>Slack Channel</Typography.Text>}
+                    label={<Typography.Text strong>{t('group.slackChannelLabel')}</Typography.Text>}
                     rules={[{ whitespace: true }, { min: 2, max: 50 }]}
                     hasFeedback
                 >
                     <Input
                         data-testid="group-profile-slack-input"
+                        // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) example-value placeholder, intentionally English
                         placeholder="#engineering"
                         value={data.slack}
                         onChange={(event) => setData({ ...data, slack: event.target.value })}

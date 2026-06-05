@@ -1,5 +1,6 @@
 import { Tooltip, zIndices } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -90,6 +91,7 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
     connectionName,
     previewData,
 }) => {
+    const { t } = useTranslation('entity.preview');
     const linkProps = useEmbeddedProfileLinkProps();
 
     return (
@@ -109,9 +111,10 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
             </StyledLink>
             {degree !== undefined && (
                 <Tooltip
-                    title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
-                        connectionName || 'the source entity'
-                    }`}
+                    title={t('degreeConnectionTooltip', {
+                        ordinalText: getNumberWithOrdinal(degree),
+                        connectionName: connectionName || t('sourceEntityFallback'),
+                    })}
                 >
                     <DegreeText>{getNumberWithOrdinal(degree)}</DegreeText>
                 </Tooltip>

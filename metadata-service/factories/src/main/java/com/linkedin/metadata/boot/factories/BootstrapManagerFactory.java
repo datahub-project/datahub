@@ -7,10 +7,6 @@ import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
-import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
-import com.linkedin.metadata.boot.steps.MigrateHomePageLinksStep;
-import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
-import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
 import com.linkedin.metadata.config.BootstrapConfigurationSupport;
 import com.linkedin.metadata.entity.EntityService;
@@ -54,27 +50,12 @@ public class BootstrapManagerFactory {
       @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
     final int asyncWorkerThreads =
         BootstrapConfigurationSupport.requireAsyncWorkerThreads(_configurationProvider);
-    final IndexDataPlatformsStep indexDataPlatformsStep =
-        new IndexDataPlatformsStep(_entityService, _entitySearchService);
-    final RestoreDbtSiblingsIndices restoreDbtSiblingsIndices =
-        new RestoreDbtSiblingsIndices(_entityService);
-    final RemoveClientIdAspectStep removeClientIdAspectStep =
-        new RemoveClientIdAspectStep(_entityService);
     final WaitForSystemUpdateStep waitForSystemUpdateStep =
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
-    final MigrateHomePageLinksStep migrateHomePageLinksStep =
-        new MigrateHomePageLinksStep(_entityService, _entitySearchService);
     final List<BootstrapStep> finalSteps =
         new ArrayList<>(
             ImmutableList.of(
-                waitForSystemUpdateStep,
-                removeClientIdAspectStep,
-                restoreDbtSiblingsIndices,
-                indexDataPlatformsStep));
-
-    if (_configurationProvider.getFeatureFlags().isShowHomePageRedesign()) {
-      finalSteps.add(migrateHomePageLinksStep);
-    }
+                waitForSystemUpdateStep));
 
     return new BootstrapManager(finalSteps, asyncWorkerThreads);
   }

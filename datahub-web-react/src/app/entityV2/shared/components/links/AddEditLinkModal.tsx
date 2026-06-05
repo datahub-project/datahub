@@ -52,6 +52,7 @@ export default function AddEditLinkModal({
 }: Props) {
     return (
         <Modal
+            data-testid="add-edit-link-modal"
             title={`${variant === 'create' ? 'Add Link' : 'Edit Link'}`}
             onCancel={onClose}
             footer={
