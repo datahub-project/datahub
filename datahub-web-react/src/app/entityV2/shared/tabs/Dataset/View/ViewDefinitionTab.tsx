@@ -12,6 +12,9 @@ import { DBT_URN } from '@app/ingest/source/builder/constants';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 
+const JUSTIFY_CONTENT_LEFT = 'left';
+const DEFAULT_SYNTAX_LANGUAGE = 'sql';
+
 const InfoSection = styled.div`
     border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 20px;
@@ -91,7 +94,7 @@ export default function ViewDefinitionTab() {
         <>
             <InfoSection>
                 <Typography.Title level={5}>{t('viewDefinitionTab.detailsHeading')}</Typography.Title>
-                <InfoItemContainer justifyContent="left">
+                <InfoItemContainer justifyContent={JUSTIFY_CONTENT_LEFT}>
                     <InfoItem title={t('viewDefinitionTab.materializedLabel')}>
                         <InfoItemContent>
                             {materialized
@@ -117,7 +120,7 @@ export default function ViewDefinitionTab() {
                     <CopyQuery query={showFormatted ? formattedLogic || '' : logic} showCopyText />
                 </ViewHeader>
                 <QueryText>
-                    <NestedSyntax language={language?.toLowerCase() ?? 'sql'}>
+                    <NestedSyntax language={language?.toLowerCase() ?? DEFAULT_SYNTAX_LANGUAGE}>
                         {showFormatted ? formattedLogic : logic}
                     </NestedSyntax>
                 </QueryText>
