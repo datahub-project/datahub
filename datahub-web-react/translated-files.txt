@@ -105,8 +105,6 @@ src/app/identity/user/cacheUtils.ts
 src/app/identity/user/recommendedUsersLocalStorage.ts
 src/app/identity/user/useRoleSelector.ts
 src/app/identity/user/useUserTitle.ts
-src/app/ingest/source/builder/sources.json
-src/app/ingestV2/source/builder/sources.json
 src/app/ingestV2/*.{ts,tsx}
 src/app/ingestV2/executions/**/*.{ts,tsx}
 src/app/ingestV2/hooks/**/*.{ts,tsx}

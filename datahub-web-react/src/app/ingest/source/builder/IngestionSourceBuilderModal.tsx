@@ -18,7 +18,8 @@ function resolveSource(source: SourceConfig): SourceConfig {
     const ns = 'ingest.sources';
     return {
         ...source,
-        displayName: i18next.t(`sources.${key}.displayName`, { ns, defaultValue: source.displayName }),
+        // displayName intentionally NOT translated — source/connector display names are proper
+        // nouns (Athena, BigQuery, Confluence, …) and must stay identical across all languages.
         description: source.description
             ? i18next.t(`sources.${key}.description`, { ns, defaultValue: source.description })
             : source.description,

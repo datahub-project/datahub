@@ -4,25 +4,25 @@ import i18n from 'i18next';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
 
 describe('useIngestionSources', () => {
-    describe('toSourceKey transform (via hook output)', () => {
-        it('converts simple names unchanged', () => {
+    describe('displayName field', () => {
+        // Display names are proper nouns (Athena, BigQuery, …) and must NOT be translated —
+        // they always pass through unchanged from sources.json.
+        it('passes simple display names through unchanged', () => {
             const { result } = renderHook(() => useIngestionSources());
             const bigquery = result.current.ingestionSources.find((s) => s.name === 'bigquery');
             expect(bigquery).toBeDefined();
             expect(bigquery!.displayName).toBe('BigQuery');
         });
 
-        it('converts kebab-case names to camelCase for key lookup', () => {
+        it('passes display names of kebab-case sources through unchanged', () => {
             const { result } = renderHook(() => useIngestionSources());
-            // dbt-cloud → dbtCloud; the translation key sources.dbtCloud.displayName must resolve
             const dbtCloud = result.current.ingestionSources.find((s) => s.name === 'dbt-cloud');
             expect(dbtCloud).toBeDefined();
             expect(dbtCloud!.displayName).toBe('dbt Cloud');
         });
 
-        it('converts multi-segment kebab names correctly', () => {
+        it('passes display names of multi-segment kebab sources through unchanged', () => {
             const { result } = renderHook(() => useIngestionSources());
-            // matillion-dpc → matillionDpc
             const matillion = result.current.ingestionSources.find((s) => s.name === 'matillion-dpc');
             expect(matillion).toBeDefined();
             expect(matillion!.displayName).toBe('Matillion');
@@ -36,9 +36,16 @@ describe('useIngestionSources', () => {
             expect(snowflake!.description).toContain('Snowflake');
         });
 
+        it('resolves description for kebab-case sources via camelCase key lookup', () => {
+            const { result } = renderHook(() => useIngestionSources());
+            // dbt-cloud → dbtCloud; the translation key sources.dbtCloud.description must resolve
+            const dbtCloud = result.current.ingestionSources.find((s) => s.name === 'dbt-cloud');
+            expect(dbtCloud!.description).toContain('dbt cloud');
+        });
+
         it('resolves description for all sources that have one', () => {
             const { result } = renderHook(() => useIngestionSources());
-            // Every source in the v2 sources.json has a description — none should be lost
+            // No source that has a description should lose it during resolution
             const missing = result.current.ingestionSources.filter((s) => s.description === null);
             expect(missing).toHaveLength(0);
         });
@@ -80,15 +87,15 @@ describe('useIngestionSources', () => {
     describe('language reactivity', () => {
         it('re-computes when i18n language changes', async () => {
             const { result, rerender } = renderHook(() => useIngestionSources());
-            const initialDisplayName = result.current.ingestionSources.find((s) => s.name === 'bigquery')!.displayName;
+            const initialDescription = result.current.ingestionSources.find((s) => s.name === 'bigquery')!.description;
 
             await i18n.changeLanguage('de');
             rerender();
 
             // After language change the hook should re-run. In tests the DE locale isn't
             // loaded so it falls back to EN — but the memo must have re-evaluated.
-            const afterDisplayName = result.current.ingestionSources.find((s) => s.name === 'bigquery')!.displayName;
-            expect(afterDisplayName).toBe(initialDisplayName);
+            const afterDescription = result.current.ingestionSources.find((s) => s.name === 'bigquery')!.description;
+            expect(afterDescription).toBe(initialDescription);
 
             // Restore
             await i18n.changeLanguage('en');

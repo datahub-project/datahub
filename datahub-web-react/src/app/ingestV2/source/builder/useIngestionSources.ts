@@ -13,7 +13,8 @@ function resolveSource(source: SourceConfig, t: TFunction<'ingest.sources'>): So
     const key = toSourceKey(source.name);
     return {
         ...source,
-        displayName: t(`sources.${key}.displayName`, { defaultValue: source.displayName }),
+        // displayName intentionally NOT translated — source/connector display names are proper
+        // nouns (Athena, BigQuery, Confluence, …) and must stay identical across all languages.
         description: source.description
             ? t(`sources.${key}.description`, { defaultValue: source.description })
             : source.description,
