@@ -653,7 +653,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.pytest_matrix || '{"include":[]}') }}
-    if: ${{ needs.smoke_test_matrix.outputs.pytest_matrix != '' && needs.smoke_test_matrix.outputs.pytest_matrix != '{"include":[]}' }}
+    if: ${{ !cancelled() && needs.setup.result != 'failed' && needs.smoke_test_matrix.outputs.pytest_matrix != '' && needs.smoke_test_matrix.outputs.pytest_matrix != '{"include":[]}' }}
     env:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
@@ -891,7 +891,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.cypress_matrix || '{"include":[]}') }}
-    if: ${{ needs.smoke_test_matrix.outputs.cypress_matrix != '' && needs.smoke_test_matrix.outputs.cypress_matrix != '{"include":[]}' }}
+    if: ${{ !cancelled() && needs.setup.result != 'failed' && needs.smoke_test_matrix.outputs.cypress_matrix != '' && needs.smoke_test_matrix.outputs.cypress_matrix != '{"include":[]}' }}
     env:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
