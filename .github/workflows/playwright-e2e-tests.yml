@@ -82,7 +82,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   playwright_test:
-    name: Playwright E2E (Shard ${{ matrix.shard }}/${{ matrix.shard_count }})
+    name: Playwright E2E Tests
     needs: [setup]
     strategy:
       fail-fast: false

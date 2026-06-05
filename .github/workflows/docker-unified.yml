@@ -1196,7 +1196,7 @@ jobs:
           retention-days: 5
 
   playwright_test:
-    name: Playwright E2E Tests (Shard ${{ matrix.shard }}/${{ matrix.shard_count }})
+    name: Playwright E2E Tests
     needs: [setup, base_build]
     strategy:
       fail-fast: false
