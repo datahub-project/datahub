@@ -27,7 +27,7 @@ interface Props {
 
 function MoveGlossaryEntityModal(props: Props) {
     const { onClose } = props;
-    const { t } = useTranslation('entityV1.shared.entityDropdown');
+    const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tf } = useTranslation('common.feedback');
     const { urn: entityDataUrn, entityData, entityType } = useEntityData();
@@ -53,7 +53,7 @@ function MoveGlossaryEntityModal(props: Props) {
                 message.loading({ content: tf('updating'), duration: 2 });
                 setTimeout(() => {
                     message.success({
-                        content: t('moveModal.movedSuccess', { entityName: entityRegistry.getEntityName(entityType) }),
+                        content: t('move.success', { entityName: entityRegistry.getEntityName(entityType) }),
                         duration: 2,
                     });
                     refetch();
@@ -77,7 +77,7 @@ function MoveGlossaryEntityModal(props: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: t('moveModal.moveError', { message: e.message || '' }), duration: 3 });
+                message.error({ content: t('move.error', { errorMessage: e.message || '' }), duration: 3 });
             });
         onClose();
     }
@@ -104,11 +104,7 @@ function MoveGlossaryEntityModal(props: Props) {
                 <Form.Item
                     label={
                         <Typography.Text strong>
-                            <Trans
-                                t={t}
-                                i18nKey="moveModal.moveToLabel"
-                                components={{ optional: <OptionalWrapper /> }}
-                            />
+                            <Trans t={t} i18nKey="move.toLabel" components={{ optional: <OptionalWrapper /> }} />
                         </Typography.Text>
                     }
                 >
