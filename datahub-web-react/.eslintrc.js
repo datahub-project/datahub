@@ -331,6 +331,7 @@ module.exports = {
                                   },
                               },
                           ],
+                          'rulesdir/no-manual-pluralize-in-i18n': 'error',
                       },
                   },
               ]

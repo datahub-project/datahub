@@ -1,38 +1,150 @@
-package com.linkedin.metadata.boot.steps;
+package com.linkedin.datahub.upgrade.system.restoreindices.columnlineage;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.InputFields;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.upgrade.UpgradeContext;
+import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.dataset.UpstreamLineage;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.metadata.key.DataHubUpgradeKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.ExtraInfo;
+import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.upgrade.DataHubUpgradeRequest;
+import com.linkedin.upgrade.DataHubUpgradeResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class RestoreColumnLineageIndices extends UpgradeStep {
+public class RestoreColumnLineageIndicesStep implements UpgradeStep {
+
+  // STEP_ID and VERSION must match the values used when this step ran as a GMS boot step.
+  // The idempotency check derives a URN from STEP_ID — changing either value causes all existing
+  // deployments to re-run the migration because the prior completion record won't be found.
+  private static final String STEP_ID = "restore-column-lineage-indices";
   private static final String VERSION = "1";
-  private static final String UPGRADE_ID = "restore-column-lineage-indices";
   private static final Integer BATCH_SIZE = 1000;
 
-  public RestoreColumnLineageIndices(@Nonnull final EntityService<?> entityService) {
-    super(entityService, VERSION, UPGRADE_ID);
+  private final EntityService<?> _entityService;
+  private final Urn _upgradeUrn;
+
+  public RestoreColumnLineageIndicesStep(@Nonnull final EntityService<?> entityService) {
+    _entityService = entityService;
+    _upgradeUrn =
+        EntityKeyUtils.convertEntityKeyToUrn(
+            new DataHubUpgradeKey().setId(STEP_ID), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   }
 
   @Override
-  public void upgrade(@Nonnull OperationContext systemOperationContext) throws Exception {
+  public String id() {
+    return STEP_ID;
+  }
+
+  @Override
+  public boolean isOptional() {
+    return true;
+  }
+
+  @Override
+  public boolean skip(final UpgradeContext context) {
+    try {
+      EntityResponse response =
+          _entityService.getEntityV2(
+              context.opContext(),
+              Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
+              _upgradeUrn,
+              Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME));
+      if (response != null
+          && response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)) {
+        DataMap dataMap =
+            response
+                .getAspects()
+                .get(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)
+                .getValue()
+                .data();
+        DataHubUpgradeRequest request = new DataHubUpgradeRequest(dataMap);
+        if (request.hasVersion() && request.getVersion().equals(VERSION)) {
+          log.info("Step {} version {} already completed. Skipping.", STEP_ID, VERSION);
+          return true;
+        }
+      }
+    } catch (Exception e) {
+      log.error("Error checking upgrade history for {}. Proceeding with upgrade.", STEP_ID, e);
+    }
+    return false;
+  }
+
+  @Override
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
+    return context -> {
+      try {
+        ingestUpgradeRequest(context.opContext());
+        execute(context.opContext());
+        ingestUpgradeResult(context.opContext());
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+      } catch (Exception e) {
+        log.error("Failed to restore column lineage indices", e);
+        _entityService.deleteUrn(context.opContext(), _upgradeUrn);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+      }
+    };
+  }
+
+  private void ingestUpgradeRequest(@Nonnull final OperationContext opContext) throws Exception {
+    final AuditStamp auditStamp =
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(_upgradeUrn);
+    proposal.setEntityType(Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
+    proposal.setAspectName(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME);
+    proposal.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new DataHubUpgradeRequest()
+                .setTimestampMs(System.currentTimeMillis())
+                .setVersion(VERSION)));
+    proposal.setChangeType(com.linkedin.events.metadata.ChangeType.UPSERT);
+    _entityService.ingestProposal(opContext, proposal, auditStamp, false);
+  }
+
+  private void ingestUpgradeResult(@Nonnull final OperationContext opContext) throws Exception {
+    final AuditStamp auditStamp =
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(_upgradeUrn);
+    proposal.setEntityType(Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
+    proposal.setAspectName(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME);
+    proposal.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis())));
+    proposal.setChangeType(com.linkedin.events.metadata.ChangeType.UPSERT);
+    _entityService.ingestProposal(opContext, proposal, auditStamp, false);
+  }
+
+  private void execute(@Nonnull final OperationContext systemOperationContext) throws Exception {
     final AuditStamp auditStamp =
         new AuditStamp()
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
@@ -70,12 +182,6 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
     }
   }
 
-  @Nonnull
-  @Override
-  public ExecutionMode getExecutionMode() {
-    return ExecutionMode.ASYNC;
-  }
-
   private int getAndRestoreUpstreamLineageIndices(
       @Nonnull OperationContext systemOperationContext, int start, AuditStamp auditStamp) {
     final AspectSpec upstreamLineageAspectSpec =
@@ -85,7 +191,7 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
             .getAspectSpec(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
 
     final ListResult<RecordTemplate> latestAspects =
-        entityService.listLatestAspects(
+        _entityService.listLatestAspects(
             systemOperationContext,
             Constants.DATASET_ENTITY_NAME,
             Constants.UPSTREAM_LINEAGE_ASPECT_NAME,
@@ -100,7 +206,6 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
     }
 
     if (latestAspects.getValues().size() != latestAspects.getMetadata().getExtraInfos().size()) {
-      // Bad result -- we should log that we cannot migrate this batch of upstreamLineages.
       log.warn(
           "Failed to match upstreamLineage aspects with corresponding urns. Found mismatched length between aspects ({})"
               + "and metadata ({}) for metadata {}",
@@ -122,7 +227,7 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
       }
 
       futures.add(
-          entityService
+          _entityService
               .alwaysProduceMCLAsync(
                   systemOperationContext,
                   urn,
@@ -165,7 +270,7 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
             .getAspectSpec(Constants.INPUT_FIELDS_ASPECT_NAME);
 
     final ListResult<RecordTemplate> latestAspects =
-        entityService.listLatestAspects(
+        _entityService.listLatestAspects(
             systemOperationContext,
             entityName,
             Constants.INPUT_FIELDS_ASPECT_NAME,
@@ -180,7 +285,6 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
     }
 
     if (latestAspects.getValues().size() != latestAspects.getMetadata().getExtraInfos().size()) {
-      // Bad result -- we should log that we cannot migrate this batch of inputFields.
       log.warn(
           "Failed to match inputFields aspects with corresponding urns. Found mismatched length between aspects ({})"
               + "and metadata ({}) for metadata {}",
@@ -202,7 +306,7 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
       }
 
       futures.add(
-          entityService
+          _entityService
               .alwaysProduceMCLAsync(
                   systemOperationContext,
                   urn,
