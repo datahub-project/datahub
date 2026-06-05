@@ -124,6 +124,7 @@ export const EntityList = ({
                 <PaginationInfoContainer>
                     <PaginationInfo>
                         <Trans
+                            t={t}
                             i18nKey="entity.paginationRange"
                             values={{
                                 start: lastResultIndex > 0 ? ((page as number) - 1) * pageSize + 1 : 0,

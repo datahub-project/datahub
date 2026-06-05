@@ -2,6 +2,7 @@ import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
@@ -12,6 +13,8 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
 
 export default function UpdateDeprecationMenuAction() {
+    const { t } = useTranslation('entity.shared.entityDropdown');
+    const { t: tcf } = useTranslation('common.feedback');
     const { urn, entityData, entityType } = useEntityData();
     const refetchForEntity = useRefetch();
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
@@ -19,7 +22,7 @@ export default function UpdateDeprecationMenuAction() {
     const [updateDeprecation] = useUpdateDeprecationMutation();
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
-        message.loading({ content: 'Updating...' });
+        message.loading({ content: tcf('updating') });
         try {
             await updateDeprecation({
                 variables: {
@@ -32,7 +35,7 @@ export default function UpdateDeprecationMenuAction() {
                 },
             });
             message.destroy();
-            message.success({ content: 'Deprecation Updated', duration: 2 });
+            message.success({ content: t('deprecation.updated'), duration: 2 });
             analytics.event({
                 type: EventType.SetDeprecation,
                 entityUrns: [urn],
@@ -41,7 +44,10 @@ export default function UpdateDeprecationMenuAction() {
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to update Deprecation: \n ${e.message || ''}`, duration: 2 });
+                message.error({
+                    content: t('deprecation.updateError', { errorMessage: e.message || '' }),
+                    duration: 2,
+                });
             }
         }
         refetchForEntity?.();
@@ -52,8 +58,8 @@ export default function UpdateDeprecationMenuAction() {
             placement="bottom"
             title={
                 !entityData?.deprecation?.deprecated
-                    ? `Mark this ${entityRegistry.getEntityName(entityType)} as deprecated`
-                    : `Mark this ${entityRegistry.getEntityName(entityType)} as un-deprecated`
+                    ? t('deprecation.markTooltip', { entityName: entityRegistry.getEntityName(entityType) })
+                    : t('deprecation.markUnTooltip', { entityName: entityRegistry.getEntityName(entityType) })
             }
         >
             <ActionMenuItem

@@ -1,5 +1,6 @@
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -26,6 +27,7 @@ type Props = {
 };
 
 export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
@@ -61,7 +63,7 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
                     },
                 },
             });
-            message.success({ content: 'Owner Removed', duration: 2 });
+            message.success({ content: t('owner.removedSuccess'), duration: 2 });
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,
@@ -79,7 +81,7 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to remove owner: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('owner.removeError', { message: e.message || '' }), duration: 3 });
             }
         }
         refetch?.();
@@ -106,8 +108,8 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
                 isOpen={showRemoveOwnerModal}
                 handleClose={() => setShowRemoveOwnerModal(false)}
                 handleConfirm={onDelete}
-                modalTitle={`Do you want to remove ${name}?`}
-                modalText={`Are you sure you want to remove ${name} as an ${ownershipTypeName} type owner?`}
+                modalTitle={t('owner.removeConfirmTitle', { name })}
+                modalText={t('owner.removeConfirmText', { name, ownershipType: ownershipTypeName })}
             />
         </>
     );
