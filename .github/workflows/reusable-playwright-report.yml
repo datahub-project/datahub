@@ -10,6 +10,8 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -58,16 +60,14 @@ jobs:
 
       - name: Configure AWS credentials for S3 report upload
         uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
-        if: always()
-        continue-on-error: true
+        if: ${{ always() && !cancelled() && env.IS_FORK == 'false' }}
         with:
           role-to-assume: ${{ secrets.PLAYWRIGHT_REPORTS_OSS_ROLE_ARN }}
           aws-region: us-west-2
 
       - name: Publish Playwright report to S3
         id: publish-s3-report
-        if: always()
-        continue-on-error: true
+        if: ${{ always() && !cancelled() && env.IS_FORK == 'false' }}
         env:
           GH_WORKFLOW: ${{ github.workflow }}
           GH_REPOSITORY_OWNER: ${{ github.repository_owner }}
@@ -100,7 +100,7 @@ jobs:
           echo "Published Playwright report to: ${REPORT_URL}"
 
       - name: Add report link to GitHub Summary
-        if: ${{ always() && steps.publish-s3-report.outputs.report_url != '' }}
+        if: ${{ always() && !cancelled() && env.IS_FORK == 'false' && steps.publish-s3-report.outputs.report_url != '' }}
         run: |
           {
             echo "## Playwright HTML Report"
