@@ -319,7 +319,11 @@ Cypress.Commands.add("addViaModal", (text, modelHeader, value, dataTestId) => {
     .first()
     .type(text);
   cy.get(`[data-testid="${dataTestId}"]`).click();
-  cy.contains(value).should("be.visible");
+  // After the modal closes the test may land on the new entity's profile page,
+  // where the entity name appears in multiple DOM nodes (page header, breadcrumbs,
+  // hidden tab panes, self-referencing links). Filter to visible matches before
+  // asserting so an `<a>` inside a `display: none` tab pane doesn't win the lookup.
+  cy.contains(value).filter(":visible").first().should("be.visible");
 });
 
 Cypress.Commands.add(
