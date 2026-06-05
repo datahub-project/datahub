@@ -164,7 +164,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                         <SearchContainer>
                             <InputComponent
                                 label=""
-                                placeholder={tc('common.actions:searchEllipsis')}
+                                placeholder={t('properties.search.placeholder')}
                                 value={searchQuery}
                                 setValue={setSearchQuery}
                                 inputTestId="search-input"

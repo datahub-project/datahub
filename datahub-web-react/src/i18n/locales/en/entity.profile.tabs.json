@@ -52,6 +52,7 @@
     "properties.removed.success": "Structured property removed successfully!",
     "properties.removing.loading": "Removing structured property",
     "properties.save.error": "Unable to save structured property. Something went wrong.",
+    "properties.search.placeholder": "Search...",
     "properties.searchInProperties.placeholder": "Search in properties...",
     "properties.structuredProperty.title": "Structured Property",
     "properties.updated.success": "Successfully updated structured property!"
