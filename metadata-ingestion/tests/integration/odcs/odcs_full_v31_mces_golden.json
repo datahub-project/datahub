@@ -1,17 +1,39 @@
 [
 {
+    "entityType": "dataPlatform",
+    "entityUrn": "urn:li:dataPlatform:odcs",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInfo",
+    "aspect": {
+        "json": {
+            "name": "odcs",
+            "displayName": "Open Data Contract Standard",
+            "type": "OTHERS",
+            "datasetNameDelimiter": "."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
             "customProperties": {
                 "odcs.id": "00000000-0000-0000-0000-000000000002",
+                "odcs.schemaName": "customers",
+                "odcs.qualityRuleCount": "7",
                 "odcs.version": "2.1.0",
                 "odcs.apiVersion": "v3.1.0",
                 "odcs.status": "active",
-                "odcs.tableName": "customers",
+                "odcs.physicalName": "customers",
+                "odcs.sourceFile": "odcs_full_v31.odcs.yaml",
                 "odcs.domain": "customers",
                 "odcs.dataProduct": "customer-360",
                 "odcs.tenant": "acme"
@@ -22,48 +44,126 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:74dafd586ece3b3e8be1d14fd87f4206",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
+        "lastObserved": 1705320000000,
         "runId": "test-odcs-odcs_full_v31_mces.json",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.customers,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "globalTags",
+    "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
-            "tags": [
+            "schemaName": "customers",
+            "platform": "urn:li:dataPlatform:odcs",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
                 {
-                    "tag": "urn:li:tag:finance"
+                    "fieldPath": "id",
+                    "nullable": false,
+                    "description": "Surrogate key.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": true
                 },
                 {
-                    "tag": "urn:li:tag:pii"
+                    "fieldPath": "email",
+                    "nullable": false,
+                    "description": "Primary contact email for the customer.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:pii"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
                 },
                 {
-                    "tag": "urn:li:tag:core"
+                    "fieldPath": "profile",
+                    "nullable": true,
+                    "description": "Nested profile struct.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "object",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "profile.country",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "profile.score",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
         }
     },
     "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:core",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "core"
+        }
+    },
+    "systemMetadata": {
         "lastObserved": 1705338000000,
         "runId": "test-odcs-odcs_full_v31_mces.json",
         "lastRunId": "no-run-id-provided"
@@ -71,7 +171,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -106,44 +206,19 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705338000000,
+        "lastObserved": 1705320000000,
         "runId": "test-odcs-odcs_full_v31_mces.json",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:6fa06a53ec866d9736cd98858e318429",
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:pii",
     "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
+    "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "customProperties": {
-                "odcs.rule": "true",
-                "odcs.scope": "contract",
-                "odcs.rule.name": "customers_have_emails",
-                "odcs.rule.type": "sql"
-            },
-            "type": "SQL",
-            "sqlAssertion": {
-                "type": "METRIC",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
-                "statement": "SELECT COUNT(*) FROM customers WHERE email IS NULL",
-                "operator": "GREATER_THAN",
-                "parameters": {
-                    "value": {
-                        "value": "0",
-                        "type": "NUMBER"
-                    }
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1705338000000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            }
+            "name": "pii"
         }
     },
     "systemMetadata": {
@@ -154,7 +229,49 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:017697814998c33cdcbec7bf94f3c307",
+    "entityUrn": "urn:li:assertion:19524685a7ecce5352f7dd0bd88fe7df",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.rule": "true",
+                "odcs.scope": "schema",
+                "odcs.rule.name": "customers_row_count",
+                "odcs.rule.library": "rowCount"
+            },
+            "type": "VOLUME",
+            "volumeAssertion": {
+                "type": "ROW_COUNT_TOTAL",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
+                "rowCountTotal": {
+                    "operator": "GREATER_THAN_OR_EQUAL_TO",
+                    "parameters": {
+                        "value": {
+                            "value": "100",
+                            "type": "NUMBER"
+                        }
+                    }
+                }
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ae9dc71043f9fac6a3ba22a08394adf0",
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -174,67 +291,21 @@
             "source": {
                 "type": "EXTERNAL",
                 "created": {
-                    "time": 1705338000000,
+                    "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705338000000,
+        "lastObserved": 1705320000000,
         "runId": "test-odcs-odcs_full_v31_mces.json",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:74dafd586ece3b3e8be1d14fd87f4206",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "odcs.rule": "true",
-                "odcs.scope": "property",
-                "odcs.rule.name": "email_unique",
-                "odcs.rule.library": "unique"
-            },
-            "type": "FIELD",
-            "fieldAssertion": {
-                "type": "FIELD_VALUES",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
-                "fieldValuesAssertion": {
-                    "field": {
-                        "path": "email",
-                        "type": "",
-                        "nativeType": ""
-                    },
-                    "operator": "EQUAL_TO",
-                    "failThreshold": {
-                        "type": "COUNT",
-                        "value": 0
-                    },
-                    "excludeNulls": true
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1705338000000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:cf631504add4c87642ece5fcfecb95dd",
+    "entityUrn": "urn:li:assertion:5af3c5c08bd779ef14c2d932a0221073",
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -266,306 +337,21 @@
             "source": {
                 "type": "EXTERNAL",
                 "created": {
-                    "time": 1705338000000,
+                    "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705338000000,
+        "lastObserved": 1705320000000,
         "runId": "test-odcs-odcs_full_v31_mces.json",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "editableSchemaMetadata",
-    "aspect": {
-        "json": {
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "editableSchemaFieldInfo": [
-                {
-                    "fieldPath": "id",
-                    "description": "Surrogate key."
-                },
-                {
-                    "fieldPath": "email",
-                    "description": "Primary contact email for the customer.",
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:pii"
-                            }
-                        ]
-                    }
-                },
-                {
-                    "fieldPath": "profile",
-                    "description": "Nested profile struct."
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:afc162b489dacca3827366fb26c993ca",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:afc162b489dacca3827366fb26c993ca",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "odcs.rule": "true",
-                "odcs.scope": "schema",
-                "odcs.rule.name": "customers_row_count",
-                "odcs.rule.library": "rowCount"
-            },
-            "type": "VOLUME",
-            "volumeAssertion": {
-                "type": "ROW_COUNT_TOTAL",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
-                "rowCountTotal": {
-                    "operator": "GREATER_THAN_OR_EQUAL_TO",
-                    "parameters": {
-                        "value": {
-                            "value": "100",
-                            "type": "NUMBER"
-                        }
-                    }
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1705338000000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataContract",
-    "entityUrn": "urn:li:dataContract:3c48bd0b1e7e5f42560500a3d86623e6",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataContract",
-    "entityUrn": "urn:li:dataContract:3c48bd0b1e7e5f42560500a3d86623e6",
-    "changeType": "UPSERT",
-    "aspectName": "dataContractProperties",
-    "aspect": {
-        "json": {
-            "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
-            "dataQuality": [
-                {
-                    "assertion": "urn:li:assertion:afc162b489dacca3827366fb26c993ca"
-                },
-                {
-                    "assertion": "urn:li:assertion:017697814998c33cdcbec7bf94f3c307"
-                },
-                {
-                    "assertion": "urn:li:assertion:cf631504add4c87642ece5fcfecb95dd"
-                },
-                {
-                    "assertion": "urn:li:assertion:74dafd586ece3b3e8be1d14fd87f4206"
-                },
-                {
-                    "assertion": "urn:li:assertion:1cf32586a6f71355287edff3d8d4526d"
-                },
-                {
-                    "assertion": "urn:li:assertion:4409d80cdcecbe92034f50b71013bda5"
-                },
-                {
-                    "assertion": "urn:li:assertion:6fa06a53ec866d9736cd98858e318429"
-                }
-            ],
-            "rawContract": "apiVersion: v3.1.0\nkind: DataContract\nid: 00000000-0000-0000-0000-000000000002\nname: customers_full\nversion: 2.1.0\nstatus: active\ndomain: customers\ndataProduct: customer-360\ntenant: acme\nfrobozz: 42                       # unknown field \u2014 exercises D5 extras-warning\ndescription:\n  purpose: Customer master records used by the CDP.\n  usage: Joinable to orders and events on customer_id.\n  limitations: Non-PII columns only available outside the data perimeter.\ntags:\n  - finance\n  - pii\nteam:\n  - username: alice\n    role: owner\n  - username: bob\n    role: dataSteward\n  - username: bob\n    role: dataSteward          # exact duplicate \u2013 should dedup\n  - username: carol\n    role: businessOwner\n  - username: dave\n    role: owner\n    dateOut: \"2024-01-01\"      # excluded\n  - username: \"group:platform-team\"\n    role: dataOwner\n  - username: erin\n    role: someUnmappedRole     # falls back to TECHNICAL_OWNER\nservers:\n  - server: prod-postgres\n    type: postgres\n    host: postgres.example.internal\n    port: 5432\n    database: customers_db\n    schema: public\n  - server: prod-snowflake\n    type: snowflake\n    account: acme-prod\n    database: ANALYTICS\n    schema: PUBLIC\nschema:\n  - name: customers\n    physicalName: customers\n    description: Master table of customers.\n    tags:\n      - core\n    properties:\n      - name: id\n        physicalName: id\n        logicalType: number\n        primaryKey: true\n        required: true\n        description: Surrogate key.\n        quality:\n          - name: id_not_null\n            rule: notNull\n      - name: email\n        physicalName: email\n        logicalType: string\n        required: true\n        tags:\n          - pii\n        classification: confidential\n        description: Primary contact email for the customer.\n        quality:\n          - name: email_unique\n            rule: unique\n      - name: profile\n        physicalName: profile\n        logicalType: object\n        description: Nested profile struct.\n        properties:\n          - name: country\n            logicalType: string\n            quality:\n              - name: country_not_null\n                rule: notNull\n          - name: score\n            logicalType: number\n            quality:\n              - name: score_in_range\n                rule: range          # unknown library \u2014 falls through to CustomAssertion\n                mustBeBetween: [0, 100]\n    quality:\n      - name: customers_row_count\n        rule: rowCount\n        mustBeGreaterOrEqualTo: 100\n      - name: customers_row_count_not_in_range\n        rule: rowCount\n        mustNotBeBetween: [1, 10]      # exercises D6 routing-to-custom\n  - name: orders\n    physicalName: orders\n    description: Order events.\n    properties:\n      - name: order_id\n        logicalType: number\n        primaryKey: true\n      - name: customer_id\n        logicalType: number\nquality:\n  - name: customers_have_emails\n    type: sql\n    query: SELECT COUNT(*) FROM customers WHERE email IS NULL\n    mustBeGreaterThan: 0\n"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "odcs.id": "00000000-0000-0000-0000-000000000002",
-                "odcs.version": "2.1.0",
-                "odcs.apiVersion": "v3.1.0",
-                "odcs.status": "active",
-                "odcs.tableName": "orders",
-                "odcs.domain": "customers",
-                "odcs.dataProduct": "customer-360",
-                "odcs.tenant": "acme"
-            },
-            "name": "customers_full \u2014 orders",
-            "description": "**purpose**: Customer master records used by the CDP.\n\n**usage**: Joinable to orders and events on customer_id.\n\n**limitations**: Non-PII columns only available outside the data perimeter.",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:core",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "core"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:fff86351c421dea2461dcf3d6350f107",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "odcs.rule": "true",
-                "odcs.scope": "contract",
-                "odcs.rule.name": "customers_have_emails",
-                "odcs.rule.type": "sql"
-            },
-            "type": "SQL",
-            "sqlAssertion": {
-                "type": "METRIC",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)",
-                "statement": "SELECT COUNT(*) FROM customers WHERE email IS NULL",
-                "operator": "GREATER_THAN",
-                "parameters": {
-                    "value": {
-                        "value": "0",
-                        "type": "NUMBER"
-                    }
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1705338000000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:alice",
-                    "type": "TECHNICAL_OWNER"
-                },
-                {
-                    "owner": "urn:li:corpuser:bob",
-                    "type": "DATA_STEWARD"
-                },
-                {
-                    "owner": "urn:li:corpuser:carol",
-                    "type": "BUSINESS_OWNER"
-                },
-                {
-                    "owner": "urn:li:corpGroup:platform-team",
-                    "type": "TECHNICAL_OWNER"
-                },
-                {
-                    "owner": "urn:li:corpuser:erin",
-                    "type": "TECHNICAL_OWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -576,227 +362,15 @@
                 },
                 {
                     "tag": "urn:li:tag:pii"
+                },
+                {
+                    "tag": "urn:li:tag:core"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:017697814998c33cdcbec7bf94f3c307",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:4409d80cdcecbe92034f50b71013bda5",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:1cf32586a6f71355287edff3d8d4526d",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "odcs.rule": "true",
-                "odcs.scope": "property",
-                "odcs.rule.name": "country_not_null",
-                "odcs.rule.library": "notNull"
-            },
-            "type": "FIELD",
-            "fieldAssertion": {
-                "type": "FIELD_VALUES",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
-                "fieldValuesAssertion": {
-                    "field": {
-                        "path": "profile.country",
-                        "type": "",
-                        "nativeType": ""
-                    },
-                    "operator": "NOT_NULL",
-                    "failThreshold": {
-                        "type": "COUNT",
-                        "value": 0
-                    },
-                    "excludeNulls": false
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1705338000000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:6fa06a53ec866d9736cd98858e318429",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataContract",
-    "entityUrn": "urn:li:dataContract:69000c3a2f4c11081bd59baf6a2aa97e",
-    "changeType": "UPSERT",
-    "aspectName": "dataContractProperties",
-    "aspect": {
-        "json": {
-            "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)",
-            "dataQuality": [
-                {
-                    "assertion": "urn:li:assertion:fff86351c421dea2461dcf3d6350f107"
-                }
-            ],
-            "rawContract": "apiVersion: v3.1.0\nkind: DataContract\nid: 00000000-0000-0000-0000-000000000002\nname: customers_full\nversion: 2.1.0\nstatus: active\ndomain: customers\ndataProduct: customer-360\ntenant: acme\nfrobozz: 42                       # unknown field \u2014 exercises D5 extras-warning\ndescription:\n  purpose: Customer master records used by the CDP.\n  usage: Joinable to orders and events on customer_id.\n  limitations: Non-PII columns only available outside the data perimeter.\ntags:\n  - finance\n  - pii\nteam:\n  - username: alice\n    role: owner\n  - username: bob\n    role: dataSteward\n  - username: bob\n    role: dataSteward          # exact duplicate \u2013 should dedup\n  - username: carol\n    role: businessOwner\n  - username: dave\n    role: owner\n    dateOut: \"2024-01-01\"      # excluded\n  - username: \"group:platform-team\"\n    role: dataOwner\n  - username: erin\n    role: someUnmappedRole     # falls back to TECHNICAL_OWNER\nservers:\n  - server: prod-postgres\n    type: postgres\n    host: postgres.example.internal\n    port: 5432\n    database: customers_db\n    schema: public\n  - server: prod-snowflake\n    type: snowflake\n    account: acme-prod\n    database: ANALYTICS\n    schema: PUBLIC\nschema:\n  - name: customers\n    physicalName: customers\n    description: Master table of customers.\n    tags:\n      - core\n    properties:\n      - name: id\n        physicalName: id\n        logicalType: number\n        primaryKey: true\n        required: true\n        description: Surrogate key.\n        quality:\n          - name: id_not_null\n            rule: notNull\n      - name: email\n        physicalName: email\n        logicalType: string\n        required: true\n        tags:\n          - pii\n        classification: confidential\n        description: Primary contact email for the customer.\n        quality:\n          - name: email_unique\n            rule: unique\n      - name: profile\n        physicalName: profile\n        logicalType: object\n        description: Nested profile struct.\n        properties:\n          - name: country\n            logicalType: string\n            quality:\n              - name: country_not_null\n                rule: notNull\n          - name: score\n            logicalType: number\n            quality:\n              - name: score_in_range\n                rule: range          # unknown library \u2014 falls through to CustomAssertion\n                mustBeBetween: [0, 100]\n    quality:\n      - name: customers_row_count\n        rule: rowCount\n        mustBeGreaterOrEqualTo: 100\n      - name: customers_row_count_not_in_range\n        rule: rowCount\n        mustNotBeBetween: [1, 10]      # exercises D6 routing-to-custom\n  - name: orders\n    physicalName: orders\n    description: Order events.\n    properties:\n      - name: order_id\n        logicalType: number\n        primaryKey: true\n      - name: customer_id\n        logicalType: number\nquality:\n  - name: customers_have_emails\n    type: sql\n    query: SELECT COUNT(*) FROM customers WHERE email IS NULL\n    mustBeGreaterThan: 0\n"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:4409d80cdcecbe92034f50b71013bda5",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "odcs.rule": "true",
-                "odcs.scope": "property",
-                "odcs.rule.name": "score_in_range",
-                "odcs.rule.library": "range"
-            },
-            "type": "CUSTOM",
-            "customAssertion": {
-                "type": "range",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
-                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD),profile.score)",
-                "logic": "score_in_range:property"
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1705338000000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:fff86351c421dea2461dcf3d6350f107",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:cf631504add4c87642ece5fcfecb95dd",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:1cf32586a6f71355287edff3d8d4526d",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_full_v31_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:pii",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "pii"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
+        "lastObserved": 1705320000000,
         "runId": "test-odcs-odcs_full_v31_mces.json",
         "lastRunId": "no-run-id-provided"
     }
@@ -834,17 +408,47 @@
     }
 },
 {
-    "entityType": "dataContract",
-    "entityUrn": "urn:li:dataContract:69000c3a2f4c11081bd59baf6a2aa97e",
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e953809ae59c54641ba4e0eeb419ee2f",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "assertionInfo",
     "aspect": {
         "json": {
-            "removed": false
+            "customProperties": {
+                "odcs.rule": "true",
+                "odcs.scope": "property",
+                "odcs.rule.name": "country_not_null",
+                "odcs.rule.library": "notNull"
+            },
+            "type": "FIELD",
+            "fieldAssertion": {
+                "type": "FIELD_VALUES",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
+                "fieldValuesAssertion": {
+                    "field": {
+                        "path": "profile.country",
+                        "type": "",
+                        "nativeType": ""
+                    },
+                    "operator": "NOT_NULL",
+                    "failThreshold": {
+                        "type": "COUNT",
+                        "value": 0
+                    },
+                    "excludeNulls": false
+                }
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705338000000,
+        "lastObserved": 1705320000000,
         "runId": "test-odcs-odcs_full_v31_mces.json",
         "lastRunId": "no-run-id-provided"
     }
@@ -861,6 +465,519 @@
     },
     "systemMetadata": {
         "lastObserved": 1705338000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:cbf11d667d8e5c11ad9c42cc950d176f",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.rule": "true",
+                "odcs.scope": "property",
+                "odcs.rule.name": "score_in_range",
+                "odcs.rule.library": "range"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "range",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD),profile.score)",
+                "logic": "score_in_range:property"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+        "json": {
+            "parent": {
+                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.customers,PROD)"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "00000000-0000-0000-0000-000000000002",
+                "odcs.schemaName": "orders",
+                "odcs.qualityRuleCount": "1",
+                "odcs.version": "2.1.0",
+                "odcs.apiVersion": "v3.1.0",
+                "odcs.status": "active",
+                "odcs.physicalName": "orders",
+                "odcs.sourceFile": "odcs_full_v31.odcs.yaml",
+                "odcs.domain": "customers",
+                "odcs.dataProduct": "customer-360",
+                "odcs.tenant": "acme"
+            },
+            "name": "customers_full \u2014 orders",
+            "description": "**purpose**: Customer master records used by the CDP.\n\n**usage**: Joinable to orders and events on customer_id.\n\n**limitations**: Non-PII columns only available outside the data perimeter.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "orders",
+            "platform": "urn:li:dataPlatform:odcs",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "order_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "customer_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b07e9f36c35a78a0fdf86f98a48f03aa",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:alice",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:bob",
+                    "type": "DATA_STEWARD"
+                },
+                {
+                    "owner": "urn:li:corpuser:carol",
+                    "type": "BUSINESS_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpGroup:platform-team",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:erin",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b07e9f36c35a78a0fdf86f98a48f03aa",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.rule": "true",
+                "odcs.scope": "contract",
+                "odcs.rule.name": "customers_have_emails",
+                "odcs.rule.type": "sql"
+            },
+            "type": "SQL",
+            "sqlAssertion": {
+                "type": "METRIC",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
+                "statement": "SELECT COUNT(*) FROM customers WHERE email IS NULL",
+                "operator": "GREATER_THAN",
+                "parameters": {
+                    "value": {
+                        "value": "0",
+                        "type": "NUMBER"
+                    }
+                }
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:5af3c5c08bd779ef14c2d932a0221073",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:finance"
+                },
+                {
+                    "tag": "urn:li:tag:pii"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:63f899c862dc0c26daac89d73764f6c0",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.rule": "true",
+                "odcs.scope": "property",
+                "odcs.rule.name": "email_unique",
+                "odcs.rule.library": "unique"
+            },
+            "type": "FIELD",
+            "fieldAssertion": {
+                "type": "FIELD_VALUES",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
+                "fieldValuesAssertion": {
+                    "field": {
+                        "path": "email",
+                        "type": "",
+                        "nativeType": ""
+                    },
+                    "operator": "EQUAL_TO",
+                    "failThreshold": {
+                        "type": "COUNT",
+                        "value": 0
+                    },
+                    "excludeNulls": true
+                }
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:87229ac204d2c4e112a306d5ee0a6f39",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:87229ac204d2c4e112a306d5ee0a6f39",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.rule": "true",
+                "odcs.scope": "contract",
+                "odcs.rule.name": "customers_have_emails",
+                "odcs.rule.type": "sql"
+            },
+            "type": "SQL",
+            "sqlAssertion": {
+                "type": "METRIC",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)",
+                "statement": "SELECT COUNT(*) FROM customers WHERE email IS NULL",
+                "operator": "GREATER_THAN",
+                "parameters": {
+                    "value": {
+                        "value": "0",
+                        "type": "NUMBER"
+                    }
+                }
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ae9dc71043f9fac6a3ba22a08394adf0",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:63f899c862dc0c26daac89d73764f6c0",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+        "json": {
+            "parent": {
+                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.orders,PROD)"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:19524685a7ecce5352f7dd0bd88fe7df",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e953809ae59c54641ba4e0eeb419ee2f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:cbf11d667d8e5c11ad9c42cc950d176f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
         "runId": "test-odcs-odcs_full_v31_mces.json",
         "lastRunId": "no-run-id-provided"
     }

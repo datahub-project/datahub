@@ -1,18 +1,24 @@
 import json
+import time
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, Type
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     datahub_guid,
     make_assertion_urn,
+    make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
     make_group_urn,
     make_tag_urn,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig, ServerMapping
+from datahub.ingestion.source.odcs.odcs_config import (
+    ODCS_PLATFORM,
+    ODCSSourceConfig,
+    ServerMapping,
+)
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSContract,
     ODCSProperty,
@@ -20,32 +26,50 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSSchemaObject,
 )
 from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
     AssertionInfoClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
     AssertionStdParametersClass,
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
+    AuditStampClass,
+    BooleanTypeClass,
+    BytesTypeClass,
     CustomAssertionInfoClass,
-    DataContractPropertiesClass,
-    DataQualityContractClass,
+    DataPlatformInfoClass,
     DatasetPropertiesClass,
-    EditableSchemaFieldInfoClass,
-    EditableSchemaMetadataClass,
+    DateTypeClass,
+    EdgeClass,
+    EnumTypeClass,
     FieldAssertionInfoClass,
     FieldAssertionTypeClass,
     FieldValuesAssertionClass,
     FieldValuesFailThresholdClass,
     FieldValuesFailThresholdTypeClass,
     GlobalTagsClass,
+    InstitutionalMemoryClass,
+    InstitutionalMemoryMetadataClass,
+    LogicalParentClass,
+    MapTypeClass,
+    NullTypeClass,
+    NumberTypeClass,
+    OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    PlatformTypeClass,
+    RecordTypeClass,
     RowCountTotalClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     SchemaFieldSpecClass,
+    SchemaMetadataClass,
     SqlAssertionInfoClass,
     SqlAssertionTypeClass,
+    StringTypeClass,
     TagAssociationClass,
+    TimeTypeClass,
     VolumeAssertionInfoClass,
     VolumeAssertionTypeClass,
 )
@@ -73,23 +97,79 @@ _FIELD_RULE_KINDS = frozenset(("unique", "notNull", "not_null"))
 _NOT_NULL_RULE_KINDS = frozenset(("notNull", "not_null"))
 _VOLUME_RULE_KINDS = frozenset(("rowCount", "row_count"))
 
-
-@dataclass
-class AssertionUrnsByKind:
-    """Assertion URNs grouped by the DataContract sub-aspect they belong to."""
-
-    data_quality: List[str] = field(default_factory=list)
-    schema: List[str] = field(default_factory=list)
-    freshness: List[str] = field(default_factory=list)
+# ODCS `logicalType` (and a few common `physicalType` spellings) -> the DataHub
+# SchemaFieldDataType union member. ODCS logical/physical types are free-form
+# strings, so this is a best-effort mapping; unmapped types fall back to
+# NullType and are surfaced via SchemaBuildResult.unmapped_types rather than
+# silently swallowed (a silent NullType hides real type information).
+_LOGICAL_TYPE_MAP: Dict[str, Type] = {
+    "string": StringTypeClass,
+    "text": StringTypeClass,
+    "varchar": StringTypeClass,
+    "char": StringTypeClass,
+    "uuid": StringTypeClass,
+    "integer": NumberTypeClass,
+    "int": NumberTypeClass,
+    "bigint": NumberTypeClass,
+    "smallint": NumberTypeClass,
+    "long": NumberTypeClass,
+    "number": NumberTypeClass,
+    "numeric": NumberTypeClass,
+    "decimal": NumberTypeClass,
+    "double": NumberTypeClass,
+    "float": NumberTypeClass,
+    "boolean": BooleanTypeClass,
+    "bool": BooleanTypeClass,
+    "date": DateTypeClass,
+    "timestamp": TimeTypeClass,
+    "timestamp_tz": TimeTypeClass,
+    "timestamp_ntz": TimeTypeClass,
+    "datetime": TimeTypeClass,
+    "time": TimeTypeClass,
+    "object": RecordTypeClass,
+    "record": RecordTypeClass,
+    "struct": RecordTypeClass,
+    "array": ArrayTypeClass,
+    "list": ArrayTypeClass,
+    "map": MapTypeClass,
+    "bytes": BytesTypeClass,
+    "binary": BytesTypeClass,
+    "enum": EnumTypeClass,
+}
 
 
 @dataclass
 class UnmappedSchema:
-    """A schema[] entry that could not be bound to a Dataset URN."""
+    """A schema[] entry that could not be bound to a physical Dataset URN.
+
+    Unlike the prior model, an unmapped schema entry is NOT skipped — the
+    logical ODCS dataset is still emitted. This record only signals that no
+    physical binding (and therefore no `logicalParent` link or assertions) was
+    produced for the entry.
+    """
 
     index: int
     schema_entry: ODCSSchemaObject
     reason: str
+
+
+@dataclass
+class PhysicalBinding:
+    """Resolution result for one `schema[]` entry's physical dataset."""
+
+    index: int
+    schema_entry: ODCSSchemaObject
+    logical_urn: str
+    physical_urn: Optional[str]
+    unmapped_reason: Optional[str] = None
+
+
+@dataclass
+class SchemaBuildResult:
+    """Result of building canonical `schemaMetadata` for a schema entry."""
+
+    schema_metadata: Optional[SchemaMetadataClass]
+    unmapped_types: List[str] = field(default_factory=list)
 
 
 def _description_to_str(description: object) -> Optional[str]:
@@ -109,12 +189,61 @@ def _description_to_str(description: object) -> Optional[str]:
     return None
 
 
+# ----------------------------------------------------------------------------
+# Platform registration
+# ----------------------------------------------------------------------------
+
+
+def odcs_platform_info_mcp() -> MetadataChangeProposalWrapper:
+    """Register the `odcs` data platform at runtime.
+
+    ODCS has no boot-time entry in the platform registry, so the source emits a
+    DataPlatformInfo MCP once per run (canonical pattern: confluence_source.py).
+    """
+    return MetadataChangeProposalWrapper(
+        entityUrn=make_data_platform_urn(ODCS_PLATFORM),
+        aspect=DataPlatformInfoClass(
+            name=ODCS_PLATFORM,
+            type=PlatformTypeClass.OTHERS,
+            datasetNameDelimiter=".",
+            displayName="Open Data Contract Standard",
+        ),
+    )
+
+
+# ----------------------------------------------------------------------------
+# URN + binding resolution
+# ----------------------------------------------------------------------------
+
+
+def odcs_to_logical_dataset_urn(
+    contract: ODCSContract,
+    schema_entry: ODCSSchemaObject,
+    config: ODCSSourceConfig,
+) -> str:
+    """Build the logical `odcs` Dataset URN for a `schema[]` entry.
+
+    The name is derived from `logical_dataset_name_template`; the platform is
+    always `odcs`. This URN is the platform-of-record identity ODCS owns.
+    """
+    name = config.logical_dataset_name_template.format(
+        contract_id=contract.id,
+        schema_name=schema_entry.name,
+        contract_version=contract.version or "",
+    )
+    return make_dataset_urn_with_platform_instance(
+        platform=ODCS_PLATFORM,
+        name=name,
+        platform_instance=None,
+        env=config.env,
+    )
+
+
 def _select_server_mapping(
     contract: ODCSContract, mappings: List[ServerMapping]
 ) -> Optional[ServerMapping]:
     if not contract.servers:
-        catch_all = next((m for m in mappings if m.match_any), None)
-        return catch_all
+        return next((m for m in mappings if m.match_any), None)
     for server in contract.servers:
         for mapping in mappings:
             if mapping.match_any:
@@ -124,75 +253,89 @@ def _select_server_mapping(
     return next((m for m in mappings if m.match_any), None)
 
 
-def odcs_to_dataset_urns(
+def odcs_to_physical_bindings(
     contract: ODCSContract, config: ODCSSourceConfig
-) -> Tuple[List[Tuple[ODCSSchemaObject, str]], List[UnmappedSchema]]:
-    """Resolve one Dataset URN per `schema[]` entry (D1 fan-out).
+) -> List[PhysicalBinding]:
+    """Resolve a PhysicalBinding per `schema[]` entry.
 
-    Resolution per entry:
-      1. If `dataset_urn_overrides[contract.id]` is set, use that for the FIRST
-         schema entry only. (The current `dataset_urn_overrides` shape is
-         `Dict[str, str]` — single URN per contract id; widening is deferred.)
-      2. Otherwise, resolve via `servers_to_platform` + `physicalName` (or `name`).
-
-    Returns (bindings, unmapped):
-      - `bindings`: list of (schema_entry, dataset_urn). One per entry that
-        bound successfully. Order matches `contract.schema_`.
-      - `unmapped`: list of UnmappedSchema for entries that did not bind.
-        Caller is expected to emit a warning per entry.
-
-    A contract with no `schema[]` returns ([], []) — caller must handle it as
-    a no-op (no datasets to emit; no warning by itself, since the source-level
-    "no servers mapping" warning may already cover it).
+    Every entry yields a logical ODCS dataset URN. The physical URN is resolved
+    via, in priority order:
+      1. `physical_urn_overrides[contract.id][index]` (empty string = unbound).
+      2. `servers_to_platform` + the entry's `physicalName` (or `name`).
+    When neither resolves, `physical_urn` is None and `unmapped_reason` explains
+    why; the logical dataset is still emitted.
     """
-    bindings: List[Tuple[ODCSSchemaObject, str]] = []
-    unmapped: List[UnmappedSchema] = []
-
+    bindings: List[PhysicalBinding] = []
     if not contract.schema_:
-        return bindings, unmapped
+        return bindings
 
-    override = config.dataset_urn_overrides.get(contract.id)
+    overrides = config.physical_urn_overrides.get(contract.id)
     mapping = _select_server_mapping(contract, config.servers_to_platform)
 
     for index, schema_entry in enumerate(contract.schema_):
-        physical_name = schema_entry.physicalName or schema_entry.name
-        if not physical_name:
-            unmapped.append(
-                UnmappedSchema(
+        logical_urn = odcs_to_logical_dataset_urn(contract, schema_entry, config)
+
+        override: Optional[str] = None
+        if overrides is not None and index < len(overrides):
+            override = overrides[index] or None
+        if override:
+            bindings.append(
+                PhysicalBinding(
                     index=index,
                     schema_entry=schema_entry,
-                    reason="schema entry has no physicalName or name",
+                    logical_urn=logical_urn,
+                    physical_urn=override,
                 )
             )
             continue
 
-        # Override applies only to the first schema entry (D9 — widening deferred).
-        if override and index == 0:
-            bindings.append((schema_entry, override))
-            continue
-
-        if mapping is None:
-            unmapped.append(
-                UnmappedSchema(
+        physical_name = schema_entry.physicalName or schema_entry.name
+        if not physical_name:
+            bindings.append(
+                PhysicalBinding(
                     index=index,
                     schema_entry=schema_entry,
-                    reason=(
-                        "no `dataset_urn_overrides` entry and no matching "
+                    logical_urn=logical_urn,
+                    physical_urn=None,
+                    unmapped_reason="schema entry has no physicalName or name",
+                )
+            )
+            continue
+        if mapping is None:
+            bindings.append(
+                PhysicalBinding(
+                    index=index,
+                    schema_entry=schema_entry,
+                    logical_urn=logical_urn,
+                    physical_urn=None,
+                    unmapped_reason=(
+                        "no `physical_urn_overrides` entry and no matching "
                         "`servers_to_platform` mapping for the contract's servers"
                     ),
                 )
             )
             continue
 
-        dataset_urn = make_dataset_urn_with_platform_instance(
+        physical_urn = make_dataset_urn_with_platform_instance(
             platform=mapping.platform,
             name=physical_name,
             platform_instance=mapping.platform_instance,
             env=mapping.env,
         )
-        bindings.append((schema_entry, dataset_urn))
+        bindings.append(
+            PhysicalBinding(
+                index=index,
+                schema_entry=schema_entry,
+                logical_urn=logical_urn,
+                physical_urn=physical_urn,
+            )
+        )
+    return bindings
 
-    return bindings, unmapped
+
+# ----------------------------------------------------------------------------
+# Shared owner / tag / property helpers
+# ----------------------------------------------------------------------------
 
 
 def _make_tag_associations(
@@ -232,7 +375,9 @@ def _make_owners(contract: ODCSContract) -> List[OwnerClass]:
         if username.startswith(("urn:li:corpuser:", "urn:li:corpGroup:")):
             owner_urn = username
         elif username.startswith("group:"):
-            # `group:` prefix lets a contract author target a group rather than a user.
+            # `group:` is a DataHub-side extension — ODCS has no group principal
+            # (team[].username is "username or email"). Lets a contract author
+            # target a corpGroup rather than a corpUser.
             owner_urn = make_group_urn(username[len("group:") :])
         else:
             owner_urn = make_user_urn(username)
@@ -257,28 +402,153 @@ def _walk_properties(
             yield from _walk_properties(prop.properties, path)
 
 
-def odcs_to_dataset_mcps(
+# ----------------------------------------------------------------------------
+# Canonical schema metadata (the new piece)
+# ----------------------------------------------------------------------------
+
+
+def _map_field_type(prop: ODCSProperty) -> Tuple[SchemaFieldDataTypeClass, bool]:
+    """Map an ODCS property's logical/physical type to a SchemaFieldDataType.
+
+    Returns `(data_type, is_fallback)`. `is_fallback` is True when neither the
+    logicalType nor the physicalType matched a known type and the field fell
+    back to NullType, so the caller can report the gap.
+    """
+    for candidate in (prop.logicalType, prop.physicalType):
+        if not candidate:
+            continue
+        type_cls = _LOGICAL_TYPE_MAP.get(candidate.strip().lower())
+        if type_cls is not None:
+            return SchemaFieldDataTypeClass(type=type_cls()), False
+    return SchemaFieldDataTypeClass(type=NullTypeClass()), True
+
+
+def _native_data_type(prop: ODCSProperty) -> str:
+    """Non-null native type string for a SchemaField.
+
+    Prefers the ODCS physicalType (closest to the warehouse type), then the
+    logicalType, then a stable `unknown` sentinel (the field is required by the
+    schema model and must not be null).
+    """
+    return prop.physicalType or prop.logicalType or "unknown"
+
+
+def build_schema_metadata(
+    schema_entry: ODCSSchemaObject,
+    tag_prefix: Optional[str] = None,
+) -> SchemaBuildResult:
+    """Build canonical `schemaMetadata` from an ODCS `schema[].properties[]` tree.
+
+    Field paths are dotted (`address.street`) to mirror the nested ODCS
+    `properties[]` structure. Descriptions, tags, nullability (from `required`),
+    and key membership (from `primaryKey`) are carried through. Returns no
+    schema metadata when the entry declares no properties.
+    """
+    fields: List[SchemaFieldClass] = []
+    unmapped_types: List[str] = []
+    for field_path, prop in _walk_properties(schema_entry.properties):
+        data_type, is_fallback = _map_field_type(prop)
+        if is_fallback and (prop.logicalType or prop.physicalType):
+            unmapped_types.append(
+                f"{field_path}:{prop.logicalType or prop.physicalType}"
+            )
+        tag_assoc = _make_tag_associations(prop.tags, tag_prefix)
+        fields.append(
+            SchemaFieldClass(
+                fieldPath=field_path,
+                type=data_type,
+                nativeDataType=_native_data_type(prop),
+                description=_description_to_str(prop.description),
+                nullable=not bool(prop.required),
+                isPartOfKey=bool(prop.primaryKey),
+                globalTags=GlobalTagsClass(tags=tag_assoc) if tag_assoc else None,
+                recursive=False,
+            )
+        )
+    if not fields:
+        return SchemaBuildResult(schema_metadata=None, unmapped_types=unmapped_types)
+    return SchemaBuildResult(
+        schema_metadata=SchemaMetadataClass(
+            schemaName=schema_entry.name,
+            platform=make_data_platform_urn(ODCS_PLATFORM),
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=fields,
+        ),
+        unmapped_types=unmapped_types,
+    )
+
+
+# ----------------------------------------------------------------------------
+# Logical dataset aspects
+# ----------------------------------------------------------------------------
+
+
+def _count_quality_rules(schema_entry: ODCSSchemaObject, contract: ODCSContract) -> int:
+    count = len(schema_entry.quality or [])
+    for _, prop in _walk_properties(schema_entry.properties):
+        count += len(prop.quality or [])
+    count += len(contract.quality or [])
+    return count
+
+
+def _institutional_memory_mcp(
+    logical_urn: str, schema_entry: ODCSSchemaObject, contract: ODCSContract
+) -> Optional[MetadataChangeProposalWrapper]:
+    """Link the logical dataset to author-provided authoritativeDefinitions.
+
+    Only author-declared URLs are emitted (deterministic, not tied to the
+    ingesting host's filesystem). The source-file basename is carried in
+    DatasetProperties.customProperties instead.
+    """
+    seen: set = set()
+    elements: List[InstitutionalMemoryMetadataClass] = []
+    defs = list(schema_entry.authoritativeDefinitions or [])
+    for prop in schema_entry.properties or []:
+        defs.extend(prop.authoritativeDefinitions or [])
+    for d in defs:
+        if not d.url or d.url in seen:
+            continue
+        seen.add(d.url)
+        elements.append(
+            InstitutionalMemoryMetadataClass(
+                url=d.url,
+                description=d.type or "ODCS authoritative definition",
+                createStamp=AuditStampClass(
+                    time=int(time.time() * 1000),
+                    actor="urn:li:corpuser:datahub",
+                ),
+            )
+        )
+    if not elements:
+        return None
+    return MetadataChangeProposalWrapper(
+        entityUrn=logical_urn,
+        aspect=InstitutionalMemoryClass(elements=elements),
+    )
+
+
+def odcs_to_logical_dataset_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
-    dataset_urn: str,
+    logical_urn: str,
+    source_file: Optional[str] = None,
     tag_prefix: Optional[str] = None,
     replicate_contract_metadata: bool = True,
-) -> Iterable[MetadataChangeProposalWrapper]:
-    """Emit dataset-level MCPs for one fanned-out (schema_entry, dataset_urn).
+) -> Tuple[List[MetadataChangeProposalWrapper], List[str]]:
+    """Emit the aspects ODCS owns on the logical `odcs` dataset.
 
-    Always emits per-schema-entry data: DatasetProperties (description from the
-    contract; customProperties carry contract+entry identity) and
-    EditableSchemaMetadata (D7 — always Editable).
-
-    `replicate_contract_metadata=False` skips contract-level Ownership and
-    contract-level GlobalTags so manual UI edits to those aspects survive
-    subsequent ingest runs. Per-table data (DatasetProperties,
-    EditableSchemaMetadata) is always written; schema-entry-level tags are
-    always merged into GlobalTags regardless of the flag.
+    Returns `(mcps, unmapped_types)` — the MCPs to emit and any field types that
+    fell back to NullType (for SourceReport telemetry).
     """
+    mcps: List[MetadataChangeProposalWrapper] = []
+
     description = _description_to_str(contract.description)
     custom_props: Dict[str, str] = {
         "odcs.id": contract.id,
+        "odcs.schemaName": schema_entry.name,
+        "odcs.qualityRuleCount": str(_count_quality_rules(schema_entry, contract)),
     }
     if contract.version:
         custom_props["odcs.version"] = contract.version
@@ -287,7 +557,9 @@ def odcs_to_dataset_mcps(
     if contract.status:
         custom_props["odcs.status"] = contract.status
     if schema_entry.physicalName:
-        custom_props["odcs.tableName"] = schema_entry.physicalName
+        custom_props["odcs.physicalName"] = schema_entry.physicalName
+    if source_file:
+        custom_props["odcs.sourceFile"] = source_file
     if contract.domain:
         custom_props["odcs.domain"] = contract.domain
     if contract.dataProduct:
@@ -295,24 +567,31 @@ def odcs_to_dataset_mcps(
     if contract.tenant:
         custom_props["odcs.tenant"] = contract.tenant
 
-    # Display name: prefer "<contract.name> — <schema_entry.name>" when both
-    # exist; degenerate to whichever is set. None is acceptable.
     if contract.name and schema_entry.name:
         display_name: Optional[str] = f"{contract.name} — {schema_entry.name}"
     else:
         display_name = schema_entry.name or contract.name
 
-    yield MetadataChangeProposalWrapper(
-        entityUrn=dataset_urn,
-        aspect=DatasetPropertiesClass(
-            description=description,
-            customProperties=custom_props,
-            name=display_name,
-        ),
+    mcps.append(
+        MetadataChangeProposalWrapper(
+            entityUrn=logical_urn,
+            aspect=DatasetPropertiesClass(
+                description=description,
+                customProperties=custom_props,
+                name=display_name,
+            ),
+        )
     )
 
-    # Tags: contract-level tags only when replicating; schema-entry-level
-    # tags always emit (per-table data).
+    schema_result = build_schema_metadata(schema_entry, tag_prefix)
+    if schema_result.schema_metadata is not None:
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=logical_urn,
+                aspect=schema_result.schema_metadata,
+            )
+        )
+
     contract_tags: List[str] = []
     if replicate_contract_metadata and contract.tags:
         contract_tags.extend(contract.tags)
@@ -320,50 +599,53 @@ def odcs_to_dataset_mcps(
         contract_tags.extend(schema_entry.tags)
     tag_associations = _make_tag_associations(contract_tags, tag_prefix)
     if tag_associations:
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=GlobalTagsClass(tags=tag_associations),
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=logical_urn,
+                aspect=GlobalTagsClass(tags=tag_associations),
+            )
         )
 
     if replicate_contract_metadata:
         owners = _make_owners(contract)
         if owners:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=OwnershipClass(owners=owners),
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=logical_urn,
+                    aspect=OwnershipClass(owners=owners),
+                )
             )
 
-    # EditableSchemaMetadata (D7 — always Editable). Walks this schema entry's
-    # properties only; other schema entries get their own EditableSchemaMetadata
-    # emission against their own dataset URN.
-    field_infos: List[EditableSchemaFieldInfoClass] = []
-    for field_path, prop in _walk_properties(schema_entry.properties):
-        prop_desc = _description_to_str(prop.description)
-        prop_tag_assoc = _make_tag_associations(prop.tags, tag_prefix)
-        if not prop_desc and not prop_tag_assoc:
-            continue
-        field_infos.append(
-            EditableSchemaFieldInfoClass(
-                fieldPath=field_path,
-                description=prop_desc,
-                globalTags=(
-                    GlobalTagsClass(tags=prop_tag_assoc) if prop_tag_assoc else None
-                ),
-            )
-        )
-    if field_infos:
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=EditableSchemaMetadataClass(editableSchemaFieldInfo=field_infos),
-        )
+    inst_mem = _institutional_memory_mcp(logical_urn, schema_entry, contract)
+    if inst_mem is not None:
+        mcps.append(inst_mem)
+
+    return mcps, schema_result.unmapped_types
+
+
+def odcs_to_logical_parent_mcp(
+    physical_urn: str, logical_urn: str
+) -> MetadataChangeProposalWrapper:
+    """Emit the `logicalParent` (PhysicalInstanceOf) link on the physical dataset.
+
+    The aspect lives on the physical dataset and points at the logical ODCS
+    dataset, so ODCS never becomes platform-of-record for the physical asset.
+    """
+    return MetadataChangeProposalWrapper(
+        entityUrn=physical_urn,
+        aspect=LogicalParentClass(parent=EdgeClass(destinationUrn=logical_urn)),
+    )
+
+
+# ----------------------------------------------------------------------------
+# Assertions (target-agnostic builders, carried over from the prior model)
+# ----------------------------------------------------------------------------
 
 
 def _num(v: object) -> AssertionStdParameterClass:
     """Normalize a numeric threshold to a stable string form.
 
     Both `5` (int) and `5.0` (float) render as `"5"`; `5.5` renders as `"5.5"`.
-    Single coercion path so `mustBe`, `mustBeGreaterThan`, etc. all hit the
-    same string.
     """
     return AssertionStdParameterClass(
         value=f"{float(v):g}",  # type: ignore[arg-type]
@@ -376,9 +658,9 @@ def _operator_and_params_from_threshold(
 ) -> Tuple[Optional[str], Optional[AssertionStdParametersClass]]:
     """Translate an ODCS `mustBe*` threshold into a DataHub operator + parameters.
 
-    Returns `(operator, parameters)` for a natively-modeled threshold, or
-    `(None, None)` when no native operator applies — either because no threshold
-    is provided or because it is an unmappable one such as `mustNotBeBetween`.
+    Returns `(None, None)` when no native operator applies — either because no
+    threshold is provided or because it is an unmappable one such as
+    `mustNotBeBetween`.
     """
     if rule.mustBeBetween and len(rule.mustBeBetween) == 2:
         return AssertionStdOperatorClass.BETWEEN, AssertionStdParametersClass(
@@ -386,8 +668,6 @@ def _operator_and_params_from_threshold(
             maxValue=_num(rule.mustBeBetween[1]),
         )
     if rule.mustNotBeBetween and len(rule.mustNotBeBetween) == 2:
-        # No NOT_BETWEEN operator; the caller routes this to a
-        # CustomAssertionInfo with an explicit `logic` string (D6).
         return None, None
     if rule.mustBeGreaterThan is not None:
         return AssertionStdOperatorClass.GREATER_THAN, AssertionStdParametersClass(
@@ -419,7 +699,7 @@ def _operator_and_params_from_threshold(
 
 
 def _stable_assertion_urn(
-    contract_urn: str,
+    logical_urn: str,
     dataset_urn: str,
     rule_name: Optional[str],
     rule_kind: str,
@@ -427,7 +707,7 @@ def _stable_assertion_urn(
     fallback_index: int,
 ) -> str:
     guid_dict = {
-        "contract": contract_urn,
+        "logical": logical_urn,
         "dataset": dataset_urn,
         "rule_name": rule_name or f"{rule_kind}_{fallback_index}",
         "rule_kind": rule_kind,
@@ -437,13 +717,9 @@ def _stable_assertion_urn(
 
 
 def _custom_logic_for_rule(rule: ODCSQualityRule, scope: str) -> Optional[str]:
-    """Resolve the `logic` body for a CustomAssertionInfo per D6.
+    """Resolve the `logic` body for a CustomAssertionInfo.
 
-    Order of preference:
-      1. `rule.query`
-      2. serialized `rule.implementation`
-      3. `rule.description`
-      4. `rule.name + ":" + scope` (last resort)
+    Order: query > serialized implementation > description > "name:scope".
     """
     if rule.query:
         return rule.query
@@ -468,7 +744,7 @@ def _custom_logic_for_rule(rule: ODCSQualityRule, scope: str) -> Optional[str]:
 def _custom_props_for_rule(rule: ODCSQualityRule, scope: str) -> Dict[str, str]:
     """Per-assertion customProperties, including the contract scope tag.
 
-    `scope` is one of "contract", "schema", or "property" (D1) — emitted as
+    `scope` is one of "contract", "schema", or "property" — emitted as
     `odcs.scope` so downstream consumers can distinguish where in the contract
     a rule came from.
     """
@@ -493,14 +769,7 @@ def _assertion_info_template(
     scope: str,
     assertion_type: str,
 ) -> AssertionInfoClass:
-    """Construct the shared header for an AssertionInfoClass.
-
-    Caller is responsible for setting the type-specific sub-aspect
-    (volumeAssertion / sqlAssertion / etc.) via `setattr` on the returned
-    object — or by replacing this with a builder pattern. Pulled out to
-    deduplicate the body shared between volume / sql / field / custom builders
-    (prior PR review — Code Quality M2).
-    """
+    """Shared header for an AssertionInfoClass; caller sets the sub-aspect."""
     return AssertionInfoClass(
         type=assertion_type,
         source=mce_builder.make_assertion_source(),
@@ -514,12 +783,12 @@ def _build_field_values_assertion(
     operator: str,
     dataset_urn: str,
     column: str,
-    contract_urn: str,
+    logical_urn: str,
     scope: str,
     fallback_index: int,
 ) -> Tuple[str, MetadataChangeProposalWrapper]:
     assertion_urn = _stable_assertion_urn(
-        contract_urn=contract_urn,
+        logical_urn=logical_urn,
         dataset_urn=dataset_urn,
         rule_name=rule.name,
         rule_kind="field_values",
@@ -550,14 +819,14 @@ def _build_field_values_assertion(
 def _build_volume_assertion(
     rule: ODCSQualityRule,
     dataset_urn: str,
-    contract_urn: str,
+    logical_urn: str,
     scope: str,
     fallback_index: int,
     operator: str,
     params: AssertionStdParametersClass,
 ) -> Tuple[str, MetadataChangeProposalWrapper]:
     assertion_urn = _stable_assertion_urn(
-        contract_urn=contract_urn,
+        logical_urn=logical_urn,
         dataset_urn=dataset_urn,
         rule_name=rule.name,
         rule_kind="volume",
@@ -578,14 +847,14 @@ def _build_volume_assertion(
 def _build_sql_assertion(
     rule: ODCSQualityRule,
     dataset_urn: str,
-    contract_urn: str,
+    logical_urn: str,
     scope: str,
     fallback_index: int,
     operator: str,
     params: AssertionStdParametersClass,
 ) -> Tuple[str, MetadataChangeProposalWrapper]:
     assertion_urn = _stable_assertion_urn(
-        contract_urn=contract_urn,
+        logical_urn=logical_urn,
         dataset_urn=dataset_urn,
         rule_name=rule.name,
         rule_kind="sql",
@@ -608,7 +877,7 @@ def _build_sql_assertion(
 def _build_custom_assertion(
     rule: ODCSQualityRule,
     dataset_urn: str,
-    contract_urn: str,
+    logical_urn: str,
     scope: str,
     fallback_index: int,
     column: Optional[str] = None,
@@ -616,13 +885,9 @@ def _build_custom_assertion(
 ) -> Optional[Tuple[str, MetadataChangeProposalWrapper]]:
     """Build a CustomAssertionInfo for a rule, or None to signal a skip.
 
-    Per D6: a custom assertion must have a non-None `logic` body. If the rule
-    has no query / implementation / description / name, the caller should skip
-    with a warning rather than emit a content-less custom assertion.
-
-    `logic_override` short-circuits the normal `_custom_logic_for_rule` priority
-    chain. Used by routes (e.g. `mustNotBeBetween`) that need a specific,
-    documented `logic` string regardless of what the rule's other fields say.
+    A custom assertion must have a non-None `logic` body. If the rule has no
+    query / implementation / description / name, the caller skips with a warning
+    rather than emit a content-less custom assertion.
     """
     logic = (
         logic_override
@@ -632,7 +897,7 @@ def _build_custom_assertion(
     if logic is None:
         return None
     assertion_urn = _stable_assertion_urn(
-        contract_urn=contract_urn,
+        logical_urn=logical_urn,
         dataset_urn=dataset_urn,
         rule_name=rule.name,
         rule_kind="custom",
@@ -658,14 +923,8 @@ def _build_custom_assertion(
 def _iter_schema_rules(
     schema_entry: ODCSSchemaObject,
 ) -> Iterable[Tuple[ODCSQualityRule, Optional[str], str]]:
-    """Yield (rule, column, scope) for rules attached to one schema entry.
-
-    `scope` is "schema" for `schema_entry.quality[]` and "property" for rules
-    attached to a property under `schema_entry.properties[]` (recursively).
-    """
+    """Yield (rule, column, scope) for rules attached to one schema entry."""
     for rule in schema_entry.quality or []:
-        # Schema-level quality may carry an explicit `column` field for a
-        # rule that targets a column without nesting it under properties.
         yield rule, rule.column, "schema"
     for field_path, prop in _walk_properties(schema_entry.properties):
         for rule in prop.quality or []:
@@ -675,23 +934,14 @@ def _iter_schema_rules(
 def _iter_contract_rules(
     contract: ODCSContract,
 ) -> Iterable[Tuple[ODCSQualityRule, Optional[str], str]]:
-    """Yield (rule, column, scope) for the deprecated top-level `quality[]`.
-
-    These contract-scoped rules are replicated to each fanned-out dataset's
-    Assertion set with `odcs.scope=contract`.
-    """
+    """Yield (rule, column, scope) for the deprecated top-level `quality[]`."""
     for rule in contract.quality or []:
         yield rule, rule.column, "contract"
 
 
 @dataclass
 class AssertionRoutingTrace:
-    """Per-rule routing decisions for SourceReport telemetry (D6).
-
-    The mapper records what happened to each rule so the source can populate
-    its `rules_skipped_no_threshold` / `rules_routed_to_custom` lists without
-    re-deriving routing in two places.
-    """
+    """Per-rule routing decisions for SourceReport telemetry."""
 
     skipped_no_body: List[str] = field(default_factory=list)
     routed_to_custom: List[str] = field(default_factory=list)
@@ -702,21 +952,19 @@ def _route_and_build(
     column: Optional[str],
     scope: str,
     dataset_urn: str,
-    contract_urn: str,
+    logical_urn: str,
     index: int,
     trace: AssertionRoutingTrace,
 ) -> Optional[Tuple[str, MetadataChangeProposalWrapper]]:
-    """Route a single rule to the appropriate builder per D6.
+    """Route a single rule to the appropriate assertion builder.
 
-    Returns None when the rule produces no assertion (e.g. skipped because
-    there is no body to model). The trace is updated in-place so the source
-    can report aggregate counters.
+    Returns None when the rule produces no assertion. The trace is updated
+    in-place so the source can report aggregate counters.
     """
     rule_kind = (rule.rule or "").strip()
     rule_type = (rule.type or "").strip().lower()
     rule_label = rule.name or f"<unnamed:{scope}:{index}>"
 
-    # Library rules tied to a specific field — FieldValuesAssertion.
     if column and rule_kind in _FIELD_RULE_KINDS:
         operator = (
             AssertionStdOperatorClass.NOT_NULL
@@ -728,33 +976,26 @@ def _route_and_build(
             operator=operator,
             dataset_urn=dataset_urn,
             column=column,
-            contract_urn=contract_urn,
+            logical_urn=logical_urn,
             scope=scope,
             fallback_index=index,
         )
 
-    # `mustNotBeBetween` has a documented explicit logic format (D6) so the
-    # bounds round-trip into the assertion body in a stable, human-readable
-    # form rather than collapsing to "<rule_name>:<scope>" via the default
-    # `_custom_logic_for_rule` priority chain. Computed once and reused at
-    # every custom-routing site below.
+    # `mustNotBeBetween` has no native operator; render a stable, human-readable
+    # logic string so the bounds round-trip into the custom assertion body.
     logic_override: Optional[str] = None
     if rule.mustNotBeBetween and len(rule.mustNotBeBetween) == 2:
-        # `:g` strips the trailing ".0" on whole numbers (1.0 -> "1") so the
-        # rendered logic string matches what a contract author wrote.
         low = f"{float(rule.mustNotBeBetween[0]):g}"
         high = f"{float(rule.mustNotBeBetween[1]):g}"
         logic_override = f"value not between {low} and {high}"
 
-    # Library volume rule.
     if rule_kind in _VOLUME_RULE_KINDS:
         op_opt, params_opt = _operator_and_params_from_threshold(rule)
         if op_opt is None or params_opt is None:
-            # No real threshold (or `mustNotBeBetween` etc.) — route to custom.
             built = _build_custom_assertion(
                 rule=rule,
                 dataset_urn=dataset_urn,
-                contract_urn=contract_urn,
+                logical_urn=logical_urn,
                 scope=scope,
                 fallback_index=index,
                 column=column,
@@ -768,20 +1009,19 @@ def _route_and_build(
         return _build_volume_assertion(
             rule=rule,
             dataset_urn=dataset_urn,
-            contract_urn=contract_urn,
+            logical_urn=logical_urn,
             scope=scope,
             fallback_index=index,
             operator=op_opt,
             params=params_opt,
         )
 
-    # SQL rule.
     if rule_type == "sql":
         if not rule.query:
             built = _build_custom_assertion(
                 rule=rule,
                 dataset_urn=dataset_urn,
-                contract_urn=contract_urn,
+                logical_urn=logical_urn,
                 scope=scope,
                 fallback_index=index,
                 column=column,
@@ -797,7 +1037,7 @@ def _route_and_build(
             built = _build_custom_assertion(
                 rule=rule,
                 dataset_urn=dataset_urn,
-                contract_urn=contract_urn,
+                logical_urn=logical_urn,
                 scope=scope,
                 fallback_index=index,
                 column=column,
@@ -811,18 +1051,17 @@ def _route_and_build(
         return _build_sql_assertion(
             rule=rule,
             dataset_urn=dataset_urn,
-            contract_urn=contract_urn,
+            logical_urn=logical_urn,
             scope=scope,
             fallback_index=index,
             operator=op_opt,
             params=params_opt,
         )
 
-    # Anything else — custom assertion preserving the body, or skip.
     built = _build_custom_assertion(
         rule=rule,
         dataset_urn=dataset_urn,
-        contract_urn=contract_urn,
+        logical_urn=logical_urn,
         scope=scope,
         fallback_index=index,
         column=column,
@@ -838,35 +1077,27 @@ def _route_and_build(
 def odcs_to_assertion_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
-    dataset_urn: str,
-    contract_urn: str,
-) -> Tuple[
-    AssertionUrnsByKind,
-    List[MetadataChangeProposalWrapper],
-    AssertionRoutingTrace,
-]:
-    """Emit Assertion entities for every rule that applies to this dataset.
+    physical_urn: str,
+    logical_urn: str,
+) -> Tuple[List[str], List[MetadataChangeProposalWrapper], AssertionRoutingTrace]:
+    """Emit Assertion entities for every rule that applies, targeting the physical dataset.
 
-    Includes schema-entry rules (scope=schema/property) and contract-level
-    rules (scope=contract) replicated per dataset. Returns:
-      - URNs grouped for the DataContractProperties aspect.
-      - The list of MCPs to emit.
-      - A trace of routing decisions for SourceReport telemetry.
+    Only called when a physical binding resolved (strict gating). Includes
+    schema-entry rules (scope=schema/property) and contract-level rules
+    (scope=contract). Returns the assertion URNs, the MCPs, and a routing trace.
     """
-    grouped = AssertionUrnsByKind()
+    assertion_urns: List[str] = []
     mcps: List[MetadataChangeProposalWrapper] = []
     trace = AssertionRoutingTrace()
     index = 0
 
-    # Walk schema-entry rules first (deterministic ordering for stable URNs
-    # under the fallback-index path).
     for rule, column, scope in _iter_schema_rules(schema_entry):
         built = _route_and_build(
             rule=rule,
             column=column,
             scope=scope,
-            dataset_urn=dataset_urn,
-            contract_urn=contract_urn,
+            dataset_urn=physical_urn,
+            logical_urn=logical_urn,
             index=index,
             trace=trace,
         )
@@ -874,17 +1105,16 @@ def odcs_to_assertion_mcps(
         if built is None:
             continue
         assertion_urn, mcp = built
-        grouped.data_quality.append(assertion_urn)
+        assertion_urns.append(assertion_urn)
         mcps.append(mcp)
 
-    # Then replicate contract-level rules to this dataset.
     for rule, column, scope in _iter_contract_rules(contract):
         built = _route_and_build(
             rule=rule,
             column=column,
             scope=scope,
-            dataset_urn=dataset_urn,
-            contract_urn=contract_urn,
+            dataset_urn=physical_urn,
+            logical_urn=logical_urn,
             index=index,
             trace=trace,
         )
@@ -892,48 +1122,7 @@ def odcs_to_assertion_mcps(
         if built is None:
             continue
         assertion_urn, mcp = built
-        grouped.data_quality.append(assertion_urn)
+        assertion_urns.append(assertion_urn)
         mcps.append(mcp)
 
-    return grouped, mcps, trace
-
-
-def odcs_to_contract_urn(contract_id: str, dataset_urn: str) -> str:
-    """Build a stable DataContract URN seeded by the dataset URN and ODCS contract id.
-
-    The `entity` key matches the canonical seeding pattern in
-    `datahub/api/entities/datacontract/datacontract.py`. We add `odcs_id` as a
-    secondary dimension so two distinct ODCS files about the same dataset don't
-    collide on the same DataContract URN.
-    """
-    return f"urn:li:dataContract:{datahub_guid({'entity': dataset_urn, 'odcs_id': contract_id})}"
-
-
-def odcs_to_contract_mcp(
-    contract: ODCSContract,
-    dataset_urn: str,
-    contract_urn: str,
-    assertion_urns: AssertionUrnsByKind,
-    raw_yaml: Optional[str],
-    raw_yaml_size_limit: int,
-) -> Tuple[MetadataChangeProposalWrapper, bool]:
-    """Build the DataContractProperties MCP. Returns (mcp, raw_truncated)."""
-    raw_truncated = False
-    raw_to_emit: Optional[str] = raw_yaml
-    if raw_yaml is not None and len(raw_yaml.encode("utf-8")) > raw_yaml_size_limit:
-        raw_truncated = True
-        raw_to_emit = None
-
-    properties = DataContractPropertiesClass(
-        entity=dataset_urn,
-        dataQuality=[
-            DataQualityContractClass(assertion=urn)
-            for urn in assertion_urns.data_quality
-        ]
-        or None,
-        rawContract=raw_to_emit,
-    )
-    return (
-        MetadataChangeProposalWrapper(entityUrn=contract_urn, aspect=properties),
-        raw_truncated,
-    )
+    return assertion_urns, mcps, trace

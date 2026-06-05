@@ -1,4 +1,4 @@
-"""Unit tests for the ODCS source class — path resolution, validation, soft-delete state."""
+"""Unit tests for the ODCS source — path resolution, validation, strict gating, soft-delete."""
 
 import json
 import pathlib
@@ -7,7 +7,12 @@ from typing import Any, Dict, List
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_source import ODCSSource
-from datahub.metadata.schema_classes import StatusClass
+from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    DataPlatformInfoClass,
+    LogicalParentClass,
+    StatusClass,
+)
 
 
 def _make_source(tmp_path: pathlib.Path, **overrides: Any) -> ODCSSource:
@@ -45,6 +50,27 @@ schema:
           - name: id_not_null
             rule: notNull
 """
+
+_POSTGRES_MAPPING = [{"server": "prod-postgres", "platform": "postgres"}]
+
+
+def _aspects_of(workunits: List, aspect_cls: type) -> List:
+    out = []
+    for wu in workunits:
+        aspect = getattr(getattr(wu, "metadata", None), "aspect", None)
+        if isinstance(aspect, aspect_cls):
+            out.append(aspect)
+    return out
+
+
+def _status_removed_urns(workunits: List) -> List[str]:
+    out: List[str] = []
+    for wu in workunits:
+        mcp = getattr(wu, "metadata", None)
+        aspect = getattr(mcp, "aspect", None)
+        if mcp is not None and isinstance(aspect, StatusClass) and aspect.removed:
+            out.append(mcp.entityUrn)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +193,7 @@ def test_max_input_file_bytes_skips_large_files(tmp_path: pathlib.Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Validation modes (D5: default strict_validation=False)
+# Validation modes (default strict_validation=False)
 # ---------------------------------------------------------------------------
 
 
@@ -183,8 +209,7 @@ def test_validate_lenient_default_proceeds_on_deprecated_form(
     tmp_path: pathlib.Path,
 ) -> None:
     """Default `strict_validation=False` lets a real-but-deprecated ODCS doc through."""
-    src = _make_source(tmp_path)  # strict_validation defaults to False per D5
-    # Has the required `id` but uses the deprecated `rule:` (not `quality:`) at top level.
+    src = _make_source(tmp_path)
     raw_dict: dict = {
         "apiVersion": "v3.1.0",
         "kind": "DataContract",
@@ -192,13 +217,12 @@ def test_validate_lenient_default_proceeds_on_deprecated_form(
         "rule": [{"name": "deprecated_form"}],
     }
     ok = src._validate(raw_dict, tmp_path / "deprecated.yaml")
-    assert ok  # proceed even though schema rejects the deprecated key
-    # A warning is produced explaining the schema violation.
+    assert ok
     assert len(src.report.warnings) >= 1
 
 
 # ---------------------------------------------------------------------------
-# D5 unknown-field detection
+# Unknown-field detection
 # ---------------------------------------------------------------------------
 
 
@@ -212,37 +236,90 @@ def test_unknown_field_increments_counter_and_warns(tmp_path: pathlib.Path) -> N
     src._warn_unknown_fields(raw_dict, tmp_path / "f.yaml")
     assert src.report.unknown_fields_count >= 1
     assert any(
-        "frobozz" in str(w.message)
-        or "frobozz" in str(w.context)
-        or "frobozz" in str(w.title)
-        for w in src.report.warnings
-    ) or any(
         "Unknown ODCS field" in str(getattr(w, "title", ""))
         for w in src.report.warnings
     )
 
 
 # ---------------------------------------------------------------------------
-# Soft-delete behavior (D2) — scoped to DataContract + Assertion only
+# Platform registration + strict gating (the core invariants of the pivot)
 # ---------------------------------------------------------------------------
 
 
-def _list_workunits_status_removed(workunits: List) -> List[str]:
-    """Return the entityUrns of workunits that emit Status(removed=True)."""
-    out: List[str] = []
-    for wu in workunits:
-        # MetadataWorkUnit has metadata field which is the MCP
-        try:
-            mcp = wu.metadata
-        except AttributeError:
-            continue
-        aspect = getattr(mcp, "aspect", None)
-        if isinstance(aspect, StatusClass) and aspect.removed:
-            out.append(mcp.entityUrn)
-    return out
+def test_platform_info_emitted_once(tmp_path: pathlib.Path) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path, path=str(contract_file), servers_to_platform=_POSTGRES_MAPPING
+    )
+    workunits = list(src.get_workunits_internal())
+    platform_infos = _aspects_of(workunits, DataPlatformInfoClass)
+    assert len(platform_infos) == 1
+    assert platform_infos[0].name == "odcs"
 
 
-def test_soft_delete_first_run_persists_state_and_emits_no_deletes(
+def test_binding_emits_logical_parent_and_assertions(tmp_path: pathlib.Path) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path, path=str(contract_file), servers_to_platform=_POSTGRES_MAPPING
+    )
+    workunits = list(src.get_workunits_internal())
+
+    parents = _aspects_of(workunits, LogicalParentClass)
+    assert len(parents) == 1
+    # logicalParent points at the logical odcs dataset.
+    assert "urn:li:dataPlatform:odcs" in parents[0].parent.destinationUrn
+
+    assertions = _aspects_of(workunits, AssertionInfoClass)
+    assert len(assertions) == 1
+    # The assertion targets the physical postgres dataset, not the logical one.
+    assert "urn:li:dataPlatform:postgres" in assertions[0].fieldAssertion.entity
+
+
+def test_strict_gating_no_binding_emits_logical_only(tmp_path: pathlib.Path) -> None:
+    """The key new invariant: with no physical binding, the logical dataset is
+    still emitted but produces zero assertions and no logicalParent link."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    # No servers_to_platform mapping -> no physical binding resolves.
+    src = _make_source(tmp_path, path=str(contract_file), servers_to_platform=[])
+    workunits = list(src.get_workunits_internal())
+
+    assert src.report.logical_datasets_emitted == 1
+    assert src.report.physical_bindings_resolved == 0
+    assert _aspects_of(workunits, LogicalParentClass) == []
+    assert _aspects_of(workunits, AssertionInfoClass) == []
+    # Provenance is still kept on the logical dataset via qualityRuleCount.
+    from datahub.metadata.schema_classes import DatasetPropertiesClass
+
+    props = _aspects_of(workunits, DatasetPropertiesClass)
+    assert props and props[0].customProperties["odcs.qualityRuleCount"] == "1"
+
+
+def test_emit_logical_parent_false_skips_physical_aspect(
+    tmp_path: pathlib.Path,
+) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        path=str(contract_file),
+        servers_to_platform=_POSTGRES_MAPPING,
+        emit_logical_parent=False,
+    )
+    workunits = list(src.get_workunits_internal())
+    assert _aspects_of(workunits, LogicalParentClass) == []
+    # Assertions still emit (binding resolved).
+    assert _aspects_of(workunits, AssertionInfoClass)
+
+
+# ---------------------------------------------------------------------------
+# Soft-delete behavior — scoped to logical odcs Dataset + Assertion only
+# ---------------------------------------------------------------------------
+
+
+def test_soft_delete_first_run_persists_state_no_deletes(
     tmp_path: pathlib.Path,
 ) -> None:
     contract_file = tmp_path / "contract.odcs.yaml"
@@ -252,64 +329,50 @@ def test_soft_delete_first_run_persists_state_and_emits_no_deletes(
     src = _make_source(
         tmp_path,
         path=str(contract_file),
-        servers_to_platform=[{"server": "prod-postgres", "platform": "postgres"}],
+        servers_to_platform=_POSTGRES_MAPPING,
         state_file_path=str(state_file),
     )
     workunits = list(src.get_workunits_internal())
 
-    # No soft-delete on first run.
-    assert _list_workunits_status_removed(workunits) == []
-    # State persisted with at least one DataContract and one Assertion URN.
-    assert state_file.exists()
+    assert _status_removed_urns(workunits) == []
     saved = json.loads(state_file.read_text())
-    assert saved
-    # Find the entry by file key (resolved absolute path).
     entry = next(iter(saved.values()))
-    assert any(u.startswith("urn:li:dataContract:") for u in entry["contracts"])
+    assert any(
+        u.startswith("urn:li:dataset:(urn:li:dataPlatform:odcs,")
+        for u in entry["datasets"]
+    )
     assert any(u.startswith("urn:li:assertion:") for u in entry["assertions"])
 
 
-def test_soft_delete_second_run_no_changes_emits_no_deletes(
-    tmp_path: pathlib.Path,
-) -> None:
+def test_soft_delete_second_run_no_changes_no_deletes(tmp_path: pathlib.Path) -> None:
     contract_file = tmp_path / "contract.odcs.yaml"
     contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
     state_file = tmp_path / "state.json"
 
-    # First run.
-    src1 = _make_source(
-        tmp_path,
-        path=str(contract_file),
-        servers_to_platform=[{"server": "prod-postgres", "platform": "postgres"}],
-        state_file_path=str(state_file),
-    )
-    list(src1.get_workunits_internal())
-
-    # Second run with identical contract.
-    src2 = _make_source(
-        tmp_path,
-        path=str(contract_file),
-        servers_to_platform=[{"server": "prod-postgres", "platform": "postgres"}],
-        state_file_path=str(state_file),
-    )
-    workunits = list(src2.get_workunits_internal())
-    assert _list_workunits_status_removed(workunits) == []
+    for _ in range(2):
+        src = _make_source(
+            tmp_path,
+            path=str(contract_file),
+            servers_to_platform=_POSTGRES_MAPPING,
+            state_file_path=str(state_file),
+        )
+        workunits = list(src.get_workunits_internal())
+    assert _status_removed_urns(workunits) == []
 
 
-def test_soft_delete_second_run_with_rule_removed_emits_assertion_delete(
+def test_soft_delete_removed_rule_deletes_assertion_not_physical(
     tmp_path: pathlib.Path,
 ) -> None:
-    """Removing a rule between runs soft-deletes the Assertion URN ONLY,
-    never the Dataset URN (D2)."""
+    """Removing a rule between runs soft-deletes the Assertion URN only — never
+    a physical dataset (ODCS owns assertions and logical datasets, not physical)."""
     contract_file = tmp_path / "contract.odcs.yaml"
     contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
     state_file = tmp_path / "state.json"
 
-    # First run captures one assertion.
     src1 = _make_source(
         tmp_path,
         path=str(contract_file),
-        servers_to_platform=[{"server": "prod-postgres", "platform": "postgres"}],
+        servers_to_platform=_POSTGRES_MAPPING,
         state_file_path=str(state_file),
     )
     list(src1.get_workunits_internal())
@@ -317,96 +380,68 @@ def test_soft_delete_second_run_with_rule_removed_emits_assertion_delete(
     saved = json.loads(state_file.read_text())
     first_entry = next(iter(saved.values()))
     first_assertions = list(first_entry["assertions"])
-    first_contracts = list(first_entry["contracts"])
     assert len(first_assertions) == 1
-    assert len(first_contracts) == 1
 
-    # Rewrite contract with the rule removed (keep schema intact).
     body_no_rule = _VALID_CONTRACT_BODY.replace(
         "        quality:\n          - name: id_not_null\n            rule: notNull\n",
         "",
     )
-    assert body_no_rule != _VALID_CONTRACT_BODY  # sanity
+    assert body_no_rule != _VALID_CONTRACT_BODY
     contract_file.write_text(body_no_rule, encoding="utf-8")
 
-    # Second run.
     src2 = _make_source(
         tmp_path,
         path=str(contract_file),
-        servers_to_platform=[{"server": "prod-postgres", "platform": "postgres"}],
+        servers_to_platform=_POSTGRES_MAPPING,
         state_file_path=str(state_file),
     )
     workunits = list(src2.get_workunits_internal())
-    deleted_urns = _list_workunits_status_removed(workunits)
+    deleted = _status_removed_urns(workunits)
 
-    # Exactly the dropped assertion is soft-deleted.
-    assert deleted_urns == first_assertions
-    # Critically: NO Dataset URN soft-delete, ever.
-    for urn in deleted_urns:
-        assert not urn.startswith("urn:li:dataset:")
-    # And the DataContract URN is still emitted (re-asserted), not deleted.
-    for urn in deleted_urns:
-        assert urn not in first_contracts
+    assert deleted == first_assertions
+    for urn in deleted:
+        assert not urn.startswith("urn:li:dataset:(urn:li:dataPlatform:postgres")
 
 
-def test_soft_delete_never_includes_dataset_urns_even_if_state_corrupted(
+def test_soft_delete_loader_filters_physical_dataset_urns(
     tmp_path: pathlib.Path,
 ) -> None:
-    """Even if a stale state file somehow contains a Dataset URN, the source
-    must refuse to soft-delete it (D2 belt-and-suspenders)."""
+    """A stale state file containing a physical Dataset URN must never produce a
+    physical-dataset soft-delete (belt-and-suspenders)."""
     state_file = tmp_path / "state.json"
-    fake_state = {
-        str(tmp_path / "missing.yaml"): {
-            "contracts": ["urn:li:dataContract:abc"],
-            "assertions": ["urn:li:assertion:def"],
-            # Pretend a buggy older version persisted a dataset URN here.
-        }
-    }
-    # Inject a Dataset URN into the on-disk state to confirm the loader/scrubber
-    # filters it out. We add it under a non-canonical key to simulate corruption.
     state_file.write_text(
         json.dumps(
             {
-                **fake_state,
-                "_corrupted_": {
-                    "contracts": [
-                        "urn:li:dataset:(urn:li:dataPlatform:postgres,a,PROD)"
+                str(tmp_path / "missing.yaml"): {
+                    "datasets": [
+                        "urn:li:dataset:(urn:li:dataPlatform:odcs,c.t,PROD)",
+                        # Buggy older state leaked a physical URN — must be dropped.
+                        "urn:li:dataset:(urn:li:dataPlatform:postgres,a,PROD)",
                     ],
-                    "assertions": [
-                        "urn:li:dataset:(urn:li:dataPlatform:postgres,a,PROD)"
-                    ],
-                },
+                    "assertions": ["urn:li:assertion:def"],
+                }
             }
         )
     )
 
-    src = _make_source(
-        tmp_path,
-        path=str(tmp_path),
-        state_file_path=str(state_file),
-    )
-    # No real files, so current_state is empty everywhere; loader filters out
-    # dataset URNs entirely; soft-delete only emits the in-scope (assertion + contract) URNs
-    # that fall out of scope.
+    src = _make_source(tmp_path, path=str(tmp_path), state_file_path=str(state_file))
     workunits = list(src.get_workunits_internal())
-    deleted = _list_workunits_status_removed(workunits)
+    deleted = _status_removed_urns(workunits)
     for urn in deleted:
-        assert urn.startswith("urn:li:dataContract:") or urn.startswith(
-            "urn:li:assertion:"
-        )
-        assert not urn.startswith("urn:li:dataset:")
+        assert not urn.startswith("urn:li:dataset:(urn:li:dataPlatform:postgres")
+    # The logical odcs dataset and the assertion fall out and are deleted.
+    assert "urn:li:dataset:(urn:li:dataPlatform:odcs,c.t,PROD)" in deleted
+    assert "urn:li:assertion:def" in deleted
 
 
-def test_soft_delete_with_no_state_file_is_noop(tmp_path: pathlib.Path) -> None:
-    """state_file_path=None: no cross-run state, no deletes (per Phase 2A)."""
+def test_soft_delete_no_state_file_is_noop(tmp_path: pathlib.Path) -> None:
     contract_file = tmp_path / "contract.odcs.yaml"
     contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
 
     src = _make_source(
         tmp_path,
         path=str(contract_file),
-        servers_to_platform=[{"server": "prod-postgres", "platform": "postgres"}],
-        # state_file_path omitted -> None
+        servers_to_platform=_POSTGRES_MAPPING,
     )
     workunits = list(src.get_workunits_internal())
-    assert _list_workunits_status_removed(workunits) == []
+    assert _status_removed_urns(workunits) == []

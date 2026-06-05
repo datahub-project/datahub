@@ -4,15 +4,23 @@ from pydantic import Field, field_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
+
+# Display name and platform id for the logical-model platform ODCS contracts are
+# materialized under. ODCS v3 describes a producer-published dataset spec, so it
+# is modeled as a logical `dataset` on its own platform rather than a
+# bilateral `dataContract`.
+ODCS_PLATFORM = "odcs"
 
 
 class ServerMapping(ConfigModel):
     """Maps an ODCS `servers[].server` identifier to a DataHub data platform.
 
     ODCS allows any free-form string in the `server` field of a server entry.
-    DataHub needs an explicit DataPlatform URN, so this mapping is required to
-    derive a Dataset URN from a contract.
+    To bind a logical ODCS dataset to a *physical* dataset (so quality rules can
+    target real tables and the physical asset gets a `logicalParent` link), the
+    source needs an explicit DataPlatform URN, which this mapping supplies.
     """
 
     server: str = Field(
@@ -24,7 +32,7 @@ class ServerMapping(ConfigModel):
     )
     env: str = Field(
         default=DEFAULT_ENV,
-        description="The environment / fabric type for the produced dataset URNs (e.g. PROD, DEV).",
+        description="The environment / fabric type for the produced physical dataset URNs (e.g. PROD, DEV).",
     )
     platform_instance: Optional[str] = Field(
         default=None,
@@ -49,8 +57,12 @@ class ODCSSourceConfig(EnvConfigMixin):
     """Config for the ODCS ingestion source.
 
     Reads Open Data Contract Standard (ODCS) v3.x YAML files from a path (file,
-    directory, or glob) and emits DataHub metadata: dataset properties,
-    ownership, tags, schema metadata, assertions, and DataContract aspects.
+    directory, or glob) and materializes each `schema[]` entry as a **logical
+    dataset** on the `odcs` platform: dataset properties, canonical schema
+    metadata, ownership, tags, and a link to the source document. When a
+    physical dataset can be resolved (via `servers_to_platform` or
+    `physical_urn_overrides`), the source also emits a `logicalParent` link from
+    the physical dataset and quality assertions against it.
     """
 
     path: Union[str, List[str]] = Field(
@@ -60,7 +72,9 @@ class ODCSSourceConfig(EnvConfigMixin):
     servers_to_platform: List[ServerMapping] = Field(
         default_factory=list,
         description="List of mappings from ODCS `servers[].server` values to DataHub platforms. "
-        "Required to derive a Dataset URN unless `dataset_urn_overrides` is provided for the contract.",
+        "Used to resolve the *physical* dataset a logical ODCS dataset binds to. Optional: "
+        "without a binding, the logical dataset and its schema are still emitted, but no "
+        "physical `logicalParent` link or quality assertions are produced.",
     )
     tag_prefix: Optional[str] = Field(
         default=None,
@@ -79,21 +93,20 @@ class ODCSSourceConfig(EnvConfigMixin):
     replicate_contract_metadata: bool = Field(
         default=True,
         description=(
-            "If True (default), contract-level Ownership / DatasetProperties.description / "
-            "GlobalTags replicate to every fanned-out Dataset on every ingest run. Set False to "
-            "skip emitting contract-level Ownership and contract-level GlobalTags so manual UI "
-            "edits to those aspects survive subsequent ingest runs (the contract is then a "
-            "one-time enricher rather than a source of truth)."
+            "If True (default), contract-level Ownership and GlobalTags are written to the logical "
+            "dataset on every ingest run. Set False to skip emitting contract-level Ownership and "
+            "GlobalTags so manual UI edits to those aspects survive subsequent ingest runs (the "
+            "contract is then a one-time enricher rather than a source of truth)."
         ),
     )
     state_file_path: Optional[str] = Field(
         default=None,
         description=(
-            "Optional path to a JSON file used to track DataContract / Assertion URNs ODCS "
-            "emitted on the previous run. On the next run, URNs ODCS no longer emits are "
-            "soft-deleted (Status.removed=true). Datasets are NEVER soft-deleted by ODCS. "
-            "If unset, no cross-run state is persisted; soft-delete falls back to a "
-            "per-invocation diff (within-run consistency only)."
+            "Optional path to a JSON file used to track the logical `odcs` Dataset and Assertion "
+            "URNs ODCS emitted on the previous run. On the next run, URNs ODCS no longer emits are "
+            "soft-deleted (Status.removed=true). Physical datasets and their `logicalParent` links "
+            "are NEVER soft-deleted by ODCS. If unset, no cross-run state is persisted; soft-delete "
+            "falls back to a per-invocation diff (within-run consistency only)."
         ),
     )
     odcs_versions: List[str] = Field(
@@ -103,32 +116,50 @@ class ODCSSourceConfig(EnvConfigMixin):
     )
     emit_assertions: bool = Field(
         default=True,
-        description="Whether to emit Assertion entities derived from the ODCS `quality[]` rules.",
+        description="Whether to emit Assertion entities derived from the ODCS `quality[]` rules. "
+        "Assertions are only emitted for schema entries that resolve to a physical dataset "
+        "(strict binding); without a binding no assertions are produced regardless of this flag.",
     )
-    dataset_urn_overrides: Dict[str, str] = Field(
+    emit_logical_parent: bool = Field(
+        default=True,
+        description="Whether to emit a `logicalParent` link from each resolved physical dataset to "
+        "its logical ODCS dataset (the `PhysicalInstanceOf` relationship). Disable to keep ODCS "
+        "from writing any aspect onto physical datasets.",
+    )
+    physical_urn_overrides: Dict[str, List[str]] = Field(
         default_factory=dict,
-        description="Map of ODCS contract `id` to an explicit DataHub Dataset URN. Bypasses "
-        "the `servers_to_platform` lookup for the named contracts.",
+        description="Map of ODCS contract `id` to a list of explicit physical DataHub Dataset URNs, "
+        "one per `schema[]` entry in order. Bypasses the `servers_to_platform` lookup for the named "
+        "contracts. Use an empty string in the list to leave a given schema entry unbound.",
+    )
+    logical_dataset_name_template: str = Field(
+        default="{contract_id}.{schema_name}",
+        description="Template for the logical `odcs` dataset name (the URN name segment). "
+        "Available placeholders: `{contract_id}`, `{schema_name}`, `{contract_version}`.",
     )
     file_extensions: List[str] = Field(
         default_factory=lambda: [".yaml", ".yml", ".odcs.yaml", ".odcs.yml"],
         description="File extensions considered ODCS YAML files when scanning a directory.",
     )
-    raw_contract_size_limit_bytes: int = Field(
-        default=1_000_000,
-        description="Maximum size (bytes) of the raw YAML contract embedded in DataContractProperties.rawContract. "
-        "Contracts larger than this limit produce a warning and the rawContract is omitted.",
-    )
     max_input_file_bytes: int = Field(
         default=5 * 1024 * 1024,
         description="Maximum size of an ODCS YAML file to load. Files exceeding this are skipped "
-        "with a warning. Defaults to 5 MB. This guards the YAML parser from unbounded inputs and "
-        "is independent of `raw_contract_size_limit_bytes`, which only governs the embedded "
-        "DataContractProperties.rawContract aspect.",
+        "with a warning. Defaults to 5 MB. This guards the YAML parser from unbounded inputs.",
     )
     follow_symlinks: bool = Field(
         default=False,
         description="If true, follow symlinks when discovering ODCS files. Off by default to "
         "prevent disclosure via symlink escape in shared/multi-tenant directories. When enabled, "
         "the source still requires that resolved targets stay within the configured root.",
+    )
+
+    # Removed when ODCS pivoted from emitting `dataContract` entities to logical
+    # datasets: the raw contract was embedded in DataContractProperties.rawContract,
+    # which no longer exists, and dataset URN overrides became physical_urn_overrides
+    # (a list per contract to match the schema[] fan-out).
+    _removed_raw_contract_size_limit = pydantic_removed_field(
+        "raw_contract_size_limit_bytes", "June", 2026
+    )
+    _removed_dataset_urn_overrides = pydantic_removed_field(
+        "dataset_urn_overrides", "June", 2026
     )

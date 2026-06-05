@@ -1,43 +1,41 @@
-"""Unit tests for the ODCS mapper module — refactored API (D1 fan-out)."""
+"""Unit tests for the ODCS mapper — logical-model architecture."""
 
 from typing import Any, Dict, List, Optional
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_mapper import (
-    _description_to_str,
+    AssertionRoutingTrace,
     _make_owners,
-    _num,
-    _operator_and_params_from_threshold,
-    _walk_properties,
+    _route_and_build,
+    build_schema_metadata,
+    odcs_platform_info_mcp,
     odcs_to_assertion_mcps,
-    odcs_to_contract_urn,
-    odcs_to_dataset_mcps,
-    odcs_to_dataset_urns,
+    odcs_to_logical_dataset_mcps,
+    odcs_to_logical_dataset_urn,
+    odcs_to_logical_parent_mcp,
+    odcs_to_physical_bindings,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSContract,
-    ODCSProperty,
     ODCSQualityRule,
+    ODCSSchemaObject,
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
-    AssertionStdOperatorClass,
     AssertionTypeClass,
-    CustomAssertionInfoClass,
+    BooleanTypeClass,
+    DataPlatformInfoClass,
     DatasetPropertiesClass,
-    EditableSchemaMetadataClass,
-    FieldAssertionInfoClass,
     GlobalTagsClass,
+    InstitutionalMemoryClass,
+    LogicalParentClass,
+    NullTypeClass,
+    NumberTypeClass,
     OwnershipClass,
     OwnershipTypeClass,
-    SqlAssertionInfoClass,
-    VolumeAssertionInfoClass,
+    SchemaMetadataClass,
+    StringTypeClass,
 )
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 def _make_contract(
@@ -70,869 +68,347 @@ def _make_contract(
 
 def _config(
     *,
-    overrides: Optional[Dict[str, str]] = None,
+    physical_overrides: Optional[Dict[str, List[str]]] = None,
     mappings: Optional[List[Dict[str, Any]]] = None,
 ) -> ODCSSourceConfig:
     return ODCSSourceConfig.model_validate(
         {
             "path": "/tmp/ignored",
-            "dataset_urn_overrides": overrides or {},
+            "physical_urn_overrides": physical_overrides or {},
             "servers_to_platform": mappings or [],
         }
     )
 
 
+def _first_schema(contract: ODCSContract) -> ODCSSchemaObject:
+    assert contract.schema_
+    return contract.schema_[0]
+
+
 # ---------------------------------------------------------------------------
-# odcs_to_dataset_urns — fan-out resolver
+# Logical dataset URN + physical binding resolution
 # ---------------------------------------------------------------------------
 
 
-def test_dataset_urns_single_schema_one_binding() -> None:
+def test_logical_dataset_urn_is_on_odcs_platform() -> None:
+    contract = _make_contract(schema=[{"name": "orders"}])
+    config = _config()
+    urn = odcs_to_logical_dataset_urn(contract, _first_schema(contract), config)
+    assert "urn:li:dataPlatform:odcs" in urn
+    assert "c1.orders" in urn
+
+
+def test_binding_resolves_physical_via_server_mapping() -> None:
     contract = _make_contract(
         servers=[{"server": "prod-postgres", "type": "postgres"}],
         schema=[{"name": "t1", "physicalName": "tbl1"}],
     )
     config = _config(mappings=[{"server": "prod-postgres", "platform": "postgres"}])
 
-    bindings, unmapped = odcs_to_dataset_urns(contract, config)
+    bindings = odcs_to_physical_bindings(contract, config)
 
     assert len(bindings) == 1
-    assert len(unmapped) == 0
-    schema_entry, urn = bindings[0]
-    assert schema_entry.physicalName == "tbl1"
-    assert "postgres" in urn
-    assert "tbl1" in urn
+    assert "urn:li:dataPlatform:odcs" in bindings[0].logical_urn
+    assert bindings[0].physical_urn is not None
+    assert "postgres" in bindings[0].physical_urn
+    assert "tbl1" in bindings[0].physical_urn
 
 
-def test_dataset_urns_multi_schema_three_bindings() -> None:
-    contract = _make_contract(
-        servers=[{"server": "prod-postgres", "type": "postgres"}],
-        schema=[
-            {"name": "a", "physicalName": "a"},
-            {"name": "b", "physicalName": "b"},
-            {"name": "c", "physicalName": "c"},
-        ],
-    )
-    config = _config(mappings=[{"server": "prod-postgres", "platform": "postgres"}])
+def test_binding_unmapped_still_yields_logical_urn() -> None:
+    # No server mapping: the logical dataset is still produced; only the
+    # physical binding is absent (the strict-gating contract).
+    contract = _make_contract(schema=[{"name": "t1", "physicalName": "tbl1"}])
+    config = _config()
 
-    bindings, unmapped = odcs_to_dataset_urns(contract, config)
+    bindings = odcs_to_physical_bindings(contract, config)
 
-    assert len(bindings) == 3
-    assert len(unmapped) == 0
-    physical_names = [s.physicalName for s, _ in bindings]
-    assert physical_names == ["a", "b", "c"]
-    # All distinct URNs.
-    urns = [u for _, u in bindings]
-    assert len(set(urns)) == 3
-
-
-def test_dataset_urns_one_schema_missing_physical_name() -> None:
-    contract = _make_contract(
-        servers=[{"server": "prod-postgres", "type": "postgres"}],
-        schema=[
-            {"name": "a", "physicalName": "a"},
-            # name="" + no physicalName -> unmapped, even with required pydantic name field.
-            {"name": "", "physicalName": None},
-            {"name": "c", "physicalName": "c"},
-        ],
-    )
-    config = _config(mappings=[{"server": "prod-postgres", "platform": "postgres"}])
-
-    bindings, unmapped = odcs_to_dataset_urns(contract, config)
-
-    assert len(bindings) == 2
-    assert len(unmapped) == 1
-    assert unmapped[0].index == 1
-    assert "physicalName" in unmapped[0].reason or "name" in unmapped[0].reason
-
-
-def test_dataset_urns_no_servers_uses_catch_all_mapping() -> None:
-    contract = _make_contract(
-        servers=None,
-        schema=[{"name": "t", "physicalName": "tbl"}],
-    )
-    config = _config(
-        mappings=[{"server": "*", "platform": "snowflake", "match_any": True}]
-    )
-
-    bindings, unmapped = odcs_to_dataset_urns(contract, config)
     assert len(bindings) == 1
-    assert len(unmapped) == 0
-    assert "snowflake" in bindings[0][1]
+    assert bindings[0].logical_urn
+    assert bindings[0].physical_urn is None
+    assert bindings[0].unmapped_reason is not None
 
 
-def test_dataset_urns_unmappable_server_all_unmapped() -> None:
+def test_binding_physical_override_per_index() -> None:
     contract = _make_contract(
-        servers=[{"server": "weird", "type": "unknown"}],
-        schema=[
-            {"name": "a", "physicalName": "a"},
-            {"name": "b", "physicalName": "b"},
-        ],
-    )
-    config = _config(mappings=[{"server": "other", "platform": "postgres"}])
-
-    bindings, unmapped = odcs_to_dataset_urns(contract, config)
-
-    assert len(bindings) == 0
-    assert len(unmapped) == 2
-
-
-def test_dataset_urn_override_applies_to_first_schema_only() -> None:
-    """`dataset_urn_overrides` is single-URN-per-contract; the override takes the
-    first schema and the rest fall through to server-mapping resolution (D9)."""
-    contract = _make_contract(
-        servers=[{"server": "prod-postgres", "type": "postgres"}],
-        schema=[
-            {"name": "first", "physicalName": "first"},
-            {"name": "second", "physicalName": "second"},
-        ],
+        schema=[{"name": "a"}, {"name": "b"}],
     )
     config = _config(
-        overrides={"c1": "urn:li:dataset:(urn:li:dataPlatform:override,foo,PROD)"},
-        mappings=[{"server": "prod-postgres", "platform": "postgres"}],
+        physical_overrides={
+            "c1": ["urn:li:dataset:(urn:li:dataPlatform:snowflake,db.a,PROD)", ""]
+        }
     )
 
-    bindings, unmapped = odcs_to_dataset_urns(contract, config)
-    assert len(unmapped) == 0
-    assert len(bindings) == 2
-    # First entry took the override.
-    assert bindings[0][1] == "urn:li:dataset:(urn:li:dataPlatform:override,foo,PROD)"
-    # Second entry fell through to server-mapping resolution.
-    assert "postgres" in bindings[1][1]
-    assert "second" in bindings[1][1]
+    bindings = odcs_to_physical_bindings(contract, config)
+
+    assert bindings[0].physical_urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.a,PROD)"
+    )
+    # Empty string leaves the second entry unbound.
+    assert bindings[1].physical_urn is None
 
 
 # ---------------------------------------------------------------------------
-# odcs_to_dataset_mcps — per-schema-entry emission
+# Canonical schema metadata
 # ---------------------------------------------------------------------------
 
 
-def _aspect_types(mcps: List[MetadataChangeProposalWrapper]) -> List[str]:
-    return [type(m.aspect).__name__ for m in mcps]
+def test_schema_metadata_maps_types_nullable_and_keys() -> None:
+    schema_entry = ODCSSchemaObject.model_validate(
+        {
+            "name": "orders",
+            "properties": [
+                {"name": "id", "logicalType": "integer", "primaryKey": True},
+                {"name": "email", "logicalType": "string", "required": True},
+                {"name": "active", "physicalType": "boolean"},
+            ],
+        }
+    )
+    result = build_schema_metadata(schema_entry)
+    sm = result.schema_metadata
+    assert isinstance(sm, SchemaMetadataClass)
+    assert "urn:li:dataPlatform:odcs" in sm.platform
+    by_path = {f.fieldPath: f for f in sm.fields}
+
+    assert isinstance(by_path["id"].type.type, NumberTypeClass)
+    assert by_path["id"].isPartOfKey is True
+    assert isinstance(by_path["email"].type.type, StringTypeClass)
+    assert by_path["email"].nullable is False
+    assert isinstance(by_path["active"].type.type, BooleanTypeClass)
+    # No declared type for active beyond physical "boolean" -> not a fallback.
+    assert result.unmapped_types == []
 
 
-def _editable_schema_paths(
-    mcps: List[MetadataChangeProposalWrapper],
-) -> List[str]:
-    """Return the field paths in EditableSchemaMetadata for these MCPs."""
-    paths: List[str] = []
-    for m in mcps:
-        if isinstance(m.aspect, EditableSchemaMetadataClass):
-            for field in m.aspect.editableSchemaFieldInfo:
-                paths.append(field.fieldPath)
-    return paths
+def test_schema_metadata_nested_paths_and_native_type() -> None:
+    schema_entry = ODCSSchemaObject.model_validate(
+        {
+            "name": "users",
+            "properties": [
+                {
+                    "name": "address",
+                    "logicalType": "object",
+                    "properties": [
+                        {
+                            "name": "city",
+                            "logicalType": "string",
+                            "physicalType": "VARCHAR(64)",
+                        },
+                    ],
+                }
+            ],
+        }
+    )
+    sm = build_schema_metadata(schema_entry).schema_metadata
+    assert sm is not None
+    paths = {f.fieldPath: f for f in sm.fields}
+    assert "address" in paths
+    assert "address.city" in paths
+    # physicalType wins for nativeDataType.
+    assert paths["address.city"].nativeDataType == "VARCHAR(64)"
 
 
-def _build_four_table_contract() -> ODCSContract:
-    """customers (with email pii) + inventory (with sku tagged 'inventory')."""
-    return _make_contract(
-        contract_id="ecommerce-1",
-        name="EcommerceContract",
-        servers=[{"server": "prod-postgres", "type": "postgres"}],
-        team=[{"username": "priya", "role": "owner"}],
-        tags=["retail"],
+def test_schema_metadata_unknown_type_falls_back_to_null_and_is_reported() -> None:
+    schema_entry = ODCSSchemaObject.model_validate(
+        {
+            "name": "t",
+            "properties": [{"name": "weird", "logicalType": "quaternion"}],
+        }
+    )
+    result = build_schema_metadata(schema_entry)
+    assert result.schema_metadata is not None
+    field = result.schema_metadata.fields[0]
+    assert isinstance(field.type.type, NullTypeClass)
+    assert field.nativeDataType == "quaternion"
+    assert any("quaternion" in u for u in result.unmapped_types)
+
+
+def test_schema_metadata_none_when_no_properties() -> None:
+    schema_entry = ODCSSchemaObject.model_validate({"name": "empty"})
+    assert build_schema_metadata(schema_entry).schema_metadata is None
+
+
+# ---------------------------------------------------------------------------
+# Logical dataset aspects
+# ---------------------------------------------------------------------------
+
+
+def test_logical_dataset_mcps_carry_provenance_and_schema() -> None:
+    contract = _make_contract(
+        name="Orders Contract",
+        description="A contract",
+        tags=["pii"],
         schema=[
-            {
-                "name": "customers",
-                "physicalName": "customers",
-                "properties": [
-                    {"name": "customer_id", "logicalType": "number"},
-                    {
-                        "name": "email",
-                        "logicalType": "string",
-                        "tags": ["pii"],
-                        "description": "Shopper email",
-                    },
-                ],
-            },
             {
                 "name": "orders",
-                "physicalName": "orders",
-                "properties": [{"name": "order_id", "logicalType": "number"}],
-            },
-            {
-                "name": "products",
-                "physicalName": "products",
-                "properties": [{"name": "product_id", "logicalType": "number"}],
-            },
-            {
-                "name": "inventory",
-                "physicalName": "inventory",
-                "properties": [
-                    {
-                        "name": "sku",
-                        "logicalType": "string",
-                        "tags": ["inventory"],
-                        "description": "Vendor SKU",
-                    }
-                ],
-            },
+                "physicalName": "public.orders",
+                "properties": [{"name": "id", "logicalType": "integer"}],
+                "quality": [{"rule": "rowCount", "mustBeGreaterThan": 0}],
+            }
         ],
     )
-
-
-def test_dataset_mcps_per_table_tags_attach_to_correct_urn() -> None:
-    """C1 regression: customers.email tag must NOT bleed onto inventory URN
-    and inventory.sku tag must NOT bleed onto customers URN."""
-    contract = _build_four_table_contract()
-    config = _config(mappings=[{"server": "prod-postgres", "platform": "postgres"}])
-    bindings, _ = odcs_to_dataset_urns(contract, config)
-    assert len(bindings) == 4
-
-    by_table: Dict[str, List[MetadataChangeProposalWrapper]] = {}
-    for schema_entry, dataset_urn in bindings:
-        mcps = list(
-            odcs_to_dataset_mcps(
-                contract=contract,
-                schema_entry=schema_entry,
-                dataset_urn=dataset_urn,
-            )
-        )
-        assert schema_entry.physicalName is not None
-        by_table[schema_entry.physicalName] = mcps
-        # Each MCP must target this dataset URN — never another table's URN.
-        for m in mcps:
-            assert m.entityUrn == dataset_urn
-
-    # email tag on customers' EditableSchemaMetadata, NOT inventory's.
-    customer_paths = _editable_schema_paths(by_table["customers"])
-    inventory_paths = _editable_schema_paths(by_table["inventory"])
-    assert "email" in customer_paths
-    assert "email" not in inventory_paths
-    assert "sku" in inventory_paths
-    assert "sku" not in customer_paths
-
-
-def test_dataset_mcps_replicate_metadata_true_emits_ownership_per_table() -> None:
-    contract = _build_four_table_contract()
-    config = _config(mappings=[{"server": "prod-postgres", "platform": "postgres"}])
-    bindings, _ = odcs_to_dataset_urns(contract, config)
-
-    for schema_entry, dataset_urn in bindings:
-        mcps = list(
-            odcs_to_dataset_mcps(
-                contract=contract,
-                schema_entry=schema_entry,
-                dataset_urn=dataset_urn,
-                replicate_contract_metadata=True,
-            )
-        )
-        ownership = [m.aspect for m in mcps if isinstance(m.aspect, OwnershipClass)]
-        assert len(ownership) == 1
-        assert any("priya" in o.owner for o in ownership[0].owners)
-
-
-def test_dataset_mcps_replicate_metadata_false_suppresses_contract_owners_and_tags() -> (
-    None
-):
-    contract = _build_four_table_contract()
-    config = _config(mappings=[{"server": "prod-postgres", "platform": "postgres"}])
-    bindings, _ = odcs_to_dataset_urns(contract, config)
-
-    # customers entry has its OWN per-table behavior — let's check inventory which has
-    # only per-property tags. With replicate=False, contract-level "retail" tag must
-    # not appear, but per-property "inventory" tag still does (via EditableSchemaMetadata).
-    inventory_entry, inventory_urn = next(
-        (s, u) for s, u in bindings if s.physicalName == "inventory"
+    mcps, _unmapped = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn="urn:li:dataset:(urn:li:dataPlatform:odcs,c1.orders,PROD)",
+        source_file="orders.odcs.yaml",
     )
-    mcps = list(
-        odcs_to_dataset_mcps(
-            contract=contract,
-            schema_entry=inventory_entry,
-            dataset_urn=inventory_urn,
-            replicate_contract_metadata=False,
-        )
-    )
+    aspects = [m.aspect for m in mcps]
 
-    # No Ownership emitted at all when replicate=False.
-    assert not any(isinstance(m.aspect, OwnershipClass) for m in mcps)
-    # No GlobalTags carrying "retail" (contract-level) — there are no schema-level
-    # tags on inventory either, so GlobalTags should be absent entirely.
+    props = next(a for a in aspects if isinstance(a, DatasetPropertiesClass))
+    assert props.customProperties["odcs.id"] == "c1"
+    assert props.customProperties["odcs.schemaName"] == "orders"
+    assert props.customProperties["odcs.physicalName"] == "public.orders"
+    assert props.customProperties["odcs.sourceFile"] == "orders.odcs.yaml"
+    assert props.customProperties["odcs.qualityRuleCount"] == "1"
+
+    assert any(isinstance(a, SchemaMetadataClass) for a in aspects)
+    assert any(isinstance(a, GlobalTagsClass) for a in aspects)
+
+
+def test_logical_dataset_no_contract_aspect_emitted() -> None:
+    # The pivot drops dataContract entirely — no dataContract MCP should appear.
+    contract = _make_contract(schema=[{"name": "t", "physicalName": "t"}])
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn="urn:li:dataset:(urn:li:dataPlatform:odcs,c1.t,PROD)",
+    )
     for m in mcps:
-        if isinstance(m.aspect, GlobalTagsClass):
-            for t in m.aspect.tags:
-                assert "retail" not in t.tag
-
-    # Per-property tags survive (sku is tagged 'inventory' inside EditableSchemaMetadata).
-    paths = _editable_schema_paths(mcps)
-    assert "sku" in paths
+        assert m.entityUrn is not None
+        assert "dataContract" not in m.entityUrn
+        assert "DataContract" not in type(m.aspect).__name__
 
 
-def test_dataset_mcps_description_string_renders() -> None:
-    contract = _make_contract(
-        contract_id="d1",
-        servers=[{"server": "s", "type": "postgres"}],
-        schema=[{"name": "t", "physicalName": "t"}],
-        description="A simple string description.",
-    )
-    config = _config(mappings=[{"server": "s", "platform": "postgres"}])
-    bindings, _ = odcs_to_dataset_urns(contract, config)
-    schema_entry, urn = bindings[0]
-    mcps = list(odcs_to_dataset_mcps(contract, schema_entry, urn))
-    dataset_props = next(
-        m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass)
-    )
-    assert dataset_props.description == "A simple string description."
-
-
-def test_dataset_mcps_description_dict_renders_as_markdown() -> None:
-    contract = _make_contract(
-        contract_id="d2",
-        servers=[{"server": "s", "type": "postgres"}],
-        schema=[{"name": "t", "physicalName": "t"}],
-        description={"purpose": "p", "usage": "u", "limitations": "l"},
-    )
-    config = _config(mappings=[{"server": "s", "platform": "postgres"}])
-    bindings, _ = odcs_to_dataset_urns(contract, config)
-    schema_entry, urn = bindings[0]
-    mcps = list(odcs_to_dataset_mcps(contract, schema_entry, urn))
-    dataset_props = next(
-        m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass)
-    )
-    assert dataset_props.description is not None
-    assert "**purpose**" in dataset_props.description
-    assert "**usage**" in dataset_props.description
-
-
-# ---------------------------------------------------------------------------
-# _make_owners / _walk_properties / _description_to_str
-# ---------------------------------------------------------------------------
-
-
-def test_make_owners_dedups_on_urn_and_type() -> None:
-    contract = _make_contract(
-        team=[
-            {"username": "alice", "role": "owner"},
-            {"username": "alice", "role": "owner"},
-            {"username": "alice", "role": "dataSteward"},
-        ],
-    )
-    owners = _make_owners(contract)
-    assert len(owners) == 2
-    types = {o.type for o in owners}
-    assert OwnershipTypeClass.TECHNICAL_OWNER in types
-    assert OwnershipTypeClass.DATA_STEWARD in types
-
-
-def test_make_owners_group_prefix_yields_corp_group() -> None:
-    contract = _make_contract(
-        team=[{"username": "group:platform-team", "role": "owner"}],
-    )
-    owners = _make_owners(contract)
-    assert len(owners) == 1
-    assert owners[0].owner.startswith("urn:li:corpGroup:")
-    assert "platform-team" in owners[0].owner
-
-
-def test_make_owners_dateOut_excludes_member() -> None:
-    contract = _make_contract(
-        team=[
-            {"username": "alice", "role": "owner"},
-            {"username": "bob", "role": "owner", "dateOut": "2024-01-01"},
-        ],
-    )
-    owners = _make_owners(contract)
-    assert len(owners) == 1
-    assert "alice" in owners[0].owner
-
-
-def test_description_to_str_plain_string_trimmed() -> None:
-    assert _description_to_str("  hello  ") == "hello"
-
-
-def test_description_to_str_dict_joins_with_markdown_bold() -> None:
-    result = _description_to_str({"purpose": "p", "usage": "u", "limitations": "l"})
-    assert result is not None
-    assert "**purpose**: p" in result
-    assert "**usage**: u" in result
-    assert "**limitations**: l" in result
-
-
-def test_description_to_str_none_or_empty_returns_none() -> None:
-    assert _description_to_str(None) is None
-    assert _description_to_str("") is None
-    assert _description_to_str("   ") is None
-    assert _description_to_str({}) is None
-
-
-def test_walk_properties_nested_path() -> None:
-    grand = ODCSProperty(name="grand")
-    child = ODCSProperty(name="child", properties=[grand])
-    parent = ODCSProperty(name="parent", properties=[child])
-
-    paths = [path for path, _ in _walk_properties([parent])]
-    assert "parent" in paths
-    assert "parent.child" in paths
-    assert "parent.child.grand" in paths
-
-
-# ---------------------------------------------------------------------------
-# odcs_to_assertion_mcps — rule routing + scope
-# ---------------------------------------------------------------------------
-
-
-def _run_assertions_for_first_schema(
-    contract: ODCSContract,
-) -> Any:
-    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,db.t,PROD)"
-    contract_urn = odcs_to_contract_urn(contract.id, dataset_urn)
-    schema_entry = contract.schema_[0] if contract.schema_ else None
-    assert schema_entry is not None
-    return odcs_to_assertion_mcps(contract, schema_entry, dataset_urn, contract_urn)
-
-
-def test_assertion_schema_level_rule_has_scope_schema() -> None:
+def test_institutional_memory_from_authoritative_definitions() -> None:
     contract = _make_contract(
         schema=[
             {
                 "name": "t",
-                "physicalName": "t",
-                "quality": [
-                    {
-                        "name": "rc",
-                        "rule": "rowCount",
-                        "mustBeGreaterOrEqualTo": 100,
-                    }
+                "authoritativeDefinitions": [
+                    {"type": "specification", "url": "https://example.com/spec"}
                 ],
             }
         ]
     )
-    _, mcps, _ = _run_assertions_for_first_schema(contract)
-    assert len(mcps) == 1
-    info = mcps[0].aspect
-    assert isinstance(info, AssertionInfoClass)
-    assert info.customProperties is not None
-    assert info.customProperties.get("odcs.scope") == "schema"
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn="urn:li:dataset:(urn:li:dataPlatform:odcs,c1.t,PROD)",
+    )
+    inst = next(
+        m.aspect for m in mcps if isinstance(m.aspect, InstitutionalMemoryClass)
+    )
+    assert inst.elements[0].url == "https://example.com/spec"
 
 
-def test_assertion_property_rule_has_scope_property_and_dotted_path() -> None:
+def test_replicate_false_skips_ownership() -> None:
+    contract = _make_contract(
+        schema=[{"name": "t"}],
+        team=[{"username": "alice", "role": "owner"}],
+    )
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn="urn:li:dataset:(urn:li:dataPlatform:odcs,c1.t,PROD)",
+        replicate_contract_metadata=False,
+    )
+    assert not any(isinstance(m.aspect, OwnershipClass) for m in mcps)
+
+
+def test_owners_group_prefix_maps_to_corp_group() -> None:
+    contract = _make_contract(
+        team=[{"username": "group:data-eng", "role": "owner"}],
+    )
+    owners = _make_owners(contract)
+    assert owners[0].owner == "urn:li:corpGroup:data-eng"
+    assert owners[0].type == OwnershipTypeClass.TECHNICAL_OWNER
+
+
+# ---------------------------------------------------------------------------
+# logicalParent + platform info
+# ---------------------------------------------------------------------------
+
+
+def test_logical_parent_links_physical_to_logical() -> None:
+    physical = "urn:li:dataset:(urn:li:dataPlatform:postgres,public.orders,PROD)"
+    logical = "urn:li:dataset:(urn:li:dataPlatform:odcs,c1.orders,PROD)"
+    mcp = odcs_to_logical_parent_mcp(physical, logical)
+    assert mcp.entityUrn == physical
+    assert isinstance(mcp.aspect, LogicalParentClass)
+    assert mcp.aspect.parent is not None
+    assert mcp.aspect.parent.destinationUrn == logical
+
+
+def test_platform_info_registers_odcs() -> None:
+    mcp = odcs_platform_info_mcp()
+    assert mcp.entityUrn == "urn:li:dataPlatform:odcs"
+    assert isinstance(mcp.aspect, DataPlatformInfoClass)
+    assert mcp.aspect.name == "odcs"
+
+
+# ---------------------------------------------------------------------------
+# Assertions — target the physical dataset, seeded by the logical URN
+# ---------------------------------------------------------------------------
+
+_PHYSICAL = "urn:li:dataset:(urn:li:dataPlatform:postgres,public.orders,PROD)"
+_LOGICAL = "urn:li:dataset:(urn:li:dataPlatform:odcs,c1.orders,PROD)"
+
+
+def test_assertions_target_physical_dataset() -> None:
     contract = _make_contract(
         schema=[
             {
-                "name": "t",
-                "physicalName": "t",
-                "properties": [
-                    {
-                        "name": "parent",
-                        "properties": [
-                            {
-                                "name": "child",
-                                "properties": [
-                                    {
-                                        "name": "grand",
-                                        "quality": [
-                                            {"rule": "notNull", "name": "g_nn"}
-                                        ],
-                                    }
-                                ],
-                            }
-                        ],
-                    }
-                ],
+                "name": "orders",
+                "quality": [{"rule": "rowCount", "mustBeGreaterThan": 0}],
             }
         ]
     )
-    _, mcps, _ = _run_assertions_for_first_schema(contract)
-    assert len(mcps) == 1
-    info = mcps[0].aspect
-    assert isinstance(info, AssertionInfoClass)
-    assert info.customProperties.get("odcs.scope") == "property"
-    fa = info.fieldAssertion
-    assert fa is not None and fa.fieldValuesAssertion is not None
-    assert fa.fieldValuesAssertion.field.path == "parent.child.grand"
-
-
-def test_assertion_contract_level_rule_replicates_with_scope_contract() -> None:
-    """Contract-level (top-level `quality[]`) rules must replicate to each
-    fanned-out dataset, tagged `odcs.scope=contract`."""
-    contract = _make_contract(
-        servers=[{"server": "s", "type": "postgres"}],
-        schema=[
-            {"name": "t1", "physicalName": "t1"},
-            {"name": "t2", "physicalName": "t2"},
-        ],
-        quality=[
-            {
-                "name": "all_have_rows",
-                "type": "sql",
-                "query": "SELECT COUNT(*) FROM t",
-                "mustBeGreaterThan": 0,
-            }
-        ],
+    urns, mcps, _trace = odcs_to_assertion_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        physical_urn=_PHYSICAL,
+        logical_urn=_LOGICAL,
     )
-    config = _config(mappings=[{"server": "s", "platform": "postgres"}])
-    bindings, _ = odcs_to_dataset_urns(contract, config)
-
-    contract_scoped_seen = 0
-    seen_urns: List[str] = []
-    for schema_entry, dataset_urn in bindings:
-        contract_urn = odcs_to_contract_urn(contract.id, dataset_urn)
-        _, mcps, _ = odcs_to_assertion_mcps(
-            contract, schema_entry, dataset_urn, contract_urn
-        )
-        for m in mcps:
-            info = m.aspect
-            if isinstance(info, AssertionInfoClass):
-                if info.customProperties.get("odcs.scope") == "contract":
-                    contract_scoped_seen += 1
-                    assert m.entityUrn is not None
-                    seen_urns.append(m.entityUrn)
-    # Replicated to each of the 2 datasets, distinct URNs.
-    assert contract_scoped_seen == 2
-    assert len(set(seen_urns)) == 2
-
-
-def test_assertion_notnull_field_assertion() -> None:
-    contract = _make_contract(
-        schema=[
-            {
-                "name": "t",
-                "physicalName": "t",
-                "properties": [{"name": "id", "quality": [{"rule": "notNull"}]}],
-            }
-        ]
-    )
-    _, mcps, _ = _run_assertions_for_first_schema(contract)
-    assert len(mcps) == 1
-    info = mcps[0].aspect
-    assert isinstance(info, AssertionInfoClass)
-    assert info.type == AssertionTypeClass.FIELD
-    assert isinstance(info.fieldAssertion, FieldAssertionInfoClass)
-    fva = info.fieldAssertion.fieldValuesAssertion
-    assert fva is not None
-    assert fva.operator == AssertionStdOperatorClass.NOT_NULL
-
-
-def test_assertion_unique_field_assertion() -> None:
-    contract = _make_contract(
-        schema=[
-            {
-                "name": "t",
-                "physicalName": "t",
-                "properties": [{"name": "email", "quality": [{"rule": "unique"}]}],
-            }
-        ]
-    )
-    _, mcps, _ = _run_assertions_for_first_schema(contract)
-    assert len(mcps) == 1
-    info = mcps[0].aspect
-    assert isinstance(info, AssertionInfoClass)
-    assert info.fieldAssertion is not None
-    fva = info.fieldAssertion.fieldValuesAssertion
-    assert fva is not None
-    assert fva.operator == AssertionStdOperatorClass.EQUAL_TO
-
-
-def test_assertion_rowcount_with_threshold_yields_volume_assertion() -> None:
-    contract = _make_contract(
-        schema=[
-            {
-                "name": "t",
-                "physicalName": "t",
-                "quality": [{"rule": "rowCount", "mustBeGreaterOrEqualTo": 100}],
-            }
-        ]
-    )
-    _, mcps, trace = _run_assertions_for_first_schema(contract)
     assert len(mcps) == 1
     info = mcps[0].aspect
     assert isinstance(info, AssertionInfoClass)
     assert info.type == AssertionTypeClass.VOLUME
-    assert isinstance(info.volumeAssertion, VolumeAssertionInfoClass)
-    rct = info.volumeAssertion.rowCountTotal
-    assert rct is not None
-    assert rct.operator == AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO
-    assert rct.parameters.value is not None
-    assert rct.parameters.value.value == "100"
-    # Not routed to custom; not skipped.
-    assert trace.routed_to_custom == []
-    assert trace.skipped_no_body == []
+    assert info.volumeAssertion is not None
+    assert info.volumeAssertion.entity == _PHYSICAL
 
 
-def test_assertion_rowcount_no_threshold_routes_to_custom() -> None:
-    """D6: rowCount with no threshold is NOT fabricated as 0/GREATER_THAN_OR_EQUAL.
-    With description as logic-source, it's routed to a CustomAssertion."""
-    contract = _make_contract(
-        schema=[
-            {
-                "name": "t",
-                "physicalName": "t",
-                "quality": [
-                    {
-                        "name": "rc_no_thresh",
-                        "rule": "rowCount",
-                        "description": "row count rule without a threshold",
-                    }
-                ],
-            }
-        ]
+def test_assertion_urn_is_seeded_by_logical_urn() -> None:
+    # Two different logical URNs over the same physical dataset must not collide.
+    rule = ODCSQualityRule(rule="rowCount", mustBeGreaterThan=0, name="r")
+    trace = AssertionRoutingTrace()
+    a = _route_and_build(rule, None, "schema", _PHYSICAL, _LOGICAL, 0, trace)
+    b = _route_and_build(
+        rule,
+        None,
+        "schema",
+        _PHYSICAL,
+        "urn:li:dataset:(urn:li:dataPlatform:odcs,other.orders,PROD)",
+        0,
+        trace,
     )
-    _, mcps, trace = _run_assertions_for_first_schema(contract)
-    assert len(mcps) == 1
-    info = mcps[0].aspect
+    assert a is not None and b is not None
+    assert a[0] != b[0]
+
+
+def test_mustnotbetween_routes_to_custom_with_logic() -> None:
+    rule = ODCSQualityRule(rule="rowCount", mustNotBeBetween=[1, 10], name="r")
+    trace = AssertionRoutingTrace()
+    built = _route_and_build(rule, None, "schema", _PHYSICAL, _LOGICAL, 0, trace)
+    assert built is not None
+    info = built[1].aspect
     assert isinstance(info, AssertionInfoClass)
     assert info.type == AssertionTypeClass.CUSTOM
-    assert "rc_no_thresh" in trace.routed_to_custom
-
-
-def test_assertion_must_not_be_between_routes_to_custom_with_explicit_logic() -> None:
-    contract = _make_contract(
-        schema=[
-            {
-                "name": "t",
-                "physicalName": "t",
-                "quality": [
-                    {
-                        "name": "rc_excl",
-                        "rule": "rowCount",
-                        "mustNotBeBetween": [1, 10],
-                        "description": "row count must not fall between 1 and 10",
-                    }
-                ],
-            }
-        ]
-    )
-    _, mcps, trace = _run_assertions_for_first_schema(contract)
-    assert len(mcps) == 1
-    info = mcps[0].aspect
-    assert isinstance(info, AssertionInfoClass)
-    assert info.type == AssertionTypeClass.CUSTOM
-    assert "rc_excl" in trace.routed_to_custom
-    # D6: the logic field must carry the explicit, human-readable bounds
-    # rather than falling through the default priority chain (query →
-    # implementation → description → name:scope). The literal format
-    # ("value not between {low} and {high}") is documented in the connector's
-    # `odcs_post.md` and the ODCS final design.
-    assert isinstance(info.customAssertion, CustomAssertionInfoClass)
+    assert info.customAssertion is not None
     assert info.customAssertion.logic == "value not between 1 and 10"
 
 
-def test_assertion_sql_rule_with_query_yields_sql_assertion() -> None:
-    contract = _make_contract(
-        schema=[
-            {
-                "name": "t",
-                "physicalName": "t",
-                "quality": [
-                    {
-                        "name": "no_nulls",
-                        "type": "sql",
-                        "query": "SELECT COUNT(*) FROM t WHERE x IS NULL",
-                        "mustBe": 0,
-                    }
-                ],
-            }
-        ]
-    )
-    _, mcps, _ = _run_assertions_for_first_schema(contract)
-    assert len(mcps) == 1
-    info = mcps[0].aspect
-    assert isinstance(info, AssertionInfoClass)
-    assert info.type == AssertionTypeClass.SQL
-    assert isinstance(info.sqlAssertion, SqlAssertionInfoClass)
-    assert info.sqlAssertion.statement == "SELECT COUNT(*) FROM t WHERE x IS NULL"
-    assert info.sqlAssertion.operator == AssertionStdOperatorClass.EQUAL_TO
-
-
-def test_assertion_sql_rule_without_query_routes_to_custom() -> None:
-    contract = _make_contract(
-        schema=[
-            {
-                "name": "t",
-                "physicalName": "t",
-                "quality": [
-                    {
-                        "name": "sql_no_query",
-                        "type": "sql",
-                        "description": "SQL rule but no query body",
-                    }
-                ],
-            }
-        ]
-    )
-    _, mcps, trace = _run_assertions_for_first_schema(contract)
-    assert len(mcps) == 1
-    info = mcps[0].aspect
-    assert isinstance(info, AssertionInfoClass)
-    assert info.type == AssertionTypeClass.CUSTOM
-    assert "sql_no_query" in trace.routed_to_custom
-
-
-def test_assertion_rule_with_no_operator_no_body_is_skipped() -> None:
-    """D6: a rule with no operator AND no body cannot be modeled — skip with trace."""
-    contract = _make_contract(
-        schema=[
-            {
-                "name": "t",
-                "physicalName": "t",
-                "quality": [
-                    # No name (so the fallback can't synthesize logic from rule.name),
-                    # no description, no query, no implementation, no rule.
-                    {}
-                ],
-            }
-        ]
-    )
-    _, mcps, trace = _run_assertions_for_first_schema(contract)
-    assert len(mcps) == 0
-    assert len(trace.skipped_no_body) == 1
-
-
-def test_assertion_unknown_library_with_description_routes_to_custom() -> None:
-    contract = _make_contract(
-        schema=[
-            {
-                "name": "t",
-                "physicalName": "t",
-                "properties": [
-                    {
-                        "name": "score",
-                        "quality": [
-                            {
-                                "rule": "range",
-                                "mustBeBetween": [0, 100],
-                                "description": "score must fall in [0, 100]",
-                            }
-                        ],
-                    }
-                ],
-            }
-        ]
-    )
-    _, mcps, trace = _run_assertions_for_first_schema(contract)
-    assert len(mcps) == 1
-    info = mcps[0].aspect
-    assert isinstance(info, AssertionInfoClass)
-    assert info.type == AssertionTypeClass.CUSTOM
-    assert isinstance(info.customAssertion, CustomAssertionInfoClass)
-    assert info.customAssertion.type == "range"
-    assert info.customAssertion.logic is not None
-    assert "score must fall" in info.customAssertion.logic
-    assert len(trace.routed_to_custom) == 1
-
-
-# ---------------------------------------------------------------------------
-# URN stability under fan-out (TENSION 1 invariants)
-# ---------------------------------------------------------------------------
-
-
-def _stable_contract() -> ODCSContract:
-    return _make_contract(
-        contract_id="stable-id",
-        schema=[
-            {
-                "name": "t",
-                "physicalName": "t",
-                "properties": [
-                    {
-                        "name": "id",
-                        "quality": [{"rule": "notNull", "name": "id_not_null"}],
-                    }
-                ],
-            }
-        ],
-    )
-
-
-def test_urn_stability_same_inputs_yield_same_urns() -> None:
-    contract = _stable_contract()
-    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,db.a,PROD)"
-
-    contract_urn1 = odcs_to_contract_urn(contract.id, dataset_urn)
-    contract_urn2 = odcs_to_contract_urn(contract.id, dataset_urn)
-    assert contract_urn1 == contract_urn2
-
-    assert contract.schema_ is not None
-    schema_entry = contract.schema_[0]
-    _, mcps1, _ = odcs_to_assertion_mcps(
-        contract, schema_entry, dataset_urn, contract_urn1
-    )
-    _, mcps2, _ = odcs_to_assertion_mcps(
-        contract, schema_entry, dataset_urn, contract_urn2
-    )
-    assert [m.entityUrn for m in mcps1] == [m.entityUrn for m in mcps2]
-
-
-def test_urn_stability_distinct_dataset_urns_yield_distinct_urns_no_collision() -> None:
-    contract = _stable_contract()
-    dataset_a = "urn:li:dataset:(urn:li:dataPlatform:postgres,db.a,PROD)"
-    dataset_b = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.b,PROD)"
-
-    contract_urn_a = odcs_to_contract_urn(contract.id, dataset_a)
-    contract_urn_b = odcs_to_contract_urn(contract.id, dataset_b)
-    assert contract_urn_a != contract_urn_b
-
-    assert contract.schema_ is not None
-    schema_entry = contract.schema_[0]
-    _, mcps_a, _ = odcs_to_assertion_mcps(
-        contract, schema_entry, dataset_a, contract_urn_a
-    )
-    _, mcps_b, _ = odcs_to_assertion_mcps(
-        contract, schema_entry, dataset_b, contract_urn_b
-    )
-    urns_a = [m.entityUrn for m in mcps_a]
-    urns_b = [m.entityUrn for m in mcps_b]
-    assert urns_a and urns_b
-    assert set(urns_a).isdisjoint(set(urns_b))
-
-
-# ---------------------------------------------------------------------------
-# _num normalization (M3)
-# ---------------------------------------------------------------------------
-
-
-def test_num_int_and_float_render_identically() -> None:
-    assert _num(5).value == _num(5.0).value == "5"
-
-
-def test_num_decimal_renders_with_decimal() -> None:
-    assert _num(5.5).value == "5.5"
-
-
-def test_num_zero_and_negative() -> None:
-    assert _num(0).value == "0"
-    assert _num(-3).value == "-3"
-
-
-# ---------------------------------------------------------------------------
-# _operator_and_params_from_threshold invariant
-# ---------------------------------------------------------------------------
-
-
-def test_operator_and_params_never_returns_operator_without_params() -> None:
-    """`_route_and_build` routes to a native assertion only when BOTH the
-    operator and params are non-None (guard: `op is None or params is None`).
-    That guard is only safe if the threshold mapper never pairs a real operator
-    with `None` params — the contract this refactor relies on after removing the
-    `_ROUTE_TO_CUSTOM` sentinel. Lock it across the threshold rule shapes:
-    natively-modeled ones return both halves; unmappable / absent ones return
-    `(None, None)`.
-    """
-    natively_modeled = [
-        {"rule": "rowCount", "mustBeBetween": [1, 10]},
-        {"rule": "rowCount", "mustBeGreaterThan": 0},
-        {"rule": "rowCount", "mustBe": 5},
-        {"rule": "rowCount", "mustNotBe": 5},
-    ]
-    no_native_operator = [
-        # No NOT_BETWEEN operator — routed to custom with explicit logic.
-        {"rule": "rowCount", "mustNotBeBetween": [1, 10]},
-        # No threshold at all.
-        {"rule": "rowCount"},
-    ]
-
-    for payload in natively_modeled + no_native_operator:
-        rule = ODCSQualityRule.model_validate(payload)
-        operator, params = _operator_and_params_from_threshold(rule)
-        # The invariant the guard depends on: an operator never travels alone.
-        assert not (operator is not None and params is None)
-
-    for payload in natively_modeled:
-        rule = ODCSQualityRule.model_validate(payload)
-        operator, params = _operator_and_params_from_threshold(rule)
-        assert operator is not None
-        assert params is not None
-
-    for payload in no_native_operator:
-        rule = ODCSQualityRule.model_validate(payload)
-        assert _operator_and_params_from_threshold(rule) == (None, None)
+def test_rule_with_no_body_is_skipped() -> None:
+    rule = ODCSQualityRule(type="text")  # no query/impl/description/name
+    trace = AssertionRoutingTrace()
+    built = _route_and_build(rule, None, "schema", _PHYSICAL, _LOGICAL, 0, trace)
+    assert built is None
+    assert trace.skipped_no_body

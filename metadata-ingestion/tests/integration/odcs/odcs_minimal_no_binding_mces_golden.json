@@ -14,23 +14,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "test-odcs-odcs_minimal_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_minimal_mces.json",
+        "runId": "test-odcs-odcs_minimal_no_binding_mces.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -57,7 +41,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "test-odcs-odcs_minimal_mces.json",
+        "runId": "test-odcs-odcs_minimal_no_binding_mces.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -103,25 +87,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "test-odcs-odcs_minimal_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "logicalParent",
-    "aspect": {
-        "json": {
-            "parent": {
-                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000001.my_table,PROD)"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "test-odcs-odcs_minimal_mces.json",
+        "runId": "test-odcs-odcs_minimal_no_binding_mces.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -137,7 +103,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "test-odcs-odcs_minimal_mces.json",
+        "runId": "test-odcs-odcs_minimal_no_binding_mces.json",
         "lastRunId": "no-run-id-provided"
     }
 }

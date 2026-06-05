@@ -3,13 +3,15 @@ source:
   config:
     # Path to a single ODCS YAML file, a directory of contracts, or a glob.
     # May also be a list of any of the above. Each file may describe multiple
-    # tables (one `schema[]` entry per table) — every entry fans out to its own
-    # Dataset URN + DataContract URN pair.
+    # tables (one `schema[]` entry per table) — every entry becomes its own
+    # logical `odcs` Dataset.
     path: ./contracts/
 
     # Map every distinct `servers[].server` value in your contracts to a
-    # DataHub data platform. Contracts that resolve to no mapping are skipped
-    # with a warning.
+    # DataHub data platform to resolve the *physical* dataset each contract
+    # binds to. When a binding resolves, the source emits a `logicalParent`
+    # link from the physical dataset and the contract's quality assertions
+    # against it. Without a binding, only the logical dataset is emitted.
     servers_to_platform:
       - server: prod-snowflake
         platform: snowflake
@@ -20,17 +22,19 @@ source:
     #
     # tag_prefix: "odcs."                       # prepend to every emitted tag
     # strict_validation: false                  # default false; set true to reject contracts that fail JSON Schema validation
-    # emit_assertions: true                     # emit Assertion entities from `quality[]` rules
+    # emit_assertions: true                     # emit Assertions from `quality[]` rules (only when a physical binding resolves)
+    # emit_logical_parent: true                 # emit the logicalParent link from physical to logical datasets
     # odcs_versions: ["3.0.0", "3.0.1", "3.0.2", "3.1.0"]
-    # dataset_urn_overrides:                    # contract id -> explicit Dataset URN
-    #   "orders.v1": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.sales.orders,PROD)"
+    # logical_dataset_name_template: "{contract_id}.{schema_name}"  # logical odcs dataset URN name
+    # physical_urn_overrides:                   # contract id -> list of physical Dataset URNs, one per schema[] entry
+    #   "orders.v1":
+    #     - "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.sales.orders,PROD)"
     # follow_symlinks: false                    # follow symlinks when scanning a directory
     # max_input_file_bytes: 5242880             # 5 MB; larger files are skipped with a warning
-    # raw_contract_size_limit_bytes: 1000000    # 1 MB; larger contracts omit rawContract aspect
     #
-    # Replicate contract-level ownership/description/tags to every fanned-out
-    # dataset on each ingest. Set false to emit these aspects only at first sight,
-    # which preserves manual UI edits but means contract changes don't propagate.
+    # Replicate contract-level ownership/tags to every logical dataset on each
+    # ingest. Set false to emit these aspects only at first sight, which
+    # preserves manual UI edits but means contract changes don't propagate.
     # replicate_contract_metadata: true
 
 # Default sink is datahub-rest and doesn't need to be configured.
