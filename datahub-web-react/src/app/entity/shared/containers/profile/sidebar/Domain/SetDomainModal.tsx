@@ -49,7 +49,6 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
-    const theme = useTheme();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(
