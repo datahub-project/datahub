@@ -95,8 +95,10 @@ jobs:
 
       - name: Pull images from depot
         if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id != '' }}
+        env:
+          DEPOT_BUILD_ID: ${{ inputs.depot_build_id }}
         run: |
-          depot pull --project "${{ vars.DEPOT_PROJECT_ID }}" "${{ inputs.depot_build_id }}"
+          depot pull --project "${{ vars.DEPOT_PROJECT_ID }}" "$DEPOT_BUILD_ID"
           docker images
 
       - name: Build images (fork — no depot cache)
@@ -104,10 +106,13 @@ jobs:
         timeout-minutes: 60
         env:
           DOCKER_CACHE: GITHUB
+          BUILD_TASK: ${{ inputs.image_build_task }}
+          DATAHUB_VERSION: ${{ inputs.datahub_version }}
+          LOCAL_BUILD_FLAGS: ${{ inputs.local_build_flags }}
         run: |
-          BUILD_TASK="${{ inputs.image_build_task }}"
           echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ inputs.datahub_version }} ${{ inputs.local_build_flags }}
+          read -ra extra_flags <<< "$LOCAL_BUILD_FLAGS"
+          ./gradlew "$BUILD_TASK" -Ptag="$DATAHUB_VERSION" "${extra_flags[@]}"
           docker images
 
       - name: Run quickstart
@@ -147,9 +152,11 @@ jobs:
         env:
           BASE_URL: "http://localhost:9002"
           PLAYWRIGHT_REUSE_SERVER: "1"
+          SHARD: ${{ inputs.shard }}
+          SHARD_COUNT: ${{ inputs.shard_count }}
         run: |
           npx playwright test \
-            --shard=${{ inputs.shard }}/${{ inputs.shard_count }}
+            --shard="$SHARD/$SHARD_COUNT"
 
       - name: Upload Playwright blob report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -169,9 +176,11 @@ jobs:
 
       - name: Store logs on failure
         if: failure()
+        env:
+          SHARD: ${{ inputs.shard }}
         run: |
           docker ps -a
-          TEST_STRATEGY="-playwright-${{ inputs.shard }}"
+          TEST_STRATEGY="-playwright-$SHARD"
           source .github/scripts/docker_logs.sh
 
       - name: Upload Docker logs on failure
