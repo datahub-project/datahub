@@ -170,7 +170,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "postgres.pgQueue.topics.*.*",
           "postgres.pgQueue.maintenance.*",
           "postgres.pgQueue.retention.*",
-          "postgres.pgQueue.producer.*");
+          "postgres.pgQueue.producer.*",
+          "datahub.gms.rateLimits.capacity.rules[*].*",
+          "datahub.gms.rateLimits.endpoint.rules[*].*");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -1106,7 +1108,30 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Postgres schema
           "postgres.schema",
           // Bootstrap configuration
-          "bootstrap.async.workerThreads"
+          "bootstrap.async.workerThreads",
+          // GMS HTTP service rate limiting (under datahub.gms)
+          "datahub.gms.rateLimits.failOpen",
+          "datahub.gms.rateLimits.minRetryAfterSeconds",
+          "datahub.gms.rateLimits.retryAfterJitterPercent",
+          "datahub.gms.rateLimits.excludedPaths",
+          "datahub.gms.rateLimits.configFile.enabled",
+          "datahub.gms.rateLimits.configFile.path",
+          "datahub.gms.rateLimits.capacity.default.enabled",
+          "datahub.gms.rateLimits.capacity.default.initialLimit",
+          "datahub.gms.rateLimits.capacity.default.minLimit",
+          "datahub.gms.rateLimits.capacity.default.maxLimit",
+          "datahub.gms.rateLimits.capacity.enabled",
+          "datahub.gms.rateLimits.capacity.graphql.pathPattern",
+          "datahub.gms.rateLimits.capacity.graphql.operationRulesEnabled",
+          "datahub.gms.rateLimits.capacity.graphql.enabled",
+          "datahub.gms.rateLimits.capacity.graphql.initialLimit",
+          "datahub.gms.rateLimits.capacity.graphql.minLimit",
+          "datahub.gms.rateLimits.capacity.graphql.maxLimit",
+          "datahub.gms.rateLimits.capacity.rules",
+          "datahub.gms.rateLimits.endpoint.enabled",
+          "datahub.gms.rateLimits.endpoint.hazelcastMapName",
+          "datahub.gms.rateLimits.endpoint.rules",
+          "datahub.gms.rateLimits.metrics.detailed"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to
