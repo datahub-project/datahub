@@ -1110,6 +1110,12 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_BATCH_SIZE:1000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_DELAY_MS:30000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_CLL_LIMIT:0}
+  restoreColumnLineageIndices:
+    enabled: ${RESTORE_COLUMN_LINEAGE_INDICES_ENABLED:true}
+  restoreFormInfoIndices:
+    enabled: ${RESTORE_FORM_INFO_INDICES_ENABLED:true}
+  restoreGlossaryIndices:
+    enabled: ${RESTORE_GLOSSARY_INDICES_ENABLED:true}
   browsePathsV2:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_BATCH_SIZE:5000}
@@ -1138,6 +1144,10 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_BATCH_SIZE:100}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_REPROCESS:false}
+  indexDataPlatforms:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_INDEX_DATA_PLATFORMS_ENABLED:true}
+  migrateHomePageLinks:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_MIGRATE_HOME_PAGE_LINKS_ENABLED:true}
   migrateAspects:
     enabled: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED:${ZDU_STAGE_20:false}}
     batchSize: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_BATCH_SIZE:500}
@@ -1197,6 +1207,8 @@ systemUpdate:
       includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
   ingestEntityTypes:
     enabled: ${SYSTEM_UPDATE_INGEST_ENTITY_TYPES_ENABLED:true}
+  restoreDbtSiblingsIndices:
+    enabled: ${SYSTEM_UPDATE_RESTORE_DBT_SIBLINGS_INDICES_ENABLED:true}
   ingestDefaultGlobalSettings:
     enabled: ${SYSTEM_UPDATE_INGEST_DEFAULT_GLOBAL_SETTINGS_ENABLED:true}
   ingestPolicies:

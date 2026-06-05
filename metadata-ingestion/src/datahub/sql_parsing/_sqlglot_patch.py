@@ -253,10 +253,6 @@ def _patch_lineage() -> None:
 
 # Apply patches
 
-# sqlglot.Expression was removed as a top-level re-export in v30; restore it for
-# backward compatibility with existing DataHub type annotations.
-sqlglot.Expression = sqlglot.expressions.Expression  # type: ignore
-
 sqlglot.expressions.Expression.__deepcopy__ = _deepcopy_wrapper  # type: ignore
 _patch_scope_traverse()
 _patch_unnest_subqueries()

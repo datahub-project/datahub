@@ -24,11 +24,15 @@ import enEntityProfileSchema from '@src/i18n/locales/en/entity.profile.schema.js
 import enEntityProfileStats from '@src/i18n/locales/en/entity.profile.stats.json';
 import enEntityProfileSummary from '@src/i18n/locales/en/entity.profile.summary.json';
 import enEntityProfileTabs from '@src/i18n/locales/en/entity.profile.tabs.json';
+import enEntityProfileTimeline from '@src/i18n/locales/en/entity.profile.timeline.json';
 import enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
+import enEntitySharedComponents from '@src/i18n/locales/en/entity.shared.components.json';
 import enEntitySharedContainers from '@src/i18n/locales/en/entity.shared.containers.json';
+import enEntitySharedEntityDropdown from '@src/i18n/locales/en/entity.shared.entityDropdown.json';
 import enEntityTypes from '@src/i18n/locales/en/entity.types.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
+import enEntityV1SharedEntityDropdown from '@src/i18n/locales/en/entityV1.shared.entityDropdown.json';
 import enGovernanceDomain from '@src/i18n/locales/en/governance.domain.json';
 import enGovernanceGlossary from '@src/i18n/locales/en/governance.glossary.json';
 import enGovernanceStructuredProperties from '@src/i18n/locales/en/governance.structured-properties.json';
@@ -85,10 +89,14 @@ i18n.use(initReactI18next).init({
         'entity.profile.schema',
         'entity.profile.stats',
         'entity.profile.summary',
+        'entity.profile.timeline',
         'entity.profile.view',
+        'entity.shared.components',
         'entity.shared.containers',
+        'entity.shared.entityDropdown',
         'entity.types',
         'entity.views',
+        'entityV1.shared.entityDropdown',
         'governance.domain',
         'governance.glossary',
         'governance.structured-properties',
@@ -141,10 +149,14 @@ i18n.use(initReactI18next).init({
             'entity.profile.schema': enEntityProfileSchema,
             'entity.profile.stats': enEntityProfileStats,
             'entity.profile.summary': enEntityProfileSummary,
+            'entity.profile.timeline': enEntityProfileTimeline,
             'entity.profile.view': enEntityProfileView,
+            'entity.shared.components': enEntitySharedComponents,
             'entity.shared.containers': enEntitySharedContainers,
+            'entity.shared.entityDropdown': enEntitySharedEntityDropdown,
             'entity.types': enEntityTypes,
             'entity.views': enEntityViews,
+            'entityV1.shared.entityDropdown': enEntityV1SharedEntityDropdown,
             'governance.domain': enGovernanceDomain,
             'governance.glossary': enGovernanceGlossary,
             'governance.structured-properties': enGovernanceStructuredProperties,

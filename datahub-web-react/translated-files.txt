@@ -10,11 +10,16 @@ src/app/entityV2/ownership/OwnershipBuilderModal.tsx
 src/app/entityV2/ownership/OwnershipList.tsx
 src/app/entityV2/ownership/table/ActionsColumn.tsx
 src/app/entityV2/ownership/table/OwnershipTable.tsx
+src/app/entityV2/shared/components/**/*.{ts,tsx}
 src/app/entityV2/shared/containers/**/*.{ts,tsx}
+src/app/entityV2/shared/EntityDropdown/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/Dataset/AccessManagement/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/Dataset/Queries/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/Dataset/Schema/**/*.{ts,tsx}
+src/app/entityV2/shared/tabs/Dataset/Stats/**/*.{ts,tsx}
+src/app/entityV2/shared/tabs/Dataset/Timeline/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/Dataset/Validations/**/*.{ts,tsx}
+src/app/entityV2/shared/tabs/Dataset/View/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/Documentation/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/Incident/**/*.{ts,tsx}
 src/app/entityV2/summary/**/*.{ts,tsx}
@@ -220,6 +225,7 @@ src/app/previewV2/QueryStat.tsx
 src/app/previewV2/SearchPill.tsx
 src/app/previewV2/utils.ts
 src/app/entity/shared/entityForm/schemaFieldPrompts/DropdownHeader.tsx
+src/app/entity/shared/EntityDropdown/**/*.{ts,tsx}
 src/app/entityV2/dataset/profile/schema/components/SchemaSearchInput.tsx
 src/app/*.{ts,tsx}
 src/app/appConfig/**/*.{ts,tsx}

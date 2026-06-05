@@ -126,7 +126,9 @@ export const RelatedLinkItem: React.FC<RelatedLinkItemProps> = ({ link, onEdit, 
                                 name: entityRegistry.getDisplayName(link.actor.type, link.actor),
                             }}
                             components={{
-                                link: <Link to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`} />,
+                                actorLink: (
+                                    <Link to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`} />
+                                ),
                             }}
                         />
                     </Description>
