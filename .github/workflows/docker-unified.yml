@@ -653,7 +653,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.pytest_matrix || '{"include":[]}') }}
-    if: ${{ !cancelled() && needs.setup.result != 'failed' && needs.smoke_test_matrix.outputs.pytest_matrix != '' && needs.smoke_test_matrix.outputs.pytest_matrix != '{"include":[]}' }}
+    # A status-check function (always/!failure/!cancelled) is required: without one, an `if`
+    # implies success(), which fails for jobs downstream of the optionally-skipped
+    # base_build (skipped on fork PRs), so this job would be skipped.
+    if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.pytest_matrix != '' && needs.smoke_test_matrix.outputs.pytest_matrix != '{"include":[]}' }}
     env:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
@@ -891,7 +894,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.cypress_matrix || '{"include":[]}') }}
-    if: ${{ !cancelled() && needs.setup.result != 'failed' && needs.smoke_test_matrix.outputs.cypress_matrix != '' && needs.smoke_test_matrix.outputs.cypress_matrix != '{"include":[]}' }}
+    # A status-check function (always/!failure/!cancelled) is required: without one, an `if`
+    # implies success(), which fails for jobs downstream of the optionally-skipped
+    # base_build (skipped on fork PRs), so this job would be skipped.
+    if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.cypress_matrix != '' && needs.smoke_test_matrix.outputs.cypress_matrix != '{"include":[]}' }}
     env:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
