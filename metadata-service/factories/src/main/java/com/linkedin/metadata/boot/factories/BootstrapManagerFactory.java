@@ -53,9 +53,7 @@ public class BootstrapManagerFactory {
     final WaitForSystemUpdateStep waitForSystemUpdateStep =
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
     final List<BootstrapStep> finalSteps =
-        new ArrayList<>(
-            ImmutableList.of(
-                waitForSystemUpdateStep));
+        new ArrayList<>(ImmutableList.of(waitForSystemUpdateStep));
 
     return new BootstrapManager(finalSteps, asyncWorkerThreads);
   }
