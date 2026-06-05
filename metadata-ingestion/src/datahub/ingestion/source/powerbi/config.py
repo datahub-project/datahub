@@ -44,6 +44,7 @@ class Constant:
     TILE_LIST = "TILE_LIST"
     REPORT_LIST = "REPORT_LIST"
     PAGE_BY_REPORT = "PAGE_BY_REPORT"
+    REPORT_DATASOURCES = "REPORT_DATASOURCES"
     DATASET_PARAMS_GET = "DATASET_PARAMS_GET"
     DATASET_LIST = "DATASET_LIST"
     WORKSPACE_MODIFIED_LIST = "WORKSPACE_MODIFIED_LIST"
@@ -274,14 +275,17 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
         self.filtered_charts.append(view)
 
 
-def default_for_dataset_type_mapping() -> Dict[str, str]:
-    dict_: dict = {}
-    for item in SupportedDataPlatform:
-        dict_[item.value.powerbi_data_platform_name] = (
-            item.value.datahub_data_platform_name
-        )
+# Lookup of PowerBI datasourceType -> DataPlatformPair; safe to share globally.
+POWERBI_TYPE_TO_DATA_PLATFORM_PAIR: Dict[str, DataPlatformPair] = {
+    item.value.powerbi_data_platform_name: item.value for item in SupportedDataPlatform
+}
 
-    return dict_
+
+def default_for_dataset_type_mapping() -> Dict[str, str]:
+    return {
+        powerbi_name: pair.datahub_data_platform_name
+        for powerbi_name, pair in POWERBI_TYPE_TO_DATA_PLATFORM_PAIR.items()
+    }
 
 
 class DataBricksPlatformDetail(PlatformDetail):

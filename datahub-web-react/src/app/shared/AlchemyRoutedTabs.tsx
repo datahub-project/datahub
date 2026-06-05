@@ -88,12 +88,18 @@ export const AlchemyRoutedTabs = ({ defaultPath, tabs, onTabChange }: AlchemyRou
                         tabCount = tab.customTitle.props.count;
                     } else {
                         // Fallback for other custom titles
-                        tabName = typeof tab.name === 'string' ? tab.name : 'Tab';
+                        tabName =
+                            typeof tab.name === 'string'
+                                ? tab.name
+                                : /* untranslated-text -- defensive ReactNode fallback; almost never rendered */ 'Tab';
                         tabCount = tab.count;
                     }
                 } else {
                     // Use name directly (convert to string if needed)
-                    tabName = typeof tab.name === 'string' ? tab.name : 'Tab';
+                    tabName =
+                        typeof tab.name === 'string'
+                            ? tab.name
+                            : /* untranslated-text -- defensive ReactNode fallback; almost never rendered */ 'Tab';
                     tabCount = tab.count;
                 }
 

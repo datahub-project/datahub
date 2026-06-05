@@ -1,6 +1,7 @@
 import { PartitionOutlined } from '@ant-design/icons';
 import { Avatar, Popover } from '@components';
 import React from 'react';
+import { Trans } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
@@ -38,11 +39,19 @@ export default function UserAvatar({ createdActor, createdOn }: Props) {
         <Popover
             content={
                 <PopoverWrapper>
-                    <LineageIcon /> Relationship added by&nbsp;<strong>{userName}</strong>&nbsp;
-                    {createdOn && (
-                        <>
-                            on <strong>{toLocalDateTimeString(createdOn)}</strong>
-                        </>
+                    <LineageIcon />
+                    {createdOn ? (
+                        <Trans
+                            i18nKey="lineage:manualLineage.userAvatar.relationshipAddedByWithDate"
+                            values={{ userName, date: toLocalDateTimeString(createdOn) }}
+                            components={{ bold: <strong /> }}
+                        />
+                    ) : (
+                        <Trans
+                            i18nKey="lineage:manualLineage.userAvatar.relationshipAddedBy"
+                            values={{ userName }}
+                            components={{ bold: <strong /> }}
+                        />
                     )}
                 </PopoverWrapper>
             }

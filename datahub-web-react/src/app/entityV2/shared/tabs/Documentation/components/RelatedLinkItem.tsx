@@ -2,6 +2,7 @@ import { Pencil } from '@phosphor-icons/react/dist/csr/Pencil';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { List } from 'antd';
 import React from 'react';
+import { Trans } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -117,10 +118,17 @@ export const RelatedLinkItem: React.FC<RelatedLinkItemProps> = ({ link, onEdit, 
                         {link.description || link.label}
                     </TitleLink>
                     <Description>
-                        Added {formatDateString(link.created.time)} by{' '}
-                        <Link to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`}>
-                            {entityRegistry.getDisplayName(link.actor.type, link.actor)}
-                        </Link>
+                        <Trans
+                            i18nKey="addedByUser"
+                            ns="entity.profile.documentation"
+                            values={{
+                                date: formatDateString(link.created.time),
+                                name: entityRegistry.getDisplayName(link.actor.type, link.actor),
+                            }}
+                            components={{
+                                link: <Link to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`} />,
+                            }}
+                        />
                     </Description>
                 </ContentContainer>
             </MetaContainer>

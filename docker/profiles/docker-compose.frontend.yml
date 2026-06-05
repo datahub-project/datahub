@@ -63,6 +63,13 @@ services:
     depends_on:
       system-update-quickstart-postgres:
         condition: service_completed_successfully
+  frontend-quickstart-postgres-consumers:
+    <<: *datahub-frontend-service
+    profiles:
+      - quickstart-postgres-consumers
+    depends_on:
+      system-update-quickstart-postgres-consumers:
+        condition: service_completed_successfully
   frontend-quickstart-consumers:
     <<: *datahub-frontend-service
     profiles:
@@ -118,6 +125,13 @@ services:
       - debug-postgres
     depends_on:
       system-update-debug-postgres:
+        condition: service_completed_successfully
+  frontend-debug-postgres-consumers:
+    <<: *datahub-frontend-service-dev
+    profiles:
+      - debug-postgres-consumers
+    depends_on:
+      system-update-debug-postgres-consumers:
         condition: service_completed_successfully
   frontend-debug-cassandra:
     <<: *datahub-frontend-service-dev

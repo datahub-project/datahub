@@ -2,6 +2,7 @@ import { ConsoleSqlOutlined, HomeOutlined, LoadingOutlined } from '@ant-design/i
 import { Tooltip } from '@components';
 import { Skeleton, Spin } from 'antd';
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 
@@ -93,6 +94,7 @@ const CustomIcon = styled.img`
 `;
 
 export default function LineageTransformationNode(props: NodeProps<LineageEntity>) {
+    const { t } = useTranslation('lineage');
     const { data, selected, dragging } = props;
     const { urn, type, entity, fetchStatus } = data;
     const entityRegistry = useEntityRegistryV2();
@@ -131,7 +133,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             {urn === rootUrn && (
                 <HomeNodeBubble>
                     <HomeOutlined style={{ marginRight: 4 }} />
-                    Home
+                    {t('node.homePill.label')}
                 </HomeNodeBubble>
             )}
             <IconWrapper isGhost={isGhost}>

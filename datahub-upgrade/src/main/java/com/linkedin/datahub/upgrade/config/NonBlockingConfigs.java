@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
+import com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatformInstances;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
@@ -12,6 +13,7 @@ import com.linkedin.datahub.upgrade.system.ingestion.IngestEntityTypes;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.migrations.MigrateAspects;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
+import com.linkedin.datahub.upgrade.system.restoreindices.RestoreDbtSiblingsIndices;
 import com.linkedin.datahub.upgrade.system.retention.IngestRetentionPolicies;
 import com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromSchemaMetadata;
 import com.linkedin.datahub.upgrade.system.schemafield.MigrateSchemaFieldDocIds;
@@ -19,8 +21,10 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
+import com.linkedin.metadata.config.messaging.KafkaMessagingEnabledCondition;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.search.SearchService;
@@ -170,6 +174,7 @@ public class NonBlockingConfigs {
   @Autowired private OperationContext opContext;
 
   @Bean
+  @Conditional(KafkaMessagingEnabledCondition.class)
   public NonBlockingSystemUpgrade kafkaSetupNonBlocking(
       final ConfigurationProvider configurationProvider, KafkaProperties properties) {
     return new KafkaNonBlockingSetup(opContext, configurationProvider.getKafka(), properties);
@@ -217,6 +222,14 @@ public class NonBlockingConfigs {
   }
 
   @Bean
+  public NonBlockingSystemUpgrade ingestDataPlatformInstances(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Qualifier("entityAspectDao") final AspectMigrationsDao migrationsDao,
+      @Value("${systemUpdate.ingestDataPlatformInstances.enabled}") final boolean enabled) {
+    return new IngestDataPlatformInstances(entityService, migrationsDao, enabled);
+  }
+
+  @Bean
   public NonBlockingSystemUpgrade migrateAspects(
       @Qualifier("systemOperationContext") final OperationContext opContext,
       final EntityService<?> entityService,
@@ -239,5 +252,12 @@ public class NonBlockingConfigs {
         batchSize,
         delayMs,
         limit);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade restoreDbtSiblingsIndices(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Value("${systemUpdate.restoreDbtSiblingsIndices.enabled}") final boolean enabled) {
+    return new RestoreDbtSiblingsIndices(entityService, enabled);
   }
 }

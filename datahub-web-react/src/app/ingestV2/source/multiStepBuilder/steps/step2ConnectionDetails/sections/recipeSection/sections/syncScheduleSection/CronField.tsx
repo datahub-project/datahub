@@ -1,5 +1,6 @@
 import { Input, Switch, Text } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Cron from 'react-js-cron';
 import styled from 'styled-components';
 
@@ -64,6 +65,7 @@ interface Props {
 }
 
 export default function CronField({ scheduleCronInterval, setScheduleCronInterval, cronAsText }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const [advancedCronCheck, setAdvancedCronCheck] = useState(false);
 
     return (
@@ -88,7 +90,7 @@ export default function CronField({ scheduleCronInterval, setScheduleCronInterva
                 )}
                 <AdvancedSchedule>
                     <Switch
-                        label="View Advanced Settings"
+                        label={t('multiStep.schedule.viewAdvancedSettings')}
                         checked={advancedCronCheck}
                         onChange={(e) => setAdvancedCronCheck(e.target.checked)}
                         labelPosition="right"
@@ -98,12 +100,12 @@ export default function CronField({ scheduleCronInterval, setScheduleCronInterva
             <CronText>
                 {cronAsText.error && (
                     <Text color="red" size="sm">
-                        Invalid cron schedule. Cron must be of UNIX form:
+                        {t('multiStep.schedule.invalidCron')}
                     </Text>
                 )}
                 {!cronAsText.text && (
                     <CronFormat>
-                        <Text size="sm">minute, hour, day, month, day of week</Text>
+                        <Text size="sm">{t('multiStep.schedule.cronFormat')}</Text>
                     </CronFormat>
                 )}
                 {cronAsText.text && (

@@ -1,6 +1,7 @@
 import { PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -49,9 +50,9 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
 
     getPathName = () => 'schemaField';
 
-    getEntityName = () => 'Column';
+    getEntityName = () => i18next.t('entity.types:schemaField.name');
 
-    getCollectionName = () => 'Columns';
+    getCollectionName = () => i18next.t('entity.types:schemaField.namePlural');
 
     useEntityQuery = useGetSchemaFieldQuery;
 
@@ -64,13 +65,13 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
                 headerDropdownItems={headerDropdownItems}
                 tabs={[
                     {
-                        name: 'Lineage',
+                        name: i18next.t('entity.types:tab.lineage'),
                         component: LineageTab,
                         icon: PartitionOutlined,
                         supportsFullsize: true,
                     },
                     {
-                        name: 'Properties',
+                        name: i18next.t('entity.types:tab.properties'),
                         component: PropertiesTab,
                         icon: UnorderedListOutlined,
                     },
@@ -85,9 +86,9 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
