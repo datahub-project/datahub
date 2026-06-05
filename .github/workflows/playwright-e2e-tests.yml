@@ -13,6 +13,11 @@ on:
         required: false
         default: "5"
         type: string
+      datahub_version:
+        description: "DataHub version to pull from registry. Defaults to 'quickstart' (latest pre-release)"
+        required: false
+        default: "quickstart"
+        type: string
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
@@ -44,13 +49,6 @@ jobs:
         id: set-runner
         run: |
           echo "test_runner_type=${{ steps.determine-runners.outputs.default-runner }}" >> "$GITHUB_OUTPUT"
-          # Give ubuntu-latest (non-Depot) runs 45 min to survive a cold start;
-          # Depot runners are fast enough to stay within 20 min.
-          if [[ "${{ steps.determine-runners.outputs.depot-config-set }}" == "true" ]]; then
-            echo "playwright_timeout=20" >> "$GITHUB_OUTPUT"
-          else
-            echo "playwright_timeout=45" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Set shard count
         id: set-shard-count
@@ -88,145 +86,19 @@ jobs:
 
   playwright_test:
     name: Playwright E2E (Shard ${{ matrix.shard }}/${{ matrix.shard_count }})
-    runs-on: ${{ needs.setup.outputs.test_runner_type }}
     needs: [setup]
-    timeout-minutes: ${{ fromJson(needs.setup.outputs.playwright_timeout || '20') }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix || '{"include":[]}') }}
     if: ${{ needs.setup.outputs.matrix != '' && needs.setup.outputs.matrix != '{"include":[]}' }}
-    steps:
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        with:
-          path: ~/.cache/yarn
-          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
-          restore-keys: playwright-${{ runner.os }}-yarn-
-
-      - name: Check out the repo
-        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "zulu"
-          java-version: 21
-
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: "22"
-
-      - name: Run quickstart
-        env:
-          DATAHUB_TELEMETRY_ENABLED: false
-          DATAHUB_REPO: acryldata
-          DATAHUB_VERSION: quickstart
-          ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
-          ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
-        run: ./smoke-test/run-quickstart.sh
-
-      - name: Disable ES Disk Threshold
-        run: |
-          curl -XPUT "http://localhost:9200/_cluster/settings" \
-            -H 'Content-Type: application/json' -d'{
-              "persistent": {
-                "cluster": {
-                  "routing": {
-                    "allocation.disk.threshold_enabled": false
-                  }
-                }
-              }
-            }'
-
-      - name: Install Playwright dependencies
-        working-directory: e2e-test/ui/playwright
-        run: |
-          yarn install --frozen-lockfile
-          npx playwright install --with-deps chromium
-
-      - name: Run Playwright tests
-        working-directory: e2e-test/ui/playwright
-        env:
-          BASE_URL: "http://localhost:9002"
-          # Tells playwright.config.ts to reuse the DataHub instance started by
-          # run-quickstart.sh rather than launching via quickstartDebug.
-          # Safe in sharded CI: each shard runs on its own isolated VM with its
-          # own DataHub instance — no shared state between shards.
-          PLAYWRIGHT_REUSE_SERVER: "1"
-        run: |
-          npx playwright test \
-            --shard=${{ matrix.shard }}/${{ matrix.shard_count }}
-
-      - name: Upload Playwright blob report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: always()
-        with:
-          name: playwright-blob-report-${{ matrix.shard }}
-          path: e2e-test/ui/playwright/blob-report/
-          retention-days: 1
-
-      - name: Upload Playwright JUnit results
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: always()
-        with:
-          name: playwright-junit-${{ matrix.shard }}
-          path: e2e-test/ui/playwright/test-results/junit.xml
-          retention-days: 5
-
-      - name: Store logs on failure
-        if: failure()
-        run: |
-          docker ps -a
-          TEST_STRATEGY="-playwright-${{ matrix.shard }}"
-          source .github/scripts/docker_logs.sh
-
-      - name: Upload Docker logs on failure
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: failure()
-        with:
-          name: docker-logs-playwright-${{ matrix.shard }}
-          path: "docker_logs/*.log"
-          retention-days: 5
-
-      - name: Upload Playwright traces and screenshots on failure
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: failure()
-        with:
-          name: playwright-traces-${{ matrix.shard }}
-          path: e2e-test/ui/playwright/test-results/
-          retention-days: 5
-
-      - name: Report test results
-        if: "!cancelled()"
-        uses: ./.github/actions/report-test-results
-        with:
-          artifact-name: "Test Results (playwright) shard-${{ matrix.shard }}"
-          test-results-paths: |
-            **/e2e-test/ui/playwright/test-results/junit.xml
-          junit-file-globs: |
-            **/e2e-test/ui/playwright/test-results/junit.xml
-
-      - name: Upload test results to Codecov
-        if: "!cancelled()"
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          report_type: test_results
-          override_branch: ${{ github.head_ref || github.ref_name }}
-
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' && matrix.shard == '1' }}
-        with:
-          path: ~/.cache/yarn
-          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
+    uses: ./.github/workflows/resusable-playwright-tests.yml
+    with:
+      shard: ${{ matrix.shard }}
+      shard_count: ${{ matrix.shard_count }}
+      test_runner_type: ${{ needs.setup.outputs.test_runner_type }}
+      datahub_version: ${{ inputs.datahub_version }}
+      profile_name: ${{ inputs.profileName }}
+    secrets: inherit
 
   playwright_report:
     name: Merge Playwright HTML report
