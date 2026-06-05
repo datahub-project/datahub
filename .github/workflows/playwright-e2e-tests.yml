@@ -28,6 +28,7 @@ jobs:
     runs-on: ubuntu-slim
     outputs:
       test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
+      playwright_timeout: ${{ steps.set-runner.outputs.playwright_timeout }}
       yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -45,6 +46,13 @@ jobs:
         id: set-runner
         run: |
           echo "test_runner_type=${{ steps.determine-runners.outputs.default-runner }}" >> "$GITHUB_OUTPUT"
+          # Give ubuntu-latest (non-Depot) runs 45 min to survive a cold start;
+          # Depot runners are fast enough to stay within 20 min.
+          if [[ "${{ steps.determine-runners.outputs.depot-config-set }}" == "true" ]]; then
+            echo "playwright_timeout=20" >> "$GITHUB_OUTPUT"
+          else
+            echo "playwright_timeout=45" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set shard count
         id: set-shard-count
@@ -90,7 +98,7 @@ jobs:
     name: Playwright E2E (Shard ${{ matrix.shard }}/${{ matrix.shard_count }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
     needs: [setup]
-    timeout-minutes: 20
+    timeout-minutes: ${{ fromJson(needs.setup.outputs.playwright_timeout || '20') }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix || '{"include":[]}') }}
@@ -287,7 +295,7 @@ jobs:
         if: always()
         continue-on-error: true
         with:
-          role-to-assume: ${{ secrets.PLAYWRIGHT_REPORTS_OSS_ROLE_ARN }}
+          role-to-assume: ${{ vars.PLAYWRIGHT_TEST_REPORT_PUBLISH_ROLE_ARN }}
           aws-region: us-west-2
 
       - name: Publish Playwright report to S3
@@ -301,13 +309,14 @@ jobs:
           GH_EVENT_NAME: ${{ github.event_name }}
           GH_RUN_ID: ${{ github.run_id }}
           GH_RUN_ATTEMPT: ${{ github.run_attempt }}
+          PLAYWRIGHT_REPORTS_S3_BUCKET: ${{ vars.PLAYWRIGHT_REPORTS_S3_BUCKET }}
         run: |
           if [[ ! -d playwright-report ]] || [[ -z "$(ls -A playwright-report 2>/dev/null)" ]]; then
             echo "No playwright-report directory — skipping S3 upload"
             exit 0
           fi
 
-          BUCKET="datahub-oss-ci-build-artifacts.dev.dh-int.zone"
+          BUCKET="${PLAYWRIGHT_REPORTS_S3_BUCKET}"
 
           WORKFLOW_NAME=$(echo "$GH_WORKFLOW" \
             | tr '[:upper:]' '[:lower:]' \
