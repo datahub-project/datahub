@@ -154,6 +154,45 @@ datahub:
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
+    # GMS HTTP service rate limiting (disabled by default).
+    # Limits incoming GMS API traffic — NOT MCP ingestion or Kafka lag throttle.
+    # Guide: docs/deploy/gms-rate-limiting.md
+    #
+    # Hierarchy: capacity.enabled | endpoint.enabled (by type)
+    #            → capacity.default / capacity.graphql (sub-pools) / capacity.rules
+    #            → endpoint.rules (cluster-wide buckets via Hazelcast when endpoint.enabled)
+    rateLimits:
+      failOpen: ${RATE_LIMITS_FAIL_OPEN:true}
+      minRetryAfterSeconds: ${RATE_LIMITS_MIN_RETRY_AFTER:60}
+      retryAfterJitterPercent: ${RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT:10}
+      excludedPaths: ${RATE_LIMITS_EXCLUDED_PATHS:/health,/health/live,/actuator/prometheus,/openapi/v1/rate-limits/**}
+      configFile:
+        enabled: ${RATE_LIMITS_CONFIG_FILE_ENABLED:false}
+        path: ${RATE_LIMITS_CONFIG_FILE:/etc/datahub/rate-limits.yaml}
+      # Adaptive in-flight limits (Netflix Gradient2) — per pod
+      capacity:
+        enabled: ${RATE_LIMITS_CAPACITY_ENABLED:false}
+        default:
+          enabled: ${RATE_LIMITS_CAPACITY_DEFAULT_ENABLED:true}
+          initialLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT:200}
+          minLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT:20}
+          maxLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT:5000}
+        graphql:
+          enabled: ${RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED:true}
+          pathPattern: ${RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN:/api/graphql}
+          operationRulesEnabled: ${RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED:true}
+          initialLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT:100}
+          minLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT:20}
+          maxLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT:2000}
+        rules: []
+      # Token-bucket limits (Bucket4j) — cluster-wide via Hazelcast
+      endpoint:
+        enabled: ${RATE_LIMITS_ENDPOINT_ENABLED:false}
+        hazelcastMapName: ${RATE_LIMITS_ENDPOINT_HAZELCAST_MAP:gmsRateLimitEndpointBuckets}
+        rules: []
+      metrics:
+        detailed: ${RATE_LIMITS_METRICS_DETAILED:false}
+
   plugin:
     pluginSecurityMode: ${PLUGIN_SECURITY_MODE:RESTRICTED} # Possible value RESTRICTED or LENIENT, default to RESTRICTED
     entityRegistry:
