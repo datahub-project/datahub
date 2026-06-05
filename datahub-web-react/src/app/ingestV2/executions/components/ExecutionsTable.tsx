@@ -1,6 +1,7 @@
 import { Column, Table } from '@components';
 import * as QueryString from 'query-string';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
@@ -45,6 +46,8 @@ export default function ExecutionsTable({
     isLastPage,
     setSelectedTab,
 }: Props) {
+    const { t } = useTranslation('ingestion');
+    const { t: tl } = useTranslation('common.labels');
     const [runIdOfRollbackConfirmation, setRunIdOfRollbackConfirmation] = useState<string | undefined>();
     const [executionInfoToCancel, setExecutionInfoToCancel] = useState<ExecutionCancelInfo | undefined>();
     const history = useHistory();
@@ -99,32 +102,32 @@ export default function ExecutionsTable({
 
     const tableColumns: Column<ExecutionRequestRecord>[] = [
         {
-            title: 'Source',
+            title: tl('source'),
             key: 'source',
             render: (record) => <SourceColumn record={record} navigateToSource={() => navigateToSource(record)} />,
             width: '30%',
         },
         {
-            title: 'Started At',
+            title: t('executions.colStartedAt'),
             key: 'startedAt',
             render: (record) => <DateTimeColumn time={record.startedAt} showRelative />,
             width: '15%',
             cellWrapper: (content, record) => wrapDateTimeColumnWithHover(content, record.startedAt),
         },
         {
-            title: 'Duration',
+            title: t('executions.colDuration'),
             key: 'duration',
             render: (record) => <DurationColumn durationMs={record.duration} />,
             width: '15%',
         },
         {
-            title: 'Executed By',
+            title: t('executions.colExecutedBy'),
             key: 'executedBy',
             render: (record) => <ExecutedByColumn source={record.source} actor={record.actor} />,
             width: '30%',
         },
         {
-            title: 'Status',
+            title: tl('status'),
             key: 'status',
             render: (record) => <StatusColumn status={record.status} onClick={() => handleViewDetails(record.urn)} />,
             width: '15%',
@@ -161,7 +164,7 @@ export default function ExecutionsTable({
                 rowDataTestId={(record) => `execution-row-${record.urn}`}
                 footer={
                     isLastPage ? (
-                        <TableFooter hiddenItemsMessage="Some executions may be hidden" colSpan={tableColumns.length} />
+                        <TableFooter hiddenItemsMessage={t('executions.someHidden')} colSpan={tableColumns.length} />
                     ) : null
                 }
                 data-testid="executions-table"

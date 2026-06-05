@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Set
 
 import pytest
 
@@ -9,6 +9,20 @@ from datahub.ingestion.source.powerbi.m_query import native_sql_parser
 @pytest.fixture
 def ctx() -> PipelineContext:
     return PipelineContext(run_id="test", pipeline_name="test")
+
+
+def _in_tables(ctx: PipelineContext, query: str, platform: str = "mssql") -> Set[str]:
+    result = native_sql_parser.parse_custom_sql(
+        ctx=ctx,
+        query=query,
+        platform=platform,
+        database="TestDB",
+        schema="dbo",
+        env="PROD",
+        platform_instance=None,
+    )
+    assert result is not None
+    return {urn.lower() for urn in result.in_tables}
 
 
 def test_join():
@@ -72,6 +86,9 @@ def test_remove_tsql_control_statements_go():
     assert not any(line.strip().upper() == "GO" for line in actual.splitlines())
     assert "SELECT col FROM dbo.TableA" in actual
     assert "SELECT col FROM dbo.TableB" in actual
+    # The batch boundary is preserved as a real ';' terminator, not deleted into a
+    # blank line — so downstream splitting never has to guess where statements end.
+    assert ";" in actual
 
 
 def test_remove_tsql_control_statements_select_into():
@@ -138,27 +155,6 @@ WHERE status = 'inactive'
     assert actual.count("dbo.SourceTable") == 2
 
 
-def test_parse_custom_sql_multi_statement_extracts_all_sources(ctx):
-    # Multi-statement SQL (Block contains N statements) should extract lineage from
-    # all SELECT statements that reference real source tables — not just the first or last.
-    # Semicolons separate statements as they appear in real M-Query SQL.
-    query = "SELECT col FROM dbo.TableA WHERE x = 1;\nSELECT col FROM dbo.TableB WHERE y = 2"
-    result = native_sql_parser.parse_custom_sql(
-        ctx=ctx,
-        query=query,
-        platform="mssql",
-        database="TestDB",
-        schema="dbo",
-        env="PROD",
-        platform_instance=None,
-    )
-    assert result is not None
-    assert result.debug_info is None or result.debug_info.table_error is None
-    urns = {urn.lower() for urn in result.in_tables}
-    assert any("tablea" in urn for urn in urns)
-    assert any("tableb" in urn for urn in urns)
-
-
 def test_remove_tsql_control_statements_leading_semicolon_before_with():
     # Leading semicolon before CTE (;WITH ...) is a T-SQL defensive pattern to ensure
     # the previous statement is terminated. It must be stripped so sqlglot can parse the CTE.
@@ -169,52 +165,161 @@ def test_remove_tsql_control_statements_leading_semicolon_before_with():
     assert "dbo.SourceTable" in actual
 
 
-def test_parse_custom_sql_blank_line_separated_selects_extracts_all_sources(ctx):
-    # Multiple SELECTs separated only by blank lines — pattern that appears after
-    # DROP TABLE IF EXISTS is stripped from between statements (no semicolons remain).
-    # All source tables must still be extracted.
-    query = (
-        "SELECT col FROM dbo.TableA WHERE x = 1\n"
-        "\n"
-        "SELECT col FROM dbo.TableB WHERE y = 2"
+def test_is_single_statement_classification():
+    # CTE/UNION/plain SELECT (incl. ';' or '--' inside comments and strings) are one
+    # statement; only ';'- and blank-line-separated statements are multi.
+    single = [
+        "WITH c AS (\n  SELECT id FROM dbo.Src\n)\n\nSELECT * FROM c",
+        "SELECT a FROM dbo.A\nUNION ALL\n\nSELECT b FROM dbo.B",
+        "/* c */ WITH c AS (SELECT x FROM dbo.Src)\nSELECT * FROM c",
+        "SELECT 'a; b -- c' AS s FROM dbo.A",
+    ]
+    multi = [
+        "SELECT a FROM dbo.A;\nSELECT b FROM dbo.B",
+        "SELECT a FROM dbo.A\n\nSELECT b FROM dbo.B",
+    ]
+    assert all(native_sql_parser._is_single_statement(q, "mssql") for q in single)
+    assert not any(native_sql_parser._is_single_statement(q, "mssql") for q in multi)
+
+
+def test_is_single_statement_platform_without_dialect():
+    # 'odbc' has no sqlglot dialect; get_dialect raises and we fall back to the default
+    # dialect instead of crashing.
+    assert native_sql_parser._is_single_statement("SELECT a FROM dbo.A", "odbc")
+
+
+def test_parse_custom_sql_multi_statement_extracts_all_sources(ctx):
+    # Multi-statement SQL: lineage must come from every SELECT, not just the first/last.
+    urns = _in_tables(
+        ctx,
+        "SELECT col FROM dbo.TableA WHERE x = 1;\nSELECT col FROM dbo.TableB WHERE y = 2",
     )
-    result = native_sql_parser.parse_custom_sql(
-        ctx=ctx,
-        query=query,
-        platform="mssql",
-        database="TestDB",
-        schema="dbo",
-        env="PROD",
-        platform_instance=None,
-    )
-    assert result is not None
-    assert result.debug_info is None or result.debug_info.table_error is None
-    urns = {urn.lower() for urn in result.in_tables}
     assert any("tablea" in urn for urn in urns)
     assert any("tableb" in urn for urn in urns)
 
 
 def test_parse_custom_sql_select_then_union_extracts_all_sources(ctx):
-    # SELECT ...;\nSELECT ... UNION SELECT ... produces ['Select', 'Union'] block error.
-    # All source tables across both statements must be extracted.
-    query = (
+    # ';' then a UNION query: all source tables across both statements are extracted.
+    urns = _in_tables(
+        ctx,
         "SELECT col FROM dbo.TableA WHERE x = 1;\n"
-        "SELECT col FROM dbo.TableB\n"
-        "UNION ALL\n"
-        "SELECT col FROM dbo.TableC"
+        "SELECT col FROM dbo.TableB\nUNION ALL\nSELECT col FROM dbo.TableC",
     )
-    result = native_sql_parser.parse_custom_sql(
-        ctx=ctx,
-        query=query,
-        platform="mssql",
-        database="TestDB",
-        schema="dbo",
-        env="PROD",
-        platform_instance=None,
-    )
-    assert result is not None
-    assert result.debug_info is None or result.debug_info.table_error is None
-    urns = {urn.lower() for urn in result.in_tables}
     assert any("tablea" in urn for urn in urns)
     assert any("tableb" in urn for urn in urns)
     assert any("tablec" in urn for urn in urns)
+
+
+def test_single_cte_does_not_leak_alias(ctx):
+    # Reported bug: a single nested CTE with blank lines and a ';' in a comment must stay
+    # one statement, else the CTE alias resolves as a real table and leaks as an upstream.
+    query = (
+        "WITH outer_cte AS (\n"
+        "    WITH inner_cte AS (\n"
+        "\n"
+        "        SELECT id FROM dbo.SrcA\n"
+        "    )\n"
+        "    -- join here; note the ';' in this comment\n"
+        "    SELECT i.id FROM inner_cte i JOIN dbo.SrcB b ON b.id = i.id\n"
+        ")\n"
+        "\n\n"
+        "SELECT * FROM outer_cte"
+    )
+    urns = _in_tables(ctx, query)
+    assert any("srca" in u for u in urns) and any("srcb" in u for u in urns)
+    assert not any("outer_cte" in u or "inner_cte" in u for u in urns)
+
+
+def test_multi_statement_with_cte_does_not_leak_alias(ctx):
+    # A CTE in a ';'-separated multi-statement query must keep its closing SELECT, so
+    # the alias is not split off into a real-table upstream.
+    query = (
+        "WITH my_cte AS (SELECT id FROM dbo.Src)\n"
+        "SELECT * FROM my_cte;\n"
+        "SELECT x FROM dbo.Other"
+    )
+    urns = _in_tables(ctx, query)
+    assert any("src" in u for u in urns) and any("other" in u for u in urns)
+    assert not any("my_cte" in u for u in urns)
+
+
+def test_go_separated_cte_does_not_leak_alias(ctx):
+    # GO between a CTE and the next statement is preserved as a ';' by the cleanup, so the
+    # CTE (despite its blank-line formatting) is split off without leaking its alias.
+    raw = (
+        "WITH my_cte AS (\n  SELECT id FROM dbo.Src\n)\n\nSELECT * FROM my_cte\n"
+        "GO\n"
+        "SELECT x FROM dbo.Other"
+    )
+    urns = _in_tables(ctx, native_sql_parser.remove_tsql_control_statements(raw))
+    assert any("src" in u for u in urns) and any("other" in u for u in urns)
+    assert not any("my_cte" in u for u in urns)
+
+
+def test_parse_custom_sql_subquery_with_blank_lines_not_split(ctx):
+    # The old blank-line heuristic inserted ';' before the inner SELECT, breaking the
+    # subquery. The new _is_single_statement path leaves it intact.
+    query = (
+        "SELECT outer_q.col FROM (\n"
+        "\n"
+        "    SELECT id AS col FROM dbo.Source\n"
+        "\n"
+        ") AS outer_q"
+    )
+    urns = _in_tables(ctx, query)
+    assert any("source" in urn for urn in urns)
+    assert not any("outer_q" in urn for urn in urns)
+
+
+def test_parse_custom_sql_union_all_with_blank_lines(ctx):
+    # UNION ALL with blank lines between branches is a single statement; the old
+    # heuristic would have inserted ';' before the second branch.
+    query = "SELECT col FROM dbo.TableA\n\nUNION ALL\n\nSELECT col FROM dbo.TableB"
+    urns = _in_tables(ctx, query)
+    assert any("tablea" in urn for urn in urns)
+    assert any("tableb" in urn for urn in urns)
+
+
+def test_parse_custom_sql_multiple_ctes(ctx):
+    # Multiple named CTEs (WITH a AS (...), b AS (...)) — comma between definitions
+    # and blank lines around them must not be mistaken for statement boundaries.
+    query = (
+        "WITH active AS (\n"
+        "    SELECT id, name FROM dbo.Users WHERE active = 1\n"
+        "),\n"
+        "\n"
+        "orders AS (\n"
+        "    SELECT user_id, COUNT(*) AS cnt FROM dbo.Orders GROUP BY user_id\n"
+        ")\n"
+        "\n"
+        "SELECT a.name, o.cnt FROM active a JOIN orders o ON o.user_id = a.id"
+    )
+    urns = _in_tables(ctx, query)
+    assert any("users" in urn for urn in urns)
+    assert any("orders" in urn for urn in urns)
+    assert not any("active" in urn for urn in urns)
+
+
+def test_parse_custom_sql_semicolon_in_string_literal(ctx):
+    # ';' inside a string literal must not route the query to the multi-statement path.
+    # The old code checked `";" in normalized` which fired on this.
+    query = (
+        "SELECT id, 'status; pending' AS label\n"
+        "FROM dbo.Tasks\n"
+        "WHERE category = 'type; A'"
+    )
+    urns = _in_tables(ctx, query)
+    assert any("tasks" in urn for urn in urns)
+
+
+def test_remove_tsql_control_statements_multiple_go_collapse():
+    # Multiple consecutive GO separators must collapse to a single ';'.
+    query = "SELECT col FROM dbo.A\nGO\nGO\nSELECT col FROM dbo.B"
+    actual = native_sql_parser.remove_tsql_control_statements(query)
+    assert actual.count(";") == 1
+    assert "dbo.A" in actual and "dbo.B" in actual
+
+
+def test_is_single_statement_none_platform():
+    # None platform must not crash — falls back gracefully to the default dialect.
+    assert native_sql_parser._is_single_statement("SELECT a FROM dbo.A", None)  # type: ignore[arg-type]

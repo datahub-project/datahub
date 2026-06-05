@@ -1,0 +1,7 @@
+{
+    "summaryHealthy": "This asset is healthy",
+    "summaryUnhealthy": "This asset may be unhealthy",
+    "typeAssertions": "Assertions",
+    "typeIncidents": "Incidents",
+    "typeTests": "Tests"
+}

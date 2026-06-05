@@ -242,6 +242,8 @@
     "schemaField.name": "Column",
     "schemaField.namePlural": "Columns",
     "shared.accessTab": "Access",
+    "shared.assetTypeNameCount_one": "{{type}}",
+    "shared.assetTypeNameCount_other": "{{type}}s",
     "shared.assetsCountTitle": "Assets ({{count}})",
     "shared.changedOnDate": "Changed on {{date}}.",
     "shared.changedRelativeTime": "Changed {{time}}",

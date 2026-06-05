@@ -4,6 +4,7 @@ import { X } from '@phosphor-icons/react/dist/csr/X';
 import { message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
@@ -46,6 +47,8 @@ const DisplayNameContainer = styled.span<{ maxWidth?: number }>`
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
+const TRUNCATE_STYLE = { overflow: 'hidden', textOverflow: 'ellipsis' } as const;
+
 interface Props {
     tag: TagAssociation;
     entityUrn?: string;
@@ -83,6 +86,7 @@ export default function Tag({
     tagStyle,
     options,
 }: Props) {
+    const { t } = useTranslation('shared.tags');
     const entityRegistry = useEntityRegistry();
     const isEmbeddedProfile = useIsEmbeddedProfile();
     const [removeTagMutation] = useRemoveTagMutation();
@@ -120,13 +124,13 @@ export default function Tag({
             })
                 .then(({ errors }) => {
                     if (!errors) {
-                        message.success({ content: 'Removed Tag!', duration: 2 });
+                        message.success({ content: t('removeTagSuccess'), duration: 2 });
                     }
                 })
                 .then(refetch)
                 .catch((e) => {
                     message.destroy();
-                    message.error({ content: `Failed to remove tag: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: t('removeTagError', { error: e.message || '' }), duration: 3 });
                 });
         }
     };
@@ -165,7 +169,7 @@ export default function Tag({
                         $showOneAndCount={showOneAndCount}
                     >
                         <Highlight
-                            style={{ marginLeft: 0, fontSize, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            style={{ marginLeft: 0, fontSize, ...TRUNCATE_STYLE }}
                             matchStyle={highlightMatchStyle}
                             search={highlightText}
                         >
@@ -193,8 +197,8 @@ export default function Tag({
                 isOpen={showConfirmDelete}
                 handleClose={() => setShowConfirmDelete(false)}
                 handleConfirm={() => removeTag(tag)}
-                modalTitle={`Delete Tag '${displayName}'`}
-                modalText="Are you sure you want to remove this tag?"
+                modalTitle={t('deleteTagTitle', { name: displayName })}
+                modalText={t('removeTagConfirmation')}
             />
         </>
     );

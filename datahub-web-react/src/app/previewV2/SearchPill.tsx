@@ -3,10 +3,10 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { DefaultTheme } from 'styled-components';
 
-export const PILL_TERM_COUNT = 'pill.termCount';
-export const PILL_TAG_COUNT = 'pill.tagCount';
-export const PILL_OWNER_COUNT = 'pill.ownerCount';
-export const PILL_MATCH_COUNT = 'pill.matchCount';
+export const PILL_TERM_COUNT = 'common.counts:termCount';
+export const PILL_TAG_COUNT = 'common.counts:tagCount';
+export const PILL_OWNER_COUNT = 'common.counts:ownerCount';
+export const PILL_MATCH_COUNT = 'common.counts:matchCount';
 export const PILL_UPSTREAM_COLUMN_COUNT = 'pill.upstreamColumnCount';
 export const PILL_DOWNSTREAM_COLUMN_COUNT = 'pill.downstreamColumnCount';
 

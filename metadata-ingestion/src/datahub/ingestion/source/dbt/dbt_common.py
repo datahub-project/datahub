@@ -1247,7 +1247,7 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     return custom_properties
 
 
-def _get_dbt_cte_names(name: str, target_platform: str) -> List[str]:
+def _get_dbt_cte_names(name: str, adapter: str) -> List[str]:
     # Match the dbt CTE naming scheme:
     # The default is defined here https://github.com/dbt-labs/dbt-core/blob/4122f6c308c88be4a24c1ea490802239a4c1abb8/core/dbt/adapters/base/relation.py#L222
     # However, since this PR https://github.com/dbt-labs/dbt-core/pull/2712, it's also possible
@@ -1266,8 +1266,8 @@ def _get_dbt_cte_names(name: str, target_platform: str) -> List[str]:
     }
 
     cte_names = [default_cte_name]
-    if target_platform in adapter_cte_names:
-        cte_names.append(adapter_cte_names[target_platform])
+    if adapter in adapter_cte_names:
+        cte_names.append(adapter_cte_names[adapter])
 
     return cte_names
 
@@ -2243,7 +2243,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     ]
                     if upstream_node.is_ephemeral_model()
                     for cte_name in _get_dbt_cte_names(
-                        upstream_node.name, schema_resolver.platform
+                        upstream_node.name,
+                        upstream_node.dbt_adapter or schema_resolver.platform,
                     )
                 }
                 if cte_mapping:
@@ -2328,10 +2329,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> SqlParsingResult:
         assert node.compiled_code is not None
 
+        # Use the dbt adapter as the SQL dialect (e.g. "trino", "snowflake").
+        # schema_resolver.platform is the storage platform (e.g. "glue") which
+        # is used for URN construction, not SQL parsing.
+        sql_dialect: str = node.dbt_adapter or schema_resolver.platform
+
         try:
             picked_statement = parse_statements_and_pick(
                 node.compiled_code,
-                platform=schema_resolver.platform,
+                platform=sql_dialect,
             )
         except Exception as e:
             logger.debug(
@@ -2344,7 +2350,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         try:
             preprocessed_sql = detach_ctes(
                 picked_statement,
-                platform=schema_resolver.platform,
+                platform=sql_dialect,
                 cte_mapping=cte_mapping,
             )
         except Exception as e:
@@ -2355,7 +2361,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             return SqlParsingResult.make_from_error(e)
 
-        sql_result = sqlglot_lineage(preprocessed_sql, schema_resolver=schema_resolver)
+        sql_result = sqlglot_lineage(
+            preprocessed_sql,
+            schema_resolver=schema_resolver,
+            override_dialect=sql_dialect,
+        )
         if sql_result.debug_info.table_error:
             self.report.sql_parser_table_errors += 1
             logger.info(
@@ -2895,7 +2905,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         compiled_code = None
         if self.config.include_compiled_code and node.compiled_code:
             compiled_code = try_format_query(
-                node.compiled_code, platform=self.config.target_platform
+                node.compiled_code,
+                platform=node.dbt_adapter or self.config.target_platform,
             )
             compiled_code = self._truncate_code(compiled_code, _DBT_MAX_SQL_LENGTH)
 

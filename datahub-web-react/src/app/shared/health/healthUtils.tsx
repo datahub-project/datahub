@@ -1,4 +1,5 @@
 import { CheckCircleOutlined, ExclamationCircleOutlined, ExclamationCircleTwoTone } from '@ant-design/icons';
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -76,7 +77,7 @@ export const getHealthSummaryIcon = (
 
 export const getHealthSummaryMessage = (healths: Health[]) => {
     const unhealthy = isUnhealthy(healths);
-    return unhealthy ? 'This asset may be unhealthy' : 'This asset is healthy';
+    return unhealthy ? i18next.t('shared.health:summaryUnhealthy') : i18next.t('shared.health:summaryHealthy');
 };
 
 export const getHealthRedirectPath = (type: HealthStatusType) => {
@@ -98,13 +99,13 @@ export const getHealthRedirectPath = (type: HealthStatusType) => {
 export const getHealthTypeName = (type: HealthStatusType) => {
     switch (type) {
         case HealthStatusType.Assertions: {
-            return 'Assertions';
+            return i18next.t('shared.health:typeAssertions');
         }
         case HealthStatusType.Incidents: {
-            return 'Incidents';
+            return i18next.t('shared.health:typeIncidents');
         }
         case HealthStatusType.Tests: {
-            return 'Tests';
+            return i18next.t('shared.health:typeTests');
         }
         default:
             throw new Error(`Unrecognized Health Status Type ${type} provided`);
