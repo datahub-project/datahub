@@ -1,5 +1,6 @@
 import { Table } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { DataContractSummaryFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractSummaryFooter';
@@ -39,16 +40,18 @@ type Props = {
 };
 
 export const SchemaContractSummary = ({ contracts, showAction = false }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
+    const { t: tl } = useTranslation('common.labels');
     const firstContract = (contracts.length && contracts[0]) || undefined;
     const schemaMetadata = firstContract?.assertion?.info?.schemaAssertion?.schema;
 
     const columns = [
         {
-            title: () => <ColumnHeader>Name</ColumnHeader>,
+            title: () => <ColumnHeader>{tl('name')}</ColumnHeader>,
             render: (field) => <>{field.fieldPath}</>,
         },
         {
-            title: () => <ColumnHeader>Type</ColumnHeader>,
+            title: () => <ColumnHeader>{t('schemaSummary.typeColumn')}</ColumnHeader>,
             render: (field) => <>{field.type}</>,
         },
     ];
@@ -60,7 +63,7 @@ export const SchemaContractSummary = ({ contracts, showAction = false }: Props) 
 
     return (
         <Container>
-            <TitleText>SCHEMA</TitleText>
+            <TitleText>{t('contractSection.schema')}</TitleText>
             <SummaryContainer>
                 <StyledTable
                     pagination={false}
@@ -69,10 +72,10 @@ export const SchemaContractSummary = ({ contracts, showAction = false }: Props) 
                     footer={() => (
                         <DataContractSummaryFooter
                             assertions={(firstContract && [firstContract?.assertion]) || []}
-                            passingText="Meeting schema contract"
-                            failingText="Violating schema contract"
-                            errorText="Schema contract assertions are completing with errors"
-                            actionText="view schema assertions"
+                            passingText={t('contractStatus.passingText.schema')}
+                            failingText={t('contractStatus.failingText.schema')}
+                            errorText={t('contractStatus.errorText.schema')}
+                            actionText={t('contractStatus.action.viewSchema')}
                             showAction={showAction}
                         />
                     )}

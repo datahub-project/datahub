@@ -464,14 +464,16 @@ Each consumer automatically records queue time metrics using the message's embed
 
 #### Core Metric
 
-Metric: `kafka.message.queue.time`
+Metric: `messaging.queue.time`
 
 - Type: Timer with configurable percentiles and SLO buckets
 - Unit: Milliseconds
 - Tags:
-  - topic: Kafka topic name (e.g., "MetadataChangeProposal_v1")
-  - consumer.group: Consumer group ID (e.g., "generic-mce-consumer")
-- Use Case: Monitor end-to-end latency from message production to SQL transaction
+  - `messaging.system`: `kafka` or `pgqueue`
+  - `topic`: Logical topic name (e.g., `MetadataChangeProposal_v1`)
+  - `consumer.group`: Consumer group ID (e.g., `generic-mce-consumer`)
+  - `messaging.priority`: pgQueue WFQ band index only (omitted for Kafka)
+- Use Case: Monitor end-to-end latency from message production to consumer processing
 
 #### Statistical Distribution
 
@@ -506,18 +508,28 @@ kafka:
 SLA Compliance Monitoring:
 
 ```promql
-# Percentage of messages processed within 5-minute SLA
-sum(rate(kafka_message_queue_time_seconds_bucket{le="300"}[5m])) by (topic)
-/ sum(rate(kafka_message_queue_time_seconds_count[5m])) by (topic) * 100
+# Percentage of Kafka messages processed within 5-minute SLA
+sum(rate(messaging_queue_time_seconds_bucket{le="300", messaging_system="kafka"}[5m])) by (topic)
+/ sum(rate(messaging_queue_time_seconds_count{messaging_system="kafka"}[5m])) by (topic) * 100
 ```
 
 Consumer Group Comparison:
 
 ```promql
-# P99 queue time by consumer group
+# P99 queue time by consumer group (Kafka)
 histogram_quantile(0.99,
   sum by (consumer_group, le) (
-    rate(kafka_message_queue_time_seconds_bucket[5m])
+    rate(messaging_queue_time_seconds_bucket{messaging_system="kafka"}[5m])
+  )
+)
+```
+
+pgQueue priority bands:
+
+```promql
+histogram_quantile(0.99,
+  sum by (topic, messaging_priority, le) (
+    rate(messaging_queue_time_seconds_bucket{messaging_system="pgqueue"}[5m])
   )
 )
 ```
@@ -528,7 +540,8 @@ Metric Cardinality:
 
 The instrumentation is designed for low cardinality:
 
-- Only two tags: `topic` and `consumer.group`
+- Kafka: `messaging.system`, `topic`, `consumer.group`
+- pgQueue: adds `messaging.priority` (bounded WFQ band count)
 - No partition-level tags (avoiding explosion with high partition counts)
 - No message-specific tags
 
@@ -540,12 +553,11 @@ Overhead Assessment:
 
 #### Migration from Legacy Metrics
 
-The new Micrometer-based queue time metrics coexist with the legacy DropWizard `kafkaLag` histogram:
+Micrometer queue time metrics coexist with the legacy DropWizard `kafkaLag` histogram (name unchanged for JMX/Grafana compatibility):
 
-- Legacy: `kafkaLag` histogram via JMX
-- New: `kafka.message.queue.time` timer via Micrometer
-- Migration: Both metrics collected during transition period
-- Future: Legacy metrics will be deprecated in favor of Micrometer
+- Legacy (JMX): class-scoped `kafkaLag` histogram — still emitted for Kafka and pgQueue consumers
+- Micrometer: `messaging.queue.time` timer with `messaging.system` and related tags
+- The deprecated Micrometer name `kafka.message.queue.time` is no longer emitted
 
 The new metrics provide:
 
@@ -666,7 +678,7 @@ The hook latency metric leverages the trace ID embedded in the system metadata o
 
 #### Relationship to Kafka Queue Time Metrics
 
-While Kafka queue time metrics (`kafka.message.queue.time`) measure the time messages spend in Kafka topics, request hook
+While messaging queue time metrics (`messaging.queue.time`) measure the time messages spend in the queue before consumption, request hook
 latency metrics provide the complete picture:
 
 - Kafka Queue Time: Time from message production to consumption

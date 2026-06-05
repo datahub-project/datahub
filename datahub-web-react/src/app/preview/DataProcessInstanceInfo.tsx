@@ -1,6 +1,7 @@
 import { Pill, Popover } from '@components';
 import { capitalize } from 'lodash';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import {
@@ -9,7 +10,6 @@ import {
     toLocalDateTimeString,
     toRelativeTimeString,
 } from '@app/shared/time/timeUtils';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { DataProcessInstanceRunResultType, DataProcessRunEvent } from '@types';
 
@@ -17,18 +17,18 @@ const StatContainer = styled.div`
     display: flex;
     margin-top: 20px;
     height: 20px;
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     width: 130px;
     justify-content: center;
 `;
 
 const PopoverContent = styled.div`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 0.8rem;
 `;
 
 const Title = styled.div`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     border-bottom: none;
     font-size: 0.8rem;
     font-weight: 600;
@@ -44,6 +44,7 @@ const popoverStyles = {
 };
 
 export default function DataProcessInstanceInfo(lastRunEvent: DataProcessRunEvent) {
+    const { t } = useTranslation('entity.preview');
     const statusPillColor =
         lastRunEvent.result?.resultType === DataProcessInstanceRunResultType.Success ? 'green' : 'red';
     const startTime = lastRunEvent.timestampMillis ?? 0;
@@ -55,7 +56,7 @@ export default function DataProcessInstanceInfo(lastRunEvent: DataProcessRunEven
             {!!startTime && (
                 <Popover
                     content={<PopoverContent>{toLocalDateTimeString(startTime)}</PopoverContent>}
-                    title={<Title>Start Time</Title>}
+                    title={<Title>{t('dataProcessInstance.startTimeTitle')}</Title>}
                     trigger="hover"
                     overlayInnerStyle={popoverStyles.overlayInnerStyle}
                     overlayStyle={popoverStyles.overlayStyle}
@@ -66,7 +67,7 @@ export default function DataProcessInstanceInfo(lastRunEvent: DataProcessRunEven
             {!!duration && (
                 <Popover
                     content={<PopoverContent>{formatDetailedDuration(duration)}</PopoverContent>}
-                    title={<Title>Duration</Title>}
+                    title={<Title>{t('dataProcessInstance.durationTitle')}</Title>}
                     trigger="hover"
                     overlayInnerStyle={popoverStyles.overlayInnerStyle}
                     overlayStyle={popoverStyles.overlayStyle}

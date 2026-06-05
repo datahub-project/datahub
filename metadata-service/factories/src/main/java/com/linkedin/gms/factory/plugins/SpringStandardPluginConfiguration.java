@@ -567,7 +567,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(OwnershipOwnerTypes.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(CREATE, UPSERT, UPDATE, RESTATE, PATCH))
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, RESTATE, PATCH))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()

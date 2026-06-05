@@ -63,13 +63,9 @@ Open [Snowflake Intelligence](https://ai.snowflake.com/) and select your agent. 
 
 ---
 
-## Deprecated: UDF-Based Setup
+## UDF-Based Setup
 
-:::warning Deprecated
-The UDF-based integration below is deprecated in favor of the External MCP Server flow above. It is preserved here for users on DataHub Cloud versions prior to v1.0.2 or for existing UDF deployments. New integrations should use the External MCP Server.
-:::
-
-The legacy integration works through UDFs created by the DataHub CLI. Once set up, your Cortex Agent calls DataHub tools alongside your Snowflake tables.
+This integration works through UDFs created by the DataHub CLI. Once set up, your Cortex Agent calls DataHub tools alongside your Snowflake tables.
 
 ### Prerequisites
 

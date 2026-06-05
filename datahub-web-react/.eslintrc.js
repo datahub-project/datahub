@@ -87,9 +87,7 @@ const COLOR_ENFORCEMENT_RULES = {
 // list once its translations are wired up to opt it into the rule.
 // --------------------------------------------------------------------------
 const translatedFilesPath = path.resolve(__dirname, 'translated-files.txt');
-const translatedFilesContent = fs.existsSync(translatedFilesPath)
-    ? fs.readFileSync(translatedFilesPath, 'utf8')
-    : '';
+const translatedFilesContent = fs.existsSync(translatedFilesPath) ? fs.readFileSync(translatedFilesPath, 'utf8') : '';
 const translatedFiles = new Set(translatedFilesContent.split('\n').filter(Boolean));
 
 const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
@@ -100,18 +98,49 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     'rel',
     'href',
     'name',
+    'form',
+    'entityTypeName',
+    'autoComplete',
+    'preload',
+    'placement',
+    'trigger',
+    'language',
+    'fill',
+    'justifyContent',
+    'field',
+    'tab',
+    '.*Path$',
+    '.*background$',
+    '.*Background$',
+    '.*borderRadius$',
+    '.*BorderRadius$',
     '.*className$',
     '.*ClassName$',
-    '.*testid$',
-    '.*TestId$',
-    '.*width$',
-    '.*Width$',
-    '.*key$',
-    '.*Key$',
     '.*color$',
     '.*Color$',
+    '.*height$',
+    '.*Height$',
     '.*id$',
     '.*Id$',
+    '.*key$',
+    '.*Key$',
+    '.*margin$',
+    '.*Margin$',
+    '.*padding$',
+    '.*Padding$',
+    '.*size$',
+    '.*Size$',
+    '.*testid$',
+    '.*TestId$',
+    '.*TestID$',
+    '.*variant$',
+    '.*Variant$',
+    '.*weight$',
+    '.*Weight$',
+    '.*width$',
+    '.*Width$',
+    '.*style$',
+    '.*Style$',
 ];
 
 // Files that legitimately need raw color values
@@ -272,6 +301,7 @@ module.exports = {
             ? [
                   {
                       files: [...translatedFiles],
+                      excludedFiles: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
                       rules: {
                           'i18next/no-literal-string': [
                               'error',
@@ -284,7 +314,17 @@ module.exports = {
                                       exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
                                   },
                                   words: {
-                                      exclude: ['^_blank$', '^\\*$', '^[A-Z0-9_]+$'],
+                                      exclude: [
+                                          '^_blank$',
+                                          '^noopener noreferrer$',
+                                          '^\\*+$',
+                                          '^-$',
+                                          '^[A-Z0-9_]+$',
+                                          '^:\\s*$',
+                                          '^[()]+$',
+                                          // CSS length values in inline styles (e.g. '4px', '0px', '1.5rem')
+                                          '^\\d+(\\.\\d+)?(px|rem|em|%|vw|vh)$',
+                                      ],
                                   },
                               },
                           ],

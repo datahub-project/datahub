@@ -4,16 +4,17 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.search.SemanticSearchDisabledException;
 import com.linkedin.metadata.search.SemanticSearchService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
@@ -80,9 +81,11 @@ public class SemanticSearchPluginTest {
     // When
     plugin.init(args);
 
-    // Then: Plugin should initialize gracefully without throwing
+    // Then: Schema is always loaded so clients see a defined field; the
+    // resolver itself throws SemanticSearchDisabledException at runtime.
     List<String> schemaFiles = plugin.getSchemaFiles();
-    assertTrue(schemaFiles.isEmpty());
+    assertEquals(schemaFiles.size(), 1);
+    assertEquals(schemaFiles.get(0), "semantic-search.graphql");
   }
 
   @Test
@@ -117,9 +120,11 @@ public class SemanticSearchPluginTest {
     // When
     List<String> schemaFiles = plugin.getSchemaFiles();
 
-    // Then
+    // Then: Schema must always be loaded so the field is defined; the
+    // stub resolver surfaces SemanticSearchDisabledException at call time.
     assertNotNull(schemaFiles);
-    assertTrue(schemaFiles.isEmpty());
+    assertEquals(schemaFiles.size(), 1);
+    assertEquals(schemaFiles.get(0), "semantic-search.graphql");
   }
 
   @Test
@@ -201,12 +206,34 @@ public class SemanticSearchPluginTest {
     plugin.init(args);
 
     RuntimeWiring.Builder mockBuilder = mock(RuntimeWiring.Builder.class);
+    TypeRuntimeWiring.Builder mockTypeBuilder = mock(TypeRuntimeWiring.Builder.class);
+    when(mockBuilder.type(eq("Query"), any()))
+        .thenAnswer(
+            invocation -> {
+              java.util.function.UnaryOperator<TypeRuntimeWiring.Builder> configurator =
+                  invocation.getArgument(1);
+              configurator.apply(mockTypeBuilder);
+              return mockBuilder;
+            });
+    when(mockTypeBuilder.dataFetcher(anyString(), any(DataFetcher.class)))
+        .thenReturn(mockTypeBuilder);
+
+    ArgumentCaptor<DataFetcher<?>> fetcherCaptor = ArgumentCaptor.forClass(DataFetcher.class);
 
     // When
     plugin.configureExtraResolvers(mockBuilder, mockEngine);
 
-    // Then: Should NOT register any resolvers
-    verify(mockBuilder, never()).type(anyString(), any());
+    // Then: Stub fetchers are registered for both fields so the schema is
+    // always satisfied. Invoking either fetcher must throw
+    // SemanticSearchDisabledException — giving clients a stable runtime
+    // error instead of FieldUndefined.
+    verify(mockTypeBuilder).dataFetcher(eq("semanticSearch"), fetcherCaptor.capture());
+    verify(mockTypeBuilder)
+        .dataFetcher(eq("semanticSearchAcrossEntities"), fetcherCaptor.capture());
+
+    for (DataFetcher<?> fetcher : fetcherCaptor.getAllValues()) {
+      assertThrows(SemanticSearchDisabledException.class, () -> fetcher.get(null));
+    }
   }
 
   @Test
@@ -221,8 +248,8 @@ public class SemanticSearchPluginTest {
     // When
     plugin.init(args);
 
-    // Then: Should initialize without error
-    assertTrue(plugin.getSchemaFiles().isEmpty());
+    // Then: Schema is always loaded (stub resolver handles unavailability)
+    assertEquals(plugin.getSchemaFiles().size(), 1);
     assertTrue(plugin.getLoadableTypes().isEmpty());
     assertTrue(plugin.getEntityTypes().isEmpty());
   }

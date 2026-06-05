@@ -5,6 +5,7 @@ import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Divider } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -61,7 +62,6 @@ const SidebarTitle = styled.div`
     font-size: 16px;
     font-weight: bold;
     color: ${(props) => props.theme.colors.text};
-    white-space: nowrap;
 `;
 
 const HeaderButtons = styled.div`
@@ -173,6 +173,8 @@ export default function ContextSidebar({
     onToggleCollapsed,
     onExpandSidebar,
 }: Props) {
+    const { t } = useTranslation('misc');
+    const { t: tc } = useTranslation('common.actions');
     const [creating, setCreating] = useState(false);
     const [searchInput, setSearchInput] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -229,6 +231,7 @@ export default function ContextSidebar({
                 expandAncestors(parentDocumentUrn || null);
 
                 const newUrn = await createDocument({
+                    /* untranslated-text -- default new-document title persisted as backend data, not UI chrome */
                     title: 'New Document',
                     parentDocument: parentDocumentUrn || null,
                 });
@@ -263,14 +266,14 @@ export default function ContextSidebar({
             $isEntityProfile={isEntityProfile}
         >
             <HeaderControls $isCollapsed={isCollapsed}>
-                {!isCollapsed && <SidebarTitle>Documents</SidebarTitle>}
+                {!isCollapsed && <SidebarTitle>{t('context.documentsSidebarTitle')}</SidebarTitle>}
                 <HeaderButtons>
                     {!isCollapsed && (
                         <Tooltip
                             title={
                                 canCreateDocuments
-                                    ? 'Create Document'
-                                    : 'Reach out to your DataHub admin to create documents.'
+                                    ? t('context.createDocumentTooltip')
+                                    : t('context.noCreateDocumentPermissionTooltip')
                             }
                             placement="bottom"
                             showArrow={false}
@@ -310,7 +313,7 @@ export default function ContextSidebar({
                     <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
                         <SearchInputWrapper>
                             <SearchBar
-                                placeholder="Search documents"
+                                placeholder={t('context.searchDocumentsPlaceholder')}
                                 value={searchInput}
                                 onChange={setSearchInput}
                                 onFocus={() => setIsSearchBarFocused(true)}
@@ -324,7 +327,7 @@ export default function ContextSidebar({
                         )}
                         {!searchLoading && isSearchBarFocused && isSearching && searchResults.length === 0 && (
                             <ResultsWrapper>
-                                <EmptyState>No results found</EmptyState>
+                                <EmptyState>{tc('noResults')}</EmptyState>
                             </ResultsWrapper>
                         )}
                         {!searchLoading && isSearchBarFocused && isSearching && searchResults.length > 0 && (
@@ -332,12 +335,14 @@ export default function ContextSidebar({
                                 {searchResults.map((doc) => {
                                     // Build breadcrumb from parentDocuments array
                                     let breadcrumb: string | null = null;
+                                    /* eslint-disable i18next/no-literal-string -- (untranslated-text) 'Untitled' is a fallback default for a missing document title (data, not UI chrome); ' > ' is a punctuation separator */
                                     if (doc.parentDocuments?.documents && doc.parentDocuments.documents.length > 0) {
                                         const parents = [...doc.parentDocuments.documents].reverse();
                                         breadcrumb = parents
                                             .map((parent) => parent.info?.title || 'Untitled')
                                             .join(' > ');
                                     }
+                                    /* eslint-enable i18next/no-literal-string */
 
                                     return (
                                         <SearchResultItem

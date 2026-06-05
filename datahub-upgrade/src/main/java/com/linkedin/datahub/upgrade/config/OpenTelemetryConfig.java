@@ -2,7 +2,7 @@ package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.system_telemetry.OpenTelemetryBaseFactory;
-import com.linkedin.metadata.event.GenericProducer;
+import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import javax.annotation.Nullable;
@@ -25,7 +25,7 @@ public class OpenTelemetryConfig extends OpenTelemetryBaseFactory {
       MetricUtils metricUtils,
       ConfigurationProvider configurationProvider,
       @Autowired(required = false) @Qualifier("dataHubUsageEventProducer") @Nullable
-          GenericProducer<String> dueProducer) {
-    return super.traceContext(metricUtils, configurationProvider, dueProducer);
+          UsageEventPublisher usageEventPublisher) {
+    return super.traceContext(metricUtils, configurationProvider, usageEventPublisher);
   }
 }

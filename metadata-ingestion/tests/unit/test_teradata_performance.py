@@ -257,9 +257,7 @@ class TestMemoryOptimizations:
 
                 mock_connection = MagicMock()
                 mock_engine = MagicMock()
-                mock_engine.connect.return_value.__enter__.return_value = (
-                    mock_connection
-                )
+                mock_engine.connect.return_value = mock_connection
 
                 with (
                     patch.object(
@@ -418,8 +416,12 @@ class TestPerformanceReporting:
             ]
 
             with patch.object(source, "get_metadata_engine") as mock_get_engine:
+                mock_conn = MagicMock()
+                mock_result = MagicMock()
+                mock_result.fetchmany.side_effect = [mock_entries, []]
+                mock_conn.execute.return_value = mock_result
                 mock_engine = MagicMock()
-                mock_engine.execute.return_value = mock_entries
+                mock_engine.connect.return_value = mock_conn
                 mock_get_engine.return_value = mock_engine
 
                 source.cache_tables_and_views()
@@ -469,10 +471,11 @@ class TestThreadSafetyOptimizations:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Verify report lock exists
-            assert hasattr(source, "_report_lock")
-            # Check that it's a lock object by checking its type name
-            assert source._report_lock.__class__.__name__ == "lock"
+            # Verify the public atomic() context manager is available and
+            # backed by a real lock (not a MagicMock).
+            assert hasattr(source.report, "atomic")
+            assert hasattr(source.report, "_lock")
+            assert source.report._lock.__class__.__name__ == "lock"
 
     def test_pooled_engine_lock_usage(self):
         """Test that pooled engine creation uses locks."""
