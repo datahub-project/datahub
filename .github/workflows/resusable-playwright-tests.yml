@@ -1,4 +1,5 @@
 name: Reusable - Playwright E2E Test
+run-name: Playwright Test Matrix ${{ inputs.shard }} / ${{ inputs.shard_count }}
 
 on:
   workflow_call:
