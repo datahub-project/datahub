@@ -62,7 +62,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
         if: ${{ always() && !cancelled() && env.IS_FORK == 'false' }}
         with:
-          role-to-assume: ${{ secrets.PLAYWRIGHT_REPORTS_OSS_ROLE_ARN }}
+          role-to-assume: ${{ vars.PLAYWRIGHT_TEST_REPORT_PUBLISH_ROLE_ARN }}
           aws-region: us-west-2
 
       - name: Publish Playwright report to S3
@@ -75,13 +75,14 @@ jobs:
           GH_EVENT_NAME: ${{ github.event_name }}
           GH_RUN_ID: ${{ github.run_id }}
           GH_RUN_ATTEMPT: ${{ github.run_attempt }}
+          PLAYWRIGHT_REPORTS_S3_BUCKET: ${{ vars.PLAYWRIGHT_REPORTS_S3_BUCKET }}
         run: |
           if [[ ! -d playwright-report ]] || [[ -z "$(ls -A playwright-report 2>/dev/null)" ]]; then
             echo "No playwright-report directory — skipping S3 upload"
             exit 0
           fi
 
-          BUCKET="datahub-oss-ci-build-artifacts.dev.dh-int.zone"
+          BUCKET="${PLAYWRIGHT_REPORTS_S3_BUCKET}"
 
           WORKFLOW_NAME=$(echo "$GH_WORKFLOW" \
             | tr '[:upper:]' '[:lower:]' \
