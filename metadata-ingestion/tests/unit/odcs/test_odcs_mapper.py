@@ -2,6 +2,8 @@
 
 from typing import Any, Dict, List, Optional
 
+import pytest
+
 from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_mapper import (
     AssertionRoutingTrace,
@@ -416,8 +418,10 @@ def test_rule_with_no_body_is_skipped() -> None:
     assert trace.skipped_no_body
 
 
-def test_notnull_rule_builds_field_values_not_null() -> None:
-    rule = ODCSQualityRule(rule="notNull", name="r")
+@pytest.mark.parametrize("rule_kind", ["notNull", "not_null"])
+def test_notnull_rule_builds_field_values_not_null(rule_kind: str) -> None:
+    # Both camelCase and snake_case spellings appear in real ODCS documents.
+    rule = ODCSQualityRule(rule=rule_kind, name="r")
     trace = AssertionRoutingTrace()
     built = _route_and_build(rule, "email", "property", _PHYSICAL, _LOGICAL, 0, trace)
     assert built is not None

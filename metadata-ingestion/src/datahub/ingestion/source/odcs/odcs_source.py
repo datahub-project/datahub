@@ -674,10 +674,14 @@ class ODCSSource(Source):
                             f"rule={skipped}"
                         ),
                     )
+                # Record state BEFORE yielding (mirrors the logical-dataset URN
+                # above): if a downstream yield raises mid-loop, the finally in
+                # _process_file must still see these URNs, or the next run would
+                # soft-delete assertions that were already emitted.
+                emitted_assertion_urns.extend(assertion_urns)
                 for mcp in assertion_mcps:
                     self.report.assertions_emitted += 1
                     yield mcp.as_workunit()
-                emitted_assertion_urns.extend(assertion_urns)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Register the `odcs` platform once per run (no boot-time registry entry).
