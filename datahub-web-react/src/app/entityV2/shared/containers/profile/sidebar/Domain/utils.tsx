@@ -99,6 +99,7 @@ export const getContentsSummaryText = (summary: ContentsSummary, entityRegistry:
                                 ? (entityRegistry.getEntityName(type.entityType as EntityType) as any)
                                 : type.type,
                         ).toLocaleLowerCase()}
+                        {/* eslint-disable-next-line i18next/no-literal-string -- list separator punctuation, not translatable UI text */}
                         {idx < summary.types.length - 1 && <>, </>}
                     </SummaryText>
                 );

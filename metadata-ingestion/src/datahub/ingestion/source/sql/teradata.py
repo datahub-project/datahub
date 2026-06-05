@@ -1,17 +1,21 @@
 import logging
+import random
 import re
 import time
+import traceback
 from collections import defaultdict
+from collections.abc import Generator
 from concurrent.futures import (
     FIRST_COMPLETED,
     Future,
     ThreadPoolExecutor,
     wait,
 )
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
-from threading import Event, Lock, Thread
+from threading import Event, Lock, Thread, current_thread
 from typing import (
     Any,
     Dict,
@@ -32,6 +36,12 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.exc import (
+    DatabaseError,
+    NotSupportedError,
+    OperationalError,
+    TimeoutError as PoolTimeoutError,
+)
 from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql.expression import text
 from teradatasqlalchemy.dialect import TeradataDialect
@@ -158,6 +168,375 @@ register_custom_type(custom_types.PERIOD_TIME, TimeTypeClass)
 register_custom_type(custom_types.PERIOD_DATE, TimeTypeClass)
 register_custom_type(custom_types.PERIOD_TIMESTAMP, TimeTypeClass)
 
+# ---------------------------------------------------------------------------
+# Exponential-backoff retry helpers
+# ---------------------------------------------------------------------------
+
+_RETRY_MAX_ATTEMPTS = 3
+_RETRY_INITIAL_BACKOFF_SECONDS = 1.0
+_RETRY_BACKOFF_CAP_SECONDS = 30.0  # full-jitter ceiling per attempt; protects against runaway sleeps if user sets large retry_initial_backoff_seconds
+
+# Numeric Teradata error codes that indicate a PERMANENT failure.  Matched
+# against str(exc) before any retry logic — codes are stable across driver
+# versions and more reliable than substring matching.
+#
+#   8017 — "The UserId, Password or Account is invalid." (auth failure)
+#   3003 — "Logon failed." / "Invalid password." (auth failure)
+#   3523 — "[user] does not have [access type] access to [db].[table]."
+#   3524 — "[user] does not have [access type] access to database [db]."
+#   3802 — "Database '<name>' does not exist." (object not found — no amount of
+#           backoff will create the database; treat as permanent so probe queries
+#           such as _check_historical_table_exists propagate cleanly to callers)
+#
+# Source: Teradata Database Messages, doc B035-1096.
+_PERMANENT_ERROR_CODE_RE: re.Pattern = re.compile(
+    r"\[Error (?:8017|3003|3523|3524|3802)\]"
+)
+
+# Substrings in Teradata / network error messages that indicate a PERMANENT
+# failure — auth, authorisation, or configuration errors that no amount of
+# backoff can resolve.  Secondary fallback after _PERMANENT_ERROR_CODE_RE for
+# messages that carry no numeric code or use unusual driver formatting.
+_PERMANENT_ERROR_SUBSTRINGS: Tuple[str, ...] = (
+    "authentication failed",
+    "logon failed",
+    "invalid logon",
+    "invalid user",
+    "permission denied",
+    "access denied",
+    "no access",
+    "tdgss configuration",  # permanent TDGSS mis-configuration (vs. transient handshake)
+)
+
+# Substrings found in Teradata / network error messages that are safe to retry
+# on an *existing* connection (execute / fetchmany).
+#
+# Prefer _RETRYABLE_ERROR_CODE_RE for primary classification — numeric codes are
+# stable across Teradata versions and driver wordings.  These substrings are a
+# secondary fallback for messages that carry no numeric code.  Each entry is
+# documented with the exact Teradata / driver message it targets so future
+# maintainers can verify and prune false matches.
+#
+#   "transaction aborted" — backup for [Error 2631] / [Error 3111]; Teradata
+#                           prints "Transaction aborted." ahead of the numeric
+#                           code in some driver versions.
+#   "database restart"    — backup for [Error 3597] / [Error 3111]; appears as
+#                           "Database restart in progress, please resubmit."
+#   "timed out"           — network / I-O timeout (not auth or config related);
+#                           matches "connect timed out", "connection timed out",
+#                           "request timed out", etc.  The deny-list above
+#                           prevents overlap with auth-failure messages.
+#   "i/o timeout"         — driver-level I/O timeout distinct from "timed out".
+_RETRYABLE_ERROR_SUBSTRINGS: Tuple[str, ...] = (
+    "transaction aborted",
+    "database restart",
+    "timed out",
+    "i/o timeout",
+)
+
+# Additional substrings that indicate a dead/reset socket.  These are NOT safe
+# to retry on an existing connection (the socket is gone), but ARE safe to
+# retry at connect time because engine.connect() opens a fresh socket.
+_RETRYABLE_CONNECT_EXTRA_SUBSTRINGS: Tuple[str, ...] = (
+    "connection reset",
+    "broken pipe",
+    " eof",
+    "socket closed",
+)
+
+# Teradata numeric error codes that are safe to retry.  Matched against
+# str(exc) because the driver formats messages as "[Error NNNN]: <text>".
+#
+#   2631 — deadlock; transaction aborted due to deadlock
+#   2639 — sorry, too many simultaneous transactions
+#   3111 — the transaction has been timed out
+#   3120 — the request is aborted because of a database recovery
+#   3598 — concurrent change conflict on database - try again
+#   3897 — request aborted due to system crash. Resubmit
+#   3603 — concurrent change conflict on table - try again
+#
+# Source: Teradata Database Messages, doc B035-1096.
+# Link: https://docs.teradata.com/r/Enterprise_IntelliFlex_Lake_VMware/Teradata-Call-Level-Interface-Version-2-Reference-for-Mainframe-Attached-Systems-20.00/Error-and-Failure-Codes/Error-and-Failure-Codes
+#
+_RETRYABLE_ERROR_CODE_RE: re.Pattern = re.compile(
+    r"\[Error (?:2631|2639|3111|3120|3598|3897|3603)\]"
+)
+
+
+def _jittered_backoff(attempt: int, initial_backoff_seconds: float) -> float:
+    """Return a full-jitter exponential backoff duration for *attempt* (0-based).
+
+    Full jitter (``uniform(0, cap)``) is the recommended strategy when many
+    concurrent workers share the same resource: pure exponential backoff causes
+    a thundering-herd re-surge because all threads sleep for the *same* duration
+    and then hammer the server simultaneously.  Full jitter spreads retries
+    uniformly across the window so the server load stays roughly constant.
+    """
+    cap = min(initial_backoff_seconds * (2**attempt), _RETRY_BACKOFF_CAP_SECONDS)
+    return random.uniform(0, cap)
+
+
+def _should_retry(exc: BaseException) -> bool:
+    """Return True when *exc* is retryable on the **same** connection.
+
+    Dead-socket errors (connection reset, broken pipe, etc.) are intentionally
+    excluded: retrying ``execute()`` or ``fetchmany()`` on a dead socket will
+    always fail again.  Use :func:`_should_retry_connect` for the connect step
+    where a fresh socket is opened on each attempt.
+
+    Classification order (deny checked before allow at each layer):
+    1. Permanent error codes (_PERMANENT_ERROR_CODE_RE) — most reliable signal;
+       stable numeric codes that unambiguously identify unrecoverable errors.
+    2. Permanent substrings (_PERMANENT_ERROR_SUBSTRINGS) — catches messages
+       from driver versions that omit or reformat the numeric code.
+    3. Retryable error codes (_RETRYABLE_ERROR_CODE_RE) — primary allow signal.
+    4. Retryable substrings (_RETRYABLE_ERROR_SUBSTRINGS) — secondary fallback
+       for transient messages that carry no numeric code.
+    """
+    if isinstance(exc, PoolTimeoutError):
+        return True
+    if isinstance(exc, (OperationalError, DatabaseError)):
+        raw = str(exc)
+        msg = raw.lower()
+        # Steps 1-2: deny-list — permanent errors are never retried.
+        if _PERMANENT_ERROR_CODE_RE.search(raw):
+            return False
+        if any(s in msg for s in _PERMANENT_ERROR_SUBSTRINGS):
+            return False
+        # Steps 3-4: allow-list — retry only on confirmed transient signals.
+        if _RETRYABLE_ERROR_CODE_RE.search(raw):
+            return True
+        if any(s in msg for s in _RETRYABLE_ERROR_SUBSTRINGS):
+            return True
+    return False
+
+
+def _should_retry_connect(exc: BaseException) -> bool:
+    """Return True when *exc* is retryable at **connect** time.
+
+    A superset of :func:`_should_retry`: includes dead-socket signals
+    (connection reset, broken pipe, EOF, socket closed) because
+    ``engine.connect()`` opens a fresh socket on every call, so these errors
+    are recoverable by simply trying again.
+    """
+    if _should_retry(exc):
+        return True
+    if isinstance(exc, (OperationalError, DatabaseError)):
+        msg = str(exc).lower()
+        if any(s in msg for s in _RETRYABLE_CONNECT_EXTRA_SUBSTRINGS):
+            return True
+    return False
+
+
+def _retry_loop(
+    op: Any,
+    classify: Any,
+    max_attempts: int,
+    initial_backoff_seconds: float,
+    op_name: str = "DB operation",
+    report: Optional["TeradataReport"] = None,
+    on_retry: Optional[Any] = None,
+    on_terminal: Optional[Any] = None,
+) -> Any:
+    """Generic exponential-backoff retry scaffold shared by all retry helpers.
+
+    Runs ``op()`` up to *max_attempts* times, retrying only while
+    ``classify(exc)`` returns True.  On each retry the loop sleeps for
+    ``_jittered_backoff(attempt, initial_backoff_seconds)`` seconds and
+    increments ``report.num_db_retries`` (when *report* is given).
+
+    Callbacks:
+        on_retry(exc, attempt, backoff): called after classify returns True,
+            before sleeping.  Receives the 0-based attempt index and the
+            computed backoff duration so callers can emit context-rich log
+            messages.  When omitted, a generic ``logger.warning`` is emitted.
+        on_terminal(exc, attempt): called just before the final raise — either
+            because the error is non-retryable or all attempts are exhausted.
+            Used to emit a breadcrumb into the ingestion report.
+    """
+    if max_attempts < 1:
+        raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
+    for attempt in range(max_attempts):
+        try:
+            return op()
+        except Exception as exc:
+            if not classify(exc) or attempt == max_attempts - 1:
+                if on_terminal is not None:
+                    on_terminal(exc, attempt)
+                raise
+            backoff = _jittered_backoff(attempt, initial_backoff_seconds)
+            if on_retry is not None:
+                on_retry(exc, attempt, backoff)
+            else:
+                logger.warning(
+                    f"{op_name} (attempt {attempt + 1}/{max_attempts}): {exc}. "
+                    f"Retrying in {backoff:.2f}s..."
+                )
+            if report is not None:
+                report.increment_db_retries()
+            time.sleep(backoff)
+    raise AssertionError("unreachable")  # classify returned True but loop ended
+
+
+@contextmanager
+def _engine_connect_with_retry(
+    engine: Engine,
+    max_attempts: int = _RETRY_MAX_ATTEMPTS,
+    initial_backoff_seconds: float = _RETRY_INITIAL_BACKOFF_SECONDS,
+    report: Optional["TeradataReport"] = None,
+) -> Generator[Connection, None, None]:
+    """Context-manager that acquires a SQLAlchemy connection with exponential-backoff
+    retries on retryable errors.  Only the *connect* step is retried; errors
+    that occur inside the ``with`` block are propagated normally.
+
+    PoolTimeoutError and generic retryable errors are handled in a single
+    except branch: PoolTimeoutError is already a subclass of Exception and
+    _should_retry_connect returns True for it, so no separate branch is needed.
+    The isinstance check below only gates the pool-exhaustion counter and the
+    more specific log message.
+    """
+
+    def _on_retry(exc: Exception, attempt: int, backoff: float) -> None:
+        if isinstance(exc, PoolTimeoutError):
+            thread = current_thread()
+            logger.warning(
+                f"Connection pool exhausted "
+                f"[thread={thread.name!r} tid={thread.ident}] "
+                f"(attempt {attempt + 1}/{max_attempts}): {exc}. "
+                f"Retrying in {backoff:.2f}s..."
+            )
+            if report is not None:
+                report.increment_pool_timeout_retries()
+        else:
+            logger.warning(
+                f"Retryable DB error acquiring connection "
+                f"(attempt {attempt + 1}/{max_attempts}): {exc}. "
+                f"Retrying in {backoff:.2f}s..."
+            )
+
+    conn: Connection = _retry_loop(
+        op=engine.connect,
+        classify=_should_retry_connect,
+        max_attempts=max_attempts,
+        initial_backoff_seconds=initial_backoff_seconds,
+        report=report,
+        on_retry=_on_retry,
+    )
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+def _execute_with_retry(
+    conn: Connection,
+    stmt: Any,
+    params: Optional[Dict[str, Any]] = None,
+    max_attempts: int = _RETRY_MAX_ATTEMPTS,
+    initial_backoff_seconds: float = _RETRY_INITIAL_BACKOFF_SECONDS,
+    report: Optional["TeradataReport"] = None,
+    warn_on_permanent_failure: bool = True,
+) -> Any:
+    """Execute *stmt* on *conn* with exponential-backoff retries on retryable errors.
+
+    Args:
+        warn_on_permanent_failure: When True (default), a ``report.warning`` is
+            emitted for permanent first-attempt failures so that callers without
+            a try/except still surface a context-rich breadcrumb in the ingestion
+            report.  Pass False for intentional probe queries
+            that handle the exception themselves (e.g. ``_check_historical_table_exists``).
+    """
+
+    def _on_terminal(exc: Exception, attempt: int) -> None:
+        if report is None:
+            return
+        if _should_retry(exc) and attempt > 0:
+            report.warning(
+                title="Database execute failed after retries",
+                message=(
+                    f"A retryable error persisted after {attempt + 1} attempt(s). "
+                    "The operation has been abandoned. "
+                    "Check Teradata connectivity and cluster stability."
+                ),
+                context=str(exc),
+                exc=exc,
+            )
+        elif warn_on_permanent_failure:
+            # Permanent error: callers without a try/except would otherwise
+            # surface only a bare SQLAlchemy traceback with no report entry.
+            report.warning(
+                title="Database execute failed",
+                message=(
+                    f"Statement failed on attempt {attempt + 1}: {exc}. "
+                    f"Statement: {stmt}"
+                ),
+                context=str(exc),
+                exc=exc,
+            )
+
+    return _retry_loop(
+        op=lambda: conn.execute(stmt, params)
+        if params is not None
+        else conn.execute(stmt),
+        classify=_should_retry,
+        max_attempts=max_attempts,
+        initial_backoff_seconds=initial_backoff_seconds,
+        op_name="Retryable DB error on execute",
+        report=report,
+        on_terminal=_on_terminal,
+    )
+
+
+def _fetchmany_with_retry(
+    result: Any,
+    batch_size: int,
+    max_attempts: int = _RETRY_MAX_ATTEMPTS,
+    initial_backoff_seconds: float = _RETRY_INITIAL_BACKOFF_SECONDS,
+    report: Optional["TeradataReport"] = None,
+) -> List[Any]:
+    """Fetch the next batch from *result* with exponential-backoff retries.
+
+    Retry semantics: only meaningful when the *result* cursor remains valid
+    after the error (e.g. a brief network hiccup that leaves the cursor
+    intact).  For server-side streaming cursors (``stream_results=True``) a
+    transient error that invalidates the cursor cannot be recovered by retrying
+    ``fetchmany()`` — the server-side cursor position is lost and subsequent
+    calls will either fail again or silently skip rows.  In that case the retry
+    loop exhausts its attempts and re-raises; the caller is responsible for
+    higher-level recovery (e.g. restarting the query).
+    """
+
+    def _on_terminal(exc: Exception, attempt: int) -> None:
+        if report is not None:
+            if _should_retry(exc) and attempt > 0:
+                report.warning(
+                    title="Database fetchmany failed after retries",
+                    message=(
+                        f"A retryable error persisted after {attempt + 1} attempt(s). "
+                        "The fetch has been abandoned. "
+                        "Check Teradata connectivity and cluster stability."
+                    ),
+                    context=str(exc),
+                    exc=exc,
+                )
+            else:
+                report.warning(
+                    title="Database fetchmany failed",
+                    message=f"fetchmany failed on attempt {attempt + 1}: {exc}.",
+                    context=str(exc),
+                    exc=exc,
+                )
+
+    return _retry_loop(  # type: ignore[return-value]
+        op=lambda: result.fetchmany(batch_size),
+        classify=_should_retry,
+        max_attempts=max_attempts,
+        initial_backoff_seconds=initial_backoff_seconds,
+        op_name="Retryable DB error on fetchmany",
+        report=report,
+        on_terminal=_on_terminal,
+    )
+
 
 @dataclass
 class TeradataTable:
@@ -182,7 +561,12 @@ def get_schema_columns(
     start_time = time.time()
     columns: Dict[str, List[Any]] = {}
     columns_query = f"select * from dbc.{dbc_columns} where DatabaseName (NOT CASESPECIFIC) = :schema (NOT CASESPECIFIC) order by TableName, ColumnId"
-    rows = connection.execute(text(columns_query), {"schema": schema}).fetchall()
+    rows = _execute_with_retry(
+        connection,
+        text(columns_query),
+        {"schema": schema},
+        report=getattr(self, "report", None),
+    ).fetchall()
     for row in rows:
         row_mapping = row._mapping
         if row_mapping.TableName not in columns:
@@ -196,9 +580,8 @@ def get_schema_columns(
         f"Column extraction for schema '{schema}' completed in {extraction_time:.2f} seconds"
     )
 
-    # Update report if available
     if hasattr(self, "report"):
-        self.report.column_extraction_duration_seconds += extraction_time
+        self.report.add_column_extraction_duration(extraction_time)
 
     return columns
 
@@ -210,7 +593,12 @@ def get_schema_pk_constraints(
     dbc_indices = "IndicesV" + "X" if configure.usexviews else "IndicesV"
     primary_keys: Dict[str, List[Any]] = {}
     stmt = f"select * from dbc.{dbc_indices} where DatabaseName (NOT CASESPECIFIC) = :schema (NOT CASESPECIFIC) and IndexType = 'K' order by IndexNumber"
-    rows = connection.execute(text(stmt), {"schema": schema}).fetchall()
+    rows = _execute_with_retry(
+        connection,
+        text(stmt),
+        {"schema": schema},
+        report=getattr(self, "report", None),
+    ).fetchall()
     for row in rows:
         row_mapping = row._mapping
         if row_mapping.TableName not in primary_keys:
@@ -257,11 +645,43 @@ def optimized_get_pk_constraint(
             index_column.IndexName
         )  # There should be just one IndexName
 
-        # Update counter if available
         if hasattr(self, "report"):
-            self.report.num_primary_keys_processed += 1
+            self.report.increment_primary_keys_processed()
 
     return {"constrained_columns": index_columns, "name": index_name}
+
+
+def _read_padded_char_field(row: Any, field: str) -> Optional[str]:
+    """Read a CHAR(N) field that Teradata returns space-padded, return it stripped.
+
+    Returns None when the field is missing or not a string — callers should
+    leave any existing value alone in that case."""
+    raw = getattr(row, field, None) if not isinstance(row, dict) else row.get(field)
+    return raw.strip() if isinstance(raw, str) else None
+
+
+def _strip_padded_nullable(row: Any, col_info: Dict[str, Any]) -> None:
+    """Re-derive col_info['nullable'] by stripping CHAR(1) padding from row.Nullable.
+
+    teradatasqlalchemy does a strict `row['Nullable'] == 'Y'` check, but
+    Teradata returns CHAR(1) values space-padded ('Y '/'N '), so the check
+    evaluates False for every nullable column. No-op when the row's Nullable
+    isn't a string (e.g. None for view columns without QVCI enabled)."""
+    val = _read_padded_char_field(row, "Nullable")
+    if val is not None:
+        col_info["nullable"] = val == "Y"
+
+
+def _strip_padded_autoincrement(row: Any, col_info: Dict[str, Any]) -> None:
+    """Re-derive col_info['autoincrement'] by stripping padding from row.IdColType.
+
+    Same root cause as _strip_padded_nullable: teradatasqlalchemy checks
+    `row['IdColType'] in ('GA', 'GD')` strictly, but Teradata returns IdColType
+    space-padded ('GA  '), so the check evaluates False for every identity
+    column. No-op when the raw value isn't a string."""
+    val = _read_padded_char_field(row, "IdColType")
+    if val is not None:
+        col_info["autoincrement"] = val in ("GA", "GD")
 
 
 def optimized_get_columns(
@@ -362,6 +782,8 @@ def optimized_get_columns(
     for row in res:
         try:
             col_info = self._get_column_info(row)
+            _strip_padded_nullable(row, col_info)
+            _strip_padded_autoincrement(row, col_info)
 
             # Add CommentString as comment field for column description
             if hasattr(row, "CommentString") and row.CommentString:
@@ -381,22 +803,25 @@ def optimized_get_columns(
                     continue
             final_column_info.append(col_info)
 
-            # Update counter - access report through self from the connection context
             if hasattr(self, "report"):
-                self.report.num_columns_processed += 1
+                self.report.increment_columns_processed()
 
         except Exception as e:
-            logger.error(
-                f"Failed to process column {getattr(row, 'ColumnName', 'unknown')}: {e}"
-            )
+            column_name = getattr(row, "ColumnName", "unknown")
             if hasattr(self, "report"):
-                self.report.num_column_extraction_failures += 1
+                self.report.increment_column_extraction_failures()
+                self.report.warning(
+                    title="Column extraction failed",
+                    message=f"Failed to process column {column_name!r}. The column will be omitted from the schema.",
+                    context=str(e),
+                    exc=e,
+                )
+            else:
+                logger.error(f"Failed to process column {column_name}: {e}")
             continue
 
-    # Update timing
     if hasattr(self, "report"):
-        end_time = time.time()
-        self.report.column_extraction_duration_seconds += end_time - start_time
+        self.report.add_column_extraction_duration(time.time() - start_time)
 
     return final_column_info
 
@@ -412,9 +837,14 @@ def get_schema_foreign_keys(
     stmt = f"""
     SELECT dbc."All_RI_ChildrenV"."ChildDB",  dbc."All_RI_ChildrenV"."ChildTable", dbc."All_RI_ChildrenV"."IndexID", dbc."{dbc_child_parent_table}"."IndexName", dbc."{dbc_child_parent_table}"."ChildKeyColumn", dbc."{dbc_child_parent_table}"."ParentDB", dbc."{dbc_child_parent_table}"."ParentTable", dbc."{dbc_child_parent_table}"."ParentKeyColumn"
         FROM dbc."{dbc_child_parent_table}"
-    WHERE ChildDB = '{schema}' ORDER BY "IndexID" ASC
+    WHERE ChildDB = :schema ORDER BY "IndexID" ASC
     """
-    rows = connection.execute(text(stmt)).fetchall()
+    rows = _execute_with_retry(
+        connection,
+        text(stmt),
+        {"schema": schema},
+        report=getattr(self, "report", None),
+    ).fetchall()
     for row in rows:
         row_mapping = row._mapping
         if row_mapping.ChildTable not in foreign_keys:
@@ -491,6 +921,12 @@ def optimized_get_view_definition(
 
 @dataclass
 class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
+    # Column extraction metrics
+    num_columns_processed: int = 0
+    num_column_extraction_failures: int = 0
+    num_primary_keys_processed: int = 0
+    column_extraction_duration_seconds: float = 0.0
+
     # View processing metrics (actively used)
     num_views_processed: int = 0
     num_view_processing_failures: int = 0
@@ -504,6 +940,7 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # Connection pool performance metrics (actively used)
     connection_pool_wait_time_seconds: float = 0.0
     connection_pool_max_wait_time_seconds: float = 0.0
+    num_pool_timeout_retries: int = 0
 
     # Database-level metrics similar to BigQuery's approach (actively used)
     num_database_tables_to_scan: TopKDict[str, int] = field(default_factory=TopKDict)
@@ -518,6 +955,43 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
 
     # Audit query processing statistics
     num_audit_query_entries_processed: int = 0
+
+    # Retry statistics
+    num_db_retries: int = 0
+
+    # Single internal lock — not serialised, not compared.  Protects all report
+    # fields that are mutated from ThreadPoolExecutor worker threads.
+    _lock: Lock = field(default_factory=Lock, init=False, repr=False, compare=False)
+
+    @contextmanager
+    def atomic(self) -> Generator[None, None, None]:
+        """Take the report lock for a multi-field atomic update."""
+        with self._lock:
+            yield
+
+    def increment_db_retries(self) -> None:
+        with self._lock:
+            self.num_db_retries += 1
+
+    def increment_pool_timeout_retries(self) -> None:
+        with self._lock:
+            self.num_pool_timeout_retries += 1
+
+    def increment_columns_processed(self) -> None:
+        with self._lock:
+            self.num_columns_processed += 1
+
+    def increment_column_extraction_failures(self) -> None:
+        with self._lock:
+            self.num_column_extraction_failures += 1
+
+    def increment_primary_keys_processed(self) -> None:
+        with self._lock:
+            self.num_primary_keys_processed += 1
+
+    def add_column_extraction_duration(self, seconds: float) -> None:
+        with self._lock:
+            self.column_extraction_duration_seconds += seconds
 
 
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
@@ -598,6 +1072,22 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         default=10,
         description="Maximum number of worker threads to use for parallel processing. "
         "Controls the level of concurrency for operations like view processing.",
+    )
+
+    max_pool_size: int = Field(
+        default=13,
+        ge=1,
+        le=50,
+        description=(
+            "Ceiling on the number of concurrent Teradata connections used during "
+            "parallel view processing. The actual pool size is "
+            "min(max_workers, max_pool_size), so this value only takes effect when "
+            "max_workers exceeds it. For example, max_workers=10 with max_pool_size=13 "
+            "creates a pool of 10, not 13. "
+            "The upper bound of 50 is a conservative ingestion-time safety ceiling, "
+            "not a Teradata system limit. Teradata's per-user MAXSESSIONS parameter "
+            "is typically 64–200+ depending on the platform and user profile. "
+        ),
     )
 
     extract_ownership: bool = Field(
@@ -683,6 +1173,58 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         description=(
             "Connection timeout in milliseconds when establishing Teradata connections. "
             "Default is 30000 (30 seconds)."
+        ),
+    )
+
+    connection_pool_timeout_ms: int = Field(
+        default=60000,
+        ge=1,
+        le=600_000,
+        description=(
+            "How long, in milliseconds, a worker thread will wait for a free connection "
+            "from the pool before raising a PoolTimeoutError. "
+            "PoolTimeoutError is a retryable condition: the connector will sleep with "
+            "full-jitter exponential backoff and try again up to retry_max_attempts times. "
+            "Increase this when parallel view processing saturates the pool on large "
+            "schemas (watch num_pool_timeout_retries in the ingestion report). "
+            "Decrease it to surface pool-exhaustion failures faster on small installations. "
+            "Default is 60000 (60 seconds)."
+        ),
+    )
+
+    retry_max_attempts: int = Field(
+        default=_RETRY_MAX_ATTEMPTS,
+        ge=1,
+        le=10,
+        description=(
+            "Maximum total attempts (initial + retries) for retryable database operations "
+            "(connect, execute, fetchmany). "
+            "Retryable conditions: pool exhaustion, transaction-aborted messages, "
+            "dead-socket signals at connect time, and Teradata error codes "
+            "2631/3111/3120/3597/3598/3897. "
+            "Permanent errors (auth failures, permission denied, object does not exist) "
+            "are never retried regardless of this setting. "
+            "Worst-case added latency per operation is approximately "
+            "retry_max_attempts × connection_pool_timeout_ms plus backoff sleeps "
+            f"(each capped at {_RETRY_BACKOFF_CAP_SECONDS}s). "
+            "Increase when ingesting from a busy or flaky cluster; "
+            "decrease to surface persistent errors faster. "
+            "Default is 3."
+        ),
+    )
+
+    retry_initial_backoff_seconds: float = Field(
+        default=_RETRY_INITIAL_BACKOFF_SECONDS,
+        gt=0,
+        description=(
+            "Seed value, in seconds, for the full-jitter exponential backoff between "
+            "retry attempts. Each retry sleeps for a duration drawn uniformly from "
+            f"[0, min(initial * 2^attempt, {_RETRY_BACKOFF_CAP_SECONDS})] seconds. "
+            "The 30-second cap prevents runaway sleep times even when retry_max_attempts "
+            "is set high (e.g. initial=1.0, attempt=10 would be 1024s without the cap). "
+            "Increase this to spread retries further apart on a heavily loaded cluster; "
+            "decrease it for faster recovery on transient blips. "
+            "Default is 1.0."
         ),
     )
 
@@ -932,10 +1474,13 @@ ORDER by DataBaseName, TableName;
 
         self.report: TeradataReport = TeradataReport()
         self.graph: Optional[DataHubGraph] = ctx.graph
-        self._report_lock = Lock()  # Thread safety for report counters
         # Populated by cache_tables_and_views() when column_extraction_watermark is set;
         # None means "extract all", a set means "only extract these (schema, table) pairs"
         self._tables_needing_column_extraction: Optional[Set[Tuple[str, str]]] = None
+        # May be reduced below config.max_workers when max_pool_size caps the pool.
+        # Stored here instead of mutating config so that config remains an immutable
+        # record of user intent across sequential recipe runs.
+        self._effective_max_workers: int = config.max_workers
 
         self.schema_resolver = self._init_schema_resolver()
 
@@ -1086,6 +1631,99 @@ ORDER by DataBaseName, TableName;
         config = TeradataConfig.model_validate(config_dict)
         return cls(config, ctx)
 
+    # ------------------------------------------------------------------
+    # Retry helpers — thin wrappers that bind config values so call sites
+    # don't repeat max_attempts / initial_backoff_seconds everywhere.
+    # ------------------------------------------------------------------
+
+    @contextmanager
+    def _retry_connect(
+        self, engine: Engine, max_attempts: Optional[int] = None
+    ) -> Generator[Connection, None, None]:
+        """Acquire a connection with config-driven retry / backoff."""
+        with _engine_connect_with_retry(
+            engine,
+            max_attempts=(
+                max_attempts
+                if max_attempts is not None
+                else self.config.retry_max_attempts
+            ),
+            initial_backoff_seconds=self.config.retry_initial_backoff_seconds,
+            report=self.report,
+        ) as conn:
+            yield conn
+
+    def _retry_execute(
+        self,
+        conn: Connection,
+        stmt: Any,
+        params: Optional[Dict[str, Any]] = None,
+        warn_on_permanent_failure: bool = True,
+    ) -> Any:
+        """Execute a statement with config-driven retry / backoff."""
+        return _execute_with_retry(
+            conn,
+            stmt,
+            params,
+            max_attempts=self.config.retry_max_attempts,
+            initial_backoff_seconds=self.config.retry_initial_backoff_seconds,
+            report=self.report,
+            warn_on_permanent_failure=warn_on_permanent_failure,
+        )
+
+    def _retry_fetchmany(self, result: Any, batch_size: int) -> List[Any]:
+        """Fetch a batch with config-driven retry / backoff."""
+        return _fetchmany_with_retry(
+            result,
+            batch_size,
+            max_attempts=self.config.retry_max_attempts,
+            initial_backoff_seconds=self.config.retry_initial_backoff_seconds,
+            report=self.report,
+        )
+
+    def _get_schema_names_with_retry(self, engine: Engine) -> List[str]:
+        """Fetch schema names, retrying the full connect+query sequence on transient errors.
+
+        Both engine.connect() and get_schema_names() can fail transiently.
+        _retry_connect only retries the connect step; failures inside the ``with``
+        block propagate out unretried.  This method owns the outer retry loop so
+        that a transient blip during either step triggers a fresh attempt from
+        scratch rather than aborting schema discovery entirely.
+
+        max_attempts=1 is passed to _retry_connect to prevent a nested retry
+        layer that would otherwise produce up to retry_max_attempts² total attempts.
+        """
+        max_attempts = self.config.retry_max_attempts
+        initial_backoff = self.config.retry_initial_backoff_seconds
+        for attempt in range(max_attempts):
+            try:
+                with self._retry_connect(engine, max_attempts=1) as conn:
+                    return inspect(conn).get_schema_names()
+            except Exception as exc:
+                if not _should_retry_connect(exc) or attempt == max_attempts - 1:
+                    self.report.failure(
+                        title="Schema discovery failed"
+                        if attempt == 0
+                        else "Schema discovery failed after retries",
+                        message=(
+                            f"Could not list schemas after {attempt + 1} attempt(s). "
+                            "Check network connectivity, authentication, and "
+                            "database permissions."
+                        ),
+                        context=str(exc),
+                        exc=exc,
+                    )
+                    raise
+                backoff = _jittered_backoff(attempt, initial_backoff)
+                logger.warning(
+                    f"Retryable error fetching schema names "
+                    f"(attempt {attempt + 1}/{max_attempts}): {exc}. "
+                    f"Retrying in {backoff:.2f}s..."
+                )
+                self.report.increment_db_retries()
+                time.sleep(backoff)
+        raise AssertionError("unreachable")  # loop always raises or returns
+
     def _init_schema_resolver(self) -> SchemaResolver:
         if not self.config.include_tables or not self.config.include_views:
             if self.ctx.graph:
@@ -1121,60 +1759,81 @@ ORDER by DataBaseName, TableName;
         url = self.config.get_sql_alchemy_url()
 
         logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        engine = create_engine(url, **self._base_engine_options())
 
-        # Get list of databases first
-        with engine.connect() as conn:
-            inspector = inspect(conn)
+        try:
+            # Get list of databases first.
+            # When the user supplied an explicit list we avoid an unnecessary DB
+            # round-trip entirely.  In the discovery path (else branch) we call
+            # inspector.get_schema_names() which issues a live query; retry with a
+            # fresh connection on transient failures so a single blip doesn't abort
+            # the whole run.
             if self.config.database and self.config.database != "":
-                databases = [self.config.database]
+                databases: List[str] = [self.config.database]
             elif self.config.databases:
-                databases = self.config.databases
+                databases = list(self.config.databases)
             else:
-                databases = inspector.get_schema_names()
+                databases = self._get_schema_names_with_retry(engine)
 
-        # When the user supplied an explicit database list, validate each entry
-        # against dbc.TablesV (populated into _tables_cache during discovery).
-        # Without this, a typo in `databases` silently emits a container URN for
-        # a database that does not exist on the source. Only applies when
-        # discovery actually ran (include_tables or include_views).
-        user_supplied_databases = bool(
-            (self.config.database and self.config.database != "")
-            or self.config.databases
-        )
-        # Only validate when discovery actually produced an inventory we can
-        # check against. An empty cache means either discovery was disabled
-        # (include_tables/include_views both False) or it ran and genuinely
-        # found nothing — in both cases there is no oracle to validate against
-        # and we fall back to trusting the user's list.
-        have_db_inventory = (
-            self.config.include_tables or self.config.include_views
-        ) and bool(self._tables_cache)
+            # When the user supplied an explicit database list, validate each entry
+            # against dbc.TablesV (populated into _tables_cache during discovery).
+            # Without this, a typo in `databases` silently emits a container URN for
+            # a database that does not exist on the source. Only applies when
+            # discovery actually ran (include_tables or include_views).
+            user_supplied_databases = bool(
+                (self.config.database and self.config.database != "")
+                or self.config.databases
+            )
+            # Only validate when discovery actually produced an inventory we can
+            # check against. An empty cache means either discovery was disabled
+            # (include_tables/include_views both False) or it ran and genuinely
+            # found nothing — in both cases there is no oracle to validate against
+            # and we fall back to trusting the user's list.
+            have_db_inventory = (
+                self.config.include_tables or self.config.include_views
+            ) and bool(self._tables_cache)
 
-        # Create separate connections for each database to avoid connection lifecycle issues
-        for db in databases:
-            if not self.config.database_pattern.allowed(db):
-                continue
-            if (
-                user_supplied_databases
-                and have_db_inventory
-                and db.lower() not in self._tables_cache
-            ):
-                self.report.warning(
-                    title="Configured database not found on source",
-                    message=(
-                        f"Database {db!r} is listed in the connector config but no "
-                        "tables or views were found for it in dbc.TablesV. Skipping "
-                        "to avoid emitting a container URN for a database that does "
-                        "not exist (or that exists but is empty). Check for typos or "
-                        "remove the entry."
-                    ),
-                )
-                continue
-            with engine.connect() as conn:
-                db_inspector = inspect(conn)
-                db_inspector._datahub_database = db
-                yield db_inspector
+            # Create separate connections for each database to avoid connection lifecycle issues
+            for db in databases:
+                if not self.config.database_pattern.allowed(db):
+                    continue
+                if (
+                    user_supplied_databases
+                    and have_db_inventory
+                    and db.lower() not in self._tables_cache
+                ):
+                    self.report.warning(
+                        title="Configured database not found on source",
+                        message=(
+                            f"Database {db!r} is listed in the connector config but no "
+                            "tables or views were found for it in dbc.TablesV. Skipping "
+                            "to avoid emitting a container URN for a database that does "
+                            "not exist (or that exists but is empty). Check for typos or "
+                            "remove the entry."
+                        ),
+                    )
+                    continue
+                try:
+                    conn_cm = self._retry_connect(engine)
+                    conn = conn_cm.__enter__()
+                except Exception as e:
+                    self.report.warning(
+                        title="Failed to inspect database",
+                        message=f"Could not acquire a connection to database {db!r} "
+                        f"after {self.config.retry_max_attempts} attempts. Skipping.",
+                        context=str(e),
+                        exc=e,
+                    )
+                    continue  # do not fall through to yield with an invalid connection
+                try:
+                    db_inspector = inspect(conn)
+                    db_inspector._datahub_database = db  # type: ignore[attr-defined]
+                    yield db_inspector
+                finally:
+                    conn_cm.__exit__(None, None, None)
+
+        finally:
+            engine.dispose()
 
     def get_db_name(self, inspector: Inspector) -> str:
         if hasattr(inspector, "_datahub_database"):
@@ -1349,7 +2008,7 @@ ORDER by DataBaseName, TableName;
 
         Each thread gets its own connection from a QueuePool, enabling true concurrent processing.
         """
-        if self.config.max_workers == 1:
+        if self._effective_max_workers == 1:
             # Single-threaded processing - no need for complexity
             yield from self._process_views_single_threaded(
                 view_names, schema, sql_config
@@ -1357,15 +2016,13 @@ ORDER by DataBaseName, TableName;
             return
 
         logger.info(
-            f"Processing {len(view_names)} views with {self.config.max_workers} worker threads"
+            f"Processing {len(view_names)} views with {self._effective_max_workers} worker threads"
         )
 
         # Get or create reusable pooled engine
         engine = self._get_or_create_pooled_engine()
 
         try:
-            # Thread-safe result collection
-            report_lock = Lock()
 
             def process_single_view(
                 view_name: str,
@@ -1385,11 +2042,11 @@ ORDER by DataBaseName, TableName;
                 try:
                     # Measure connection acquisition time
                     conn_start = time.time()
-                    with engine.connect() as conn:
+                    with self._retry_connect(engine) as conn:
                         timings["connection_acquire"] = time.time() - conn_start
 
                         # Update connection pool metrics
-                        with report_lock:
+                        with self.report.atomic():
                             pool_wait_time = timings["connection_acquire"]
                             self.report.connection_pool_wait_time_seconds += (
                                 pool_wait_time
@@ -1404,7 +2061,10 @@ ORDER by DataBaseName, TableName;
 
                         # Set database context once per connection/thread
                         # This allows HELP commands to work without requiring database in connection string
-                        conn.execute(text(f'DATABASE "{schema}"'))
+                        self._retry_execute(
+                            conn,
+                            text(f'DATABASE "{schema}"'),
+                        )
 
                         # Measure view processing setup
                         processing_start = time.time()
@@ -1417,13 +2077,13 @@ ORDER by DataBaseName, TableName;
                         )
 
                         # Thread-safe reporting
-                        with report_lock:
+                        with self.report.atomic():
                             self.report.report_entity_scanned(
                                 dataset_name, ent_type="view"
                             )
 
                         if not sql_config.view_pattern.allowed(dataset_name):
-                            with report_lock:
+                            with self.report.atomic():
                                 self.report.report_dropped(dataset_name)
                             return results
 
@@ -1444,17 +2104,14 @@ ORDER by DataBaseName, TableName;
                     # Track individual view timing
                     timings["total"] = time.time() - total_start
 
-                    with report_lock:
+                    with self.report.atomic():
                         self.report.slowest_view_name[f"{schema}.{view_name}"] = (
                             timings["total"]
                         )
 
                 except Exception as e:
-                    with report_lock:
+                    with self.report.atomic():
                         self.report.num_view_processing_failures += 1
-                        # Log full exception details for debugging
-                        import traceback
-
                         full_traceback = traceback.format_exc()
                         logger.error(
                             f"Failed to process view {schema}.{view_name}: {str(e)}"
@@ -1478,7 +2135,7 @@ ORDER by DataBaseName, TableName;
             # threads will exit when their underlying I/O returns or when the process
             # terminates.
             executor = ThreadPoolExecutor(
-                max_workers=self.config.max_workers,
+                max_workers=self._effective_max_workers,
                 thread_name_prefix="teradata-view",
             )
             try:
@@ -1522,7 +2179,7 @@ ORDER by DataBaseName, TableName;
                             for result in results:
                                 yield result
                         except Exception as e:
-                            with report_lock:
+                            with self.report.atomic():
                                 self.report.warning(
                                     "Error in thread processing view",
                                     context=f"{schema}.{view_name}",
@@ -1548,7 +2205,7 @@ ORDER by DataBaseName, TableName;
                                 f"be blocked in I/O; it will be released when the "
                                 f"underlying call returns or the process exits."
                             )
-                            with report_lock:
+                            with self.report.atomic():
                                 self.report.num_view_processing_timeouts += 1
                                 self.report.stalled_views[f"{schema}.{name}"] = elapsed
                                 self.report.warning(
@@ -1609,12 +2266,15 @@ ORDER by DataBaseName, TableName;
         engine = self.get_metadata_engine()
 
         try:
-            with engine.connect() as conn:
+            with self._retry_connect(engine) as conn:
                 inspector = inspect(conn)
 
                 # Set database context once for all views in this schema
                 # This allows HELP commands to work without requiring database in connection string
-                conn.execute(text(f'DATABASE "{schema}"'))
+                self._retry_execute(
+                    conn,
+                    text(f'DATABASE "{schema}"'),
+                )
                 logger.debug(f"Set database context to {schema} for view processing")
 
                 for view_name in view_names:
@@ -1648,9 +2308,6 @@ ORDER by DataBaseName, TableName;
                         )
 
                     except Exception as e:
-                        # Log full exception details for debugging
-                        import traceback
-
                         full_traceback = traceback.format_exc()
                         logger.error(
                             f"Failed to process view {schema}.{view_name}: {str(e)}"
@@ -1673,9 +2330,7 @@ ORDER by DataBaseName, TableName;
 
                 # Optimal connection pool sizing to match max_workers exactly
                 # Teradata driver can be sensitive to high connection counts, so cap at reasonable limit
-                max_safe_connections = (
-                    13  # Conservative limit: 8 base + 5 overflow for Teradata stability
-                )
+                max_safe_connections = self.config.max_pool_size
 
                 # Adjust max_workers to match available connection pool capacity
                 effective_max_workers = min(
@@ -1696,30 +2351,21 @@ ORDER by DataBaseName, TableName;
                         f"Reduced max_workers from {self.config.max_workers} to {effective_max_workers} to match Teradata connection pool capacity"
                     )
 
-                # Update the config to reflect the effective value used
-                self.config.max_workers = effective_max_workers
+                self._effective_max_workers = effective_max_workers
 
                 pool_options = {
-                    **self.config.options,
+                    **self._base_engine_options(),
                     "poolclass": QueuePool,
                     "pool_size": base_connections,
                     "max_overflow": max_overflow,
-                    "pool_pre_ping": True,  # Validate connections
-                    "pool_recycle": 1800,  # Recycle connections after 30 mins (more frequent)
-                    "pool_timeout": 60,  # Longer timeout for connection acquisition
-                    "pool_reset_on_return": "rollback",  # Explicit rollback on connection return
+                    "pool_pre_ping": True,
+                    "pool_recycle": 1800,
+                    "pool_reset_on_return": "rollback",
                 }
-
-                # Add Teradata-specific connection options for stability
-                if "connect_args" not in pool_options:
-                    pool_options["connect_args"] = {}
-
-                # Teradata-specific connection arguments for better stability
-                pool_options["connect_args"].update(
-                    {
-                        "connect_timeout": str(self.config.connect_timeout_ms),
-                        "request_timeout": str(self.config.request_timeout_ms),
-                    }
+                # Use setdefault so that a user-supplied pool_timeout in
+                # config.options is not silently overridden by the default.
+                pool_options.setdefault(
+                    "pool_timeout", self.config.connection_pool_timeout_ms / 1000
                 )
 
                 self._pooled_engine = create_engine(url, **pool_options)
@@ -1745,9 +2391,10 @@ ORDER by DataBaseName, TableName;
                     # Use Teradata's CURRENT_TIMESTAMP so the watermark is in the same
                     # time reference as LastAlterTimeStamp. Using the client clock risks
                     # skew when the client and server are in different timezones.
-                    with engine.connect() as conn:
-                        ts_row = conn.execute(
-                            text("SELECT CURRENT_TIMESTAMP(0)")
+                    with self._retry_connect(engine) as conn:
+                        ts_row = self._retry_execute(
+                            conn,
+                            text("SELECT CURRENT_TIMESTAMP(0)"),
                         ).fetchone()
                     td_now = ts_row[0] if ts_row else datetime.now()
                     if hasattr(td_now, "tzinfo") and td_now.tzinfo is not None:
@@ -1763,52 +2410,62 @@ ORDER by DataBaseName, TableName;
                         "Tables/views with LastAlterTimeStamp before the watermark will be skipped."
                     )
 
-                for entry in engine.execute(self._build_tables_and_views_query()):
-                    table = TeradataTable(
-                        database=entry.DataBaseName.strip(),
-                        name=entry.name.strip(),
-                        description=entry.description.strip()
-                        if entry.description
-                        else None,
-                        object_type=entry.object_type,
-                        create_timestamp=entry.CreateTimeStamp,
-                        last_alter_name=entry.LastAlterName,
-                        last_alter_timestamp=entry.LastAlterTimeStamp,
-                        request_text=(
-                            entry.RequestText.strip()
-                            if entry.object_type == "View" and entry.RequestText
-                            else None
-                        ),
+                with self._retry_connect(engine) as conn:
+                    result = self._retry_execute(
+                        conn,
+                        text(self._build_tables_and_views_query()),
                     )
-
-                    # Count objects per database for metrics
-                    if table.object_type == "View":
-                        database_counts[table.database]["views"] += 1
-                    else:
-                        database_counts[table.database]["tables"] += 1
-
-                    with self._tables_cache_lock:
-                        # Cache key is lowercased so lookups by schema name from
-                        # config.databases (case as the user typed it) match entries
-                        # populated from dbc.TablesV (returned in Teradata's stored case).
-                        self._tables_cache[table.database.lower()].append(table)
-                        creator_name = (entry.CreatorName or "").strip()
-                        if creator_name:
-                            self._table_creator_cache[
-                                (table.database.lower(), table.name)
-                            ] = creator_name
-
-                    # Track which tables need column extraction under incremental mode
-                    if (
-                        watermark is not None
-                        and self._tables_needing_column_extraction is not None
-                    ):
-                        last_alter = table.last_alter_timestamp
-                        # Include when timestamp is missing (conservative) or at/after watermark
-                        if last_alter is None or last_alter >= watermark:
-                            self._tables_needing_column_extraction.add(
-                                (table.database.lower(), table.name)
+                    batch_size = 5000
+                    while True:
+                        batch = self._retry_fetchmany(result, batch_size)
+                        if not batch:
+                            break
+                        for entry in batch:
+                            table = TeradataTable(
+                                database=entry.DataBaseName.strip(),
+                                name=entry.name.strip(),
+                                description=entry.description.strip()
+                                if entry.description
+                                else None,
+                                object_type=entry.object_type,
+                                create_timestamp=entry.CreateTimeStamp,
+                                last_alter_name=entry.LastAlterName,
+                                last_alter_timestamp=entry.LastAlterTimeStamp,
+                                request_text=(
+                                    entry.RequestText.strip()
+                                    if entry.object_type == "View" and entry.RequestText
+                                    else None
+                                ),
                             )
+
+                            # Count objects per database for metrics
+                            if table.object_type == "View":
+                                database_counts[table.database]["views"] += 1
+                            else:
+                                database_counts[table.database]["tables"] += 1
+
+                            with self._tables_cache_lock:
+                                # Cache key is lowercased so lookups by schema name from
+                                # config.databases (case as the user typed it) match entries
+                                # populated from dbc.TablesV (returned in Teradata's stored case).
+                                self._tables_cache[table.database.lower()].append(table)
+                                creator_name = (entry.CreatorName or "").strip()
+                                if creator_name:
+                                    self._table_creator_cache[
+                                        (table.database.lower(), table.name)
+                                    ] = creator_name
+
+                            # Track which tables need column extraction under incremental mode
+                            if (
+                                watermark is not None
+                                and self._tables_needing_column_extraction is not None
+                            ):
+                                last_alter = table.last_alter_timestamp
+                                # Include when timestamp is missing (conservative) or at/after watermark
+                                if last_alter is None or last_alter >= watermark:
+                                    self._tables_needing_column_extraction.add(
+                                        (table.database.lower(), table.name)
+                                    )
 
                 if self._tables_needing_column_extraction is not None:
                     total = sum(len(tables) for tables in self._tables_cache.values())
@@ -1977,7 +2634,7 @@ ORDER by DataBaseName, TableName;
 
         fetch_engine = self.get_metadata_engine()
         try:
-            with fetch_engine.connect() as conn:
+            with self._retry_connect(fetch_engine) as conn:
                 cursor_type = (
                     "server-side"
                     if self.config.use_server_side_cursors
@@ -2002,8 +2659,14 @@ ORDER by DataBaseName, TableName;
                     query_total_count = 0
 
                     while True:
-                        # Fetch a batch of rows
-                        batch = result.fetchmany(batch_size)
+                        # _fetchmany_with_retry handles transient errors that leave
+                        # the cursor intact (e.g. a brief network hiccup).  It does
+                        # NOT recover a server-side cursor whose position has been
+                        # lost — in that case retries exhaust and the exception
+                        # propagates to the outer except block.  The stall-detection
+                        # watchdog above covers the complementary failure mode where
+                        # fetchmany() hangs rather than raises.
+                        batch = self._retry_fetchmany(result, batch_size)
                         if not batch:
                             break
 
@@ -2027,7 +2690,16 @@ ORDER by DataBaseName, TableName;
                 _mark_phase("completed")
 
         except Exception as e:
-            logger.error(f"Error fetching lineage entries: {e}")
+            self.report.warning(
+                title="Lineage fetch failed",
+                message=(
+                    "Failed to fetch lineage entries from Teradata audit logs. "
+                    "Lineage data for this run will be incomplete. "
+                    "Check Teradata connectivity and DBC.QryLogV access."
+                ),
+                context=str(e),
+                exc=e,
+            )
             raise
         finally:
             watchdog_stop.set()
@@ -2052,16 +2724,42 @@ ORDER by DataBaseName, TableName;
                 FROM PDCRINFO.DBQLSqlTbl_Hst 
                 WHERE 1=0
             """
-            with engine.connect() as conn:
-                conn.execute(text(check_query))
+            with self._retry_connect(engine) as conn:
+                # Probe query — the except block below owns all severity
+                # decisions, so suppress the default permanent-failure warning.
+                self._retry_execute(
+                    conn, text(check_query), warn_on_permanent_failure=False
+                )
                 logger.info(
                     "Historical lineage table PDCRINFO.DBQLSqlTbl_Hst is available"
                 )
                 return True
         except Exception as e:
-            logger.info(
-                f"Historical lineage table PDCRINFO.DBQLSqlTbl_Hst is not available: {e}"
-            )
+            if isinstance(e, PoolTimeoutError):
+                self.report.warning(
+                    title="Connection pool exhausted checking historical lineage table",
+                    message=(
+                        f"Could not acquire a connection to verify PDCRINFO.DBQLSqlTbl_Hst "
+                        f"after {self.config.retry_max_attempts} attempts — the connection pool "
+                        f"was exhausted. Historical lineage will be skipped for this run. "
+                        f"Consider increasing connection_pool_timeout_ms or reducing max_workers."
+                    ),
+                    exc=e,
+                )
+            elif _should_retry_connect(e):
+                self.report.warning(
+                    title="Historical lineage table unreachable",
+                    message=(
+                        f"Historical lineage table PDCRINFO.DBQLSqlTbl_Hst check failed "
+                        f"after {self.config.retry_max_attempts} attempts due to a transient "
+                        f"error: {e}. Historical lineage will be skipped for this run."
+                    ),
+                    exc=e,
+                )
+            else:
+                logger.info(
+                    f"Historical lineage table PDCRINFO.DBQLSqlTbl_Hst is not available: {e}"
+                )
             return False
         finally:
             engine.dispose()
@@ -2134,10 +2832,25 @@ ORDER by DataBaseName, TableName;
 
         return queries
 
+    def _base_engine_options(self) -> Dict[str, Any]:
+        """Return engine kwargs shared by all engines (pooled and non-pooled).
+
+        Only includes options accepted by every pool class. pool_timeout is
+        QueuePool-specific and must be added separately for pooled engines;
+        passing it to SingletonThreadPool (used by the schema-discovery engine)
+        raises an Invalid argument error at create_engine() time.
+        """
+        opts: Dict[str, Any] = dict(self.config.options)
+        connect_args = dict(opts.pop("connect_args", {}))
+        connect_args.setdefault("connect_timeout", str(self.config.connect_timeout_ms))
+        connect_args.setdefault("request_timeout", str(self.config.request_timeout_ms))
+        opts["connect_args"] = connect_args
+        return opts
+
     def get_metadata_engine(self) -> Engine:
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
-        return create_engine(url, **self.config.options)
+        return create_engine(url, **self._base_engine_options())
 
     def _execute_with_cursor_fallback(
         self, connection: Connection, query: str, params: Optional[Dict] = None
@@ -2155,32 +2868,61 @@ ORDER by DataBaseName, TableName;
         """
         if self.config.use_server_side_cursors:
             try:
-                # Try server-side cursor first
-                if params:
-                    result = connection.execution_options(stream_results=True).execute(
-                        text(query), params
-                    )
-                else:
-                    result = connection.execution_options(stream_results=True).execute(
-                        text(query)
-                    )
-
+                streaming_conn = connection.execution_options(stream_results=True)
+                result = self._retry_execute(
+                    streaming_conn,
+                    text(query),
+                    params=params,
+                )
                 logger.debug(
                     "Successfully using server-side cursor for query execution"
                 )
                 return result
 
-            except Exception as e:
-                logger.warning(
-                    f"Server-side cursor failed, falling back to client-side execution: {e}"
+            except NotSupportedError as e:
+                # Driver explicitly signals that server-side cursors / stream_results
+                # are not supported.  Fall back to client-side buffering.
+                self.report.warning(
+                    title="Server-side cursor not supported — falling back to client-side execution",
+                    message=(
+                        "stream_results=True is not supported by this Teradata driver version. "
+                        "Client-side buffering will be used instead, which may increase memory usage "
+                        "for large result sets. Consider setting use_server_side_cursors: false."
+                    ),
+                    exc=e,
                 )
-                # Fall through to regular execution
+            except (OperationalError, DatabaseError) as e:
+                msg = str(e).lower()
+                # Only fall back when the error clearly indicates that the
+                # server-side cursor / streaming mode itself is not supported.
+                # Require BOTH a "not supported / unsupported" token AND a
+                # "cursor / stream" token to co-occur so that SQL text which
+                # incidentally contains "cursor" or "stream" (e.g. a CTE named
+                # stream_events, or a DBC query mentioning cursors in
+                # RequestText) is not mis-classified as a cursor-mode failure.
+                # All other OperationalError / DatabaseError instances (auth
+                # failures, "database does not exist", SQL syntax errors, OOM)
+                # must propagate so the caller can handle or surface them.
+                _not_supported = "not supported" in msg or "unsupported" in msg
+                _cursor_or_stream = "cursor" in msg or "stream" in msg
+                if not (_not_supported and _cursor_or_stream):
+                    raise
+                self.report.warning(
+                    title="Server-side cursor not supported — falling back to client-side execution",
+                    message=(
+                        "Streaming cursor mode failed with a driver-level error. "
+                        "Falling back to client-side buffering. "
+                        "Consider setting use_server_side_cursors: false to suppress this warning."
+                    ),
+                    exc=e,
+                )
 
-        # Regular execution (client-side)
-        if params:
-            return connection.execute(text(query), params)
-        else:
-            return connection.execute(text(query))
+        # Client-side buffered execution (fallback or use_server_side_cursors=False).
+        return self._retry_execute(
+            connection,
+            text(query),
+            params=params,
+        )
 
     def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Override to prevent parent class from generating aggregator work units during schema extraction.

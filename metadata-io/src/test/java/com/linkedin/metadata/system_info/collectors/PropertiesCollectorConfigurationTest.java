@@ -79,7 +79,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD", // Current directory may contain sensitive info
           // CDC db password
-          "mclProcessing.cdcSource.debeziumConfig.config.database.password");
+          "mclProcessing.cdcSource.debeziumConfig.config.database.password",
+          // Postgres PgQueue/PgCron credentials
+          "postgres.pgQueue.pool.password",
+          "postgres.pgCron.admin.password",
+          "postgres.pgCron.iam.awsSecretAccessKey",
+          "postgres.pgCron.iam.awsSessionToken");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -159,7 +164,13 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.authenticators[*].configs.algorithm",
           "authentication.authenticators[*].configs.discoveryUri",
           // Shim properties
-          "elasticsearch.shim.*");
+          "elasticsearch.shim.*",
+          // Postgres PgQueue configuration (non-credential settings)
+          "postgres.pgQueue.topicDefaults.*",
+          "postgres.pgQueue.topics.*.*",
+          "postgres.pgQueue.maintenance.*",
+          "postgres.pgQueue.retention.*",
+          "postgres.pgQueue.producer.*");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -474,6 +485,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
           "datahub.readOnly",
+          // Messaging transport
+          "datahub.messaging.transport",
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
           "featureFlags.alternateMCPValidation",
@@ -537,6 +550,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cassandra.hosts",
           "cassandra.port",
           "cassandra.useSsl",
+          "ebean.autoCommit",
           "ebean.autoCreateDdl",
           "ebean.batchGetMethod",
           "ebean.queryKeysCountForBatch",
@@ -724,6 +738,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.shapeLogging.durationThresholdMs",
           "graphQL.shapeLogging.responseSizeThresholdBytes",
           "graphQL.shapeLogging.errorCountThreshold",
+          "graphQL.otel.enableOtelGraphqlTraces",
           "graphService.limit.results.apiDefault",
           "graphService.limit.results.max",
           "graphService.limit.results.strict",
@@ -848,6 +863,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataChangeProposal.validation.extensions.enabled",
           "metadataChangeProposal.validation.ignoreUnknown",
           "metadataChangeProposal.validation.privilegeConstraints.enabled",
+          "metadataChangeProposal.validation.urlValidation.allowHttp",
+          "metadataChangeProposal.validation.urlValidation.enabled",
+          "metadataChangeProposal.validation.urlValidation.extraDenyHosts",
           "metadataTests.enabled",
           "platformAnalytics.enabled",
           "platformAnalytics.usageExport.aspectTypes",
@@ -1017,9 +1035,17 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "maeConsumer.enabled",
           "maeConsumer.elasticsearch.socketTimeoutMs",
           "maeConsumer.elasticsearch.connectionRequestTimeoutMs",
+          // MCE consumer pgQueue poll tuning
+          "mceConsumer.pgQueue.metadataChangeProposalMaxBatch",
+          "mceConsumer.pgQueue.batchMetadataChangeProposalMaxBatch",
+          "maeConsumer.pgQueue.usageEventsMaxBatch",
+          "maeConsumer.pgQueue.metadataChangeLogMaxBatch",
+          "peConsumer.pgQueue.platformEventMaxBatch",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
           "metadataChangeLog.consumer.batch.size",
+          "metadataChangeLog.consumer.batch.maxMessages",
+          "metadataChangeLog.consumer.batch.maxAgeMs",
           "metadataChangeLog.throttle.timeseries.entityIndex.enabled",
           "metadataChangeLog.throttle.timeseries.timeseriesIndex.enabled",
           "metadataChangeLog.throttle.timeseries.observe.enabled",
@@ -1042,7 +1068,41 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // Elasticsearch Build Indices - Parallel reindex execution configuration
           "elasticsearch.buildIndices.rethrottleExecutorPoolSize",
-          "elasticsearch.buildIndices.minimumReplicasForPromotion"
+          "elasticsearch.buildIndices.minimumReplicasForPromotion",
+          // Postgres PgQueue configuration
+          "postgres.pgQueue.inheritKafkaTopics",
+          "postgres.pgQueue.schema",
+          "postgres.pgQueue.tablePrefix",
+          "postgres.pgQueue.pool.driver",
+          "postgres.pgQueue.pool.leakTimeMinutes",
+          "postgres.pgQueue.pool.maxAgeMinutes",
+          "postgres.pgQueue.pool.maxConnections",
+          "postgres.pgQueue.pool.maxInactiveTimeSeconds",
+          "postgres.pgQueue.pool.minConnections",
+          "postgres.pgQueue.pool.url",
+          "postgres.pgQueue.pool.username",
+          "postgres.pgQueue.pool.waitTimeoutMillis",
+          "postgres.pgQueue.consumerPoll.emptyPollSleepMillis",
+          "postgres.pgQueue.consumerPoll.mclEmptyPollSleepMillis",
+          "postgres.pgQueue.consumerPoll.missingTopicSleepMillis",
+          "postgres.pgQueue.consumerPoll.errorRecoverySleepMillis",
+          // Postgres PgCron configuration
+          "postgres.pgCron.cronSchema",
+          "postgres.pgCron.admin.driver",
+          "postgres.pgCron.admin.jdbcUrl",
+          "postgres.pgCron.admin.username",
+          "postgres.pgCron.iam.awsAccessKeyId",
+          "postgres.pgCron.iam.awsRegion",
+          "postgres.pgCron.iam.cloudProvider",
+          "postgres.pgCron.iam.gcpProject",
+          "postgres.pgCron.iam.googleApplicationCredentials",
+          "postgres.pgCron.iam.instanceConnectionName",
+          "postgres.pgCron.iam.postgresUseIamAuth",
+          "postgres.pgCron.iam.useIamAuth",
+          // Postgres schema
+          "postgres.schema",
+          // Bootstrap configuration
+          "bootstrap.async.workerThreads"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

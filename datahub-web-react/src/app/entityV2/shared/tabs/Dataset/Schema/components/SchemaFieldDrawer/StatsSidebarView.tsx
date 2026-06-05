@@ -1,5 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import StatsSidebarColumnTab from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarColumnTab';
@@ -40,8 +41,10 @@ const StyledLoading = styled(LoadingOutlined)`
 export default function StatsSidebarView({
     properties: { expandedField, fieldProfile, profiles, fetchDataWithLookbackWindow, profilesDataLoading },
 }: StatsProps) {
+    const { t } = useTranslation('entity.profile.schema');
+    const { t: tc } = useTranslation('common.feedback');
     const [viewType, setViewType] = useState(StatsViewType.LATEST);
-    const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.QUARTER);
+    const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(LOOKBACK_WINDOWS.QUARTER);
 
     /**
      * Handles the change of the lookback window in the UI.
@@ -65,9 +68,10 @@ export default function StatsSidebarView({
     const latestProfile = profiles && profiles[0];
     const reportedAt =
         latestProfile &&
-        `Reported on ${toLocalDateString(latestProfile?.timestampMillis)} at ${toLocalTimeString(
-            latestProfile?.timestampMillis,
-        )}`;
+        t('statsSidebar.reportedAt', {
+            date: toLocalDateString(latestProfile?.timestampMillis),
+            time: toLocalTimeString(latestProfile?.timestampMillis),
+        });
 
     // Components for insight view and historical stats view
     const insightView = <StatsSidebarContent properties={{ expandedField, fieldProfile, profiles }} />;
@@ -92,7 +96,7 @@ export default function StatsSidebarView({
             {profilesDataLoading && (
                 <LoadingContainer>
                     <StyledLoading />
-                    <LoadingText>Loading...</LoadingText>
+                    <LoadingText>{tc('loading')}</LoadingText>
                 </LoadingContainer>
             )}
             {/* Conditional rendering based on active tab */}

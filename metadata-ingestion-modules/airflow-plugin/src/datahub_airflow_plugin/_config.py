@@ -7,7 +7,6 @@ from pydantic import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub_airflow_plugin._airflow_version_specific import IS_AIRFLOW_3_OR_HIGHER
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +19,7 @@ if TYPE_CHECKING:
 
 class DatajobUrl(Enum):
     GRID = "grid"
-    TASKINSTANCE = "taskinstance"
-    TASKS = "tasks"  # Airflow 3.x task URL format: /dags/{dag_id}/tasks/{task_id}
+    TASKS = "tasks"  # /dags/{dag_id}/tasks/{task_id}
 
 
 class DatahubLineageConfig(ConfigModel):
@@ -49,9 +47,8 @@ class DatahubLineageConfig(ConfigModel):
     # referenced by inlets or outlets.
     materialize_iolets: bool
 
-    # If true (default), capture native Airflow Assets/Datasets as DataHub lineage.
-    # Airflow 2.4+ Dataset and Airflow 3.x Asset objects in inlets/outlets
-    # will be converted to DataHub dataset URNs.
+    # If true (default), capture native Airflow Assets/Datasets in inlets/outlets
+    # as DataHub dataset URNs.
     capture_airflow_assets: bool
 
     capture_executions: bool
@@ -60,30 +57,15 @@ class DatahubLineageConfig(ConfigModel):
 
     enable_extractors: bool
 
-    # OpenLineage extractor patching/override controls (only apply when enable_extractors=True)
-    # These allow fine-grained control over DataHub's enhancements to OpenLineage extractors
-
-    # If true (default), patch SqlExtractor to use DataHub's SQL parser
-    # This enables column-level lineage extraction from SQL queries
-    # Works with both Legacy OpenLineage and OpenLineage Provider
+    # Per-patch controls (only apply when enable_extractors=True).
+    # Patch the OpenLineage `SQLParser.generate_openlineage_metadata_from_sql()` to use
+    # DataHub's SQL parser (enables column-level lineage).
     patch_sql_parser: bool
 
-    # If true (default), patch SnowflakeExtractor's default_schema property
-    # Fixes schema detection issues in Snowflake operators
-    # Works with both Legacy OpenLineage and OpenLineage Provider
-    patch_snowflake_schema: bool
-
-    # If true (default), use DataHub's custom AthenaOperatorExtractor
-    # Provides better Athena lineage with DataHub's SQL parser
-    # Only applies to Legacy OpenLineage (OpenLineage Provider has its own)
+    # Replace the corresponding operator's `get_openlineage_facets_on_complete()` with a
+    # DataHub-enhanced implementation.
     extract_athena_operator: bool
-
-    # If true (default), use DataHub's custom BigQueryInsertJobOperatorExtractor
-    # Handles BigQuery job configuration and destination tables
-    # Only applies to Legacy OpenLineage (OpenLineage Provider has its own)
     extract_bigquery_insert_job_operator: bool
-
-    # If true (default) use DataHub's custom TeradataOperator
     extract_teradata_operator: bool
 
     # If true, ti.render_templates() will be called in the listener.
@@ -153,12 +135,8 @@ def get_lineage_config() -> DatahubLineageConfig:
     )
     enable_extractors = conf.get("datahub", "enable_extractors", fallback=True)
 
-    # OpenLineage extractor patching/override configuration
-    # These only apply when enable_extractors=True
+    # OpenLineage patches (only apply when enable_extractors=True)
     patch_sql_parser = conf.get("datahub", "patch_sql_parser", fallback=True)
-    patch_snowflake_schema = conf.get(
-        "datahub", "patch_snowflake_schema", fallback=True
-    )
     extract_athena_operator = conf.get(
         "datahub", "extract_athena_operator", fallback=True
     )
@@ -172,22 +150,10 @@ def get_lineage_config() -> DatahubLineageConfig:
     log_level = conf.get("datahub", "log_level", fallback=None)
     debug_emitter = conf.get("datahub", "debug_emitter", fallback=False)
 
-    # Disable OpenLineage plugin by default (disable_openlineage_plugin=True) for all versions.
-    # This is the safest default since most DataHub users only want DataHub's lineage.
-    #
-    # When disable_openlineage_plugin=True (default):
-    # - Only DataHub plugin runs (OpenLineagePlugin.listeners are cleared if present)
-    # - In Airflow 3: SQLParser calls only DataHub's enhanced parser
-    # - In Airflow 2: DataHub uses its own extractors
-    # - DataHub gets enhanced parsing with column-level lineage
-    #
-    # When disable_openlineage_plugin=False (opt-in for dual plugin mode):
-    # - Both DataHub and OpenLineage plugins run side-by-side
-    # - In Airflow 3: SQLParser calls BOTH parsers
-    #   - OpenLineage plugin uses its own parsing results (inputs/outputs)
-    #   - DataHub extracts its enhanced parsing (with column-level lineage) from run_facets
-    #   - Both plugins get their expected parsing without interference
-    # - In Airflow 2: Not recommended - may cause conflicts
+    # Disable OpenLineage plugin by default — only DataHub's listener runs, and
+    # SQLParser is patched to invoke DataHub's enhanced parser. Setting this
+    # to False lets both plugins run side-by-side; DataHub then reads its enhanced
+    # parsing from run_facets and OpenLineage keeps its own inputs/outputs.
     default_disable_openlineage = True
 
     disable_openlineage_plugin = conf.get(
@@ -198,16 +164,18 @@ def get_lineage_config() -> DatahubLineageConfig:
         "datahub", "enable_multi_statement_sql_parsing", fallback=False
     )
 
-    # Use new task URL format for Airflow 3.x, old taskinstance format for Airflow 2.x
-    # Airflow 3 changed URL structure: /dags/{dag_id}/tasks/{task_id} instead of /taskinstance/list/...
-    default_datajob_url = (
-        DatajobUrl.TASKS.value
-        if IS_AIRFLOW_3_OR_HIGHER
-        else DatajobUrl.TASKINSTANCE.value
-    )
     datajob_url_link = conf.get(
-        "datahub", "datajob_url_link", fallback=default_datajob_url
+        "datahub", "datajob_url_link", fallback=DatajobUrl.TASKS.value
     )
+    # `taskinstance` was the Airflow-2 URL format (DatajobUrl.TASKINSTANCE,
+    # now removed). Catch it with a clear migration message rather than
+    # surfacing an opaque pydantic enum-validation error.
+    if datajob_url_link.lower() == "taskinstance":
+        raise ValueError(
+            "[datahub] datajob_url_link=taskinstance is the Airflow 2 URL "
+            "format and is no longer supported by this plugin. "
+            "Set datajob_url_link to 'tasks' (default) or 'grid' in airflow.cfg."
+        )
     dag_filter_pattern = AllowDenyPattern.model_validate_json(
         conf.get("datahub", "dag_filter_str", fallback='{"allow": [".*"]}')
     )
@@ -226,7 +194,6 @@ def get_lineage_config() -> DatahubLineageConfig:
         capture_airflow_assets=capture_airflow_assets,
         enable_extractors=enable_extractors,
         patch_sql_parser=patch_sql_parser,
-        patch_snowflake_schema=patch_snowflake_schema,
         extract_athena_operator=extract_athena_operator,
         extract_bigquery_insert_job_operator=extract_bigquery_insert_job_operator,
         extract_teradata_operator=extract_teradata_operator,

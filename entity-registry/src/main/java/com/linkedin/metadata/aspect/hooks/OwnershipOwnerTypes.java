@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -36,39 +37,39 @@ public class OwnershipOwnerTypes extends MutationHook {
     List<Pair<ChangeMCP, Boolean>> results = new LinkedList<>();
 
     for (ChangeMCP item : changeMCPS) {
-      if (OWNERSHIP_ASPECT_NAME.equals(item.getAspectName()) && item.getRecordTemplate() != null) {
-        final Map<Urn, Set<Owner>> oldTypeOwner =
-            groupByOwnerType(item.getPreviousRecordTemplate());
-        final Map<Urn, Set<Owner>> newTypeOwner = groupByOwnerType(item.getRecordTemplate());
-
-        Set<Urn> removedTypes =
-            oldTypeOwner.keySet().stream()
-                .filter(typeUrn -> !newTypeOwner.containsKey(typeUrn))
-                .collect(Collectors.toSet());
-
-        // Only update if there are actual changes
-        if (!removedTypes.isEmpty() || !oldTypeOwner.equals(newTypeOwner)) {
-          // Build complete typeOwners map with ALL types
-          Map<String, UrnArray> typeOwners =
-              newTypeOwner.entrySet().stream()
-                  .collect(
-                      Collectors.toMap(
-                          e -> encodeFieldName(e.getKey().toString()),
-                          e ->
-                              new UrnArray(
-                                  e.getValue().stream()
-                                      .map(Owner::getOwner)
-                                      .collect(Collectors.toSet()))));
-
-          item.getAspect(Ownership.class).setOwnerTypes(new UrnArrayMap(typeOwners));
-          results.add(Pair.of(item, true));
-        } else {
-          // No changes detected
-          results.add(Pair.of(item, false));
-        }
-      } else {
-        // Not an ownership aspect
+      if (!OWNERSHIP_ASPECT_NAME.equals(item.getAspectName()) || item.getRecordTemplate() == null) {
         results.add(Pair.of(item, false));
+        continue;
+      }
+
+      // ownerTypes is a server-managed denormalization of owners used for search indexing.
+      // Always (re)materialize it from the proposal's owners list so an ingestion payload that
+      // omits ownerTypes (typical for dbt and other connectors) cannot overwrite the stored map.
+      Map<String, UrnArray> typeOwners =
+          groupByOwnerType(item.getRecordTemplate()).entrySet().stream()
+              .collect(
+                  Collectors.toMap(
+                      e -> encodeFieldName(e.getKey().toString()),
+                      e ->
+                          new UrnArray(
+                              e.getValue().stream()
+                                  .map(Owner::getOwner)
+                                  .collect(Collectors.toSet()))));
+
+      UrnArrayMap materialized = new UrnArrayMap(typeOwners);
+      Ownership ownership = item.getAspect(Ownership.class);
+      if (ownership.getOwners().isEmpty()) {
+        results.add(Pair.of(item, false));
+        continue;
+      }
+
+      DataMap existingData =
+          ownership.hasOwnerTypes() ? ownership.getOwnerTypes().data() : new DataMap();
+      if (existingData.equals(materialized.data())) {
+        results.add(Pair.of(item, false));
+      } else {
+        ownership.setOwnerTypes(materialized);
+        results.add(Pair.of(item, true));
       }
     }
 

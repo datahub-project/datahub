@@ -1,6 +1,7 @@
 import { CameraOutlined } from '@ant-design/icons';
 import { toPng } from 'html-to-image';
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getRectOfNodes, getTransformForBounds, useReactFlow } from 'reactflow';
 import { useTheme } from 'styled-components';
 
@@ -31,6 +32,7 @@ function downloadImage(dataUrl: string, name?: string) {
 }
 
 export default function DownloadLineageScreenshotButton({ showExpandedText }: Props) {
+    const { t } = useTranslation('lineage');
     const themeConfig = useTheme();
     const { getNodes } = useReactFlow();
     const { rootUrn, nodes } = useContext(LineageNodesContext);
@@ -69,7 +71,7 @@ export default function DownloadLineageScreenshotButton({ showExpandedText }: Pr
             }}
         >
             <CameraOutlined />
-            {showExpandedText ? 'Screenshot' : null}
+            {showExpandedText ? t('controls.screenshotButton.label') : null}
         </StyledPanelButton>
     );
 }

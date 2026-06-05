@@ -53,7 +53,7 @@ dependencies = [
     "jsonref<2.0.0",
     "jsonschema<5.0.0",
     "mixpanel>=4.9.0,<6.0.0",
-    "packaging<26.0.0",
+    "packaging<27.0.0",
     "progressbar2<5.0.0",
     "psutil>=5.8.0,<8.0.0",
     "pydantic>=2.4.0,<3.0.0",
@@ -61,10 +61,10 @@ dependencies = [
     "python-json-logger>=2.0.0,<5.0.0",
     "PyYAML<7.0.0",
     "requests_file<4.0.0",
-    "ruamel.yaml<0.19.0",
+    "ruamel.yaml<0.20.0",
     "sentry-sdk>=1.33.1,<3.0.0",
     "setuptools<82.0.0",
-    "tabulate<0.10.0",
+    "tabulate<0.11.0",
     "toml>=0.10.0,<=0.10.2",
     "typing-inspect<0.10.0",
     "typing_extensions>=4.8.0,<5.0.0",
@@ -623,6 +623,7 @@ grafana = [
 hana = [
     "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
+    "defusedxml>=0.7.1,<0.8.0",
     "greenlet<4.0.0",
     "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     "numpy<2",
@@ -633,6 +634,12 @@ hana = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
+]
+
+hex = [
+    "patchy==2.8.0",
+    "requests<3.0.0",
+    "sqlglot[c]==30.8.0",
 ]
 
 hive = [
@@ -783,6 +790,7 @@ mode = [
 ]
 
 mongodb = [
+    "packaging<26.0.0",
     "pymongo[aws]>=4.8.0,<5.0.0",
 ]
 
@@ -840,6 +848,7 @@ neo4j = [
 ]
 
 nifi = [
+    "packaging<26.0.0",
     "requests-gssapi<2.0.0",
     "requests<3.0.0",
 ]
@@ -1248,6 +1257,30 @@ teradata = [
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
 ]
 
+thoughtspot = [
+    "patchy==2.8.0",
+    "sqlglot[c]==30.8.0",
+    "thoughtspot_rest_api>=2.0.0,<3.0.0",
+]
+
+timescaledb = [
+    "acryl-datahub-classify==0.0.11",
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "cachetools<6.0.0",
+    "GeoAlchemy2<0.19.0",
+    "greenlet<4.0.0",
+    "numpy<2",
+    "patchy==2.8.0",
+    "pip",
+    "psycopg2-binary<3.0.0",
+    "schwifty<2026.0.0",
+    "sqlalchemy>=1.4.39,<2",
+    "sqlglot[c]==30.8.0",
+    "sqlparse<0.6.0",
+    "urllib3>=1.26,<3.0",
+]
+
 trino = [
     "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
@@ -1381,6 +1414,7 @@ all = [
     "okta~=1.7.0,<2.0.0",
     "openpyxl>=3.1.5,<4.0.0",
     "oracledb<4.0.0",
+    "packaging<26.0.0",
     "pandas<2.2.0",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
@@ -1434,6 +1468,7 @@ all = [
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
+    "thoughtspot_rest_api>=2.0.0,<3.0.0",
     "traitlets!=5.2.2,<6.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
     "ujson>=5.12.1,<6.0.0",
@@ -1581,7 +1616,7 @@ dev = [
     "requests==2.32.5,<3.0.0",
     "requests_file==3.0.1,<4.0.0",
     "requests_ntlm<2.0.0",
-    "ruamel.yaml<0.19.0",
+    "ruamel.yaml<0.20.0",
     "ruff==0.11.7",
     "schwifty<2026.0.0",
     "sentry-sdk>=1.33.1,<3.0.0",
@@ -1603,9 +1638,10 @@ dev = [
     "stopit==1.1.2",
     "tableauserverclient>=0.24.0,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
-    "tabulate<0.10.0",
+    "tabulate<0.11.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
+    "thoughtspot_rest_api>=2.0.0,<3.0.0",
     "time-machine<4.0.0",
     "toml>=0.10.0,<=0.10.2",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
@@ -1623,7 +1659,7 @@ dev = [
     "types-PyYAML<7.0.0",
     "types-requests>=2.28.11.6,<=2.31.0.3",
     "types-six<2.0.0",
-    "types-tabulate<0.10.0",
+    "types-tabulate<0.11.0",
     "types-toml<0.11.0",
     "types-ujson>=5.2.0,<6.0.0",
     "typing-inspect<0.10.0",
@@ -1772,7 +1808,7 @@ docs = [
     "requests==2.32.5,<3.0.0",
     "requests_file==3.0.1,<4.0.0",
     "requests_ntlm<2.0.0",
-    "ruamel.yaml<0.19.0",
+    "ruamel.yaml<0.20.0",
     "ruff==0.11.7",
     "schwifty<2026.0.0",
     "sentry-sdk>=1.33.1,<3.0.0",
@@ -1794,9 +1830,10 @@ docs = [
     "stopit==1.1.2",
     "tableauserverclient>=0.24.0,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
-    "tabulate<0.10.0",
+    "tabulate<0.11.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
+    "thoughtspot_rest_api>=2.0.0,<3.0.0",
     "time-machine<4.0.0",
     "toml>=0.10.0,<=0.10.2",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
@@ -1814,7 +1851,7 @@ docs = [
     "types-PyYAML<7.0.0",
     "types-requests>=2.28.11.6,<=2.31.0.3",
     "types-six<2.0.0",
-    "types-tabulate<0.10.0",
+    "types-tabulate<0.11.0",
     "types-toml<0.11.0",
     "types-ujson>=5.2.0,<6.0.0",
     "typing-inspect<0.10.0",
@@ -1858,6 +1895,7 @@ integration-tests = [
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
     "dask[dataframe]<2024.7.0",
     "databricks-dbapi<0.7.0",
+    "defusedxml>=0.7.1,<0.8.0",
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "feast>=0.34.0,<1",
@@ -1962,7 +2000,7 @@ flink = "datahub.ingestion.source.flink.source:FlinkSource"
 grafana = "datahub.ingestion.source.grafana.grafana_source:GrafanaSource"
 glue = "datahub.ingestion.source.aws.glue:GlueSource"
 sagemaker = "datahub.ingestion.source.aws.sagemaker:SagemakerSource"
-hana = "datahub.ingestion.source.sql.hana:HanaSource"
+hana = "datahub.ingestion.source.sql.hana.hana:HanaSource"
 hive = "datahub.ingestion.source.sql.hive.hive_source:HiveSource"
 hive-metastore = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource"
 json-schema = "datahub.ingestion.source.schema.json_schema:JsonSchemaSource"
@@ -2005,6 +2043,7 @@ openapi = "datahub.ingestion.source.openapi:OpenApiSource"
 metabase = "datahub.ingestion.source.metabase:MetabaseSource"
 teradata = "datahub.ingestion.source.sql.teradata:TeradataSource"
 starrocks = "datahub.ingestion.source.sql.starrocks:StarRocksSource"
+thoughtspot = "datahub.ingestion.source.thoughtspot.source:ThoughtSpotSource"
 trino = "datahub.ingestion.source.sql.trino:TrinoSource"
 starburst-trino-usage = "datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource"
 nifi = "datahub.ingestion.source.nifi:NifiSource"
@@ -2032,6 +2071,7 @@ cassandra = "datahub.ingestion.source.cassandra.cassandra:CassandraSource"
 neo4j = "datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource"
 vertexai = "datahub.ingestion.source.vertexai.vertexai:VertexAISource"
 hex = "datahub.ingestion.source.hex.hex:HexSource"
+timescaledb = "datahub.ingestion.source.sql.timescaledb:TimescaleDBSource"
 omni = "datahub.ingestion.source.omni.omni:OmniSource"
 pinecone = "datahub.ingestion.source.pinecone.pinecone_source:PineconeSource"
 
@@ -2125,6 +2165,10 @@ constraint-dependencies = [
     "jaraco-context>=6.1.0,<7",  # GHSA-58pv-8j8x-9vj2 (path traversal)
     "pypdf>=6.10.2",  # GHSA-4pxv-j86v-mhcw (incremental trailer /Size DoS)
     "authlib>=1.6.11,<2.0.0",  # GHSA-jj8c-mmj3-mmgv (OAuth cache CSRF)
+    # CVE-2026-45409: DoS via idna.encode() on crafted inputs (bypass of CVE-2024-3651 fix).
+    # Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).
+    # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
+    "idna>=3.15,<4.0.0",
 ]
 
 [tool.ruff]

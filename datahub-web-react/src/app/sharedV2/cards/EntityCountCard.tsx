@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -69,6 +70,7 @@ type Props = {
 };
 
 export function EntityCountCard({ icon, name, type, tooltipDescriptor, count, link }: Props) {
+    const { t } = useTranslation('shared.misc');
     const card = (
         <Card to={link}>
             <IconWrapper backgroundColor={`${generateColor.hex(type)}30`}>{icon}</IconWrapper>
@@ -82,7 +84,10 @@ export function EntityCountCard({ icon, name, type, tooltipDescriptor, count, li
     if (tooltipDescriptor) {
         return (
             <Tooltip
-                title={`View ${formatNumberWithoutAbbreviation(count)} ${tooltipDescriptor}`}
+                title={t('entityCountCard.viewCountTooltip', {
+                    formattedCount: formatNumberWithoutAbbreviation(count),
+                    tooltipDescriptor,
+                })}
                 showArrow={false}
                 placement="bottom"
             >

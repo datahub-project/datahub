@@ -1,7 +1,10 @@
 package com.linkedin.datahub.upgrade.sqlsetup;
 
+import com.linkedin.datahub.upgrade.sqlsetup.postgres.PostgresDatabaseOperations;
+import com.linkedin.metadata.config.postgres.DatabaseType;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 
 /**
  * Interface for database-specific operations in SqlSetup. This allows for clean separation of
@@ -93,9 +96,12 @@ public interface DatabaseOperations {
    *
    * @param cdcUser the CDC username
    * @param databaseName the database name
+   * @param postgresMetadataSchema PostgreSQL schema containing {@code metadata_aspect_v2}; ignored
+   *     for MySQL. When null or blank, PostgreSQL uses {@code public}.
    * @return list of SQL statements for granting CDC privileges
    */
-  java.util.List<String> grantCdcPrivilegesSql(String cdcUser, String databaseName);
+  List<String> grantCdcPrivilegesSql(
+      String cdcUser, String databaseName, String postgresMetadataSchema);
 
   /**
    * Generate SQL statements for creating the metadata_aspect_v2 table and its indexes. Returns a
@@ -105,7 +111,7 @@ public interface DatabaseOperations {
    *     featureFlags.createSchemaVersionIndex)
    * @return list of SQL statements to create the table and indexes
    */
-  java.util.List<String> createTableSqlStatements(boolean createSchemaVersionIndex);
+  List<String> createTableSqlStatements(boolean createSchemaVersionIndex);
 
   /**
    * Drops legacy secondary indexes on {@code metadata_aspect_v2} that SqlSetup no longer creates

@@ -288,7 +288,9 @@ def run_evals(
 # ---------------------------------------------------------------------------
 
 
-def print_summary(all_runs: List[List[EvalResult]], meta_eval_id: Optional[int] = None) -> None:
+def print_summary(
+    all_runs: List[List[EvalResult]], meta_eval_id: Optional[int] = None
+) -> None:
     if not all_runs or not all_runs[0]:
         return
 
@@ -322,7 +324,9 @@ def print_summary(all_runs: List[List[EvalResult]], meta_eval_id: Optional[int] 
     if meta_eval_id is not None:
         meta_results = [r for run in all_runs for r in run if r.eval_id == meta_eval_id]
         if meta_results:
-            meta_pass_rate = sum(1 for r in meta_results if r.passed) / len(meta_results)
+            meta_pass_rate = sum(1 for r in meta_results if r.passed) / len(
+                meta_results
+            )
             print()
             if meta_pass_rate >= 0.8:
                 print(
@@ -397,7 +401,9 @@ def make_main(
             try:
                 eval_ids = [int(x.strip()) for x in args.eval.split(",")]
             except ValueError:
-                print(f"ERROR: --eval must be comma-separated integers, got: {args.eval}")
+                print(
+                    f"ERROR: --eval must be comma-separated integers, got: {args.eval}"
+                )
                 return 1
             valid = {e.id for e in evals}
             invalid = set(eval_ids) - valid

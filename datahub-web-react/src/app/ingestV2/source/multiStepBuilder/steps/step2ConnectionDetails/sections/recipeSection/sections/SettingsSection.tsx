@@ -1,5 +1,6 @@
 import { spacing } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
@@ -30,13 +31,14 @@ interface Props {
 }
 
 export function SettingsSection({ settingsFields, updateFormValue }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     if (!settingsFields || settingsFields.length === 0) return null;
 
     return (
         <SettingsContainer>
             <SectionName
-                name="Settings"
-                description="Configure which metadata types to extract. Defaults represent best practices."
+                name={t('multiStep.connection.settings.title')}
+                description={t('multiStep.connection.settings.description')}
             />
             <FieldsContainer>
                 {settingsFields

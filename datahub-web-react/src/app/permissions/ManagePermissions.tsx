@@ -1,6 +1,7 @@
 import { Button, PageTitle } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -51,9 +52,9 @@ enum TabType {
     Roles = 'Roles',
     Policies = 'Policies',
 }
-const ENABLED_TAB_TYPES = [TabType.Roles, TabType.Policies];
 
 export const ManagePermissions = () => {
+    const { t } = useTranslation('settings.permissions');
     const location = useLocation();
     const createPolicyRef = useRef<() => void>(() => {});
     const registerCreatePolicy = useCallback((fn: () => void) => {
@@ -65,7 +66,7 @@ export const ManagePermissions = () => {
     const getTabs = () => {
         return [
             {
-                name: TabType.Roles,
+                name: t('roles.tab'),
                 path: TabType.Roles.toLocaleLowerCase(),
                 content: <ManageRoles />,
                 display: {
@@ -73,14 +74,14 @@ export const ManagePermissions = () => {
                 },
             },
             {
-                name: TabType.Policies,
+                name: t('policiesTab'),
                 path: TabType.Policies.toLocaleLowerCase(),
                 content: <ManagePolicies onRegisterCreatePolicy={registerCreatePolicy} />,
                 display: {
                     enabled: () => true,
                 },
             },
-        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+        ];
     };
 
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
@@ -89,10 +90,7 @@ export const ManagePermissions = () => {
         <PageContainer>
             <PageHeaderContainer>
                 <HeaderLeft>
-                    <PageTitle
-                        title="Manage Permissions"
-                        subTitle="View your DataHub permissions. Take administrative actions."
-                    />
+                    <PageTitle title={t('pageTitle')} subTitle={t('pageSubTitle')} />
                 </HeaderLeft>
                 {isPoliciesTab && (
                     <HeaderRight>
@@ -103,7 +101,7 @@ export const ManagePermissions = () => {
                             onClick={() => createPolicyRef.current()}
                             data-testid="add-policy-button"
                         >
-                            Create new policy
+                            {t('createNewPolicy')}
                         </Button>
                     </HeaderRight>
                 )}

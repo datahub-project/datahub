@@ -425,10 +425,12 @@ public class MCLKafkaListenerTest {
       // Then
       Timer timer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-              "topic",
+              MetricUtils.MESSAGING_QUEUE_TIME,
+              MetricUtils.MESSAGING_SYSTEM,
+              MetricUtils.MESSAGING_SYSTEM_KAFKA,
+              MetricUtils.MESSAGING_TOPIC,
               TEST_TOPIC,
-              "consumer.group",
+              MetricUtils.MESSAGING_CONSUMER_GROUP,
               TEST_CONSUMER_GROUP);
 
       assertEquals(timer.count(), 1);
@@ -487,10 +489,12 @@ public class MCLKafkaListenerTest {
       // Then
       Timer kafkaTimer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-              "topic",
+              MetricUtils.MESSAGING_QUEUE_TIME,
+              MetricUtils.MESSAGING_SYSTEM,
+              MetricUtils.MESSAGING_SYSTEM_KAFKA,
+              MetricUtils.MESSAGING_TOPIC,
               TEST_TOPIC,
-              "consumer.group",
+              MetricUtils.MESSAGING_CONSUMER_GROUP,
               TEST_CONSUMER_GROUP);
 
       assertEquals(kafkaTimer.count(), queueTimes.length);
