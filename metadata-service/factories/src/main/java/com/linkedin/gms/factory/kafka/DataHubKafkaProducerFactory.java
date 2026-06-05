@@ -4,17 +4,16 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import com.linkedin.metadata.config.messaging.KafkaMessagingEnabledCondition;
+import com.linkedin.metadata.kafka.KafkaProducerInitializationRetry;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
@@ -23,7 +22,6 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
-@Slf4j
 @Configuration
 @DependsOn("configurationProvider")
 @Conditional(KafkaMessagingEnabledCondition.class)
@@ -106,34 +104,18 @@ public class DataHubKafkaProducerFactory {
       Map<String, Object> props,
       ProducerConfiguration producerConfiguration,
       Function<Map<String, Object>, Producer<K, V>> producerFactory) {
-    int maxRetries = producerConfiguration.getInitializationRetryCount();
-    long retryDelayMs = producerConfiguration.getInitializationRetryBackoffMs();
-    KafkaException lastException = null;
+    return KafkaProducerInitializationRetry.createWithRetry(
+        props, toInitializationSettings(producerConfiguration), producerFactory);
+  }
 
-    for (int attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        return producerFactory.apply(props);
-      } catch (KafkaException e) {
-        lastException = e;
-        if (attempt < maxRetries) {
-          log.warn(
-              "Failed to construct Kafka producer, retrying in {}ms (attempt {}/{}): {}",
-              retryDelayMs,
-              attempt,
-              maxRetries,
-              e.getMessage());
-          try {
-            Thread.sleep(retryDelayMs);
-            retryDelayMs *= 2; // Exponential backoff
-          } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw e;
-          }
-        }
-      }
-    }
-    log.error("Failed to construct Kafka producer after {} attempts", maxRetries);
-    throw lastException;
+  private static KafkaProducerInitializationRetry.Settings toInitializationSettings(
+      ProducerConfiguration producerConfiguration) {
+    return KafkaProducerInitializationRetry.Settings.builder()
+        .maxAttempts(producerConfiguration.getInitializationRetryCount())
+        .initialBackoffMs(producerConfiguration.getInitializationRetryBackoffMs())
+        .maxBackoffMs(producerConfiguration.getInitializationRetryMaxBackoffMs())
+        .maxTotalWaitMs(producerConfiguration.getInitializationRetryMaxTotalWaitMs())
+        .build();
   }
 
   public static Map<String, Object> buildProducerProperties(
