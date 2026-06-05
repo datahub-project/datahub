@@ -63,6 +63,18 @@ export function normalizeMcp(mcp: Mcp): Mcp {
       contentType: 'application/json',
     };
   }
+
+  // Strip nulls from the embedded JSON string in aspect.value.
+  // Top-level null-stripping misses nulls inside the value string (e.g. auditStamp.impersonator: null).
+  const normalizedAspect = (stripped as Record<string, unknown>).aspect as Record<string, unknown> | undefined;
+  if (normalizedAspect && typeof normalizedAspect.value === 'string') {
+    try {
+      normalizedAspect.value = JSON.stringify(stripNulls(JSON.parse(normalizedAspect.value)));
+    } catch {
+      // not valid JSON — leave as-is
+    }
+  }
+
   return stripped;
 }
 
