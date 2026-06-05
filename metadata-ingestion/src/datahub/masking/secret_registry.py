@@ -8,6 +8,10 @@ active executions' secrets (via get_all_secrets/get_version), so masking is
 process-global and always-on — it can over-mask during overlap (safe) but never
 under-mask. See datahub.masking.bootstrap for the lifecycle.
 
+Secrets registered outside any execution scope land in a catch-all ``__global__``
+group; it is dropped once the last real execution ends (so it lives at most as
+long as concurrent execution activity, not for the whole process).
+
 Concurrency: copy-on-write. Writers (register/begin/end/clear) hold the lock and
 atomically swap in freshly-built dicts; readers (the masking hot path) read those
 immutable snapshots without a lock.

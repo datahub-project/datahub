@@ -17,6 +17,7 @@ import logging
 import sys
 import threading
 import traceback
+import warnings
 from typing import Optional
 
 from datahub.masking.logging_utils import get_masking_safe_logger
@@ -88,8 +89,23 @@ def initialize_secret_masking(
     Initialize secret masking infrastructure (logging filter + exception hook).
 
     Secrets register automatically at point-of-read.
+
+    .. deprecated::
+        ``force`` is deprecated and ignored. The filter is installed once for the
+        process lifetime and every call opens a per-execution secret scope, so
+        there is nothing to force. The argument is kept only for backward
+        compatibility and will be removed in a future release.
     """
     global _bootstrap_completed, _bootstrap_error
+
+    if force:
+        warnings.warn(
+            "The 'force' argument to initialize_secret_masking() is deprecated "
+            "and ignored: the masking filter is installed once and each call "
+            "opens a per-execution scope.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     # Check if masking is disabled via environment variable
     from datahub.masking.secret_registry import is_masking_enabled
