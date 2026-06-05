@@ -1209,6 +1209,7 @@ jobs:
       test_runner_type: ${{ needs.setup.outputs.test_runner_type }}
       depot_build_id: ${{ needs.setup.outputs.use_depot_cache == 'true' && needs.base_build.outputs.build_id || '' }}
       image_build_task: ${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}
+      # Can't use env.DOCKER_REGISTRY so hardcoding the registry value
       local_build_flags: "-PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=acryldata"
       datahub_version: ${{ needs.setup.outputs.tag }}
       profile_name: ${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}
