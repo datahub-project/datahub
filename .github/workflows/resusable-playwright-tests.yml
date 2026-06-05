@@ -45,7 +45,7 @@ on:
         description: "DATAHUB_REPO passed to run-quickstart.sh (leave empty to use the script default)"
         required: false
         type: string
-        default: acryldata
+        default: ${{ vars.DOCKER_REGISTRY }}
 jobs:
   playwright_test:
     name: Playwright E2E Tests (Shard ${{ inputs.shard }}/${{ inputs.shard_count }})
@@ -124,6 +124,7 @@ jobs:
           SKIP_INSTALL_DEV: "true"
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
+          # Must match the profile the images were built for (e.g. smoke:quickstartPg → quickstart-postgres).
           PROFILE_NAME: ${{ inputs.profile_name }}
         run: |
           echo "Using compose profile: $PROFILE_NAME"
