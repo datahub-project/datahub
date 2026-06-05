@@ -12,7 +12,12 @@ from unittest.mock import MagicMock
 import pytest
 
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig
-from datahub.ingestion.source.sigma.data_classes import Element, Page, Workbook
+from datahub.ingestion.source.sigma.data_classes import (
+    Element,
+    Page,
+    WarehouseTableUpstream,
+    Workbook,
+)
 from datahub.ingestion.source.sigma.formula_parser import (
     BracketRef,
     extract_bracket_refs,
@@ -73,6 +78,18 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.reporter.chart_input_fields_skipped_parameter = 0
     source.reporter.chart_input_fields_skipped_sibling = 0
     source.reporter.chart_input_fields_case_mismatch = 0
+    source.reporter.chart_input_fields_warehouse_column_bridged = 0
+    source.reporter.chart_input_fields_warehouse_column_bridge_unresolved = 0
+    source.reporter.chart_input_fields_multi_ref_extra = 0
+    source.reporter.chart_input_fields_warehouse_qualified = 0
+    source.reporter.chart_input_fields_warehouse_qualified_via_workbook_index = 0
+    # T4.C: sigma_api is needed by _gen_pages_workunit →
+    # _build_workbook_warehouse_table_index → get_workbook_lineage.
+    source.sigma_api = MagicMock()
+    source.sigma_api.get_workbook_lineage = MagicMock(return_value=[])
+    source._workbook_customsql_registered_urns = set()
+    source._workbook_customsql_formula_fields = {}
+    source._bridge_unresolved_warned = set()
     return source
 
 
@@ -311,10 +328,13 @@ class TestResolveChartFormulaUpstream:
         assert result is None
         assert self.src.reporter.chart_input_fields_case_mismatch == 1
 
-    def test_exact_workbook_name_without_lineage_match_does_not_fallback_to_warehouse(
+    def test_exact_workbook_name_without_lineage_match_falls_through_to_warehouse(
         self,
     ) -> None:
-        """An exact workbook name match must satisfy the lineage filter."""
+        """When a workbook element name matches but none satisfy the lineage filter,
+        fall through to warehouse-table resolution so the formula ref can still
+        resolve (e.g. a sibling element that shares its name with the warehouse
+        table it wraps)."""
         upstream_elem = _make_element("sourceElem", "Orders")
         wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.ORDERS,PROD)"
         ref = _make_ref("Orders", "id")
@@ -329,7 +349,7 @@ class TestResolveChartFormulaUpstream:
             elementId_to_chart_urn={"sourceElem": "urn:source"},
         )
 
-        assert result is None
+        assert result == (wh_urn, "id")
 
     def test_self_reference_is_excluded_from_workbook_element_matches(self) -> None:
         """A self-loop in Sigma lineage must not resolve to the chart itself."""
@@ -475,6 +495,21 @@ class TestResolveChartFormulaUpstream:
         )
         assert result is None
 
+    def test_dm_upstream_not_in_wb_element_index_resolved_via_step_3c(self) -> None:
+        """Step 3c: DM element is an upstream but not a page element -> dm_urn returned."""
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm-x.elem-y,PROD)"
+        ref = _make_ref("Orders", "Order Id")
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="chart-1",
+            chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={"Orders": dm_urn},
+            wb_element_index={},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={},
+        )
+        assert result == (dm_urn, "Order Id")
+
     # --- sibling refs from M0 sample formulas ---
 
     def test_sibling_refs_from_failures_formula(self) -> None:
@@ -536,6 +571,7 @@ class TestGenElementsWorkunitInputFields:
                 paths=[],
                 elementId_to_chart_urn={},
                 wb_element_index={},
+                wb_warehouse_table_index=None,
             )
         )
 
@@ -574,6 +610,7 @@ class TestGenElementsWorkunitInputFields:
                 paths=[],
                 elementId_to_chart_urn={},
                 wb_element_index={},
+                wb_warehouse_table_index=None,
             )
         )
 
@@ -585,6 +622,86 @@ class TestGenElementsWorkunitInputFields:
         assert len(input_fields_aspects) == 1
         assert len(input_fields_aspects[0].fields) == 1
         assert len(all_input_fields) == 1
+        assert src.reporter.chart_input_fields_multi_ref_extra == 0
+
+    def test_multi_ref_distinct_upstreams_emit_two_input_fields(self) -> None:
+        """[ORDERS/col] + [CUSTOMERS/id]: two distinct refs → 2 fields, multi_ref_extra=1."""
+        src = _make_source()
+        src.dataset_upstream_urn_mapping = {}
+        orders_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.ORDERS,PROD)"
+        )
+        customers_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.CUSTOMERS,PROD)"
+        )
+        chart = _make_element_with_formula(
+            "chart-1",
+            "Multi Chart",
+            {"Calc": "[ORDERS/col] + [CUSTOMERS/id]"},
+        )
+        src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
+            return_value=({orders_urn: [], customers_urn: []}, [])
+        )
+
+        workunits = list(
+            src._gen_elements_workunit(
+                elements=[chart],
+                workbook=_make_workbook_with_elements([]),
+                all_input_fields=[],
+                paths=[],
+                elementId_to_chart_urn={},
+                wb_element_index={},
+                wb_warehouse_table_index=None,
+            )
+        )
+
+        input_fields_aspects = [
+            aspect
+            for wu in workunits
+            if (aspect := wu.get_aspect_of_type(InputFieldsClass)) is not None
+        ]
+        assert len(input_fields_aspects) == 1
+        assert len(input_fields_aspects[0].fields) == 2
+        assert src.reporter.chart_input_fields_resolved == 1
+        assert src.reporter.chart_input_fields_multi_ref_extra == 1
+
+    def test_multi_ref_duplicate_upstream_emits_one_input_field(self) -> None:
+        """[ORDERS/col] + [ORDERS/col]: same ref twice → 1 field, multi_ref_extra=0."""
+        src = _make_source()
+        src.dataset_upstream_urn_mapping = {}
+        orders_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.ORDERS,PROD)"
+        )
+        chart = _make_element_with_formula(
+            "chart-1",
+            "Dup Ref Chart",
+            {"Calc": "[ORDERS/col] + [ORDERS/col]"},
+        )
+        src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
+            return_value=({orders_urn: []}, [])
+        )
+
+        workunits = list(
+            src._gen_elements_workunit(
+                elements=[chart],
+                workbook=_make_workbook_with_elements([]),
+                all_input_fields=[],
+                paths=[],
+                elementId_to_chart_urn={},
+                wb_element_index={},
+                wb_warehouse_table_index=None,
+            )
+        )
+
+        input_fields_aspects = [
+            aspect
+            for wu in workunits
+            if (aspect := wu.get_aspect_of_type(InputFieldsClass)) is not None
+        ]
+        assert len(input_fields_aspects) == 1
+        assert len(input_fields_aspects[0].fields) == 1
+        assert src.reporter.chart_input_fields_resolved == 1
+        assert src.reporter.chart_input_fields_multi_ref_extra == 0
 
     def test_dashboard_input_fields_dedup_across_charts(self) -> None:
         src = _make_source()
@@ -623,3 +740,118 @@ class TestGenElementsWorkunitInputFields:
         assert len(input_fields_aspects) == 3
         dashboard_input_fields = input_fields_aspects[-1]
         assert len(dashboard_input_fields.fields) == 1
+
+    def test_column_id_by_name_bridges_display_name_to_native(self) -> None:
+        """column_id_by_name drives column_native_names so the emitted URN uses the
+        warehouse-native column name (lowercased), not the Sigma display name."""
+        src = _make_source()
+        src.dataset_upstream_urn_mapping = {}
+        src._wb_url_id_to_conn_id = {}  # default lowercase=True
+        warehouse_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.ORDERS,PROD)"
+        )
+        # Formula uses Sigma display name "Customer Id"; columnId maps it to native.
+        chart = _make_element_with_formula(
+            "chart-1",
+            "Orders Chart",
+            {"Customer Id": "[ORDERS/Customer Id]"},
+        )
+        chart.column_id_by_name = {"Customer Id": "inode-tbl-abc/CUSTOMER_ID"}
+        upstream = WarehouseTableUpstream(url_id="tbl-abc", name="ORDERS")
+        chart.upstream_sources = {"inode-tbl-abc": upstream}
+        src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
+            return_value=({warehouse_urn: []}, [])
+        )
+
+        workunits = list(
+            src._gen_elements_workunit(
+                elements=[chart],
+                workbook=_make_workbook_with_elements([]),
+                all_input_fields=[],
+                paths=[],
+                elementId_to_chart_urn={},
+                wb_element_index={},
+                wb_warehouse_table_index=None,
+            )
+        )
+
+        input_fields_aspects = [
+            aspect
+            for wu in workunits
+            if (aspect := wu.get_aspect_of_type(InputFieldsClass)) is not None
+        ]
+        assert len(input_fields_aspects) == 1
+        field_urn = input_fields_aspects[0].fields[0].schemaFieldUrn
+        # Bridge must translate "Customer Id" → "customer_id" (inode-tbl-abc/CUSTOMER_ID, lowercase).
+        assert field_urn.endswith(",customer_id)")
+
+
+class TestBridgeWarehouseColumnName:
+    """Unit tests for _bridge_warehouse_column_name."""
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+
+    WAREHOUSE_URN = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "warehouse_coffee_company.public.customer_visits,PROD)"
+    )
+    SIGMA_DM_URN = (
+        "urn:li:dataset:(urn:li:dataPlatform:sigma,"
+        "b584ddca-0000-0000-0000-000000000001.elem,PROD)"
+    )
+
+    def test_warehouse_urn_bridges_display_name_to_native(self) -> None:
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.WAREHOUSE_URN,
+            sigma_display_name="Customer Id",
+            column_native_names={"Customer Id": "customer_id"},
+        )
+        assert result == "customer_id"
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 1
+        assert (
+            self.src.reporter.chart_input_fields_warehouse_column_bridge_unresolved == 0
+        )
+
+    def test_sigma_urn_leaves_display_name_unchanged(self) -> None:
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.SIGMA_DM_URN,
+            sigma_display_name="Customer Id",
+            column_native_names={"Customer Id": "customer_id"},
+        )
+        assert result == "Customer Id"
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 0
+
+    def test_warehouse_urn_no_native_name_increments_unresolved(self) -> None:
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.WAREHOUSE_URN,
+            sigma_display_name="Missing Col",
+            column_native_names={"Other Col": "other_col"},
+        )
+        assert result == "Missing Col"
+        assert (
+            self.src.reporter.chart_input_fields_warehouse_column_bridge_unresolved == 1
+        )
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 0
+
+    def test_empty_native_names_skips_bridge(self) -> None:
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.WAREHOUSE_URN,
+            sigma_display_name="Customer Id",
+            column_native_names={},
+        )
+        assert result == "Customer Id"
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 0
+        assert (
+            self.src.reporter.chart_input_fields_warehouse_column_bridge_unresolved == 0
+        )
+
+    def test_already_native_name_does_not_double_count(self) -> None:
+        """When display name already equals native name, bridged counter stays 0."""
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.WAREHOUSE_URN,
+            sigma_display_name="visit_id",
+            column_native_names={"visit_id": "visit_id"},
+        )
+        assert result == "visit_id"
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 0

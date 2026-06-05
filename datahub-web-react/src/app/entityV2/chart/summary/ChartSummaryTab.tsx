@@ -1,5 +1,6 @@
 import { Divider } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -24,6 +25,7 @@ const DIMENSION_TAG = 'urn:li:tag:Dimension';
 const TEMPORAL_TAG = 'urn:li:tag:Temporal';
 
 export default function ChartSummaryTab(): JSX.Element | null {
+    const { t } = useTranslation('entity.types');
     const { entityData } = useEntityData();
 
     const measureFields = useGetTagFields(MEASURE_TAG);
@@ -44,9 +46,15 @@ export default function ChartSummaryTab(): JSX.Element | null {
                         <StyledDivider />
 
                         <SummaryColumns>
-                            {measureFields?.length && <FieldTableByTag title="Measures" fields={measureFields} />}
-                            {dimensionFields?.length && <FieldTableByTag title="Dimensions" fields={dimensionFields} />}
-                            {temporalFields?.length && <FieldTableByTag title="Temporals" fields={temporalFields} />}
+                            {measureFields?.length && (
+                                <FieldTableByTag title={t('chart.measuresTitle')} fields={measureFields} />
+                            )}
+                            {dimensionFields?.length && (
+                                <FieldTableByTag title={t('chart.dimensionsTitle')} fields={dimensionFields} />
+                            )}
+                            {temporalFields?.length && (
+                                <FieldTableByTag title={t('chart.temporalsTitle')} fields={temporalFields} />
+                            )}
                         </SummaryColumns>
                     </>
                 )}

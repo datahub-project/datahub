@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -24,13 +25,14 @@ type RelatedAsset = {
 // DataProductSection reads the reverse `dataProduct.relationships` membership, which is
 // semantically different from a Document referencing arbitrary assets.
 export const SidebarRelatedAssetsSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData } = useEntityData();
     const relatedAssets: RelatedAsset[] =
         (entityData as unknown as { info?: { relatedAssets?: RelatedAsset[] | null } })?.info?.relatedAssets ?? [];
 
     return (
         <SidebarSection
-            title="Related Assets"
+            title={t('sidebar.relatedAssets.sectionTitle')}
             content={
                 <Content>
                     {relatedAssets.length > 0 ? (
@@ -40,7 +42,7 @@ export const SidebarRelatedAssetsSection = () => {
                             return <EntityLink key={entity.urn} entity={entity as never} />;
                         })
                     ) : (
-                        <EmptySectionText message="No related assets" />
+                        <EmptySectionText message={t('sidebar.relatedAssets.emptyText')} />
                     )}
                 </Content>
             }

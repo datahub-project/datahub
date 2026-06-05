@@ -323,6 +323,17 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
             report.last_state_non_deletable_entities
         )
 
+        # Verify per-entity-type deletion summary
+        summary = report.entity_type_deletion_summary
+        # dataset: 3 in previous (run 1), 2 in current (run 2), 1 actually soft-deleted
+        assert summary["dataset"].previous_checkpoint_count == 3
+        assert summary["dataset"].current_checkpoint_count == 2
+        assert summary["dataset"].soft_deleted_count == 1
+        # DPI and query were in previous state (run 1 mocked ignored types)
+        # but are non-deletable, so soft_deleted_count should be 0
+        assert summary["dataProcessInstance"].soft_deleted_count == 0
+        assert summary["query"].soft_deleted_count == 0
+
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
@@ -445,3 +456,46 @@ def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
         state1 = cast(GenericCheckpointState, checkpoint1.state)
         state2 = cast(GenericCheckpointState, checkpoint2.state)
         assert state1 == state2
+
+        # Summary should still be computed even when deletions are skipped
+        report2 = pipeline_run2.source.get_report()
+        assert isinstance(report2, StaleEntityRemovalSourceReport)
+        failure_summary = report2.entity_type_deletion_summary
+        assert failure_summary["dataset"].previous_checkpoint_count == 3
+        assert failure_summary["dataset"].current_checkpoint_count == 2
+        # No actual deletions because source reported failure
+        assert failure_summary["dataset"].soft_deleted_count == 0
+
+
+def test_build_checkpoint_comparison() -> None:
+    """Verify checkpoint comparison groups counts by entity type correctly."""
+    last_state = GenericCheckpointState(serde="utf-8")
+    last_state.add_checkpoint_urn(
+        type="", urn="urn:li:dataset:(urn:li:dataPlatform:postgres,t1,PROD)"
+    )
+    last_state.add_checkpoint_urn(
+        type="", urn="urn:li:dataset:(urn:li:dataPlatform:postgres,t2,PROD)"
+    )
+    last_state.add_checkpoint_urn(type="", urn="urn:li:corpuser:user1")
+
+    cur_state = GenericCheckpointState(serde="utf-8")
+    cur_state.add_checkpoint_urn(
+        type="", urn="urn:li:dataset:(urn:li:dataPlatform:postgres,t1,PROD)"
+    )
+    cur_state.add_checkpoint_urn(type="", urn="urn:li:container:c1")
+
+    summary = StaleEntityRemovalHandler._build_checkpoint_comparison(
+        last_state, cur_state
+    )
+
+    # dataset: 2 previous, 1 current (t2 disappeared)
+    assert summary["dataset"].previous_checkpoint_count == 2
+    assert summary["dataset"].current_checkpoint_count == 1
+    # corpuser: only in previous
+    assert summary["corpuser"].previous_checkpoint_count == 1
+    assert summary["corpuser"].current_checkpoint_count == 0
+    # container: only in current
+    assert summary["container"].previous_checkpoint_count == 0
+    assert summary["container"].current_checkpoint_count == 1
+    # soft_deleted_count is 0 everywhere — only set during actual deletion loop
+    assert all(s.soft_deleted_count == 0 for s in summary.values())

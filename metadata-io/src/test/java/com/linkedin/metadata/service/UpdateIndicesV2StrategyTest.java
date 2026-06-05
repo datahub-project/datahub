@@ -29,6 +29,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -67,6 +68,7 @@ public class UpdateIndicesV2StrategyTest {
   @Mock private ObjectNode mockSearchDocument;
   @Mock private ObjectNode mockPreviousSearchDocument;
   @Mock private StructuredPropertyDefinition mockStructuredProperty;
+  @Mock private V2MappingsBuilder mockMappingsBuilder;
 
   private OperationContext operationContext;
   private UpdateIndicesV2Strategy strategy;
@@ -88,6 +90,9 @@ public class UpdateIndicesV2StrategyTest {
     when(mockEvent.getSystemMetadata()).thenReturn(mockSystemMetadata);
     when(mockEvent.getAuditStamp()).thenReturn(mockAuditStamp);
     when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    MetadataChangeLog mockMcl = mock(MetadataChangeLog.class);
+    when(mockMcl.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockEvent.getMetadataChangeLog()).thenReturn(mockMcl);
     when(mockEvent.getAspectName()).thenReturn("datasetProperties");
     when(mockEntitySpec.getName()).thenReturn("dataset");
     when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
@@ -114,7 +119,9 @@ public class UpdateIndicesV2StrategyTest {
             "MD5",
             null, // No semantic search config for basic tests
             mock(IndexConvention.class),
-            true);
+            true,
+            mockMappingsBuilder,
+            null);
   }
 
   @Test
@@ -421,7 +428,9 @@ public class UpdateIndicesV2StrategyTest {
             "MD5",
             semanticConfig,
             indexConvention,
-            false);
+            false,
+            mockMappingsBuilder,
+            null);
 
     // Verify: Should not write to semantic index when not enabled
     assertFalse(
@@ -445,7 +454,9 @@ public class UpdateIndicesV2StrategyTest {
             "MD5",
             semanticConfig,
             indexConvention,
-            false);
+            false,
+            mockMappingsBuilder,
+            null);
 
     // Verify: Should not write to semantic index for dataset (not in enabled list)
     assertFalse(
@@ -472,7 +483,9 @@ public class UpdateIndicesV2StrategyTest {
             "MD5",
             semanticConfig,
             indexConvention,
-            false);
+            false,
+            mockMappingsBuilder,
+            null);
 
     // Verify: Should not write to semantic index when index doesn't exist
     assertFalse(strategyWithMissingIndex.shouldWriteToSemanticIndex(operationContext, "dataset"));
@@ -498,7 +511,9 @@ public class UpdateIndicesV2StrategyTest {
             "MD5",
             semanticConfig,
             indexConvention,
-            false);
+            false,
+            mockMappingsBuilder,
+            null);
 
     // Verify: Should write to semantic index when all conditions are met
     assertTrue(strategyWithAllConditions.shouldWriteToSemanticIndex(operationContext, "dataset"));
@@ -524,7 +539,9 @@ public class UpdateIndicesV2StrategyTest {
             "MD5",
             semanticConfig,
             indexConvention,
-            false);
+            false,
+            mockMappingsBuilder,
+            null);
 
     // Call shouldWriteToSemanticIndex multiple times
     assertTrue(strategyWithCaching.shouldWriteToSemanticIndex(operationContext, "dataset"));
@@ -555,7 +572,9 @@ public class UpdateIndicesV2StrategyTest {
             "MD5",
             semanticConfig,
             indexConvention,
-            false);
+            false,
+            mockMappingsBuilder,
+            null);
 
     // Setup mocks for document transformation
     when(searchDocumentTransformer.transformAspect(
@@ -648,7 +667,9 @@ public class UpdateIndicesV2StrategyTest {
             "MD5",
             semanticConfig,
             indexConvention,
-            false);
+            false,
+            mockMappingsBuilder,
+            null);
 
     // Execute with isKeyAspect = true (full delete)
     strategyWithSemantic.deleteSearchData(
@@ -878,7 +899,9 @@ public class UpdateIndicesV2StrategyTest {
             "MD5",
             null,
             mock(IndexConvention.class),
-            false);
+            false,
+            mockMappingsBuilder,
+            null);
 
     AspectSpec ownershipSpec = mock(AspectSpec.class);
     when(ownershipSpec.getName()).thenReturn("ownership");
@@ -1060,6 +1083,308 @@ public class UpdateIndicesV2StrategyTest {
         applied.contains(typeX),
         "Coalesced mapping diff dropped entityType X added by an earlier MCL in the batch");
     assertTrue(applied.contains(typeY), "Coalesced mapping diff missing newly-added entityType Y");
+  }
+
+  // ==================== Timeseries throttle tests ====================
+
+  private TimeseriesWriteThrottleCache buildThrottleCache(
+      boolean entityEnabled, boolean tsEnabled, boolean observeEnabled) {
+    return new TimeseriesWriteThrottleCache(
+        com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration.builder()
+            .entityIndex(
+                com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration
+                    .IndexThrottleConfig.builder()
+                    .enabled(entityEnabled)
+                    .build())
+            .timeseriesIndex(
+                com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration
+                    .IndexThrottleConfig.builder()
+                    .enabled(tsEnabled)
+                    .build())
+            .observe(
+                com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration
+                    .IndexThrottleConfig.builder()
+                    .enabled(observeEnabled)
+                    .build())
+            .refreshPeriodSeconds(3600)
+            .maxCacheUrns(10_000)
+            .build());
+  }
+
+  private UpdateIndicesV2Strategy strategyWithThrottle(TimeseriesWriteThrottleCache cache) {
+    return new UpdateIndicesV2Strategy(
+        v2Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        "MD5",
+        null,
+        mock(IndexConvention.class),
+        true,
+        mockMappingsBuilder,
+        cache);
+  }
+
+  @Test
+  public void testThrottle_EntityIndexSuppressesEntityWrite() throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(true, false, false);
+    UpdateIndicesV2Strategy throttledStrategy = strategyWithThrottle(cache);
+
+    // Setup timeseries event with required timestampMillis field
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    DataMap tsData = new DataMap();
+    tsData.put("timestampMillis", 1_000_001_000L);
+    when(mockAspect.data()).thenReturn(tsData);
+
+    // Prime the cache with a recent write
+    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
+
+    // Process at t+1s (within 3600s refresh period)
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(false),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.empty());
+
+    throttledStrategy.processBatch(operationContext, groupedFor(List.of(mockEvent)), false);
+
+    // Entity index write should be suppressed
+    verify(elasticSearchService, never())
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString());
+    // Timeseries index write still fires (only entity throttle enabled)
+    verify(timeseriesAspectService)
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
+  }
+
+  @Test
+  public void testThrottle_TimeseriesIndexSuppressesTimeseriesWrite() throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(false, true, false);
+    UpdateIndicesV2Strategy throttledStrategy = strategyWithThrottle(cache);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+
+    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(false),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.empty());
+
+    throttledStrategy.processBatch(operationContext, groupedFor(List.of(mockEvent)), false);
+
+    // Timeseries index write should be suppressed
+    verify(timeseriesAspectService, never())
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
+  }
+
+  @Test
+  public void testThrottle_ObserveModeDoesNotSuppressWrites() throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(false, false, true);
+    UpdateIndicesV2Strategy throttledStrategy = strategyWithThrottle(cache);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    DataMap tsData = new DataMap();
+    tsData.put("timestampMillis", 1_000_001_000L);
+    when(mockAspect.data()).thenReturn(tsData);
+
+    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(false),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.empty());
+
+    throttledStrategy.processBatch(operationContext, groupedFor(List.of(mockEvent)), false);
+
+    // Both writes should proceed (observe mode doesn't suppress)
+    verify(timeseriesAspectService)
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
+  }
+
+  @Test
+  public void testThrottle_NonTimeseriesAspectBypasses() throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(true, true, false);
+    UpdateIndicesV2Strategy throttledStrategy = strategyWithThrottle(cache);
+
+    // Non-timeseries aspect should bypass throttle entirely
+    when(mockAspectSpec.isTimeseries()).thenReturn(false);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(false),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+    when(mockSearchDocument.toString()).thenReturn("{\"test\": \"document\"}");
+    when(mockSearchDocument.isEmpty()).thenReturn(false);
+
+    ObjectNode mockPreviousDoc = mock(ObjectNode.class);
+    when(mockPreviousDoc.toString()).thenReturn("{\"previous\": \"document\"}");
+    when(searchDocumentTransformer.transformAspect(
+            eq(operationContext),
+            eq(testUrn),
+            eq(mockPreviousAspect),
+            eq(mockAspectSpec),
+            eq(false),
+            eq(mockAuditStamp)))
+        .thenReturn(Optional.of(mockPreviousDoc));
+
+    throttledStrategy.processBatch(operationContext, groupedFor(List.of(mockEvent)), false);
+
+    // Entity index write should proceed (not timeseries, so no throttle)
+    verify(elasticSearchService)
+        .upsertDocument(eq(operationContext), eq("dataset"), anyString(), anyString());
+  }
+
+  @Test
+  public void testThrottle_FirstWriteNotThrottled() throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(true, true, false);
+    UpdateIndicesV2Strategy throttledStrategy = strategyWithThrottle(cache);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockAuditStamp.getTime()).thenReturn(1_000_000_000L);
+    DataMap tsData = new DataMap();
+    tsData.put("timestampMillis", 1_000_000_000L);
+    when(mockAspect.data()).thenReturn(tsData);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(false),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.empty());
+
+    // No prior cache entry — first write should not be throttled
+    throttledStrategy.processBatch(operationContext, groupedFor(List.of(mockEvent)), false);
+
+    // Timeseries write should proceed
+    verify(timeseriesAspectService)
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
+  }
+
+  @Test
+  public void testThrottle_BothEntityAndTimeseriesSuppresses() throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(true, true, false);
+    UpdateIndicesV2Strategy throttledStrategy = strategyWithThrottle(cache);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+
+    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(false),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.empty());
+
+    throttledStrategy.processBatch(operationContext, groupedFor(List.of(mockEvent)), false);
+
+    // Both entity index and timeseries index writes should be suppressed
+    verify(elasticSearchService, never())
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString());
+    verify(timeseriesAspectService, never())
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
+  }
+
+  @Test
+  public void testThrottle_CacheDisabledShortCircuits() throws Exception {
+    // All throttle configs disabled — should short-circuit without calling shouldThrottle
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(false, false, false);
+    UpdateIndicesV2Strategy throttledStrategy = strategyWithThrottle(cache);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockAuditStamp.getTime()).thenReturn(1_000_000_000L);
+    DataMap tsData = new DataMap();
+    tsData.put("timestampMillis", 1_000_000_000L);
+    when(mockAspect.data()).thenReturn(tsData);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(false),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.empty());
+
+    throttledStrategy.processBatch(operationContext, groupedFor(List.of(mockEvent)), false);
+
+    // Both writes should proceed (throttle disabled → short-circuit)
+    verify(timeseriesAspectService)
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
+  }
+
+  @Test
+  public void testThrottle_EntityAndObserveBothEnabled() throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(true, false, true);
+    UpdateIndicesV2Strategy throttledStrategy = strategyWithThrottle(cache);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    DataMap tsData = new DataMap();
+    tsData.put("timestampMillis", 1_000_001_000L);
+    when(mockAspect.data()).thenReturn(tsData);
+
+    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(false),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.empty());
+
+    throttledStrategy.processBatch(operationContext, groupedFor(List.of(mockEvent)), false);
+
+    // Entity write suppressed, timeseries write proceeds, observe logged
+    verify(elasticSearchService, never())
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString());
+    verify(timeseriesAspectService)
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
   }
 
   private MCLItem makeStructuredPropertyEvent(

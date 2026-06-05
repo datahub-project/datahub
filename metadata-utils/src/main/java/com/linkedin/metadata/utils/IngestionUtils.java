@@ -1,6 +1,7 @@
 package com.linkedin.metadata.utils;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -9,6 +10,20 @@ public class IngestionUtils {
   private static final String PIPELINE_NAME = "pipeline_name";
 
   private IngestionUtils() {}
+
+  /**
+   * Returns the CLI version to pass into an ingestion execution when the ingestion source config
+   * may carry an optional version (including blank strings from templated bootstrap YAML). Blank or
+   * null configured values fall back to the server default.
+   */
+  @Nonnull
+  public static String resolveIngestionCliVersion(
+      @Nullable String configuredVersion, @Nonnull String defaultCliVersion) {
+    if (configuredVersion != null && !configuredVersion.trim().isEmpty()) {
+      return configuredVersion.trim();
+    }
+    return defaultCliVersion;
+  }
 
   /**
    * Injects a pipeline_name into a recipe if there isn't a pipeline_name already there. The

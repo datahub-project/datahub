@@ -197,6 +197,10 @@ class TableData:
 )
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default as UPDATE operations from object timestamps",
+)
+@capability(
     SourceCapability.SCHEMA_METADATA, "Can infer schema from supported file types"
 )
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")

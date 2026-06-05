@@ -2,11 +2,13 @@ import { Pencil } from '@phosphor-icons/react/dist/csr/Pencil';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { List } from 'antd';
 import React from 'react';
+import { Trans } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
+import { safeUrl } from '@app/shared/urlUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
 
@@ -112,14 +114,23 @@ export const RelatedLinkItem: React.FC<RelatedLinkItemProps> = ({ link, onEdit, 
                     <LinkIcon url={link.url} />
                 </IconContainer>
                 <ContentContainer>
-                    <TitleLink href={link.url} target="_blank" rel="noreferrer">
+                    <TitleLink href={safeUrl(link.url)} target="_blank" rel="noreferrer">
                         {link.description || link.label}
                     </TitleLink>
                     <Description>
-                        Added {formatDateString(link.created.time)} by{' '}
-                        <Link to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`}>
-                            {entityRegistry.getDisplayName(link.actor.type, link.actor)}
-                        </Link>
+                        <Trans
+                            i18nKey="addedByUser"
+                            ns="entity.profile.documentation"
+                            values={{
+                                date: formatDateString(link.created.time),
+                                name: entityRegistry.getDisplayName(link.actor.type, link.actor),
+                            }}
+                            components={{
+                                actorLink: (
+                                    <Link to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`} />
+                                ),
+                            }}
+                        />
                     </Description>
                 </ContentContainer>
             </MetaContainer>

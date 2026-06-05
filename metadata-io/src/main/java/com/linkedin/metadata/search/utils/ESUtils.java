@@ -516,8 +516,8 @@ public class ESUtils {
   }
 
   /**
-   * Builds search query given a {@link Criterion}, containing field, value and
-   * association/condition between the two.
+   * Builds search query given a {@link Criterion}, containing field, values and
+   * association/condition between them.
    *
    * <p>If the condition between a field and value (specified in {@link Criterion}) is EQUAL, we
    * construct a Terms query. In this case, a field can take multiple values, specified using comma
@@ -539,7 +539,7 @@ public class ESUtils {
    * wildcard query which is not performant according to ES. For details, please refer to:
    * https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-wildcard-query.html#wildcard-query-field-params
    *
-   * @param criterion {@link Criterion} single criterion which contains field, value and a
+   * @param criterion {@link Criterion} single criterion which contains field, values and a
    *     comparison operator
    */
   @Nonnull

@@ -96,6 +96,10 @@ OPERATION_STATEMENT_TYPES = {
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
 @capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default from Delta table history",
+)
+@capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
     subtype_modifier=[

@@ -9,6 +9,7 @@ from typing import Dict, Iterable, List, Optional
 from pydantic import Field
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.env_vars import get_report_info_sample_size
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.graph.client import DataHubGraph
@@ -177,7 +178,7 @@ class SoftDeletedEntitiesCleanup:
             self.report.num_hard_deleted_by_type[entity_type] = current_count + 1
             if entity_type not in self.report.sample_hard_deleted_aspects_by_type:
                 self.report.sample_hard_deleted_aspects_by_type[entity_type] = (
-                    LossyList()
+                    LossyList(max_elements=get_report_info_sample_size())
                 )
             self.report.sample_hard_deleted_aspects_by_type[entity_type].append(urn)
 

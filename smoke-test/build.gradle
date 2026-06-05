@@ -1,4 +1,5 @@
 apply plugin: 'com.github.node-gradle.node'
+apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
 
 ext {
   python_executable = 'python3'
@@ -21,12 +22,7 @@ node {
   // Version of Yarn to use.
   yarnVersion = '1.22.22'
 
-  // Base URL for fetching node distributions (set nodeDistBaseUrl if you have a mirror).
-  if (project.hasProperty('nodeDistBaseUrl')) {
-    distBaseUrl = project.getProperty('nodeDistBaseUrl')
-  } else {
-    distBaseUrl = 'https://nodejs.org/dist'
-  }
+  distBaseUrl = gradle.ext['datahub.dependencies.node.distBaseUrl']
 
   // Set the work directory for unpacking node
   workDir = file("${project.projectDir}/.gradle/nodejs")

@@ -1,5 +1,6 @@
 import KeyboardDoubleArrowDownIcon from '@mui/icons-material/KeyboardDoubleArrowDown';
 import React, { useCallback, useContext, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { LINEAGE_FILTER_PAGINATION, LineageFilter, LineageNodesContext } from '@app/lineageV3/common';
@@ -69,6 +70,7 @@ interface Props {
 }
 
 export function ShowMoreButton({ data, numMatches }: Props) {
+    const { t } = useTranslation('lineage');
     const { direction, contents, limit, parent } = data;
     const { nodes, setDisplayVersion } = useContext(LineageNodesContext);
 
@@ -100,7 +102,9 @@ export function ShowMoreButton({ data, numMatches }: Props) {
                     onClick={() => setPagination(Math.min(limit + LINEAGE_FILTER_PAGINATION, maximum))}
                     data-testid="show-more"
                 >
-                    <Text>{limit + LINEAGE_FILTER_PAGINATION >= maximum ? 'Show All' : 'Show More'}</Text>
+                    <Text>
+                        {limit + LINEAGE_FILTER_PAGINATION >= maximum ? t('filter.showAll') : t('filter.showMore')}
+                    </Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
             );
@@ -112,7 +116,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
                     onClick={() => setPagination(Math.min(maximum, limit) - LINEAGE_FILTER_PAGINATION)}
                     data-testid="show-less"
                 >
-                    <Text>Show Less</Text>
+                    <Text>{t('filter.showLess')}</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
             );
@@ -120,7 +124,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
         if (limit + LINEAGE_FILTER_PAGINATION < maximum && limit + MAX_INCREASE >= maximum) {
             list.push(
                 <Button key="show-all" onClick={() => setPagination(maximum)} data-testid="show-all">
-                    <Text>Show All</Text>
+                    <Text>{t('filter.showAll')}</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
             );
@@ -128,13 +132,13 @@ export function ShowMoreButton({ data, numMatches }: Props) {
         if (limit + MAX_INCREASE < maximum) {
             list.push(
                 <Button key="show-max" onClick={() => setPagination(limit + MAX_INCREASE)} data-testid="show-max">
-                    <Text>Show +{MAX_INCREASE}</Text>
+                    <Text>{t('filter.showPlusCount', { count: MAX_INCREASE })}</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
             );
         }
         return list;
-    }, [limit, maximum, setPagination]);
+    }, [limit, maximum, setPagination, t]);
 
     if (!buttons.length) return null;
     return (

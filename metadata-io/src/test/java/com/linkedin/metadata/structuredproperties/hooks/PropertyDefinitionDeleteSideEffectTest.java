@@ -140,6 +140,34 @@ public class PropertyDefinitionDeleteSideEffectTest {
   }
 
   @Test
+  public void testDeletePropertyKeyWithoutDefinitionSkipsCleanup() {
+    PropertyDefinitionDeleteSideEffect test = new PropertyDefinitionDeleteSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+
+    when(mockAspectRetriever.getLatestAspectObject(
+            eq(TEST_PROPERTY_URN), eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)))
+        .thenReturn(null);
+
+    List<MCPItem> result =
+        test.postMCPSideEffect(
+                Set.of(
+                    TestMCL.builder()
+                        .changeType(ChangeType.DELETE)
+                        .urn(TEST_PROPERTY_URN)
+                        .entitySpec(TEST_REGISTRY.getEntitySpec("structuredProperty"))
+                        .aspectSpec(
+                            TEST_REGISTRY
+                                .getEntitySpec("structuredProperty")
+                                .getAspectSpec(STRUCTURED_PROPERTY_KEY_ASPECT_NAME))
+                        .build()),
+                retrieverContext)
+            .collect(Collectors.toList());
+
+    assertEquals(0, result.size());
+    verify(mockSearchRetriever, times(0)).scroll(any(), any(), nullable(String.class), anyInt());
+  }
+
+  @Test
   public void testDeletePropertyDefinition() {
     PropertyDefinitionDeleteSideEffect test = new PropertyDefinitionDeleteSideEffect();
     test.setConfig(TEST_PLUGIN_CONFIG);
