@@ -223,6 +223,7 @@ src/app/previewV2/QueryStat.tsx
 src/app/previewV2/SearchPill.tsx
 src/app/previewV2/utils.ts
 src/app/entity/shared/entityForm/schemaFieldPrompts/DropdownHeader.tsx
+src/app/entity/shared/EntityDropdown/**/*.{ts,tsx}
 src/app/entityV2/dataset/profile/schema/components/SchemaSearchInput.tsx
 src/app/*.{ts,tsx}
 src/app/appConfig/**/*.{ts,tsx}
