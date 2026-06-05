@@ -267,13 +267,19 @@ public class KafkaThrottleSensorTest {
 
     try {
       test.start();
-      Thread.sleep(50);
-      assertEquals(
-          test.getLag(),
+
+      Map<ThrottleType, Long> expectedLag =
           Map.of(
               ThrottleType.MCL_VERSIONED_LAG, 1L,
-              ThrottleType.MCL_TIMESERIES_LAG, 1L),
-          "Expected lag updated");
+              ThrottleType.MCL_TIMESERIES_LAG, 1L);
+
+      // Poll until the scheduler has executed refresh(), with a generous timeout for slow CI
+      long deadline = System.currentTimeMillis() + 200;
+      while (!expectedLag.equals(test.getLag()) && System.currentTimeMillis() < deadline) {
+        Thread.sleep(10);
+      }
+
+      assertEquals(test.getLag(), expectedLag, "Expected lag updated");
     } finally {
       test.stop();
     }

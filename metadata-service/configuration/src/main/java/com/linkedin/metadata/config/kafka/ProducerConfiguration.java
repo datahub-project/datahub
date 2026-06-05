@@ -20,4 +20,10 @@ public class ProducerConfiguration {
   private String bootstrapServers;
   private String securityProtocol;
   private String schemaRegistryUrl;
+
+  /** Number of retries for producer initialization */
+  private int initializationRetryCount = 5;
+
+  /** Initial backoff delay in milliseconds for producer initialization retries */
+  private long initializationRetryBackoffMs = 500;
 }
