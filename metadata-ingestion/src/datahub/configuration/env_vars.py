@@ -249,6 +249,16 @@ def get_sql_parse_cache_size() -> int:
     return int(os.getenv("DATAHUB_SQL_PARSE_CACHE_SIZE", "1000"))
 
 
+def get_sql_cll_max_ast_depth() -> int:
+    """Max AST nesting depth before column-level lineage is skipped for a statement.
+
+    Guards against native stack overflows (SIGSEGV) in sqlglot[c]'s compiled
+    scope/lineage traversal on pathologically deep SQL (e.g. generated/dynamic
+    SQL from stored procedures). A value <= 0 disables the guard.
+    """
+    return int(os.getenv("DATAHUB_SQL_CLL_MAX_AST_DEPTH", "600"))
+
+
 def get_dataset_urn_to_lower() -> str:
     """Convert dataset URNs to lowercase."""
     return os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")
