@@ -481,6 +481,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self,
         gms_server: str,
         token: Optional[str] = None,
+        auth: Optional["requests.auth.AuthBase"] = None,
         timeout_sec: Optional[float] = None,
         connect_timeout_sec: Optional[float] = None,
         read_timeout_sec: Optional[float] = None,
@@ -521,7 +522,10 @@ class DataHubRestEmitter(Closeable, Emitter):
             "X-RestLi-Protocol-Version": "2.0.0",
             "Content-Type": "application/json",
         }
-        if token:
+        if auth is not None:
+            # An AuthBase sets Authorization fresh per request; do not bake a header.
+            pass
+        elif token:
             headers["Authorization"] = f"Bearer {token}"
         else:
             # HACK: When no token is provided but system auth env variables are set, we use them.
@@ -572,6 +576,8 @@ class DataHubRestEmitter(Closeable, Emitter):
         )
 
         self._session = self._session_config.build_session()
+        if auth is not None:
+            self._session.auth = auth
 
     @property
     def server_config(self) -> RestServiceConfig:

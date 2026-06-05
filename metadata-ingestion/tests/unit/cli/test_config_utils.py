@@ -228,6 +228,7 @@ class TestConfigUtils:
                 "gms": {
                     "server": "http://test-host:8080",
                     "token": "test-token",
+                    "auth": None,
                     "client_mode": None,
                     "datahub_component": None,
                     "ca_certificate_path": None,
@@ -279,6 +280,7 @@ class TestConfigUtils:
                 "gms": {
                     "server": "http://test-host:8080",
                     "token": "test-token",
+                    "auth": None,
                     "client_mode": None,
                     "datahub_component": None,
                     "ca_certificate_path": None,
@@ -310,6 +312,7 @@ class TestConfigUtils:
                 "gms": {
                     "server": "http://test-host:8080",
                     "token": "test-token",
+                    "auth": None,
                     "client_mode": None,
                     "datahub_component": None,
                     "ca_certificate_path": None,

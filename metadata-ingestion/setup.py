@@ -601,6 +601,7 @@ plugins: Dict[str, Set[str]] = {
         "tenacity!=8.4.0,<9.0.0",
     },
     "azure-ad": set(),
+    "azure-auth": {"azure-identity>=1.21.0,<2.0.0"},
     "azure-data-factory": azure_data_factory,
     "fabric-data-factory": {
         "azure-core>=1.38.0,<2.0.0",
@@ -1100,6 +1101,11 @@ full_test_dev_requirements = {
 
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
+    "datahub.token_provider.plugins": [
+        "k8s_oidc = datahub.ingestion.auth.k8s_projected:K8sProjectedTokenProvider",
+        "azure_entra = datahub.ingestion.auth.azure_entra:AzureEntraTokenProvider",
+        "oidc_client_credentials = datahub.ingestion.auth.oidc_client_credentials:OidcClientCredentialsTokenProvider",
+    ],
     "sqlalchemy.dialects": [
         "doris.pymysql = datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect",
     ],

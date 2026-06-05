@@ -1,13 +1,14 @@
 from enum import Enum, auto
 from typing import Dict, List, Optional
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, model_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.env_vars import (
     get_datahub_component,
     get_rest_sink_default_tcp_keepalive,
 )
+from datahub.ingestion.auth.registry import AuthConfig
 
 
 class ClientMode(Enum):
@@ -25,6 +26,7 @@ class DatahubClientConfig(ConfigModel):
 
     server: str
     token: Optional[str] = None
+    auth: Optional[AuthConfig] = None
     timeout_sec: Optional[float] = None
     retry_status_codes: Optional[List[int]] = None
     retry_max_times: Optional[int] = None
@@ -39,5 +41,11 @@ class DatahubClientConfig(ConfigModel):
     datahub_component: Optional[str] = None
     server_config_refresh_interval: Optional[int] = None
     tcp_keepalive: bool = _DEFAULT_TCP_KEEPALIVE
+
+    @model_validator(mode="after")
+    def _validate_auth_exclusive(self) -> "DatahubClientConfig":
+        if self.token is not None and self.auth is not None:
+            raise ValueError("Provide either 'token' or 'auth', not both.")
+        return self
 
     model_config = ConfigDict(extra="ignore")
