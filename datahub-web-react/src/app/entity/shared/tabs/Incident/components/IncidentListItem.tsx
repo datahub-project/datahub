@@ -249,7 +249,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 <Tooltip placement="right" showArrow={false} title={toLocalDateTimeString(createdDate)}>
                                     <IncidentCreatedTime>
                                         <Trans
-                                            i18nKey="list.createdBy"
+                                            i18nKey={createdActor?.corpUser ? 'list.createdBy' : 'list.created'}
                                             t={t}
                                             values={{ time: toRelativeTimeString(createdDate) }}
                                             components={{
@@ -297,7 +297,9 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                     {incident?.incidentStatus?.lastUpdated && (
                                         <Tooltip showArrow={false} title={toLocalDateTimeString(lastModifiedDate)}>
                                             <Trans
-                                                i18nKey="list.resolvedBy"
+                                                i18nKey={
+                                                    lastUpdatedActor?.corpUser ? 'list.resolvedBy' : 'list.resolved'
+                                                }
                                                 t={t}
                                                 values={{ time: toRelativeTimeString(lastModifiedDate) }}
                                                 components={{
