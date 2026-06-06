@@ -3,32 +3,12 @@ import { useInView } from 'react-intersection-observer';
 import { useDebounce } from 'react-use';
 
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { DEFAULT_GLOSSARY_CHILDREN_COUNT, getGlossaryChildrenScrollInput } from '@app/glossaryV2/utils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-import { ENTITY_INDEX_FILTER_NAME } from '@src/app/search/utils/constants';
-import { ENTITY_NAME_FIELD } from '@src/app/searchV2/context/constants';
 import { useGetAutoCompleteMultipleResultsQuery, useScrollAcrossEntitiesQuery } from '@src/graphql/search.generated';
-import { Entity, EntityType, SortOrder } from '@src/types.generated';
+import { Entity, EntityType } from '@src/types.generated';
 
-const GLOSSARY_CHILDREN_COUNT = 50;
-
-function getGlossaryChildrenScrollInput(urn: string, scrollId: string | null) {
-    return {
-        input: {
-            scrollId,
-            query: '*',
-            types: [EntityType.GlossaryNode, EntityType.GlossaryTerm],
-            orFilters: [{ and: [{ field: 'parentNode', values: [urn || ''] }] }],
-            count: GLOSSARY_CHILDREN_COUNT,
-            sortInput: {
-                sortCriteria: [
-                    { field: ENTITY_INDEX_FILTER_NAME, sortOrder: SortOrder.Ascending },
-                    { field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Ascending },
-                ],
-            },
-            searchFlags: { skipCache: true },
-        },
-    };
-}
+const GLOSSARY_CHILDREN_COUNT = DEFAULT_GLOSSARY_CHILDREN_COUNT;
 
 interface Props {
     entityUrn?: string;
@@ -49,9 +29,7 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
         loading,
         refetch,
     } = useScrollAcrossEntitiesQuery({
-        variables: {
-            ...getGlossaryChildrenScrollInput(entityUrn || '', scrollId),
-        },
+        variables: getGlossaryChildrenScrollInput(entityUrn || '', scrollId),
         skip: !entityUrn || skip,
         notifyOnNetworkStatusChange: true,
     });

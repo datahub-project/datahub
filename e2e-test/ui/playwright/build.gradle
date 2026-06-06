@@ -7,8 +7,8 @@ node {
     download = true
   }
 
-  version = '22.12.0'
-  yarnVersion = '1.22.22'
+  version = rootProject.ext.nodeVersion
+  yarnVersion = rootProject.ext.yarnVersion
   distBaseUrl = gradle.ext['datahub.dependencies.node.distBaseUrl']
 
   workDir = file("${project.projectDir}/.gradle/nodejs")

@@ -30,6 +30,7 @@ const GlossaryNodes = styled.div<{ isGrid?: boolean }>`
         display: flex;
         flex-direction: column;
         gap: 8px;
+        padding: 0 16px;
         `}
     width: 100%;
     margin-bottom: 8px;
@@ -40,6 +41,7 @@ const GlossaryTerms = styled.div`
     flex-direction: column;
     gap: 8px;
     margin-bottom: 8px;
+    padding: 0 16px;
 `;
 
 interface Props {
