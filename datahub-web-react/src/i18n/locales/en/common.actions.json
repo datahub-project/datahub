@@ -67,6 +67,7 @@
     "share": "Share",
     "showAll": "Show all",
     "showCountMore": "show {{count}} more",
+    "showCountMoreCapitalized": "Show {{count}} more",
     "showLess": "Show less",
     "showMore": "show more",
     "showMoreCapitalized": "Show more",
@@ -80,5 +81,6 @@
     "view": "View",
     "viewAll": "View all",
     "viewAllCount": "View all ({{count}})",
+    "viewMore": "View more",
     "yes": "Yes"
 }

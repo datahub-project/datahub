@@ -29,9 +29,15 @@ import enEntityProfileTests from '@src/i18n/locales/en/entity.profile.tests.json
 import enEntityProfileTimeline from '@src/i18n/locales/en/entity.profile.timeline.json';
 import enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
+import enEntitySharedActions from '@src/i18n/locales/en/entity.shared.actions.json';
 import enEntitySharedComponents from '@src/i18n/locales/en/entity.shared.components.json';
 import enEntitySharedContainers from '@src/i18n/locales/en/entity.shared.containers.json';
+import enEntitySharedEmptyStates from '@src/i18n/locales/en/entity.shared.emptyStates.json';
 import enEntitySharedEntityDropdown from '@src/i18n/locales/en/entity.shared.entityDropdown.json';
+import enEntitySharedProfile from '@src/i18n/locales/en/entity.shared.profile.json';
+import enEntitySharedSelectors from '@src/i18n/locales/en/entity.shared.selectors.json';
+import enEntitySharedStats from '@src/i18n/locales/en/entity.shared.stats.json';
+import enEntitySharedVersioning from '@src/i18n/locales/en/entity.shared.versioning.json';
 import enEntityTypes from '@src/i18n/locales/en/entity.types.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
 import enEntityV1SharedComponents from '@src/i18n/locales/en/entityV1.shared.components.json';
@@ -100,9 +106,15 @@ i18n.use(initReactI18next).init({
             'entity.profile.summary': enEntityProfileSummary,
             'entity.profile.timeline': enEntityProfileTimeline,
             'entity.profile.view': enEntityProfileView,
+            'entity.shared.actions': enEntitySharedActions,
             'entity.shared.components': enEntitySharedComponents,
             'entity.shared.containers': enEntitySharedContainers,
+            'entity.shared.emptyStates': enEntitySharedEmptyStates,
             'entity.shared.entityDropdown': enEntitySharedEntityDropdown,
+            'entity.shared.profile': enEntitySharedProfile,
+            'entity.shared.selectors': enEntitySharedSelectors,
+            'entity.shared.stats': enEntitySharedStats,
+            'entity.shared.versioning': enEntitySharedVersioning,
             'entity.types': enEntityTypes,
             'entity.views': enEntityViews,
             'entityV1.shared.components': enEntityV1SharedComponents,
