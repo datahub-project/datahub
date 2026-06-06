@@ -1,3 +1,4 @@
+// TODO: remove — dummy change to trigger Playwright CI on workflow-only PRs
 /**
  * Global Setup — runs ONCE before all test projects (after auth-setup).
  *
@@ -14,10 +15,9 @@ import { readGmsToken } from '../fixtures/login';
 import { deleteEntities } from '../utils/cleanup';
 import { gmsUrl } from '../utils/constants';
 import { createScriptLogger } from '../utils/logger';
+import { users } from '../data/users';
 
 const logger = createScriptLogger('global.setup');
-
-const ADMIN_USERNAME = 'datahub';
 
 /** Search prefixes to purge before each run. */
 const CLEANUP_PREFIXES = ['pw_', 'cypress_', 'Cypress', 'fct_cypress', 'SampleCypress'];
@@ -33,7 +33,7 @@ setup('global cleanup', async () => {
   let gmsToken: string;
 
   try {
-    gmsToken = readGmsToken(ADMIN_USERNAME);
+    gmsToken = readGmsToken(users.admin.username);
   } catch {
     logger.warn('GMS token not found — skipping global cleanup');
     return;

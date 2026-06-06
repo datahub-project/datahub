@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from datahub.ingestion.source.fabric.common.report import FabricClientReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
-from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.stats_collections import TopKDict
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.fabric.onelake.schema_report import (
@@ -67,6 +69,21 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
 
     # SQL parsing aggregator report (lineage / view parsing metrics)
     sql_aggregator: Optional["SqlAggregatorReport"] = None
+
+    num_usage_queries_fetched: int = 0
+    num_usage_queries_skipped: TopKDict[str, int] = field(default_factory=TopKDict)
+    usage_extraction_per_item_sec: LossyDict[str, float] = field(
+        default_factory=LossyDict
+    )
+    usage_start_time: Optional[datetime] = None
+    usage_end_time: Optional[datetime] = None
+    usage_run_skipped: bool = False
+
+    def report_usage_query_skipped(self, reason: str) -> None:
+        """Record a queryinsights row that was skipped before reaching the aggregator."""
+        self.num_usage_queries_skipped[reason] = (
+            self.num_usage_queries_skipped.get(reason, 0) + 1
+        )
 
     def report_workspace_scanned(self) -> None:
         """Increment workspaces scanned counter."""

@@ -1,0 +1,54 @@
+source:
+  type: matillion-dpc
+  config:
+    api_config:
+      client_id: "${MATILLION_CLIENT_ID}"
+      client_secret: "${MATILLION_CLIENT_SECRET}"
+      region: "EU1" # EU1 or US1
+
+    env: "PROD"
+
+    # Optional: Map OpenLineage namespaces to DataHub platform instances
+    # Required if existing datasets use platform instances
+    namespace_to_platform_instance:
+      "postgresql://prod-db.us-east-1.rds.amazonaws.com:5432":
+        platform_instance: postgres_prod
+        env: PROD
+        database: analytics
+        schema: public
+
+      "snowflake://prod-account.snowflakecomputing.com":
+        platform_instance: snowflake_prod
+        env: PROD
+        convert_urns_to_lowercase: true
+
+      "bigquery://my-gcp-project":
+        platform_instance: bigquery_prod
+        env: PROD
+
+    include_streaming_pipelines: true
+    include_unpublished_pipelines: true
+    max_executions_per_pipeline: 10
+    extract_projects_to_containers: true
+
+    # Optional: Filter projects, environments, pipelines using regex patterns
+    # project_patterns:
+    #   allow: ["^prod-.*", "^staging-.*"]
+    #   deny: [".*-deprecated$", ".*-archived$"]
+
+    # environment_patterns:
+    #   allow: ["^production$", "^staging$"]
+
+    # pipeline_patterns:
+    #   deny: ["^test_.*", ".*_backup$"]
+
+    # streaming_pipeline_patterns:
+    #   allow: ["^cdc_.*"]
+
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

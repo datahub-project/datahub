@@ -79,7 +79,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD", // Current directory may contain sensitive info
           // CDC db password
-          "mclProcessing.cdcSource.debeziumConfig.config.database.password");
+          "mclProcessing.cdcSource.debeziumConfig.config.database.password",
+          // Postgres PgQueue/PgCron credentials
+          "postgres.pgQueue.pool.password",
+          "postgres.pgCron.admin.password",
+          "postgres.pgCron.iam.awsSecretAccessKey",
+          "postgres.pgCron.iam.awsSessionToken");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -159,7 +164,15 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.authenticators[*].configs.algorithm",
           "authentication.authenticators[*].configs.discoveryUri",
           // Shim properties
-          "elasticsearch.shim.*");
+          "elasticsearch.shim.*",
+          // Postgres PgQueue configuration (non-credential settings)
+          "postgres.pgQueue.topicDefaults.*",
+          "postgres.pgQueue.topics.*.*",
+          "postgres.pgQueue.maintenance.*",
+          "postgres.pgQueue.retention.*",
+          "postgres.pgQueue.producer.*",
+          "datahub.gms.rateLimits.capacity.rules[*].*",
+          "datahub.gms.rateLimits.endpoint.rules[*].*");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -290,6 +303,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.producer.schemaRegistryUrl",
           "kafka.producer.compressionType",
           "kafka.producer.deliveryTimeout",
+          "kafka.producer.initializationRetryBackoffMs",
+          "kafka.producer.initializationRetryCount",
+          "kafka.producer.initializationRetryMaxBackoffMs",
+          "kafka.producer.initializationRetryMaxTotalWaitMs",
           "kafka.producer.maxRequestSize",
           "kafka.producer.requestTimeout",
           "kafka.producer.retryCount",
@@ -474,6 +491,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
           "datahub.readOnly",
+          // Messaging transport
+          "datahub.messaging.transport",
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
           "featureFlags.alternateMCPValidation",
@@ -526,6 +545,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showSearchFiltersV2",
           "featureFlags.showSeparateSiblings",
           "featureFlags.showSimplifiedHomepageByDefault",
+          "featureFlags.showTestsInHealthIcon",
+          "featureFlags.i18nEnabled",
           "featureFlags.themeV2Default",
           "featureFlags.themeV2Enabled",
           "featureFlags.themeV2Toggleable",
@@ -535,6 +556,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cassandra.hosts",
           "cassandra.port",
           "cassandra.useSsl",
+          "ebean.autoCommit",
           "ebean.autoCreateDdl",
           "ebean.batchGetMethod",
           "ebean.queryKeysCountForBatch",
@@ -693,7 +715,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "entityClient.retryInterval",
           "entityService.impl",
           "entityService.retention.applyOnBootstrap",
+          "entityService.retention.applyOnPolicyChange",
           "entityService.retention.enabled",
+          "entityService.retention.overwriteNonSystemPolicies",
           "eventsApi.enabled",
           "forms.hook.consumerGroupSuffix",
           "forms.hook.enabled",
@@ -720,6 +744,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.shapeLogging.durationThresholdMs",
           "graphQL.shapeLogging.responseSizeThresholdBytes",
           "graphQL.shapeLogging.errorCountThreshold",
+          "graphQL.otel.enableOtelGraphqlTraces",
           "graphService.limit.results.apiDefault",
           "graphService.limit.results.max",
           "graphService.limit.results.strict",
@@ -844,6 +869,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataChangeProposal.validation.extensions.enabled",
           "metadataChangeProposal.validation.ignoreUnknown",
           "metadataChangeProposal.validation.privilegeConstraints.enabled",
+          "metadataChangeProposal.validation.urlValidation.allowHttp",
+          "metadataChangeProposal.validation.urlValidation.enabled",
+          "metadataChangeProposal.validation.urlValidation.extraDenyHosts",
           "metadataTests.enabled",
           "platformAnalytics.enabled",
           "platformAnalytics.usageExport.aspectTypes",
@@ -880,6 +908,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "springdoc.swagger-ui.path",
           "springdoc.swagger-ui.urls-primary-name",
           "structuredProperties.enabled",
+          "structuredProperties.dropMissingPropertyValuesWithWarning",
           "structuredProperties.systemUpdateEnabled",
           "structuredProperties.writeEnabled",
           "telemetry.enabledCli",
@@ -1003,13 +1032,32 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.spaceType",
           "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.efConstruction",
           "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.m",
+          "elasticsearch.entityIndex.semanticSearch.models.gemini_embedding_001.vectorDimension",
+          "elasticsearch.entityIndex.semanticSearch.models.gemini_embedding_001.knnEngine",
+          "elasticsearch.entityIndex.semanticSearch.models.gemini_embedding_001.spaceType",
+          "elasticsearch.entityIndex.semanticSearch.models.gemini_embedding_001.efConstruction",
+          "elasticsearch.entityIndex.semanticSearch.models.gemini_embedding_001.m",
           // MAE consumer (shared YAML; active when MAE_CONSUMER_ENABLED=true)
           "maeConsumer.enabled",
           "maeConsumer.elasticsearch.socketTimeoutMs",
           "maeConsumer.elasticsearch.connectionRequestTimeoutMs",
+          // MCE consumer pgQueue poll tuning
+          "mceConsumer.pgQueue.metadataChangeProposalMaxBatch",
+          "mceConsumer.pgQueue.batchMetadataChangeProposalMaxBatch",
+          "maeConsumer.pgQueue.usageEventsMaxBatch",
+          "maeConsumer.pgQueue.metadataChangeLogMaxBatch",
+          "peConsumer.pgQueue.platformEventMaxBatch",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
           "metadataChangeLog.consumer.batch.size",
+          "metadataChangeLog.consumer.batch.maxMessages",
+          "metadataChangeLog.consumer.batch.maxAgeMs",
+          "metadataChangeLog.throttle.timeseries.entityIndex.enabled",
+          "metadataChangeLog.throttle.timeseries.timeseriesIndex.enabled",
+          "metadataChangeLog.throttle.timeseries.observe.enabled",
+          "metadataChangeLog.throttle.timeseries.refreshPeriodSeconds",
+          "metadataChangeLog.throttle.timeseries.refreshOverrides",
+          "metadataChangeLog.throttle.timeseries.maxCacheUrns",
 
           // Elasticsearch Build Indices - Adaptive throttling configuration
           "elasticsearch.buildIndices.clusterHeapYellowThresholdPercent",
@@ -1026,7 +1074,64 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // Elasticsearch Build Indices - Parallel reindex execution configuration
           "elasticsearch.buildIndices.rethrottleExecutorPoolSize",
-          "elasticsearch.buildIndices.minimumReplicasForPromotion"
+          "elasticsearch.buildIndices.minimumReplicasForPromotion",
+          // Postgres PgQueue configuration
+          "postgres.pgQueue.inheritKafkaTopics",
+          "postgres.pgQueue.schema",
+          "postgres.pgQueue.tablePrefix",
+          "postgres.pgQueue.pool.driver",
+          "postgres.pgQueue.pool.leakTimeMinutes",
+          "postgres.pgQueue.pool.maxAgeMinutes",
+          "postgres.pgQueue.pool.maxConnections",
+          "postgres.pgQueue.pool.maxInactiveTimeSeconds",
+          "postgres.pgQueue.pool.minConnections",
+          "postgres.pgQueue.pool.url",
+          "postgres.pgQueue.pool.username",
+          "postgres.pgQueue.pool.waitTimeoutMillis",
+          "postgres.pgQueue.consumerPoll.emptyPollSleepMillis",
+          "postgres.pgQueue.consumerPoll.mclEmptyPollSleepMillis",
+          "postgres.pgQueue.consumerPoll.missingTopicSleepMillis",
+          "postgres.pgQueue.consumerPoll.errorRecoverySleepMillis",
+          // Postgres PgCron configuration
+          "postgres.pgCron.cronSchema",
+          "postgres.pgCron.admin.driver",
+          "postgres.pgCron.admin.jdbcUrl",
+          "postgres.pgCron.admin.username",
+          "postgres.pgCron.iam.awsAccessKeyId",
+          "postgres.pgCron.iam.awsRegion",
+          "postgres.pgCron.iam.cloudProvider",
+          "postgres.pgCron.iam.gcpProject",
+          "postgres.pgCron.iam.googleApplicationCredentials",
+          "postgres.pgCron.iam.instanceConnectionName",
+          "postgres.pgCron.iam.postgresUseIamAuth",
+          "postgres.pgCron.iam.useIamAuth",
+          // Postgres schema
+          "postgres.schema",
+          // Bootstrap configuration
+          "bootstrap.async.workerThreads",
+          // GMS HTTP service rate limiting (under datahub.gms)
+          "datahub.gms.rateLimits.failOpen",
+          "datahub.gms.rateLimits.minRetryAfterSeconds",
+          "datahub.gms.rateLimits.retryAfterJitterPercent",
+          "datahub.gms.rateLimits.excludedPaths",
+          "datahub.gms.rateLimits.configFile.enabled",
+          "datahub.gms.rateLimits.configFile.path",
+          "datahub.gms.rateLimits.capacity.default.enabled",
+          "datahub.gms.rateLimits.capacity.default.initialLimit",
+          "datahub.gms.rateLimits.capacity.default.minLimit",
+          "datahub.gms.rateLimits.capacity.default.maxLimit",
+          "datahub.gms.rateLimits.capacity.enabled",
+          "datahub.gms.rateLimits.capacity.graphql.pathPattern",
+          "datahub.gms.rateLimits.capacity.graphql.operationRulesEnabled",
+          "datahub.gms.rateLimits.capacity.graphql.enabled",
+          "datahub.gms.rateLimits.capacity.graphql.initialLimit",
+          "datahub.gms.rateLimits.capacity.graphql.minLimit",
+          "datahub.gms.rateLimits.capacity.graphql.maxLimit",
+          "datahub.gms.rateLimits.capacity.rules",
+          "datahub.gms.rateLimits.endpoint.enabled",
+          "datahub.gms.rateLimits.endpoint.hazelcastMapName",
+          "datahub.gms.rateLimits.endpoint.rules",
+          "datahub.gms.rateLimits.metrics.detailed"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

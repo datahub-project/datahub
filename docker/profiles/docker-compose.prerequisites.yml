@@ -36,13 +36,16 @@ x-mysql-profiles-cdc: &mysql-profiles-cdc
   - debug-consumers-cdc
 x-postgres-profiles-quickstart: &postgres-profiles-quickstart
   - quickstart-postgres
+  - quickstart-postgres-consumers
 x-postgres-profiles-dev: &postgres-profiles-dev
   - debug-postgres
 x-postgres-profiles: &postgres-profiles
   - quickstart-postgres
+  - quickstart-postgres-consumers
   - quickstart-postgres-cdc
   - debug-postgres
   - debug-postgres-cdc
+  - debug-postgres-consumers
 
 x-cassandra-profiles: &cassandra-profiles
   - quickstart-cassandra
@@ -65,6 +68,7 @@ x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart-storage
   - quickstart-cassandra
   - quickstart-postgres
+  - quickstart-postgres-consumers
   - quickstart-postgres-cdc
   - quickstart-consumers
   - quickstart-consumers-cdc
@@ -76,6 +80,7 @@ x-opensearch-profiles: &opensearch-profiles
   - quickstart-storage
   - quickstart-cassandra
   - quickstart-postgres
+  - quickstart-postgres-consumers
   - quickstart-postgres-cdc
   - quickstart-consumers
   - quickstart-consumers-cdc
@@ -85,6 +90,31 @@ x-opensearch-profiles: &opensearch-profiles
   - debug-frontend
   - debug-backend
   - debug-postgres
+  - debug-postgres-cdc
+  - debug-postgres-consumers
+  - debug-cassandra
+  - debug-consumers
+  - debug-consumers-cdc
+  - debug-neo4j
+  - debug-backend-aws
+  - debug-aws
+
+# Kafka: same as OpenSearch except pgQueue-only Postgres stacks (no broker for non-CDC Postgres).
+x-kafka-broker-profiles: &kafka-broker-profiles
+  - quickstart
+  - quickstart-backend
+  - quickstart-actions
+  - quickstart-frontend
+  - quickstart-storage
+  - quickstart-cassandra
+  - quickstart-postgres-cdc
+  - quickstart-consumers
+  - quickstart-consumers-cdc
+  - debug
+  - debug-min
+  - debug-datahub-actions
+  - debug-frontend
+  - debug-backend
   - debug-postgres-cdc
   - debug-cassandra
   - debug-consumers
@@ -107,6 +137,7 @@ x-profiles-quickstart: &profiles-quickstart
   - quickstart-storage
   - quickstart-cassandra
   - quickstart-postgres
+  - quickstart-postgres-consumers
   - quickstart-postgres-cdc
   - quickstart-consumers
   - quickstart-consumers-cdc
@@ -118,6 +149,7 @@ x-profiles-dev: &profiles-dev
   - debug-backend
   - debug-postgres
   - debug-postgres-cdc
+  - debug-postgres-consumers
   - debug-cassandra
   - debug-consumers
   - debug-consumers-cdc
@@ -146,8 +178,11 @@ services:
   postgres:
     profiles: *postgres-profiles
     hostname: postgres
-    image: postgres:${DATAHUB_POSTGRES_VERSION:-15.5}
-    command: postgres -c wal_level=logical -c max_replication_slots=4 -c max_wal_senders=4 -c shared_preload_libraries=pgoutput
+    # Multi-arch extensions image (PostGIS, pg_cron, …). Publish via :docker:buildImagespublishPostgres; override with DATAHUB_POSTGRES_* for mirrors.
+    image: ${DATAHUB_POSTGRES_IMAGE:-acryldata/datahub-postgres}:${DATAHUB_POSTGRES_VERSION:-17.5-extensions-v1}
+    # pgoutput: logical decoding (CDC). pg_cron: in-DB scheduler (SqlSetup registers jobs via postgres.pgCron.admin).
+    # pg_cron defaults to cron.database_name=postgres; SqlSetup uses schedule_in_database so jobs run against the app DB.
+    command: postgres -c wal_level=logical -c max_replication_slots=4 -c max_wal_senders=4 -c shared_preload_libraries=pgoutput,pg_cron
     env_file: postgres/env/docker.env
     ports:
       - '5432:5432'
@@ -159,7 +194,6 @@ services:
       timeout: 10s
       retries: 5
     volumes:
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
       - postgresdata:/var/lib/postgresql/data
   cassandra:
     profiles: *cassandra-profiles
@@ -203,6 +237,7 @@ services:
     volumes:
       - neo4jdata:/data
   kafka-broker:
+    profiles: *kafka-broker-profiles
     hostname: broker
     image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-8.0.0}
     command:

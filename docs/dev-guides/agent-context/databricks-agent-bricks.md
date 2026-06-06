@@ -2,6 +2,10 @@
 
 Build a deployed agent on Databricks that combines SQL execution (via a [Genie Space](https://docs.databricks.com/en/genie/set-up-genie-space.html)) with DataHub's catalog context in a single conversation. The agent discovers tools from both [MCP](../../features/feature-guides/mcp.md) endpoints and the LLM decides which to call per request — search DataHub to find the right table, then query the Genie Space for the actual data.
 
+:::tip OAuth MCP alternative (DataHub Cloud v1.0.2+)
+The setup below uses a Databricks Unity Catalog connection to broker DataHub MCP calls. If you'd rather have the agent talk directly to DataHub, add `https://<tenant>.acryl.io/integrations/ai/mcp` as an external MCP tool with **OAuth 2.0** auth — DataHub Cloud v1.0.2+ supports Dynamic Client Registration so Databricks registers itself automatically. Your tenant URL is required here; the global `https://mcp.datahub.com/mcp` endpoint is not yet supported by Databricks. See the [OAuth + DCR section of the MCP guide](../../features/feature-guides/mcp.md#oauth2-with-dynamic-client-registration-recommended).
+:::
+
 ## Prerequisites
 
 - Everything in [Databricks Genie Code — Prerequisites & Step 1](./databricks-genie-code.md#prerequisites) (the UC connection setup is shared)

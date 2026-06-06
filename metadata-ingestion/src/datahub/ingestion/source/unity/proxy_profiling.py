@@ -13,6 +13,7 @@ from databricks.sdk.service.sql import (
     StatementStatus,
 )
 
+from datahub.configuration.env_vars import get_report_failure_sample_size
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
@@ -89,9 +90,9 @@ class UnityCatalogProxyProfilingMixin:
             msg = str(e)
             idx = (str(msg).find("`") + 1) or (str(msg).find("'") + 1) or len(str(msg))
             base_msg = msg[:idx]
-            self.report.profile_table_errors.setdefault(base_msg, LossyList()).append(
-                (str(ref), msg)
-            )
+            self.report.profile_table_errors.setdefault(
+                base_msg, LossyList(max_elements=get_report_failure_sample_size())
+            ).append((str(ref), msg))
             logger.warning(
                 f"Failure during profiling {ref}, {e.kwargs}: ({e.error_code}) {e}",
                 exc_info=True,

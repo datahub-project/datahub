@@ -34,6 +34,18 @@ def get_dialect_str(platform: str) -> str:
         return "tsql"
     elif platform_lower == "athena":
         return "trino"
+    elif platform_lower == "hana":
+        # sqlglot does not ship a dedicated SAP HANA dialect. HANA SQL is
+        # closest to PostgreSQL among the available dialects (window
+        # functions, ANSI joins, double-quoted identifiers, schema-qualified
+        # names); using "postgres" lets the parser resolve table references
+        # in calculation-view SQL fragments without forcing every query to
+        # be treated as opaque. Known mis-parses: CALL, NCLOB, MERGE,
+        # SQLScript-only constructs (WITH PARAMETERS, type-cast literals,
+        # table variables) — table-ref extraction restricts itself to
+        # quoted schema-qualified identifiers in `hana_script_lineage.py`
+        # to sidestep them.
+        return "postgres"
     elif platform_lower == "salesforce":
         # TODO: define SalesForce SOQL dialect
         # Temporary workaround is to treat SOQL as databricks dialect
@@ -47,6 +59,8 @@ def get_dialect_str(platform: str) -> str:
         # let the fuzzy resolution logic handle it.
         # MariaDB is a fork of MySQL, so we reuse the same dialect.
         return "mysql, normalization_strategy = lowercase"
+    elif platform == "timescaledb":
+        return "postgres"
     else:
         return platform_lower
 
@@ -74,6 +88,14 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # actually comes from the underlying Oracle sqlalchemy dialect.
     # https://github.com/sqlalchemy/sqlalchemy/blob/d9b4d8ff3aae504402d324f3ebf0b8faff78f5dc/lib/sqlalchemy/dialects/oracle/base.py#L2579
     "oracle",
+    # NOTE: SAP HANA also folds unquoted identifiers to uppercase and is
+    # therefore semantically case-insensitive, but we deliberately do *not*
+    # add "hana" here. ``is_dialect_instance`` resolves "hana" through
+    # ``get_dialect_str`` to the Postgres sqlglot dialect (HANA has no
+    # dedicated dialect upstream), so any membership check would also
+    # match every other Postgres-dialect parse — flipping Postgres lineage
+    # to lowercase column names and breaking unrelated golden files. HANA
+    # column-case normalisation is handled at the connector level instead.
 }
 DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
     # In some dialects, column identifiers are effectively case insensitive

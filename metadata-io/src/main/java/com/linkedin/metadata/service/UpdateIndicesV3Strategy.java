@@ -50,6 +50,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final String idHashAlgo;
   private final MultiEntityMappingsBuilder mappingsBuilder;
   private final boolean v2Enabled;
+  @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
 
   public UpdateIndicesV3Strategy(
       @Nonnull EntityIndexVersionConfiguration v3Config,
@@ -57,13 +58,15 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
       @Nonnull String idHashAlgo,
-      boolean v2Enabled) {
+      boolean v2Enabled,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache) {
     this.v3Config = v3Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
     this.timeseriesAspectService = timeseriesAspectService;
     this.idHashAlgo = idHashAlgo;
     this.v2Enabled = v2Enabled;
+    this.timeseriesThrottleCache = timeseriesThrottleCache;
     try {
       this.mappingsBuilder =
           new MultiEntityMappingsBuilder(
@@ -85,6 +88,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       return;
     }
 
+    TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary =
+        timeseriesThrottleCache != null ? timeseriesThrottleCache.newSummary() : null;
+
     log.debug("Processing {} URN groups with V3 unified batch optimization", groupedEvents.size());
 
     // Process each group of events for the same URN
@@ -97,7 +103,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       if (structuredPropertiesHookEnabled) {}
 
       // V3 optimization: single operation per URN
-      processUrnBatch(opContext, urn, urnEvents, structuredPropertiesHookEnabled);
+      processUrnBatch(opContext, urn, urnEvents, structuredPropertiesHookEnabled, throttleSummary);
+    }
+
+    if (throttleSummary != null) {
+      throttleSummary.logIfSuppressed();
     }
   }
 
@@ -186,7 +196,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull List<MCLItem> events,
-      boolean structuredPropertiesHookEnabled) {
+      boolean structuredPropertiesHookEnabled,
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
 
     log.debug("V3 unified batch processing for URN: {} with {} events", urn, events.size());
 
@@ -232,7 +243,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     }
 
     // Build the combined V3 document with _aspect structure
-    ObjectNode combinedDocument = buildV3SearchDocument(opContext, urn, events);
+    ObjectNode combinedDocument = buildV3SearchDocument(opContext, urn, events, throttleSummary);
 
     if (combinedDocument == null) {
       log.debug("V3 combined document is empty for URN: {}, skipping update", urn);
@@ -296,7 +307,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    * @return the combined V3 document or null if no aspects to process
    */
   private ObjectNode buildV3SearchDocument(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull List<MCLItem> events) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull List<MCLItem> events,
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
 
     ObjectNode combinedDocument = JsonNodeFactory.instance.objectNode();
     combinedDocument.put("urn", urn.toString());
@@ -322,12 +336,38 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
           continue;
         }
 
+        // Throttle timeseries aspects for entity index writes
+        if (aspectSpec.isTimeseries() && timeseriesThrottleCache != null) {
+          long eventTimeMs =
+              event.getAuditStamp() != null
+                  ? event.getAuditStamp().getTime()
+                  : System.currentTimeMillis();
+          if (timeseriesThrottleCache.shouldThrottle(
+              event.getEntitySpec().getName(), urn.toString(), aspectName, eventTimeMs)) {
+            if (timeseriesThrottleCache.isEntityIndexEnabled()) {
+              if (throttleSummary != null) {
+                throttleSummary.recordSuppressed(
+                    TimeseriesWriteThrottleCache.ThrottleTarget.ENTITY_INDEX);
+              }
+              continue;
+            }
+            if (timeseriesThrottleCache.isObserveEnabled() && throttleSummary != null) {
+              throttleSummary.recordObserved();
+            }
+          }
+        }
+
         // Process ALL other aspects (including timeseries) under _aspects
         // In V3, timeseries aspects are treated the same as other versioned aspects
         ObjectNode aspectDocument = processAspectForV3(opContext, urn, event);
         if (aspectDocument != null) {
           aspectsNode.set(aspectName, aspectDocument);
           hasAnyAspects = true;
+
+          // recordWrite is handled by UpdateIndicesService after all strategies have processed
+          if (aspectSpec.isTimeseries() && throttleSummary != null) {
+            throttleSummary.recordWritten(TimeseriesWriteThrottleCache.ThrottleTarget.ENTITY_INDEX);
+          }
 
           if (aspectSpec.isTimeseries()) {
             log.debug(

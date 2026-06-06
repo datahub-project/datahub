@@ -8,7 +8,7 @@ import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
 import { getParentGlossary } from '@app/glossary/utils';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, GlossaryNode, SearchResult } from '@types';

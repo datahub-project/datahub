@@ -425,10 +425,12 @@ public class MCLKafkaListenerTest {
       // Then
       Timer timer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-              "topic",
+              MetricUtils.MESSAGING_QUEUE_TIME,
+              MetricUtils.MESSAGING_SYSTEM,
+              MetricUtils.MESSAGING_SYSTEM_KAFKA,
+              MetricUtils.MESSAGING_TOPIC,
               TEST_TOPIC,
-              "consumer.group",
+              MetricUtils.MESSAGING_CONSUMER_GROUP,
               TEST_CONSUMER_GROUP);
 
       assertEquals(timer.count(), 1);
@@ -487,10 +489,12 @@ public class MCLKafkaListenerTest {
       // Then
       Timer kafkaTimer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-              "topic",
+              MetricUtils.MESSAGING_QUEUE_TIME,
+              MetricUtils.MESSAGING_SYSTEM,
+              MetricUtils.MESSAGING_SYSTEM_KAFKA,
+              MetricUtils.MESSAGING_TOPIC,
               TEST_TOPIC,
-              "consumer.group",
+              MetricUtils.MESSAGING_CONSUMER_GROUP,
               TEST_CONSUMER_GROUP);
 
       assertEquals(kafkaTimer.count(), queueTimes.length);
@@ -615,6 +619,52 @@ public class MCLKafkaListenerTest {
       assertEquals(timer1.count(), 0);
       assertEquals(timer2.count(), 0);
     }
+  }
+
+  @Test
+  public void testConsumeBatchDelegatesToConsumeForEachRecord() throws Exception {
+    MetadataChangeLog mcl1 = createTestMCL(ChangeType.UPSERT);
+    MetadataChangeLog mcl2 = createTestMCL(ChangeType.CREATE);
+
+    ConsumerRecord<String, GenericRecord> record1 = mock(ConsumerRecord.class);
+    ConsumerRecord<String, GenericRecord> record2 = mock(ConsumerRecord.class);
+    GenericRecord genericRecord1 = mock(GenericRecord.class);
+    GenericRecord genericRecord2 = mock(GenericRecord.class);
+
+    when(record1.topic()).thenReturn(TEST_TOPIC);
+    when(record1.partition()).thenReturn(0);
+    when(record1.offset()).thenReturn(100L);
+    when(record1.timestamp()).thenReturn(TEST_TIMESTAMP - 1000);
+    when(record1.key()).thenReturn("key-1");
+    when(record1.serializedValueSize()).thenReturn(512);
+    when(record1.value()).thenReturn(genericRecord1);
+
+    when(record2.topic()).thenReturn(TEST_TOPIC);
+    when(record2.partition()).thenReturn(0);
+    when(record2.offset()).thenReturn(101L);
+    when(record2.timestamp()).thenReturn(TEST_TIMESTAMP - 2000);
+    when(record2.key()).thenReturn("key-2");
+    when(record2.serializedValueSize()).thenReturn(256);
+    when(record2.value()).thenReturn(genericRecord2);
+
+    try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class)) {
+      eventUtils.when(() -> EventUtils.avroToPegasusMCL(genericRecord1)).thenReturn(mcl1);
+      eventUtils.when(() -> EventUtils.avroToPegasusMCL(genericRecord2)).thenReturn(mcl2);
+
+      listener.consumeBatch(List.of(record1, record2));
+
+      verify(mockHook1).invoke(mcl1);
+      verify(mockHook1).invoke(mcl2);
+      verify(mockHook2).invoke(mcl1);
+      verify(mockHook2).invoke(mcl2);
+    }
+  }
+
+  @Test
+  public void testConsumeBatchWithEmptyList() throws Exception {
+    listener.consumeBatch(Collections.emptyList());
+    verify(mockHook1, never()).invoke(any(MetadataChangeLog.class));
+    verify(mockHook2, never()).invoke(any(MetadataChangeLog.class));
   }
 
   // Helper method to create test MCL

@@ -37,6 +37,8 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.service.LifecycleStageTypeService;
+import com.linkedin.metadata.throttle.ThrottleMechanismType;
+import com.linkedin.metadata.throttle.ThrottleResponseSource;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -516,8 +518,8 @@ public class ESUtils {
   }
 
   /**
-   * Builds search query given a {@link Criterion}, containing field, value and
-   * association/condition between the two.
+   * Builds search query given a {@link Criterion}, containing field, values and
+   * association/condition between them.
    *
    * <p>If the condition between a field and value (specified in {@link Criterion}) is EQUAL, we
    * construct a Terms query. In this case, a field can take multiple values, specified using comma
@@ -539,7 +541,7 @@ public class ESUtils {
    * wildcard query which is not performant according to ES. For details, please refer to:
    * https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-wildcard-query.html#wildcard-query-field-params
    *
-   * @param criterion {@link Criterion} single criterion which contains field, value and a
+   * @param criterion {@link Criterion} single criterion which contains field, values and a
    *     comparison operator
    */
   @Nonnull
@@ -1569,7 +1571,10 @@ public class ESUtils {
         APIThrottleException throttleException =
             new APIThrottleException(
                 TimeValue.parseTimeValue(keepAlive, "keepAlive").millis(),
-                "Too many point in times created, retry after keep alive has expired.");
+                "Too many point in times created, retry after keep alive has expired.",
+                "opensearch-pit",
+                ThrottleMechanismType.SEARCH,
+                ThrottleResponseSource.OPENSEARCH);
         try {
           throttleException.initCause(ose);
         } catch (IllegalStateException | IllegalArgumentException e) {
