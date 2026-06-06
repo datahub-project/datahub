@@ -1,5 +1,6 @@
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -31,6 +32,8 @@ type Props = {
 };
 
 export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly, fontSize }: Props) => {
+    const { t } = useTranslation('entityV1.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
     const linkProps = useEmbeddedProfileLinkProps();
@@ -65,7 +68,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                     },
                 },
             });
-            message.success({ content: 'Owner Removed', duration: 2 });
+            message.success({ content: t('expandedOwner.ownerRemoved'), duration: 2 });
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,
@@ -75,7 +78,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to remove owner: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('expandedOwner.removeError', { message: e.message || '' }), duration: 3 });
             }
         }
         refetch?.();
@@ -83,13 +86,13 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     const onClose = (e) => {
         e.preventDefault();
         Modal.confirm({
-            title: `Do you want to remove ${name}?`,
-            content: `Are you sure you want to remove ${name} as an ${ownershipTypeName} type owner?`,
+            title: t('expandedOwner.removeConfirmTitle', { name }),
+            content: t('expandedOwner.removeConfirmContent', { name, ownershipTypeName }),
             onOk() {
                 onDelete();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: tc('yes'),
             maskClosable: true,
             closable: true,
         });

@@ -116,7 +116,7 @@ export const LinkList = () => {
                                             name: entityRegistry.getDisplayName(link.actor.type, link.actor),
                                         }}
                                         components={{
-                                            link: (
+                                            actorLink: (
                                                 <Link
                                                     to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`}
                                                 />

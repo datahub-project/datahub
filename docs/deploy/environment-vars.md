@@ -619,6 +619,38 @@ Reference Links:
 | ---------------------- | ------- | ------------- | ---------- |
 | `server.server-header` | `false` | Server header | GMS        |
 
+## GMS Rate Limiting
+
+**GMS HTTP service rate limits only** — caps incoming API traffic to GMS (GraphQL, OpenAPI, Rest.li, `/auth/*`). Configured under **`datahub.gms.rateLimits`** in `application.yaml`. This is **not** MCP ingestion throttling, MCE/MCL consumer backpressure, or Kafka lag throttle (`MCP_*` / `metadataChangeProposal.throttle`).
+
+Full operations guide: [GMS Rate Limiting](./gms-rate-limiting.md).
+
+Rate limiting is **off by default**. Enable one or both limiter types — there is no single master switch.
+
+| Environment Variable                                   | Default                             | YAML path / effect                                                                                             | Components |
+| ------------------------------------------------------ | ----------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------- |
+| `RATE_LIMITS_FAIL_OPEN`                                | `true`                              | `rateLimits.failOpen` — allow requests when limiter errors occur                                               | GMS        |
+| `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                                | `rateLimits.minRetryAfterSeconds` — minimum `Retry-After` on 429 (capacity uses as-is; endpoint uses as floor) | GMS        |
+| `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                                | `rateLimits.retryAfterJitterPercent` — random jitter added to endpoint `Retry-After` (`0` disables)            | GMS        |
+| `RATE_LIMITS_EXCLUDED_PATHS`                           | health, prometheus, rate-limits API | `rateLimits.excludedPaths` — Ant patterns never limited                                                        | GMS        |
+| `RATE_LIMITS_CONFIG_FILE_ENABLED`                      | `false`                             | `rateLimits.configFile.enabled`                                                                                | GMS        |
+| `RATE_LIMITS_CONFIG_FILE`                              | `/etc/datahub/rate-limits.yaml`     | `rateLimits.configFile.path`                                                                                   | GMS        |
+| `RATE_LIMITS_CONFIG_JSON`                              | —                                   | JSON overlay merged at startup (partial `rateLimits` object)                                                   | GMS        |
+| `RATE_LIMITS_CAPACITY_ENABLED`                         | `false`                             | `rateLimits.capacity.enabled` — Gradient2 in-flight limits                                                     | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                              | `rateLimits.capacity.default.enabled` (requires `capacity.enabled=true`)                                       | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                               | `rateLimits.capacity.default.initialLimit`                                                                     | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.default.minLimit`                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT`               | `5000`                              | `rateLimits.capacity.default.maxLimit`                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED`                 | `true`                              | `rateLimits.capacity.graphql.enabled` (requires `capacity.enabled=true`)                                       | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN`            | `/api/graphql`                      | `rateLimits.capacity.graphql.pathPattern`                                                                      | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED` | `true`                              | `rateLimits.capacity.graphql.operationRulesEnabled`                                                            | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT`           | `100`                               | `rateLimits.capacity.graphql.initialLimit`                                                                     | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.graphql.minLimit`                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT`               | `2000`                              | `rateLimits.capacity.graphql.maxLimit`                                                                         | GMS        |
+| `RATE_LIMITS_ENDPOINT_ENABLED`                         | `false`                             | `rateLimits.endpoint.enabled` — Bucket4j token buckets (cluster-wide; provisions Hazelcast)                    | GMS        |
+| `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets`       | `rateLimits.endpoint.hazelcastMapName`                                                                         | GMS        |
+| `RATE_LIMITS_METRICS_DETAILED`                         | `false`                             | Sample detailed rate-limit metrics on hot path                                                                 | GMS        |
+
 ## Feature Flags
 
 Reference Links:
@@ -1158,6 +1190,8 @@ Reference Links:
 | `AUTH_OIDC_JIT_PROVISIONING_ENABLED`        | `true`                | Whether DataHub users should be provisioned on login if they don't exist | Frontend   |
 | `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`       | `false`               | Whether the user should already exist in DataHub on login                | Frontend   |
 | `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`          | `true`                | Whether groups should be extracted from a claim in the OIDC profile      | Frontend   |
+| `AUTH_OIDC_REQUIRED_GROUPS`                 | `null`                | Comma-separated list of required groups, from the OIDC groups claim.     | Frontend   |
+| `AUTH_OIDC_ACCESS_DENIED_MESSAGE`           | `null`                | Message shown to users when denied access for missing required groups.   | Frontend   |
 | `AUTH_OIDC_GROUPS_CLAIM`                    | `groups`              | The OIDC claim to extract groups information from                        | Frontend   |
 | `AUTH_OIDC_RESPONSE_TYPE`                   | `null`                | OIDC response type                                                       | Frontend   |
 | `AUTH_OIDC_RESPONSE_MODE`                   | `null`                | OIDC response mode                                                       | Frontend   |

@@ -3,11 +3,13 @@ import React, { ChangeEvent } from 'react';
 import styled from 'styled-components';
 
 import MultipleOpenEndedInput from '@app/entity/shared/components/styled/StructuredProperty/MultipleOpenEndedInput';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { PropertyCardinality } from '@src/types.generated';
 
+// Programmatic discriminator for MultipleOpenEndedInput; not user-visible text.
+const NUMBER_INPUT_TYPE = 'number';
+
 const StyledInput = styled(Input)`
-    border: 1px solid ${ANTD_GRAY_V2[6]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     width: 250px;
 `;
 
@@ -33,7 +35,7 @@ export default function NumberInput({ selectedValues, cardinality, updateSelecte
             <MultipleOpenEndedInput
                 selectedValues={selectedValues}
                 updateSelectedValues={updateMultipleValues}
-                inputType="number"
+                inputType={NUMBER_INPUT_TYPE}
             />
         );
     }
