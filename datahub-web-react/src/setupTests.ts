@@ -18,12 +18,14 @@ import enEntityOwnership from '@src/i18n/locales/en/entity.ownership.json';
 import enEntityPreview from '@src/i18n/locales/en/entity.preview.json';
 import enEntityProfileAccess from '@src/i18n/locales/en/entity.profile.access.json';
 import enEntityProfileDocumentation from '@src/i18n/locales/en/entity.profile.documentation.json';
+import enEntityProfileEditor from '@src/i18n/locales/en/entity.profile.editor.json';
 import enEntityProfileIncident from '@src/i18n/locales/en/entity.profile.incident.json';
 import enEntityProfileQueries from '@src/i18n/locales/en/entity.profile.queries.json';
 import enEntityProfileSchema from '@src/i18n/locales/en/entity.profile.schema.json';
 import enEntityProfileStats from '@src/i18n/locales/en/entity.profile.stats.json';
 import enEntityProfileSummary from '@src/i18n/locales/en/entity.profile.summary.json';
 import enEntityProfileTabs from '@src/i18n/locales/en/entity.profile.tabs.json';
+import enEntityProfileTests from '@src/i18n/locales/en/entity.profile.tests.json';
 import enEntityProfileTimeline from '@src/i18n/locales/en/entity.profile.timeline.json';
 import enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
@@ -84,10 +86,12 @@ i18n.use(initReactI18next).init({
             'entity.form': enEntityForm,
             'entity.identity': enEntityIdentity,
             'entity.profile.documentation': enEntityProfileDocumentation,
+            'entity.profile.editor': enEntityProfileEditor,
             'entity.ownership': enEntityOwnership,
             'entity.preview': enEntityPreview,
             'entity.profile.incident': enEntityProfileIncident,
             'entity.profile.tabs': enEntityProfileTabs,
+            'entity.profile.tests': enEntityProfileTests,
             'entity.profile.validations': enEntityProfileValidations,
             'entity.profile.access': enEntityProfileAccess,
             'entity.profile.queries': enEntityProfileQueries,
