@@ -22,6 +22,7 @@ dependencies {
     testImplementation externalDependency.mockito
     testImplementation externalDependency.springBootTest
     testImplementation externalDependency.jacksonDataFormatYaml
+    testImplementation project(':metadata-operation-context')
 }
 
 processResources.configure {

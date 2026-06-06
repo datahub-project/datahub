@@ -27,7 +27,7 @@ const Content = styled.div`
 `;
 
 const ApplicationLinkWrapper = styled.div`
-    margin-right: 6px;
+    margin-right: 4px;
     display: flex;
     align-items: center;
 `;

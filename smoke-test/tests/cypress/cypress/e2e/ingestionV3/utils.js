@@ -272,8 +272,8 @@ export const createAndRunIngestionSource = (sourceName) => {
   })
     .first()
     .should("be.visible")
-    .type("custom", { force: true });
-  cy.clickOptionWithTextToScrollintoView("Custom");
+    .type("other", { force: true });
+  cy.clickOptionWithTextToScrollintoView("Other");
 
   cy.waitTextVisible("source-type");
   readyToTypeEditor().type("{ctrl}a").clear();

@@ -38,6 +38,12 @@ DataHub's observability strategy consists of two complementary approaches:
    - Application Metrics: Cache hit rates, queue depths, processing times
    - Business Metrics: Entity counts, ingestion rates, search performance
 
+### GMS HTTP service rate limiting metrics
+
+When [GMS HTTP service rate limiting](../deploy/gms-rate-limiting.md) is active (`capacity.enabled` and/or `endpoint.enabled`), scrape `gms.rate_limit.requests`, `gms.rate_limit.adaptive.limit`, and `gms.rate_limit.endpoint.remaining` to alert on sustained denials or exhausted auth-path buckets. Adaptive capacity metrics are tagged by `rule_id` — each tag is an independent in-flight pool; sum inflight across rules to estimate total pod load. Use `GET /openapi/v1/rate-limits/status` for live per-pod state (`capacityEnabled`, `endpointEnabled`, per-rule adaptive/endpoint maps) during incidents.
+
+These metrics are **not** MCP ingestion throttle or Kafka lag backpressure — for pipeline-side 429s and consumer lag, use MCP throttle settings (`MCP_*` env vars) and `/openapi/operations/throttle/*` instead.
+
 2. Distributed Tracing
 
    **Purpose:** Track individual requests as they flow through multiple services and components

@@ -5,6 +5,24 @@ import type { Dayjs, ManipulateType } from '@utils/dayjs';
 
 import { DateInterval } from '@types';
 
+// Intl.supportedValuesOf omits a few common moment-timezone aliases. Keep this list focused on
+// customer-facing UTC/GMT variants and common business aliases that Java ZoneId accepts.
+const COMMON_TIMEZONE_ALIASES_SUPPORTED_BY_JAVA = [
+    'Asia/Kolkata',
+    'CET',
+    'Etc/GMT',
+    'Etc/UTC',
+    'GMT',
+    'US/Alaska',
+    'US/Arizona',
+    'US/Central',
+    'US/Eastern',
+    'US/Hawaii',
+    'US/Mountain',
+    'US/Pacific',
+    'UTC',
+];
+
 const INTERVAL_TO_SECONDS = {
     [DateInterval.Second]: 1,
     [DateInterval.Minute]: 60,
@@ -115,6 +133,13 @@ export const toLocalDateTimeString = (timeMs: number) => {
 
 export const getLocaleTimezone = () => {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
+};
+
+export const getSupportedTimezones = () => {
+    const intlWithSupportedValues = Intl as unknown as { supportedValuesOf?: (input: string) => string[] };
+    const timezones = intlWithSupportedValues.supportedValuesOf?.('timeZone') || [];
+
+    return Array.from(new Set([...timezones, ...COMMON_TIMEZONE_ALIASES_SUPPORTED_BY_JAVA])).sort();
 };
 
 export const toRelativeTimeString = (timeMs: number | undefined) => {

@@ -5,7 +5,7 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import useParentSelector from '@app/entityV2/shared/EntityDropdown/useParentSelector';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
 import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, GlossaryNode } from '@types';
