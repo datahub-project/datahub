@@ -347,6 +347,9 @@ def test_platform_info_registers_odcs() -> None:
     assert mcp.entityUrn == "urn:li:dataPlatform:odcs"
     assert isinstance(mcp.aspect, DataPlatformInfoClass)
     assert mcp.aspect.name == "odcs"
+    # logoUrl must match the boot-time registry entry (PR #17332). A whole-aspect
+    # upsert without it would wipe the logo on servers that already have #17332.
+    assert mcp.aspect.logoUrl == "assets/platforms/odcslogo.png"
 
 
 # ---------------------------------------------------------------------------

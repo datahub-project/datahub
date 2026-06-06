@@ -199,10 +199,19 @@ def _description_to_str(description: object) -> Optional[str]:
 
 
 def odcs_platform_info_mcp() -> MetadataChangeProposalWrapper:
-    """Register the `odcs` data platform at runtime.
+    """Emit the `odcs` DataPlatformInfo aspect at ingestion time.
 
-    ODCS has no boot-time entry in the platform registry, so the source emits a
-    DataPlatformInfo MCP once per run (canonical pattern: confluence_source.py).
+    The platform is also registered at GMS boot via the bootstrap MCP added in
+    PR #17332. This runtime emission is kept deliberately: ingestion is
+    version-decoupled from the server, so a run may target a GMS that predates
+    that entry, and emitting the aspect guarantees the platform's display name
+    and logo exist regardless of server version (canonical pattern:
+    confluence_source.py).
+
+    The fields below must stay identical to the boot-time entry. DataPlatformInfo
+    is a whole-aspect upsert, not a field-level merge, so a divergent run would
+    clobber the registry-provided aspect rather than reinforce it -- e.g.
+    omitting logoUrl here would wipe the logo on servers that already have #17332.
     """
     return MetadataChangeProposalWrapper(
         entityUrn=make_data_platform_urn(ODCS_PLATFORM),
@@ -211,6 +220,7 @@ def odcs_platform_info_mcp() -> MetadataChangeProposalWrapper:
             type=PlatformTypeClass.OTHERS,
             datasetNameDelimiter=".",
             displayName="Open Data Contract Standard",
+            logoUrl="assets/platforms/odcslogo.png",
         ),
     )
 

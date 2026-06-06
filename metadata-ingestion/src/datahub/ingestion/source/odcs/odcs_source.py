@@ -684,7 +684,9 @@ class ODCSSource(Source):
                     yield mcp.as_workunit()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        # Register the `odcs` platform once per run (no boot-time registry entry).
+        # Emit the odcs platform aspect once per run. Also registered at GMS
+        # boot (PR #17332); this is the version-independent fallback, and its
+        # fields must stay in sync with that entry -- see odcs_platform_info_mcp().
         yield odcs_platform_info_mcp().as_workunit()
 
         for file_path in self._resolve_paths():
