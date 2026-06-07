@@ -7,7 +7,7 @@ plugins {
 }
 
 // Same jacksonVersion as root build.gradle ext.jacksonVersion (sync when bumping Jackson).
-ext.jacksonVersion = '2.21.1'
+ext.jacksonVersion = '2.21.3'
 
 dependencies {
   /**
@@ -28,6 +28,6 @@ dependencies {
   implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}"
   implementation 'commons-io:commons-io:2.17.0'
 
-  compileOnly 'org.projectlombok:lombok:1.18.30'
-  annotationProcessor 'org.projectlombok:lombok:1.18.30'
+  compileOnly 'org.projectlombok:lombok:1.18.42'
+  annotationProcessor 'org.projectlombok:lombok:1.18.42'
 }

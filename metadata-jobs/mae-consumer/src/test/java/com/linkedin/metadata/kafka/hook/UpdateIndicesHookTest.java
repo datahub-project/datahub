@@ -45,6 +45,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -143,7 +144,10 @@ public class UpdateIndicesHookTest {
             mockTimeseriesAspectService,
             "MD5",
             null,
-            mock(IndexConvention.class));
+            mock(IndexConvention.class),
+            false,
+            mock(V2MappingsBuilder.class),
+            null);
 
     updateIndicesService =
         new UpdateIndicesService(
@@ -151,6 +155,7 @@ public class UpdateIndicesHookTest {
             mockEntitySearchService,
             mockSystemMetadataService,
             java.util.Collections.singletonList(v2Strategy),
+            null,
             true, // searchDiffMode
             true, // structuredPropertiesHookEnabled
             true); // structuredPropertiesWriteEnabled
@@ -260,7 +265,10 @@ public class UpdateIndicesHookTest {
             mockTimeseriesAspectService,
             "MD5",
             null,
-            mock(IndexConvention.class));
+            mock(IndexConvention.class),
+            false,
+            mock(V2MappingsBuilder.class),
+            null);
 
     updateIndicesService =
         new UpdateIndicesService(
@@ -268,6 +276,7 @@ public class UpdateIndicesHookTest {
             mockEntitySearchService,
             mockSystemMetadataService,
             java.util.Collections.singletonList(testV2Strategy),
+            null,
             true,
             true,
             true);
@@ -892,7 +901,10 @@ public class UpdateIndicesHookTest {
               mockTimeseriesAspectService,
               "MD5",
               null, // No semantic search config for this test
-              mock(IndexConvention.class));
+              mock(IndexConvention.class),
+              false,
+              mock(V2MappingsBuilder.class),
+              null);
       strategies.add(v2Strategy);
     }
 
@@ -904,7 +916,8 @@ public class UpdateIndicesHookTest {
               searchDocumentTransformer,
               mockTimeseriesAspectService,
               "MD5",
-              v2Enabled); // v2Enabled parameter
+              v2Enabled, // v2Enabled parameter
+              null);
       strategies.add(v3Strategy);
     }
 
@@ -915,6 +928,7 @@ public class UpdateIndicesHookTest {
             mockEntitySearchService,
             mockSystemMetadataService,
             strategies,
+            null,
             true, // searchDiffMode
             true, // structuredPropertiesHookEnabled
             true); // structuredPropertiesWriteEnabled

@@ -7,6 +7,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.linkedin.metadata.throttle.ThrottleMechanismType;
+import com.linkedin.metadata.throttle.ThrottleResponseSource;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -97,6 +99,26 @@ public class APIThrottleTest {
           Assert.fail("Exception was thrown and NOT expected! " + event);
         }
       }
+    }
+  }
+
+  @Test
+  public void testThrottleExceptionIncludesResponseMetadata() {
+    when(mockRequestContext.getUserAgent()).thenReturn("python-requests/2.28.2");
+    when(mockRequestContext.getAgentClass())
+        .thenReturn(
+            RequestContext.UAA
+                .parse("python-requests/2.28.2")
+                .get(UserAgent.AGENT_CLASS)
+                .getValue());
+
+    try {
+      APIThrottle.evaluate(opContext, Set.of(MCL_TIMESERIES_THROTTLED_EVENT), true);
+      Assert.fail("Expected APIThrottleException");
+    } catch (APIThrottleException ex) {
+      Assert.assertEquals(ex.getMechanismType(), ThrottleMechanismType.INGEST);
+      Assert.assertEquals(ex.getSource(), ThrottleResponseSource.METADATA_WRITE);
+      Assert.assertEquals(ex.getRuleId(), MCL_TIMESERIES_LAG.name());
     }
   }
 

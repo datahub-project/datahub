@@ -1258,6 +1258,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 root-anchored (``searchAcrossEntities``). See
                 :class:`~datahub.utilities.graphql_query_adapter.RequiredFieldUnsupportedError`.
         """
+        # Whether the query was already minified by adapt_query() above —
+        # avoids a redundant parse+print round-trip on the happy path.
+        already_minified = False
+
         if strip_unsupported_fields:
             try:
                 if self._query_projector is None:
@@ -1267,6 +1271,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 query, removed = self._query_projector.adapt_query(
                     query, self, required_fields=required_fields
                 )
+                already_minified = True
                 if removed:
                     logger.info(f"Stripped unsupported fields from query: {removed}")
             except Exception as e:
@@ -1285,6 +1290,21 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     f"Failed to adapt query for schema compatibility, "
                     f"falling back to original query: {e}"
                 )
+
+        # Always minify before sending — covers strip=False, the projection
+        # fallback path, and any caller that hands us a pretty-printed query.
+        # The projector's output is already minified; skip the redundant
+        # parse+print there. Falls back silently to the original query if
+        # minification raises (e.g. unparseable input from a caller).
+        if not already_minified:
+            try:
+                from datahub.utilities.graphql_query_adapter import (
+                    minify_graphql_query,
+                )
+
+                query = minify_graphql_query(query)
+            except Exception:
+                pass
 
         url = f"{self._gms_server}/api/graphql"
 
@@ -1614,6 +1634,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         fragment: str = """
              fragment assertionResult on AssertionResult {
                  type
+                 severity
                  rowCount
                  missingCount
                  unexpectedCount
@@ -1899,6 +1920,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         external_url: Optional[str] = None,
         error_type: Optional[str] = None,
         error_message: Optional[str] = None,
+        severity: Optional[Literal["LOW", "MEDIUM", "HIGH"]] = None,
     ) -> bool:
         graph_query: str = """
             mutation reportAssertionResult(
@@ -1908,6 +1930,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $properties: [StringMapEntryInput!],
                 $externalUrl: String,
                 $error: AssertionResultErrorInput,
+                $severity: AssertionResultSeverity,
             ) {
                 reportAssertionResult(urn: $assertionUrn, result: {
                     timestampMillis: $timestampMillis
@@ -1915,6 +1938,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     properties: $properties
                     externalUrl: $externalUrl
                     error: $error
+                    severity: $severity
                 })
             }
         """
@@ -1928,6 +1952,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "error": (
                 {"type": error_type, "message": error_message} if error_type else None
             ),
+            "severity": severity,
         }
 
         res = self.execute_graphql(

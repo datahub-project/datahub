@@ -488,4 +488,90 @@ public class StructuredPropertiesValidatorTest {
     Assert.assertTrue(
         exceptions.get(0).getMessage().contains("Cannot delete an immutable property"));
   }
+
+  @Test
+  public void testValidateProposedUpsertsSkipsMissingDefinitionWhenDropEnabled()
+      throws URISyntaxException {
+    Urn propertyUrnA =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.retentionTime");
+    Urn propertyUrnMissing =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.deleted");
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.number"));
+
+    StructuredProperties properties =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrnA)
+                        .setValues(
+                            new PrimitivePropertyValueArray(PrimitivePropertyValue.create(1.0))),
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrnMissing)
+                        .setValues(
+                            new PrimitivePropertyValueArray(PrimitivePropertyValue.create(2.0)))));
+
+    long exceptionCount =
+        StructuredPropertiesValidator.validateProposedUpserts(
+                TestMCP.ofOneUpsertItemDatasetUrn(properties, TEST_REGISTRY),
+                new MockAspectRetriever(Map.of(propertyUrnA, List.of(definition))),
+                true)
+            .count();
+
+    Assert.assertEquals(exceptionCount, 0);
+  }
+
+  @Test
+  public void testValidateProposedUpsertsFailsOnMissingDefinitionWhenDropDisabled()
+      throws URISyntaxException {
+    Urn propertyUrnMissing =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.deleted");
+
+    StructuredProperties properties =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrnMissing)
+                        .setValues(
+                            new PrimitivePropertyValueArray(PrimitivePropertyValue.create(1.0)))));
+
+    long exceptionCount =
+        StructuredPropertiesValidator.validateProposedUpserts(
+                TestMCP.ofOneUpsertItemDatasetUrn(properties, TEST_REGISTRY),
+                new MockAspectRetriever(Map.of()),
+                false)
+            .count();
+
+    Assert.assertEquals(exceptionCount, 1);
+  }
+
+  @Test
+  public void testValidateProposedUpsertsRejectsWhenOnlyMissingDefinitionsWhenDropEnabled()
+      throws URISyntaxException {
+    Urn propertyUrnMissing =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.deleted");
+
+    StructuredProperties properties =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrnMissing)
+                        .setValues(
+                            new PrimitivePropertyValueArray(PrimitivePropertyValue.create(1.0)))));
+
+    List<AspectValidationException> exceptions =
+        StructuredPropertiesValidator.validateProposedUpserts(
+                TestMCP.ofOneUpsertItemDatasetUrn(properties, TEST_REGISTRY),
+                new MockAspectRetriever(Map.of()),
+                true)
+            .collect(Collectors.toList());
+
+    Assert.assertEquals(exceptions.size(), 1);
+    Assert.assertTrue(
+        exceptions.get(0).getMessage().contains("no valid property assignments remain"));
+  }
 }

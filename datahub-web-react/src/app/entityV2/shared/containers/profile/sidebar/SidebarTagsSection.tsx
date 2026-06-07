@@ -1,5 +1,6 @@
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export const SidebarTagsSection = ({ readOnly, properties }: Props) => {
+    const { t: tl } = useTranslation('common.labels');
     const { entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const mutationUrn = useMutationUrn();
@@ -41,12 +43,14 @@ export const SidebarTagsSection = ({ readOnly, properties }: Props) => {
         arrayProperty: 'tags',
     });
 
+    const existingTagUrns = tags?.tags?.map((t: { tag?: { urn?: string } }) => t.tag?.urn).filter(Boolean) || [];
+
     const canEditTags = !!entityData?.privileges?.canEditTags;
 
     return (
         <div id={ENTITY_PROFILE_TAGS_ID}>
             <SidebarSection
-                title="Tags"
+                title={tl('tags')}
                 content={
                     <Content>
                         {!areTagsEmpty ? (
@@ -87,6 +91,7 @@ export const SidebarTagsSection = ({ readOnly, properties }: Props) => {
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
                 refetch={refetch}
+                existingUrns={existingTagUrns}
             />
         </div>
     );

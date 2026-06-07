@@ -1,11 +1,7 @@
 import { Button, Tooltip } from 'antd';
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
-
-/**
- * Tooltip message for when user already has access
- */
-export const ACCESS_GRANTED_TOOLTIP = 'You already have access to this role';
 
 /**
  * Styled button component for access management actions.
@@ -13,7 +9,7 @@ export const ACCESS_GRANTED_TOOLTIP = 'You already have access to this role';
  */
 export const AccessButton = styled(Button)`
     background-color: ${(props) => props.theme.colors.bgSurfaceInfo};
-    color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     width: 80px;
     height: 30px;
     border-radius: 3.5px;
@@ -53,7 +49,10 @@ export interface RoleAccessData {
 /**
  * Returns the button text based on whether the user has access.
  */
-export const getAccessButtonText = (hasAccess: boolean): string => (hasAccess ? 'Granted' : 'Request');
+export const getAccessButtonText = (hasAccess: boolean): string =>
+    hasAccess
+        ? i18next.t('entity.profile.access:accessManagement.granted')
+        : i18next.t('entity.profile.access:accessManagement.request');
 
 /**
  * Returns whether the access button should be disabled.
@@ -87,15 +86,21 @@ export const renderAccessButton = (roleData: RoleAccessData): React.ReactElement
         <AccessButton
             disabled={hasAccess}
             onClick={handleAccessButtonClick(hasAccess, url)}
-            aria-label={hasAccess ? 'Access already granted' : 'Request access'}
+            aria-label={
+                hasAccess
+                    ? i18next.t('entity.profile.access:accessManagement.accessAlreadyGranted')
+                    : i18next.t('entity.profile.access:accessManagement.requestAccess')
+            }
         >
-            {hasAccess ? 'Granted' : 'Request'}
+            {hasAccess
+                ? i18next.t('entity.profile.access:accessManagement.granted')
+                : i18next.t('entity.profile.access:accessManagement.request')}
         </AccessButton>
     );
 
     // Wrap with tooltip if user already has access
     return hasAccess ? (
-        <Tooltip title={ACCESS_GRANTED_TOOLTIP} placement="top">
+        <Tooltip title={i18next.t('entity.profile.access:accessManagement.accessGrantedTooltip')} placement="top">
             {button}
         </Tooltip>
     ) : (

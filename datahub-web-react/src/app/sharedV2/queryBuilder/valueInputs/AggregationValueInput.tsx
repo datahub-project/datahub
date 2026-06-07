@@ -1,5 +1,6 @@
 import { Select, SelectOption } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
@@ -22,6 +23,7 @@ export default function AggregationValueInput({
     placeholder,
     onChangeSelectedValues,
 }: Props) {
+    const { t } = useTranslation('shared.query-builder');
     const [searchQuery, setSearchQuery] = useState('');
 
     const [fetchAggregations, { data, loading }] = useAggregateAcrossEntitiesLazyQuery({
@@ -86,13 +88,13 @@ export default function AggregationValueInput({
             isMultiSelect={isMultiSelect}
             onUpdate={onChangeSelectedValues}
             onSearchChange={onSearch}
-            placeholder={placeholder || 'Select a value...'}
+            placeholder={placeholder || t('value.defaultPlaceholder')}
             isLoading={loading}
             selectLabelProps={
                 isMultiSelect && selectedValues.length > 0
                     ? {
                           variant: 'labeled',
-                          label: label ?? 'Items',
+                          label: label ?? t('value.items'),
                       }
                     : undefined
             }

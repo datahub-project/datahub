@@ -1,5 +1,6 @@
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -48,6 +49,7 @@ const HeaderWrapper = styled.div`
 `;
 
 function ChildrenTab() {
+    const { t } = useTranslation('entity.types');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const entityUrn = entityData?.urn;
@@ -74,7 +76,7 @@ function ChildrenTab() {
                 <ChildrenTabWrapper>
                     <HeaderWrapper>
                         <SearchBar
-                            placeholder="Search..."
+                            placeholder={t('glossaryNode.searchPlaceholder')}
                             onChange={setSearchQuery}
                             value={searchQuery}
                             allowClear
@@ -82,21 +84,29 @@ function ChildrenTab() {
                         />
                         {hasTermsOrNodes && (
                             <CreateButtonWrapper>
-                                <Tooltip title="Create New Glossary Term" showArrow={false} placement="bottom">
+                                <Tooltip
+                                    title={t('glossaryNode.createNewGlossaryTerm')}
+                                    showArrow={false}
+                                    placement="bottom"
+                                >
                                     <Button
                                         data-testid="add-term-button"
                                         onClick={() => setIsCreateTermModalVisible(true)}
                                     >
-                                        <StyledPlusOutlined /> Add Term
+                                        <StyledPlusOutlined /> {t('glossaryNode.addTerm')}
                                     </Button>
                                 </Tooltip>
-                                <Tooltip title="Create New Term Group" showArrow={false} placement="bottom">
+                                <Tooltip
+                                    title={t('glossaryNode.createNewTermGroup')}
+                                    showArrow={false}
+                                    placement="bottom"
+                                >
                                     <Button
                                         data-testid="add-term-group-button-v2"
                                         variant="outline"
                                         onClick={() => setIsCreateNodeModalVisible(true)}
                                     >
-                                        <StyledPlusOutlined /> Add Term Group
+                                        <StyledPlusOutlined /> {t('glossaryNode.addTermGroup')}
                                     </Button>
                                 </Tooltip>
                             </CreateButtonWrapper>
@@ -115,7 +125,7 @@ function ChildrenTab() {
                 </ChildrenTabWrapper>
             ) : (
                 <EmptyGlossarySection
-                    description="No Terms or Term Groups"
+                    description={t('glossaryNode.noTermsOrTermGroupsEmpty')}
                     onAddTerm={() => setIsCreateTermModalVisible(true)}
                     onAddtermGroup={() => setIsCreateNodeModalVisible(true)}
                 />

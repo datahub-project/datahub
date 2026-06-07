@@ -56,14 +56,14 @@ bootstrap:
 
     # Ingestion Recipes
     - name: ingestion-datahub-gc
-      version: v5
+      version: v6
       optional: false
       mcps_location: "bootstrap_mcps/ingestion-datahub-gc.yaml"
       values_env: "DATAHUB_GC_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_GC_BOOTSTRAP_REVISION"
 
     - name: ingestion-datahub-documents
-      version: v1
+      version: v2
       optional: true
       mcps_location: "bootstrap_mcps/ingestion-datahub-documents.yaml"
       values_env: "DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES"
