@@ -35,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 @Accessors(chain = true)
 public class IgnoreUnknownMutator extends MutationHook {
   private static final Set<String> SUPPORTED_MIME_TYPES =
-      Set.of("application/json", "application/json-patch+json");
+      Set.of("application/json", "application/json-patch+json", "application/json+gzip");
   private static final Set<ChangeType> MUTATION_TYPES =
       Set.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE);
 
