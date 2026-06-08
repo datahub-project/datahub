@@ -98,6 +98,9 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     'rel',
     'href',
     'name',
+    // Source/connector display names are proper nouns (Athena, BigQuery, Confluence, …) and
+    // must never be translated. Exempt any `displayName`/`*DisplayName` property or attribute.
+    '.*[Dd]isplayName$',
     'form',
     'entityTypeName',
     'autoComplete',
@@ -109,6 +112,9 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     'justifyContent',
     'field',
     'tab',
+    'commandName',
+    'optionLabelProp',
+    'classNames',
     '.*Path$',
     '.*background$',
     '.*Background$',
@@ -328,6 +334,7 @@ module.exports = {
                                   },
                               },
                           ],
+                          'rulesdir/no-manual-pluralize-in-i18n': 'error',
                       },
                   },
               ]

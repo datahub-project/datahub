@@ -6,7 +6,7 @@ import styled from 'styled-components/macro';
 import GlossaryBrowser from '@app/glossaryV2/GlossaryBrowser/GlossaryBrowser';
 import { createCriterionValueWithEntity, getFieldValues, setFieldValues } from '@app/permissions/policy/policyUtils';
 import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';

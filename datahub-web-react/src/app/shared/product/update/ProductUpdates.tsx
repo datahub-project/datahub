@@ -1,5 +1,6 @@
 import { Button, Heading, Text, Tooltip } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 
 import analytics, { EventType } from '@app/analytics';
@@ -33,6 +34,8 @@ import { useAppConfig } from '@app/useAppConfig';
 import { getRuntimeBasePath } from '@utils/runtimeBasePath';
 
 export default function ProductUpdates() {
+    const { t } = useTranslation('shared.product');
+    const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const isFeatureEnabled = useIsProductAnnouncementEnabled();
     const latestUpdate = useGetLatestProductAnnouncementData();
@@ -155,7 +158,7 @@ export default function ProductUpdates() {
                 <Heading type="h3" size="lg" weight="bold" color="gray" colorLevel={600}>
                     {displayTitle}
                 </Heading>
-                <Tooltip title="Dismiss" placement="left">
+                <Tooltip title={tc('dismiss')} placement="left">
                     <CloseButton onClick={handleDismiss}>
                         <StyledCloseIcon />
                     </CloseButton>
@@ -191,7 +194,7 @@ export default function ProductUpdates() {
                                     colorLevel={500}
                                     style={{ textTransform: 'lowercase', whiteSpace: 'nowrap' }}
                                 >
-                                    more in this release
+                                    {t('updates.moreInThisRelease')}
                                 </Text>
                                 <SectionHeaderLine />
                             </SectionHeaderContainer>
@@ -234,6 +237,7 @@ export default function ProductUpdates() {
                                 onClick={() => {
                                     trackClick(secondaryLink);
                                     if (secondaryLink.startsWith('http')) {
+                                        // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) window.open feature string
                                         window.open(secondaryLink, '_blank', 'noopener,noreferrer');
                                     } else {
                                         history.push(secondaryLink);
@@ -252,6 +256,7 @@ export default function ProductUpdates() {
                                     trackClick(primaryLink);
                                     handleDismiss();
                                     if (primaryLink.startsWith('http')) {
+                                        // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) window.open feature string
                                         window.open(primaryLink, '_blank', 'noopener,noreferrer');
                                     } else {
                                         history.push(primaryLink);

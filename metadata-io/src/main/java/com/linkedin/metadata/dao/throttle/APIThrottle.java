@@ -4,6 +4,8 @@ import static com.linkedin.metadata.dao.throttle.ThrottleType.MANUAL;
 import static com.linkedin.metadata.dao.throttle.ThrottleType.MCL_TIMESERIES_LAG;
 import static com.linkedin.metadata.dao.throttle.ThrottleType.MCL_VERSIONED_LAG;
 
+import com.linkedin.metadata.throttle.ThrottleMechanismType;
+import com.linkedin.metadata.throttle.ThrottleResponseSource;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import java.util.Comparator;
@@ -36,12 +38,18 @@ public class APIThrottle {
       @Nullable Set<ThrottleEvent> throttleEvents,
       boolean isTimeseries) {
 
+    Set<ThrottleType> relevantTypes =
+        Set.of(MANUAL, isTimeseries ? MCL_TIMESERIES_LAG : MCL_VERSIONED_LAG);
     Set<Long> eventMatchMaxWaitMs = eventMatchMaxWaitMs(throttleEvents, isTimeseries);
+    Set<ThrottleType> activeTypes = activeThrottleTypes(throttleEvents, relevantTypes);
 
     if (!eventMatchMaxWaitMs.isEmpty() && !isExempt(opContext.getRequestContext())) {
       throw new APIThrottleException(
           eventMatchMaxWaitMs.stream().max(Comparator.naturalOrder()).orElse(-1L),
-          "Throttled due to " + throttleEvents);
+          "Throttled due to " + throttleEvents,
+          formatRuleId(activeTypes),
+          ThrottleMechanismType.INGEST,
+          ThrottleResponseSource.METADATA_WRITE);
     }
   }
 
@@ -61,12 +69,28 @@ public class APIThrottle {
       return Set.of();
     }
 
+    Set<ThrottleType> relevantTypes =
+        Set.of(MANUAL, isTimeseries ? MCL_TIMESERIES_LAG : MCL_VERSIONED_LAG);
     return throttleEvents.stream()
-        .map(
-            e ->
-                e.getActiveThrottleMaxWaitMs(
-                    Set.of(MANUAL, isTimeseries ? MCL_TIMESERIES_LAG : MCL_VERSIONED_LAG)))
+        .map(e -> e.getActiveThrottleMaxWaitMs(relevantTypes))
         .filter(Objects::nonNull)
         .collect(Collectors.toSet());
+  }
+
+  private static Set<ThrottleType> activeThrottleTypes(
+      @Nullable Set<ThrottleEvent> throttleEvents, Set<ThrottleType> relevantTypes) {
+    if (throttleEvents == null) {
+      return Set.of();
+    }
+
+    return throttleEvents.stream()
+        .flatMap(event -> event.getActiveThrottles().stream())
+        .filter(relevantTypes::contains)
+        .collect(Collectors.toSet());
+  }
+
+  @Nonnull
+  private static String formatRuleId(Set<ThrottleType> activeTypes) {
+    return activeTypes.stream().map(Enum::name).sorted().collect(Collectors.joining(","));
   }
 }

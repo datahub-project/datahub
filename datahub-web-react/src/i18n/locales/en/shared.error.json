@@ -1,0 +1,11 @@
+{
+    "boundary.onPremActionMessage": "Please report the error messages from your browser to your DataHub Administrator",
+    "bulkEditUnauthorized": "Your bulk edit selection included entities that you are unauthorized to update. The bulk edit being performed will not be saved.",
+    "fallback.defaultMessage": "Our team has been notified of this unexpected error and is working on a resolution.",
+    "fallback.subtitle": "Something didn't go as planned.",
+    "fallback.title": "Whoops!",
+    "section.description": "An unexpected error occurred. Please try again later, or reach out to your administrator",
+    "section.needSupport": "<bold>Need support?</bold> Check out these resources:",
+    "section.title": "Something went wrong.",
+    "unauthorized": "Unauthorized. Please contact your DataHub administrator."
+}
