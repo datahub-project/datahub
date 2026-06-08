@@ -284,7 +284,7 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
       ConfigResource topic = entry.getKey();
       TopicConfigDiff diff =
           diffConfigs(entry.getValue(), currentByTopic.getOrDefault(topic, Map.of()));
-      if (diff.isEmpty()) {
+      if (diff.ops().isEmpty()) {
         log.info(
             "Topic {}: declared properties already match broker - nothing to alter", topic.name());
       } else {
@@ -336,11 +336,12 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
           String live = current.get(key);
           if (live == null) {
             added.add("+ " + key + "=" + desired);
-            ops.add(new AlterConfigOp(new ConfigEntry(key, desired), AlterConfigOp.OpType.SET));
-          } else if (!live.equals(desired)) {
+          } else if (live.equals(desired)) {
+            return;
+          } else {
             changed.add("~ " + key + ": " + live + " -> " + desired);
-            ops.add(new AlterConfigOp(new ConfigEntry(key, desired), AlterConfigOp.OpType.SET));
           }
+          ops.add(new AlterConfigOp(new ConfigEntry(key, desired), AlterConfigOp.OpType.SET));
         });
     Collections.sort(added);
     Collections.sort(changed);
@@ -348,11 +349,7 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
   }
 
   private record TopicConfigDiff(
-      List<String> added, List<String> changed, List<AlterConfigOp> ops) {
-    boolean isEmpty() {
-      return ops.isEmpty();
-    }
-  }
+      List<String> added, List<String> changed, List<AlterConfigOp> ops) {}
 
   /** Get the set of existing topic names from Kafka */
   private Set<String> getExistingTopics(AdminClient adminClient) throws Exception {
