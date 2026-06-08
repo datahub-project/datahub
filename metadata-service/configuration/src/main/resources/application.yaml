@@ -1052,7 +1052,12 @@ management:
       jmx:
         enabled: ${MANAGEMENT_METRICS_EXPORT_JMX_ENABLED:true} # Enable jmx metrics export
       prometheus:
-        enabled: ${MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED:true} # Enable prometheus metrics export
+        enabled: ${MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED:false} # Enable prometheus metrics export
+        auth:
+          # When unset, auth is enabled automatically if prometheus export is enabled above.
+          # Set MANAGEMENT_METRICS_EXPORT_PROMETHEUS_AUTH_ENABLED=false to expose metrics without auth.
+          username: ${MANAGEMENT_METRICS_EXPORT_PROMETHEUS_AUTH_USERNAME:}
+          password: ${MANAGEMENT_METRICS_EXPORT_PROMETHEUS_AUTH_PASSWORD:}
     tags:
       application: ${spring.application.name}
 

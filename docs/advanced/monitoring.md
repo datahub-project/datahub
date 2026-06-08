@@ -1118,6 +1118,37 @@ scrape job for port **4319**. Outside Docker, leave `MANAGEMENT_SERVER_PORT` uns
 application port; set it when you want a separate management listener (Spring maps the env var to
 `management.server.port`).
 
+#### Securing the Micrometer Prometheus endpoint
+
+By default, Micrometer Prometheus export is **disabled** (`MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED=false`).
+When you enable export on GMS, MAE consumer, or MCE consumer, HTTP Basic auth is **enabled automatically** on
+`/actuator/prometheus` with default credentials `prometheus` / `datahub`. Change the password in production.
+
+| Variable                                             | Default      | Description                                                                    |
+| ---------------------------------------------------- | ------------ | ------------------------------------------------------------------------------ |
+| `MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED`       | `false`      | Expose `/actuator/prometheus` via Micrometer                                   |
+| `MANAGEMENT_METRICS_EXPORT_PROMETHEUS_AUTH_ENABLED`  | _(auto)_     | When unset, follows export enabled. Set `false` to expose metrics without auth |
+| `MANAGEMENT_METRICS_EXPORT_PROMETHEUS_AUTH_USERNAME` | `prometheus` | Scrape username                                                                |
+| `MANAGEMENT_METRICS_EXPORT_PROMETHEUS_AUTH_PASSWORD` | `datahub`    | Scrape password (startup warns if default is used)                             |
+
+Example Prometheus scrape config:
+
+```yaml
+scrape_configs:
+  - job_name: datahub-micrometer
+    metrics_path: /actuator/prometheus
+    basic_auth:
+      username: prometheus
+      password: datahub
+    static_configs:
+      - targets:
+          - datahub-gms:4319
+          - datahub-mae-consumer:4319
+          - datahub-mce-consumer:4319
+```
+
+For local Docker development, copy `docker/profiles/prometheus-scrape-auth.env.example` to `prometheus-scrape-auth.env` and set `DATAHUB_LOCAL_COMMON_ENV=prometheus-scrape-auth.env`.
+
 In the JVM dashboard, you can find detailed charts based on JVM metrics like CPU/memory/disk usage. In the DataHub
 dashboard, you can find charts to monitor each endpoint and the kafka topics. Using the example implementation, go
 to http://localhost:3001 to find the grafana dashboards! (Username: admin, PW: admin)
