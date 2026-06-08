@@ -1194,6 +1194,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         Override this method in subclasses to customize how view lineage is registered.
         """
+        logger.info(
+            f"Adding view to aggregator: view_urn={view_urn}, "
+            f"default_db={default_db}, default_schema={default_schema}, "
+            f"definition_preview={view_definition[:100] if view_definition else 'None'}..."
+        )
         self.aggregator.add_view_definition(
             view_urn=view_urn,
             view_definition=view_definition,
@@ -1250,7 +1255,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 default_db, default_schema = self.get_view_default_db_schema(
                     inspector, dataset_name
                 )
+                logger.info(
+                    f"View lineage setup for '{dataset_name}': default_db={default_db}, default_schema={default_schema}"
+                )
             except Exception as e:
+                logger.info(f"View lineage setup FAILED for '{dataset_name}': {e}")
                 self.report.warning(
                     "Failed to get default db and schema names for view",
                     context=dataset_name,
