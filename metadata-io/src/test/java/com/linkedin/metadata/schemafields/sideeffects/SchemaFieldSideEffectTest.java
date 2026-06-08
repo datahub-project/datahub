@@ -207,7 +207,9 @@ public class SchemaFieldSideEffectTest {
     reset(mockAspectRetriever);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
     when(mockAspectRetriever.getLatestAspectObjects(
-            any(OperationFingerprint.class), Set.of(TEST_URN), Set.of(SCHEMA_METADATA_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(Set.of(TEST_URN)),
+            eq(Set.of(SCHEMA_METADATA_ASPECT_NAME))))
         .thenReturn(
             Map.of(
                 TEST_URN, Map.of(SCHEMA_METADATA_ASPECT_NAME, new Aspect(schemaMetadata.data()))));
@@ -285,7 +287,7 @@ public class SchemaFieldSideEffectTest {
     reset(mockAspectRetriever);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
     when(mockAspectRetriever.getLatestAspectObjects(
-            any(OperationFingerprint.class), Set.of(TEST_URN), Set.of(STATUS_ASPECT_NAME)))
+            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), eq(Set.of(STATUS_ASPECT_NAME))))
         .thenReturn(Map.of(TEST_URN, Map.of(STATUS_ASPECT_NAME, new Aspect(status.data()))));
 
     for (ChangeType changeType : List.of(ChangeType.CREATE, ChangeType.UPSERT)) {

@@ -82,12 +82,15 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
                   operationFingerprint,
                   mclItem.getUrn(),
                   STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+      // No definition aspect to cascade from — skip cleanup. Without this guard, the iterator
+      // below would issue a search with a null/empty filter and dereference a null ScrollResult.
+      if (definitionAspect == null) {
+        return Stream.empty();
+      }
       return generatePatchMCPs(
           operationFingerprint,
           mclItem.getUrn(),
-          definitionAspect == null
-              ? null
-              : new StructuredPropertyDefinition(definitionAspect.data()),
+          new StructuredPropertyDefinition(definitionAspect.data()),
           mclItem.getAuditStamp(),
           retrieverContext);
     }

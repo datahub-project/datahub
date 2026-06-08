@@ -164,10 +164,12 @@ public class PrivilegeConstraintsValidatorTest {
             .get();
 
     // Mock authorization to return true
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
-        .thenReturn(null);
+    Mockito.doReturn(null)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(GLOBAL_TAGS_ASPECT_NAME));
     authUtilMockedStatic
         .when(
             () ->
@@ -197,10 +199,12 @@ public class PrivilegeConstraintsValidatorTest {
             .get();
 
     // Mock authorization to return false
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
-        .thenReturn(null);
+    Mockito.doReturn(null)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(GLOBAL_TAGS_ASPECT_NAME));
     authUtilMockedStatic
         .when(
             () ->
@@ -237,10 +241,12 @@ public class PrivilegeConstraintsValidatorTest {
 
     // Mock existing tags
     Aspect existingAspect = new Aspect(existingGlobalTags.data());
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
-        .thenReturn(existingAspect);
+    Mockito.doReturn(existingAspect)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(GLOBAL_TAGS_ASPECT_NAME));
 
     // Only TEST_TAG_URN_2 is being added (difference), TEST_TAG_URN already exists
     authUtilMockedStatic
@@ -274,10 +280,12 @@ public class PrivilegeConstraintsValidatorTest {
 
     // Mock existing tags
     Aspect existingAspect = new Aspect(existingGlobalTags.data());
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
-        .thenReturn(existingAspect);
+    Mockito.doReturn(existingAspect)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(GLOBAL_TAGS_ASPECT_NAME));
 
     // TEST_TAG_URN_2 is being removed (difference)
     authUtilMockedStatic
@@ -311,10 +319,12 @@ public class PrivilegeConstraintsValidatorTest {
 
     // Mock existing tags
     Aspect existingAspect = new Aspect(existingGlobalTags.data());
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
-        .thenReturn(existingAspect);
+    Mockito.doReturn(existingAspect)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(GLOBAL_TAGS_ASPECT_NAME));
 
     // No differences, so empty set of subresources
     authUtilMockedStatic
@@ -345,10 +355,12 @@ public class PrivilegeConstraintsValidatorTest {
             .findFirst()
             .get();
 
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class), TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
-        .thenReturn(null);
+    Mockito.doReturn(null)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(SCHEMA_METADATA_ASPECT_NAME));
     authUtilMockedStatic
         .when(
             () ->
@@ -377,10 +389,12 @@ public class PrivilegeConstraintsValidatorTest {
             .findFirst()
             .get();
 
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class), TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
-        .thenReturn(null);
+    Mockito.doReturn(null)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(SCHEMA_METADATA_ASPECT_NAME));
     authUtilMockedStatic
         .when(
             () ->
@@ -418,10 +432,12 @@ public class PrivilegeConstraintsValidatorTest {
 
     // Mock existing schema metadata
     Aspect existingAspect = new Aspect(existingSchemaMetadata.data());
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class), TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
-        .thenReturn(existingAspect);
+    Mockito.doReturn(existingAspect)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(SCHEMA_METADATA_ASPECT_NAME));
 
     // Only TEST_TAG_URN_2 is being added (difference), TEST_TAG_URN already exists
     authUtilMockedStatic
@@ -456,10 +472,12 @@ public class PrivilegeConstraintsValidatorTest {
 
     // Mock existing schema metadata
     Aspect existingAspect = new Aspect(existingSchemaMetadata.data());
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class), TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
-        .thenReturn(existingAspect);
+    Mockito.doReturn(existingAspect)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(SCHEMA_METADATA_ASPECT_NAME));
 
     // TEST_TAG_URN_2 is being removed (difference)
     authUtilMockedStatic
@@ -495,10 +513,12 @@ public class PrivilegeConstraintsValidatorTest {
 
     // Mock existing schema metadata
     Aspect existingAspect = new Aspect(existingSchemaMetadata.data());
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class), TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
-        .thenReturn(existingAspect);
+    Mockito.doReturn(existingAspect)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(SCHEMA_METADATA_ASPECT_NAME));
 
     // No differences, so empty set of subresources
     authUtilMockedStatic
@@ -530,12 +550,12 @@ public class PrivilegeConstraintsValidatorTest {
             .findFirst()
             .get();
 
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class),
-                TEST_DATASET_URN,
-                EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
-        .thenReturn(null);
+    Mockito.doReturn(null)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME));
     authUtilMockedStatic
         .when(
             () ->
@@ -565,12 +585,12 @@ public class PrivilegeConstraintsValidatorTest {
             .findFirst()
             .get();
 
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class),
-                TEST_DATASET_URN,
-                EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
-        .thenReturn(null);
+    Mockito.doReturn(null)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME));
     authUtilMockedStatic
         .when(
             () ->
@@ -609,12 +629,12 @@ public class PrivilegeConstraintsValidatorTest {
 
     // Mock existing editable schema metadata
     Aspect existingAspect = new Aspect(existingEditableSchemaMetadata.data());
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class),
-                TEST_DATASET_URN,
-                EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
-        .thenReturn(existingAspect);
+    Mockito.doReturn(existingAspect)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME));
 
     // Only TEST_TAG_URN_2 is being added (difference), TEST_TAG_URN already exists
     authUtilMockedStatic
@@ -650,12 +670,12 @@ public class PrivilegeConstraintsValidatorTest {
 
     // Mock existing editable schema metadata
     Aspect existingAspect = new Aspect(existingEditableSchemaMetadata.data());
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class),
-                TEST_DATASET_URN,
-                EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
-        .thenReturn(existingAspect);
+    Mockito.doReturn(existingAspect)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME));
 
     // TEST_TAG_URN_2 is being removed (difference)
     authUtilMockedStatic
@@ -691,12 +711,12 @@ public class PrivilegeConstraintsValidatorTest {
 
     // Mock existing editable schema metadata
     Aspect existingAspect = new Aspect(existingEditableSchemaMetadata.data());
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class),
-                TEST_DATASET_URN,
-                EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
-        .thenReturn(existingAspect);
+    Mockito.doReturn(existingAspect)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME));
 
     // No differences, so empty set of subresources
     authUtilMockedStatic
@@ -787,10 +807,12 @@ public class PrivilegeConstraintsValidatorTest {
 
     // Mock existing tags
     Aspect existingAspect = new Aspect(existingGlobalTags.data());
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
-        .thenReturn(existingAspect);
+    Mockito.doReturn(existingAspect)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(GLOBAL_TAGS_ASPECT_NAME));
     Mockito.when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
 
     // Mock the patch result to add TEST_TAG_URN_2
@@ -851,10 +873,12 @@ public class PrivilegeConstraintsValidatorTest {
 
     // Mock existing tags
     Aspect existingAspect = new Aspect(existingGlobalTags.data());
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
-        .thenReturn(existingAspect);
+    Mockito.doReturn(existingAspect)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(GLOBAL_TAGS_ASPECT_NAME));
     Mockito.when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
 
     // Only TEST_TAG_URN_2 is being added (difference) - unauthorized
@@ -1006,10 +1030,12 @@ public class PrivilegeConstraintsValidatorTest {
     item.setSystemMetadata(systemMetadata);
 
     // Without APP_SOURCE property, should still validate normally
-    Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(
-                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
-        .thenReturn(null);
+    Mockito.doReturn(null)
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(GLOBAL_TAGS_ASPECT_NAME));
     authUtilMockedStatic
         .when(
             () ->

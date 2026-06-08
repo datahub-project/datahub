@@ -82,17 +82,12 @@ public class EntityClientAspectRetriever implements CachingAspectRetriever, Aspe
             ? (OperationContext) context
             : Objects.requireNonNull(
                 systemOperationContext, "systemOperationContext not initialized");
-    return urns.stream()
-        .collect(
-            Collectors.toMap(
-                urn -> urn,
-                urn -> {
-                  try {
-                    return entityClient.exists(op, urn);
-                  } catch (RemoteInvocationException e) {
-                    throw new RuntimeException(e);
-                  }
-                }));
+    try {
+      final Set<Urn> existing = entityClient.filterExistingUrns(op, urns);
+      return urns.stream().collect(Collectors.toMap(urn -> urn, existing::contains));
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Nonnull

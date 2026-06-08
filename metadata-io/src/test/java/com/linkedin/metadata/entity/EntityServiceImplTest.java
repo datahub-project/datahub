@@ -1003,8 +1003,10 @@ public class EntityServiceImplTest {
     // the function that's passed to it, so the getLatestAspect call inside it will throw
     doAnswer(
             invocation -> {
+              // New signature: runInTransactionWithRetry(OperationContext, Function, int).
+              // Function is at index 1, not 0.
               Function<TransactionContext, TransactionResult<RollbackResult>> function =
-                  invocation.getArgument(0);
+                  invocation.getArgument(1);
               TransactionContext txContext = TransactionContext.empty(3);
 
               // Before calling the function, set up the mock that will throw inside it
@@ -1480,22 +1482,23 @@ public class EntityServiceImplTest {
         .thenReturn(latestDefinition);
     when(mockAspectDao.getVersionRange(
             any(OperationContext.class),
-            propertyUrn.toString(),
-            STRUCTURED_PROPERTY_KEY_ASPECT_NAME))
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)))
         .thenReturn(Pair.of(0L, 1L));
     when(mockAspectDao.getAspect(
             any(OperationContext.class),
-            propertyUrn.toString(),
-            STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
-            1L))
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_KEY_ASPECT_NAME),
+            eq(1L)))
         .thenReturn(keyAspectAtVersionOne);
     when(mockAspectDao.deleteUrn(any(OperationContext.class), any(), eq(propertyUrn.toString())))
         .thenReturn(2);
 
     doAnswer(
             invocation -> {
+              // runInTransactionWithRetry(OperationContext, Function, int) — Function at index 1.
               Function<TransactionContext, TransactionResult<RollbackResult>> function =
-                  invocation.getArgument(0);
+                  invocation.getArgument(1);
               return function.apply(TransactionContext.empty(3)).getResults();
             })
         .when(mockAspectDao)

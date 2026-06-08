@@ -258,8 +258,10 @@ public class EbeanEntityServiceTest
 
     doAnswer(
             invocation -> {
-              Function<TransactionContext, TransactionResult<?>> block = invocation.getArgument(0);
-              Integer maxTransactionRetry = invocation.getArgument(2);
+              // Signature: runInTransactionWithRetry(OperationContext, Function, AspectsBatch, int)
+              // index 0=opContext, 1=block, 2=batch, 3=maxTransactionRetry
+              Function<TransactionContext, TransactionResult<?>> block = invocation.getArgument(1);
+              Integer maxTransactionRetry = invocation.getArgument(3);
 
               // Use mock instead of spy to avoid Mockito global interceptor
               TransactionContext txContext = mock(TransactionContext.class);
@@ -280,7 +282,7 @@ public class EbeanEntityServiceTest
               return result.getResults();
             })
         .when(aspectDao)
-        .runInTransactionWithRetry(any(), any(), anyInt());
+        .runInTransactionWithRetry(any(), any(), any(), anyInt());
 
     // Create the service with our mocked dao
     PreProcessHooks preProcessHooks = new PreProcessHooks();
