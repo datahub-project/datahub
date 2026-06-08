@@ -72,7 +72,13 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     }, [onError, setBackground, theme.colors.bgSurface]);
 
     return (
-        <IconContainer background={background} styles={styles} title={title} className={className} data-testid={dataTestId}>
+        <IconContainer
+            background={background}
+            styles={styles}
+            title={title}
+            className={className}
+            data-testid={dataTestId}
+        >
             {logoUrl ? (
                 <PreviewImage
                     crossOrigin="anonymous"

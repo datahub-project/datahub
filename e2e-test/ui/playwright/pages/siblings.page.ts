@@ -134,6 +134,4 @@ export class SiblingsPage extends BasePage {
     await this.addTagTermConfirmButton.click();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
-
-  
 }
