@@ -458,7 +458,7 @@ public class CriterionFilterAspectsBlockingStepTest {
   private void setupStaticEntityUtilsToReturn(SystemAspect prepared) {
     entityUtilsMock = mockStatic(EntityUtils.class);
     entityUtilsMock
-        .when(() -> EntityUtils.toSystemAspectFromEbeanAspects(any(), any()))
+        .when(() -> EntityUtils.toSystemAspectFromEbeanAspects(any(), any(), any()))
         .thenReturn(List.of(prepared));
   }
 

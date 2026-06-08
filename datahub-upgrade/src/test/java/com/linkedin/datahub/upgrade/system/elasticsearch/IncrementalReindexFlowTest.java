@@ -212,7 +212,7 @@ public class IncrementalReindexFlowTest {
     SystemAspect chartAspect = createMockSystemAspect("urn:li:chart:ch1");
 
     entityUtilsMock
-        .when(() -> EntityUtils.toSystemAspectFromEbeanAspects(any(), any()))
+        .when(() -> EntityUtils.toSystemAspectFromEbeanAspects(any(), any(), any()))
         .thenAnswer(
             invocation -> {
               List<EbeanAspectV2> aspects = invocation.getArgument(1);
