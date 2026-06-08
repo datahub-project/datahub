@@ -105,7 +105,6 @@ public class IncrementalReindexFlowTest {
 
     when(upgradeContext.opContext()).thenReturn(opContext);
     when(upgradeContext.upgrade()).thenReturn(upgrade);
-
     when(upgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenAnswer(
             invocation -> {
@@ -215,7 +214,7 @@ public class IncrementalReindexFlowTest {
         .when(() -> EntityUtils.toSystemAspectFromEbeanAspects(any(), any(), any()))
         .thenAnswer(
             invocation -> {
-              List<EbeanAspectV2> aspects = invocation.getArgument(1);
+              List<EbeanAspectV2> aspects = invocation.getArgument(2);
               if (aspects.isEmpty()) {
                 return List.of();
               }

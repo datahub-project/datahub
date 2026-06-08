@@ -86,6 +86,7 @@ public class CriterionFilterAspectsBlockingStepTest {
     upgradeReport = mock(UpgradeReport.class);
     when(upgradeContext.upgrade()).thenReturn(upgrade);
     when(upgradeContext.report()).thenReturn(upgradeReport);
+    when(upgradeContext.opContext()).thenReturn(OP_CONTEXT);
   }
 
   @AfterMethod
