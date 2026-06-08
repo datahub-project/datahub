@@ -404,10 +404,12 @@ export default function LineageEntityNode({
                         {platformDisplayText && (
                             <>
                                 <tspan>{getShortenedTitle(platformDisplayText || '', width)}</tspan>
+                                {/* eslint-disable i18next/no-literal-string -- (untranslated-text) presentational divider: the pipe and surrounding spaces are layout between platform and entity name, not translatable text */}
                                 <tspan dx=".25em" dy="2px" fill={theme.colors.border} fontSize={12} fontWeight="normal">
                                     {' '}
                                     |{' '}
                                 </tspan>
+                                {/* eslint-enable i18next/no-literal-string */}
                             </>
                         )}
                         <tspan dx=".25em" dy="-2px" data-testid={entityName}>

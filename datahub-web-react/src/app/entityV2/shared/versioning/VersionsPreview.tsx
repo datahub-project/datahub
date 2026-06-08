@@ -1,5 +1,6 @@
 import { Pill, Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -55,6 +56,8 @@ interface Props {
 }
 
 export default function VersionsPreview({ versionSet }: Props) {
+    const { t } = useTranslation('entity.shared.versioning');
+    const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const { urn, entityType, setDrawer } = useEntityContext();
 
@@ -63,7 +66,7 @@ export default function VersionsPreview({ versionSet }: Props) {
     return (
         <Wrapper>
             <Header size="xl" type="div">
-                <Text weight="semiBold">Versions</Text>
+                <Text weight="semiBold">{t('versionsTitle')}</Text>
                 {!!total && <VersionsCount label={total.toString()} size="sm" clickable={false} />}
             </Header>
             <VersionsWrapper>
@@ -89,7 +92,7 @@ export default function VersionsPreview({ versionSet }: Props) {
                             setDrawer(DrawerType.VERSIONS);
                         }}
                     >
-                        View all
+                        {tc('viewAll')}
                     </ShowAllButton>
                 </Footer>
             )}
@@ -118,6 +121,8 @@ interface VersionPreviewRowProps {
 }
 
 function VersionPreviewRow({ entity }: VersionPreviewRowProps) {
+    const { t } = useTranslation('entity.shared.versioning');
+    const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { urn: entityProfileUrn } = useEntityData();
@@ -128,25 +133,27 @@ function VersionPreviewRow({ entity }: VersionPreviewRowProps) {
     return (
         <VersionPreviewEntry isViewing={isViewing}>
             <VersionPreviewHeader>
+                {/* eslint-disable i18next/no-literal-string -- (untranslated-text) programmatic placeholder token, not natural-language UI */}
                 <VersionPill
                     label={versionProperties?.version?.versionTag ?? '<unlabeled>'}
                     isLatest={versionProperties?.isLatest}
                 />
+                {/* eslint-enable i18next/no-literal-string */}
                 {!!versionProperties?.isLatest && (
                     <Text size="md" style={{ color: theme.colors.textSecondary }}>
-                        Latest
+                        {t('latest')}
                     </Text>
                 )}
             </VersionPreviewHeader>
             {isViewing && (
                 <Text size="md" weight="semiBold" style={{ color: theme.colors.textTertiary }}>
-                    Viewing
+                    {t('viewing')}
                 </Text>
             )}
             {!isViewing && (
                 <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
                     <Text size="md" color="primary" weight="semiBold">
-                        View
+                        {tc('view')}
                     </Text>
                 </Link>
             )}

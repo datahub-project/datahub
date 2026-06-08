@@ -1,0 +1,226 @@
+name: Reusable - Playwright E2E Test
+run-name: Playwright Test Matrix ${{ inputs.shard }} / ${{ inputs.shard_count }}
+
+on:
+  workflow_call:
+    inputs:
+      shard:
+        description: "Current shard number"
+        required: true
+        type: string
+      shard_count:
+        description: "Total number of shards"
+        required: true
+        type: string
+      test_runner_type:
+        description: "Runner type (e.g. depot-ubuntu-24.04-4 or ubuntu-latest)"
+        required: true
+        type: string
+      depot_build_id:
+        description: "Depot build ID to pull images from. Ignored on workflow_dispatch (images are pulled from registry instead). On other events: when set images are pulled from depot; when empty images are built locally."
+        required: false
+        type: string
+        default: ""
+      image_build_task:
+        description: "Gradle task used to build images locally (used when depot_build_id is empty and docker_login is true)"
+        required: false
+        type: string
+        default: ":docker:buildImagesQuickstartConsumers"
+      profile_name:
+        description: "Docker Compose profile name passed to run-quickstart.sh. Should match image_build_task"
+        required: false
+        type: string
+        default: "quickstart-consumers"
+      local_build_flags:
+        description: "Extra Gradle flags appended to the local image build command (e.g. -PpythonDockerVersion=... -PdockerRegistry=...)"
+        required: false
+        type: string
+        default: ""
+      datahub_version:
+        description: "DATAHUB_VERSION passed to run-quickstart.sh (defaults to 'quickstart'). Also used to tag locally built images"
+        required: false
+        type: string
+        default: "quickstart"
+      datahub_repo:
+        description: "DATAHUB_REPO passed to run-quickstart.sh (leave empty to use the script default)"
+        required: false
+        type: string
+        default: ${{ vars.DOCKER_REGISTRY }}
+jobs:
+  playwright_test:
+    name: Playwright E2E Tests (Shard ${{ inputs.shard }}/${{ inputs.shard_count }})
+    runs-on: ${{ inputs.test_runner_type }}
+    # Increase timeout when docker build needs to be done within the job
+    timeout-minutes: ${{ (github.event_name == 'workflow_dispatch' || inputs.depot_build_id != '') && 20 || 45 }}
+    steps:
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.cache/yarn
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
+          restore-keys: playwright-${{ runner.os }}-yarn-
+
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      # Path 1: Pull images from depot cache (docker-unified non fork trigger)
+      - name: Set up Depot CLI
+        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id != '' }}
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
+
+      - name: Pull images from depot
+        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id != '' }}
+        env:
+          DEPOT_BUILD_ID: ${{ inputs.depot_build_id }}
+        run: |
+          depot pull --project "${{ vars.DEPOT_PROJECT_ID }}" "$DEPOT_BUILD_ID"
+          docker images
+
+      # Path 2: Build images in the job
+      - name: Build images (fork — no depot cache)
+        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' }}
+        timeout-minutes: 60
+        env:
+          DOCKER_CACHE: GITHUB
+          BUILD_TASK: ${{ inputs.image_build_task }}
+          DATAHUB_VERSION: ${{ inputs.datahub_version }}
+          LOCAL_BUILD_FLAGS: ${{ inputs.local_build_flags }}
+        run: |
+          echo "Using build task: $BUILD_TASK"
+          read -ra extra_flags <<< "$LOCAL_BUILD_FLAGS"
+          ./gradlew "$BUILD_TASK" -Ptag="$DATAHUB_VERSION" "${extra_flags[@]}"
+          docker images
+
+      # Path 3: Pull images from ECR for given datahub_version (on workflow_dispatch)
+      - name: Login to DockerHub
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+      - name: Run quickstart
+        env:
+          DATAHUB_TELEMETRY_ENABLED: false
+          DATAHUB_VERSION: ${{ inputs.datahub_version }}
+          DATAHUB_REPO: ${{ inputs.datahub_repo }}
+          SKIP_INSTALL_DEV: "true"
+          ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
+          ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
+          # Must match the profile the images were built for (e.g. smoke:quickstartPg → quickstart-postgres).
+          PROFILE_NAME: ${{ inputs.profile_name }}
+        run: |
+          echo "Using compose profile: $PROFILE_NAME"
+          ./smoke-test/run-quickstart.sh
+
+      - name: Disable ES Disk Threshold
+        run: |
+          curl -XPUT "http://localhost:9200/_cluster/settings" \
+            -H 'Content-Type: application/json' -d'{
+              "persistent": {
+                "cluster": {
+                  "routing": {
+                    "allocation.disk.threshold_enabled": false
+                  }
+                }
+              }
+            }'
+
+      - name: Install Playwright dependencies
+        working-directory: e2e-test/ui/playwright
+        run: |
+          yarn install --frozen-lockfile
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        working-directory: e2e-test/ui/playwright
+        env:
+          BASE_URL: "http://localhost:9002"
+          PLAYWRIGHT_REUSE_SERVER: "1"
+          SHARD: ${{ inputs.shard }}
+          SHARD_COUNT: ${{ inputs.shard_count }}
+        run: |
+          npx playwright test \
+            --shard="$SHARD/$SHARD_COUNT"
+
+      - name: Upload Playwright blob report
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
+        with:
+          name: playwright-blob-report-${{ inputs.shard }}
+          path: e2e-test/ui/playwright/blob-report/
+          retention-days: 1
+
+      - name: Upload Playwright JUnit results
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
+        with:
+          name: playwright-junit-${{ inputs.shard }}
+          path: e2e-test/ui/playwright/test-results/junit.xml
+          retention-days: 5
+
+      - name: Store logs on failure
+        if: failure()
+        env:
+          SHARD: ${{ inputs.shard }}
+        run: |
+          docker ps -a
+          TEST_STRATEGY="-playwright-$SHARD"
+          source .github/scripts/docker_logs.sh
+
+      - name: Upload Docker logs on failure
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: docker-logs-playwright-${{ inputs.shard }}
+          path: "docker_logs/*.log"
+          retention-days: 5
+
+      - name: Upload Playwright traces and screenshots on failure
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: playwright-traces-${{ inputs.shard }}
+          path: e2e-test/ui/playwright/test-results/
+          retention-days: 5
+
+      - name: Report test results
+        if: "!cancelled()"
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: "Test Results (playwright) shard-${{ inputs.shard }}"
+          test-results-paths: |
+            **/e2e-test/ui/playwright/test-results/junit.xml
+          junit-file-globs: |
+            **/e2e-test/ui/playwright/test-results/junit.xml
+
+      - name: Upload test results to Codecov
+        if: "!cancelled()"
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          override_branch: ${{ github.head_ref || github.ref_name }}
+
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        if: ${{ github.ref == 'refs/heads/master' && inputs.shard == '1' }}
+        with:
+          path: ~/.cache/yarn
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
