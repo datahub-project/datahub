@@ -120,6 +120,11 @@ from datahub.utilities.urns.error import InvalidUrnError
 # Logger instance
 logger = logging.getLogger(__name__)
 
+# Dedicated trace logger shared with sigma_api. Enable via recipe to get
+# per-element / per-column resolver decisions without raising the entire
+# module to DEBUG. See sigma_api.py for the same logger name.
+trace_logger = logging.getLogger("datahub.ingestion.source.sigma.trace")
+
 
 # The Sigma ``/dataModels/{id}/columns`` endpoint does not currently
 # return a per-column native type on the fields we consume (name,
@@ -325,6 +330,48 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, config: SigmaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.config = config
+        # Diagnostic trace logger: opt-in via SigmaSourceConfig.lineage_trace.
+        # Independent of DataHub's global ``--debug`` flag so an operator can
+        # selectively enable per-element / per-column resolver tracing without
+        # also enabling DEBUG across the rest of the ingestion stack. The flag
+        # only affects log volume; no metadata emission behaviour is altered.
+        #
+        # Implementation note: ``datahub.utilities.logging_manager`` attaches
+        # an ``INFO``-floored filter (``_DatahubLogFilter``) to every datahub
+        # package logger when ``--debug`` is not set, which would otherwise
+        # drop our trace ``DEBUG`` records before they reach any handler.
+        # We bypass that by attaching a dedicated unfiltered ``StreamHandler``
+        # directly to the trace logger and disabling propagation so trace
+        # records reach stderr (which the DataHub Cloud executor captures
+        # into the same ingestion log the operator greps) without flowing up
+        # to the filtered parent handler.
+        if config.lineage_trace:
+            trace_logger.setLevel(logging.DEBUG)
+            # Idempotent: re-running ``__init__`` (e.g. via a Pipeline retry
+            # in the same process) must not double-attach the handler.
+            already_attached = any(
+                getattr(h, "_sigma_lineage_trace_handler", False)
+                for h in trace_logger.handlers
+            )
+            if not already_attached:
+                trace_handler = logging.StreamHandler()
+                trace_handler.setLevel(logging.DEBUG)
+                trace_handler.setFormatter(
+                    logging.Formatter(
+                        "[%(asctime)s] %(levelname)-8s "
+                        "{%(name)s:%(lineno)d} - %(message)s"
+                    )
+                )
+                # Marker for the idempotency check above.
+                trace_handler._sigma_lineage_trace_handler = True  # type: ignore[attr-defined]
+                trace_logger.addHandler(trace_handler)
+            trace_logger.propagate = False
+            logger.info(
+                "Sigma lineage_trace enabled; per-element / per-column resolver "
+                "decisions will be emitted to logger "
+                "'datahub.ingestion.source.sigma.trace' at DEBUG via a dedicated "
+                "stderr handler (independent of DataHub's --debug flag)."
+            )
         self.reporter = SigmaSourceReport()
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
         # Sigma Dataset url_id -> dataset URN. Used to resolve DM element
@@ -3174,6 +3221,31 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._wb_url_id_to_conn_id = {
             url_id: ref.connection_id for url_id, ref in transient_map.items()
         }
+
+        if trace_logger.isEnabledFor(logging.DEBUG):
+            # Distribution of tables by owning connection — lets the
+            # operator see whether a particular connection is over- or
+            # under-represented in the workbook-wide lineage payload.
+            # Mismatch vs. the BFS-level set (see kind=chart-table-unmatched)
+            # is the smoking gun for OAuth-scope-driven payload redaction.
+            conn_counts: Dict[str, int] = {}
+            for ref in transient_map.values():
+                key = ref.connection_id or "<no-connection-id>"
+                conn_counts[key] = conn_counts.get(key, 0) + 1
+            sample_names = list(by_name.keys())[:8]
+            sample_url_ids = list(by_url_id.keys())[:8]
+            trace_logger.debug(
+                "kind=workbook-table-index workbookId=%s "
+                "total_url_ids=%d total_name_keys=%d "
+                "by_connection=%s sample_name_keys=%s sample_url_ids=%s",
+                workbook.workbookId,
+                len(by_url_id),
+                len(by_name),
+                conn_counts,
+                sample_names,
+                sample_url_ids,
+            )
+
         return _WorkbookWarehouseIndex(by_url_id=by_url_id, by_name=by_name)
 
     @staticmethod
@@ -3197,7 +3269,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 result[key] = urns
         return result
 
-    def _resolve_chart_formula_upstream(
+    def _resolve_chart_formula_upstream(  # noqa: C901
         self,
         ref: BracketRef,
         *,
@@ -3238,14 +3310,43 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
              is parsed on a different sibling element will not resolve here.
           5. else -> None.
         """
+        trace_enabled = trace_logger.isEnabledFor(logging.DEBUG)
         if ref.is_parameter:
+            if trace_enabled:
+                trace_logger.debug(
+                    "kind=resolve-trace elementId=%s ref_source=%r ref_column=%r "
+                    "step=is_parameter outcome=skip",
+                    chart_element_id,
+                    ref.source,
+                    ref.column,
+                )
             return None
 
         if ref.column is None:
             # Bare refs are same-element sibling references.
+            if trace_enabled:
+                trace_logger.debug(
+                    "kind=resolve-trace elementId=%s ref_source=%r ref_column=None "
+                    "step=bare_sibling outcome=skip",
+                    chart_element_id,
+                    ref.source,
+                )
             return None
 
         candidates = wb_element_index.get(ref.source, [])
+        if trace_enabled:
+            trace_logger.debug(
+                "kind=resolve-trace elementId=%s ref_source=%r ref_column=%r "
+                "step=wb_element_index_lookup wb_candidates=%d "
+                "chart_upstream_eids=%d dm_upstream_names=%d wh_idx_size=%d",
+                chart_element_id,
+                ref.source,
+                ref.column,
+                len(candidates),
+                len(chart_upstream_element_ids),
+                len(dm_upstream_urn_by_element_name),
+                len(element_warehouse_table_index),
+            )
         if not candidates:
             case_mismatched_names = [
                 name for name in wb_element_index if name.lower() == ref.source.lower()
@@ -3276,20 +3377,66 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if elem.elementId in chart_upstream_element_ids
                 and elem.elementId != chart_element_id
             ]
+            if trace_enabled:
+                trace_logger.debug(
+                    "kind=resolve-trace elementId=%s ref_source=%r ref_column=%r "
+                    "step=3a sheet_matches=%d sheet_match_eids=%s",
+                    chart_element_id,
+                    ref.source,
+                    ref.column,
+                    len(sheet_matches),
+                    [e.elementId for e in sheet_matches[:4]],
+                )
             if len(sheet_matches) == 1:
                 elem_urn = elementId_to_chart_urn.get(sheet_matches[0].elementId)
                 if elem_urn:
+                    if trace_enabled:
+                        trace_logger.debug(
+                            "kind=resolve-trace elementId=%s ref_source=%r ref_column=%r "
+                            "step=3a outcome=resolved_to_sibling_chart upstream_urn=%s",
+                            chart_element_id,
+                            ref.source,
+                            ref.column,
+                            elem_urn,
+                        )
                     return (elem_urn, ref.column)
                 # Element exists in the workbook but was filtered from chart emission
                 # (e.g. pivot-table or control). Fall through to DM check.
+                if trace_enabled:
+                    trace_logger.debug(
+                        "kind=resolve-trace elementId=%s ref_source=%r ref_column=%r "
+                        "step=3a outcome=sheet_match_filtered_from_chart_emission "
+                        "matched_eid=%s",
+                        chart_element_id,
+                        ref.source,
+                        ref.column,
+                        sheet_matches[0].elementId,
+                    )
             elif len(sheet_matches) > 1:
                 # Ambiguous name collision not resolved by lineage filter.
+                if trace_enabled:
+                    trace_logger.debug(
+                        "kind=resolve-trace elementId=%s ref_source=%r ref_column=%r "
+                        "step=3a outcome=ambiguous_sheet_matches None",
+                        chart_element_id,
+                        ref.source,
+                        ref.column,
+                    )
                 return None
 
             # Step 3b: DataModelElementUpstream match — ref.source is the DM
             # element's workbook-page name; resolve to its Dataset URN.
             dm_urn = dm_upstream_urn_by_element_name.get(ref.source)
             if dm_urn:
+                if trace_enabled:
+                    trace_logger.debug(
+                        "kind=resolve-trace elementId=%s ref_source=%r ref_column=%r "
+                        "step=3b outcome=resolved_to_dm_element upstream_urn=%s",
+                        chart_element_id,
+                        ref.source,
+                        ref.column,
+                        dm_urn,
+                    )
                 return (dm_urn, ref.column)
 
             # If the element IS a registered upstream (sheet_matches==1) but was
@@ -3297,6 +3444,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # fall through to warehouse because the formula ref explicitly targets
             # a known (filtered) element, not a warehouse table.
             if sheet_matches:
+                if trace_enabled:
+                    trace_logger.debug(
+                        "kind=resolve-trace elementId=%s ref_source=%r ref_column=%r "
+                        "step=3b outcome=filtered_sheet_no_dm_fallback None",
+                        chart_element_id,
+                        ref.source,
+                        ref.column,
+                    )
                 return None
 
             # sheet_matches is empty: the workbook element is not a registered
@@ -3311,6 +3466,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 ref.source,
                 chart_element_id,
             )
+            if trace_enabled:
+                trace_logger.debug(
+                    "kind=resolve-trace elementId=%s ref_source=%r ref_column=%r "
+                    "step=3a_no_sheet_no_dm outcome=fallthrough_to_warehouse",
+                    chart_element_id,
+                    ref.source,
+                    ref.column,
+                )
         else:
             # Step 3c: No workbook page element is named ref.source (candidates was
             # empty above), but the formula ref may still point to a DM element that
@@ -3319,11 +3482,37 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # to the warehouse-table short-name index.
             dm_urn = dm_upstream_urn_by_element_name.get(ref.source)
             if dm_urn:
+                if trace_enabled:
+                    trace_logger.debug(
+                        "kind=resolve-trace elementId=%s ref_source=%r ref_column=%r "
+                        "step=3c outcome=resolved_to_dm_element upstream_urn=%s",
+                        chart_element_id,
+                        ref.source,
+                        ref.column,
+                        dm_urn,
+                    )
                 return (dm_urn, ref.column)
+            if trace_enabled:
+                trace_logger.debug(
+                    "kind=resolve-trace elementId=%s ref_source=%r ref_column=%r "
+                    "step=3c outcome=no_dm_match fallthrough_to_warehouse",
+                    chart_element_id,
+                    ref.source,
+                    ref.column,
+                )
 
         # Step 4: warehouse-table short-name fallback.
         wh_candidates = element_warehouse_table_index.get(ref.source.upper(), [])
         if len(wh_candidates) == 1:
+            if trace_enabled:
+                trace_logger.debug(
+                    "kind=resolve-trace elementId=%s ref_source=%r ref_column=%r "
+                    "step=4 outcome=resolved_to_warehouse upstream_urn=%s",
+                    chart_element_id,
+                    ref.source,
+                    ref.column,
+                    wh_candidates[0],
+                )
             return (wh_candidates[0], ref.column)
         elif len(wh_candidates) > 1:
             logger.debug(
@@ -3333,8 +3522,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 ref.column,
                 wh_candidates,
             )
+            if trace_enabled:
+                trace_logger.debug(
+                    "kind=resolve-trace elementId=%s ref_source=%r ref_column=%r "
+                    "step=4 outcome=ambiguous_warehouse_match wh_candidates=%d None",
+                    chart_element_id,
+                    ref.source,
+                    ref.column,
+                    len(wh_candidates),
+                )
             return None
 
+        if trace_enabled:
+            trace_logger.debug(
+                "kind=resolve-trace elementId=%s ref_source=%r ref_column=%r "
+                "step=4 outcome=no_match_anywhere None",
+                chart_element_id,
+                ref.source,
+                ref.column,
+            )
         return None
 
     def _handle_warehouse_table_upstream(
@@ -3359,6 +3565,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     upstream.url_id,
                     element.elementId,
                 )
+                if trace_logger.isEnabledFor(logging.DEBUG):
+                    # Deterministic diagnostic: combined with
+                    # kind=workbook-table-index this lets the operator answer
+                    # "is the missing table on a connection the workbook
+                    # index simply doesn't carry?" If bfs_connection_id is
+                    # NOT in the workbook index's by_connection breakdown,
+                    # the workbook-wide payload omitted everything from that
+                    # connection — strong signal of OAuth-scope-driven
+                    # redaction (vs. a connector-side lookup miss).
+                    sample_index_keys = list(wb_warehouse_table_index.by_name.keys())[
+                        :8
+                    ]
+                    trace_logger.debug(
+                        "kind=chart-table-unmatched elementId=%s "
+                        "table_name=%r table_url_id=%s "
+                        "bfs_connection_id=%r "
+                        "workbook_index_total_names=%d "
+                        "workbook_index_total_url_ids=%d "
+                        "workbook_has_any_tables=%s "
+                        "sample_index_name_keys=%s",
+                        element.elementId,
+                        upstream.name,
+                        upstream.url_id,
+                        upstream.connection_id,
+                        len(wb_warehouse_table_index.by_name),
+                        len(wb_warehouse_table_index.by_url_id),
+                        bool(wb_warehouse_table_index.by_name),
+                        sample_index_keys,
+                    )
                 return
             if len(candidates) > 1:
                 self.reporter.chart_warehouse_table_name_ambiguous += 1
@@ -3596,7 +3831,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         return sigma_display_name
 
-    def _build_element_input_fields(
+    def _build_element_input_fields(  # noqa: C901
         self,
         *,
         element: Element,
@@ -3624,18 +3859,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
           chart_input_fields_warehouse_qualified_via_workbook_index.
         """
         fields: List[InputFieldClass] = []
+        trace_enabled_emit = trace_logger.isEnabledFor(logging.DEBUG)
         for column in element.columns:
             formula = element.column_formulas.get(column)
             resolved_refs: List[_ResolvedRef] = []
             seen: Set[Tuple[str, str]] = set()
             all_param = False
             all_sibling = False
+            refs_extracted_count = 0
+            param_count = 0
+            sibling_count = 0
 
             if formula is not None:
                 refs = extract_bracket_refs(formula)
+                refs_extracted_count = len(refs)
                 if refs:
-                    param_count = 0
-                    sibling_count = 0
                     for ref in refs:
                         if ref.is_parameter:
                             param_count += 1
@@ -3670,6 +3908,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             all_param = True
                         elif sibling_count == total:
                             all_sibling = True
+
+            if trace_enabled_emit:
+                if resolved_refs:
+                    bucket = "resolved"
+                elif all_param:
+                    bucket = "skipped_parameter"
+                elif all_sibling:
+                    bucket = "skipped_sibling"
+                else:
+                    bucket = "self_ref_fallback"
+                trunc_formula = (
+                    (formula[:80] + "...")
+                    if formula is not None and len(formula) > 83
+                    else formula
+                )
+                trace_logger.debug(
+                    "kind=column-emit elementId=%s column=%r has_formula=%s "
+                    "refs_total=%d refs_param=%d refs_sibling=%d "
+                    "refs_resolved=%d bucket=%s formula=%r",
+                    element.elementId,
+                    column,
+                    formula is not None,
+                    refs_extracted_count,
+                    param_count,
+                    sibling_count,
+                    len(resolved_refs),
+                    bucket,
+                    trunc_formula,
+                )
 
             if resolved_refs:
                 self.reporter.chart_input_fields_resolved += 1
@@ -3721,7 +3988,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
         return fields
 
-    def _gen_elements_workunit(
+    def _gen_elements_workunit(  # noqa: C901
         self,
         elements: List[Element],
         workbook: Workbook,
@@ -3760,6 +4027,39 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 if warehouse_urn not in dataset_inputs:
                     dataset_inputs[warehouse_urn] = []
+
+            if trace_logger.isEnabledFor(logging.DEBUG):
+                # Count upstream_sources by variant to make it trivial to grep
+                # "this chart had N SheetUpstreams pointing at <eid>".
+                upstream_summary: Dict[str, int] = {}
+                upstream_sheet_eids: List[str] = []
+                upstream_dm_names: List[str] = []
+                for ups in element.upstream_sources.values():
+                    key = type(ups).__name__
+                    upstream_summary[key] = upstream_summary.get(key, 0) + 1
+                    if isinstance(ups, SheetUpstream):
+                        upstream_sheet_eids.append(ups.element_id)
+                    elif isinstance(ups, DataModelElementUpstream):
+                        if ups.name:
+                            upstream_dm_names.append(ups.name)
+                trace_logger.debug(
+                    "kind=chart-inputs-summary workbookId=%s elementId=%s "
+                    "element_name=%r chart_urn=%s columns=%d "
+                    "chart_info_inputs=%d chart_input_urns=%d "
+                    "upstream_sources_total=%d by_type=%s "
+                    "sheet_upstream_eids=%s dm_upstream_names=%s",
+                    workbook.workbookId,
+                    element.elementId,
+                    element.name,
+                    chart_urn,
+                    len(element.columns),
+                    len(dataset_inputs),
+                    len(chart_input_urns),
+                    len(element.upstream_sources),
+                    upstream_summary,
+                    upstream_sheet_eids[:8],
+                    upstream_dm_names[:8],
+                )
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
@@ -3902,6 +4202,31 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 elementId_to_chart_urn=elementId_to_chart_urn,
                 wb_only_warehouse_keys=wb_only_warehouse_keys,
             )
+
+            if trace_logger.isEnabledFor(logging.DEBUG):
+                # Bucket the produced InputFields by parent-entity type so the
+                # operator can see "N self-edges, M sibling chart edges, K
+                # warehouse edges, L DM-element edges" in one line per chart.
+                parent_bucket: Dict[str, int] = {}
+                for f in element_input_fields:
+                    if "urn:li:chart:" in f.schemaFieldUrn:
+                        if f"sigma,{element.elementId}" in f.schemaFieldUrn:
+                            key = "self_chart"
+                        else:
+                            key = "sibling_chart"
+                    elif "urn:li:dataset:" in f.schemaFieldUrn:
+                        key = "dataset"  # could be DM element or warehouse table
+                    else:
+                        key = "other"
+                    parent_bucket[key] = parent_bucket.get(key, 0) + 1
+                trace_logger.debug(
+                    "kind=chart-emit-summary workbookId=%s elementId=%s "
+                    "input_fields_total=%d input_fields_by_parent=%s",
+                    workbook.workbookId,
+                    element.elementId,
+                    len(element_input_fields),
+                    parent_bucket,
+                )
 
             # Stash formula-derived fields for customSQL charts so we can merge at
             # drain time, ensuring warehouse-resolved entries supplement rather than
