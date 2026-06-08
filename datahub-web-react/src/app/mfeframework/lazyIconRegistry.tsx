@@ -6,19 +6,22 @@ import React, { Suspense } from 'react';
 // users only download the specific icons an admin chose, not all 1500+.
 const iconModules = import.meta.glob('./lazy-icons/*.ts');
 
-const iconCache = new Map<string, React.LazyExoticComponent<React.ComponentType>>();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyComponent = React.ComponentType<any>;
 
-function getCachedLazyIcon(name: string): React.LazyExoticComponent<React.ComponentType> {
+const iconCache = new Map<string, React.LazyExoticComponent<AnyComponent>>();
+
+function getCachedLazyIcon(name: string): React.LazyExoticComponent<AnyComponent> {
     if (!iconCache.has(name)) {
         const loader = iconModules[`./lazy-icons/${name}.ts`];
         iconCache.set(
             name,
-            React.lazy(async () => {
+            React.lazy(async (): Promise<{ default: AnyComponent }> => {
                 if (!loader) {
                     console.warn(`[LazyIcon] Unknown icon "${name}", falling back to AppWindow`);
-                    return { default: AppWindow };
+                    return { default: AppWindow as AnyComponent };
                 }
-                const mod = (await loader()) as Record<string, React.ComponentType>;
+                const mod = (await loader()) as Record<string, AnyComponent>;
                 return { default: mod[name] ?? AppWindow };
             }),
         );
