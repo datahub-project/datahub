@@ -15,7 +15,6 @@ from concurrent.futures import (
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from enum import Enum
 from functools import lru_cache
 from threading import Event, Lock, Thread, current_thread
 from typing import (
@@ -91,6 +90,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 )
 from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.stats_collections import TopKDict
+from datahub.utilities.str_enum import StrEnum
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -300,7 +300,7 @@ _PERMISSION_ERROR_KEYWORDS: Tuple[str, ...] = (
 )
 
 
-class ViewErrorCategory(str, Enum):
+class ViewErrorCategory(StrEnum):
     TIMEOUT = "timeout"
     PERMISSION = "permission"
     PARSE = "parse"
