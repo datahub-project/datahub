@@ -1,5 +1,6 @@
 import { Avatar, Text } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -71,7 +72,7 @@ const DEFAULT_ACTOR_TYPES = [EntityType.CorpUser, EntityType.CorpGroup];
 export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     selectedActorUrns,
     onUpdate,
-    placeholder = 'Search for users or groups',
+    placeholder,
     label,
     entityUrn,
     includeCurrentUser = true,
@@ -83,6 +84,8 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     entityTypes = DEFAULT_ACTOR_TYPES,
     dataTestId,
 }) => {
+    const { t } = useTranslation('entity.shared.selectors');
+    const resolvedPlaceholder = placeholder ?? t('actorsSearch.placeholder');
     const entityRegistry = useEntityRegistryV2();
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -232,7 +235,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             showSearch={showSearch}
             filterResultsByQuery={false}
             isMultiSelect
-            placeholder={placeholder}
+            placeholder={resolvedPlaceholder}
             isDisabled={isDisabled}
             width={width}
             dataTestId={dataTestId}
