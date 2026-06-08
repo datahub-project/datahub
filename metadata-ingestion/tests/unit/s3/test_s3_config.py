@@ -53,3 +53,18 @@ class TestS3Config:
 
         error_msg = str(exc_info.value).lower()
         assert "s3 bucket tags" in error_msg and "platform is not s3" in error_msg
+
+    def test_infer_schema_defaults_to_true(self):
+        config = DataLakeSourceConfig.parse_obj(
+            {"path_specs": [{"include": "s3://bucket/data/*.parquet"}]}
+        )
+        assert config.infer_schema is True
+
+    def test_infer_schema_can_be_disabled(self):
+        config = DataLakeSourceConfig.parse_obj(
+            {
+                "path_specs": [{"include": "s3://bucket/data/*.parquet"}],
+                "infer_schema": False,
+            }
+        )
+        assert config.infer_schema is False

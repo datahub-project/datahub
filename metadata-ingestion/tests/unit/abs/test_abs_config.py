@@ -140,3 +140,32 @@ def test_abs_config_rejects_empty_path_specs():
         match="path_specs must not be empty",
     ):
         DataLakeSourceConfig.model_validate(config_dict)
+
+
+def test_abs_infer_schema_defaults_to_true():
+    config = DataLakeSourceConfig.model_validate(
+        {
+            "path_specs": [
+                {
+                    "include": "/var/lib/data/{table}/*.parquet",
+                    "file_types": ["parquet"],
+                }
+            ]
+        }
+    )
+    assert config.infer_schema is True
+
+
+def test_abs_infer_schema_can_be_disabled():
+    config = DataLakeSourceConfig.model_validate(
+        {
+            "path_specs": [
+                {
+                    "include": "/var/lib/data/{table}/*.parquet",
+                    "file_types": ["parquet"],
+                }
+            ],
+            "infer_schema": False,
+        }
+    )
+    assert config.infer_schema is False

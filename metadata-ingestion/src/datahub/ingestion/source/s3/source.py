@@ -528,7 +528,12 @@ class S3Source(StatefulIngestionSourceBase):
             externalUrl=self.get_external_url(table_data),
         )
         aspects.append(dataset_properties)
-        if table_data.size_in_bytes > 0:
+        if not self.source_config.infer_schema:
+            logger.debug(
+                f"Skipping schema inference for {table_data.display_name} "
+                "because infer_schema is set to False"
+            )
+        elif table_data.size_in_bytes > 0:
             try:
                 fields = self.get_fields(table_data, path_spec)
                 schema_metadata = SchemaMetadata(
