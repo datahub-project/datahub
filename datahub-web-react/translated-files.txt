@@ -1,3 +1,4 @@
+src/alchemy-components/components/**/*.{ts,tsx}
 src/app/analyticsDashboardV2/components/AnalyticsPage.tsx
 src/app/domain/**/*.{ts,tsx}
 src/app/domainV2/**/*.{ts,tsx}

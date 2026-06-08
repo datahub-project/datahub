@@ -1,4 +1,5 @@
 export const NAMESPACES = [
+    'alchemy',
     'analytics',
     'auth',
     'common.actions',

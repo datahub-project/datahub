@@ -316,7 +316,17 @@ module.exports = {
             ? [
                   {
                       files: [...translatedFiles],
-                      excludedFiles: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
+                      excludedFiles: [
+                          '**/__tests__/**',
+                          '**/*.test.ts',
+                          '**/*.test.tsx',
+                          // Storybook demo files render only in Storybook, never in the production app — their
+                          // demo strings must not be enforced as translatable.
+                          '**/*.stories.tsx',
+                          // The alchemy rich-text Editor is not yet migrated; excluded so a directory-level
+                          // glob can lock the rest of alchemy-components under enforcement without failing on it.
+                          '**/alchemy-components/components/Editor/**',
+                      ],
                       rules: {
                           'i18next/no-literal-string': [
                               'error',
