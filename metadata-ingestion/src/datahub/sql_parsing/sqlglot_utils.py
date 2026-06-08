@@ -58,6 +58,36 @@ def _sanitize_snowflake_ddl(sql: str) -> str:
     return sql
 
 
+# T-SQL temp tables whose name begins with a digit after the `#`/`##` prefix
+# (e.g. `#63114Actual`, `##2025Totals`). sqlglot's tokenizer lexes the leading
+# digit run as a NUMBER, so the parser sees `# NUMBER ...`, raises "Expected table
+# name but got NUMBER", and the ENTIRE statement's lineage is lost (including the
+# real FROM source). Wrapping the name in `[...]` (a T-SQL delimited identifier)
+# makes sqlglot read it as one identifier; the normalized name still starts with
+# `#`, so downstream temp-table detection (startswith("#")) is unaffected.
+#
+# The first alternative matches (and passes through unchanged) string literals and
+# comments, so a `#<digit>` that is data inside a string/comment is never bracketed.
+# Letter-leading names (`#temp`) already parse and are left alone.
+_TSQL_DIGIT_TEMP_TABLE = re.compile(
+    r"""
+      (?P<skip>'(?:[^']|'')*' | --[^\n]* | /\*.*?\*/)   # string / line / block comment
+    | (?<![\w$@#\[])(?P<temp>\#\#?\d[\w$@#]*)           # #<digit>... not mid-token / pre-bracketed
+    """,
+    re.VERBOSE | re.DOTALL,
+)
+
+
+def _sanitize_tsql_temp_tables(sql: str) -> str:
+    """Bracket T-SQL `#`/`##` temp-table names that start with a digit (see pattern above)."""
+
+    def _bracket(m: re.Match) -> str:
+        temp = m.group("temp")
+        return f"[{temp}]" if temp else m.group(0)
+
+    return _TSQL_DIGIT_TEMP_TABLE.sub(_bracket, sql)
+
+
 def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
     if isinstance(platform, sqlglot.Dialect):
         return platform
@@ -132,6 +162,11 @@ def parse_statement(
         sanitized = _sanitize_snowflake_ddl(sql)
         if sanitized != sql:
             logger.debug("Sanitized Snowflake DDL: %s -> %s", sql, sanitized)
+        sql = sanitized
+    if isinstance(sql, str) and is_dialect_instance(dialect, "tsql"):
+        sanitized = _sanitize_tsql_temp_tables(sql)
+        if sanitized != sql:
+            logger.debug("Sanitized T-SQL temp tables: %s -> %s", sql, sanitized)
         sql = sanitized
     return _parse_statement(sql, dialect).copy()
 
