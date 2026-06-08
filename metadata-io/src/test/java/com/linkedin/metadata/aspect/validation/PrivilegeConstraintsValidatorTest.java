@@ -6,9 +6,11 @@ import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import static com.linkedin.metadata.Constants.UI_SOURCE;
+import static org.mockito.ArgumentMatchers.any;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
@@ -140,13 +142,13 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, null);
+            OperationFingerprint.EMPTY, Collections.singletonList(item), retrieverContext, null);
 
     Assert.assertTrue(result.findAny().isPresent());
     AspectValidationException exception =
         validator
             .validateProposedAspectsWithAuth(
-                Collections.singletonList(item), retrieverContext, null)
+                OperationFingerprint.EMPTY, Collections.singletonList(item), retrieverContext, null)
             .findFirst()
             .orElse(null);
     Assert.assertNotNull(exception);
@@ -163,7 +165,8 @@ public class PrivilegeConstraintsValidatorTest {
 
     // Mock authorization to return true
     Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
+            mockAspectRetriever.getLatestAspectObject(
+                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
         .thenReturn(null);
     authUtilMockedStatic
         .when(
@@ -177,7 +180,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -192,7 +198,8 @@ public class PrivilegeConstraintsValidatorTest {
 
     // Mock authorization to return false
     Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
+            mockAspectRetriever.getLatestAspectObject(
+                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
         .thenReturn(null);
     authUtilMockedStatic
         .when(
@@ -206,7 +213,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Optional<AspectValidationException> maybeResult = result.findFirst();
     Assert.assertTrue(maybeResult.isPresent());
@@ -228,7 +238,8 @@ public class PrivilegeConstraintsValidatorTest {
     // Mock existing tags
     Aspect existingAspect = new Aspect(existingGlobalTags.data());
     Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
+            mockAspectRetriever.getLatestAspectObject(
+                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
         .thenReturn(existingAspect);
 
     // Only TEST_TAG_URN_2 is being added (difference), TEST_TAG_URN already exists
@@ -244,7 +255,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -261,7 +275,8 @@ public class PrivilegeConstraintsValidatorTest {
     // Mock existing tags
     Aspect existingAspect = new Aspect(existingGlobalTags.data());
     Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
+            mockAspectRetriever.getLatestAspectObject(
+                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
         .thenReturn(existingAspect);
 
     // TEST_TAG_URN_2 is being removed (difference)
@@ -277,7 +292,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -294,7 +312,8 @@ public class PrivilegeConstraintsValidatorTest {
     // Mock existing tags
     Aspect existingAspect = new Aspect(existingGlobalTags.data());
     Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
+            mockAspectRetriever.getLatestAspectObject(
+                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
         .thenReturn(existingAspect);
 
     // No differences, so empty set of subresources
@@ -310,7 +329,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -325,7 +347,7 @@ public class PrivilegeConstraintsValidatorTest {
 
     Mockito.when(
             mockAspectRetriever.getLatestAspectObject(
-                TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
+                any(OperationFingerprint.class), TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
         .thenReturn(null);
     authUtilMockedStatic
         .when(
@@ -339,7 +361,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -354,7 +379,7 @@ public class PrivilegeConstraintsValidatorTest {
 
     Mockito.when(
             mockAspectRetriever.getLatestAspectObject(
-                TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
+                any(OperationFingerprint.class), TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
         .thenReturn(null);
     authUtilMockedStatic
         .when(
@@ -368,7 +393,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Optional<AspectValidationException> maybeResult = result.findFirst();
     Assert.assertTrue(maybeResult.isPresent());
@@ -392,7 +420,7 @@ public class PrivilegeConstraintsValidatorTest {
     Aspect existingAspect = new Aspect(existingSchemaMetadata.data());
     Mockito.when(
             mockAspectRetriever.getLatestAspectObject(
-                TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
+                any(OperationFingerprint.class), TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
         .thenReturn(existingAspect);
 
     // Only TEST_TAG_URN_2 is being added (difference), TEST_TAG_URN already exists
@@ -408,7 +436,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -427,7 +458,7 @@ public class PrivilegeConstraintsValidatorTest {
     Aspect existingAspect = new Aspect(existingSchemaMetadata.data());
     Mockito.when(
             mockAspectRetriever.getLatestAspectObject(
-                TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
+                any(OperationFingerprint.class), TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
         .thenReturn(existingAspect);
 
     // TEST_TAG_URN_2 is being removed (difference)
@@ -443,7 +474,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -463,7 +497,7 @@ public class PrivilegeConstraintsValidatorTest {
     Aspect existingAspect = new Aspect(existingSchemaMetadata.data());
     Mockito.when(
             mockAspectRetriever.getLatestAspectObject(
-                TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
+                any(OperationFingerprint.class), TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME))
         .thenReturn(existingAspect);
 
     // No differences, so empty set of subresources
@@ -479,7 +513,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -495,7 +532,9 @@ public class PrivilegeConstraintsValidatorTest {
 
     Mockito.when(
             mockAspectRetriever.getLatestAspectObject(
-                TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
+                any(OperationFingerprint.class),
+                TEST_DATASET_URN,
+                EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
         .thenReturn(null);
     authUtilMockedStatic
         .when(
@@ -509,7 +548,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -525,7 +567,9 @@ public class PrivilegeConstraintsValidatorTest {
 
     Mockito.when(
             mockAspectRetriever.getLatestAspectObject(
-                TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
+                any(OperationFingerprint.class),
+                TEST_DATASET_URN,
+                EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
         .thenReturn(null);
     authUtilMockedStatic
         .when(
@@ -539,7 +583,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Optional<AspectValidationException> maybeResult = result.findFirst();
     Assert.assertTrue(maybeResult.isPresent());
@@ -564,7 +611,9 @@ public class PrivilegeConstraintsValidatorTest {
     Aspect existingAspect = new Aspect(existingEditableSchemaMetadata.data());
     Mockito.when(
             mockAspectRetriever.getLatestAspectObject(
-                TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
+                any(OperationFingerprint.class),
+                TEST_DATASET_URN,
+                EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
         .thenReturn(existingAspect);
 
     // Only TEST_TAG_URN_2 is being added (difference), TEST_TAG_URN already exists
@@ -580,7 +629,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -600,7 +652,9 @@ public class PrivilegeConstraintsValidatorTest {
     Aspect existingAspect = new Aspect(existingEditableSchemaMetadata.data());
     Mockito.when(
             mockAspectRetriever.getLatestAspectObject(
-                TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
+                any(OperationFingerprint.class),
+                TEST_DATASET_URN,
+                EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
         .thenReturn(existingAspect);
 
     // TEST_TAG_URN_2 is being removed (difference)
@@ -616,7 +670,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -636,7 +693,9 @@ public class PrivilegeConstraintsValidatorTest {
     Aspect existingAspect = new Aspect(existingEditableSchemaMetadata.data());
     Mockito.when(
             mockAspectRetriever.getLatestAspectObject(
-                TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
+                any(OperationFingerprint.class),
+                TEST_DATASET_URN,
+                EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
         .thenReturn(existingAspect);
 
     // No differences, so empty set of subresources
@@ -652,7 +711,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -665,7 +727,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(mockItem), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(mockItem),
+            retrieverContext,
+            mockAuthSession);
 
     // Should return empty stream for unsupported aspects (just logs warning)
     Assert.assertTrue(result.findAny().isEmpty());
@@ -675,7 +740,8 @@ public class PrivilegeConstraintsValidatorTest {
   public void testValidateProposedAspects() {
     // This method should return empty stream as per implementation
     Stream<AspectValidationException> result =
-        validator.validateProposedAspects(Collections.emptyList(), retrieverContext);
+        validator.validateProposedAspects(
+            OperationFingerprint.EMPTY, Collections.emptyList(), retrieverContext);
     Assert.assertTrue(result.findAny().isEmpty());
   }
 
@@ -683,7 +749,8 @@ public class PrivilegeConstraintsValidatorTest {
   public void testValidatePreCommitAspects() {
     // This method should return empty stream as per implementation
     Stream<AspectValidationException> result =
-        validator.validatePreCommitAspects(Collections.emptyList(), retrieverContext);
+        validator.validatePreCommitAspects(
+            OperationFingerprint.EMPTY, Collections.emptyList(), retrieverContext);
     Assert.assertTrue(result.findAny().isEmpty());
   }
 
@@ -721,7 +788,8 @@ public class PrivilegeConstraintsValidatorTest {
     // Mock existing tags
     Aspect existingAspect = new Aspect(existingGlobalTags.data());
     Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
+            mockAspectRetriever.getLatestAspectObject(
+                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
         .thenReturn(existingAspect);
     Mockito.when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
 
@@ -742,7 +810,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(proposedItem), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(proposedItem),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -781,7 +852,8 @@ public class PrivilegeConstraintsValidatorTest {
     // Mock existing tags
     Aspect existingAspect = new Aspect(existingGlobalTags.data());
     Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
+            mockAspectRetriever.getLatestAspectObject(
+                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
         .thenReturn(existingAspect);
     Mockito.when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
 
@@ -798,7 +870,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(proposedItem), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(proposedItem),
+            retrieverContext,
+            mockAuthSession);
 
     Optional<AspectValidationException> maybeResult = result.findFirst();
     Assert.assertTrue(maybeResult.isPresent());
@@ -814,7 +889,7 @@ public class PrivilegeConstraintsValidatorTest {
     // When no items are passed (empty collection), should return empty without error
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.emptyList(), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY, Collections.emptyList(), retrieverContext, mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -828,7 +903,8 @@ public class PrivilegeConstraintsValidatorTest {
     // This is the scenario that caused the original bug:
     // Empty collection + null session should return empty, not throw IllegalStateException
     Stream<AspectValidationException> result =
-        validator.validateProposedAspectsWithAuth(Collections.emptyList(), retrieverContext, null);
+        validator.validateProposedAspectsWithAuth(
+            OperationFingerprint.EMPTY, Collections.emptyList(), retrieverContext, null);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -853,7 +929,10 @@ public class PrivilegeConstraintsValidatorTest {
     // UI source items should be skipped, no authorization check needed
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -878,7 +957,10 @@ public class PrivilegeConstraintsValidatorTest {
     // System update source items should be skipped, no authorization check needed
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -904,7 +986,7 @@ public class PrivilegeConstraintsValidatorTest {
     // This ensures upgrade steps can process tags without failing on auth
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, null);
+            OperationFingerprint.EMPTY, Collections.singletonList(item), retrieverContext, null);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
@@ -925,7 +1007,8 @@ public class PrivilegeConstraintsValidatorTest {
 
     // Without APP_SOURCE property, should still validate normally
     Mockito.when(
-            mockAspectRetriever.getLatestAspectObject(TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
+            mockAspectRetriever.getLatestAspectObject(
+                any(OperationFingerprint.class), TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME))
         .thenReturn(null);
     authUtilMockedStatic
         .when(
@@ -939,7 +1022,10 @@ public class PrivilegeConstraintsValidatorTest {
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
