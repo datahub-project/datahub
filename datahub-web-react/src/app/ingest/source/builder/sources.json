@@ -287,6 +287,14 @@
         "recipe": "source:\n  type: metabase\n  config:\n    # Coordinates\n    connect_uri:\n\n    # Credentials\n    username: root\n    password: example"
     },
     {
+        "urn": "urn:li:dataPlatform:lightdash",
+        "name": "lightdash",
+        "displayName": "Lightdash",
+        "description": "Import Projects, Spaces, Dashboards, Charts, and column-level lineage from Lightdash.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/lightdash/",
+        "recipe": "source:\n  type: lightdash\n  config:\n    connection:\n      base_url: https://lightdash.example.com\n      personal_access_token: \"${LIGHTDASH_PAT}\"\n    extract_lineage: true\n    extract_owners: true\n    stateful_ingestion:\n      enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:mlflow",
         "name": "mlflow",
         "displayName": "MLflow",

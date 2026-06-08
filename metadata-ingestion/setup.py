@@ -719,6 +719,7 @@ plugins: Dict[str, Set[str]] = {
     "kafka-connect": sql_common
     | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "ldap": {"python-ldap>=2.4,<4.0.0"},
+    "lightdash": {"requests<3.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
     "metabase": {"requests<3.0.0"} | sqlglot_lib,
@@ -991,6 +992,7 @@ base_dev_requirements = {
             "mongodb",
             "json-schema",
             "ldap",
+            "lightdash",
             "looker",
             "lookml",
             "glue",
@@ -1144,6 +1146,7 @@ entry_points = {
         "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
+        "lightdash = datahub.ingestion.source.lightdash.source:LightdashSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
         "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",
