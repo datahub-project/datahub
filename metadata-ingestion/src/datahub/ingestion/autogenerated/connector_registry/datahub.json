@@ -3798,6 +3798,68 @@
       "platform_name": "Salesforce",
       "support_status": "CERTIFIED"
     },
+    "sap-datasphere": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Spaces emitted as containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Column-level lineage from CSN columns[] expressions. Enable via `include_lineage: true`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Field descriptions from EDMX Common.Label annotations",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Soft-delete via stateful ingestion stale-entity removal",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "CDS semantic annotations (Dimension/Measure/Calendar/Currency/Unit/DimensionType) emitted as DataHub tags on the relevant schema fields and datasets. Toggle via `emit_sap_semantics_as_tags` (default True).",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Per-connection platform_instance via connection_to_platform_map",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Columns from OData EDMX",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Table-level lineage from CSN query refs and @remote.source annotations. Enable via `include_lineage: true`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Validates OAuth credentials and tenant URL",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.sap_datasphere.source.SapDatasphereSource",
+      "platform_id": "sap-datasphere",
+      "platform_name": "SAP Datasphere",
+      "support_status": "TESTING"
+    },
     "sigma": {
       "capabilities": [
         {

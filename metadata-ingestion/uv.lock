@@ -547,6 +547,7 @@ dev = [
     { name = "db-dtypes" },
     { name = "deepdiff" },
     { name = "deepmerge" },
+    { name = "defusedxml" },
     { name = "deltalake" },
     { name = "deprecated" },
     { name = "dlt" },
@@ -629,6 +630,7 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "pytest-docker" },
+    { name = "pytest-httpserver" },
     { name = "pytest-random-order" },
     { name = "pytest-rerunfailures" },
     { name = "pytest-timeout" },
@@ -741,6 +743,7 @@ docs = [
     { name = "db-dtypes" },
     { name = "deepdiff" },
     { name = "deepmerge" },
+    { name = "defusedxml" },
     { name = "deltalake" },
     { name = "deprecated" },
     { name = "dlt" },
@@ -823,6 +826,7 @@ docs = [
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "pytest-docker" },
+    { name = "pytest-httpserver" },
     { name = "pytest-random-order" },
     { name = "pytest-rerunfailures" },
     { name = "pytest-timeout" },
@@ -1562,6 +1566,11 @@ salesforce = [
     { name = "cachetools" },
     { name = "simple-salesforce" },
 ]
+sap-datasphere = [
+    { name = "defusedxml" },
+    { name = "graphql-core" },
+    { name = "requests" },
+]
 sigma = [
     { name = "patchy" },
     { name = "requests" },
@@ -2119,9 +2128,12 @@ requires-dist = [
     { name = "deepmerge", marker = "extra == 'looker'", specifier = ">=1.1.1,<3.0.0" },
     { name = "deepmerge", marker = "extra == 'lookml'", specifier = ">=1.1.1,<3.0.0" },
     { name = "defusedxml", marker = "extra == 'all'", specifier = ">=0.7.1,<0.8.0" },
+    { name = "defusedxml", marker = "extra == 'dev'", specifier = ">=0.7.1,<0.8.0" },
+    { name = "defusedxml", marker = "extra == 'docs'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'hana'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'informatica'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'integration-tests'", specifier = ">=0.7.1,<0.8.0" },
+    { name = "defusedxml", marker = "extra == 'sap-datasphere'", specifier = ">=0.7.1,<0.8.0" },
     { name = "deltalake", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'all'", specifier = ">=0.6.3,!=0.6.4,!=0.18.0,<1.0.0" },
     { name = "deltalake", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'delta-lake'", specifier = ">=0.6.3,!=0.6.4,!=0.18.0,<1.0.0" },
     { name = "deltalake", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'dev'", specifier = ">=0.6.3,!=0.6.4,!=0.18.0,<1.0.0" },
@@ -2255,6 +2267,7 @@ requires-dist = [
     { name = "graphql-core", marker = "extra == 'datahub-rest'", specifier = ">=3.0.0,<4.0.0" },
     { name = "graphql-core", marker = "extra == 'dev'", specifier = ">=3.0.0,<4.0.0" },
     { name = "graphql-core", marker = "extra == 'docs'", specifier = ">=3.0.0,<4.0.0" },
+    { name = "graphql-core", marker = "extra == 'sap-datasphere'", specifier = ">=3.0.0,<4.0.0" },
     { name = "greenlet", marker = "extra == 'all'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'athena'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'bigquery'", specifier = "<4.0.0" },
@@ -2754,6 +2767,8 @@ requires-dist = [
     { name = "pytest-docker", marker = "extra == 'dev'", specifier = ">=1.1.0,<4.0.0" },
     { name = "pytest-docker", marker = "extra == 'docs'", specifier = ">=1.1.0,<4.0.0" },
     { name = "pytest-docker", marker = "extra == 'testing-utils'", specifier = ">=1.1.0,<4.0.0" },
+    { name = "pytest-httpserver", marker = "extra == 'dev'", specifier = ">=1.0.0,<2.0.0" },
+    { name = "pytest-httpserver", marker = "extra == 'docs'", specifier = ">=1.0.0,<2.0.0" },
     { name = "pytest-random-order", marker = "extra == 'dev'", specifier = "~=1.1.0,<2.0.0" },
     { name = "pytest-random-order", marker = "extra == 'docs'", specifier = "~=1.1.0,<2.0.0" },
     { name = "pytest-rerunfailures", marker = "extra == 'dev'", specifier = "<17.0" },
@@ -2831,6 +2846,7 @@ requires-dist = [
     { name = "requests", marker = "extra == 'qlik-sense'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'rdf'", specifier = "==2.32.5" },
     { name = "requests", marker = "extra == 'sac'", specifier = "<3.0.0" },
+    { name = "requests", marker = "extra == 'sap-datasphere'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'sigma'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'superset'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'unity-catalog'", specifier = "<3.0.0" },
@@ -3332,7 +3348,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sap-datasphere", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"
@@ -10521,6 +10537,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/66/05/b7e47dc3e01b505838372e296bd780180b3b699a9a134bb8d6be85f3d567/pytest_docker-3.2.5.tar.gz", hash = "sha256:c9662567522911280b394af4da2edd57facaf644494601fac962ff1e396d7ab6", size = 13717, upload-time = "2025-11-12T13:42:19.641Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9f/e4/3a76a393f808edb0ee08ecc25e5c00bce0522a45b8fcf8693ec9441739c8/pytest_docker-3.2.5-py3-none-any.whl", hash = "sha256:79f3d209f928f45d4385cb825944861bc8a8cccd309804d9c9cd63bcef03edba", size = 8724, upload-time = "2025-11-12T13:42:18.631Z" },
+]
+
+[[package]]
+name = "pytest-httpserver"
+version = "1.1.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "werkzeug" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/50/17/ad187f46998814014f7cda309de700b87c0eb4b2e111e18bc8c819be7116/pytest_httpserver-1.1.5.tar.gz", hash = "sha256:dc3d82e1fe00e491829d8939c549bf4bd9b39a260f87113c619b9d517c2f8ff1", size = 70974, upload-time = "2026-02-14T13:27:23.412Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ec/df/0bdf90b84c6a586a9fd2b509523a3ab26b1cc1b1dba2fb62a32e4411ea9e/pytest_httpserver-1.1.5-py3-none-any.whl", hash = "sha256:ee83feb587ab652c0c6729598db2820e9048233bac8df756818b7845a1621d0a", size = 23330, upload-time = "2026-02-14T13:27:22.119Z" },
 ]
 
 [[package]]

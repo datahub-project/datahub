@@ -1081,6 +1081,12 @@ salesforce = [
     "simple-salesforce<2.0.0",
 ]
 
+sap-datasphere = [
+    "defusedxml>=0.7.1,<0.8.0",
+    "graphql-core>=3.0.0,<4.0.0",
+    "requests<3.0.0",
+]
+
 sigma = [
     "patchy==2.8.0",
     "requests<3.0.0",
@@ -1518,6 +1524,7 @@ dev = [
     "db-dtypes",
     "deepdiff!=8.0.0,<9.0.0",
     "deepmerge>=1.1.1,<3.0.0",
+    "defusedxml>=0.7.1,<0.8.0",
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "Deprecated<2.0.0",
@@ -1599,6 +1606,7 @@ dev = [
     "pytest-asyncio>=0.16.0,<2.0.0",
     "pytest-cov>=2.8.1,<8.0.0",
     "pytest-docker>=1.1.0,<4.0.0",
+    "pytest-httpserver>=1.0.0,<2.0.0",
     "pytest-random-order~=1.1.0,<2.0.0",
     "pytest-rerunfailures<17.0",
     "pytest-timeout<3.0.0",
@@ -1710,6 +1718,7 @@ docs = [
     "db-dtypes",
     "deepdiff!=8.0.0,<9.0.0",
     "deepmerge>=1.1.1,<3.0.0",
+    "defusedxml>=0.7.1,<0.8.0",
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "Deprecated<2.0.0",
@@ -1791,6 +1800,7 @@ docs = [
     "pytest-asyncio>=0.16.0,<2.0.0",
     "pytest-cov>=2.8.1,<8.0.0",
     "pytest-docker>=1.1.0,<4.0.0",
+    "pytest-httpserver>=1.0.0,<2.0.0",
     "pytest-random-order~=1.1.0,<2.0.0",
     "pytest-rerunfailures<17.0",
     "pytest-timeout<3.0.0",
@@ -2031,6 +2041,7 @@ postgres = "datahub.ingestion.source.sql.postgres:PostgresSource"
 rdf = "datahub.ingestion.source.rdf.ingestion.rdf_source:RDFSource"
 redash = "datahub.ingestion.source.redash:RedashSource"
 redshift = "datahub.ingestion.source.redshift.redshift:RedshiftSource"
+sap-datasphere = "datahub.ingestion.source.sap_datasphere.source:SapDatasphereSource"
 slack = "datahub.ingestion.source.slack.slack:SlackSource"
 snowflake = "datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source"
 snowflake-summary = "datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource"

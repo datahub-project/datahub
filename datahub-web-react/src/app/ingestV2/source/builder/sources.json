@@ -467,6 +467,16 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:sap-datasphere",
+        "name": "sap-datasphere",
+        "displayName": "SAP Datasphere",
+        "description": "Import Views, Analytical Models, Local Tables and federated Remote Tables from SAP Datasphere, with table-level and column-level lineage.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sap-datasphere/",
+        "recipe": "source:\n    type: sap-datasphere\n    config:\n        # Your SAP Datasphere tenant base URL\n        base_url: # https://<tenant>.<region>.hcs.cloud.sap\n        # Authentication — choose ONE:\n        # 1) raw bearer token\n        token: \"${SAP_DATASPHERE_TOKEN}\"\n        # 2) OAuth client-credentials / refresh-token (uncomment + set):\n        # client_id: \"${SAP_DATASPHERE_CLIENT_ID}\"\n        # client_secret: \"${SAP_DATASPHERE_CLIENT_SECRET}\"\n        # xsuaa_url: # https://<tenant>.authentication.<region>.hana.ondemand.com\n        stateful_ingestion:\n            enabled: true",
+        "category": "BI & Analytics",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:custom",
         "name": "custom",
         "displayName": "Other",

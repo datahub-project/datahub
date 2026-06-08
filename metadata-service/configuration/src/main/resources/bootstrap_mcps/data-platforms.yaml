@@ -857,6 +857,16 @@
     displayName: SAP Analytics Cloud
     type: OTHERS
     logoUrl: "assets/platforms/saclogo.svg"
+- entityUrn: urn:li:dataPlatform:sap-datasphere
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: sap-datasphere
+    displayName: SAP Datasphere
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/sapdataspherelogo.svg"
 - entityUrn: urn:li:dataPlatform:dremio
   entityType: dataPlatform
   aspectName: dataPlatformInfo

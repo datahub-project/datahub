@@ -1,0 +1,150 @@
+# Example recipe for SAP Datasphere ingestion into DataHub.
+#
+# Managed Datasphere assets (Views, Analytical Models, Local Tables) emit on the
+# `sap-datasphere` platform. Federated Remote Tables emit on the storage platform
+# they federate from (snowflake / s3 / bigquery / hana-on-prem / ...) so they
+# merge automatically with native warehouse-connector URNs for downstream
+# lineage join purposes.
+#
+# THREE AUTHENTICATION OPTIONS are supported; pick exactly one:
+#   1) Raw bearer token (simplest, but expires; good for ad-hoc runs)
+#   2) Refresh-token grant: refresh_token + client_id + xsuaa_url
+#   3) Client-credentials grant: client_id + client_secret + xsuaa_url
+#
+# PREREQUISITE — SPACE MEMBERSHIP: the ingestion principal (the user / OAuth
+# client behind the credentials above) must be a MEMBER of every Datasphere
+# space you want to ingest (Space Management -> space -> Members). Spaces the
+# principal is not a member of return HTTP 403 and are silently skipped (logged
+# as a `report` warning). This is the #1 reason DataHub captures fewer objects
+# than a human sees in the Data Builder.
+#
+source:
+  type: sap-datasphere
+  config:
+    # The SAP Datasphere tenant URL. The legacy field name `tenant_url` is still
+    # accepted (deprecated alias) for backwards compatibility.
+    base_url: "https://yourtenant.eu10.hcs.cloud.sap"
+
+    # Option 1: raw bearer token from the UI.
+    token: "${SAP_DATASPHERE_TOKEN}"
+
+    # Option 2: refresh-token flow.
+    # refresh_token: "${SAP_DATASPHERE_REFRESH_TOKEN}"
+    # client_id: "${SAP_DATASPHERE_CLIENT_ID}"
+    # xsuaa_url: "https://yourtenant.authentication.eu10.hana.ondemand.com"
+
+    # Option 3: client-credentials flow.
+    # client_id: "${SAP_DATASPHERE_CLIENT_ID}"
+    # client_secret: "${SAP_DATASPHERE_CLIENT_SECRET}"
+    # xsuaa_url: "https://yourtenant.authentication.eu10.hana.ondemand.com"
+
+    env: "PROD"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Platform mapping — federated Remote Tables only.
+    #
+    # Managed Datasphere assets (Views, Analytical Models, Local Tables) always
+    # emit on the `sap-datasphere` platform and do NOT use these maps.
+    #
+    # `connection_to_platform_map` is keyed by the Datasphere CONNECTION NAME
+    # (visible in the Datasphere UI's Connections page) for federated Remote
+    # Tables.
+    #
+    # `platform_type_defaults` is a fallback keyed by Datasphere connection
+    # TYPE-ID (e.g., HANA, SNOWFLAKE, S3) — applied when a federated asset's
+    # connection isn't explicitly listed in `connection_to_platform_map`. The
+    # connector ships with built-in defaults for HANA, MSSQL, S3, GCS, ABAP,
+    # SAPS4HANACLOUD, and SAPBWMODELTRANSFER; others default to
+    # `enabled: false` until you opt them in.
+    # ─────────────────────────────────────────────────────────────────────────
+    # Managed assets (Views, Analytical Models, Local Tables in Datasphere's own
+    # HANA Cloud) always emit on the `sap-datasphere` platform — no entry needed.
+    #
+    # Populate connection_to_platform_map ONLY for federated Remote Tables so
+    # their URNs match what your native warehouse connectors emit.
+    #
+    # To skip managed-asset ingestion entirely, set `_managed: {enabled: false}`
+    # — that's the only field honored on the synthetic `_managed` key.
+    connection_to_platform_map:
+      # Example: federated Snowflake source
+      # SNOWFLAKE_PROD:
+      #   platform: snowflake
+      #   platform_instance: "acct_xyz_warehouse_prod"
+      #   env: "PROD"
+      #   enabled: true
+
+      # Example: federated S3 — disable to skip these assets
+      # CLOUD_STORAGE:
+      #   platform: s3
+      #   enabled: false
+
+    # Override platform defaults for typeIds not in the built-in table:
+    # platform_type_defaults:
+    #   SNOWFLAKE:
+    #     platform: snowflake
+    #   BIGQUERY:
+    #     platform: bigquery
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Lineage extraction (table-level + column-level).
+    #
+    # Uses the SAP-supported per-object-type endpoint under
+    # `/dwaas-core/api/v1/spaces/X/{views,analyticmodels}/Y` (same surface the
+    # official `datasphere` CLI uses). All other connector functionality
+    # (catalog discovery, EDMX schema, connection routing) is also on
+    # SAP-supported APIs. Enabling include_lineage:
+    #   - Gives you full table-level + column-level lineage from each
+    #     view's SELECT FROM and SELECT columns clauses
+    #   - Adds one extra HTTP call per asset (assets where the CSN fetch
+    #     fails are surfaced via `report.assets_csn_fetch_failed` and
+    #     emitted without lineage rather than aborting ingestion)
+    #
+    # The legacy field name `include_table_lineage` is still accepted (deprecated
+    # alias) for backwards compatibility with older recipes.
+    # ─────────────────────────────────────────────────────────────────────────
+    include_lineage: false
+
+    # Filters
+    space_pattern:
+      allow:
+        - "^PROD_.*"
+      deny:
+        - "^TEMP_.*"
+
+    asset_pattern:
+      deny:
+        - "^STAGING_.*"
+
+    expose_for_consumption_only: false
+
+    # HTTP behavior
+    request_timeout_sec: 30
+    max_retries: 3
+
+    # Stateful ingestion — enables soft-deletion of removed assets/spaces.
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "${DATAHUB_GMS_URL}"
+    token: "${DATAHUB_GMS_TOKEN}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SAP semantic annotations surfaced by this connector
+# ─────────────────────────────────────────────────────────────────────────────
+# These are emitted as customProperties / description suffixes on the
+# dataset URN the connector emits for each asset (sap-datasphere for managed
+# assets; the federated storage platform for Remote Tables).
+#
+# ENTITY-LEVEL (on dataset customProperties):
+#   sap_is_dimension   = "true"   if EDMX has Analytics.Dimension
+#   sap_is_measure     = "true"   if Analytics.Measure
+#   sap_dimension_type = "Time"   from Analytics.dimensionType (enum prefix stripped)
+#   sap_datasphere_space = "<space-id>"
+#   sap_datasphere_asset = "<asset-name>"
+#
+# FIELD-LEVEL (in field description brackets):
+#   sap_calendar_type = "date" | "year" | "quarter" | "month" | "week" | "yearmonth"
+#   sap_semantic      = "currency" | "unit"

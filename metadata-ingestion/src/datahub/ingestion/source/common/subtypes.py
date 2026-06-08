@@ -46,6 +46,8 @@ class DatasetSubTypes(StrEnum):
     SEMANTIC_MODEL = "Semantic Model"
     SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
     SAP_HANA_CALCULATION_VIEW = "Calculation View"
+    SAP_ANALYTICAL_MODEL = "Analytic Model"
+    SAP_LOCAL_TABLE = "Local Table"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
 
@@ -80,6 +82,9 @@ class DatasetContainerSubTypes(StrEnum):
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
     DREMIO_FOLDER = "Dremio Folder"
+    # SAP Datasphere — value matches the freeform string previously emitted by the
+    # connector so existing golden files do not churn.
+    SAP_DATASPHERE_SPACE = "Space"
     # Matillion
     MATILLION_PROJECT = "Project"
     MATILLION_ENVIRONMENT = "Environment"

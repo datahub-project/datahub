@@ -1285,6 +1285,8 @@ pytest-cov==7.0.0
     # via acryl-datahub
 pytest-docker==3.2.5
     # via acryl-datahub
+pytest-httpserver==1.1.5
+    # via acryl-datahub
 pytest-random-order==1.1.1
     # via acryl-datahub
 pytest-rerunfailures==16.1
@@ -1986,6 +1988,7 @@ werkzeug==3.1.6
     # via
     #   flask
     #   moto
+    #   pytest-httpserver
 widgetsnbextension==4.0.15
     # via ipywidgets
 win-precise-time==1.4.2 ; (python_full_version < '3.13' and os_name == 'nt' and platform_machine != 'arm64') or (python_full_version < '3.13' and os_name == 'nt' and sys_platform != 'darwin')
