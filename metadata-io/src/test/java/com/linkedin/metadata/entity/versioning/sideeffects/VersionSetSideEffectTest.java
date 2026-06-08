@@ -4,10 +4,12 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.VersionProperties;
@@ -127,7 +129,10 @@ public class VersionSetSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                any(OperationFingerprint.class),
+                Collections.singletonList(changeItem),
+                retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results
@@ -172,7 +177,10 @@ public class VersionSetSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                any(OperationFingerprint.class),
+                Collections.singletonList(changeItem),
+                retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results - should still get one patch to set isLatest=true on current latest
@@ -205,7 +213,10 @@ public class VersionSetSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .postMCPSideEffect(Collections.singletonList(mclItem), retrieverContext)
+            .postMCPSideEffect(
+                any(OperationFingerprint.class),
+                Collections.singletonList(mclItem),
+                retrieverContext)
             .collect(Collectors.toList());
 
     // Verify no changes for non-version set properties aspects

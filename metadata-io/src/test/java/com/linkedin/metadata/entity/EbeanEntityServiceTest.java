@@ -238,14 +238,16 @@ public class EbeanEntityServiceTest
     // Prevent actual saves
     EntityAspect mockEntityAspect = mock(EntityAspect.class);
     when(mockEntityAspect.getMetadata()).thenReturn("");
-    doReturn(Optional.of(mockEntityAspect)).when(aspectDao).updateAspect(any(), any());
-    doReturn(Optional.of(mockEntityAspect)).when(aspectDao).insertAspect(any(), any(), anyLong());
+    doReturn(Optional.of(mockEntityAspect)).when(aspectDao).updateAspect(any(), any(), any());
+    doReturn(Optional.of(mockEntityAspect))
+        .when(aspectDao)
+        .insertAspect(any(), any(), any(), anyLong());
 
     // Stub methods that the transaction block will call
     // Use mutable maps because the code calls computeIfAbsent() on them
     when(aspectDao.getLatestAspects(any(), any(), anyBoolean()))
         .thenReturn(new java.util.HashMap<>());
-    when(aspectDao.getNextVersions(any())).thenReturn(new java.util.HashMap<>());
+    when(aspectDao.getNextVersions(any(), any())).thenReturn(new java.util.HashMap<>());
     // Stub saveLatestAspect to return a Pair with the mocked entity aspects
     when(aspectDao.saveLatestAspect(any(), any(), any(), any(), anyInt()))
         .thenReturn(Pair.of(Optional.of(mockEntityAspect), Optional.of(mockEntityAspect)));
@@ -310,7 +312,7 @@ public class EbeanEntityServiceTest
     assertEquals(results.size(), 0, "Expected no results for rolled back transaction");
 
     // Verify transaction behavior
-    verify(aspectDao).runInTransactionWithRetry(any(), eq(batch), anyInt());
+    verify(aspectDao).runInTransactionWithRetry(any(), any(), eq(batch), anyInt());
     verify(capturedTxContext.get()).commitAndContinue();
 
     // Verify the transaction result was a rollback
@@ -538,6 +540,7 @@ public class EbeanEntityServiceTest
             .beginTransaction(TxScope.requiresNew())) {
       TransactionContext transactionContext = TransactionContext.empty(transaction, 3);
       _entityServiceImpl.aspectDao.insertAspect(
+          opContext,
           transactionContext,
           EntityAspect.EntitySystemAspect.builder()
               .forInsert(

@@ -131,7 +131,8 @@ public class EntityUtilsTest {
     Map<String, Set<String>> urnAspects = new HashMap<>();
 
     Map<String, Map<String, Long>> result =
-        EntityUtils.calculateNextVersions(txContext, aspectDao, latestAspects, urnAspects);
+        EntityUtils.calculateNextVersions(
+            opContext, txContext, aspectDao, latestAspects, urnAspects);
 
     assertTrue(result.isEmpty());
   }
