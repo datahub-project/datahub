@@ -95,7 +95,7 @@ public class EntityServiceAspectRetriever implements AspectRetriever {
             ? (OperationContext) context
             : Objects.requireNonNull(
                 systemOperationContext, "systemOperationContext not initialized");
-    return urns.stream()
-        .collect(Collectors.toMap(urn -> urn, urn -> entityService.exists(op, urn)));
+    final Set<Urn> existing = entityService.exists(op, urns);
+    return urns.stream().collect(Collectors.toMap(urn -> urn, existing::contains));
   }
 }
