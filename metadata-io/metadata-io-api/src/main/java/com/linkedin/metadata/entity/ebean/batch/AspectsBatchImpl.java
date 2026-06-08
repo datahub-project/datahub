@@ -251,6 +251,9 @@ public class AspectsBatchImpl implements AspectsBatch {
       }
       this.nonRepeatedItems = filterRepeats(this.items);
 
+      // operationContext serves dual roles here: OperationFingerprint for routing (1st arg)
+      // and AuthorizationSession for per-user auth checks (4th arg). OperationContext
+      // implements both interfaces; this matches pre-refactor behaviour.
       ValidationExceptionCollection exceptions =
           AspectsBatch.validateProposed(
               operationContext, this.nonRepeatedItems, this.retrieverContext, operationContext);
