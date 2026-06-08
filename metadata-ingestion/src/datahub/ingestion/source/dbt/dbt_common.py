@@ -150,6 +150,7 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
@@ -2041,7 +2042,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
     @staticmethod
     def _to_schema_info(schema_fields: List[SchemaField]) -> SchemaInfo:
-        return {column.fieldPath: column.nativeDataType for column in schema_fields}
+        # Schemas fetched from the graph (e.g. a Glue dataset's SchemaMetadata) use
+        # v2 fieldPaths like "[version=2.0].[type=string].event_id". The SQL parser
+        # matches on bare column names, so strip the v2 wrapper here -- mirroring
+        # what the rest of the SQL-parsing stack does in
+        # `_convert_schema_field_list_to_info`. Bare names (from the dbt catalog)
+        # pass through unchanged.
+        return {
+            get_simple_field_path_from_v2_field_path(
+                column.fieldPath
+            ): column.nativeDataType
+            for column in schema_fields
+        }
 
     def _determine_cll_required_nodes(
         self, all_nodes_map: Dict[str, DBTNode]

@@ -1,3 +1,5 @@
+from unittest import mock
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTNode
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
@@ -122,3 +124,55 @@ def test_glue_cll_without_catalog_prefix_still_works() -> None:
 
     assert len(model.upstream_cll) == 1
     assert model.upstream_cll[0].upstream_dbt_name == upstream_dbt_name
+
+
+def test_glue_cll_v2_fieldpath_schema_from_graph_resolves() -> None:
+    """When the upstream schema is fetched from the graph (e.g. a Glue dataset),
+    its fieldPaths are v2-encoded (``[version=2.0].[type=string].event_id``).
+    `_to_schema_info` must strip the v2 wrapper so the SQL parser can match the
+    bare column names; otherwise upstream_cll comes back empty."""
+    from datahub.metadata.schema_classes import (
+        SchemaFieldClass,
+        SchemaFieldDataTypeClass,
+        SchemaMetadataClass,
+        StringTypeClass,
+    )
+
+    upstream_dbt_name = "source.project.angi_snowplow.events"
+    model_dbt_name = "model.project.my_model"
+    upstream, model = _make_glue_nodes(
+        upstream_dbt_name,
+        model_dbt_name,
+        compiled_sql=(
+            "SELECT event_id "
+            'FROM "iceberg_prod_usw2"."angi_snowplow_lake_loader_events_prod"."events"'
+        ),
+    )
+    upstream.columns = []  # force the schema to come from the graph, not the catalog
+
+    v2_schema = SchemaMetadataClass(
+        schemaName="events",
+        platform="urn:li:dataPlatform:glue",
+        version=0,
+        hash="",
+        platformSchema=None,  # type: ignore[arg-type]
+        fields=[
+            SchemaFieldClass(
+                fieldPath="[version=2.0].[type=string].event_id",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="string",
+            )
+        ],
+    )
+
+    source = _make_glue_source()
+    source.ctx.graph = mock.MagicMock()
+    source.ctx.graph.get_aspect.return_value = v2_schema
+
+    source._infer_schemas_and_update_cll(
+        {upstream_dbt_name: upstream, model_dbt_name: model}
+    )
+
+    assert len(model.upstream_cll) == 1
+    assert model.upstream_cll[0].upstream_col == "event_id"
+    assert model.upstream_cll[0].downstream_col == "event_id"
