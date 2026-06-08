@@ -132,6 +132,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DashboardUrn, DatasetUrn, QueryUrn
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingDebugInfo,
@@ -153,6 +154,27 @@ from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
+
+
+class _CatalogStrippingSchemaResolver(SchemaResolver):
+    """SchemaResolver for dbt with include_database_name=False.
+
+    With include_database_name=False all URNs are registered as schema.table
+    (2-part), but dbt compiled SQL running on Trino/Athena references tables as
+    catalog.schema.table (3-part). Since no 3-part URN is ever registered, the
+    catalog component is stripped before every lookup so the resolved URN always
+    matches the 2-part URN that dbt and target_platform_urn_to_dbt_name use.
+    """
+
+    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
+        if table.database:
+            # All URNs are 2-part — skip the 3-part lookup entirely.
+            stripped = _TableName(
+                database=None, db_schema=table.db_schema, table=table.table
+            )
+            return super().resolve_table(stripped)
+        return super().resolve_table(table)
+
 
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
@@ -2079,7 +2101,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         graph: Optional[DataHubGraph] = self.ctx.graph
 
-        schema_resolver = SchemaResolver(
+        resolver_class = (
+            _CatalogStrippingSchemaResolver
+            if not self.config.include_database_name
+            else SchemaResolver
+        )
+        schema_resolver = resolver_class(
             platform=self.config.target_platform,
             platform_instance=self.config.target_platform_instance,
             env=self.config.env,
