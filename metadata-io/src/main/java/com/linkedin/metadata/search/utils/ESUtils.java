@@ -37,6 +37,8 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.service.LifecycleStageTypeService;
+import com.linkedin.metadata.throttle.ThrottleMechanismType;
+import com.linkedin.metadata.throttle.ThrottleResponseSource;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -1593,7 +1595,10 @@ public class ESUtils {
         APIThrottleException throttleException =
             new APIThrottleException(
                 TimeValue.parseTimeValue(keepAlive, "keepAlive").millis(),
-                "Too many point in times created, retry after keep alive has expired.");
+                "Too many point in times created, retry after keep alive has expired.",
+                "opensearch-pit",
+                ThrottleMechanismType.SEARCH,
+                ThrottleResponseSource.OPENSEARCH);
         try {
           throttleException.initCause(ose);
         } catch (IllegalStateException | IllegalArgumentException e) {
