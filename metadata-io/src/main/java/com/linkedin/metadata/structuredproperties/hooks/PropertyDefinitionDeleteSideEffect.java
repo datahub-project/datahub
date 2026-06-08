@@ -75,6 +75,9 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
           mclItem.getAuditStamp(),
           retrieverContext);
     } else if (STRUCTURED_PROPERTY_KEY_ASPECT_NAME.equals(mclItem.getAspectName())) {
+      // Hard delete emits only a key-aspect DELETE MCL after deleteUrn wipes the DB. Cleanup is
+      // driven by a companion propertyDefinition DELETE MCL with previousAspect (see
+      // EntityServiceImpl.deleteAspectWithoutMCL).
       Aspect definitionAspect =
           retrieverContext
               .getAspectRetriever()
@@ -82,6 +85,12 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
                   operationFingerprint,
                   mclItem.getUrn(),
                   STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+      if (definitionAspect == null) {
+        log.debug(
+            "Skipping assignment cleanup for {} key delete; definition already removed",
+            mclItem.getUrn());
+        return Stream.empty();
+      }
       return generatePatchMCPs(
           operationFingerprint,
           mclItem.getUrn(),
@@ -103,6 +112,10 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
       @Nullable StructuredPropertyDefinition definition,
       @Nullable AuditStamp auditStamp,
       @Nonnull RetrieverContext retrieverContext) {
+    if (definition == null) {
+      log.debug("Skipping assignment cleanup for {}; no propertyDefinition available", propertyUrn);
+      return Stream.empty();
+    }
     EntityWithPropertyIterator iterator =
         EntityWithPropertyIterator.builder()
             .propertyUrn(propertyUrn)
