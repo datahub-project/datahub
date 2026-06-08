@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -65,9 +64,11 @@ public class VersionSetSideEffectTest {
   private MockAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
   private VersionSetSideEffect sideEffect;
+  private OperationFingerprint mockOpContext;
 
   @BeforeMethod
   public void setup() {
+    mockOpContext = mock(OperationFingerprint.class);
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     VersionProperties existingProperties =
         new VersionProperties()
@@ -130,9 +131,7 @@ public class VersionSetSideEffectTest {
     List<MCPItem> sideEffectResults =
         sideEffect
             .applyMCPSideEffect(
-                any(OperationFingerprint.class),
-                Collections.singletonList(changeItem),
-                retrieverContext)
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results
@@ -178,9 +177,7 @@ public class VersionSetSideEffectTest {
     List<MCPItem> sideEffectResults =
         sideEffect
             .applyMCPSideEffect(
-                any(OperationFingerprint.class),
-                Collections.singletonList(changeItem),
-                retrieverContext)
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results - should still get one patch to set isLatest=true on current latest
@@ -213,10 +210,7 @@ public class VersionSetSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .postMCPSideEffect(
-                any(OperationFingerprint.class),
-                Collections.singletonList(mclItem),
-                retrieverContext)
+            .postMCPSideEffect(mockOpContext, Collections.singletonList(mclItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify no changes for non-version set properties aspects
