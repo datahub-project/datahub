@@ -1,8 +1,8 @@
 import { FilterSet } from '@app/entity/shared/components/styled/search/types';
 import { QuickFilterField } from '@app/searchV2/autoComplete/quickFilters/utils';
-import { UnionType } from '@app/searchV2/utils/constants';
+import { ENV_FILTER_NAME, ORIGIN_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
 
-import { AndFilterInput, EntityType, FacetFilterInput, QuickFilter } from '@types';
+import { AndFilterInput, EntityType, FacetFilterInput, FacetMetadata, QuickFilter } from '@types';
 
 /**
  * Combines 2 sets of conjunctive filters in Disjunctive Normal Form
@@ -217,4 +217,21 @@ export function combineOrFilters(orFilter1: AndFilterInput[], orFilter2: AndFilt
 
 export function excludeEmptyAndFilters(filters: AndFilterInput[] | undefined): AndFilterInput[] | undefined {
     return filters?.filter((filter) => filter.and?.length);
+}
+
+/**
+ * Ensures a single "Environment" filter is shown in the UI.
+ *
+ * The backend may return two facets for environment: "origin" and "env".
+ * When both are present, the backend merges their counts (see AggregationQueryBuilder.mergeAliasedFacets),
+ * and the "env" facet is hidden by FILTERS_TO_REMOVE — so "origin" is displayed with the correct total.
+ *
+ * When only "env" is returned (no "origin"), we rename it to "origin" so it is not
+ * hidden by FILTERS_TO_REMOVE. Filtering still works because the backend expands
+ * "origin" queries to search both fields (see ESUtils.FIELDS_TO_EXPANDED_FIELDS_LIST).
+ */
+export function mergeEnvIntoOriginFacets(facets: FacetMetadata[]): FacetMetadata[] {
+    const hasOrigin = facets.some((f) => f.field === ORIGIN_FILTER_NAME);
+    if (hasOrigin) return facets;
+    return facets.map((f) => (f.field === ENV_FILTER_NAME ? { ...f, field: ORIGIN_FILTER_NAME } : f));
 }

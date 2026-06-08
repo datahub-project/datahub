@@ -3,6 +3,7 @@ import {
     excludeEmptyAndFilters,
     getAutoCompleteInputFromQuickFilter,
     getFiltersWithQuickFilter,
+    mergeEnvIntoOriginFacets,
 } from '@app/searchV2/utils/filterUtils';
 
 describe('getAutoCompleteInputFromQuickFilter', () => {
@@ -83,5 +84,43 @@ describe('excludeEmptyAndFilters', () => {
         const result = excludeEmptyAndFilters([{ and: [] }, { and: [] }]);
 
         expect(result).toMatchObject([]);
+    });
+});
+
+describe('mergeEnvIntoOriginFacets', () => {
+    const makeFacet = (field: string, aggregations: Record<string, number> = {}) =>
+        ({
+            field,
+            displayName: field === 'origin' ? 'Environment' : field,
+            aggregations: Object.entries(aggregations).map(([value, count]) => ({ value, count })),
+        }) as any;
+
+    it('should return facets unchanged when origin is present', () => {
+        const facets = [makeFacet('origin', { PROD: 10 }), makeFacet('env', { PROD: 5 }), makeFacet('platform')];
+        const result = mergeEnvIntoOriginFacets(facets);
+
+        expect(result).toEqual(facets);
+    });
+
+    it('should rename env to origin when origin is not present', () => {
+        const facets = [makeFacet('env', { PROD: 5 }), makeFacet('platform')];
+        const result = mergeEnvIntoOriginFacets(facets);
+
+        expect(result).toHaveLength(2);
+        expect(result[0].field).toBe('origin');
+        expect(result[1].field).toBe('platform');
+    });
+
+    it('should return facets unchanged when neither env nor origin is present', () => {
+        const facets = [makeFacet('platform'), makeFacet('tags')];
+        const result = mergeEnvIntoOriginFacets(facets);
+
+        expect(result).toEqual(facets);
+    });
+
+    it('should handle empty facets array', () => {
+        const result = mergeEnvIntoOriginFacets([]);
+
+        expect(result).toEqual([]);
     });
 });
