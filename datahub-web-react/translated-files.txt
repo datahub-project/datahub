@@ -4,6 +4,7 @@ src/app/domainV2/**/*.{ts,tsx}
 src/app/entityV2/ownership/ManageOwnership.tsx
 src/app/entityV2/shared/tabs/Embed/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/Entity/**/*.{ts,tsx}
+src/app/entityV2/shared/tabs/Lineage/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/ML/**/*.{ts,tsx}
 src/app/entityV2/shared/tabs/Properties/**/*.{ts,tsx}
 src/app/entityV2/ownership/OwnershipBuilderModal.tsx
@@ -127,6 +128,7 @@ src/app/identity/user/cacheUtils.ts
 src/app/identity/user/recommendedUsersLocalStorage.ts
 src/app/identity/user/useRoleSelector.ts
 src/app/identity/user/useUserTitle.ts
+src/app/ingest/source/builder/IngestionSourceBuilderModal.tsx
 src/app/ingestV2/*.{ts,tsx}
 src/app/ingestV2/executions/**/*.{ts,tsx}
 src/app/ingestV2/hooks/**/*.{ts,tsx}
@@ -141,7 +143,11 @@ src/app/ingestV2/source/builder/RecipeForm/RecipeForm.tsx
 src/app/ingestV2/source/builder/RecipeForm/SecretField/**/*.{ts,tsx}
 src/app/ingestV2/source/builder/RecipeForm/TestConnection/**/*.{ts,tsx}
 src/app/ingestV2/source/builder/RecipeForm/common.tsx
+src/app/ingestV2/source/builder/useIngestionSources.ts
 src/app/ingestV2/source/multiStepBuilder/**/*.{ts,tsx}
+src/app/lineage/**/*.{ts,tsx}
+src/app/lineageV2/**/*.{ts,tsx}
+src/app/lineageV3/**/*.{ts,tsx}
 src/app/permissions/AvatarsGroup.tsx
 src/app/permissions/ManagePermissions.tsx
 src/app/permissions/policy/GlossarySelector.tsx
@@ -194,8 +200,6 @@ src/app/shared/share/v2/items/CopyLinkMenuItem.tsx
 src/app/shared/share/v2/items/CopyNameMenuItem.tsx
 src/app/shared/share/v2/items/CopyUrnMenuItem.tsx
 src/app/shared/share/v2/items/EmailMenuItem.tsx
-src/app/shared/tags/AddTagsTermsModal.tsx
-src/app/shared/tags/CreateTagModal.tsx
 src/app/shared/tags/TagProfileDrawer.tsx
 src/app/shared/tags/TagTermGroup.tsx
 src/app/shared/tags/tag/Tag.tsx
