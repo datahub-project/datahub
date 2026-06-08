@@ -6,8 +6,12 @@ import pytest
 import requests
 import requests.exceptions
 
-from datahub.ingestion.source.bigid.bigid_api import BigIDAPIError, BigIDClient, PAGE_SIZE
-
+from datahub.ingestion.source.bigid.bigid_api import (
+    PAGE_SIZE,
+    BigIDAPIError,
+    BigIDClient,
+)
+from datahub.ingestion.source.bigid.bigid_utils import IDSoRAttributeInfo
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -73,9 +77,8 @@ def test_get_access_token_exchanges_user_token():
 
 def test_get_access_token_http_error_raises():
     client = _client_with_user_token()
-    with patch.object(client.session, "get", side_effect=_http_error(503)):
-        with pytest.raises(BigIDAPIError, match="Token refresh failed"):
-            client._get_access_token()
+    with patch.object(client.session, "get", side_effect=_http_error(503)), pytest.raises(BigIDAPIError, match="Token refresh failed"):
+        client._get_access_token()
 
 
 # ---------------------------------------------------------------------------
@@ -87,9 +90,8 @@ def test_get_access_token_missing_token_key_raises():
     client = _client_with_user_token()
     mock_resp = MagicMock()
     mock_resp.json.return_value = {"status": "ok"}
-    with patch.object(client.session, "get", return_value=mock_resp):
-        with pytest.raises(BigIDAPIError):
-            client._get_access_token()
+    with patch.object(client.session, "get", return_value=mock_resp), pytest.raises(BigIDAPIError):
+        client._get_access_token()
 
 
 # ---------------------------------------------------------------------------
@@ -113,9 +115,8 @@ def test_request_success():
 
 def test_request_http_500_raises():
     client = _client_with_access_token()
-    with patch.object(client.session, "get", side_effect=_http_error(500)):
-        with pytest.raises(BigIDAPIError, match="HTTP 500"):
-            client._request("/api/v1/something")
+    with patch.object(client.session, "get", side_effect=_http_error(500)), pytest.raises(BigIDAPIError, match="HTTP 500"):
+        client._request("/api/v1/something")
 
 
 # ---------------------------------------------------------------------------
@@ -125,9 +126,8 @@ def test_request_http_500_raises():
 
 def test_request_timeout_raises():
     client = _client_with_access_token()
-    with patch.object(client.session, "get", side_effect=requests.exceptions.Timeout):
-        with pytest.raises(BigIDAPIError, match="Timeout"):
-            client._request("/api/v1/something")
+    with patch.object(client.session, "get", side_effect=requests.exceptions.Timeout), pytest.raises(BigIDAPIError, match="Timeout"):
+        client._request("/api/v1/something")
 
 
 # ---------------------------------------------------------------------------
@@ -171,9 +171,8 @@ def test_request_401_retries_with_user_token():
 
 def test_request_401_no_user_token_raises_immediately():
     client = _client_with_access_token()
-    with patch.object(client.session, "get", side_effect=_http_error(401)) as mock_get:
-        with pytest.raises(BigIDAPIError, match="HTTP 401"):
-            client._request("/api/v1/data")
+    with patch.object(client.session, "get", side_effect=_http_error(401)) as mock_get, pytest.raises(BigIDAPIError, match="HTTP 401"):
+        client._request("/api/v1/data")
     assert mock_get.call_count == 1
 
 
@@ -257,9 +256,8 @@ def test_get_columns_excludes_substring_siblings():
 
 def test_get_glossary_items_non_list_raises():
     client = _client_with_access_token()
-    with patch.object(client, "_request", return_value={"error": "bad"}):
-        with pytest.raises(BigIDAPIError):
-            client.get_glossary_items()
+    with patch.object(client, "_request", return_value={"error": "bad"}), pytest.raises(BigIDAPIError):
+        client.get_glossary_items()
 
 
 # ---------------------------------------------------------------------------
@@ -269,9 +267,8 @@ def test_get_glossary_items_non_list_raises():
 
 def test_get_connections_non_dict_raises():
     client = _client_with_access_token()
-    with patch.object(client, "_request", return_value=[1, 2, 3]):
-        with pytest.raises(BigIDAPIError):
-            client.get_connections()
+    with patch.object(client, "_request", return_value=[1, 2, 3]), pytest.raises(BigIDAPIError):
+        client.get_connections()
 
 
 # ---------------------------------------------------------------------------
@@ -318,3 +315,99 @@ def test_get_catalog_objects_pagination():
 
     assert len(items) == PAGE_SIZE + 3
     assert call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# 18. get_idsor_attribute_map — parsing edge cases
+# ---------------------------------------------------------------------------
+
+
+def _idsor_response(attributes: list) -> dict:
+    return {"data": {"attributes": attributes}}
+
+
+def test_get_idsor_attribute_map_normal():
+    client = _client_with_access_token()
+    payload = _idsor_response([
+        {
+            "attributeType": "IDSoR Attribute",
+            "attributeName": "full_name",
+            "displayName": "Full Name",
+            "friendlyName": {"friendlyName": "Full Name", "glossaryId": "fn_item_abc"},
+        }
+    ])
+    with patch.object(client, "_request", return_value=payload):
+        result = client.get_idsor_attribute_map()
+
+    assert "full_name" in result
+    info = result["full_name"]
+    assert isinstance(info, IDSoRAttributeInfo)
+    assert info.friendly_name == "Full Name"
+    assert info.glossary_id == "fn_item_abc"
+
+
+def test_get_idsor_attribute_map_empty_attribute_name_skipped():
+    client = _client_with_access_token()
+    payload = _idsor_response([
+        {
+            "attributeType": "IDSoR Attribute",
+            "attributeName": "",  # empty — must be skipped
+            "displayName": "Should Not Appear",
+            "friendlyName": {},
+        }
+    ])
+    with patch.object(client, "_request", return_value=payload):
+        result = client.get_idsor_attribute_map()
+
+    assert result == {}
+
+
+def test_get_idsor_attribute_map_empty_friendly_name_obj():
+    """When friendlyName is {} (uncurated), fall back to displayName."""
+    client = _client_with_access_token()
+    payload = _idsor_response([
+        {
+            "attributeType": "IDSoR Attribute",
+            "attributeName": "passport_number",
+            "displayName": "Passport Number",
+            "friendlyName": {},
+        }
+    ])
+    with patch.object(client, "_request", return_value=payload):
+        result = client.get_idsor_attribute_map()
+
+    assert "passport_number" in result
+    info = result["passport_number"]
+    assert info.friendly_name == "Passport Number"
+    assert info.glossary_id is None
+
+
+def test_get_idsor_attribute_map_non_dict_response_raises():
+    """A non-dict response (e.g. a list) must raise BigIDAPIError."""
+    client = _client_with_access_token()
+    with patch.object(client, "_request", return_value=[]), pytest.raises(BigIDAPIError):
+        client.get_idsor_attribute_map()
+
+
+def test_get_idsor_attribute_map_non_idsor_types_excluded():
+    """Only IDSoR Attribute entries should appear in the map; Classification entries are skipped."""
+    client = _client_with_access_token()
+    payload = _idsor_response([
+        {
+            "attributeType": "Classification",
+            "attributeName": "email_classifier",
+            "displayName": "Email",
+            "friendlyName": {},
+        },
+        {
+            "attributeType": "IDSoR Attribute",
+            "attributeName": "email",
+            "displayName": "Email",
+            "friendlyName": {"friendlyName": "Email", "glossaryId": None},
+        },
+    ])
+    with patch.object(client, "_request", return_value=payload):
+        result = client.get_idsor_attribute_map()
+
+    assert "email_classifier" not in result
+    assert "email" in result

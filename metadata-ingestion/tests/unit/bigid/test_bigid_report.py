@@ -1,7 +1,6 @@
-"""Unit tests for bigid_report: _rank_to_float."""
+"""Unit tests for _rank_to_float (lives in bigid_utils)."""
 
-from datahub.ingestion.source.bigid.bigid_report import _rank_to_float
-
+from datahub.ingestion.source.bigid.bigid_utils import _rank_to_float
 
 # ---------------------------------------------------------------------------
 # _rank_to_float

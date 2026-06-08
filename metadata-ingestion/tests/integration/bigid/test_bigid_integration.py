@@ -11,16 +11,16 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import patch
 
 import pytest
 import time_machine
 
 from datahub.ingestion.api.common import PipelineContext
-
 from datahub.ingestion.source.bigid.bigid_api import BigIDClient
 from datahub.ingestion.source.bigid.bigid_source import BigIDSource
+from datahub.ingestion.source.bigid.bigid_utils import IDSoRAttributeInfo
 
 # Freeze to a known timestamp so AuditStamp / MetadataAttribution fields are deterministic.
 FROZEN_TIME = "2024-02-01T12:00:00Z"
@@ -55,10 +55,10 @@ def _load(name: str) -> Any:
         return json.load(fh)
 
 
-def _load_idsor_attrs() -> dict[str, tuple[str, Optional[str]]]:
-    """Load idsor_attributes.json fixture and convert lists to tuples."""
+def _load_idsor_attrs() -> dict[str, IDSoRAttributeInfo]:
+    """Load idsor_attributes.json fixture and convert lists to IDSoRAttributeInfo."""
     raw = _load("idsor_attributes.json")
-    return {k: (v[0], v[1]) for k, v in raw.items()}
+    return {k: IDSoRAttributeInfo(friendly_name=v[0], glossary_id=v[1]) for k, v in raw.items()}
 
 
 def _columns_side_effect(object_name: str, source_name: str, fqn: str = "") -> list[dict[str, Any]]:
@@ -329,21 +329,13 @@ def test_unlinked_classifier_term_content() -> None:
 
 
 def test_domain_mode_auto_namespaced_emits_domain_entities() -> None:
-    """auto_namespaced mode must produce domainProperties + status MCPs with bigid.-namespaced URNs."""
+    """auto_namespaced mode must produce domainProperties MCPs with bigid.-namespaced URNs."""
     mcps = _run_source({"domain_mode": "auto_namespaced"})
     domain_mcps = [m for m in mcps if m.get("aspectName") == "domainProperties"]
     assert domain_mcps, "Expected at least one domainProperties MCP in auto_namespaced mode"
     domain_urns = {m["entityUrn"] for m in domain_mcps}
     assert any("bigid." in u for u in domain_urns), (
         f"Expected at least one domain URN containing 'bigid.', got: {domain_urns}"
-    )
-    # Every domain entity must also emit a StatusClass MCP so stale removal works
-    status_urns = {
-        m["entityUrn"] for m in mcps
-        if m.get("aspectName") == "status" and "domain" in m.get("entityUrn", "")
-    }
-    assert domain_urns == status_urns, (
-        f"Every domain URN must have a status MCP. Missing: {domain_urns - status_urns}"
     )
 
 
@@ -555,3 +547,121 @@ def test_glossary_term_parent_node_for_idsor_is_idsor_node() -> None:
             f"IDSoR term {mcp['entityUrn']} must have parentNode=bigid.idsor, "
             f"got {aspect.get('parentNode')!r}"
         )
+
+
+def test_no_duplicate_term_urns_per_field() -> None:
+    """Each schema field must not have the same GlossaryTerm URN more than once.
+
+    Regression test for the bug where customer_email received bt_email twice:
+    once from the classifier path and once from IDSoR path-1 (which reuses the
+    same URN). The fix deduplicates by URN before appending to the terms list.
+    """
+    mcps = _run_source()
+    for mcp in mcps:
+        if mcp.get("aspectName") != "editableSchemaMetadata":
+            continue
+        aspect = _parse_aspect(mcp)
+        for field in aspect.get("editableSchemaFieldInfo", []):
+            urns = [t["urn"] for t in field.get("glossaryTerms", {}).get("terms", [])]
+            assert len(urns) == len(set(urns)), (
+                f"Duplicate term URNs on {mcp['entityUrn']} "
+                f"field {field['fieldPath']!r}: {urns}"
+            )
+
+
+def test_confidence_level_tag_emits_on_classified_fields() -> None:
+    """With confidence_level_tag=True, classified fields get a bigid.confidence: tag."""
+    mcps = _run_source({"confidence_level_tag": True})
+    found_confidence_tag = False
+    for mcp in mcps:
+        if mcp.get("aspectName") != "editableSchemaMetadata":
+            continue
+        aspect = _parse_aspect(mcp)
+        for field in aspect.get("editableSchemaFieldInfo", []):
+            tag_urns = [t["tag"] for t in field.get("globalTags", {}).get("tags", [])]
+            if any("bigid.confidence:" in u for u in tag_urns):
+                found_confidence_tag = True
+                # Each tag must be one of the known confidence levels
+                for u in tag_urns:
+                    if "bigid.confidence:" in u:
+                        level = u.split("bigid.confidence:")[-1]
+                        assert level in ("HIGH", "MEDIUM", "LOW"), (
+                            f"Unexpected confidence level in tag URN: {u}"
+                        )
+    assert found_confidence_tag, (
+        "Expected at least one schema field to have a bigid.confidence: tag when confidence_level_tag=True"
+    )
+
+
+def test_confidence_level_tag_not_emitted_by_default() -> None:
+    """Without confidence_level_tag=True, no bigid.confidence: tags are emitted."""
+    mcps = _run_source()
+    for mcp in mcps:
+        if mcp.get("aspectName") != "editableSchemaMetadata":
+            continue
+        aspect = _parse_aspect(mcp)
+        for field in aspect.get("editableSchemaFieldInfo", []):
+            tag_urns = [t["tag"] for t in field.get("globalTags", {}).get("tags", [])]
+            assert not any("bigid.confidence:" in u for u in tag_urns), (
+                f"Unexpected confidence tag on field {field['fieldPath']!r}: {tag_urns}"
+            )
+
+
+def test_owner_type_group_uses_corp_group_urn() -> None:
+    """With owner_type='group', GlossaryTerm ownership URNs must use urn:li:corpGroup."""
+    mcps = _run_source({"owner_type": "group"})
+    ownership_mcps = [m for m in mcps if m.get("aspectName") == "ownership"]
+    assert ownership_mcps, "Expected at least one ownership MCP when owner_type='group'"
+    for mcp in ownership_mcps:
+        aspect = _parse_aspect(mcp)
+        for owner in aspect.get("owners", []):
+            assert owner["owner"].startswith("urn:li:corpGroup:"), (
+                f"Expected corpGroup URN with owner_type='group', got {owner['owner']!r}"
+            )
+
+
+def test_owner_type_none_emits_no_ownership() -> None:
+    """With owner_type='none', no ownership MCPs are emitted."""
+    mcps = _run_source({"owner_type": "none"})
+    ownership_mcps = [m for m in mcps if m.get("aspectName") == "ownership"]
+    assert not ownership_mcps, (
+        f"Expected no ownership MCPs when owner_type='none'; got {len(ownership_mcps)}"
+    )
+
+
+def test_registries_empty_reports_failure() -> None:
+    """When both glossary items and classification map fail, report must have registries-empty failure."""
+    from datahub.ingestion.source.bigid.bigid_api import BigIDAPIError
+
+    config = {**BASE_CONFIG}
+    ctx = PipelineContext(run_id="registries-empty-test")
+
+    with (
+        time_machine.travel(FROZEN_TIME, tick=False),
+        patch.object(BigIDClient, "get_connections", return_value=[]),
+        patch.object(BigIDClient, "get_all_classifications", side_effect=BigIDAPIError("clf fail")),
+        patch.object(BigIDClient, "get_glossary_items", side_effect=BigIDAPIError("gloss fail")),
+        patch.object(BigIDClient, "get_catalog_objects", side_effect=lambda: iter([])),
+        patch.object(BigIDClient, "get_idsor_attribute_map", return_value={}),
+        patch.object(BigIDClient, "close"),
+    ):
+        source = BigIDSource.create(config, ctx)
+        list(source.get_workunits())  # drain generator so report is populated
+        report = source.get_report()
+
+    failure_keys = [f.message for f in report.failures]
+    assert "registries-empty" in failure_keys, (
+        f"Expected 'registries-empty' failure in report; got: {failure_keys}"
+    )
+
+
+def test_domain_entities_emit_status_aspect() -> None:
+    """In auto_namespaced mode, domain entities must have a status aspect (removed=False)."""
+    mcps = _run_source({"domain_mode": "auto_namespaced"})
+    domain_urns = {m["entityUrn"] for m in mcps if m.get("aspectName") == "domainProperties"}
+    status_urns = {m["entityUrn"] for m in mcps if m.get("aspectName") == "status"
+                   and "urn:li:domain:" in m.get("entityUrn", "")}
+    missing = domain_urns - status_urns
+    assert not missing, (
+        f"Domain entities missing status aspect: {missing}"
+    )

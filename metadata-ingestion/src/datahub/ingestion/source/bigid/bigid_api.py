@@ -17,6 +17,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from datahub.ingestion.source.bigid.bigid_utils import IDSoRAttributeInfo
+
 logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 500  # catalog API page size; verified against live instance
@@ -243,10 +245,13 @@ class BigIDClient:
                 None,
             )
             if cols is None:
-                raise BigIDAPIError(
-                    f"get_columns: unrecognised response shape for {source_name}/{object_name}"
-                    f" — keys: {list(result.keys())}"
+                logger.warning(
+                    "get_columns: unrecognised response shape for %s/%s — keys: %s",
+                    source_name,
+                    object_name,
+                    list(result.keys()),
                 )
+                cols = []
         # Prefer FQN match (handles same-named tables in different schemas).
         # Fall back to objectName exact match (handles substring ambiguity).
         if fqn:
@@ -292,7 +297,7 @@ class BigIDClient:
     # API F — IDSoR Attribute Map
     # ------------------------------------------------------------------
 
-    def get_idsor_attribute_map(self) -> dict[str, tuple[str, Optional[str]]]:
+    def get_idsor_attribute_map(self) -> dict[str, IDSoRAttributeInfo]:
         """
         Return a mapping of raw IDSoR attribute name → (friendly_name, glossary_id).
 
@@ -343,7 +348,7 @@ class BigIDClient:
             )
         attributes: list[dict[str, Any]] = result.get("data", {}).get("attributes", [])
 
-        attr_map: dict[str, tuple[str, Optional[str]]] = {}
+        attr_map: dict[str, IDSoRAttributeInfo] = {}
         for entry in attributes:
             if entry.get("attributeType") != "IDSoR Attribute":
                 continue
@@ -361,7 +366,9 @@ class BigIDClient:
             )
             glossary_id: Optional[str] = friendly_obj.get("glossaryId") or None
 
-            attr_map[raw_name] = (friendly_name, glossary_id)
+            attr_map[raw_name] = IDSoRAttributeInfo(
+                friendly_name=friendly_name, glossary_id=glossary_id
+            )
 
         logger.debug(
             "Loaded %d IDSoR attribute name mappings from results-tuning/attributes",

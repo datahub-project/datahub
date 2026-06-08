@@ -5,7 +5,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-      "value": "{\"timestampMillis\": 1705748400000, \"partitionSpec\": {\"partition\": \"FULL_TABLE_SNAPSHOT\", \"type\": \"FULL_TABLE\"}, \"rowCount\": 50000, \"columnCount\": 4, \"fieldProfiles\": [{\"fieldPath\": \"order_id\", \"uniqueCount\": 50000, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"50000\", \"mean\": \"25000.5\"}, {\"fieldPath\": \"customer_email\", \"uniqueCount\": 8500, \"uniqueProportion\": 0.17, \"nullCount\": 1000, \"nullProportion\": 0.02}, {\"fieldPath\": \"region\", \"uniqueCount\": 2500, \"uniqueProportion\": 0.05, \"nullCount\": 500, \"nullProportion\": 0.01}, {\"fieldPath\": \"amount\", \"uniqueCount\": 22600, \"uniqueProportion\": 0.452, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"0.01\", \"max\": \"99999.99\", \"mean\": \"127.43\", \"stdev\": \"342.11\"}]}",
+      "value": "{\"timestampMillis\": 1705748400000, \"partitionSpec\": {\"partition\": \"FULL_TABLE_SNAPSHOT\", \"type\": \"FULL_TABLE\"}, \"columnCount\": 4, \"fieldProfiles\": [{\"fieldPath\": \"order_id\", \"uniqueCount\": 50000, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"50000\", \"mean\": \"25000.5\"}, {\"fieldPath\": \"customer_email\", \"uniqueCount\": 8500, \"uniqueProportion\": 0.17, \"nullCount\": 1000, \"nullProportion\": 0.02}, {\"fieldPath\": \"region\", \"uniqueCount\": 2500, \"uniqueProportion\": 0.05, \"nullCount\": 500, \"nullProportion\": 0.01}, {\"fieldPath\": \"amount\", \"uniqueCount\": 22600, \"uniqueProportion\": 0.452, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"0.01\", \"max\": \"99999.99\", \"mean\": \"127.43\", \"stdev\": \"342.11\"}]}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -20,7 +20,7 @@
     "changeType": "UPSERT",
     "aspectName": "editableSchemaMetadata",
     "aspect": {
-      "value": "{\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"editableSchemaFieldInfo\": [{\"fieldPath\": \"customer_email\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:bigid.bt_email\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"classifier.EMAIL\", \"classifier_type\": \"value\", \"confidence_level\": \"MEDIUM\", \"bigid_connection\": \"Postgres-Dev\", \"row_count\": \"49000\", \"distinct_count\": \"8500\"}}}, {\"urn\": \"urn:li:glossaryTerm:bigid.bt_email\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"customer_email\", \"classifier_type\": \"idsor_attribute\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Postgres-Dev\", \"row_count\": \"49000\", \"classifier_friendly_name\": \"Email\"}}}], \"auditStamp\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\"}}}, {\"fieldPath\": \"region\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:bigid.idsor.country\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"country\", \"classifier_type\": \"idsor_attribute\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Postgres-Dev\", \"row_count\": \"40000\", \"classifier_friendly_name\": \"Country\"}}}], \"auditStamp\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\"}}}]}",
+      "value": "{\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"editableSchemaFieldInfo\": [{\"fieldPath\": \"customer_email\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:bigid.bt_email\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"classifier.EMAIL\", \"classifier_type\": \"value\", \"confidence_level\": \"MEDIUM\", \"bigid_connection\": \"Postgres-Dev\", \"row_count\": \"49000\", \"distinct_count\": \"8500\"}}}], \"auditStamp\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\"}}}, {\"fieldPath\": \"region\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:bigid.idsor.country\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"country\", \"classifier_type\": \"idsor_attribute\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Postgres-Dev\", \"row_count\": \"40000\", \"classifier_friendly_name\": \"Country\"}}}], \"auditStamp\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\"}}}]}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -46,7 +46,7 @@
   },
   {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sharepoint-online,documents,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sharepoint,documents,PROD)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -61,7 +61,7 @@
   },
   {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sharepoint-online,documents,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sharepoint,documents,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -80,7 +80,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-      "value": "{\"timestampMillis\": 1705752000000, \"partitionSpec\": {\"partition\": \"FULL_TABLE_SNAPSHOT\", \"type\": \"FULL_TABLE\"}, \"rowCount\": 10000, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 10000, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"10000\", \"mean\": \"5000.5\", \"stdev\": \"2886.75\"}, {\"fieldPath\": \"email\", \"uniqueCount\": 9750, \"uniqueProportion\": 0.975, \"nullCount\": 20, \"nullProportion\": 0.002}, {\"fieldPath\": \"full_name\", \"uniqueCount\": 8930, \"uniqueProportion\": 0.893, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"phone\", \"uniqueCount\": 7900, \"uniqueProportion\": 0.79, \"nullCount\": 1500, \"nullProportion\": 0.15}, {\"fieldPath\": \"created_at\", \"uniqueCount\": 9990, \"uniqueProportion\": 0.9990000000000001, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2020-01-01T00:00:00Z\", \"max\": \"2024-01-19T23:59:59Z\", \"sampleValues\": [\"2020-01-01T00:00:00Z\", \"2024-01-19T23:59:59Z\"]}]}",
+      "value": "{\"timestampMillis\": 1705752000000, \"partitionSpec\": {\"partition\": \"FULL_TABLE_SNAPSHOT\", \"type\": \"FULL_TABLE\"}, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 10000, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"10000\", \"mean\": \"5000.5\", \"stdev\": \"2886.75\"}, {\"fieldPath\": \"email\", \"uniqueCount\": 9750, \"uniqueProportion\": 0.975, \"nullCount\": 20, \"nullProportion\": 0.002}, {\"fieldPath\": \"full_name\", \"uniqueCount\": 8930, \"uniqueProportion\": 0.893, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"phone\", \"uniqueCount\": 7900, \"uniqueProportion\": 0.79, \"nullCount\": 1500, \"nullProportion\": 0.15}, {\"fieldPath\": \"created_at\", \"uniqueCount\": 9990, \"uniqueProportion\": 0.9990000000000001, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2020-01-01T00:00:00Z\", \"max\": \"2024-01-19T23:59:59Z\", \"sampleValues\": [\"2020-01-01T00:00:00Z\", \"2024-01-19T23:59:59Z\"]}]}",
       "contentType": "application/json"
     },
     "systemMetadata": {

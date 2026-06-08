@@ -3,8 +3,10 @@
 import pytest
 from pydantic import ValidationError
 
-from datahub.ingestion.source.bigid.bigid_config import BIGID_TYPE_TO_PLATFORM, BigIDSourceConfig
-
+from datahub.ingestion.source.bigid.bigid_config import (
+    BIGID_TYPE_TO_PLATFORM,
+    BigIDSourceConfig,
+)
 
 # ---------------------------------------------------------------------------
 # BIGID_TYPE_TO_PLATFORM

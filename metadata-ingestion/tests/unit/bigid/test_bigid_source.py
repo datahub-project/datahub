@@ -14,7 +14,6 @@ Unit tests for BigIDSource — focused on business logic of the source class:
 
 from __future__ import annotations
 
-import logging
 import time
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -22,12 +21,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 import time_machine
 
-from datahub.metadata.schema_classes import ChangeTypeClass
-
 from datahub.ingestion.source.bigid.bigid_api import BigIDAPIError
 from datahub.ingestion.source.bigid.bigid_config import BigIDSourceConfig
 from datahub.ingestion.source.bigid.bigid_source import BigIDSource, _is_idsor_attr
-
+from datahub.ingestion.source.bigid.bigid_utils import IDSoRAttributeInfo
+from datahub.metadata.schema_classes import ChangeTypeClass
 
 FROZEN_TIME = "2026-01-15T00:00:00Z"
 
@@ -105,7 +103,7 @@ def test_load_registries_explicit_override_wins():
     assert source._platform_map["my_conn"] == "bigquery"
 
 
-def test_load_registries_unknown_type_warns(caplog):
+def test_load_registries_unknown_type_warns():
     source = _make_source()
     source.client.get_connections.return_value = [
         {"name": "exotic_conn", "type": "some-unknown-type"},
@@ -113,11 +111,14 @@ def test_load_registries_unknown_type_warns(caplog):
     source.client.get_all_classifications.return_value = []
     source.client.get_glossary_items.return_value = []
 
-    with caplog.at_level(logging.WARNING, logger="datahub.ingestion.source.bigid.bigid_source"):
-        source._load_registries()
+    source._load_registries()
 
     assert "exotic_conn" in list(source.report.connections_without_platform)
-    assert "Unknown BigID connection type" in caplog.text
+    # Warning must appear in the ingestion report (not just logger) so the UI surfaces it
+    warning_contexts = [c for w in source.report.warnings for c in w.context]
+    assert any("some-unknown-type" in c for c in warning_contexts), (
+        f"Expected unknown-connection-type in report warning context; got: {warning_contexts}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -646,7 +647,7 @@ def test_emit_dataset_profile_numeric_column():
     ))
     assert len(workunits) == 1
     profile = workunits[0].metadata.aspect
-    assert profile.rowCount == 1000
+    assert profile.rowCount is None  # fieldCount is scan sample size, not row count
     assert profile.columnCount == 1
 
     fp = profile.fieldProfiles[0]
@@ -710,17 +711,23 @@ def test_emit_dataset_profile_empty_column_profile_skipped():
 
 
 def test_source_detail_includes_friendly_name_for_high_only():
+    """HIGH-confidence findings get classifier_friendly_name in sourceDetail; MEDIUM does not.
+
+    Uses two *distinct* classifiers (Email and Phone) so neither is deduplicated.
+    """
     source = _make_source(minimum_confidence_threshold=0.0)
     source._glossary_id_map["classifier.Email"] = "fn_email"
     source._friendly_name_map["fn_email"] = "Email Address"
+    source._glossary_id_map["classifier.Phone"] = "fn_phone"
+    source._friendly_name_map["fn_phone"] = "Phone Number"
 
     columns = [
         {
-            "columnName": "email",
+            "columnName": "contact",
             "fieldType": "varchar",
             "attributeDetails": [
                 {"name": "classifier.Email", "ranks": ["HIGH"], "type": "Classification"},
-                {"name": "classifier.Email", "ranks": ["MEDIUM"], "type": "Classification"},
+                {"name": "classifier.Phone", "ranks": ["MEDIUM"], "type": "Classification"},
             ],
             "fieldClassifications": [],
             "columnProfile": {},
@@ -740,6 +747,7 @@ def test_source_detail_includes_friendly_name_for_high_only():
     editable = workunits[0].metadata.aspect
     field_info = editable.editableSchemaFieldInfo[0]
     terms = field_info.glossaryTerms.terms
+    assert len(terms) == 2
 
     high_assoc = next(t for t in terms if t.attribution.sourceDetail["confidence_level"] == "HIGH")
     med_assoc = next(t for t in terms if t.attribution.sourceDetail["confidence_level"] == "MEDIUM")
@@ -1101,7 +1109,7 @@ def test_idsor_detection_false_for_classifier():
 def test_idsor_path1_reuses_existing_term():
     """Path 1: glossaryId present → reuse term URN and emit GlossaryTermInfo with friendly name."""
     source = _make_source(minimum_confidence_threshold=0.0)
-    source._idsor_attr_map["customer_email"] = ("Email", "bt_email")
+    source._idsor_attr_map["customer_email"] = IDSoRAttributeInfo(friendly_name="Email", glossary_id="bt_email")
     columns = [
         {
             "columnName": "col",
@@ -1135,7 +1143,7 @@ def test_idsor_path1_reuses_existing_term():
 def test_idsor_path2_autogenerates_under_idsor_node():
     """Path 2: in map but no glossaryId → auto-gen urn:li:glossaryTerm:bigid.idsor.<slug>."""
     source = _make_source(minimum_confidence_threshold=0.0)
-    source._idsor_attr_map["full_name"] = ("Full Name", None)
+    source._idsor_attr_map["full_name"] = IDSoRAttributeInfo(friendly_name="Full Name", glossary_id=None)
     columns = [
         {
             "columnName": "col",

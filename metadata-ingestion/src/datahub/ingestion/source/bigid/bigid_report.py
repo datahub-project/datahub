@@ -28,10 +28,3 @@ class BigIDSourceReport(StaleEntityRemovalSourceReport):
 
     def report_connection_no_platform(self, conn_name: str) -> None:
         self.connections_without_platform.append(conn_name)
-
-
-_CONFIDENCE_FLOAT = {"HIGH": 0.75, "MEDIUM": 0.50, "LOW": 0.25}
-
-
-def _rank_to_float(rank: str) -> float:
-    return _CONFIDENCE_FLOAT.get((rank or "").upper(), 0.0)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 from urllib.parse import quote
@@ -15,6 +16,21 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     TimeTypeClass,
 )
+
+
+@dataclass(frozen=True)
+class IDSoRAttributeInfo:
+    """Resolved metadata for one BigID IDSoR attribute entry."""
+
+    friendly_name: str
+    glossary_id: Optional[str]
+
+
+_CONFIDENCE_FLOAT = {"HIGH": 0.75, "MEDIUM": 0.50, "LOW": 0.25}
+
+
+def _rank_to_float(rank: str) -> float:
+    return _CONFIDENCE_FLOAT.get((rank or "").upper(), 0.0)
 
 
 _NUMERIC_TYPES = ("int", "bigint", "smallint", "tinyint", "number", "numeric", "decimal", "float", "double", "real")

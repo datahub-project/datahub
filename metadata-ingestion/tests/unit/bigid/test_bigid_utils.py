@@ -1,5 +1,10 @@
 """Unit tests for bigid_utils: _slugify, _parse_iso_to_ms, _map_field_type."""
 
+from datahub.ingestion.source.bigid.bigid_utils import (
+    _map_field_type,
+    _parse_iso_to_ms,
+    _slugify,
+)
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     NumberTypeClass,
@@ -7,9 +12,6 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     TimeTypeClass,
 )
-
-from datahub.ingestion.source.bigid.bigid_utils import _map_field_type, _parse_iso_to_ms, _slugify
-
 
 # ---------------------------------------------------------------------------
 # _slugify

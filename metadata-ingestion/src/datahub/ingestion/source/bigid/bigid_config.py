@@ -8,7 +8,10 @@ from urllib.parse import urlparse
 from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.source_common import EnvConfigMixin, PlatformInstanceConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -43,6 +46,11 @@ BIGID_TYPE_TO_PLATFORM: dict[str, str] = {
     # Collaboration / document stores (unstructured; platform name used for URN only)
     "sharepoint-online-v2": "sharepoint",
     "confluence-v2": "confluence",
+    # Partner integrations
+    "mongodb": "mongodb",
+    "azure-sql": "mssql",
+    "sap-hana": "saphana",
+    "adls-v2": "adls-gen2",
     # Intentionally unmapped (no standard DataHub platform name):
     #   smb_v2, gdrive-v2, onedrive-v2, o365-outlook-v2, sap-successfactors-v2
     #   amazon-sagemaker, azure-openai, openai, hugging-face, atlas-vectorsearch
@@ -121,19 +129,12 @@ class BigIDSourceConfig(StatefulIngestionConfigBase, PlatformInstanceConfigMixin
     # ------------------------------------------------------------------
     minimum_confidence_threshold: float = Field(
         default=0.0,
+        ge=0.0,
+        le=1.0,
         description="Filter column classification findings below this confidence level. "
         "Accepts 0.0–1.0 (not a rank string). "
         "HIGH ≥ 0.75, MEDIUM ≥ 0.50, LOW ≥ 0.0.",
     )
-
-    @field_validator("minimum_confidence_threshold", mode="after")
-    @classmethod
-    def _validate_confidence_threshold(cls, v: float) -> float:
-        if not 0.0 <= v <= 1.0:
-            raise ValueError(
-                f"minimum_confidence_threshold must be between 0.0 and 1.0, got {v}"
-            )
-        return v
 
     confidence_level_tag: bool = Field(
         default=False,
