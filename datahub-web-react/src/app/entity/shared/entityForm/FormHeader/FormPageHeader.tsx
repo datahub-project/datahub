@@ -4,10 +4,10 @@ import styled from 'styled-components';
 
 import AppLogoLink from '@app/shared/AppLogoLink';
 
+// eslint-disable-next-line rulesdir/no-hardcoded-colors -- no inverse-surface token in design system; this bar is intentionally always dark
 const Header = styled.div`
     padding: 12px 24px;
-    /* Intentionally dark bar; no inverse-surface token exists, so use the darkest neutral surface */
-    background-color: ${(props) => props.theme.colors.bgTooltip};
+    background-color: black;
     font-size: 24px;
     display: flex;
     align-items: center;
