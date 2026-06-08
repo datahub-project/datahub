@@ -89,17 +89,22 @@ def _register_gcs_oauth_before_send(
 
 
 class GCSOAuthAwsConnectionConfig(AwsConnectionConfig):
-    # Uses dummy AWS-style keys so boto3 creates a session; before-send handlers
-    # replace the Authorization header with Bearer <token> from GCP credentials.
+    # Shared by both OAuth-based GCS auth types: workload_identity_federation (WIF)
+    # and workload_identity (Application Default Credentials). Uses dummy AWS-style
+    # keys so boto3 creates a session; before-send handlers then replace the
+    # Authorization header with Bearer <token> from the GCP credentials.
 
     _gcs_oauth_credentials: Optional[Credentials] = PrivateAttr(default=None)
     _gcs_oauth_project_id: Optional[str] = PrivateAttr(default=None)
 
     def _apply_oauth(self, boto3_client: Any) -> None:
         creds = self._gcs_oauth_credentials
-        assert creds is not None, (
-            "_gcs_oauth_credentials must be set before calling get_s3_client/get_s3_resource"
-        )
+        # Explicit raise (not assert) so the fail-fast guarantee survives `python -O`,
+        # which strips asserts. Missing creds would otherwise produce opaque 403s.
+        if creds is None:
+            raise RuntimeError(
+                "_gcs_oauth_credentials must be set before calling get_s3_client/get_s3_resource"
+            )
         _register_gcs_oauth_before_send(boto3_client, creds, self._gcs_oauth_project_id)
 
     def get_s3_client(
@@ -169,6 +174,11 @@ class GCSSourceConfig(
             credential = values.get("credential")
             if auth_type == GCSAuthType.HMAC and credential is None:
                 raise ValueError("credential is required when auth_type is 'hmac'")
+            if auth_type != GCSAuthType.HMAC and credential is not None:
+                raise ValueError(
+                    f"credential (HMAC key) must not be set when auth_type is '{auth_type}'. "
+                    "HMAC credentials are only used with auth_type 'hmac'."
+                )
         return values
 
     @model_validator(mode="before")

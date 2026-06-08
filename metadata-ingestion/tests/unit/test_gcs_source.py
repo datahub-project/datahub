@@ -636,6 +636,23 @@ def test_workload_identity_config_rejects_wif_options(
         GCSSourceConfig.model_validate(source)
 
 
+@pytest.mark.parametrize(
+    "auth_type",
+    ["workload_identity", "workload_identity_federation"],
+)
+def test_credential_rejected_for_non_hmac_auth_type(auth_type: str) -> None:
+    """HMAC credential must be rejected (not silently ignored) for non-hmac auth types."""
+    source = {
+        "path_specs": _BASE_WIF_PATH_SPECS,
+        "auth_type": auth_type,
+        "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+    }
+    if auth_type == "workload_identity_federation":
+        source["gcp_wif_configuration_json"] = _VALID_WIF_JSON
+    with pytest.raises(ValidationError, match="credential .* must not be set"):
+        GCSSourceConfig.model_validate(source)
+
+
 @mock.patch("google.auth.default")
 def test_workload_identity_source_creation(mock_google_auth_default):
     """GCSSource with workload_identity calls google.auth.default and wires Bearer-token injection."""
@@ -714,7 +731,7 @@ def test_workload_identity_source_creation_fails_on_google_auth_error(
 
 
 def test_gcs_oauth_aws_config_raises_without_creds():
-    """GCSOAuthAwsConnectionConfig.get_s3_client raises AssertionError when creds not set."""
+    """GCSOAuthAwsConnectionConfig.get_s3_client raises RuntimeError when creds not set."""
     with mock.patch.object(
         GCSOAuthAwsConnectionConfig.__bases__[0],
         "get_s3_client",
@@ -728,5 +745,5 @@ def test_gcs_oauth_aws_config_raises_without_creds():
         )
         assert config._gcs_oauth_credentials is None
 
-        with pytest.raises(AssertionError, match="_gcs_oauth_credentials must be set"):
+        with pytest.raises(RuntimeError, match="_gcs_oauth_credentials must be set"):
             config.get_s3_client()
