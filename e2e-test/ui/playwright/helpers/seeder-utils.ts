@@ -316,4 +316,3 @@ export async function waitForSync(
   // Extra buffer to allow the search index to catch up.
   await new Promise<void>((resolve) => setTimeout(resolve, 2_000));
 }
-
