@@ -1343,10 +1343,10 @@ class TestLineageMapKeyCollision:
             )
         )
 
-        assert set(queried_fqns) == [
+        assert set(queried_fqns) == {
             "bigquery:test-project.analytics.customers",
             "bigquery:test-project.sales.customers",
-        ]
+        }
         assert len(workunits) == 1
         entity_urn = workunits[0].metadata.entityUrn  # type: ignore[union-attr]
         assert isinstance(entity_urn, str)
