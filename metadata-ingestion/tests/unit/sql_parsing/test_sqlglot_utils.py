@@ -1,3 +1,4 @@
+import logging
 import re
 import textwrap
 from enum import Enum
@@ -14,13 +15,18 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.sql_parsing.sqlglot_utils import (
     PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION,
+    StatementTooComplexError,
+    _max_text_nesting_depth,
     _sanitize_snowflake_ddl,
     _sanitize_tsql_temp_tables,
     generalize_query,
     generalize_query_fast,
     get_dialect,
+    get_expression_depth,
     get_query_fingerprint,
     is_dialect_instance,
+    parse_statement,
+    parse_statements_and_pick,
 )
 
 
@@ -419,3 +425,86 @@ def test_tsql_digit_leading_temp_table_lineage() -> None:
     )
     assert result.debug_info.table_error is None, result.debug_info.table_error
     assert any("real_src" in t for t in result.in_tables), result.in_tables
+
+
+def _nested_subquery_sql(depth: int) -> str:
+    sql = "SELECT a FROM t"
+    for _ in range(depth):
+        sql = f"SELECT a FROM ({sql})"
+    return sql
+
+
+def test_get_expression_depth_shallow():
+    statement = parse_statement(
+        "SELECT a, b FROM t WHERE c > 1 GROUP BY a, b", dialect=get_dialect("snowflake")
+    )
+    # A flat query has a small AST depth.
+    assert get_expression_depth(statement) < 20
+
+
+def test_get_expression_depth_deeply_nested():
+    # Deeply nested subqueries produce a deep AST. The computation must be
+    # iterative — a recursive walk here would reproduce the very stack overflow
+    # we are guarding against. Parse with sqlglot directly to bypass
+    # parse_statement's depth guard, which would otherwise reject this input.
+    statement = sqlglot.parse_one(_nested_subquery_sql(500), dialect="snowflake")
+    assert isinstance(statement, sqlglot.exp.Expression)
+    assert get_expression_depth(statement) > 500
+
+
+def _nested_parens_sql(depth: int) -> str:
+    # A "paren bomb": deep enough nesting to overflow sqlglot's recursive parser.
+    return "SELECT a FROM t WHERE " + "(" * depth + "x = 1" + ")" * depth
+
+
+def _nested_case_sql(depth: int) -> str:
+    # Deeply nested CASE expressions — note: contains no parentheses, so a
+    # text-based nesting scan cannot catch this; only the AST-depth guard can.
+    inner = "0"
+    for _ in range(depth):
+        inner = f"CASE WHEN x = 1 THEN {inner} ELSE 0 END"
+    return f"SELECT {inner} AS a FROM t"
+
+
+def test_max_text_nesting_depth():
+    assert _max_text_nesting_depth("SELECT a FROM t") == 0
+    assert _max_text_nesting_depth("SELECT a FROM (SELECT b FROM (SELECT c))") == 2
+    # Parens inside string literals must not count.
+    assert _max_text_nesting_depth("SELECT '((((((' AS a FROM t") == 0
+
+
+def test_parse_statement_rejects_paren_bomb():
+    # The pre-parse text guard must reject this *before* feeding it to sqlglot's
+    # recursive parser, which would otherwise overflow the stack.
+    with pytest.raises(StatementTooComplexError):
+        parse_statement(_nested_parens_sql(600), dialect=get_dialect("snowflake"))
+
+
+def test_parse_statement_rejects_deep_case_via_ast_guard():
+    # No parentheses -> passes the text guard, but the deep AST must be caught
+    # by the post-parse depth guard before the recursive optimizer runs.
+    with pytest.raises(StatementTooComplexError):
+        parse_statement(_nested_case_sql(400), dialect=get_dialect("snowflake"))
+
+
+def test_parse_statements_and_pick_rejects_paren_bomb():
+    with pytest.raises(StatementTooComplexError):
+        parse_statements_and_pick(_nested_parens_sql(600), platform="snowflake")
+
+
+def test_get_query_fingerprint_degrades_on_deep_sql():
+    # Fingerprinting must not crash on pathological SQL; it falls back to a
+    # string-based fingerprint instead of raising.
+    fingerprint = get_query_fingerprint(_nested_parens_sql(600), platform="snowflake")
+    assert isinstance(fingerprint, str) and fingerprint
+
+
+def test_too_complex_logs_sql_for_debugging(caplog):
+    # When we skip a statement, the SQL must be logged so it can be debugged later.
+    sql = _nested_parens_sql(600)
+    with (
+        caplog.at_level(logging.WARNING),
+        pytest.raises(StatementTooComplexError),
+    ):
+        parse_statement(sql, dialect=get_dialect("snowflake"))
+    assert any("x = 1" in record.getMessage() for record in caplog.records)

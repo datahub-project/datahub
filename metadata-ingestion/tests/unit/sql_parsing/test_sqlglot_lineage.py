@@ -4,6 +4,7 @@ import pytest
 
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+from datahub.sql_parsing.sqlglot_utils import StatementTooComplexError
 from datahub.testing.check_sql_parser_result import assert_sql_result
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
@@ -1981,3 +1982,38 @@ GROUP BY date
         dialect="clickhouse",
         expected_file=RESOURCE_DIR / "test_clickhouse_materialized_view_to.json",
     )
+
+
+def test_deeply_nested_sql_is_skipped_not_crashed() -> None:
+    # Pathologically nested SQL (e.g. dynamic SQL from stored procedures) drives
+    # sqlglot's recursive parser/optimizer deep enough to overflow the native
+    # stack. With the mypyc-compiled sqlglot[c] build this is an uncatchable
+    # SIGSEGV that kills the whole `datahub ingest` process.
+    #
+    # The depth guard must intercept *before* the recursive code runs, surfacing
+    # a catchable StatementTooComplexError rather than a RecursionError (pure
+    # Python) or a segfault (compiled). Asserting the specific error type proves
+    # we stopped before recursion, not that we merely caught the fallout.
+    schema_resolver = SchemaResolver(platform="snowflake")
+    sql = "SELECT a AS a FROM t"
+    for _ in range(700):
+        sql = f"SELECT a AS a FROM ({sql})"
+
+    result = sqlglot_lineage(sql, schema_resolver=schema_resolver)
+
+    assert isinstance(result.debug_info.table_error, StatementTooComplexError)
+    assert result.in_tables == []
+
+
+def test_normal_sql_unaffected_by_depth_guard() -> None:
+    schema_resolver = SchemaResolver(platform="snowflake")
+    result = sqlglot_lineage(
+        "SELECT a, b FROM db.s.t WHERE c > 1",
+        schema_resolver=schema_resolver,
+        default_db="db",
+        default_schema="s",
+    )
+    assert result.debug_info.table_error is None
+    assert result.in_tables == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.t,PROD)"
+    ]

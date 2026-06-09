@@ -2,6 +2,7 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 
 import functools
 import logging
+import os
 import re
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
@@ -19,6 +20,40 @@ logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
 SQL_PARSE_CACHE_SIZE = get_sql_parse_cache_size()
 FORMAT_QUERY_CACHE_SIZE = get_sql_parse_cache_size()
+
+# sqlglot's parser, optimizer, lineage traversal, and SQL rendering are all
+# recursive over a statement's nesting structure. Pathologically nested SQL
+# (e.g. dynamic SQL emitted by stored procedures) can recurse deep enough to
+# overflow the stack. In the pure-Python build this is a catchable
+# RecursionError, but in the mypyc-compiled sqlglot[c] build used in production
+# it overflows the native C stack into an uncatchable SIGSEGV that kills the
+# whole ingest process. We therefore refuse to parse statements past these
+# limits, surfacing a catchable error instead. Native
+# frames are smaller than CPython frames, so limits safely below the
+# pure-Python recursion ceiling (~1000) also protect the compiled build, while
+# sitting well above any realistic query (real SQL nests <~30 deep).
+#
+# Two limits guard two distinct failure points:
+# - text nesting: bracket depth in the raw SQL, checked *before* parsing to
+#   protect the parser itself from "paren bombs".
+# - AST depth: node depth of the parsed tree, checked *after* parsing to
+#   protect the optimizer/lineage/rendering, which recurse deeper than the
+#   parser and choke on nesting (e.g. nested CASE) that has no brackets.
+SQL_PARSE_MAX_TEXT_NESTING = int(
+    os.environ.get("DATAHUB_SQL_PARSE_MAX_TEXT_NESTING", "500")
+)
+SQL_PARSE_MAX_AST_DEPTH = int(os.environ.get("DATAHUB_SQL_PARSE_MAX_AST_DEPTH", "600"))
+
+# How much of an offending statement to surface at WARNING level. The full SQL
+# is logged at DEBUG so it can be retrieved for debugging without flooding logs.
+_SQL_COMPLEXITY_PREVIEW_CHARS = 2000
+
+
+class StatementTooComplexError(sqlglot.errors.SqlglotError):
+    """Raised when a SQL statement is nested deep enough that parsing it risks a
+    native stack overflow. Subclasses SqlglotError so existing
+    ``except SqlglotError`` handlers (e.g. fingerprinting) degrade gracefully."""
+
 
 # Snowflake governance DDL syntax that sqlglot does not support. When sqlglot
 # encounters any of these it silently falls back to parsing the whole statement
@@ -151,6 +186,104 @@ def _parse_statement(
     return statement
 
 
+def _max_text_nesting_depth(sql: str) -> int:
+    """Return the maximum bracket-nesting depth of a SQL string.
+
+    A cheap single-pass scan used as a pre-parse guard against "paren bombs".
+    Brackets inside string literals are ignored (SQL escapes a quote by
+    doubling it), so quoted text full of parens does not trigger a false
+    positive.
+    """
+    depth = 0
+    max_depth = 0
+    quote: Optional[str] = None
+    i = 0
+    n = len(sql)
+    while i < n:
+        ch = sql[i]
+        if quote is not None:
+            if ch == quote:
+                # A doubled quote ('') is an escaped quote, not a terminator.
+                if i + 1 < n and sql[i + 1] == quote:
+                    i += 2
+                    continue
+                quote = None
+        elif ch in ("'", '"', "`"):
+            quote = ch
+        elif ch in ("(", "["):
+            depth += 1
+            if depth > max_depth:
+                max_depth = depth
+        elif ch in (")", "]"):
+            if depth > 0:
+                depth -= 1
+        i += 1
+    return max_depth
+
+
+def _log_too_complex(
+    sql_text: Optional[str], *, depth: int, limit: int, kind: str
+) -> None:
+    length_note = f", length {len(sql_text)} chars" if sql_text is not None else ""
+    if sql_text is None:
+        preview = "<pre-parsed expression>"
+    elif len(sql_text) > _SQL_COMPLEXITY_PREVIEW_CHARS:
+        preview = sql_text[:_SQL_COMPLEXITY_PREVIEW_CHARS] + " …[truncated]"
+    else:
+        preview = sql_text
+    logger.warning(
+        "Skipping SQL too complex to parse safely (%s depth %d > limit %d%s); "
+        "this avoids a stack overflow but means no lineage for this statement. "
+        "SQL preview: %s",
+        kind,
+        depth,
+        limit,
+        length_note,
+        preview,
+    )
+    # Log the full statement at DEBUG so it can be retrieved for debugging.
+    if sql_text is not None and len(sql_text) > _SQL_COMPLEXITY_PREVIEW_CHARS:
+        logger.debug(
+            "Full SQL for too-complex statement (%s depth %d): %s",
+            kind,
+            depth,
+            sql_text,
+        )
+
+
+def _raise_if_text_too_nested(sql: str) -> None:
+    # Fast path: nesting depth can never exceed the number of opening brackets,
+    # and str.count runs in C. This lets the ~all queries that are nowhere near
+    # the limit skip the O(n) Python scan entirely — keeping the per-parse and
+    # per-fingerprint overhead negligible. Only genuine outliers pay for the
+    # precise, string-literal-aware scan below.
+    if sql.count("(") + sql.count("[") <= SQL_PARSE_MAX_TEXT_NESTING:
+        return
+    depth = _max_text_nesting_depth(sql)
+    if depth > SQL_PARSE_MAX_TEXT_NESTING:
+        _log_too_complex(
+            sql, depth=depth, limit=SQL_PARSE_MAX_TEXT_NESTING, kind="text nesting"
+        )
+        raise StatementTooComplexError(
+            f"SQL nesting too deep to parse safely "
+            f"(depth {depth} > limit {SQL_PARSE_MAX_TEXT_NESTING})"
+        )
+
+
+def _raise_if_statement_too_deep(
+    statement: sqlglot.exp.Expression, sql_text: Optional[str]
+) -> None:
+    depth = get_expression_depth(statement)
+    if depth > SQL_PARSE_MAX_AST_DEPTH:
+        _log_too_complex(
+            sql_text, depth=depth, limit=SQL_PARSE_MAX_AST_DEPTH, kind="parsed AST"
+        )
+        raise StatementTooComplexError(
+            f"Parsed statement too deeply nested to process safely "
+            f"(AST depth {depth} > limit {SQL_PARSE_MAX_AST_DEPTH})"
+        )
+
+
 def parse_statement(
     sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
 ) -> sqlglot.exp.Expression:
@@ -158,17 +291,27 @@ def parse_statement(
     # Because the expressions are mutable, we don't want to allow the caller
     # to modify the parsed expression that sits in the cache. We keep
     # the cached versions pristine by returning a copy on each call.
-    if isinstance(sql, str) and is_dialect_instance(dialect, "snowflake"):
-        sanitized = _sanitize_snowflake_ddl(sql)
-        if sanitized != sql:
-            logger.debug("Sanitized Snowflake DDL: %s -> %s", sql, sanitized)
-        sql = sanitized
-    if isinstance(sql, str) and is_dialect_instance(dialect, "tsql"):
-        sanitized = _sanitize_tsql_temp_tables(sql)
-        if sanitized != sql:
-            logger.debug("Sanitized T-SQL temp tables: %s -> %s", sql, sanitized)
-        sql = sanitized
-    return _parse_statement(sql, dialect).copy()
+    sql_text = sql if isinstance(sql, str) else None
+    if sql_text is not None:
+        # Pre-parse guard: protect the recursive parser from paren bombs.
+        _raise_if_text_too_nested(sql_text)
+        if is_dialect_instance(dialect, "snowflake"):
+            sanitized = _sanitize_snowflake_ddl(sql_text)
+            if sanitized != sql_text:
+                logger.debug("Sanitized Snowflake DDL: %s -> %s", sql_text, sanitized)
+            sql = sanitized
+        if is_dialect_instance(dialect, "tsql"):
+            sanitized = _sanitize_tsql_temp_tables(sql_text)
+            if sanitized != sql_text:
+                logger.debug(
+                    "Sanitized T-SQL temp tables: %s -> %s", sql_text, sanitized
+                )
+            sql = sanitized
+    statement = _parse_statement(sql, dialect).copy()
+    # Post-parse guard: protect the optimizer/lineage/rendering from deep ASTs
+    # (e.g. nested CASE) that carry no brackets for the text guard to catch.
+    _raise_if_statement_too_deep(statement, sql_text=sql_text)
+    return statement
 
 
 def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.exp.Expr:
@@ -176,6 +319,10 @@ def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.exp.E
     # not applied here. This is intentional — callers (e.g. dbt) pass compiled
     # SELECT SQL, never raw DDL with governance metadata.
     logger.debug("Parsing SQL query: %s", sql)
+
+    # Pre-parse guard: this path calls sqlglot.parse directly, so it needs the
+    # same paren-bomb protection as parse_statement.
+    _raise_if_text_too_nested(sql)
 
     dialect = get_dialect(platform)
     statements = [
@@ -193,6 +340,33 @@ def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.exp.E
             "Found multiple statements in query, picking the last one: %s", sql
         )
         return statements[-1]
+
+
+def get_expression_depth(expression: sqlglot.exp.Expression) -> int:
+    """Return the maximum node depth of a sqlglot AST.
+
+    Uses an explicit-stack traversal rather than recursion on purpose: a
+    recursive walk over a pathologically nested statement would overflow the
+    stack — the exact failure mode this function exists to detect. Callers use
+    the depth to skip lineage parsing for statements deep enough to risk a
+    native stack overflow in sqlglot's recursive parser/optimizer: a SIGSEGV in
+    the compiled sqlglot[c] build is uncatchable and kills the whole ingest
+    process.
+    """
+    max_depth = 0
+    stack: List[Tuple[sqlglot.exp.Expression, int]] = [(expression, 1)]
+    while stack:
+        node, depth = stack.pop()
+        if depth > max_depth:
+            max_depth = depth
+        for value in node.args.values():
+            if isinstance(value, sqlglot.exp.Expression):
+                stack.append((value, depth + 1))
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, sqlglot.exp.Expression):
+                        stack.append((item, depth + 1))
+    return max_depth
 
 
 def _expression_to_string(
@@ -318,6 +492,15 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
     # which is used to determine if queries are functionally equivalent.
 
     dialect = get_dialect(dialect)
+
+    # This is a per-query hot path (fingerprinting), so we only apply the cheap
+    # pre-parse text guard — its str.count fast path makes the common case
+    # nearly free while still protecting the parser from paren bombs. We skip
+    # the O(nodes) AST-depth walk here on purpose; callers
+    # (get_query_fingerprint_debug) catch SqlglotError and fall back to a
+    # string-based fingerprint, so this path degrades gracefully regardless.
+    if isinstance(expression, str):
+        _raise_if_text_too_nested(expression)
     expression = sqlglot.maybe_parse(expression, dialect=dialect)
 
     def _simplify_node_expressions(node: sqlglot.exp.Expression) -> None:
