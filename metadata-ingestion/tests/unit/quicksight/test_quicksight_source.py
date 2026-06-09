@@ -26,7 +26,9 @@ def _patched_api(pages=None):
     return quicksight_client, sts_client
 
 
-def _create_source(quicksight_client, sts_client) -> QuickSightSource:
+def _create_source(
+    quicksight_client: mock.MagicMock, sts_client: mock.MagicMock
+) -> QuickSightSource:
     with (
         mock.patch(
             "datahub.ingestion.source.quicksight.quicksight_config.QuickSightSourceConfig.get_quicksight_client",

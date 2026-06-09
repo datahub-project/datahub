@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from typing import Any, Dict, Optional
 from unittest import mock
 
 from datahub.ingestion.api.common import PipelineContext
@@ -30,7 +31,10 @@ def _athena_source() -> ResolvedDataSource:
     )
 
 
-def _extractor(config_dict=None, data_source_map=None) -> QuickSightLineageExtractor:
+def _extractor(
+    config_dict: Optional[Dict[str, Any]] = None,
+    data_source_map: Optional[Dict[str, ResolvedDataSource]] = None,
+) -> QuickSightLineageExtractor:
     config = QuickSightSourceConfig.model_validate(
         {"aws_region": "us-east-1", **(config_dict or {})}
     )
@@ -186,6 +190,7 @@ def test_custom_sql_emits_table_and_column_lineage():
     assert lineage.upstreams[0].dataset == parsed.in_tables[0]
     assert lineage.fineGrainedLineages
     fgl = lineage.fineGrainedLineages[0]
+    assert fgl.downstreams and fgl.upstreams
     assert "total_revenue" in fgl.downstreams[0]
     assert "revenue" in fgl.upstreams[0]
     assert extractor.report.num_column_lineage_edges == 1

@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, Dict, List, Optional
 from unittest import mock
 
 from botocore.exceptions import ClientError
@@ -16,15 +16,20 @@ from datahub.ingestion.source.quicksight.quicksight_report import (
     QuickSightSourceReport,
 )
 from datahub.metadata.schema_classes import DashboardInfoClass
+from datahub.sdk.container import Container
 
 
-def _namespace_key() -> QuickSightNamespaceKey:
-    return QuickSightNamespaceKey(
-        platform="quicksight",
-        instance=None,
-        env="PROD",
-        account_id="064369473231",
-        namespace="default",
+def _parent_container() -> Container:
+    return Container(
+        QuickSightNamespaceKey(
+            platform="quicksight",
+            instance=None,
+            env="PROD",
+            account_id="064369473231",
+            namespace="default",
+        ),
+        display_name="default",
+        subtype="Namespace",
     )
 
 
@@ -35,7 +40,9 @@ def _enricher(api: mock.MagicMock, report: QuickSightSourceReport) -> AssetEnric
     return AssetEnricher(config, report, api)
 
 
-def _processor(api: mock.MagicMock, config_dict=None) -> AnalysesProcessor:
+def _processor(
+    api: mock.MagicMock, config_dict: Optional[Dict[str, Any]] = None
+) -> AnalysesProcessor:
     config = QuickSightSourceConfig.model_validate(
         {"aws_region": "us-east-1", **(config_dict or {})}
     )
@@ -44,12 +51,12 @@ def _processor(api: mock.MagicMock, config_dict=None) -> AnalysesProcessor:
         config,
         report,
         api,
-        parent_resolver=lambda _id: _namespace_key(),
+        parent_resolver=lambda _id: _parent_container(),
         enricher=_enricher(api, report),
     )
 
 
-def _mock_api(summaries) -> mock.MagicMock:
+def _mock_api(summaries: List[Dict[str, Any]]) -> mock.MagicMock:
     api = mock.MagicMock()
     api.aws_account_id = "064369473231"
     api.list_analyses.return_value = summaries
