@@ -93,4 +93,8 @@ def test_precision_no_false_splits() -> None:
     for sql in PRECISION_CASES:
         chunks = [s for s in split_statements(sql, dialect="tsql") if s.strip()]
         assert len(chunks) == 1, f"false split: {sql} -> {chunks}"
+        # Guard against a vacuous pass: _tables() returns set() on parse failure,
+        # so set() == set() would "pass" without verifying the SQL was preserved.
+        # Every PRECISION_CASES statement references at least one source table.
+        assert len(_tables(sql)) > 0, f"precision case has no parseable tables: {sql}"
         assert _tables(chunks[0]) == _tables(sql), f"mangled: {sql}"

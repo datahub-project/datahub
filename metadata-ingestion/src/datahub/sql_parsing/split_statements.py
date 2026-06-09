@@ -474,7 +474,10 @@ def split_statements(sql: str, dialect: Optional[str] = None) -> Iterator[str]:
             tokens = _tokenize(batch, dialect)
             statements = _TokenSplitter(batch, tokens).split()
         except Exception as e:
-            logger.debug(
+            # Warn (not debug): the whole batch is yielded as one blob, which
+            # parse_statement() will likely fail to parse, silently losing the
+            # entire procedure/batch's lineage. Operators need a visible signal.
+            logger.warning(
                 f"split_statements failed for dialect={dialect!r} ({e!r}); "
                 f"yielding whole batch as one statement. batch_prefix={batch[:120]!r}"
             )
