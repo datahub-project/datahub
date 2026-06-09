@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, Dict, List, Optional, Tuple
 from unittest import mock
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -18,15 +18,19 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def _processor(api: mock.MagicMock, config_dict=None) -> UsersGroupsProcessor:
+def _processor(
+    api: mock.MagicMock, config_dict: Optional[Dict[str, Any]] = None
+) -> UsersGroupsProcessor:
     config = QuickSightSourceConfig.model_validate(
         {"aws_region": "us-east-1", **(config_dict or {})}
     )
     return UsersGroupsProcessor(config, QuickSightSourceReport(), api)
 
 
-def _aspects(workunits: List[MetadataWorkUnit], aspect_cls) -> list:
-    out = []
+def _aspects(
+    workunits: List[MetadataWorkUnit], aspect_cls: type
+) -> List[Tuple[str, Any]]:
+    out: List[Tuple[str, Any]] = []
     for wu in workunits:
         aspect = getattr(wu.metadata, "aspect", None)
         if isinstance(aspect, aspect_cls):

@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, Dict, List, Optional
 from unittest import mock
 
 from botocore.exceptions import ClientError
@@ -31,7 +31,9 @@ def _enricher(api: mock.MagicMock, report: QuickSightSourceReport) -> AssetEnric
     return AssetEnricher(config, report, api)
 
 
-def _processor(api: mock.MagicMock, config_dict=None) -> ContainersProcessor:
+def _processor(
+    api: mock.MagicMock, config_dict: Optional[Dict[str, Any]] = None
+) -> ContainersProcessor:
     config = QuickSightSourceConfig.model_validate(
         {"aws_region": "us-east-1", **(config_dict or {})}
     )

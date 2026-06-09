@@ -168,7 +168,7 @@ class _Paginator:
 class FakeQuickSightClient:
     """Minimal in-memory stand-in for ``boto3.client("quicksight")``."""
 
-    def get_paginator(self, operation_name: str):
+    def get_paginator(self, operation_name: str) -> "_Paginator":
         pages: Dict[str, List[Dict[str, Any]]] = {
             "list_namespaces": [{"Namespaces": [{"Name": "default"}]}],
             "list_data_sources": [{"DataSources": _DATA_SOURCES}],
@@ -345,19 +345,23 @@ class FakeQuickSightClient:
 
     # --- permissions (ownership) ---
 
-    def describe_dashboard_permissions(self, AwsAccountId: str, DashboardId: str):
+    def describe_dashboard_permissions(
+        self, AwsAccountId: str, DashboardId: str
+    ) -> Dict:
         return {"Permissions": _owner_permissions(_OWNER_ACTIONS["dashboard"])}
 
-    def describe_analysis_permissions(self, AwsAccountId: str, AnalysisId: str):
+    def describe_analysis_permissions(self, AwsAccountId: str, AnalysisId: str) -> Dict:
         return {"Permissions": _owner_permissions(_OWNER_ACTIONS["analysis"])}
 
-    def describe_data_set_permissions(self, AwsAccountId: str, DataSetId: str):
+    def describe_data_set_permissions(self, AwsAccountId: str, DataSetId: str) -> Dict:
         return {"Permissions": _owner_permissions(_OWNER_ACTIONS["data_set"])}
 
-    def describe_data_source_permissions(self, AwsAccountId: str, DataSourceId: str):
+    def describe_data_source_permissions(
+        self, AwsAccountId: str, DataSourceId: str
+    ) -> Dict:
         return {"Permissions": _owner_permissions(_OWNER_ACTIONS["data_source"])}
 
-    def describe_folder_permissions(self, AwsAccountId: str, FolderId: str):
+    def describe_folder_permissions(self, AwsAccountId: str, FolderId: str) -> Dict:
         return {"Permissions": _owner_permissions(_OWNER_ACTIONS["folder"])}
 
     # --- tags ---

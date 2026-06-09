@@ -17,6 +17,7 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     SubTypesClass,
 )
+from datahub.sdk.container import Container
 
 PARENT_ID = "dash-1"
 DS_IDENTIFIER = "id-abc"
@@ -24,17 +25,21 @@ DS_ARN = "arn:aws:quicksight:us-east-1:064369473231:dataset/ds-1"
 DS_URN = "urn:li:dataset:(urn:li:dataPlatform:quicksight,064369473231.ds-1,PROD)"
 
 
-def _namespace_key() -> QuickSightNamespaceKey:
-    return QuickSightNamespaceKey(
-        platform="quicksight",
-        instance=None,
-        env="PROD",
-        account_id="064369473231",
-        namespace="default",
+def _parent_container() -> Container:
+    return Container(
+        QuickSightNamespaceKey(
+            platform="quicksight",
+            instance=None,
+            env="PROD",
+            account_id="064369473231",
+            namespace="default",
+        ),
+        display_name="default",
+        subtype="Namespace",
     )
 
 
-def _extractor(config_dict=None) -> VisualsExtractor:
+def _extractor(config_dict: Optional[Dict[str, Any]] = None) -> VisualsExtractor:
     config = QuickSightSourceConfig.model_validate(
         {"aws_region": "us-east-1", **(config_dict or {})}
     )
@@ -44,7 +49,11 @@ def _extractor(config_dict=None) -> VisualsExtractor:
 
 
 def _visual(
-    visual_type: str, visual_id: str, *, title: Optional[str] = None, with_ds=True
+    visual_type: str,
+    visual_id: str,
+    *,
+    title: Optional[str] = None,
+    with_ds: bool = True,
 ) -> Dict[str, Any]:
     inner: Dict[str, Any] = {"VisualId": visual_id}
     if title is not None:
@@ -71,7 +80,8 @@ def _chart_info(
     workunits: List[MetadataWorkUnit], name: str
 ) -> Optional[ChartInfoClass]:
     for wu in workunits:
-        if name in wu.metadata.entityUrn:  # type: ignore[union-attr]
+        entity_urn = getattr(wu.metadata, "entityUrn", None)
+        if entity_urn and name in entity_urn:
             aspect = getattr(wu.metadata, "aspect", None)
             if isinstance(aspect, ChartInfoClass):
                 return aspect
@@ -87,7 +97,9 @@ def test_extract_emits_one_chart_per_visual_with_type_and_lineage():
         ]
     )
 
-    workunits, chart_urns = extractor.extract(PARENT_ID, definition, _namespace_key())
+    workunits, chart_urns = extractor.extract(
+        PARENT_ID, definition, _parent_container()
+    )
 
     assert chart_urns == [
         "urn:li:chart:(quicksight,dash-1_v1)",
@@ -114,7 +126,9 @@ def test_empty_visual_is_skipped():
         ]
     )
 
-    workunits, chart_urns = extractor.extract(PARENT_ID, definition, _namespace_key())
+    workunits, chart_urns = extractor.extract(
+        PARENT_ID, definition, _parent_container()
+    )
 
     assert chart_urns == ["urn:li:chart:(quicksight,dash-1_v1)"]
     assert "dash-1/v-empty (EmptyVisual)" in extractor.report.charts.dropped_entities
@@ -124,7 +138,7 @@ def test_unknown_visual_type_falls_back_to_bar():
     extractor = _extractor()
     definition = _definition([_visual("FutureGizmoVisual", "v9", title="Mystery")])
 
-    workunits, _ = extractor.extract(PARENT_ID, definition, _namespace_key())
+    workunits, _ = extractor.extract(PARENT_ID, definition, _parent_container())
 
     info = _chart_info(workunits, "dash-1_v9")
     assert info is not None
@@ -138,7 +152,7 @@ def test_visual_id_already_prefixed_is_not_doubled():
         [_visual("BarChartVisual", "dash-1_sheet-1_v1", title="T")]
     )
 
-    _, chart_urns = extractor.extract(PARENT_ID, definition, _namespace_key())
+    _, chart_urns = extractor.extract(PARENT_ID, definition, _parent_container())
 
     assert chart_urns == ["urn:li:chart:(quicksight,dash-1_sheet-1_v1)"]
 
@@ -147,7 +161,7 @@ def test_visual_without_dataset_identifier_has_no_inputs():
     extractor = _extractor()
     definition = _definition([_visual("TableVisual", "v1", title="T", with_ds=False)])
 
-    workunits, _ = extractor.extract(PARENT_ID, definition, _namespace_key())
+    workunits, _ = extractor.extract(PARENT_ID, definition, _parent_container())
 
     info = _chart_info(workunits, "dash-1_v1")
     assert info is not None
@@ -158,11 +172,11 @@ def test_subtype_carries_raw_visual_type():
     extractor = _extractor()
     definition = _definition([_visual("PieChartVisual", "v1", title="Slices")])
 
-    workunits, _ = extractor.extract(PARENT_ID, definition, _namespace_key())
+    workunits, _ = extractor.extract(PARENT_ID, definition, _parent_container())
 
     subtypes = [
-        wu.metadata.aspect  # type: ignore[union-attr]
+        aspect
         for wu in workunits
-        if isinstance(getattr(wu.metadata, "aspect", None), SubTypesClass)
+        if isinstance((aspect := getattr(wu.metadata, "aspect", None)), SubTypesClass)
     ]
     assert any("PieChartVisual" in st.typeNames for st in subtypes)

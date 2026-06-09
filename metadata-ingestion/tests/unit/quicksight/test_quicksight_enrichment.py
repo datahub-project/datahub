@@ -1,3 +1,4 @@
+from typing import Any, Dict, Optional
 from unittest import mock
 
 from botocore.exceptions import ClientError
@@ -27,7 +28,9 @@ _OWNER_ACTIONS = [
 _VIEWER_ACTIONS = ["quicksight:DescribeDashboard", "quicksight:QueryDashboard"]
 
 
-def _enricher(api: mock.MagicMock, config_dict=None) -> AssetEnricher:
+def _enricher(
+    api: mock.MagicMock, config_dict: Optional[Dict[str, Any]] = None
+) -> AssetEnricher:
     config = QuickSightSourceConfig.model_validate(
         {"aws_region": "us-east-1", **(config_dict or {})}
     )
