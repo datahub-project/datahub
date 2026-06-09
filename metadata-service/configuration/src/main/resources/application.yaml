@@ -430,6 +430,15 @@ ebean:
   cloudProvider: ${EBEAN_CLOUD_PROVIDER:auto} # auto, aws, gcp, or traditional
   batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
   queryKeysCountForBatch: ${EBEAN_QUERY_KEYS_COUNT_FOR_BATCH:375} # Chunk size for batch queries (default 375). Set to avoid large IN clauses that exceed range_optimizer_max_mem_size.
+  readPool:
+    enabled: ${EBEAN_READ_POOL_ENABLED:false}
+    url: ${EBEAN_READ_POOL_URL:${EBEAN_READ_REPLICA_URL:}}
+    minConnections: ${EBEAN_READ_POOL_MIN_CONNECTIONS:${EBEAN_MIN_CONNECTIONS:2}}
+    maxConnections: ${EBEAN_READ_POOL_MAX_CONNECTIONS:${EBEAN_MAX_CONNECTIONS:50}}
+    maxInactiveTimeSeconds: ${EBEAN_READ_POOL_MAX_INACTIVE_TIME_IN_SECS:${EBEAN_MAX_INACTIVE_TIME_IN_SECS:120}}
+    maxAgeMinutes: ${EBEAN_READ_POOL_MAX_AGE_MINUTES:${EBEAN_MAX_AGE_MINUTES:120}}
+    leakTimeMinutes: ${EBEAN_READ_POOL_LEAK_TIME_MINUTES:${EBEAN_LEAK_TIME_MINUTES:15}}
+    waitTimeoutMillis: ${EBEAN_READ_POOL_WAIT_TIMEOUT_MILLIS:${EBEAN_WAIT_TIMEOUT_MILLIS:1000}}
   # Only required if entityService.impl is cassandra
 cassandra:
   datasourceUsername: ${CASSANDRA_DATASOURCE_USERNAME:cassandra}
@@ -439,6 +448,11 @@ cassandra:
   datacenter: ${CASSANDRA_DATACENTER:datacenter1}
   keyspace: ${CASSANDRA_KEYSPACE:datahub}
   useSsl: ${CASSANDRA_USE_SSL:false}
+  readPool:
+    enabled: ${CASSANDRA_READ_POOL_ENABLED:false}
+    hosts: ${CASSANDRA_READ_POOL_HOSTS:${CASSANDRA_READ_REPLICA_HOSTS:}}
+    port: ${CASSANDRA_READ_POOL_PORT:${CASSANDRA_PORT:9042}}
+    datacenter: ${CASSANDRA_READ_POOL_DATACENTER:${CASSANDRA_DATACENTER:datacenter1}}
 
 # PostgreSQL optional SqlSetup (pgQueue).
 # postgres.schema: Ebean/metadata tables (default public). pgQueue uses postgres.pgQueue.schema only

@@ -114,18 +114,50 @@ public final class PostgresTestUtils {
   @Nonnull
   public static Database createEbeanDatabase(
       @Nonnull PostgreSQLContainer<?> container, @Nonnull String serverName) {
+    return createEbeanDatabase(container, serverName, false, false);
+  }
+
+  /**
+   * Primary Ebean pool for integration tests: runs aspect DDL against the shared Testcontainers
+   * PostgreSQL instance.
+   */
+  @Nonnull
+  public static Database createEbeanPrimaryDatabase(
+      @Nonnull PostgreSQLContainer<?> container, @Nonnull String serverName) {
+    return createEbeanDatabase(container, serverName, true, false);
+  }
+
+  /**
+   * Read-pool Ebean instance (split-pool): same JDBC URL as primary, connections marked read-only.
+   */
+  @Nonnull
+  public static Database createEbeanReadPoolDatabase(
+      @Nonnull PostgreSQLContainer<?> container, @Nonnull String serverName) {
+    return createEbeanDatabase(container, serverName, false, true);
+  }
+
+  @Nonnull
+  private static Database createEbeanDatabase(
+      @Nonnull PostgreSQLContainer<?> container,
+      @Nonnull String serverName,
+      boolean runAspectDdl,
+      boolean readOnlyPool) {
     DataSourceConfig dsc = new DataSourceConfig();
     dsc.setUrl(container.getJdbcUrl());
     dsc.setUsername(container.getUsername());
     dsc.setPassword(container.getPassword());
     dsc.setDriver("org.postgresql.Driver");
+    if (readOnlyPool) {
+      dsc.setReadOnly(true);
+      dsc.setAutoCommit(true);
+    }
 
     DatabaseConfig cfg = new DatabaseConfig();
     cfg.setName(serverName);
     cfg.setDataSourceConfig(dsc);
     cfg.setDefaultServer(false);
-    cfg.setDdlGenerate(false);
-    cfg.setDdlRun(false);
+    cfg.setDdlGenerate(runAspectDdl);
+    cfg.setDdlRun(runAspectDdl);
     cfg.addPackage("com.linkedin.metadata.entity.ebean");
     cfg.addPackage("com.linkedin.metadata.queue.ebean");
     return DatabaseFactory.create(cfg);
