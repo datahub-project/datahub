@@ -231,6 +231,7 @@ src/app/entity/shared/tabs/Dataset/**/*.{ts,tsx}
 src/app/entity/shared/tabs/Documentation/**/*.{ts,tsx}
 src/app/entity/shared/tabs/Incident/**/*.{ts,tsx}
 src/app/entity/shared/tabs/Properties/**/*.{ts,tsx}
+src/app/entity/view/**/*.{ts,tsx}
 src/app/entityV2/dataset/profile/schema/components/SchemaSearchInput.tsx
 src/app/*.{ts,tsx}
 src/app/appConfig/**/*.{ts,tsx}
