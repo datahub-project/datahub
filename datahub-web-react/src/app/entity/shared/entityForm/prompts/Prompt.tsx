@@ -2,7 +2,7 @@ import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { useMutationUrn } from '@app/entity/shared/EntityContext';
+import { useEntityContext, useMutationUrn } from '@app/entity/shared/EntityContext';
 import StructuredPropertyPrompt from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
 
 import { useSubmitFormPromptMutation } from '@graphql/form.generated';
@@ -25,6 +25,7 @@ interface Props {
 export default function Prompt({ promptNumber, prompt, field, associatedUrn }: Props) {
     const [optimisticCompletedTimestamp, setOptimisticCompletedTimestamp] = useState<number | null>(null);
     const urn = useMutationUrn();
+    const { refetch, refetchForms } = useEntityContext();
     const [submitFormPrompt] = useSubmitFormPromptMutation();
 
     function submitResponse(input: SubmitFormPromptInput, onSuccess: () => void) {
@@ -32,6 +33,8 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
             .then(() => {
                 onSuccess();
                 setOptimisticCompletedTimestamp(Date.now());
+                refetch();
+                refetchForms?.();
             })
             .catch(() => {
                 message.error('Unknown error while submitting form response');

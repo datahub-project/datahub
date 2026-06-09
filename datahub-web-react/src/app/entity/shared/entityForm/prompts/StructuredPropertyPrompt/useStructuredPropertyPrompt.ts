@@ -70,7 +70,6 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
                 },
             },
             () => {
-                refetch();
                 setHasEdited(false);
                 if (field) {
                     refetchSchema();
