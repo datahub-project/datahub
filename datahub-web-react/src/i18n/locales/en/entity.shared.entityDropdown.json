@@ -12,6 +12,7 @@
     "createGlossary.idLabel": "{{entityName}} Id",
     "createGlossary.idPlaceholder": "classification",
     "createGlossary.namePlaceholder": "Provide a name...",
+    "createGlossary.searchParentPlaceholder": "Search for a parent group...",
     "createGlossary.nameRequired": "Enter a {{entityName}} name.",
     "createGlossary.parentLabel": "Parent <optional>(optional)</optional>",
     "createGlossary.success": "Created {{entityName}}!",

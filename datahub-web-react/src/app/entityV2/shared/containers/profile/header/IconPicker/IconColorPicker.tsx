@@ -63,6 +63,7 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
 }) => {
     const { t } = useTranslation('entity.shared.containers');
     const { t: tc } = useTranslation('common.actions');
+    const { t: tcl } = useTranslation('common.labels');
     const refetch = useRefetch();
     const { urn, entityType } = useEntityData();
     const [updateDisplayProperties] = useUpdateDisplayPropertiesMutation();
@@ -147,12 +148,12 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
             ]}
         >
             <Section>
-                {showIcon && <SectionLabel>Color</SectionLabel>}
+                {showIcon && <SectionLabel>{tcl('color')}</SectionLabel>}
                 <ColorPicker initialColor={initialColor} onChange={setStagedColor} />
             </Section>
             {showIcon && (
                 <Section>
-                    <SectionLabel>Icon</SectionLabel>
+                    <SectionLabel>{tcl('icon')}</SectionLabel>
                     <ChatIconPicker color={stagedColor} onIconPick={(i) => setStagedIcon(i)} />
                 </Section>
             )}

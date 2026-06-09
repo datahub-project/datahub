@@ -9,6 +9,7 @@
     "createModal.idLabel": "{{entityName}} Id",
     "createModal.idPlaceholder": "classification",
     "createModal.invalidIdError": "Please enter a valid entity id",
+    "createModal.namePlaceholder": "Provide a name...",
     "createModal.nameRequiredError": "Enter a {{entityName}} name.",
     "createModal.parentLabel": "Parent <optional>(optional)</optional>",
     "createModal.title": "Create {{entityName}}",

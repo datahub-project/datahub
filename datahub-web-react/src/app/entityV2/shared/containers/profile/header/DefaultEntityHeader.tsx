@@ -18,7 +18,7 @@ import EntityActions, { EntityActionItem } from '@app/entityV2/shared/entity/Ent
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
-import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import ContextPath from '@app/previewV2/ContextPath';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import NotesIcon from '@app/previewV2/NotesIcon';
@@ -157,8 +157,19 @@ export const DefaultEntityHeader = ({
     // The color currently displayed in the UI: prefer the saved colorHex, otherwise the
     // deterministic palette color we generate from the URN. We pass this into the picker so
     // editing always starts from "the color you see" — not the gray default.
+    //
+    // For glossary *terms* specifically we route through `getGlossaryTermColor` so a term
+    // with no explicitly-picked color inherits its root group's color (matching the sidebar
+    // and the term-pill rendered on associated entities). Without this, the header would
+    // jump straight to a palette hash of the term URN and look unrelated to the group on
+    // the term's own profile page.
     let resolvedCurrentColor: string | undefined;
-    if (isGlossaryEntity) {
+    if (isGlossaryTerm) {
+        resolvedCurrentColor = getGlossaryTermColor(
+            { urn, parentNodes: entityData?.parentNodes ?? null, displayProperties },
+            generateGlossaryColor,
+        );
+    } else if (isGlossaryNode) {
         resolvedCurrentColor = displayProperties?.colorHex || generateGlossaryColor(urn);
     } else if (isDomainEntity) {
         resolvedCurrentColor = displayProperties?.colorHex || generateDomainColor(urn);

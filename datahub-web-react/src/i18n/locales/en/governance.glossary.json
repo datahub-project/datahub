@@ -13,5 +13,7 @@
     "page.subtitle": "Classify your data assets and columns using data dictionaries",
     "page.title": "Business Glossary",
     "section.glossaryTerms": "Glossary Terms",
-    "section.termGroups": "Term Groups"
+    "section.termGroups": "Term Groups",
+    "sidebar.collapse": "Collapse Glossary",
+    "sidebar.expand": "Expand Glossary"
 }

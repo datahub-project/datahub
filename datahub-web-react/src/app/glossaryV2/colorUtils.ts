@@ -57,18 +57,25 @@ export function getDeepestParentNode(parentNodes: ParentNodesResult | null | und
 /**
  * Returns the hex color used to visually represent a glossary term across the app.
  *
- * Convention: a term inherits the color of its deepest (root) parent node. If that node
- * has a configured `displayProperties.colorHex`, that wins. Otherwise we deterministically
- * derive a palette color from the parent's URN. For root-level terms (no parent nodes),
- * we fall back to a palette color derived from the term's own URN.
+ * Priority (highest → lowest):
+ *   1. The term's own `displayProperties.colorHex` — set explicitly via the term's color
+ *      picker. A user-picked color is the source of truth wherever the term appears.
+ *   2. The deepest (root) parent node's `displayProperties.colorHex`. This gives a term
+ *      that hasn't been explicitly colored the visual identity of its group.
+ *   3. A deterministic palette color derived from the root parent's URN — same as above,
+ *      but for groups that themselves haven't been explicitly colored.
+ *   4. For root-level terms with no parents, a palette color derived from the term's URN.
  *
  * Pure function — pass in the result of `useGenerateGlossaryColorFromPalette()` so it
  * can be exercised from component render and from unit tests.
  */
 export function getGlossaryTermColor(
-    term: Pick<GlossaryTerm, 'urn' | 'parentNodes'>,
+    term: Pick<GlossaryTerm, 'urn' | 'parentNodes' | 'displayProperties'>,
     generateColor: (urn: string) => string,
 ): string {
+    if (term.displayProperties?.colorHex) {
+        return term.displayProperties.colorHex;
+    }
     const parent = getDeepestParentNode(term.parentNodes);
     if (parent) {
         return parent.displayProperties?.colorHex || generateColor(parent.urn);

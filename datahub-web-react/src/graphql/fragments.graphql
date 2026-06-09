@@ -179,6 +179,9 @@ fragment glossaryTerm on GlossaryTerm {
             value
         }
     }
+    displayProperties {
+        ...displayPropertiesFields
+    }
     ownership {
         ...ownershipFields
     }

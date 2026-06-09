@@ -1,7 +1,6 @@
-import { Button, ColorPicker, Input, Modal, Text, toast } from '@components';
+import { ColorPicker, Editor, Input, Modal, Text, toast } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import DOMPurify from 'dompurify';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -11,7 +10,6 @@ import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import NodeParentSelect from '@app/entityV2/shared/EntityDropdown/NodeParentSelect';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import DescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -46,10 +44,11 @@ const HelperText = styled(Text).attrs({ type: 'p' })`
     margin: 0 0 8px 0;
 `;
 
-const DocumentationButton = styled(Button).attrs({ variant: 'text' })`
-    padding: 4px 8px;
-    align-self: flex-start;
-    gap: 6px;
+const EditorContainer = styled.div`
+    height: 200px;
+    overflow: auto;
+    border: 1px solid ${(p) => p.theme.colors.border};
+    border-radius: 12px;
 `;
 
 const AdvancedHeader = styled.button`
@@ -78,12 +77,11 @@ interface Props {
     refetchData?: () => void;
     // acryl-main only prop
     canCreateGlossaryEntity: boolean;
-    canSelectParentUrn?: boolean;
     isCloning?: boolean;
 }
 
 function CreateGlossaryEntityModal(props: Props) {
-    const { entityType, onClose, refetchData, canCreateGlossaryEntity, canSelectParentUrn = true } = props;
+    const { entityType, onClose, refetchData, canCreateGlossaryEntity } = props;
     const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tcf } = useTranslation('common.feedback');
@@ -99,13 +97,20 @@ function CreateGlossaryEntityModal(props: Props) {
     const [idTouched, setIdTouched] = useState(false);
     const [selectedParentUrn, setSelectedParentUrn] = useState(props.isCloning ? '' : entityData.urn);
     const [documentation, setDocumentation] = useState('');
-    const [isDocumentationModalVisible, setIsDocumentationModalVisible] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [selectedColor, setSelectedColor] = useState<string>(theme.colors.colorPickerDefault);
     // Whether the user has explicitly picked a color. If false, we let the backend fall back to
     // the deterministic palette color generated from the URN instead of persisting the default
     // gray placeholder and overriding it.
     const [colorWasPicked, setColorWasPicked] = useState(false);
+    // Tracks the selected parent's own `displayProperties.colorHex` so the color picker can
+    // pre-fill from it. Seeded from the in-context entity when the modal opens inside an entity
+    // profile, then updated as the user changes the parent via the picker. Once the user has
+    // explicitly chosen a color (`colorWasPicked === true`), changes here no longer move the
+    // picker — the user's override sticks.
+    const [parentColor, setParentColor] = useState<string | undefined>(
+        !props.isCloning ? entityData.entityData?.displayProperties?.colorHex || undefined : undefined,
+    );
     const refetch = useRefetch();
 
     const [createGlossaryTermMutation] = useCreateGlossaryTermMutation();
@@ -220,11 +225,6 @@ function CreateGlossaryEntityModal(props: Props) {
         onClose();
     }
 
-    function addDocumentation(description: string) {
-        setDocumentation(description);
-        setIsDocumentationModalVisible(false);
-    }
-
     return (
         <Modal
             title={t('createGlossary.title', { entityName })}
@@ -258,23 +258,18 @@ function CreateGlossaryEntityModal(props: Props) {
                     error={nameTouched ? nameValidationError : undefined}
                 />
             </Field>
-            {canSelectParentUrn && (
-                <Field>
-                    <FieldLabel>
-                        <Text weight="bold">
-                            <Trans
-                                t={t}
-                                i18nKey="createGlossary.parentLabel"
-                                components={{ optional: <OptionalHint /> }}
-                            />
-                        </Text>
-                    </FieldLabel>
-                    <NodeParentSelect
-                        selectedParentUrn={selectedParentUrn}
-                        setSelectedParentUrn={setSelectedParentUrn}
-                    />
-                </Field>
-            )}
+            <Field>
+                <FieldLabel>
+                    <Text weight="bold">
+                        <Trans t={t} i18nKey="createGlossary.parentLabel" components={{ optional: <OptionalHint /> }} />
+                    </Text>
+                </FieldLabel>
+                <NodeParentSelect
+                    selectedParentUrn={selectedParentUrn}
+                    setSelectedParentUrn={setSelectedParentUrn}
+                    onSelectParent={(parent) => setParentColor(parent?.displayProperties?.colorHex || undefined)}
+                />
+            </Field>
             <Field>
                 <FieldLabel>
                     <Text weight="bold">
@@ -285,27 +280,27 @@ function CreateGlossaryEntityModal(props: Props) {
                         />
                     </Text>
                 </FieldLabel>
-                <DocumentationButton onClick={() => setIsDocumentationModalVisible(true)}>
-                    <PencilSimple size={14} weight="regular" />
-                    {documentation ? t('createGlossary.editDocumentation') : t('createGlossary.addDocumentation')}
-                </DocumentationButton>
-                {isDocumentationModalVisible && (
-                    <DescriptionModal
-                        title={t('createGlossary.addDocumentation')}
-                        onClose={() => setIsDocumentationModalVisible(false)}
-                        onSubmit={addDocumentation}
-                        description={documentation}
+                <EditorContainer>
+                    <Editor
+                        content={documentation}
+                        onChange={setDocumentation}
+                        dataTestId="create-glossary-documentation-editor"
+                        hideBorder
                     />
-                )}
+                </EditorContainer>
             </Field>
             {showColorPicker && (
                 <Field>
                     <FieldLabel>
-                        <Text weight="bold">Color</Text>
-                        <OptionalHint>(optional)</OptionalHint>
+                        <Text weight="bold">{tcl('color')}</Text>
+                        <OptionalHint>{tcl('optional')}</OptionalHint>
                     </FieldLabel>
                     <ColorPicker
-                        initialColor={selectedColor}
+                        // Until the user picks a color, the picker tracks the parent's color
+                        // (so a child inherits its group's identity by default). Once they pick,
+                        // `colorWasPicked` locks the picker to their choice regardless of any
+                        // subsequent parent change.
+                        initialColor={colorWasPicked ? selectedColor : parentColor || theme.colors.colorPickerDefault}
                         onChange={(c) => {
                             setSelectedColor(c);
                             setColorWasPicked(true);

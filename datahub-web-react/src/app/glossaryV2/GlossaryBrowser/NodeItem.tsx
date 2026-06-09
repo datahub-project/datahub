@@ -1,4 +1,3 @@
-import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
@@ -183,7 +182,6 @@ function NodeItem(props: Props) {
     // takes precedence over a color inherited from a parent node, which in turn beats the
     // deterministic palette fallback. This keeps the sidebar in sync with the entity header.
     const glossaryColor = node.displayProperties?.colorHex || iconColor || generateColor(node.urn);
-    const NodeIcon = iconColor ? BookmarkSimple : BookmarksSimple;
 
     return (
         <ItemWrapper $isSelected={entityData?.urn === node.urn} $isChildNode={isChildNode}>
@@ -206,7 +204,7 @@ function NodeItem(props: Props) {
                             />
                         ))}
                 </CaretSlot>
-                <StyledNodeIcon color={glossaryColor} icon={NodeIcon} size={24} iconSize={14} />
+                <StyledNodeIcon color={glossaryColor} icon={BookmarksSimple} size={24} iconSize={14} />
                 {!isSelecting && (
                     <NodeLink
                         to={`${entityRegistry.getEntityUrl(node.type, node.urn)}`}

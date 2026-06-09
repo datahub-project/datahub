@@ -227,7 +227,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     />
                 </FormItemWithMargin>
                 <FormItemWithMargin>
-                    <Label>Color</Label>
+                    <Label>{tl('color')}</Label>
                     <ColorPicker
                         initialColor={selectedColor}
                         onChange={(c) => {

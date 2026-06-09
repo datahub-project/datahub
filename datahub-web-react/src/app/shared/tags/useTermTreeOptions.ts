@@ -221,9 +221,13 @@ export function buildTermTreeOptions({
                 emitNodeChain(reversedParents);
                 const termDepth = reversedParents.length;
                 const topNode = reversedParents[0];
-                const termColor = topNode
-                    ? topNode.displayProperties?.colorHex || getFallbackColor(topNode.urn)
-                    : getFallbackColor(term.urn);
+                // Color priority mirrors `getGlossaryTermColor`: the term's own `colorHex` wins,
+                // then the root parent's, then a palette hash of the root URN, then the term URN.
+                const termColor =
+                    term.displayProperties?.colorHex ||
+                    (topNode
+                        ? topNode.displayProperties?.colorHex || getFallbackColor(topNode.urn)
+                        : getFallbackColor(term.urn));
                 result.push({
                     value: term.urn,
                     label: getDisplayName(term),

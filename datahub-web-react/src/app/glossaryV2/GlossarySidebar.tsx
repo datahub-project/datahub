@@ -197,7 +197,7 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                             </Tooltip>
                         )}
                         <Tooltip
-                            title={isCollapsed ? 'Expand Glossary' : 'Collapse Glossary'}
+                            title={isCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
                             placement="right"
                             showArrow={false}
                         >
@@ -238,7 +238,6 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                     canCreateGlossaryEntity={!!canManageGlossaries}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
-                    canSelectParentUrn={false}
                 />
             )}
         </>
