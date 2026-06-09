@@ -26,7 +26,7 @@
     "queryCard.columnDescription": "Beschreibung",
     "queryCard.columnPowers": "Treibt an",
     "queryCard.columnQueryText": "Query-Text",
-    "queryCard.columnTopUsers": "Top-Nutzer",
+    "queryCard.columnTopUsers": "Top-Benutzer",
     "queryCard.createdOn": "Erstellt am {{date}}",
     "queryCard.deleteConfirmBody": "Möchtest du diese Query wirklich löschen?",
     "queryCard.deleteConfirmTitle": "Query löschen",
