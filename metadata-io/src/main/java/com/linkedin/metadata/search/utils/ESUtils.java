@@ -432,7 +432,7 @@ public class ESUtils {
       return finalQueryBuilder;
     }
 
-    StructuredPropertyUtils.validateFilter(filter, opContext.getAspectRetriever());
+    StructuredPropertyUtils.validateFilter(opContext, filter, opContext.getAspectRetriever());
 
     if (filter.getOr() != null) {
       // If caller is using the new Filters API, build boolean query from that.
@@ -551,7 +551,8 @@ public class ESUtils {
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
-    final String fieldName = toParentField(criterion.getField(), opContext.getAspectRetriever());
+    final String fieldName =
+        toParentField(opContext, criterion.getField(), opContext.getAspectRetriever());
 
     /*
      * Check the field-name for a "sibling" field, or one which should ALWAYS
@@ -725,15 +726,19 @@ public class ESUtils {
   /**
    * Resolve structured property field, or normal field, and strip subfields
    *
+   * @param opContext operation context for tenant-aware aspect retrieval
    * @param filterField name of the field used in the filter request
    * @param aspectRetriever aspect retriever, used if structured property
    * @return normalized field name without subfields
    */
   @Nonnull
   public static String toParentField(
-      @Nonnull final String filterField, @Nullable final AspectRetriever aspectRetriever) {
+      @Nullable final Object opContext,
+      @Nonnull final String filterField,
+      @Nullable final AspectRetriever aspectRetriever) {
     String fieldName =
-        StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(filterField, aspectRetriever)
+        StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(
+                (com.datahub.context.OperationFingerprint) opContext, filterField, aspectRetriever)
             .map(
                 urnDefinition ->
                     STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
@@ -765,6 +770,7 @@ public class ESUtils {
   /**
    * Return resolved structured property field, normal field, or subfield which is of type `keyword`
    *
+   * @param opContext operation context for tenant-aware aspect retrieval
    * @param filterField the field name used in the filter
    * @param skipKeywordSuffix prevent use of `keyword` subfield, useful when parent field is known
    *     or always `keyword`
@@ -773,11 +779,13 @@ public class ESUtils {
    */
   @Nonnull
   public static String toKeywordField(
+      @Nullable final Object opContext,
       @Nonnull final String filterField,
       final boolean skipKeywordSuffix,
       @Nullable final AspectRetriever aspectRetriever) {
     String fieldName =
-        StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(filterField, aspectRetriever)
+        StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(
+                (com.datahub.context.OperationFingerprint) opContext, filterField, aspectRetriever)
             .map(
                 urnDefinition ->
                     STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
@@ -852,7 +860,8 @@ public class ESUtils {
       orQueryBuilder.should(
           getQueryBuilderFromCriterionForSingleField(
                   buildCriterion(
-                      toKeywordField(field, isTimeseries, opContext.getAspectRetriever()),
+                      toKeywordField(
+                          opContext, field, isTimeseries, opContext.getAspectRetriever()),
                       criterion.getCondition(),
                       criterion.isNegated(),
                       criterion.getValues()),
@@ -880,7 +889,7 @@ public class ESUtils {
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     final Condition condition = criterion.getCondition();
     final AspectRetriever aspectRetriever = opContext.getAspectRetriever();
-    final String fieldName = toParentField(criterion.getField(), aspectRetriever);
+    final String fieldName = toParentField(opContext, criterion.getField(), aspectRetriever);
 
     boolean enableCaseInsensitiveSearch;
 
@@ -900,6 +909,7 @@ public class ESUtils {
                 criterion,
                 isTimeseries,
                 searchableFieldTypes,
+                opContext,
                 aspectRetriever,
                 enableCaseInsensitiveSearch)
             .queryName(queryName != null ? queryName : fieldName);
@@ -910,17 +920,18 @@ public class ESUtils {
                 searchableFieldTypes,
                 condition,
                 isTimeseries,
+                opContext,
                 aspectRetriever)
             .queryName(queryName != null ? queryName : fieldName);
       } else if (condition == Condition.CONTAIN) {
         return buildContainsConditionFromCriterion(
-            fieldName, criterion, queryName, isTimeseries, aspectRetriever);
+            fieldName, criterion, queryName, isTimeseries, opContext, aspectRetriever);
       } else if (condition == Condition.START_WITH) {
         return buildStartsWithConditionFromCriterion(
-            fieldName, criterion, queryName, isTimeseries, aspectRetriever);
+            fieldName, criterion, queryName, isTimeseries, opContext, aspectRetriever);
       } else if (condition == Condition.END_WITH) {
         return buildEndsWithConditionFromCriterion(
-            fieldName, criterion, queryName, isTimeseries, aspectRetriever);
+            fieldName, criterion, queryName, isTimeseries, opContext, aspectRetriever);
       } else if (Set.of(ANCESTORS_INCL, DESCENDANTS_INCL, RELATED_INCL).contains(condition)) {
         enableCaseInsensitiveSearch = isCaseInsensitiveSearchEnabled(condition);
         return QueryFilterRewriterContext.builder()
@@ -935,6 +946,7 @@ public class ESUtils {
                     criterion,
                     isTimeseries,
                     searchableFieldTypes,
+                    opContext,
                     aspectRetriever,
                     enableCaseInsensitiveSearch))
             .queryName(queryName != null ? queryName : fieldName);
@@ -948,6 +960,7 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       final boolean isTimeseries,
       @Nullable String queryName,
+      @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
       String wildcardPattern) {
     BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
@@ -955,7 +968,7 @@ public class ESUtils {
     for (String value : criterion.getValues()) {
       boolQuery.should(
           QueryBuilders.wildcardQuery(
-                  toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
+                  toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever),
                   String.format(wildcardPattern, ESUtils.escapeReservedCharacters(value.trim())))
               .queryName(queryName != null ? queryName : fieldName)
               .caseInsensitive(true));
@@ -968,9 +981,10 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       @Nullable String queryName,
       final boolean isTimeseries,
+      @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever) {
     return buildWildcardQueryWithMultipleValues(
-        fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s*");
+        fieldName, criterion, isTimeseries, queryName, opContext, aspectRetriever, "*%s*");
   }
 
   private static QueryBuilder buildStartsWithConditionFromCriterion(
@@ -978,9 +992,10 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       @Nullable String queryName,
       final boolean isTimeseries,
+      @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever) {
     return buildWildcardQueryWithMultipleValues(
-        fieldName, criterion, isTimeseries, queryName, aspectRetriever, "%s*");
+        fieldName, criterion, isTimeseries, queryName, opContext, aspectRetriever, "%s*");
   }
 
   private static QueryBuilder buildEndsWithConditionFromCriterion(
@@ -988,9 +1003,10 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       @Nullable String queryName,
       final boolean isTimeseries,
+      @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever) {
     return buildWildcardQueryWithMultipleValues(
-        fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s");
+        fieldName, criterion, isTimeseries, queryName, opContext, aspectRetriever, "*%s");
   }
 
   private static QueryBuilder buildEqualsConditionFromCriterion(
@@ -998,6 +1014,7 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       final boolean isTimeseries,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
       boolean enableCaseInsensitiveSearch) {
     return buildEqualsConditionFromCriterionWithValues(
@@ -1005,6 +1022,7 @@ public class ESUtils {
         criterion,
         isTimeseries,
         searchableFieldTypes,
+        opContext,
         aspectRetriever,
         enableCaseInsensitiveSearch);
   }
@@ -1018,10 +1036,11 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       final boolean isTimeseries,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
       boolean enableCaseInsensitiveSearch) {
     Set<String> fieldTypes =
-        getFieldTypes(searchableFieldTypes, fieldName, criterion, aspectRetriever);
+        getFieldTypes(searchableFieldTypes, fieldName, criterion, opContext, aspectRetriever);
     if (fieldTypes.size() > 1) {
       log.debug(
           "Multiple field types for field name {}, determining best fit for set: {}",
@@ -1049,7 +1068,8 @@ public class ESUtils {
               value ->
                   boolQuery.should(
                       QueryBuilders.termQuery(
-                              toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
+                              toKeywordField(
+                                  opContext, criterion.getField(), isTimeseries, aspectRetriever),
                               value.trim())
                           .caseInsensitive(true)));
       if (!boolQuery.should().isEmpty()) {
@@ -1059,7 +1079,7 @@ public class ESUtils {
     }
 
     return QueryBuilders.termsQuery(
-            toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
+            toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever),
             criterion.getValues())
         .queryName(fieldName);
   }
@@ -1068,6 +1088,7 @@ public class ESUtils {
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFields,
       String fieldName,
       @Nonnull final Criterion criterion,
+      @Nullable final Object opContext,
       @Nullable AspectRetriever aspectRetriever) {
     final Set<String> finalFieldTypes;
     if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
@@ -1075,7 +1096,9 @@ public class ESUtils {
       // underscores
       finalFieldTypes =
           StructuredPropertyUtils.toElasticsearchFieldType(
-              replaceSuffix(criterion.getField()), aspectRetriever);
+              (com.datahub.context.OperationFingerprint) opContext,
+              replaceSuffix(criterion.getField()),
+              aspectRetriever);
     } else {
       Set<SearchableAnnotation.FieldType> fieldTypes =
           searchableFields.getOrDefault(fieldName.split("\\.")[0], Collections.emptySet());
@@ -1105,9 +1128,10 @@ public class ESUtils {
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       Condition condition,
       boolean isTimeseries,
+      @Nullable final Object opContext,
       AspectRetriever aspectRetriever) {
     Set<String> fieldTypes =
-        getFieldTypes(searchableFieldTypes, fieldName, criterion, aspectRetriever);
+        getFieldTypes(searchableFieldTypes, fieldName, criterion, opContext, aspectRetriever);
 
     // Determine criterion value, range query only accepts single value so take first value in
     // values if multiple
@@ -1126,7 +1150,7 @@ public class ESUtils {
       documentFieldName = fieldName;
     } else {
       criterionValue = criterionValueString;
-      documentFieldName = toKeywordField(fieldName, isTimeseries, aspectRetriever);
+      documentFieldName = toKeywordField(opContext, fieldName, isTimeseries, aspectRetriever);
     }
 
     // Set up QueryBuilder based on condition

@@ -62,6 +62,7 @@ from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
     QueryType,
     QueryTypeProps,
+    get_dialect_str,
 )
 from datahub.sql_parsing.sqlglot_utils import (
     DialectOrStr,
@@ -2373,14 +2374,22 @@ def create_lineage_sql_parsed_result(
             schema_resolver.close()
 
 
-def _prepare_sql_query_list(queries: Union[str, List[str]]) -> List[str]:
+def _prepare_sql_query_list(
+    queries: Union[str, List[str]], dialect: Optional[str] = None
+) -> List[str]:
     if isinstance(queries, str):
-        return [stmt for stmt in split_statements(queries) if stmt.strip()]
+        return [
+            stmt for stmt in split_statements(queries, dialect=dialect) if stmt.strip()
+        ]
     else:
         result: List[str] = []
         for q in queries:
             if q and str(q).strip():
-                result.extend(stmt for stmt in split_statements(str(q)) if stmt.strip())
+                result.extend(
+                    stmt
+                    for stmt in split_statements(str(q), dialect=dialect)
+                    if stmt.strip()
+                )
         return result
 
 
@@ -2423,7 +2432,7 @@ def create_lineage_from_sql_statements(
         SqlParsingAggregator,
     )
 
-    queries = _prepare_sql_query_list(queries)
+    queries = _prepare_sql_query_list(queries, dialect=get_dialect_str(platform))
 
     if not queries:
         return SqlParsingResult.make_from_error(

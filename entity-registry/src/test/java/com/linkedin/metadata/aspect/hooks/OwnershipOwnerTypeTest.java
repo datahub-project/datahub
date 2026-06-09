@@ -10,6 +10,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.*;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
@@ -104,7 +105,7 @@ public class OwnershipOwnerTypeTest {
     TestMCP mcp = withPrevious(getTestMcpBuilder().recordTemplate(ownership), ownership).build();
 
     List<Pair<ChangeMCP, Boolean>> result =
-        test.writeMutation(Set.of(mcp), retrieverContext).toList();
+        test.writeMutation(OperationFingerprint.EMPTY, Set.of(mcp), retrieverContext).toList();
 
     assertEquals(result.size(), 1);
     Pair<ChangeMCP, Boolean> resulted = result.get(0);
@@ -121,7 +122,7 @@ public class OwnershipOwnerTypeTest {
     TestMCP mcp = getTestMcpBuilder().recordTemplate(ownership).build();
 
     List<Pair<ChangeMCP, Boolean>> result =
-        test.writeMutation(Set.of(mcp), retrieverContext).toList();
+        test.writeMutation(OperationFingerprint.EMPTY, Set.of(mcp), retrieverContext).toList();
 
     assertEquals(result.size(), 1);
     assertFalse(result.get(0).getSecond());
@@ -140,7 +141,7 @@ public class OwnershipOwnerTypeTest {
         getTestMcpBuilder().changeType(ChangeType.CREATE_ENTITY).recordTemplate(proposal).build();
 
     List<Pair<ChangeMCP, Boolean>> result =
-        test.writeMutation(Set.of(mcp), retrieverContext).toList();
+        test.writeMutation(OperationFingerprint.EMPTY, Set.of(mcp), retrieverContext).toList();
 
     assertEquals(result.size(), 1);
     assertTrue(
@@ -171,7 +172,7 @@ public class OwnershipOwnerTypeTest {
         getTestMcpBuilder().changeType(ChangeType.CREATE_ENTITY).recordTemplate(proposal).build();
 
     List<Pair<ChangeMCP, Boolean>> result =
-        test.applyWriteMutation(Set.of(mcp), retrieverContext).toList();
+        test.applyWriteMutation(OperationFingerprint.EMPTY, Set.of(mcp), retrieverContext).toList();
 
     assertEquals(result.size(), 1);
     assertTrue(
@@ -191,7 +192,7 @@ public class OwnershipOwnerTypeTest {
     TestMCP mcp = withPrevious(getTestMcpBuilder().recordTemplate(proposal), stored).build();
 
     List<Pair<ChangeMCP, Boolean>> result =
-        test.writeMutation(Set.of(mcp), retrieverContext).toList();
+        test.writeMutation(OperationFingerprint.EMPTY, Set.of(mcp), retrieverContext).toList();
 
     assertEquals(result.size(), 1);
     assertTrue(
@@ -209,7 +210,7 @@ public class OwnershipOwnerTypeTest {
     TestMCP mcp = getTestMcpBuilder().recordTemplate(ownership).build();
 
     List<Pair<ChangeMCP, Boolean>> result =
-        test.writeMutation(Set.of(mcp), retrieverContext).toList();
+        test.writeMutation(OperationFingerprint.EMPTY, Set.of(mcp), retrieverContext).toList();
 
     assertEquals(result.size(), 1);
     Pair<ChangeMCP, Boolean> resulted = result.get(0);
@@ -224,7 +225,7 @@ public class OwnershipOwnerTypeTest {
     TestMCP mcp = getTestMcpBuilder().recordTemplate(ownership).build();
 
     List<Pair<ChangeMCP, Boolean>> result =
-        test.writeMutation(Set.of(mcp), retrieverContext).toList();
+        test.writeMutation(OperationFingerprint.EMPTY, Set.of(mcp), retrieverContext).toList();
 
     assertEquals(result.size(), 1);
     Pair<ChangeMCP, Boolean> resulted = result.get(0);
@@ -302,7 +303,7 @@ public class OwnershipOwnerTypeTest {
   @Test
   public void ownershipTypeMutationNoneType() {
     Ownership ownership = buildOwnership(Map.of(TEST_USER_A, List.of(), TEST_GROUP_A, List.of()));
-    test.writeMutation(buildMCP(null, ownership), retrieverContext);
+    test.writeMutation(OperationFingerprint.EMPTY, buildMCP(null, ownership), retrieverContext);
 
     assertEquals(
         ownership.getOwnerTypes(),
@@ -318,7 +319,8 @@ public class OwnershipOwnerTypeTest {
     Ownership oldOwnership = buildOwnership(Map.of(TEST_USER_A, List.of()));
     Ownership newOwnership =
         buildOwnership(Map.of(TEST_USER_A, List.of(), TEST_GROUP_A, List.of()));
-    test.writeMutation(buildMCP(oldOwnership, newOwnership), retrieverContext);
+    test.writeMutation(
+        OperationFingerprint.EMPTY, buildMCP(oldOwnership, newOwnership), retrieverContext);
 
     assertEquals(
         newOwnership.getOwnerTypes(),
@@ -334,7 +336,8 @@ public class OwnershipOwnerTypeTest {
     Ownership oldOwnership =
         buildOwnership(Map.of(TEST_USER_A, List.of(), TEST_GROUP_A, List.of()));
     Ownership newOwnership = buildOwnership(Map.of(TEST_USER_A, List.of()));
-    test.writeMutation(buildMCP(oldOwnership, newOwnership), retrieverContext);
+    test.writeMutation(
+        OperationFingerprint.EMPTY, buildMCP(oldOwnership, newOwnership), retrieverContext);
 
     assertEquals(
         newOwnership.getOwnerTypes(),
@@ -356,7 +359,7 @@ public class OwnershipOwnerTypeTest {
                 List.of(BUS_OWNER),
                 TEST_GROUP_B,
                 List.of(TECH_OWNER)));
-    test.writeMutation(buildMCP(null, ownership), retrieverContext);
+    test.writeMutation(OperationFingerprint.EMPTY, buildMCP(null, ownership), retrieverContext);
 
     assertEquals(
         ownership.getOwnerTypes(),
@@ -386,7 +389,8 @@ public class OwnershipOwnerTypeTest {
                 List.of(BUS_OWNER),
                 TEST_GROUP_B,
                 List.of(TECH_OWNER)));
-    test.writeMutation(buildMCP(oldOwnership, newOwnership), retrieverContext);
+    test.writeMutation(
+        OperationFingerprint.EMPTY, buildMCP(oldOwnership, newOwnership), retrieverContext);
 
     assertEquals(
         newOwnership.getOwnerTypes(),
@@ -416,7 +420,8 @@ public class OwnershipOwnerTypeTest {
                 List.of(TECH_OWNER)));
     Ownership newOwnership =
         buildOwnership(Map.of(TEST_GROUP_A, List.of(), TEST_GROUP_B, List.of(TECH_OWNER)));
-    test.writeMutation(buildMCP(oldOwnership, newOwnership), retrieverContext);
+    test.writeMutation(
+        OperationFingerprint.EMPTY, buildMCP(oldOwnership, newOwnership), retrieverContext);
 
     assertEquals(
         newOwnership.getOwnerTypes(),
@@ -467,7 +472,7 @@ public class OwnershipOwnerTypeTest {
 
     // Execute mutation
     List<Pair<ChangeMCP, Boolean>> results =
-        test.writeMutation(buildMCP(null, ownership), retrieverContext)
+        test.writeMutation(OperationFingerprint.EMPTY, buildMCP(null, ownership), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results

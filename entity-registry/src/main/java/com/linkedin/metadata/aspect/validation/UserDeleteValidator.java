@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.validation;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.identity.CorpUserInfo;
@@ -32,6 +33,7 @@ public class UserDeleteValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
 
@@ -44,7 +46,8 @@ public class UserDeleteValidator extends AspectPayloadValidator {
           final Aspect aspect =
               retrieverContext
                   .getAspectRetriever()
-                  .getLatestAspectObject(entityUrn, Constants.CORP_USER_INFO_ASPECT_NAME);
+                  .getLatestAspectObject(
+                      operationContext, entityUrn, Constants.CORP_USER_INFO_ASPECT_NAME);
 
           // Skip users for which we don't have corp user information.
           // Should not happen
@@ -66,7 +69,9 @@ public class UserDeleteValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 }

@@ -392,7 +392,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     searchSourceBuilder.size(0);
     searchSourceBuilder.aggregation(
         AggregationBuilders.terms(field)
-            .field(ESUtils.toKeywordField(field, false, opContext.getAspectRetriever()))
+            .field(ESUtils.toKeywordField(opContext, field, false, opContext.getAspectRetriever()))
             .size(ConfigUtils.applyLimit(searchServiceConfig, limit)));
     searchRequest.source(searchSourceBuilder);
 
@@ -691,7 +691,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
       final List<AggregationMetadata> aggregationMetadataList =
           aggregationQueryBuilder.extractAggregationMetadata(
-              searchResponse, filter, opContext.getAspectRetriever());
+              searchResponse, filter, opContext, opContext.getAspectRetriever());
       searchResultMetadata.setAggregations(new AggregationMetadataArray(aggregationMetadataList));
     }
 
