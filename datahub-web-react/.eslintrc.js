@@ -117,11 +117,13 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     'classNames',
     // SVG / format / placement presentation attributes — never user-visible text.
     'optionFilterProp',
+    '.*[Aa]lign$',
     'dy',
     'fontFamily',
     'format',
     'pointerEvents',
     'textAnchor',
+    'textDecoration',
     'tooltipPlacement',
     'viewBox',
     '.*Path$',
