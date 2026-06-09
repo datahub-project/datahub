@@ -1,13 +1,14 @@
 import logging
-from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 import pydantic
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import DatasetSourceConfigMixin
-from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -17,23 +18,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-class MonteCarloAlertsConfig(BaseTimeWindowConfig):
-    """Time window and toggle for alert/incident ingestion as assertion run events."""
-
-    # Override the parent default (1 day) to 30 days for Monte Carlo alerts.
-    start_time: datetime = Field(  # type: ignore[assignment]
-        default_factory=lambda: datetime.now(tz=timezone.utc) - timedelta(days=30),
-        description=(
-            "Earliest alert/incident timestamp to ingest. "
-            "Supports relative syntax like '-30 days'. Default: 30 days ago."
-        ),
-    )
-    enabled: bool = Field(
-        default=True,
-        description="Emit Monte Carlo alerts/incidents as assertion run events (failures).",
-    )
 
 
 class MonteCarloPlatformDetail(ConfigModel):
@@ -61,7 +45,11 @@ class MonteCarloPlatformDetail(ConfigModel):
     )
 
 
-class MonteCarloSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+class MonteCarloSourceConfig(
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+):
     api_id: str = Field(
         description="Monte Carlo API key id (the ``mcd_id`` of an API key pair).",
     )
@@ -91,9 +79,14 @@ class MonteCarloSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMix
         default=True,
         description="Emit Monte Carlo monitors and custom rules as DataHub assertions.",
     )
-    alerts: MonteCarloAlertsConfig = Field(
-        default_factory=MonteCarloAlertsConfig,
-        description="Configuration for alert/incident ingestion as assertion run events.",
+    emit_alerts: bool = Field(
+        default=True,
+        description="Emit Monte Carlo alerts/incidents as assertion run events (failures).",
+    )
+    alerts_lookback_days: pydantic.PositiveInt = Field(
+        default=30,
+        description="How many days back to fetch alerts/incidents for. Only applies when "
+        "emit_alerts is enabled.",
     )
 
     monitor_pattern: AllowDenyPattern = Field(

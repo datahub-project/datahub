@@ -2,10 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, Optional, Protocol
 
-from datahub.emitter.mce_builder import (
-    make_dataset_urn_with_platform_instance,
-    make_schema_field_urn,
-)
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.source.montecarlo.client import ResolvedTable
 from datahub.ingestion.source.montecarlo.config import (
     MonteCarloPlatformDetail,
@@ -133,9 +130,15 @@ class MconResolver:
                         context=f"{mcon} (connection_type={resolved.connection_type})",
                     )
                 else:
+                    # Lowercase the table path to match warehouse sources (e.g.
+                    # Snowflake) that emit lowercased dataset URNs, so the assertion
+                    # attaches to the same dataset entity.
+                    table_id = resolved.full_table_id
+                    if self.config.convert_urns_to_lowercase:
+                        table_id = table_id.lower()
                     urn = make_dataset_urn_with_platform_instance(
                         platform=detail.platform,
-                        name=resolved.full_table_id,
+                        name=table_id,
                         platform_instance=detail.platform_instance,
                         env=detail.env,
                     )
@@ -151,9 +154,3 @@ class MconResolver:
 
         self._cache[mcon] = urn
         return urn
-
-    def field_urn_for_mcon(self, mcon: str, field: str) -> Optional[str]:
-        dataset_urn = self.dataset_urn_for_mcon(mcon)
-        if dataset_urn is None:
-            return None
-        return make_schema_field_urn(dataset_urn, field)

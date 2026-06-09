@@ -107,7 +107,7 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
 
         # Alerts are emitted after definitions so run events can attach to the
         # assertions ingested above.
-        if self.config.alerts.enabled:
+        if self.config.emit_alerts:
             for alert in self.client.get_alerts():
                 self.report.report_alert_scanned()
                 try:

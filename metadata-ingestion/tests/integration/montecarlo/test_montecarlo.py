@@ -163,7 +163,9 @@ class _FakePycarloClient:
 
     def __call__(self, query: str, variables: Dict[str, Any]) -> _FakeBox:
         if "getMonitors" in query:
-            return _FakeBox(getMonitors=MONITORS)
+            offset = variables.get("offset") or 0
+            limit = variables.get("limit") or len(MONITORS)
+            return _FakeBox(getMonitors=MONITORS[offset : offset + limit])
         if "getCustomRules" in query:
             return _FakeBox(
                 getCustomRules={

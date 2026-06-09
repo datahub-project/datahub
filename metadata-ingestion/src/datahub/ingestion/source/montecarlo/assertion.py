@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Type
+from typing import TYPE_CHECKING, Dict, Iterable, Optional, Type
 
 from datahub.emitter.mce_builder import (
     make_assertion_source,
@@ -261,7 +261,3 @@ class MonteCarloAssertionBuilder:
             aspect=run_event,
         ).as_workunit(is_primary_source=False)
         self.report.report_run_event_emitted()
-
-    @property
-    def ingested_monitor_uuids(self) -> List[str]:
-        return list(self._assertion_urn_by_monitor.keys())

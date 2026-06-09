@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
 from pydantic import BaseModel, Field
@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 # Field selections follow the pycarlo / MCD schema. Connections are Relay-style
 # (edges/node/pageInfo) and are walked by ``_paginate``.
 _MONITORS_QUERY = """
-query getMonitors($monitorTypes: [String], $domainIds: [UUID]) {
-  getMonitors(monitorTypes: $monitorTypes, domainIds: $domainIds) {
+query getMonitors($monitorTypes: [String], $domainIds: [UUID], $limit: Int, $offset: Int) {
+  getMonitors(monitorTypes: $monitorTypes, domainIds: $domainIds, limit: $limit, offset: $offset) {
     uuid
     name
     description
@@ -186,14 +186,28 @@ class MonteCarloClient:
             if not after:
                 break
 
+    def _paginate_offset(
+        self, query: str, root_field: str, variables: Dict[str, Any]
+    ) -> Iterable[Dict[str, Any]]:
+        # getMonitors returns a plain list rather than a Relay connection, so it is
+        # walked with limit/offset (instead of _paginate's cursor) and stops once a
+        # short page signals the last batch.
+        offset = 0
+        while True:
+            page_vars = {**variables, "limit": self.page_size, "offset": offset}
+            page = self._call(query, page_vars).get(root_field) or []
+            yield from page
+            if len(page) < self.page_size:
+                break
+            offset += self.page_size
+
     def get_monitors(self) -> Iterable[MonteCarloAssertionDef]:
         variables: Dict[str, Any] = {}
         if self.config.monitor_types_allow:
             variables["monitorTypes"] = self.config.monitor_types_allow
         if self.config.domain_ids:
             variables["domainIds"] = self.config.domain_ids
-        monitors = self._call(_MONITORS_QUERY, variables).get("getMonitors") or []
-        for raw in monitors:
+        for raw in self._paginate_offset(_MONITORS_QUERY, "getMonitors", variables):
             uuid = raw.get("uuid")
             if not uuid:
                 logger.warning("Skipping monitor with missing uuid: %r", raw)
@@ -227,7 +241,10 @@ class MonteCarloClient:
             )
 
     def get_alerts(self) -> Iterable[MonteCarloAlert]:
-        variables = {"createdTime": {"gte": self.config.alerts.start_time.isoformat()}}
+        start_time = datetime.now(tz=timezone.utc) - timedelta(
+            days=self.config.alerts_lookback_days
+        )
+        variables = {"createdTime": {"gte": start_time.isoformat()}}
         for raw in self._paginate(_ALERTS_QUERY, "getAlerts", variables):
             alert_id = raw.get("id")
             if not alert_id:

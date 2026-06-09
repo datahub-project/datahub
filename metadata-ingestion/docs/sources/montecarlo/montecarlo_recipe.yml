@@ -13,9 +13,8 @@ source:
         env: PROD
 
     emit_assertions: true # monitors + custom rules -> Assertion entities
-    alerts:
-      enabled: true # alerts/incidents -> AssertionRunEvent failures
-      start_time: "-30 days" # how far back to fetch alerts (default: 30 days)
+    emit_alerts: true # alerts/incidents -> AssertionRunEvent failures
+    alerts_lookback_days: 30 # how far back to fetch alerts (default: 30 days)
 
     # stateful_ingestion:
     #   enabled: true

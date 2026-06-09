@@ -46,10 +46,9 @@ class FakeResolverClient:
 
 
 def test_alerts_default_window_is_30_days() -> None:
-    # Replacing alerts_lookback_days=30 — the default window must stay 30 days.
     cfg = make_config()
-    delta_days = (cfg.alerts.end_time - cfg.alerts.start_time).total_seconds() / 86400
-    assert round(delta_days) == 30
+    assert cfg.alerts_lookback_days == 30
+    assert cfg.emit_alerts is True
 
 
 def test_parse_mcon() -> None:
@@ -275,6 +274,46 @@ def test_build_assertion_skips_unresolvable_asset() -> None:
     )
     assert _build_assertion_workunits(builder, definition) == []
     assert report.assertions_emitted == 0
+
+
+def test_resolver_lowercases_urn_when_configured() -> None:
+    mcon = "MCON++acct++wh-1++table++DB.SCH.TBL"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="DB.SCH.TBL", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config(convert_urns_to_lowercase=True)
+    resolver = MconResolver(cfg, client, MonteCarloSourceReport())
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is not None
+    assert "db.sch.tbl" in urn and "DB.SCH.TBL" not in urn
+
+
+def test_get_monitors_paginates_with_offset() -> None:
+    # getMonitors returns a plain list, so the client must walk it with
+    # limit/offset; verify monitors past the first page are still fetched.
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = make_config()
+    client.page_size = 2
+    pages: Dict[int, List[Dict[str, Any]]] = {
+        0: [{"uuid": "m1"}, {"uuid": "m2"}],
+        2: [{"uuid": "m3"}],
+    }
+    seen_offsets: List[int] = []
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        offset = variables["offset"]
+        seen_offsets.append(offset)
+        return {"getMonitors": pages.get(offset, [])}
+
+    client._call = fake_call  # type: ignore[method-assign]
+    uuids = [m.uuid for m in client.get_monitors()]
+    assert uuids == ["m1", "m2", "m3"]
+    # Stops after the short second page rather than requesting a third.
+    assert seen_offsets == [0, 2]
 
 
 def test_build_assertion_warns_on_empty_entity_mcons() -> None:
