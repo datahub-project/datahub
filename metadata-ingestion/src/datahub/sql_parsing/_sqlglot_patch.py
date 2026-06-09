@@ -1,4 +1,3 @@
-import dataclasses
 import difflib
 import logging
 import typing as t
@@ -138,17 +137,6 @@ def _patch_lineage() -> None:
     sys.modules["sqlglot._lineage_py"] = lineage_py
     spec.loader.exec_module(lineage_py)  # type: ignore
 
-    # Add the "subfield" attribute to the Node dataclass.
-    # lineage_py.Node is a pure Python dataclass (not compiled), so inheritance works.
-    # Unfortunately, mypy won't pick up on the new field, so we need to
-    # use type ignores everywhere we use subfield.
-    @dataclasses.dataclass(frozen=True)
-    class Node(lineage_py.Node):  # type: ignore[name-defined]
-        subfield: str = ""
-
-    lineage_py.Node = Node  # type: ignore
-    sqlglot.lineage.Node = Node  # type: ignore
-
     patchy.patch(
         lineage_py.lineage,
         """\
@@ -181,7 +169,7 @@ def _patch_lineage() -> None:
 """,
     )
 
-    # Patch 2: Add subfield extraction for struct field access (e.g. col.subfield)
+    # Patch 2: Add subfield extraction for struct field access (e.g. col.subfield).
     patchy.patch(
         lineage_py.to_node,
         """\
@@ -202,7 +190,7 @@ def _patch_lineage() -> None:
 +                name=c.sql(comments=False),
 +                source=col_expr,
 +                expression=col_expr,
-+                subfield=subfield,
++                payload={"subfield": subfield},
 +            )
              node.downstream.append(leaf)
              if on_node:
