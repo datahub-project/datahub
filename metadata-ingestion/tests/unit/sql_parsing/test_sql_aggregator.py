@@ -188,6 +188,52 @@ def test_temp_table() -> None:
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
+def test_temp_output_query_not_emitted_as_entity() -> None:
+    # A query whose OUTPUT is a temp table should not produce a persistent Query
+    # entity (it has no real downstream); a query writing a real table should.
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_queries=True,
+        generate_query_usage_statistics=True,
+        generate_operations=False,
+        usage_config=BaseUsageConfig(
+            start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+            end_time=frozen_timestamp,
+        ),
+        is_temp_table=lambda name: name.split(".")[-1].lower().startswith("tmp_"),
+    )
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("redshift", "dev.public.bar").urn(),
+        {"a": "int"},
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table tmp_scratch as select a from bar",
+            default_db="dev",
+            default_schema="public",
+            timestamp=frozen_timestamp,
+            session_id="s1",
+        )
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table real_out as select a from bar",
+            default_db="dev",
+            default_schema="public",
+            timestamp=frozen_timestamp,
+            session_id="s1",
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+    query_entities = [m for m in mcps if m.entityType == "query"]
+    # Only the real-output query yields a Query entity; the temp-output one is dropped.
+    assert len({m.entityUrn for m in query_entities}) == 1
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_multistep_temp_table() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
