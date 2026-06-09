@@ -70,10 +70,6 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
-  // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read lock) in order
-  // to ensure that the aspect's version is not modified outside the transaction.
-  // We rely on the retry mechanism if the row is modified and will re-read (require the lock)
-  public static final TxIsolation TX_ISOLATION = TxIsolation.READ_COMMITED;
 
   /** -- GETTER -- Return the server instance used for customized queries. Only used in tests. */
   @Getter private final Database server;
@@ -139,7 +135,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Nonnull
   @Override
   public Optional<EntityAspect> updateAspect(
-      @Nullable TransactionContext txContext, @Nonnull SystemAspect aspect) {
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull SystemAspect aspect) {
     validateConnection();
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
@@ -155,7 +153,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public Optional<EntityAspect> insertAspect(
-      @Nullable TransactionContext txContext, @Nonnull SystemAspect aspect, final long version) {
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull SystemAspect aspect,
+      final long version) {
     validateConnection();
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
@@ -219,7 +220,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public long countEntities() {
+  public long countEntities(@Nonnull OperationContext opContext) {
     validateConnection();
     return server
         .find(EbeanAspectV2.class)
@@ -229,7 +230,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public boolean checkIfAspectExists(@Nonnull String aspectName) {
+  public boolean checkIfAspectExists(
+      @Nonnull OperationContext opContext, @Nonnull String aspectName) {
     validateConnection();
     return server
         .find(EbeanAspectV2.class)
@@ -241,13 +243,17 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nullable
   public EntityAspect getAspect(
-      @Nonnull final String urn, @Nonnull final String aspectName, final long version) {
-    return getAspect(new EntityAspectIdentifier(urn, aspectName, version));
+      @Nonnull OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName,
+      final long version) {
+    return getAspect(opContext, new EntityAspectIdentifier(urn, aspectName, version));
   }
 
   @Override
   @Nullable
-  public EntityAspect getAspect(@Nonnull final EntityAspectIdentifier key) {
+  public EntityAspect getAspect(
+      @Nonnull OperationContext opContext, @Nonnull final EntityAspectIdentifier key) {
     validateConnection();
     EbeanAspectV2.PrimaryKey primaryKey =
         new EbeanAspectV2.PrimaryKey(key.getUrn(), key.getAspect(), key.getVersion());
@@ -257,7 +263,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   public void deleteAspect(
-      @Nonnull final Urn urn, @Nonnull final String aspect, @Nonnull final Long version) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspect,
+      @Nonnull final Long version) {
     validateConnection();
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
@@ -310,7 +319,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Set<EntityAspectIdentifier> keys,
+      boolean forUpdate) {
     validateConnection();
     if (keys.isEmpty()) {
       return Collections.emptyMap();
@@ -543,6 +554,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public ListResult<String> listUrns(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
@@ -575,7 +587,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Nonnull
   @Override
-  public Integer countAspect(@Nonnull String aspectName, @Nullable String urnLike) {
+  public Integer countAspect(
+      @Nonnull OperationContext opContext, @Nonnull String aspectName, @Nullable String urnLike) {
     ExpressionList<EbeanAspectV2> exp =
         server
             .find(EbeanAspectV2.class)
@@ -592,7 +605,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Nonnull
   @Override
-  public Integer countAspect(final RestoreIndicesArgs args) {
+  public Integer countAspect(@Nonnull OperationContext opContext, final RestoreIndicesArgs args) {
     return buildExpressionList(args, true).findCount();
   }
 
@@ -604,9 +617,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    */
   @Nonnull
   @Override
-  public PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args) {
+  public PartitionedStream<EbeanAspectV2> streamAspectBatches(
+      @Nonnull OperationContext opContext, final RestoreIndicesArgs args) {
     // Use default for existing RestoreIndices operations
-    return streamAspectBatches(args, null);
+    return streamAspectBatches(opContext, args, null);
   }
 
   /**
@@ -619,7 +633,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * @return PartitionedStream of aspects ordered by URN/aspect
    */
   public PartitionedStream<EbeanAspectV2> streamAspectBatches(
-      final RestoreIndicesArgs args, final TxIsolation isolationLevel) {
+      @Nonnull OperationContext opContext,
+      final RestoreIndicesArgs args,
+      final TxIsolation isolationLevel) {
     ExpressionList<EbeanAspectV2> exp = buildExpressionList(args, false);
     if (args.limit > 0) {
       exp = exp.setMaxRows(args.limit);
@@ -786,7 +802,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    */
   @Override
   @Nonnull
-  public Stream<EntityAspect> streamAspects(String entityName, String aspectName) {
+  public Stream<EntityAspect> streamAspects(
+      @Nonnull String entityName, @Nonnull String aspectName) {
     ExpressionList<EbeanAspectV2> exp =
         server
             .find(EbeanAspectV2.class)
@@ -800,7 +817,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   @Nonnull
-  public Iterable<String> listAllUrns(int start, int pageSize) {
+  public Iterable<String> listAllUrns(
+      @Nonnull OperationContext opContext, int start, int pageSize) {
     validateConnection();
     PagedList<EbeanAspectV2> ebeanAspects =
         server
@@ -818,6 +836,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public ListResult<String> listAspectMetadata(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final long version,
@@ -854,34 +873,41 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public ListResult<String> listLatestAspectMetadata(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
 
-    return listAspectMetadata(entityName, aspectName, ASPECT_LATEST_VERSION, start, pageSize);
+    return listAspectMetadata(
+        opContext, entityName, aspectName, ASPECT_LATEST_VERSION, start, pageSize);
   }
 
   @Override
   @Nonnull
   public <T> Optional<T> runInTransactionWithRetry(
+      @Nonnull OperationContext opContext,
       @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
       final int maxTransactionRetry) {
-    return runInTransactionWithRetry(block, null, maxTransactionRetry);
+    return runInTransactionWithRetryUnlocked(opContext, block, null, maxTransactionRetry)
+        .getResults();
   }
 
   @Override
   @Nonnull
   public <T> Optional<T> runInTransactionWithRetry(
+      @Nonnull OperationContext opContext,
       @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
       @Nullable AspectsBatch batch,
       final int maxTransactionRetry) {
 
-    return runInTransactionWithRetryUnlocked(block, batch, maxTransactionRetry).getResults();
+    return runInTransactionWithRetryUnlocked(opContext, block, batch, maxTransactionRetry)
+        .getResults();
   }
 
   @Nonnull
   public <T> TransactionResult<T> runInTransactionWithRetryUnlocked(
+      @Nonnull OperationContext opContext,
       @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
       @Nullable AspectsBatch batch,
       final int maxTransactionRetry) {
@@ -892,8 +918,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // Default state is rollback
     TransactionResult<T> result = TransactionResult.rollback();
     do {
-      try (Transaction transaction =
-          server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
+      // Use TxScope.requiresNew() without setIsolation(): explicit isolation forces JDBC
+      // Connection.setTransactionIsolation on every begin, which PostgreSQL rejects if the pooled
+      // connection already has an active transaction ("Cannot change transaction isolation level in
+      // the middle of a transaction"). READ COMMITTED remains the effective level via pool defaults
+      // on the metadata DataSource where configured.
+      try (Transaction transaction = server.beginTransaction(TxScope.requiresNew())) {
         transaction.setBatchMode(true);
         result = block.apply(transactionContext.tx(transaction));
         if (result.isCommitOrRollback()) {
@@ -938,7 +968,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public Pair<Long, Long> getVersionRange(
-      @Nonnull final String urn, @Nonnull final String aspectName) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName) {
     validateConnection();
 
     // Use SQL aggregation to get both min and max in a single query
@@ -961,8 +993,11 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
-    return getVersionRange(urn, aspectName).getSecond();
+  public long getMaxVersion(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName) {
+    return getVersionRange(opContext, urn, aspectName).getSecond();
   }
 
   /**
@@ -973,7 +1008,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * @return map of the aspect's next version
    */
   public Map<String, Map<String, Long>> getNextVersions(
-      @Nonnull Map<String, Set<String>> urnAspects) {
+      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {
     validateConnection();
 
     List<EbeanAspectV2.PrimaryKey> forUpdateKeys = new ArrayList<>();
@@ -1121,7 +1156,11 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public List<EntityAspect> getAspectsInRange(
-      @Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      Set<String> aspectNames,
+      long startTimeMillis,
+      long endTimeMillis) {
     validateConnection();
     List<EbeanAspectV2> ebeanAspects =
         server

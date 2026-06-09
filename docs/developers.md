@@ -231,6 +231,278 @@ If you see warnings about lock state, regenerate the locks:
 ./gradlew resolveAndLockAll --write-locks
 ```
 
+### Custom Repositories
+
+For airgapped environments or corporate networks that route artifact traffic through an internal proxy (Nexus, Artifactory, etc.), DataHub's Gradle build supports overriding every Maven repository URL through a standardised set of properties.
+
+#### Maven Repositories
+
+Three Maven repositories are used during the build:
+
+| Property                                        | Default                                              | Purpose                            |
+| ----------------------------------------------- | ---------------------------------------------------- | ---------------------------------- |
+| `datahub.dependencies.maven.central`            | `https://repo1.maven.org/maven2/`                    | Most Java dependencies             |
+| `datahub.dependencies.maven.confluent`          | `https://packages.confluent.io/maven/`               | Kafka and Schema Registry packages |
+| `datahub.dependencies.maven.linkedinOpenSource` | `https://linkedin.jfrog.io/artifactory/open-source/` | Pegasus and GMA artifacts          |
+
+The defaults are defined in the root `gradle.properties` file, which is the canonical reference.
+
+**Override options (in order of precedence):**
+
+1. **Command-line flag** — one-off or CI invocation:
+
+   ```bash
+   ./gradlew build \
+     -P'datahub.dependencies.maven.central'=https://nexus.company.com/repository/maven-public/ \
+     -P'datahub.dependencies.maven.confluent'=https://nexus.company.com/repository/confluent/
+   ```
+
+2. **Environment variable** — prefix each property name with `ORG_GRADLE_PROJECT_`:
+
+   ```bash
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.maven.central'=https://nexus.company.com/repository/maven-public/
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.maven.confluent'=https://nexus.company.com/repository/confluent/
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.maven.linkedinOpenSource'=https://nexus.company.com/repository/open-source/
+   ```
+
+3. **User-level `~/.gradle/gradle.properties`** — not checked into git, suitable for shared workstations or CI agents:
+
+   ```properties
+   datahub.dependencies.maven.central=https://nexus.company.com/repository/maven-public/
+   datahub.dependencies.maven.confluent=https://nexus.company.com/repository/confluent/
+   datahub.dependencies.maven.linkedinOpenSource=https://nexus.company.com/repository/open-source/
+   ```
+
+:::note
+The legacy properties `apacheMavenRepositoryUrl`, `mavenCentralRepositoryUrl`, `confluentMavenRepositoryUrl`, and `linkedinOpenSourceRepositoryUrl` are deprecated but still honoured. They take precedence over the new namespaced properties when set. Migrate to the `datahub.dependencies.maven.*` group at your earliest convenience.
+:::
+
+#### Node.js Distribution
+
+The frontend build downloads a pinned Node.js binary from `https://nodejs.org/dist`. Override this for airgapped environments or corporate mirrors:
+
+| Property                                | Default                   | Purpose                               |
+| --------------------------------------- | ------------------------- | ------------------------------------- |
+| `datahub.dependencies.node.distBaseUrl` | `https://nodejs.org/dist` | Base URL for Node.js binary downloads |
+
+The default is defined in `gradle.properties`
+
+**Override options (in order of precedence):**
+
+1. **Command-line flag:**
+
+   ```bash
+   ./gradlew :datahub-web-react:yarnBuild \
+     -P'datahub.dependencies.node.distBaseUrl'=https://nexus.company.com/nodejs/
+   ```
+
+2. **Environment variable:**
+
+   ```bash
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.node.distBaseUrl'=https://nexus.company.com/nodejs/
+   ```
+
+3. **User-level `~/.gradle/gradle.properties`:**
+
+   ```properties
+   datahub.dependencies.node.distBaseUrl=https://nexus.company.com/nodejs/
+   ```
+
+:::note
+The legacy property `nodeDistBaseUrl` is deprecated but still honoured. It takes precedence over `datahub.dependencies.node.distBaseUrl` when set. Migrate to the new property at your earliest convenience.
+:::
+
+#### Alpine APK Repository
+
+Docker images are built on Alpine/Wolfi Linux. Override the APK package repository for airgapped environments or corporate mirrors:
+
+| Property                           | Default                          | Purpose                                  |
+| ---------------------------------- | -------------------------------- | ---------------------------------------- |
+| `datahub.dependencies.apkrepo.url` | `https://apk.cgr.dev/chainguard` | APK repository URL used in Docker builds |
+
+The default is defined in `gradle.properties`
+
+**Override options (in order of precedence):**
+
+1. **Command-line flag:**
+
+   ```bash
+   ./gradlew :metadata-service:war:docker \
+     -P'datahub.dependencies.apkrepo.url'=https://nexus.company.com/apk/
+   ```
+
+2. **Environment variable:**
+
+   ```bash
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.apkrepo.url'=https://nexus.company.com/apk/
+   ```
+
+3. **User-level `~/.gradle/gradle.properties`:**
+
+   ```properties
+   datahub.dependencies.apkrepo.url=https://nexus.company.com/apk/
+   ```
+
+#### GitHub Base URL
+
+Docker images download JVM tooling (jattach, OpenTelemetry Java agent) from GitHub at build time.
+Override this URL to point to an internal mirror for airgapped or corporate environments:
+
+| Property                              | Default              | Purpose                                             |
+| ------------------------------------- | -------------------- | --------------------------------------------------- |
+| `datahub.dependencies.github.baseURL` | `https://github.com` | GitHub base URL used in Docker builds for JVM tools |
+
+The default is defined in `gradle.properties`
+
+**Override options (in order of precedence):**
+
+1. **Command-line flag:**
+
+   ```bash
+   ./gradlew :metadata-service:war:docker \
+     -P'datahub.dependencies.github.baseURL'=https://github.internal.company.com
+   ```
+
+2. **Environment variable:**
+
+   ```bash
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.github.baseURL'=https://github.internal.company.com
+   ```
+
+3. **User-level `~/.gradle/gradle.properties`:**
+
+   ```properties
+   datahub.dependencies.github.baseURL=https://github.internal.company.com
+   ```
+
+:::note Legacy property
+
+The `githubMirrorUrl` Gradle property is **deprecated** in favour of
+`datahub.dependencies.github.baseURL`. It is still honoured for backward compatibility but will be
+removed in a future release.
+
+:::
+
+#### Python Package Index (PyPI)
+
+Docker images for `datahub-ingestion` and `datahub-actions` install Python packages at build time
+using [uv](https://docs.astral.sh/uv/). Index configuration is profile-based: a `uv.toml` is
+written into the image at build time, and credentials are injected via a `netrc` file that is
+**never baked into any image layer**.
+
+##### Gradle properties
+
+| Property                                       | Default                          | Purpose                                              |
+| ---------------------------------------------- | -------------------------------- | ---------------------------------------------------- |
+| `datahub.dependencies.python.pipMirrorUrl`     | `https://pypi.python.org/simple` | Default index URL (used when profile is `custom`)    |
+| `datahub.dependencies.python.pipExtraIndexUrl` | _(empty)_                        | Additional index URL (used when profile is `custom`) |
+| `datahub.dependencies.python.uvProfile`        | `default`                        | Which index profile to use (see below)               |
+
+The defaults are defined in the root `gradle.properties` file, which is the canonical reference.
+
+##### UV index profiles
+
+The `datahub.dependencies.python.uvProfile` property selects how uv resolves packages:
+
+| Profile   | Behaviour                                                                                      |
+| --------- | ---------------------------------------------------------------------------------------------- |
+| `default` | Uses PyPI (`https://pypi.org/simple/`) as the sole index.                                      |
+| `custom`  | Uses `pipMirrorUrl` as the default index. Adds `pipExtraIndexUrl` as a secondary index if set. |
+
+Setting `pipExtraIndexUrl` without explicitly setting `uvProfile=custom` will **automatically
+activate the `custom` profile** — you do not need to set both.
+
+Profile toml files live in [`docker/snippets/uv/profiles/`](../docker/snippets/uv/profiles/).
+Add a new `.toml` file there and pass its basename as `uvProfile` to use a fully custom static profile. For example create a `ci.toml` file and pass `datahub.dependencies.python.uvProfile=ci` as a gradle property to use the ci.toml file.
+
+##### Configuring a private index
+
+**Step 1 — tell the build where the index is:**
+
+```bash
+# Command-line (highest precedence)
+./gradlew :docker:datahub-ingestion:docker \
+  -P'datahub.dependencies.python.pipMirrorUrl'=https://nexus.company.com/pypi/simple/ \
+  -P'datahub.dependencies.python.pipExtraIndexUrl'=https://nexus.company.com/pypi-extra/simple/
+
+# Environment variable
+export 'ORG_GRADLE_PROJECT_datahub.dependencies.python.pipMirrorUrl'=https://nexus.company.com/pypi/simple/
+export 'ORG_GRADLE_PROJECT_datahub.dependencies.python.pipExtraIndexUrl'=https://nexus.company.com/pypi-extra/simple/
+
+# User-level ~/.gradle/gradle.properties
+datahub.dependencies.python.pipMirrorUrl=https://nexus.company.com/pypi/simple/
+datahub.dependencies.python.pipExtraIndexUrl=https://nexus.company.com/pypi-extra/simple/
+```
+
+**Step 2 — supply credentials via `netrc` (never embed them in URLs):**
+
+Create a `netrc` file with one `machine` entry per index hostname:
+
+```
+machine nexus.company.com login <username> password <token>
+```
+
+Place the file at `docker/snippets/uv/.netrc` (gitignored by default), or point to any path via
+the `DATAHUB_NETRC_PATH` environment variable:
+
+```bash
+export DATAHUB_NETRC_PATH=/path/to/.netrc
+./gradlew :docker:datahub-ingestion:docker ...
+```
+
+See `docker/snippets/uv/.netrc.example` for the full format
+and examples. The file is mounted into the build via a Docker BuildKit secret — it is **never
+written to any image layer** and will not appear in `docker history` output.
+
+:::warning Credentials in URLs
+
+Do not embed credentials directly in index URLs:
+
+```properties
+# BAD — password baked into image layer via build arg
+datahub.dependencies.python.pipExtraIndexUrl=https://user:password@nexus.company.com/simple/
+```
+
+Use the `netrc` file instead. uv reads it natively for authentication.
+
+:::
+
+:::note Legacy properties
+
+The `pipMirrorUrl` and `pipExtraIndexUrls` Gradle properties are **deprecated** in favour of
+`datahub.dependencies.python.pipMirrorUrl` and `datahub.dependencies.python.pipExtraIndexUrl`.
+They are still honoured for backward compatibility but will be removed in a future release.
+
+:::
+
+##### Local Python installs (non-Docker)
+
+Local Gradle Python install tasks — `./gradlew :metadata-ingestion:installDev` and the equivalents
+in `datahub-actions`, the `metadata-ingestion-modules/*` plugins, and `smoke-test` — consume the
+same profile and netrc that Docker builds use, so a private index is picked up automatically with
+no per-developer shell wiring.
+
+Wiring:
+
+- `UV_CONFIG_FILE` is exported to every `uv pip` invocation, pointing at
+  `docker/snippets/uv/profiles/${uvProfile}.toml` (falling back to `profiles/default.toml` if the
+  selected profile file doesn't exist).
+- `NETRC` is exported when a netrc file is present at `docker/snippets/uv/.netrc` or at the path
+  given by `DATAHUB_NETRC_PATH`.
+
+In the default OSS configuration this is a no-op: `default.toml` declares only PyPI, so uv resolves
+exactly as it does today. To opt in to a private index for local installs, either edit
+`profiles/default.toml` to declare your index, or set `datahub.dependencies.python.uvProfile` to a
+custom profile name and author the matching `profiles/<name>.toml`.
+
+For direct `uv pip install` calls inside an already-activated venv (no Gradle in the loop), export
+the same env vars in your shell, mise, or direnv config:
+
+```bash
+export UV_CONFIG_FILE="$(git rev-parse --show-toplevel)/docker/snippets/uv/profiles/default.toml"
+export NETRC="$(git rev-parse --show-toplevel)/docker/snippets/uv/.netrc"
+```
+
 ## Deploying Local Versions
 
 This guide explains how to set up and deploy DataHub locally for development purposes.

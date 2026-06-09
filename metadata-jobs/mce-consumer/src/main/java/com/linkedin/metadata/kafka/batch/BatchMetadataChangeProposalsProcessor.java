@@ -1,6 +1,5 @@
 package com.linkedin.metadata.kafka.batch;
 
-import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCP_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
 import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
 
@@ -10,7 +9,9 @@ import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.kafka.InboundRecordProperties;
 import com.linkedin.metadata.kafka.config.batch.BatchMetadataChangeProposalProcessorCondition;
+import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -21,7 +22,6 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -34,16 +34,12 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Import;
-import org.springframework.kafka.annotation.EnableKafka;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
 @Import({RestliEntityClientFactory.class})
 @Conditional(BatchMetadataChangeProposalProcessorCondition.class)
-@EnableKafka
 @RequiredArgsConstructor
 public class BatchMetadataChangeProposalsProcessor {
   private final OperationContext systemOperationContext;
@@ -53,8 +49,8 @@ public class BatchMetadataChangeProposalsProcessor {
   @Qualifier("kafkaThrottle")
   private final ThrottleSensor kafkaThrottle;
 
-  private final KafkaListenerEndpointRegistry registry;
   private final ConfigurationProvider provider;
+  private final ConsumerPauseSupport consumerPauseSupport;
 
   @Value(
       "${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:"
@@ -67,42 +63,45 @@ public class BatchMetadataChangeProposalsProcessor {
 
   @PostConstruct
   public void registerConsumerThrottle() {
-    KafkaListenerUtil.registerThrottle(kafkaThrottle, provider, registry, mceConsumerGroupId);
+    KafkaListenerUtil.registerThrottle(
+        kafkaThrottle, provider, consumerPauseSupport, mceConsumerGroupId);
   }
 
-  @KafkaListener(
-      id = MCP_CONSUMER_GROUP_ID_VALUE,
-      topics = "${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL + "}",
-      containerFactory = MCP_EVENT_CONSUMER_NAME,
-      batch = "true",
-      autoStartup = "false")
+  /** Used by {@link BatchMetadataChangeProposalsKafkaListener}, tests, and pgQueue batch poller. */
   public void consume(final List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
+    consume(
+        consumerRecords, consumerRecords.stream().map(InboundRecordProperties::fromKafka).toList());
+  }
+
+  /**
+   * @param inboundProperties when non-null, same length as {@code consumerRecords}; per-record
+   *     queue lag metadata for Kafka and pgQueue transports
+   */
+  public void consume(
+      final List<ConsumerRecord<String, GenericRecord>> consumerRecords,
+      @Nullable final List<InboundRecordProperties> inboundProperties) {
 
     List<MetadataChangeProposal> allMCPs = new ArrayList<>(consumerRecords.size());
     String topicName = null;
 
-    for (ConsumerRecord<String, GenericRecord> consumerRecord : consumerRecords) {
+    for (int i = 0; i < consumerRecords.size(); i++) {
+      ConsumerRecord<String, GenericRecord> consumerRecord = consumerRecords.get(i);
+      InboundRecordProperties props =
+          inboundProperties != null
+              ? inboundProperties.get(i)
+              : InboundRecordProperties.fromKafka(consumerRecord);
       systemOperationContext
           .getMetricUtils()
           .ifPresent(
-              metricUtils -> {
-                long queueTimeMs = System.currentTimeMillis() - consumerRecord.timestamp();
-
-                // Dropwizard legacy
-                metricUtils.histogram(this.getClass(), "kafkaLag", queueTimeMs);
-
-                // Micrometer with tags
-                // TODO: include priority level when available
-                metricUtils
-                    .getRegistry()
-                    .timer(
-                        MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-                        "topic",
-                        consumerRecord.topic(),
-                        "consumer.group",
-                        mceConsumerGroupId)
-                    .record(Duration.ofMillis(queueTimeMs));
-              });
+              metricUtils ->
+                  MetricUtils.recordInboundMessageQueueLag(
+                      metricUtils,
+                      this.getClass(),
+                      consumerRecord.topic(),
+                      mceConsumerGroupId,
+                      props.getEnqueuedAtMillis(),
+                      props.getMessagingSystem(),
+                      props.getPriority()));
       final GenericRecord record = consumerRecord.value();
 
       if (topicName == null) {

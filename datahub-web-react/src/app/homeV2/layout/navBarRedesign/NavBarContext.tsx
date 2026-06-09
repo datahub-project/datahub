@@ -3,7 +3,6 @@ import React, { ReactNode, useCallback, useContext, useEffect, useMemo, useState
 export enum NavBarStateType {
     Collapsed = 'COLLAPSED',
     Opened = 'OPENED',
-    Floating = 'FLOATING',
 }
 
 /**
@@ -18,18 +17,16 @@ type LocalState = {
     state?: NavBarStateType | null;
 };
 
-/**
- * Loads a persisted object from the local browser storage.
- */
-const loadLocalState = () => {
-    return JSON.parse(localStorage.getItem(LOCAL_STATE_KEY) || '{}') as LocalState;
+const loadLocalState = (): LocalState => {
+    const raw = JSON.parse(localStorage.getItem(LOCAL_STATE_KEY) || '{}') as LocalState;
+    if (raw.state && raw.state !== NavBarStateType.Collapsed && raw.state !== NavBarStateType.Opened) {
+        return { ...raw, state: null };
+    }
+    return raw;
 };
 
-/**
- * Saves an object to local browser storage.
- */
-const saveLocalState = (newState: LocalState) => {
-    return localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(newState));
+const saveLocalState = (newState: LocalState): void => {
+    localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(newState));
 };
 
 interface NavBarContextType {
@@ -38,16 +35,19 @@ interface NavBarContextType {
     toggle: () => void;
     selectedKey: string;
     setSelectedKey: (key: string) => void;
-    setDefaultNavBarState: (state: NavBarStateType) => void;
 }
 
+// First-time users (no persisted preference) see the nav opened so it's
+// discoverable. Once a user toggles, their choice is persisted to
+// localStorage and always wins on subsequent visits.
+const DEFAULT_NAV_BAR_STATE = NavBarStateType.Opened;
+
 const NavBarContext = React.createContext<NavBarContextType>({
-    state: NavBarStateType.Collapsed,
-    isCollapsed: true,
+    state: DEFAULT_NAV_BAR_STATE,
+    isCollapsed: false,
     toggle: () => {},
     selectedKey: '',
     setSelectedKey: () => {},
-    setDefaultNavBarState: () => {},
 });
 
 export const useNavBarContext = () => useContext(NavBarContext);
@@ -57,8 +57,6 @@ interface Props {
 }
 
 export const NavBarProvider = ({ children }: Props) => {
-    // Default state of the nav bar (if there are no state in local storage)
-    const [defaultState, setDefaultState] = useState<NavBarStateType>(NavBarStateType.Collapsed);
     const [localState, setLocalState] = useState<LocalState>(loadLocalState());
     const [selectedKey, setSelectedKey] = useState<string>('');
 
@@ -66,33 +64,19 @@ export const NavBarProvider = ({ children }: Props) => {
         saveLocalState(localState);
     }, [localState]);
 
-    const state = useMemo(() => {
-        return localState.state || defaultState || NavBarStateType.Collapsed;
-    }, [defaultState, localState.state]);
-
-    const updateState = useCallback((newState: NavBarStateType) => {
-        setLocalState((currentState) => ({ ...currentState, state: newState }));
-    }, []);
-
-    const getNewState = useCallback((currentState: NavBarStateType): NavBarStateType => {
-        switch (currentState) {
-            case NavBarStateType.Collapsed:
-                return NavBarStateType.Opened;
-            case NavBarStateType.Opened:
-                return NavBarStateType.Collapsed;
-            case NavBarStateType.Floating:
-                return NavBarStateType.Collapsed;
-            default:
-                return NavBarStateType.Collapsed;
-        }
-    }, []);
+    const state = useMemo(() => localState.state || DEFAULT_NAV_BAR_STATE, [localState.state]);
 
     const isCollapsed = useMemo(() => state === NavBarStateType.Collapsed, [state]);
 
     const toggle = useCallback(() => {
-        const newState = getNewState(state);
-        updateState(newState);
-    }, [state, getNewState, updateState]);
+        setLocalState((currentState) => {
+            const effective = currentState.state ?? DEFAULT_NAV_BAR_STATE;
+            return {
+                ...currentState,
+                state: effective === NavBarStateType.Opened ? NavBarStateType.Collapsed : NavBarStateType.Opened,
+            };
+        });
+    }, []);
 
     return (
         <NavBarContext.Provider
@@ -102,7 +86,6 @@ export const NavBarProvider = ({ children }: Props) => {
                 toggle,
                 selectedKey,
                 setSelectedKey,
-                setDefaultNavBarState: setDefaultState,
             }}
         >
             {children}

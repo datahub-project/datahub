@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetSchemaVersionListInput;
 import com.linkedin.metadata.timeline.TimelineService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import org.testng.annotations.Test;
 
@@ -39,7 +40,14 @@ public class GetSchemaVersionListResolverTest {
   public void testGetAuthorizedInvokesTimelineService() throws Exception {
     TimelineService mockTimelineService = mock(TimelineService.class);
     when(mockTimelineService.getTimeline(
-            any(), any(), anyLong(), anyLong(), any(), any(), anyBoolean()))
+            any(OperationContext.class),
+            any(),
+            any(),
+            anyLong(),
+            anyLong(),
+            any(),
+            any(),
+            anyBoolean()))
         .thenReturn(Collections.emptyList());
 
     GetSchemaVersionListResolver resolver = new GetSchemaVersionListResolver(mockTimelineService);
@@ -54,6 +62,14 @@ public class GetSchemaVersionListResolverTest {
 
     resolver.get(mockEnv).get();
     verify(mockTimelineService, times(1))
-        .getTimeline(any(), any(), anyLong(), anyLong(), any(), any(), anyBoolean());
+        .getTimeline(
+            any(OperationContext.class),
+            any(),
+            any(),
+            anyLong(),
+            anyLong(),
+            any(),
+            any(),
+            anyBoolean());
   }
 }

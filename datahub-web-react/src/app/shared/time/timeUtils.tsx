@@ -1,7 +1,27 @@
+import i18next from 'i18next';
+
 import dayjs from '@utils/dayjs';
 import type { Dayjs, ManipulateType } from '@utils/dayjs';
 
 import { DateInterval } from '@types';
+
+// Intl.supportedValuesOf omits a few common moment-timezone aliases. Keep this list focused on
+// customer-facing UTC/GMT variants and common business aliases that Java ZoneId accepts.
+const COMMON_TIMEZONE_ALIASES_SUPPORTED_BY_JAVA = [
+    'Asia/Kolkata',
+    'CET',
+    'Etc/GMT',
+    'Etc/UTC',
+    'GMT',
+    'US/Alaska',
+    'US/Arizona',
+    'US/Central',
+    'US/Eastern',
+    'US/Hawaii',
+    'US/Mountain',
+    'US/Pacific',
+    'UTC',
+];
 
 const INTERVAL_TO_SECONDS = {
     [DateInterval.Second]: 1,
@@ -115,6 +135,13 @@ export const getLocaleTimezone = () => {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
 };
 
+export const getSupportedTimezones = () => {
+    const intlWithSupportedValues = Intl as unknown as { supportedValuesOf?: (input: string) => string[] };
+    const timezones = intlWithSupportedValues.supportedValuesOf?.('timeZone') || [];
+
+    return Array.from(new Set([...timezones, ...COMMON_TIMEZONE_ALIASES_SUPPORTED_BY_JAVA])).sort();
+};
+
 export const toRelativeTimeString = (timeMs: number | undefined) => {
     const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 
@@ -124,7 +151,7 @@ export const toRelativeTimeString = (timeMs: number | undefined) => {
     const diffInSeconds = Math.round(diffInMs / INTERVAL_TO_MS[DateInterval.Second]);
 
     if (Math.abs(diffInSeconds) === 0) {
-        return 'just now';
+        return i18next.t('shared.time:justNow');
     }
 
     if (Math.abs(diffInSeconds) > 0 && Math.abs(diffInSeconds) <= 60) {
@@ -165,38 +192,41 @@ export function getTimeFromNow(timestampMillis) {
         return '';
     }
     const relativeTimeString = dayjs(timestampMillis).fromNow();
-    if (relativeTimeString === 'a few seconds ago') {
-        return 'now';
+    if (relativeTimeString === 'a few seconds ago' /* untranslated-text -- dayjs library output comparison value */) {
+        return i18next.t('shared.time:now');
     }
     return relativeTimeString;
 }
 
 export function getTimeRangeDescription(startDate: Dayjs | null, endDate: Dayjs | null): string {
     if (!startDate && !endDate) {
-        return 'All Time';
+        return i18next.t('shared.time:allTime');
     }
 
     if (!startDate && endDate) {
-        return `Until ${endDate.format('ll')}`;
+        return i18next.t('shared.time:untilDate', { date: endDate.format('ll') });
     }
 
     if (startDate && !endDate) {
-        return `From ${startDate.format('ll')}`;
+        return i18next.t('shared.time:fromDate', { date: startDate.format('ll') });
     }
 
     if (startDate && endDate) {
         if (endDate && endDate.isSame(dayjs(), 'day')) {
             const startDateRelativeTime = dayjs().diff(startDate, 'days');
-            return `Last ${startDateRelativeTime} days`;
+            return i18next.t('shared.time:lastDaysCount', { count: startDateRelativeTime });
         }
 
         if (endDate.isSame(startDate, 'day')) {
             return startDate.format('ll');
         }
-        return `${startDate.format('ll')} - ${endDate.format('ll')}`;
+        return i18next.t('shared.time:dateRange', {
+            startDate: startDate.format('ll'),
+            endDate: endDate.format('ll'),
+        });
     }
 
-    return 'Unknown time range';
+    return i18next.t('shared.time:unknownTimeRange');
 }
 
 export function formatDuration(durationMs: number): string {
@@ -206,15 +236,16 @@ export function formatDuration(durationMs: number): string {
     const seconds = duration.seconds();
 
     if (hours === 0 && minutes === 0) {
-        return seconds === 1 ? `${seconds} sec` : `${seconds} secs`;
+        return i18next.t('shared.time:durationSecondsCount', { count: seconds });
     }
 
     if (hours === 0) {
-        return minutes === 1 ? `${minutes} min` : `${minutes} mins`;
+        return i18next.t('shared.time:durationMinutesCount', { count: minutes });
     }
 
-    const minuteStr = minutes > 0 ? ` ${minutes} mins` : '';
-    return hours === 1 ? `${hours} hr${minuteStr}` : `${hours} hrs${minuteStr}`;
+    const hourStr = i18next.t('shared.time:durationHoursCount', { count: hours });
+    const minuteStr = minutes > 0 ? ` ${i18next.t('shared.time:durationMinutesCount', { count: minutes })}` : '';
+    return `${hourStr}${minuteStr}`;
 }
 
 export function formatDetailedDuration(durationMs: number): string {
@@ -226,13 +257,13 @@ export function formatDetailedDuration(durationMs: number): string {
     const parts: string[] = [];
 
     if (hours > 0) {
-        parts.push(hours === 1 ? `${hours} hr` : `${hours} hrs`);
+        parts.push(i18next.t('shared.time:durationHoursCount', { count: hours }));
     }
     if (minutes > 0) {
-        parts.push(minutes === 1 ? `${minutes} min` : `${minutes} mins`);
+        parts.push(i18next.t('shared.time:durationMinutesCount', { count: minutes }));
     }
     if (seconds > 0) {
-        parts.push(seconds === 1 ? `${seconds} sec` : `${seconds} secs`);
+        parts.push(i18next.t('shared.time:durationSecondsCount', { count: seconds }));
     }
     return parts.join(' ');
 }

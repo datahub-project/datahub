@@ -42,6 +42,7 @@ public class UpdateIndicesService implements SearchIndicesService {
   @VisibleForTesting @Getter private final UpdateGraphIndicesService updateGraphIndicesService;
   private final ElasticSearchService elasticSearchService;
   private final SystemMetadataService systemMetadataService;
+  @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
 
   @Getter private final boolean searchDiffMode;
 
@@ -68,6 +69,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       ElasticSearchService elasticSearchService,
       SystemMetadataService systemMetadataService,
       @Nonnull Collection<UpdateIndicesStrategy> updateStrategies,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
       boolean searchDiffMode,
       boolean structuredPropertiesHookEnabled,
       boolean structuredPropertiesWriteEnabled) {
@@ -75,6 +77,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     this.elasticSearchService = elasticSearchService;
     this.systemMetadataService = systemMetadataService;
     this.updateStrategies = updateStrategies;
+    this.timeseriesThrottleCache = timeseriesThrottleCache;
     this.searchDiffMode = searchDiffMode;
     this.structuredPropertiesHookEnabled = structuredPropertiesHookEnabled;
     this.structuredPropertiesWriteEnabled = structuredPropertiesWriteEnabled;
@@ -116,6 +119,10 @@ public class UpdateIndicesService implements SearchIndicesService {
         strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
       }
     }
+
+    // Record throttle writes after all strategies have processed, so no strategy's
+    // recordWrite can race with another strategy's shouldThrottle on the same event.
+    recordThrottleWrites(groupedEvents);
 
     // Process each group of events for the same URN
     for (List<MCLItem> urnEvents : groupedEvents.values()) {
@@ -237,6 +244,40 @@ public class UpdateIndicesService implements SearchIndicesService {
     for (UpdateIndicesStrategy strategy : updateStrategies) {
       if (strategy.isEnabled()) {
         strategy.updateIndexMappings(opContext, urn, entitySpec, aspectSpec, newValue, oldValue);
+      }
+    }
+  }
+
+  /**
+   * After all strategies have processed, record throttle writes for timeseries events that were not
+   * throttled. This ensures no strategy's recordWrite races with another strategy's shouldThrottle
+   * on the same event within a batch.
+   */
+  private void recordThrottleWrites(LinkedHashMap<Urn, List<MCLItem>> groupedEvents) {
+    if (timeseriesThrottleCache == null || !timeseriesThrottleCache.isEnabled()) {
+      return;
+    }
+
+    for (List<MCLItem> urnEvents : groupedEvents.values()) {
+      for (MCLItem event : urnEvents) {
+        if (!UPDATE_CHANGE_TYPES.contains(event.getMetadataChangeLog().getChangeType())) {
+          continue;
+        }
+        if (!event.getAspectSpec().isTimeseries()) {
+          continue;
+        }
+
+        String entityName = event.getEntitySpec().getName();
+        String urnStr = event.getUrn().toString();
+        String aspectName = event.getAspectName();
+        long eventTimeMs =
+            event.getAuditStamp() != null
+                ? event.getAuditStamp().getTime()
+                : System.currentTimeMillis();
+
+        if (!timeseriesThrottleCache.shouldThrottle(entityName, urnStr, aspectName, eventTimeMs)) {
+          timeseriesThrottleCache.recordWrite(urnStr, aspectName, eventTimeMs);
+        }
       }
     }
   }

@@ -4,6 +4,7 @@ import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { NavSidebar } from '@app/homeV2/layout/NavSidebar';
+import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import { NavSidebar as NavSidebarRedesign } from '@app/homeV2/layout/navBarRedesign/NavSidebar';
 import { SearchHeader } from '@app/searchV2/SearchHeader';
 import useGoToSearchPage from '@app/searchV2/useGoToSearchPage';
@@ -39,7 +40,11 @@ const Navigation = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     z-index: ${(props) => (props.$isShowNavBarRedesign ? 0 : 200)};
 `;
 
-const Content = styled.div<{ $isShowNavBarRedesign?: boolean; $hideSearchBar?: boolean }>`
+const Content = styled.div<{
+    $isShowNavBarRedesign?: boolean;
+    $hideSearchBar?: boolean;
+    $isNavBarCollapsed?: boolean;
+}>`
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     margin-top: ${(props) => (props.$isShowNavBarRedesign ? '56px' : '72px')};
@@ -47,7 +52,7 @@ const Content = styled.div<{ $isShowNavBarRedesign?: boolean; $hideSearchBar?: b
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        padding: 11px 15px 11px 3px;
+        padding: 11px 15px 11px ${props.$isNavBarCollapsed ? '15px' : '3px'};
     `}
     flex: 1;
     display: flex;
@@ -72,6 +77,7 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
     const { query: currentQuery } = useQueryAndFiltersFromLocation();
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const { isCollapsed } = useNavBarContext();
 
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
@@ -141,7 +147,11 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
                 <Navigation $isShowNavBarRedesign={isShowNavBarRedesign}>
                     <FinalNavBar />
                 </Navigation>
-                <Content $isShowNavBarRedesign={isShowNavBarRedesign} $hideSearchBar={hideSearchBar}>
+                <Content
+                    $isShowNavBarRedesign={isShowNavBarRedesign}
+                    $hideSearchBar={hideSearchBar}
+                    $isNavBarCollapsed={isCollapsed}
+                >
                     {children}
                 </Content>
             </Body>

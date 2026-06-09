@@ -2,6 +2,7 @@ import { DeleteOutlined } from '@ant-design/icons';
 import { Pencil } from '@phosphor-icons/react/dist/csr/Pencil';
 import { Button, List, Typography } from 'antd';
 import React, { useCallback, useState } from 'react';
+import { Trans } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -10,6 +11,7 @@ import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkMod
 import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
+import { safeUrl } from '@app/shared/urlUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -97,7 +99,7 @@ export const LinkList = () => {
                             <List.Item.Meta
                                 title={
                                     <Typography.Title level={5}>
-                                        <a href={link.url} target="_blank" rel="noreferrer">
+                                        <a href={safeUrl(link.url)} target="_blank" rel="noreferrer">
                                             <ListOffsetIcon>
                                                 <LinkIcon url={link.url} />
                                             </ListOffsetIcon>
@@ -106,12 +108,21 @@ export const LinkList = () => {
                                     </Typography.Title>
                                 }
                                 description={
-                                    <>
-                                        Added {formatDateString(link.created.time)} by{' '}
-                                        <Link to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`}>
-                                            {entityRegistry.getDisplayName(link.actor.type, link.actor)}
-                                        </Link>
-                                    </>
+                                    <Trans
+                                        i18nKey="addedByUser"
+                                        ns="entity.profile.documentation"
+                                        values={{
+                                            date: formatDateString(link.created.time),
+                                            name: entityRegistry.getDisplayName(link.actor.type, link.actor),
+                                        }}
+                                        components={{
+                                            actorLink: (
+                                                <Link
+                                                    to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`}
+                                                />
+                                            ),
+                                        }}
+                                    />
                                 }
                             />
                         </LinkListItem>

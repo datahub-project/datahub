@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SelectFilterValuesTab } from '@app/entityV2/view/builder/SelectFilterValuesTab';
@@ -42,6 +43,7 @@ type Props = {
 };
 
 export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
+    const { t } = useTranslation('entity.views');
     const existingFilters = (state.definition?.filter?.filters || []) as ViewFilter[];
     const existingOperator = state.definition?.filter?.operator;
 
@@ -106,7 +108,7 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     const tabs: Tab[] = [
         {
             key: BUILD_FILTERS_TAB_KEY,
-            label: 'Build Filters',
+            label: t('viewDefinition.tabBuildFilters'),
             content: (
                 <ScrollableFiltersWrapper>
                     <LogicalFiltersBuilder
@@ -120,7 +122,7 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
         },
         {
             key: SELECT_ASSETS_TAB_KEY,
-            label: 'Select Assets',
+            label: t('viewDefinition.tabSelectAssets'),
             content: (
                 <SelectFilterValuesTab selectedUrns={selectedUrns} onChangeSelectedUrns={handleSelectAssetsChange} />
             ),

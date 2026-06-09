@@ -1,6 +1,7 @@
 import { Popover } from '@components';
 import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { DatasetAssertionLogicModal } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionLogicModal';
@@ -56,6 +57,8 @@ type Props = {
  *
  * Schema assertions require an aggregation.
  */
+/* eslint-disable i18next/no-literal-string -- (untranslated-text) Return value is a sentence fragment concatenated by the caller to build a
+   full assertion description; cannot translate independently as word order differs by language */
 const getSchemaAggregationText = (
     aggregation: AssertionStdAggregation | undefined | null,
     fields: Array<SchemaFieldRef> | undefined | null,
@@ -78,6 +81,7 @@ const getSchemaAggregationText = (
             return <Typography.Text>Dataset columns are</Typography.Text>;
     }
 };
+/* eslint-enable i18next/no-literal-string */
 
 /**
  * Returns the React Component to render for the aggregation portion of the Assertion Description
@@ -85,6 +89,8 @@ const getSchemaAggregationText = (
  *
  * Row assertions require an aggregation.
  */
+/* eslint-disable i18next/no-literal-string -- (untranslated-text) Return value is a sentence fragment concatenated by the caller to build a
+   full assertion description; cannot translate independently as word order differs by language */
 const getRowsAggregationText = (aggregation: AssertionStdAggregation | undefined | null) => {
     switch (aggregation) {
         case AssertionStdAggregation.RowCount:
@@ -96,11 +102,14 @@ const getRowsAggregationText = (aggregation: AssertionStdAggregation | undefined
             return <Typography.Text>Dataset rows are</Typography.Text>;
     }
 };
+/* eslint-enable i18next/no-literal-string */
 
 /**
  * Returns the React Component to render for the aggregation portion of the Assertion Description
  * for Assertions on Dataset Columns
  */
+/* eslint-disable i18next/no-literal-string -- (untranslated-text) Return value is a sentence fragment concatenated by the caller to build a
+   full assertion description; cannot translate independently as word order differs by language */
 const getColumnAggregationText = (
     aggregation: AssertionStdAggregation | undefined | null,
     field: SchemaFieldRef | undefined,
@@ -193,10 +202,13 @@ const getColumnAggregationText = (
             );
     }
 };
+/* eslint-enable i18next/no-literal-string */
 
 /**
  * Returns the React Component to render for the aggregation portion of the Assertion Description
  */
+/* eslint-disable i18next/no-literal-string -- (untranslated-text) Return value is a sentence fragment concatenated by the caller to build a
+   full assertion description; cannot translate independently as word order differs by language */
 const getAggregationText = (
     scope: DatasetAssertionScope | undefined | null,
     aggregation: AssertionStdAggregation | undefined | null,
@@ -214,10 +226,13 @@ const getAggregationText = (
             return 'Dataset is';
     }
 };
+/* eslint-enable i18next/no-literal-string */
 
 /**
  * Returns the React Component to render for the operator portion of the Assertion Description
  */
+/* eslint-disable i18next/no-literal-string -- (untranslated-text) Return value is a sentence fragment concatenated by the caller to build a
+   full assertion description; cannot translate independently as word order differs by language */
 const getOperatorText = (
     op: AssertionStdOperator | undefined,
     parameters: AssertionStdParameters | undefined,
@@ -339,6 +354,7 @@ const getOperatorText = (
             );
     }
 };
+/* eslint-enable i18next/no-literal-string */
 
 const TOOLTIP_MAX_WIDTH = 440;
 
@@ -348,6 +364,8 @@ const TOOLTIP_MAX_WIDTH = 440;
  * For example, Column 'X' values are in [1, 2, 3]
  */
 export const DatasetAssertionDescription = ({ description, assertionInfo, lastEvaluation }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
+    const { t: tc } = useTranslation('common.labels');
     const { scope, aggregation, fields, operator, parameters, nativeType, nativeParameters, logic } =
         assertionInfo ?? {};
     const [isLogicVisible, setIsLogicVisible] = useState(false);
@@ -368,13 +386,13 @@ export const DatasetAssertionDescription = ({ description, assertionInfo, lastEv
     return (
         <Popover
             overlayStyle={{ maxWidth: TOOLTIP_MAX_WIDTH }}
-            title={<Typography.Text strong>Details</Typography.Text>}
+            title={<Typography.Text strong>{tc('details')}</Typography.Text>}
             content={
                 <>
                     <AssertionDetailsContainer>
                         {lastEvaluation?.lastObservedMillis && (
                             <LastRunSection>
-                                <Typography.Text strong>Reported:</Typography.Text>
+                                <Typography.Text strong>{t('datasetDescription.popover.reported')}</Typography.Text>
                                 <StyledLastRunText>
                                     {lastEvaluation?.lastObservedMillis &&
                                         toReadableLocalDateTimeString(lastEvaluation.lastObservedMillis)}
@@ -382,7 +400,10 @@ export const DatasetAssertionDescription = ({ description, assertionInfo, lastEv
                             </LastRunSection>
                         )}
                         <TypographyContainer>
-                            <Typography.Text strong>type</Typography.Text>: {nativeType || 'N/A'}
+                            <div>
+                                <Typography.Text strong>{t('datasetDescription.popover.type')}</Typography.Text>:{' '}
+                                {nativeType || tc('na')}
+                            </div>
                             {nativeParameters?.map((parameter) => (
                                 <div key={parameter.key}>
                                     <Typography.Text strong>{parameter.key}</Typography.Text>: {parameter.value}
@@ -397,12 +418,12 @@ export const DatasetAssertionDescription = ({ description, assertionInfo, lastEv
             {logic && (
                 <div>
                     <ViewLogicButton onClick={() => setIsLogicVisible(true)} type="link">
-                        View Logic
+                        {t('datasetDescription.popover.viewLogic')}
                     </ViewLogicButton>
                 </div>
             )}
             <DatasetAssertionLogicModal
-                logic={logic || 'N/A'}
+                logic={logic || tc('na')}
                 visible={isLogicVisible}
                 onClose={() => setIsLogicVisible(false)}
             />
