@@ -156,6 +156,7 @@ project.ext.externalDependency = [
     'pekkoJackson': "org.apache.pekko:pekko-serialization-jackson_$playScalaVersion:$pekkoVersion",
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
     'antlr4': 'org.antlr:antlr4:4.9.3',
+    'archunit': 'com.tngtech.archunit:archunit:1.4.2',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
     'awaitility': 'org.awaitility:awaitility:4.2.0',
     'avro': 'org.apache.avro:avro:1.11.5',

@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.google.common.base.Preconditions;
 import com.linkedin.common.AuditStamp;
@@ -161,16 +162,18 @@ public class EntityUtils {
   /**
    * Prefer batched interfaces
    *
+   * @param operationContext operation context with fingerprint
    * @param entityAspect optional entity aspect
    * @param retrieverContext
    * @return
    */
   public static Optional<SystemAspect> toSystemAspect(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull RetrieverContext retrieverContext,
       @Nullable EntityAspect entityAspect,
       boolean forUpdate) {
     return Optional.ofNullable(entityAspect)
-        .map(aspect -> toSystemAspects(retrieverContext, List.of(aspect)))
+        .map(aspect -> toSystemAspects(operationContext, retrieverContext, List.of(aspect)))
         .filter(systemAspects -> !systemAspects.isEmpty())
         .map(systemAspects -> systemAspects.get(0));
   }
@@ -179,16 +182,19 @@ public class EntityUtils {
    * Given a `Map<EntityUrn, <Map<AspectName, EntityAspect>>` from the database representation,
    * translate that into our java classes
    *
+   * @param operationContext operation context with fingerprint
    * @param rawAspects `Map<EntityUrn, <Map<AspectName, EntityAspect>>`
    * @param retrieverContext used for read mutations
    * @return the java map for the given database object map
    */
   @Nonnull
   public static Map<String, Map<String, SystemAspect>> toSystemAspects(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull RetrieverContext retrieverContext,
       @Nonnull Map<String, Map<String, EntityAspect>> rawAspects) {
     List<SystemAspect> systemAspects =
         toSystemAspects(
+            operationContext,
             retrieverContext,
             rawAspects.values().stream()
                 .flatMap(m -> m.values().stream())
@@ -215,8 +221,11 @@ public class EntityUtils {
 
   @Nonnull
   public static List<SystemAspect> toSystemAspectFromEbeanAspects(
-      @Nonnull RetrieverContext retrieverContext, @Nonnull Collection<EbeanAspectV2> rawAspects) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nonnull Collection<EbeanAspectV2> rawAspects) {
     return toSystemAspects(
+        operationContext,
         retrieverContext,
         rawAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList()));
   }
@@ -227,12 +236,14 @@ public class EntityUtils {
    * <p>This should be the 1 point that all conversions from database representations to java
    * objects happens since we need to enforce read mutations happen.
    *
+   * @param operationContext operation context with fingerprint
    * @param retrieverContext retriever context to fetch with
    * @param rawAspects raw aspects to convert
    * @return map converted aspects
    */
   @Nonnull
   public static List<SystemAspect> toSystemAspects(
+      @Nonnull final OperationFingerprint operationContext,
       @Nonnull final RetrieverContext retrieverContext,
       @Nonnull Collection<EntityAspect> rawAspects) {
     EntityRegistry entityRegistry = retrieverContext.getAspectRetriever().getEntityRegistry();
@@ -265,7 +276,7 @@ public class EntityUtils {
 
     grouped.forEach(
         (key, value) -> {
-          AspectsBatch.applyReadMutationHooks(value, retrieverContext);
+          AspectsBatch.applyReadMutationHooks(operationContext, value, retrieverContext);
         });
 
     // Read Validate
@@ -295,6 +306,7 @@ public class EntityUtils {
    * @return map of the urn/aspect to the next aspect version
    */
   public static <T extends SystemAspect> Map<String, Map<String, Long>> calculateNextVersions(
+      OperationContext opContext,
       TransactionContext txContext,
       AspectDao aspectDao,
       Map<String, Map<String, T>> latestAspects,
@@ -336,7 +348,7 @@ public class EntityUtils {
     Map<String, Map<String, Long>> databaseVersions =
         missingAspectVersions.isEmpty()
             ? Map.of()
-            : aspectDao.getNextVersions(missingAspectVersions);
+            : aspectDao.getNextVersions(opContext, missingAspectVersions);
 
     // stitch back together the precalculated and database versions
     return Stream.concat(

@@ -4,6 +4,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -56,6 +57,7 @@ public class CreateIfNotExistsValidatorTest {
 
     Set<AspectValidationException> exceptions =
         test.validatePreCommit(
+                OperationFingerprint.EMPTY,
                 List.of(
                     // Request aspect
                     TestMCP.builder()
@@ -102,7 +104,8 @@ public class CreateIfNotExistsValidatorTest {
 
     // missing key aspect
     Set<AspectValidationException> exceptions =
-        test.validatePreCommit(List.of(testItem), mockRetrieverContext).collect(Collectors.toSet());
+        test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testItem), mockRetrieverContext)
+            .collect(Collectors.toSet());
 
     assertEquals(
         exceptions,
@@ -119,6 +122,7 @@ public class CreateIfNotExistsValidatorTest {
 
     Set<AspectValidationException> exceptions =
         test.validatePreCommit(
+                OperationFingerprint.EMPTY,
                 List.of(
                     TestMCP.builder()
                         .changeType(ChangeType.CREATE)
@@ -156,7 +160,8 @@ public class CreateIfNotExistsValidatorTest {
             .build();
 
     Set<AspectValidationException> exceptions =
-        test.validatePreCommit(List.of(testItem), mockRetrieverContext).collect(Collectors.toSet());
+        test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testItem), mockRetrieverContext)
+            .collect(Collectors.toSet());
 
     assertEquals(
         exceptions,

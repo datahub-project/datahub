@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.plugins.hooks;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -28,13 +29,17 @@ public abstract class MutationHook extends PluginSpec {
   /**
    * Mutating hook, original objects are potentially modified.
    *
+   * @param operationContext
    * @param changeMCPS input upsert items
    * @param retrieverContext aspect & graph retriever
    * @return all items, with a boolean to indicate mutation
    */
   public final Stream<Pair<ChangeMCP, Boolean>> applyWriteMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPS,
+      @Nonnull RetrieverContext retrieverContext) {
     return writeMutation(
+        operationContext,
         changeMCPS.stream()
             .filter(i -> shouldApply(i.getChangeType(), i.getEntitySpec(), i.getAspectName()))
             .collect(Collectors.toList()),
@@ -43,8 +48,11 @@ public abstract class MutationHook extends PluginSpec {
 
   // Read mutation
   public final Stream<Pair<ReadItem, Boolean>> applyReadMutation(
-      @Nonnull Collection<ReadItem> items, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ReadItem> items,
+      @Nonnull RetrieverContext retrieverContext) {
     return readMutation(
+        operationContext,
         items.stream()
             .filter(i -> isEntityAspectSupported(i.getEntitySpec(), i.getAspectName()))
             .collect(Collectors.toList()),
@@ -54,13 +62,17 @@ public abstract class MutationHook extends PluginSpec {
   /**
    * Apply Proposal mutations prior to validation
    *
+   * @param operationContext operation context
    * @param mcpItems wrapper for MCP
    * @param retrieverContext retriever context
    * @return stream of mutated Proposal items
    */
   public final Stream<MCPItem> applyProposalMutation(
-      @Nonnull Collection<MCPItem> mcpItems, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<MCPItem> mcpItems,
+      @Nonnull RetrieverContext retrieverContext) {
     return proposalMutation(
+        operationContext,
         mcpItems.stream()
             .filter(i -> shouldApply(i.getChangeType(), i.getEntitySpec(), i.getAspectName()))
             .collect(Collectors.toList()),
@@ -68,17 +80,23 @@ public abstract class MutationHook extends PluginSpec {
   }
 
   protected Stream<Pair<ReadItem, Boolean>> readMutation(
-      @Nonnull Collection<ReadItem> items, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ReadItem> items,
+      @Nonnull RetrieverContext retrieverContext) {
     return items.stream().map(i -> Pair.of(i, false));
   }
 
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPS,
+      @Nonnull RetrieverContext retrieverContext) {
     return changeMCPS.stream().map(i -> Pair.of(i, false));
   }
 
   protected Stream<MCPItem> proposalMutation(
-      @Nonnull Collection<MCPItem> mcpItems, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<MCPItem> mcpItems,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 }
