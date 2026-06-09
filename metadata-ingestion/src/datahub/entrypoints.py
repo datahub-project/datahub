@@ -1,3 +1,4 @@
+import faulthandler
 import importlib.resources
 import logging
 import multiprocessing
@@ -568,6 +569,16 @@ enable_auto_decorators(datahub)
 
 
 def main(**kwargs):
+    # Dump a Python traceback to stderr on fatal signals (SIGSEGV, SIGABRT,
+    # SIGFPE, SIGBUS). Native crashes — e.g. a C-stack overflow inside sqlglot's
+    # compiled parser on pathologically nested SQL, or a segfault in a C
+    # extension like pyarrow — otherwise kill the process with no traceback,
+    # leaving an ingestion log that just stops mid-line. CPython enables this
+    # automatically when PYTHONFAULTHANDLER is set; we enable it by default so
+    # managed runners get a diagnosable stack without extra configuration.
+    if not faulthandler.is_enabled():
+        faulthandler.enable()
+
     # We use threads in a variety of places within our CLI. The multiprocessing
     # "fork" start method is not safe to use with threads.
     # MacOS and Windows already default to "spawn", and Linux will as well starting in Python 3.14.
