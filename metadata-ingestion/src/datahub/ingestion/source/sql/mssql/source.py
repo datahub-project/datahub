@@ -424,7 +424,6 @@ class SQLServerSource(SQLAlchemySource):
                 message="Lineage may not resolve accurately because 'convert_column_urns_to_lowercase' is False. To ensure correct lineage, set 'convert_column_urns_to_lowercase' to True.",
             )
 
-        self.lineage_extractor: Optional[MSSQLLineageExtractor] = None
         if self.config.include_query_lineage:
             if self.config.include_usage_statistics and self.ctx.graph is None:
                 raise ValueError(
@@ -1391,8 +1390,9 @@ class SQLServerSource(SQLAlchemySource):
         )
 
         for inspector in self.get_inspectors():
+            db_name = self.get_db_name(inspector)
             with inspector.engine.connect() as connection:
-                self.lineage_extractor = MSSQLLineageExtractor(
+                lineage_extractor = MSSQLLineageExtractor(
                     config=self.config,
                     connection=connection,
                     report=self.report,
@@ -1401,21 +1401,23 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
                 try:
-                    self.lineage_extractor.populate_lineage_from_queries()
+                    lineage_extractor.populate_lineage_from_queries()
                 except Exception as e:
                     logger.error(
-                        "Unexpected error during query lineage extraction: %s. "
+                        "Unexpected error during query lineage extraction for database '%s': %s. "
                         "Continuing with other lineage sources.",
+                        db_name,
                         e,
                     )
                     self.report.report_failure(
                         message=(
-                            f"Query lineage extraction failed with unexpected error: {e}. "
+                            f"Query lineage extraction failed for database '{db_name}' "
+                            f"with unexpected error: {e}. "
                             "Check that Query Store is enabled or VIEW SERVER STATE permission is granted. "
                             "See documentation for setup instructions: "
                             "https://datahubproject.io/docs/generated/ingestion/sources/mssql"
                         ),
-                        context="query_lineage_extraction_failed",
+                        context=f"query_lineage_extraction_failed: {db_name}",
                     )
 
     def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
