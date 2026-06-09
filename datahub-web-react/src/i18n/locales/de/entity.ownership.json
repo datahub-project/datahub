@@ -5,7 +5,7 @@
     "deleteError": "Ownership Type konnte nicht gelöscht werden",
     "deleteSuccess": "Ownership Type erfolgreich gelöscht.",
     "editTitle": "Ownership Type bearbeiten",
-    "emptyDescription": "Erstellen Sie einen benutzerdefinierten Ownership Type, um Asset-Owner zu kategorisieren.",
+    "emptyDescription": "Erstelle einen benutzerdefinierten Ownership Type, um Asset-Owner zu kategorisieren.",
     "emptyTitle": "Keine Ownership Types gefunden",
     "form.description": "Beschreibung",
     "form.descriptionPlaceholder": "Beschreibung eingeben",

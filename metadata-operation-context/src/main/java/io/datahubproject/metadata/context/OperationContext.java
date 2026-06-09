@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.context.OperationFingerprint;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,7 +51,7 @@ import lombok.extern.slf4j.Slf4j;
 @Builder(toBuilder = true)
 @Getter
 @Slf4j
-public class OperationContext implements AuthorizationSession {
+public class OperationContext implements AuthorizationSession, OperationFingerprint {
 
   /**
    * This should be the primary entry point when a request is made to Rest.li, OpenAPI, Graphql or
@@ -286,6 +287,16 @@ public class OperationContext implements AuthorizationSession {
   @Nonnull
   public String getKeyAspectName(@Nonnull final Urn urn) {
     return getEntityRegistryContext().getKeyAspectName(urn);
+  }
+
+  /**
+   * {@link OperationFingerprint#getActor()} — effective actor URN (system when escalation allowed,
+   * otherwise session actor).
+   */
+  @Override
+  @Nonnull
+  public Urn getActor() {
+    return getActorContext().getActorUrn();
   }
 
   /**
@@ -646,24 +657,29 @@ public class OperationContext implements AuthorizationSession {
               ? this.retrieverContext.getAspectRetriever()
               : this.retrieverContext.getCachingAspectRetriever();
 
-      if (!sessionActor.isActive(retriever)) {
+      OperationContext authContext =
+          new OperationContext(
+              this.operationContextConfig,
+              sessionActor,
+              this.systemActorContext,
+              Objects.requireNonNull(this.searchContext),
+              Objects.requireNonNull(this.authorizationContext),
+              this.entityRegistryContext,
+              this.servicesRegistryContext,
+              this.requestContext,
+              this.retrieverContext,
+              this.objectMapperContext != null
+                  ? this.objectMapperContext
+                  : ObjectMapperContext.DEFAULT,
+              this.validationContext,
+              this.systemTelemetryContext,
+              new java.util.ArrayList<>());
+
+      if (!sessionActor.isActive(authContext, retriever)) {
         throw new ActorAccessException("Actor is not active");
       }
 
-      return new OperationContext(
-          this.operationContextConfig,
-          sessionActor,
-          this.systemActorContext,
-          Objects.requireNonNull(this.searchContext),
-          Objects.requireNonNull(this.authorizationContext),
-          this.entityRegistryContext,
-          this.servicesRegistryContext,
-          this.requestContext,
-          this.retrieverContext,
-          this.objectMapperContext != null ? this.objectMapperContext : ObjectMapperContext.DEFAULT,
-          this.validationContext,
-          this.systemTelemetryContext,
-          new java.util.ArrayList<>());
+      return authContext;
     }
 
     private OperationContext build() {

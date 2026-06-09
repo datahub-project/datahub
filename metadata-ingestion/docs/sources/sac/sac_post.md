@@ -18,3 +18,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
+#### Compatibility across tenant generations
+
+The connector reads stories, applications, and models from the `Resources` OData data endpoints (for example `api/v1/Resources`) directly, rather than discovering them from the tenant's `$metadata` document. This keeps ingestion working across SAP Analytics Cloud tenant generations: newer (CAP-based) tenants no longer describe the `Resources` entity set in `$metadata` (it is replaced there by a non-queryable `RESOURCES_INDEX` catalog), but the `Resources` data endpoints remain available and are what the connector uses.

@@ -35,7 +35,7 @@ export interface ComplexAspect {
 // ── Complex-aspect extraction ─────────────────────────────────────────────────
 
 /** Recursively remove keys whose value is null or undefined. */
-function stripNulls(obj: unknown): unknown {
+export function stripNulls(obj: unknown): unknown {
   if (obj === null || obj === undefined) return undefined;
   if (Array.isArray(obj)) return obj.map(stripNulls).filter((v) => v !== undefined);
   if (typeof obj === 'object') {
@@ -46,6 +46,36 @@ function stripNulls(obj: unknown): unknown {
     return result;
   }
   return obj;
+}
+
+/**
+ * Normalise an MCP before sending to GMS:
+ *  1. Strip all null/undefined fields so RestLi doesn't reject explicit nulls on optional fields.
+ *  2. Convert `aspect.json: {...}` shorthand to the required GenericAspect format
+ *     `aspect: { value: "...", contentType: "application/json" }`.
+ */
+export function normalizeMcp(mcp: Mcp): Mcp {
+  const stripped = stripNulls(mcp) as Mcp;
+  const aspect = (stripped as Record<string, unknown>).aspect as Record<string, unknown> | undefined;
+  if (aspect && 'json' in aspect && aspect.json !== undefined) {
+    (stripped as Record<string, unknown>).aspect = {
+      value: JSON.stringify(aspect.json),
+      contentType: 'application/json',
+    };
+  }
+
+  // Strip nulls from the embedded JSON string in aspect.value.
+  // Top-level null-stripping misses nulls inside the value string (e.g. auditStamp.impersonator: null).
+  const normalizedAspect = (stripped as Record<string, unknown>).aspect as Record<string, unknown> | undefined;
+  if (normalizedAspect && typeof normalizedAspect.value === 'string') {
+    try {
+      normalizedAspect.value = JSON.stringify(stripNulls(JSON.parse(normalizedAspect.value)));
+    } catch {
+      // not valid JSON — leave as-is
+    }
+  }
+
+  return stripped;
 }
 
 /**
