@@ -1411,6 +1411,24 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         timeseries_rows_affected: int = summary.get("timeseriesRows", 0)
         return rows_affected, timeseries_rows_affected
 
+    def hard_delete_entities(self, urns: Sequence[str]) -> None:
+        """Hard delete a batch of entities in a single request.
+
+        Uses the OpenAPI v1 batch endpoint
+        (``DELETE /openapi/entities/v1/?urns=...&soft=false``) so a chunk of URNs
+        is removed in one round-trip instead of one request per entity. Intended
+        for bulk maintenance (e.g. GC of soft-deleted entities); chunk the URN
+        list on the caller side to keep each request bounded.
+        """
+        if not urns:
+            return
+        params: List[Tuple[str, str]] = [("urns", urn) for urn in urns]
+        params.append(("soft", "false"))
+        response = self._session.delete(
+            f"{self._gms_server}/openapi/entities/v1/", params=params
+        )
+        response.raise_for_status()
+
     def delete_entity(self, urn: str, hard: bool = False) -> None:
         """Delete an entity by urn.
 

@@ -68,6 +68,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Ingestion / datahub-gc)** The soft-deleted-entity cleanup now hard-deletes eligible entities in **bulk batches** instead of one request per entity. Eligible URNs are buffered and removed via a single `DELETE /openapi/entities/v1/?urns=...&soft=false` round-trip per `delete_batch_size` (default `1000`), which sharply reduces the request volume and CPU pressure of large GC runs. As part of this change, the per-entity `delete_references_to_urn` call is **no longer issued** during GC hard-deletion — dangling references from other entities to a deleted URN are not actively scrubbed by the GC job. The per-entity retention check (`status.removed` + age vs `retention_days`) is unchanged. **Action:** tune `delete_batch_size` if your GMS rejects very large URN lists; if you relied on GC to clean up inbound references, run a separate reference-cleanup pass.
+
 - #17376: **(Ingestion / Hex)** Major in-place upgrade of the `hex` connector: upstream lineage (table-level and column-level), Project → Component links, run history (`lastRefreshed`), and optional AI context documents are now extracted directly from Hex REST APIs — no external CLI, warehouse-side ingestion dependency, or query-tag scraping required. See the [Hex connector docs](https://docs.datahub.com/docs/generated/ingestion/sources/hex) for the new `include_lineage`, `use_queried_tables_lineage`, `connection_platform_map`, and `include_context_documents` options.
 
 - **(Ingestion / dbt)** dbt test assertion entities now emit an `ownership` aspect when the dbt test node has explicit owner metadata (`meta.owner` / `config.meta.owner`).

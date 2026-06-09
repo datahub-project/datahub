@@ -252,23 +252,61 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
         self.assertEqual(self.report.num_hard_deleted, 0)
 
     def test_delete_entity(self):
-        """Test that delete_entity properly deletes and updates reports."""
-        # Call the method
+        """delete_entity buffers the urn; flushing hard-deletes it in a batch
+        without per-entity delete_entity / delete_references round-trips."""
+        # Call the method: buffers, does not delete yet
         self.cleanup.delete_entity(self.sample_urn)
+        self.mock_graph.hard_delete_entities.assert_not_called()
 
-        # Verify deletion happened
-        self.mock_graph.delete_entity.assert_called_once_with(
-            urn=self.sample_urn.urn(), hard=True
-        )
-        self.mock_graph.delete_references_to_urn.assert_called_once_with(
-            urn=self.sample_urn.urn(),
-            dry_run=False,
+        # Flushing the buffer issues the batch hard delete
+        self.cleanup._flush_pending_deletes()
+        self.mock_graph.hard_delete_entities.assert_called_once_with(
+            [self.sample_urn.urn()]
         )
 
-        # Report update
-        self.assertEqual(self.report.num_hard_deleted, 1)
-        self.assertEqual(self.report.num_hard_deleted_by_type.get("dataset"), 1)
-        self.assertEqual(self.report.num_soft_deleted_entity_removal_started, 1)
+        # Legacy per-entity paths are not used
+        self.mock_graph.delete_entity.assert_not_called()
+        self.mock_graph.delete_references_to_urn.assert_not_called()
+
+    def test_cleanup_batch_deletes_eligible_and_skips_references(self):
+        """Eligible (soft-deleted past retention) urns are hard-deleted in a batch
+        via hard_delete_entities; recent ones are retained; per-entity
+        delete_entity / delete_references are not used."""
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        old_ms = now_ms - 20 * 24 * 60 * 60 * 1000  # 20d > retention_days=10
+        recent_ms = now_ms - 1 * 24 * 60 * 60 * 1000  # 1d < retention
+
+        urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:example,old_one,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:example,old_two,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:example,recent_one,PROD)",
+        ]
+        self.mock_graph.get_urns_by_filter.return_value = urns
+
+        def raw(entity_urn, aspects):
+            t = recent_ms if "recent" in entity_urn else old_ms
+            return {
+                "aspects": {
+                    "status": {"value": {"removed": True}, "created": {"time": t}}
+                }
+            }
+
+        self.mock_graph.get_entity_raw.side_effect = raw
+
+        self.cleanup.cleanup_soft_deleted_entities()
+
+        deleted: set = set()
+        for c in self.mock_graph.hard_delete_entities.call_args_list:
+            deleted.update(c.args[0])
+        assert deleted == {urns[0], urns[1]}  # recent_one retained
+        self.mock_graph.delete_references_to_urn.assert_not_called()
+        self.mock_graph.delete_entity.assert_not_called()
+
+        # Report update: both old urns hard-deleted, recent one retained
+        self.assertEqual(self.report.num_hard_deleted, 2)
+        self.assertEqual(self.report.num_hard_deleted_by_type.get("dataset"), 2)
+        self.assertEqual(self.report.num_soft_deleted_entity_removal_started, 2)
+        self.assertEqual(self.report.num_soft_deleted_retained_due_to_age, 1)
 
     def test_delete_entity_respects_deletion_limit(self):
         """Test that delete_entity respects the deletion limit."""
@@ -321,8 +359,11 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
         # Call the method
         self.cleanup.delete_soft_deleted_entity(self.sample_urn)
 
-        # Verify deletion was attempted
-        self.mock_graph.delete_entity.assert_called_once()
+        # Verify deletion was attempted: urn buffered for batch hard delete
+        self.cleanup._flush_pending_deletes()
+        self.mock_graph.hard_delete_entities.assert_called_once_with(
+            [self.sample_urn.urn()]
+        )
         self.assertEqual(self.report.num_soft_deleted_retained_due_to_age, 0)
         self.assertIsNone(
             self.report.num_soft_deleted_retained_due_to_age_by_type.get("dataset")
