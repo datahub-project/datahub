@@ -6,7 +6,9 @@ import { TIMEOUTS, LOAD_STATES } from '../utils/constants';
 export class SiblingsPage extends BasePage {
   readonly entityHeader: Locator;
   readonly tagTermInput: Locator;
+  readonly tagTermModalTrigger: Locator;
   readonly addTagTermConfirmButton: Locator;
+  readonly modalConfirmButton: Locator;
 
   private glossarySection: Locator;
   private addTermsButton: Locator;
@@ -20,8 +22,10 @@ export class SiblingsPage extends BasePage {
     this.entityHeader = page.getByTestId('entity-header-test-id');
     this.glossarySection = page.getByTestId('glossary-terms-section');
     this.addTermsButton = this.glossarySection.getByTestId('add-terms-button');
-    this.tagTermInput = page.getByTestId('tag-term-modal-input').getByRole('combobox');
+    this.tagTermInput = page.getByTestId('dropdown-search-input');
+    this.tagTermModalTrigger = page.getByTestId('tag-term-modal-input');
     this.addTagTermConfirmButton = page.getByTestId('add-tag-term-from-modal-btn');
+    this.modalConfirmButton = page.getByTestId('modal-confirm-button');
     this.searchResults = page.getByTestId('search-result-item');
     this.mergedIndicator = this.entityHeader.getByText('&');
     this.termAddedToast = page.getByText(/Added Terms/i);
@@ -39,6 +43,10 @@ export class SiblingsPage extends BasePage {
 
   private getTermOption(termName: string): Locator {
     return this.page.getByTestId(`tag-term-option-${termName}`);
+  }
+
+  private getRemoveTermButton(termName: string): Locator {
+    return this.page.getByTestId(`term-${termName}-pill`).getByTestId('remove-icon');
   }
 
   private getLineageNode(urn: string): Locator {
@@ -75,6 +83,12 @@ export class SiblingsPage extends BasePage {
   }
 
   // ── Verification methods ──────────────────────────────────────────────────
+
+  async removeGlossaryTerm(termName: string): Promise<void> {
+    await this.getRemoveTermButton(termName).click();
+    await this.modalConfirmButton.click();
+    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+  }
 
   async verifyPlatformLogosVisible(platforms: string[]): Promise<void> {
     // Wait for entity header to be fully loaded with platform information
@@ -124,13 +138,21 @@ export class SiblingsPage extends BasePage {
 
   async addGlossaryTerm(termName: string): Promise<void> {
     await this.addTermsButton.click();
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    await this.tagTermModalTrigger.click();
+    await this.tagTermInput.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
+    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
+    await this.tagTermInput.click();
     await this.tagTermInput.fill(termName);
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
-    await this.getTermOption(termName).click({ timeout: TIMEOUTS.LONG });
+    const termOption = this.getTermOption(termName);
+    await termOption.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
+    await termOption.scrollIntoViewIfNeeded();
+    await termOption.click({ force: true });
 
+    await this.tagTermModalTrigger.click();
+    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
     await this.addTagTermConfirmButton.click();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }

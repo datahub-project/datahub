@@ -52,6 +52,7 @@ test.describe('siblings', () => {
     await siblingsPage.verifyTermAddedToast();
     await siblingsPage.navigateToDataset(DBT_CUSTOMERS_URN);
     await siblingsPage.verifyGlossaryTermVisible(PLAYWRIGHT_TERM);
+    await siblingsPage.removeGlossaryTerm(PLAYWRIGHT_TERM);
   });
 
   test('will combine results in search', async () => {
