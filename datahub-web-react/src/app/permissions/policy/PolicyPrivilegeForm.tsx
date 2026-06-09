@@ -24,7 +24,7 @@ import ClickOutside from '@app/shared/ClickOutside';
 import { ENTER_KEY_CODE } from '@app/shared/constants';
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
 import { useGetRecommendations } from '@app/shared/recommendation';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -740,7 +740,9 @@ export default function PolicyPrivilegeForm({
                             </Select.Option>
                         );
                     })}
-                    <Select.Option value={ALL_PRIVILEGES_VALUE}>{t('privilegeForm.allPrivileges')}</Select.Option>
+                    <Select.Option data-testid="option-all-privileges" value={ALL_PRIVILEGES_VALUE}>
+                        {t('privilegeForm.allPrivileges')}
+                    </Select.Option>
                 </Select>
             </Form.Item>
         </PrivilegesForm>

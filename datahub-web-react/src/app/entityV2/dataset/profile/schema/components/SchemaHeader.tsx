@@ -3,6 +3,7 @@ import { Button, Tooltip } from '@components';
 import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import { Button as AntButton, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
@@ -117,9 +118,10 @@ export default function SchemaHeader({
     highlightedMatchIndex,
     setHighlightedMatchIndex,
 }: Props) {
+    const { t } = useTranslation('entity.types');
     const [schemaFilterSelectOpen, setSchemaFilterSelectOpen] = useState(false);
 
-    const schemaAuditToggleText = showSchemaTimeline ? 'Close change history' : 'View change history';
+    const schemaAuditToggleText = showSchemaTimeline ? t('dataset.closeChangeHistory') : t('dataset.viewChangeHistory');
 
     const [searchInput, setSearchInput] = useState(filterText);
     useDebounce(() => setFilterText(searchInput), 100, [searchInput]);
@@ -133,12 +135,12 @@ export default function SchemaHeader({
                             {showRaw ? (
                                 <RawButtonTitleContainer>
                                     <TableOutlined style={{ padding: 0, margin: 0 }} />
-                                    <RawButtonTitle>Tabular</RawButtonTitle>
+                                    <RawButtonTitle>{t('dataset.tabularView')}</RawButtonTitle>
                                 </RawButtonTitleContainer>
                             ) : (
                                 <RawButtonTitleContainer>
                                     <FileTextOutlined style={{ padding: 0, margin: 0 }} />
-                                    <RawButtonTitle>Raw</RawButtonTitle>
+                                    <RawButtonTitle>{t('dataset.rawView')}</RawButtonTitle>
                                 </RawButtonTitleContainer>
                             )}
                         </RawButton>
@@ -146,10 +148,10 @@ export default function SchemaHeader({
                     {hasKeySchema && (
                         <KeyValueButtonGroup>
                             <KeyButton $highlighted={showKeySchema} onClick={() => setShowKeySchema(true)}>
-                                Key
+                                {t('dataset.keyToggle')}
                             </KeyButton>
                             <ValueButton $highlighted={!showKeySchema} onClick={() => setShowKeySchema(false)}>
-                                Value
+                                {t('dataset.valueToggle')}
                             </ValueButton>
                         </KeyValueButtonGroup>
                     )}

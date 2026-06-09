@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.batch;
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
 import com.datahub.authorization.AuthorizationSession;
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -57,6 +58,7 @@ public interface AspectsBatch {
   /**
    * Convert patches to upserts, apply hooks at the aspect and batch level.
    *
+   * @param operationContext
    * @param latestAspects latest aspect in the database
    * @param nextVersions next version for the aspect
    * @param databaseUpsert function which upserts a given change MCP
@@ -64,6 +66,7 @@ public interface AspectsBatch {
    *     various hooks
    */
   Pair<Map<String, Set<String>>, List<ChangeMCP>> toUpsertBatchItems(
+      @Nonnull OperationFingerprint operationContext,
       Map<String, Map<String, SystemAspect>> latestAspects,
       Map<String, Map<String, Long>> nextVersions,
       BiFunction<ChangeMCP, SystemAspect, SystemAspect> databaseUpsert);
@@ -71,55 +74,70 @@ public interface AspectsBatch {
   /**
    * Apply read mutations to batch
    *
+   * @param operationContext operation context
    * @param items
    */
-  default void applyReadMutationHooks(Collection<ReadItem> items) {
-    applyReadMutationHooks(items, getRetrieverContext());
+  default void applyReadMutationHooks(
+      @Nonnull OperationFingerprint operationContext, Collection<ReadItem> items) {
+    applyReadMutationHooks(operationContext, items, getRetrieverContext());
   }
 
   static void applyReadMutationHooks(
-      Collection<ReadItem> items, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      Collection<ReadItem> items,
+      @Nonnull RetrieverContext retrieverContext) {
     for (MutationHook mutationHook :
         retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks()) {
-      mutationHook.applyReadMutation(items, retrieverContext);
+      mutationHook.applyReadMutation(operationContext, items, retrieverContext);
     }
   }
 
   /**
    * Apply write mutations to batch
    *
+   * @param operationContext
    * @param changeMCPS
    */
-  default void applyWriteMutationHooks(Collection<ChangeMCP> changeMCPS) {
-    applyWriteMutationHooks(changeMCPS, getRetrieverContext());
+  default void applyWriteMutationHooks(
+      @Nonnull OperationFingerprint operationContext, Collection<ChangeMCP> changeMCPS) {
+    applyWriteMutationHooks(operationContext, changeMCPS, getRetrieverContext());
   }
 
   static void applyWriteMutationHooks(
-      Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      Collection<ChangeMCP> changeMCPS,
+      @Nonnull RetrieverContext retrieverContext) {
     for (MutationHook mutationHook :
         retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks()) {
-      mutationHook.applyWriteMutation(changeMCPS, retrieverContext).count();
+      mutationHook.applyWriteMutation(operationContext, changeMCPS, retrieverContext).count();
     }
   }
 
   default Stream<MCPItem> applyProposalMutationHooks(
-      Collection<MCPItem> proposedItems, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      Collection<MCPItem> proposedItems,
+      @Nonnull RetrieverContext retrieverContext) {
     return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks().stream()
         .flatMap(
-            mutationHook -> mutationHook.applyProposalMutation(proposedItems, retrieverContext));
+            mutationHook ->
+                mutationHook.applyProposalMutation(
+                    operationContext, proposedItems, retrieverContext));
   }
 
   default <T extends BatchItem> ValidationExceptionCollection validateProposed(
-      Collection<T> mcpItems) {
-    return validateProposed(mcpItems, getRetrieverContext(), null);
+      @Nonnull OperationFingerprint operationContext, Collection<T> mcpItems) {
+    return validateProposed(operationContext, mcpItems, getRetrieverContext(), null);
   }
 
   default <T extends BatchItem> ValidationExceptionCollection validateProposed(
-      Collection<T> mcpItems, @Nullable AuthorizationSession session) {
-    return validateProposed(mcpItems, getRetrieverContext(), session);
+      @Nonnull OperationFingerprint operationContext,
+      Collection<T> mcpItems,
+      @Nullable AuthorizationSession session) {
+    return validateProposed(operationContext, mcpItems, getRetrieverContext(), session);
   }
 
   static <T extends BatchItem> ValidationExceptionCollection validateProposed(
+      @Nonnull OperationFingerprint operationContext,
       Collection<T> mcpItems,
       @Nonnull RetrieverContext retrieverContext,
       @Nullable AuthorizationSession session) {
@@ -129,46 +147,60 @@ public interface AspectsBatch {
         .getEntityRegistry()
         .getAllAspectPayloadValidators()
         .stream()
-        .flatMap(validator -> validator.validateProposed(mcpItems, retrieverContext, session))
+        .flatMap(
+            validator ->
+                validator.validateProposed(operationContext, mcpItems, retrieverContext, session))
         .forEach(exceptions::addException);
     return exceptions;
   }
 
-  default ValidationExceptionCollection validatePreCommit(Collection<ChangeMCP> changeMCPs) {
-    return validatePreCommit(changeMCPs, getRetrieverContext());
+  default ValidationExceptionCollection validatePreCommit(
+      @Nonnull OperationFingerprint operationContext, Collection<ChangeMCP> changeMCPs) {
+    return validatePreCommit(operationContext, changeMCPs, getRetrieverContext());
   }
 
   static ValidationExceptionCollection validatePreCommit(
-      Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     retrieverContext
         .getAspectRetriever()
         .getEntityRegistry()
         .getAllAspectPayloadValidators()
         .stream()
-        .flatMap(validator -> validator.validatePreCommit(changeMCPs, retrieverContext))
+        .flatMap(
+            validator ->
+                validator.validatePreCommit(operationContext, changeMCPs, retrieverContext))
         .forEach(exceptions::addException);
     return exceptions;
   }
 
-  default Stream<ChangeMCP> applyMCPSideEffects(Collection<ChangeMCP> items) {
-    return applyMCPSideEffects(items, getRetrieverContext());
+  default Stream<ChangeMCP> applyMCPSideEffects(
+      @Nonnull OperationFingerprint operationContext, Collection<ChangeMCP> items) {
+    return applyMCPSideEffects(operationContext, items, getRetrieverContext());
   }
 
   static Stream<ChangeMCP> applyMCPSideEffects(
-      Collection<ChangeMCP> items, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      Collection<ChangeMCP> items,
+      @Nonnull RetrieverContext retrieverContext) {
     return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMCPSideEffects().stream()
-        .flatMap(mcpSideEffect -> mcpSideEffect.apply(items, retrieverContext));
+        .flatMap(mcpSideEffect -> mcpSideEffect.apply(operationContext, items, retrieverContext));
   }
 
-  default Stream<MCPItem> applyPostMCPSideEffects(Collection<MCLItem> items) {
-    return applyPostMCPSideEffects(items, getRetrieverContext());
+  default Stream<MCPItem> applyPostMCPSideEffects(
+      @Nonnull OperationFingerprint operationContext, Collection<MCLItem> items) {
+    return applyPostMCPSideEffects(operationContext, items, getRetrieverContext());
   }
 
   static Stream<MCPItem> applyPostMCPSideEffects(
-      Collection<MCLItem> items, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      Collection<MCLItem> items,
+      @Nonnull RetrieverContext retrieverContext) {
     return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMCPSideEffects().stream()
-        .flatMap(mcpSideEffect -> mcpSideEffect.postApply(items, retrieverContext));
+        .flatMap(
+            mcpSideEffect -> mcpSideEffect.postApply(operationContext, items, retrieverContext));
   }
 
   default void applyMCPObservers(Collection<? extends BatchItem> items) {

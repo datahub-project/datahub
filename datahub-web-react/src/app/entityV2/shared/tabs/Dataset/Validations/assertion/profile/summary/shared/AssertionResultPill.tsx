@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { getAssertionResultSeverityDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/assertionResultSeverityUtils';
@@ -41,10 +42,11 @@ type Props = {
 
 export const AssertionResultPill = ({ result, type = ResultStatusType.LATEST }: Props) => {
     const theme = useTheme();
+    const { t } = useTranslation('entity.profile.validations');
     const resultType = result?.type;
     const resultColor = getResultColor(theme, resultType);
     const highlightColor = applyOpacityToHexColor(resultColor, 0.15);
-    const text = (resultType && getResultStatusText(resultType, type)) || 'No results yet';
+    const text = (resultType && getResultStatusText(resultType, type)) || t('resultPill.noResultsYet');
     const severityDisplay = getAssertionResultSeverityDisplay(result);
     return (
         <Pill color={resultColor} highlightColor={highlightColor}>

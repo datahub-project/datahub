@@ -101,9 +101,10 @@ public class EbeanAspectDaoTest {
     LoggedSql.start();
 
     testDao.runInTransactionWithRetryUnlocked(
+        opContext,
         (txContext) -> {
           testDao.getNextVersions(
-              Map.of("urn:li:corpuser:testGetNextVersionForUpdate", Set.of("status")));
+              opContext, Map.of("urn:li:corpuser:testGetNextVersionForUpdate", Set.of("status")));
           return TransactionResult.commit("");
         },
         mock(AspectsBatch.class),
@@ -133,9 +134,10 @@ public class EbeanAspectDaoTest {
     LoggedSql.start();
 
     testDao.runInTransactionWithRetryUnlocked(
+        opContext,
         (txContext) -> {
           testDao.getLatestAspects(
-              mock(OperationContext.class),
+              opContext,
               Map.of("urn:li:corpuser:testGetLatestAspectsForUpdate", Set.of("status")),
               true);
           return TransactionResult.commit("");
@@ -167,8 +169,10 @@ public class EbeanAspectDaoTest {
     LoggedSql.start();
 
     testDao.runInTransactionWithRetryUnlocked(
+        opContext,
         (txContext) -> {
           testDao.batchGet(
+              opContext,
               Set.of(
                   new EntityAspectIdentifier(
                       "urn:li:corpuser:testbatchGetForUpdate1",
@@ -212,11 +216,12 @@ public class EbeanAspectDaoTest {
 
     // Test with READ_UNCOMMITTED isolation level
     var stream =
-        testDao.streamAspectBatches(args, io.ebean.annotation.TxIsolation.READ_UNCOMMITTED);
+        testDao.streamAspectBatches(
+            opContext, args, io.ebean.annotation.TxIsolation.READ_UNCOMMITTED);
     assertTrue(stream != null);
 
     // Test with null isolation level (should use default)
-    var defaultStream = testDao.streamAspectBatches(args, null);
+    var defaultStream = testDao.streamAspectBatches(opContext, args, null);
     assertTrue(defaultStream != null);
   }
 
@@ -226,7 +231,7 @@ public class EbeanAspectDaoTest {
     var args = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
     args.limit = 5;
 
-    var stream = testDao.streamAspectBatches(args);
+    var stream = testDao.streamAspectBatches(opContext, args);
     assertTrue(stream != null);
   }
 
@@ -257,20 +262,20 @@ public class EbeanAspectDaoTest {
 
     // Test case 1: No filter - should return count of all aspects
     var args1 = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
-    int count1 = testDao.countAspect(args1);
+    int count1 = testDao.countAspect(opContext, args1);
     assertEquals(count1, 5, "Should return count of all aspects");
 
     // Test case 2: urnLike filter - should return count of aspects matching the URN pattern
     var args2 = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
     args2.urnLike = "%:test:%";
-    int count2 = testDao.countAspect(args2);
+    int count2 = testDao.countAspect(opContext, args2);
     assertEquals(count2, 3, "Should return count of aspects matching URN pattern '%:test:%'");
 
     // Test case 3: urnLike + aspect filter - should return count of matching aspects
     var args3 = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
     args3.urnLike = "%:test:%";
     args3.aspectName = "testAspect1";
-    int count3 = testDao.countAspect(args3);
+    int count3 = testDao.countAspect(opContext, args3);
     assertEquals(
         count3, 2, "Should return count of aspects matching both URN pattern and aspect name");
   }
@@ -296,7 +301,7 @@ public class EbeanAspectDaoTest {
 
     // Try to update aspect
     Optional<com.linkedin.metadata.aspect.EntityAspect> result =
-        testDao.insertAspect(null, systemAspect, ASPECT_LATEST_VERSION);
+        testDao.insertAspect(opContext, null, systemAspect, ASPECT_LATEST_VERSION);
 
     if (canWrite) {
       // When writable, operation should succeed
@@ -327,7 +332,7 @@ public class EbeanAspectDaoTest {
 
     // Try to insert aspect
     Optional<com.linkedin.metadata.aspect.EntityAspect> result =
-        testDao.insertAspect(null, mockAspect, 1L);
+        testDao.insertAspect(opContext, null, mockAspect, 1L);
 
     if (canWrite) {
       // When writable, operation should succeed
@@ -353,21 +358,21 @@ public class EbeanAspectDaoTest {
 
       // Verify it exists
       com.linkedin.metadata.aspect.EntityAspect beforeDelete =
-          testDao.getAspect(urnString, aspectName, ASPECT_LATEST_VERSION);
+          testDao.getAspect(opContext, urnString, aspectName, ASPECT_LATEST_VERSION);
       assertNotNull(beforeDelete, "Aspect should exist before delete");
 
       // Delete the aspect
       Urn urn = UrnUtils.getUrn(urnString);
-      testDao.deleteAspect(urn, aspectName, ASPECT_LATEST_VERSION);
+      testDao.deleteAspect(opContext, urn, aspectName, ASPECT_LATEST_VERSION);
 
       // Verify it's deleted
       com.linkedin.metadata.aspect.EntityAspect afterDelete =
-          testDao.getAspect(urnString, aspectName, ASPECT_LATEST_VERSION);
+          testDao.getAspect(opContext, urnString, aspectName, ASPECT_LATEST_VERSION);
       assertNull(afterDelete, "Aspect should be deleted when writable");
     } else {
       // When not writable, delete should be a no-op
       Urn urn = UrnUtils.getUrn(urnString);
-      testDao.deleteAspect(urn, aspectName, ASPECT_LATEST_VERSION);
+      testDao.deleteAspect(opContext, urn, aspectName, ASPECT_LATEST_VERSION);
       // No exception should be thrown, operation just returns silently
       assertTrue(true, "Delete should complete without error when not writable");
     }
@@ -388,11 +393,11 @@ public class EbeanAspectDaoTest {
 
       // Verify aspects exist
       com.linkedin.metadata.aspect.EntityAspect aspect1 =
-          testDao.getAspect(urnString, "corpUserInfo", ASPECT_LATEST_VERSION);
+          testDao.getAspect(opContext, urnString, "corpUserInfo", ASPECT_LATEST_VERSION);
       com.linkedin.metadata.aspect.EntityAspect aspect2 =
-          testDao.getAspect(urnString, "status", ASPECT_LATEST_VERSION);
+          testDao.getAspect(opContext, urnString, "status", ASPECT_LATEST_VERSION);
       com.linkedin.metadata.aspect.EntityAspect keyAspect =
-          testDao.getAspect(urnString, "corpUserKey", ASPECT_LATEST_VERSION);
+          testDao.getAspect(opContext, urnString, "corpUserKey", ASPECT_LATEST_VERSION);
       assertTrue(
           aspect1 != null && aspect2 != null && keyAspect != null,
           "All aspects should exist before deletion");
@@ -408,11 +413,11 @@ public class EbeanAspectDaoTest {
 
       // Verify aspects are deleted
       com.linkedin.metadata.aspect.EntityAspect afterAspect1 =
-          testDao.getAspect(urnString, "corpUserInfo", ASPECT_LATEST_VERSION);
+          testDao.getAspect(opContext, urnString, "corpUserInfo", ASPECT_LATEST_VERSION);
       com.linkedin.metadata.aspect.EntityAspect afterAspect2 =
-          testDao.getAspect(urnString, "status", ASPECT_LATEST_VERSION);
+          testDao.getAspect(opContext, urnString, "status", ASPECT_LATEST_VERSION);
       com.linkedin.metadata.aspect.EntityAspect afterKeyAspect =
-          testDao.getAspect(urnString, "corpUserKey", ASPECT_LATEST_VERSION);
+          testDao.getAspect(opContext, urnString, "corpUserKey", ASPECT_LATEST_VERSION);
       assertTrue(
           afterAspect1 == null && afterAspect2 == null && afterKeyAspect == null,
           "All aspects should be deleted");
@@ -436,7 +441,7 @@ public class EbeanAspectDaoTest {
     String urnString = "urn:li:corpuser:testToggle";
     insertAspect(urnString, "status", ASPECT_LATEST_VERSION, "test-metadata");
     com.linkedin.metadata.aspect.EntityAspect aspect =
-        testDao.getAspect(urnString, "status", ASPECT_LATEST_VERSION);
+        testDao.getAspect(opContext, urnString, "status", ASPECT_LATEST_VERSION);
     assertTrue(aspect != null, "Insert should work when writable");
 
     // Now set to read-only
@@ -452,7 +457,7 @@ public class EbeanAspectDaoTest {
     when(mockEntityAspect.getVersion()).thenReturn(ASPECT_LATEST_VERSION);
 
     Optional<com.linkedin.metadata.aspect.EntityAspect> result =
-        testDao.insertAspect(null, mockAspect, ASPECT_LATEST_VERSION);
+        testDao.insertAspect(opContext, null, mockAspect, ASPECT_LATEST_VERSION);
     assertFalse(result.isPresent(), "Insert should fail when not writable");
 
     // Set back to writable
@@ -461,7 +466,8 @@ public class EbeanAspectDaoTest {
     // Insert should work again
     insertAspect("urn:li:corpuser:testToggle3", "status", ASPECT_LATEST_VERSION, "test-metadata");
     com.linkedin.metadata.aspect.EntityAspect aspect3 =
-        testDao.getAspect("urn:li:corpuser:testToggle3", "status", ASPECT_LATEST_VERSION);
+        testDao.getAspect(
+            opContext, "urn:li:corpuser:testToggle3", "status", ASPECT_LATEST_VERSION);
     assertTrue(aspect3 != null, "Insert should work again after re-enabling write");
   }
 
@@ -477,18 +483,20 @@ public class EbeanAspectDaoTest {
 
     // Read operations should still work
     com.linkedin.metadata.aspect.EntityAspect aspect =
-        testDao.getAspect(urnString, "status", ASPECT_LATEST_VERSION);
+        testDao.getAspect(opContext, urnString, "status", ASPECT_LATEST_VERSION);
     assertTrue(aspect != null, "Read operations should work when not writable");
     assertEquals(aspect.getMetadata(), "test-metadata", "Read should return correct data");
 
     // Batch get should work
     Map<EntityAspectIdentifier, com.linkedin.metadata.aspect.EntityAspect> batchResult =
         testDao.batchGet(
-            Set.of(new EntityAspectIdentifier(urnString, "status", ASPECT_LATEST_VERSION)), false);
+            opContext,
+            Set.of(new EntityAspectIdentifier(urnString, "status", ASPECT_LATEST_VERSION)),
+            false);
     assertEquals(batchResult.size(), 1, "Batch get should work when not writable");
 
     // Count should work
-    long count = testDao.countEntities();
+    long count = testDao.countEntities(opContext);
     assertTrue(count > 0, "Count operations should work when not writable");
   }
 
@@ -508,14 +516,14 @@ public class EbeanAspectDaoTest {
     when(mockEntityAspect.getVersion()).thenReturn(ASPECT_LATEST_VERSION);
 
     Optional<com.linkedin.metadata.aspect.EntityAspect> updateResult =
-        testDao.updateAspect(null, mockAspect);
+        testDao.updateAspect(opContext, null, mockAspect);
     assertFalse(updateResult.isPresent(), "Update blocked during migration");
 
-    Optional<EntityAspect> insertResult = testDao.insertAspect(null, mockAspect, 1L);
+    Optional<EntityAspect> insertResult = testDao.insertAspect(opContext, null, mockAspect, 1L);
     assertFalse(insertResult.isPresent(), "Insert blocked during migration");
 
     Urn urn = UrnUtils.getUrn("urn:li:corpuser:migration");
-    testDao.deleteAspect(urn, "status", ASPECT_LATEST_VERSION);
+    testDao.deleteAspect(opContext, urn, "status", ASPECT_LATEST_VERSION);
     // Should not throw exception
 
     OperationContext mockOpContext = mock(OperationContext.class);
@@ -529,7 +537,8 @@ public class EbeanAspectDaoTest {
     // Writes should work again
     insertAspect("urn:li:corpuser:postMigration", "status", ASPECT_LATEST_VERSION, "test");
     com.linkedin.metadata.aspect.EntityAspect aspect =
-        testDao.getAspect("urn:li:corpuser:postMigration", "status", ASPECT_LATEST_VERSION);
+        testDao.getAspect(
+            opContext, "urn:li:corpuser:postMigration", "status", ASPECT_LATEST_VERSION);
     assertTrue(aspect != null, "Writes work after migration");
   }
 }

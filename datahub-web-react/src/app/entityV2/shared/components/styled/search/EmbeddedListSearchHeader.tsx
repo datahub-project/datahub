@@ -2,6 +2,7 @@ import { ExclamationCircleFilled, FilterOutlined } from '@ant-design/icons';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Button as AntButton, Typography } from 'antd';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
 import { EntityAndType } from '@app/entity/shared/types';
@@ -88,6 +89,7 @@ export default function EmbeddedListSearchHeader({
     searchBarStyle,
     searchBarInputStyle,
 }: Props) {
+    const { t } = useTranslation('entity.shared.components');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { selectedSortOption, setSelectedSortOption } = useSearchContext();
@@ -100,13 +102,13 @@ export default function EmbeddedListSearchHeader({
                 <HeaderContainer>
                     <AntButton type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
                         <FilterOutlined />
-                        <Typography.Text>Filters</Typography.Text>
+                        <Typography.Text>{t('embeddedSearch.filters')}</Typography.Text>
                     </AntButton>
                     <SearchAndDownloadContainer>
                         <SearchBar
                             data-testid="embedded-search-bar"
                             initialQuery=""
-                            placeholderText={placeholderText || 'Search entities...'}
+                            placeholderText={placeholderText || t('embeddedSearch.searchEntitiesPlaceholder')}
                             suggestions={[]}
                             style={
                                 searchBarStyle || {
@@ -158,7 +160,7 @@ export default function EmbeddedListSearchHeader({
             {showLightningWarning && lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">
                     <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
-                    Some results shown may not exist yet in DataHub
+                    {t('embeddedSearch.impactWarning')}
                     <StyledButton
                         onClick={() => setShowLightningWarning(false)}
                         variant="text"

@@ -3,6 +3,7 @@ import { Modal } from '@components';
 import { Form, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Redirect, useLocation } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
@@ -15,6 +16,7 @@ import { useAppConfig } from '@app/useAppConfig';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 export default function LoginModal() {
+    const { t } = useTranslation('auth');
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const location = useLocation();
     const params = QueryString.parse(location.search, { decode: true });
@@ -49,11 +51,11 @@ export default function LoginModal() {
                     return Promise.resolve();
                 })
                 .catch((e) => {
-                    message.error(`Failed to log in! ${e}`);
+                    message.error(t('login.failed', { error: e }));
                 })
                 .finally(() => setLoading(false));
         },
-        [refreshContext],
+        [refreshContext, t],
     );
 
     if (isLoggedIn) {
@@ -79,13 +81,13 @@ export default function LoginModal() {
             title={<ModalHeader />}
             buttons={[
                 {
-                    text: 'Sign in with SSO',
+                    text: t('login.ssoButton'),
                     onClick: handleSSOLogin,
                     variant: 'text',
                     color: 'gray',
                 },
                 {
-                    text: 'Login',
+                    text: t('login.submitButton'),
                     onClick: () => form.submit(),
                     disabled: isSubmitDisabled,
                     buttonDataTestId: 'sign-in',
@@ -99,7 +101,7 @@ export default function LoginModal() {
             {maybeRedirectError && maybeRedirectError.length > 0 && (
                 <Message type="error" content={maybeRedirectError} />
             )}
-            {loading && <Message type="loading" content="Logging in..." />}
+            {loading && <Message type="loading" content={t('login.loading')} />}
             <LoginForm
                 form={form}
                 handleSubmit={handleLogin}

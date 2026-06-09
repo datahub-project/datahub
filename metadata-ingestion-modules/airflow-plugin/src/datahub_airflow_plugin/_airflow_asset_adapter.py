@@ -1,10 +1,8 @@
 """Adapter for converting Airflow Assets/Datasets to DataHub URNs.
 
-Airflow 2.4+ introduced airflow.datasets.Dataset for data-aware scheduling.
-Airflow 3.0+ renamed this to airflow.sdk.Asset (Dataset still works as alias).
-
-This module provides utilities to detect and convert these native Airflow
-Asset/Dataset objects to DataHub dataset URNs based on their URI.
+Airflow 3.0+ uses airflow.sdk.Asset for data-aware scheduling (Dataset still works
+as a deprecated alias). This module detects either form via class-name MRO walk
+and converts them to DataHub dataset URNs based on their URI.
 """
 
 import logging
@@ -34,11 +32,10 @@ URI_SCHEME_TO_PLATFORM = {
 
 
 def is_airflow_asset(obj: Any) -> bool:
-    """Check if object is an Airflow Asset or Dataset.
+    """Check if object is an Airflow Asset.
 
-    Works with both Airflow 2.x Dataset and Airflow 3.x Asset classes,
-    including subclasses, by checking the class hierarchy (MRO) and
-    required 'uri' attribute.
+    Works with v3 Asset and the deprecated Dataset alias, including
+    subclasses, by walking the class MRO and requiring a `uri` attribute.
     """
     if not hasattr(obj, "uri"):
         return False

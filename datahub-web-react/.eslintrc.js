@@ -87,9 +87,7 @@ const COLOR_ENFORCEMENT_RULES = {
 // list once its translations are wired up to opt it into the rule.
 // --------------------------------------------------------------------------
 const translatedFilesPath = path.resolve(__dirname, 'translated-files.txt');
-const translatedFilesContent = fs.existsSync(translatedFilesPath)
-    ? fs.readFileSync(translatedFilesPath, 'utf8')
-    : '';
+const translatedFilesContent = fs.existsSync(translatedFilesPath) ? fs.readFileSync(translatedFilesPath, 'utf8') : '';
 const translatedFiles = new Set(translatedFilesContent.split('\n').filter(Boolean));
 
 const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
@@ -100,9 +98,35 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     'rel',
     'href',
     'name',
+    // Source/connector display names are proper nouns (Athena, BigQuery, Confluence, …) and
+    // must never be translated. Exempt any `displayName`/`*DisplayName` property or attribute.
+    '.*[Dd]isplayName$',
+    'form',
+    'entityTypeName',
     'autoComplete',
+    'preload',
     'placement',
     'trigger',
+    'language',
+    'fill',
+    'justifyContent',
+    'field',
+    'tab',
+    'commandName',
+    'optionLabelProp',
+    'classNames',
+    // SVG / format / placement presentation attributes — never user-visible text.
+    'optionFilterProp',
+    '.*[Aa]lign$',
+    'dy',
+    'fontFamily',
+    'format',
+    'pointerEvents',
+    'textAnchor',
+    'textDecoration',
+    'tooltipPlacement',
+    'viewBox',
+    '.*Path$',
     '.*background$',
     '.*Background$',
     '.*borderRadius$',
@@ -125,10 +149,15 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     '.*Size$',
     '.*testid$',
     '.*TestId$',
+    '.*TestID$',
     '.*variant$',
     '.*Variant$',
+    '.*weight$',
+    '.*Weight$',
     '.*width$',
     '.*Width$',
+    '.*style$',
+    '.*Style$',
 ];
 
 // Files that legitimately need raw color values
@@ -289,7 +318,17 @@ module.exports = {
             ? [
                   {
                       files: [...translatedFiles],
-                      excludedFiles: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
+                      excludedFiles: [
+                          '**/__tests__/**',
+                          '**/*.test.ts',
+                          '**/*.test.tsx',
+                          // Storybook demo files render only in Storybook, never in the production app — their
+                          // demo strings must not be enforced as translatable.
+                          '**/*.stories.tsx',
+                          // The alchemy rich-text Editor is not yet migrated; excluded so a directory-level
+                          // glob can lock the rest of alchemy-components under enforcement without failing on it.
+                          '**/alchemy-components/components/Editor/**',
+                      ],
                       rules: {
                           'i18next/no-literal-string': [
                               'error',
@@ -302,10 +341,21 @@ module.exports = {
                                       exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
                                   },
                                   words: {
-                                      exclude: ['^_blank$', '^\\*$', '^[A-Z0-9_]+$'],
+                                      exclude: [
+                                          '^_blank$',
+                                          '^noopener noreferrer$',
+                                          '^\\*+$',
+                                          '^-$',
+                                          '^[A-Z0-9_]+$',
+                                          '^:\\s*$',
+                                          '^[()]+$',
+                                          // CSS length values in inline styles (e.g. '4px', '0px', '1.5rem')
+                                          '^\\d+(\\.\\d+)?(px|rem|em|%|vw|vh)$',
+                                      ],
                                   },
                               },
                           ],
+                          'rulesdir/no-manual-pluralize-in-i18n': 'error',
                       },
                   },
               ]

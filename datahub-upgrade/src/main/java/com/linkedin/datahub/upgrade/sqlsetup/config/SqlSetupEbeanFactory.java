@@ -1,8 +1,8 @@
 package com.linkedin.datahub.upgrade.sqlsetup.config;
 
 import com.linkedin.datahub.upgrade.sqlsetup.DatabaseOperations;
-import com.linkedin.datahub.upgrade.sqlsetup.DatabaseType;
-import com.linkedin.datahub.upgrade.sqlsetup.JdbcUrlParser;
+import com.linkedin.metadata.config.postgres.DatabaseType;
+import com.linkedin.metadata.config.postgres.JdbcUrlParser;
 import com.linkedin.metadata.utils.EnvironmentUtils;
 import io.ebean.Database;
 import io.ebean.DatabaseFactory;

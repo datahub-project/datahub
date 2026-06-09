@@ -1,10 +1,12 @@
 from functools import partial
-from typing import Dict
-from urllib.parse import parse_qs
+from typing import Any, Dict, List
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.sac.sac import SACSource, SACSourceConfig
 from datahub.testing import mce_helpers
 
 MOCK_TENANT_URL = "http://tenant"
@@ -28,25 +30,20 @@ def test_sac(
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sac"
 
-    with open(f"{test_resources_dir}/metadata.xml", mode="rb") as f:
-        content = f.read()
-        requests_mock.get(
-            f"{MOCK_TENANT_URL}/api/v1/$metadata",
-            content=partial(match_metadata, content=content),
-        )
-
+    # The connector queries the OData "Resources" data endpoints directly (without reading the
+    # $metadata document), so only the data endpoints are mocked here.
     requests_mock.get(
-        f"{MOCK_TENANT_URL}/api/v1/Resources?$format=json&$filter=isTemplate eq 0 and isSample eq 0 and isPublic eq 1 and ((resourceType eq 'STORY' and resourceSubtype eq '') or (resourceType eq 'STORY' and resourceSubtype eq 'APPLICATION'))&$select=resourceId,resourceType,resourceSubtype,storyId,name,description,createdTime,createdBy,modifiedBy,modifiedTime,openURL,ancestorPath,isMobile",
+        f"{MOCK_TENANT_URL}/api/v1/Resources",
         json=match_resources,
     )
 
     requests_mock.get(
-        f"{MOCK_TENANT_URL}/api/v1/Resources%28%27LXTH4JCE36EOYLU41PIINLYPU9XRYM26%27%29/resourceModels?$format=json&$select=modelId,name,description,externalId,connectionId,systemType",
+        f"{MOCK_TENANT_URL}/api/v1/Resources('LXTH4JCE36EOYLU41PIINLYPU9XRYM26')/resourceModels",
         json=partial(match_resource, resource_id="LXTH4JCE36EOYLU41PIINLYPU9XRYM26"),
     )
 
     requests_mock.get(
-        f"{MOCK_TENANT_URL}/api/v1/Resources%28%27EOYLU41PIILXTH4JCE36NLYPU9XRYM26%27%29/resourceModels?$format=json&$select=modelId,name,description,externalId,connectionId,systemType",
+        f"{MOCK_TENANT_URL}/api/v1/Resources('EOYLU41PIILXTH4JCE36NLYPU9XRYM26')/resourceModels",
         json=partial(match_resource, resource_id="EOYLU41PIILXTH4JCE36NLYPU9XRYM26"),
     )
 
@@ -90,6 +87,38 @@ def test_sac(
     )
 
 
+@pytest.mark.integration
+def test_query_odata_entities_follows_pagination(requests_mock):
+    # The Resources endpoint can return results across multiple server-driven pages linked by
+    # "__next"; the connector must follow them and concatenate the results.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+
+    page_1 = {
+        "d": {
+            "results": [{"resourceId": "A"}],
+            "__next": f"{MOCK_TENANT_URL}/api/v1/Resources?$skiptoken=PAGE2",
+        }
+    }
+    page_2 = {"d": {"results": [{"resourceId": "B"}]}}
+
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/Resources",
+        [{"json": page_1}, {"json": page_2}],
+    )
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+    )
+    source = SACSource(config, PipelineContext(run_id="sac-pagination-test"))
+
+    results = list(source._query_odata_entities("Resources", select="resourceId"))
+
+    assert [entity["resourceId"] for entity in results] == ["A", "B"]
+
+
 def match_token_url(request, context):
     form = parse_qs(request.text, strict_parsing=True)
 
@@ -121,16 +150,21 @@ def check_authorization(headers: Dict[str, str]) -> None:
     assert headers["x-sap-sac-custom-auth"] == "true"
 
 
-def match_metadata(request, context, content):
-    check_authorization(request.headers)
-
-    context.headers["content-type"] = "application/xml"
-
-    return content
+def query_params(request: Any) -> Dict[str, List[str]]:
+    # parse from request.url because requests_mock lowercases the values exposed via request.qs
+    return parse_qs(urlsplit(request.url).query)
 
 
 def match_resources(request, context):
     check_authorization(request.headers)
+
+    params = query_params(request)
+    assert params["$format"] == ["json"]
+    assert "resourceId" in params["$select"][0]
+    # the access-control predicates must be sent, otherwise private/sample content could be ingested
+    assert "isTemplate eq 0" in params["$filter"][0]
+    assert "isSample eq 0" in params["$filter"][0]
+    assert "isPublic eq 1" in params["$filter"][0]
 
     json = {
         "d": {
@@ -182,6 +216,10 @@ def match_resources(request, context):
 
 def match_resource(request, context, resource_id):
     check_authorization(request.headers)
+
+    params = query_params(request)
+    assert params["$format"] == ["json"]
+    assert "modelId" in params["$select"][0]
 
     json = {
         "d": {

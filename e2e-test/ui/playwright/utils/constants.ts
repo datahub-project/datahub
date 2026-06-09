@@ -8,8 +8,42 @@ export function gmsUrl(baseUrl?: string): string {
 
 export const DEFAULT_TIMEOUT = 30000;
 export const NETWORK_IDLE_TIMEOUT = 10000;
+export const WAIT_TIMEOUT = 10000;
+export const SHORT_TIMEOUT = 5000;
+export const MODAL_TIMEOUT = 15000;
 export const ANIMATION_TIMEOUT = 500;
 export const POLL_INTERVAL = 500;
+export const UI_SYNC_DELAY = 200;
+export const TABLE_LOAD_DELAY = 500;
+
+// Playwright test timeouts
+export const TIMEOUTS = {
+  LONG: 15000, // Initial page loads, element appearance
+  EXTRA_LONG: 20000, // Slow operations, async operations, dynamic content loading
+  MEDIUM: 10000, // Standard element visibility
+  SHORT: 5000, // Quick interactions, menu closes
+  BETWEEN_OPS: 500, // Wait between sequential operations
+  QUICK: 300, // Brief pause for rendering
+} as const;
+
+// Interaction delays
+export const DELAYS = {
+  TYPING: 10, // Keyboard typing speed
+  SEQUENTIAL: 50, // Sequential key presses
+} as const;
+
+// Playwright load states
+export const LOAD_STATES = {
+  DOMCONTENTLOADED: 'domcontentloaded',
+  LOAD: 'load',
+  NETWORKIDLE: 'networkidle',
+} as const;
+
+// Keyboard keys
+export const KEYS = {
+  CTRL_A: 'Control+A',
+  ENTER: 'Enter',
+} as const;
 
 // TEST_CREDENTIALS removed — use data/users.ts (users) as the
 // single source of truth for user credentials.

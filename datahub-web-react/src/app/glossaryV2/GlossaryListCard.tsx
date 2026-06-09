@@ -1,6 +1,7 @@
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -88,6 +89,7 @@ const Icons = styled.div`
 
 const MAX_DESCRIPTION_LENGTH = 100;
 const MAX_DEPTH_QUERIED = 4;
+const TRUNCATION_SUFFIX = '...';
 
 interface Props {
     name: string;
@@ -101,6 +103,7 @@ interface Props {
 }
 
 const GlossaryListCard = (props: Props) => {
+    const { t } = useTranslation('governance.glossary');
     const { name, description, type, entityData, urn, nodeCount, termCount, maxDepth } = props;
     const isDescriptionTruncated = description && description.length > MAX_DESCRIPTION_LENGTH;
     const truncatedDescription = description?.slice(0, MAX_DESCRIPTION_LENGTH);
@@ -119,7 +122,7 @@ const GlossaryListCard = (props: Props) => {
                     {description && (
                         <SmallDescription>
                             {truncatedDescription}
-                            {isDescriptionTruncated ? '...' : null}
+                            {isDescriptionTruncated ? TRUNCATION_SUFFIX : null}
                         </SmallDescription>
                     )}
                 </NameAndDescription>
@@ -127,7 +130,7 @@ const GlossaryListCard = (props: Props) => {
             {isNode ? (
                 <Icons>
                     <Tooltip
-                        title={`Contains ${nodeCount} ${nodeCount === 1 ? 'term group' : 'term groups'}`}
+                        title={t('card.nodeGroupCountTooltip', { count: nodeCount || 0 })}
                         placement="top"
                         showArrow={false}
                     >
@@ -141,7 +144,7 @@ const GlossaryListCard = (props: Props) => {
                         </GlossaryItemCount>
                     </Tooltip>
                     <Tooltip
-                        title={`Contains ${termCount} ${termCount === 1 ? 'term' : 'terms'}`}
+                        title={t('card.termCountTooltip', { count: termCount || 0 })}
                         placement="top"
                         showArrow={false}
                     >

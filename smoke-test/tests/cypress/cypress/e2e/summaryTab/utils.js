@@ -69,8 +69,13 @@ export function setGlossaryTermToOpenedEntity(termName) {
     cy.clickOptionWithTestId("add-terms-button");
   });
 
-  cy.getWithTestId("tag-term-modal-input").filter(":visible").type(termName);
-  cy.get(".ant-select-item-option-content").contains(termName).click();
+  // AddTermsModal uses alchemy SimpleSelect: click the trigger to open the
+  // portal-rendered dropdown, then type into its search input.
+  cy.getWithTestId("tag-term-modal-input").filter(":visible").click();
+  cy.get('[data-testid="dropdown-search-input"]').type(termName);
+  cy.get(`[data-testid="tag-term-option-${termName}"]`)
+    .first()
+    .click({ force: true });
   cy.clickOptionWithTestId("add-tag-term-from-modal-btn");
 }
 
@@ -82,8 +87,13 @@ export function setTagToOpenedEntity(tagName) {
     cy.clickOptionWithTestId("add-tags-button");
   });
 
-  cy.getWithTestId("tag-term-modal-input").filter(":visible").type(tagName);
-  cy.get(".ant-select-item-option-content").contains(tagName).click();
+  // AddTagsModal uses alchemy SimpleSelect: click the trigger to open the
+  // portal-rendered dropdown, then type into its search input.
+  cy.getWithTestId("tag-term-modal-input").filter(":visible").click();
+  cy.get('[data-testid="dropdown-search-input"]').type(tagName);
+  cy.get(`[data-testid="tag-term-option-${tagName}"]`)
+    .first()
+    .click({ force: true });
   cy.clickOptionWithTestId("add-tag-term-from-modal-btn");
 }
 

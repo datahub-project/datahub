@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity.versioning.sideeffects;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
@@ -46,18 +47,25 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
 
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
-      Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
-    return changeMCPS.stream().flatMap(item -> processMCP(item, retrieverContext));
+      @Nonnull OperationFingerprint operationContext,
+      Collection<ChangeMCP> changeMCPS,
+      @Nonnull RetrieverContext retrieverContext) {
+    return changeMCPS.stream()
+        .flatMap(item -> processMCP(operationContext, item, retrieverContext));
   }
 
   @Override
   protected Stream<MCPItem> postMCPSideEffect(
-      Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      Collection<MCLItem> mclItems,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.of();
   }
 
   private static Stream<ChangeMCP> processMCP(
-      ChangeMCP changeMCP, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationFingerprint,
+      ChangeMCP changeMCP,
+      @Nonnull RetrieverContext retrieverContext) {
     Urn entityUrn = changeMCP.getUrn();
 
     if (!VERSION_PROPERTIES_ASPECT_NAME.equals(changeMCP.getAspectName())) {
@@ -74,7 +82,8 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
     Aspect versionSetPropertiesAspect =
         retrieverContext
             .getAspectRetriever()
-            .getLatestAspectObject(versionSetUrn, VERSION_SET_PROPERTIES_ASPECT_NAME);
+            .getLatestAspectObject(
+                operationFingerprint, versionSetUrn, VERSION_SET_PROPERTIES_ASPECT_NAME);
     if (versionSetPropertiesAspect == null) {
       return createVersionSet(versionProperties, changeMCP, retrieverContext);
     }
@@ -91,7 +100,8 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
     Aspect prevLatestVersionPropertiesAspect =
         retrieverContext
             .getAspectRetriever()
-            .getLatestAspectObject(prevLatest, VERSION_PROPERTIES_ASPECT_NAME);
+            .getLatestAspectObject(
+                operationFingerprint, prevLatest, VERSION_PROPERTIES_ASPECT_NAME);
     if (prevLatestVersionPropertiesAspect != null) {
       prevLatestVersionProperties =
           RecordUtils.toRecordTemplate(

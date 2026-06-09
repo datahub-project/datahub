@@ -9,7 +9,7 @@ import TabItem from '@theme/TabItem';
 
 <FeatureAvailability saasOnly />
 
-This guide specifically covers how to use the Assertion APIs for **DataHub Cloud** native assertions, including:
+This guide specifically covers how to use the Assertion APIs and Python SDK for **DataHub Cloud** native assertions, including:
 
 - [Freshness Assertions](/docs/managed-datahub/observe/freshness-assertions.md)
 - [Volume Assertions](/docs/managed-datahub/observe/volume-assertions.md)
@@ -17,9 +17,9 @@ This guide specifically covers how to use the Assertion APIs for **DataHub Cloud
 - [Schema Assertions](/docs/managed-datahub/observe/schema-assertions.md)
 - [Custom SQL Assertions](/docs/managed-datahub/observe/custom-sql-assertions.md)
 
-## Why Would You Use Assertions APIs?
+## Why Would You Use Assertions APIs & SDK?
 
-The Assertions APIs allow you to create, schedule, run, and delete Assertions with DataHub Cloud. Additionally, you can manage subscriptions to receive notifications when assertions change state or when other entity changes occur.
+The Assertions APIs and SDK allow you to create, schedule, run, and delete Assertions with DataHub Cloud. Additionally, you can manage subscriptions to receive notifications when assertions change state or when other entity changes occur.
 
 ### Goal Of This Guide
 
@@ -734,6 +734,45 @@ Assertions can optionally set the severity assigned when an assertion fails. Use
 
 The example below creates a Volume assertion that passes when row count is at most 1,000. If it fails and the observed row count is at least 2,000, the failure is marked `HIGH`; otherwise, it falls back to `MEDIUM`.
 
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```graphql
+mutation upsertDatasetVolumeAssertionMonitor {
+  upsertDatasetVolumeAssertionMonitor(
+    input: {
+      entityUrn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)"
+      type: ROW_COUNT_TOTAL
+      rowCountTotal: {
+        operator: LESS_THAN_OR_EQUAL_TO
+        parameters: { value: { value: "1000", type: NUMBER } }
+        failureSeverityConfig: {
+          defaultSeverity: MEDIUM
+          rules: [
+            {
+              severity: HIGH
+              operator: GREATER_THAN_OR_EQUAL_TO
+              parameters: { value: { value: "2000", type: NUMBER } }
+            }
+          ]
+        }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */4 * * *"
+      }
+      evaluationParameters: { sourceType: INFORMATION_SCHEMA }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
 ```python
 from acryl_datahub_cloud.sdk import (
     AssertionFailureSeverity,
@@ -772,11 +811,14 @@ volume_assertion = client.assertions.sync_volume_assertion(
 print(f"Created volume assertion: {volume_assertion.urn}")
 ```
 
+</TabItem>
+</Tabs>
+
 Freshness supports default severity only, and Assertions with anomaly detection do not support manual severity configuration.
 
 ## Run Assertions
 
-You can use the following APIs to trigger the assertions you've created to run on-demand. This is
+You can use the following APIs and SDK functions to trigger the assertions you've created to run on-demand. This is
 particularly useful for running assertions on a custom schedule, for example from your production
 data pipelines.
 

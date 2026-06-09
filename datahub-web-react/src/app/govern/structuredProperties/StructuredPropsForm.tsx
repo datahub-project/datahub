@@ -2,6 +2,7 @@ import { Tooltip } from '@components';
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import AdvancedOptions from '@app/govern/structuredProperties/AdvancedOptions';
 import DisplayPreferences from '@app/govern/structuredProperties/DisplayPreferences';
@@ -49,6 +50,8 @@ const StructuredPropsForm = ({
     refetchProperties,
     badgeProperty,
 }: Props) => {
+    const { t } = useTranslation('governance.structured-properties');
+    const { t: tl } = useTranslation('common.labels');
     const { handleTypeUpdate, handleDisplaySettingChange } = useStructuredProp({
         selectedProperty,
         form,
@@ -64,40 +67,42 @@ const StructuredPropsForm = ({
                 rules={[
                     {
                         required: true,
-                        message: 'Please enter the name',
+                        message: t('create.nameError'),
                     },
                 ]}
             >
-                <Input label="Name" placeholder="Provide a name" isRequired data-testid="structured-props-input-name" />
+                <Input
+                    label={tl('name')}
+                    placeholder={t('create.namePlaceholder')}
+                    isRequired
+                    data-testid="structured-props-input-name"
+                />
             </Form.Item>
             <Form.Item name="description">
                 <TextArea
-                    label="Description"
-                    placeholder="Provide a description"
+                    label={tl('description')}
+                    placeholder={t('allowedValues.descriptionPlaceholder')}
                     data-testid="structured-props-input-description"
                 />
             </Form.Item>
             <RowContainer>
                 <FieldLabel>
                     <FlexContainer>
-                        Property Type
+                        {t('create.propertyType')}
                         <RequiredAsterisk />
-                        <Tooltip title="The allowed value type of the property" showArrow={false}>
+                        <Tooltip title={t('create.propertyTypeTooltip')} showArrow={false}>
                             <Icon icon={Info} color="violet" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                 </FieldLabel>
 
-                <Tooltip
-                    title={isEditMode && 'Once a property is created, its type cannot be changed'}
-                    showArrow={false}
-                >
+                <Tooltip title={isEditMode && t('create.propertyTypeDisabledTooltip')} showArrow={false}>
                     <GridFormItem
                         name="valueType"
                         rules={[
                             {
                                 required: true,
-                                message: 'Please select the property type',
+                                message: t('create.propertyTypeError'),
                             },
                         ]}
                     >
@@ -105,7 +110,7 @@ const StructuredPropsForm = ({
                             onUpdate={(values: any) => {
                                 handleTypeUpdate(values[0]);
                             }}
-                            placeholder="Select Property Type"
+                            placeholder={t('create.propertyTypePlaceholder')}
                             options={valueTypes}
                             values={formValues?.valueType ? [formValues?.valueType] : undefined}
                             isDisabled={isEditMode}

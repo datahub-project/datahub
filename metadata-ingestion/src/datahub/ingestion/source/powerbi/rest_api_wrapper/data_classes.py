@@ -1,6 +1,6 @@
 import dataclasses
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -306,6 +306,59 @@ class ReportType(Enum):
     PowerBIReport = "Report"
 
 
+# Power BI binds a paginated (RDL) report to a semantic model through an
+# AnalysisServices datasource whose database (the RDL "Initial Catalog") is
+# "sobe_wowvirtualserver-<datasetId>". The trailing GUID is the dataset id.
+PBI_DATASET_CATALOG_PREFIX = "sobe_wowvirtualserver-"
+
+
+@dataclass
+class ReportDatasource:
+    """A datasource bound to a paginated (RDL) report.
+
+    Populated from ``GET /groups/{groupId}/reports/{reportId}/datasources``;
+    not surfaced by the workspace scan API.
+    """
+
+    datasource_type: str
+    server: str
+    database: Optional[str]
+
+    @staticmethod
+    def from_raw(raw: Dict[str, Any]) -> Optional["ReportDatasource"]:
+        """Build from a /datasources API row, or return None if unmappable."""
+        connection = raw.get("connectionDetails") or {}
+        datasource_type = raw.get("datasourceType")
+        server = connection.get("server")
+        if not datasource_type or not server:
+            logger.debug(
+                "Skipping report datasource without datasourceType/server: %r",
+                raw,
+            )
+            return None
+        return ReportDatasource(
+            datasource_type=datasource_type,
+            server=server,
+            database=connection.get("database"),
+        )
+
+    @property
+    def powerbi_dataset_id(self) -> Optional[str]:
+        """Semantic-model id when this is an RDL -> Power BI dataset binding.
+
+        Returns None for external datasources (Sql, Oracle, ...), which are
+        resolved to upstream URNs via ``server_to_platform_instance`` instead.
+        """
+        if (
+            self.datasource_type == "AnalysisServices"
+            and self.server.startswith("pbiazure")
+            and self.database
+            and self.database.startswith(PBI_DATASET_CATALOG_PREFIX)
+        ):
+            return self.database[len(PBI_DATASET_CATALOG_PREFIX) :]
+        return None
+
+
 @dataclass
 class Report:
     id: str
@@ -321,6 +374,8 @@ class Report:
     pages: List["Page"]
     users: List["User"]
     tags: List[str]
+    # Only populated for paginated reports without a shared dataset_id.
+    datasources: List["ReportDatasource"] = field(default_factory=list)
 
     def get_urn_part(self):
         return Report.get_urn_part_by_id(self.id)
