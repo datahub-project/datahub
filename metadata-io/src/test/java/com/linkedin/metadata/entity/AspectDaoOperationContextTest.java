@@ -46,6 +46,9 @@ public class AspectDaoOperationContextTest {
    *     satisfied for a method to pass
    */
   private static void checkArch(Class<?> daoInterface, Map<Integer, Class<?>> requiredAtIndex) {
+    // Imports only the single interface class file. Sufficient for parameter-type checks on methods
+    // declared directly in daoInterface. If future rules need cross-class analysis (e.g. checking
+    // implementations), switch to importPackagesOf(daoInterface).
     var classes = new ClassFileImporter().importClasses(daoInterface);
     methods()
         .that()
@@ -60,7 +63,11 @@ public class AspectDaoOperationContextTest {
 
   private static ArchCondition<JavaMethod> haveRequiredParamTypes(
       Map<Integer, Class<?>> requiredAtIndex) {
-    String description = "have required parameter types at indices " + requiredAtIndex.keySet();
+    String description =
+        "have required parameter types — "
+            + requiredAtIndex.entrySet().stream()
+                .map(e -> "param[" + e.getKey() + "]=" + e.getValue().getSimpleName())
+                .collect(java.util.stream.Collectors.joining(", "));
     return new ArchCondition<>(description) {
       @Override
       public void check(JavaMethod method, ConditionEvents events) {
@@ -72,6 +79,7 @@ public class AspectDaoOperationContextTest {
           if (!satisfied) {
             String actual =
                 idx < params.size() ? params.get(idx).getSimpleName() : "<no parameter>";
+            String expected = expectedType.getSimpleName();
             events.add(
                 SimpleConditionEvent.violated(
                     method,
@@ -83,8 +91,8 @@ public class AspectDaoOperationContextTest {
                         method.getName(),
                         idx,
                         actual,
-                        expectedType.getSimpleName(),
-                        expectedType.getSimpleName(),
+                        expected,
+                        expected,
                         idx)));
           }
         }

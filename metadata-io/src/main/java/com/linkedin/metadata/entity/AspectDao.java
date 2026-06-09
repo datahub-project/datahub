@@ -106,9 +106,6 @@ public interface AspectDao {
    * @param aspect the orm model to update
    */
   @Nonnull
-  @OperationContextExempt(
-      reason =
-          "Internal transaction-level write helper; OperationContext is carried by the surrounding saveLatestAspect call")
   Optional<EntityAspect> updateAspect(
       OperationContext operationContext,
       @Nullable TransactionContext txContext,
@@ -123,9 +120,6 @@ public interface AspectDao {
    * @param aspect the aspect to insert
    */
   @Nonnull
-  @OperationContextExempt(
-      reason =
-          "Internal transaction-level write helper; OperationContext is carried by the surrounding saveLatestAspect call")
   Optional<EntityAspect> insertAspect(
       OperationContext operationContext,
       @Nullable TransactionContext txContext,
@@ -281,6 +275,9 @@ public interface AspectDao {
    * @return partitioned stream of matching rows
    */
   @Nonnull
+  @OperationContextExempt(
+      reason =
+          "TODO: Needs a bigger refactor, will he handled later. Streams need to fllow a consumer pattern")
   PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
       @Nonnull Map<String, Long> aspectTargetVersions,
       long afterCreatedOnMs,
@@ -295,6 +292,9 @@ public interface AspectDao {
    * @return stream of aspects; caller is responsible for closing
    */
   @Nonnull
+  @OperationContextExempt(
+      reason =
+          "TODO: Needs a bigger refactor, will he handled later. Streams need to fllow a consumer pattern")
   Stream<EntityAspect> streamAspects(@Nonnull String entityName, @Nonnull String aspectName);
 
   int deleteUrn(
@@ -359,16 +359,12 @@ public interface AspectDao {
   void setWritable(boolean canWrite);
 
   @Nonnull
-  @OperationContextExempt(
-      reason = "Transaction wrapper; OperationContext travels inside the lambda")
   <T> Optional<T> runInTransactionWithRetry(
       OperationContext operationContext,
       @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
       final int maxTransactionRetry);
 
   @Nonnull
-  @OperationContextExempt(
-      reason = "Transaction wrapper; OperationContext travels inside the lambda")
   default <T> Optional<T> runInTransactionWithRetry(
       OperationContext operationContext,
       @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
