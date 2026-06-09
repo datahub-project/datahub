@@ -1,23 +1,18 @@
 /**
- * Upload Files Feature Tests
+ * Upload Files feature tests
  *
- * Test suite for the description editor file upload functionality.
- * Mirrors Cypress test coverage with 4 core tests:
- * - File upload via drag-and-drop (buffer-based approach)
- * - File upload via button selection
- * - File persistence in read-only mode after publish
- * - File type validation and error handling
+ * Tests the description editor file upload functionality:
+ *   1. File upload via drag-and-drop (buffer-based)
+ *   2. File upload via button selection
+ *   3. File persistence in read-only mode after publish
+ *   4. File type validation and rejection
  *
- * Test Isolation Strategy:
- * - All tests use the shared marketing domain (like Cypress)
- * - Tests 1, 2, 4 don't publish, so no cleanup needed (file only in editor session)
- * - Test 3 publishes and calls clearDescription() which clears content and publishes empty
- * - beforeEach checks for stale readonly nodes and clears them if found
- * - Each test uses a unique filename to avoid conflicts if cleanup is incomplete
+ * Uses shared domain for isolation. Cleanup handled via clearStaleFileNodes.
  */
 
-import { test, expect } from '../../fixtures/base-test';
+import { test } from '../../fixtures/base-test';
 import { Route } from '@playwright/test';
+import { generateRandomString } from '../../utils/random';
 import DescriptionEditorPage from '../../pages/description-editor.page';
 import type { ApiMocker } from '../../utils/api-mock';
 
@@ -34,11 +29,10 @@ test.describe('Upload Files', () => {
     // Clean up any stale readonly file nodes from previous test runs
     const editor = new DescriptionEditorPage(page, logger, logDir);
     await editor.navigateToDomain(DOMAIN_URN);
-    await page.waitForLoadState('domcontentloaded');
     await editor.clearStaleFileNodes();
   });
 
-  const setupPresignedUrlMock = async (apiMock: ApiMocker, testId: string) => {
+  const setupPresignedUrlMock = async (apiMock: ApiMocker, testId: string): Promise<void> => {
     const baseUrl = process.env.BASE_URL || 'http://localhost:9002';
 
     await apiMock.mockGraphQL('getPresignedUploadUrl', {
@@ -58,8 +52,8 @@ test.describe('Upload Files', () => {
   };
 
   test('should allow to drop file', async ({ page, logger, logDir, apiMock }) => {
-    const testId = Math.floor(Math.random() * 1000000);
-    await setupPresignedUrlMock(apiMock, testId.toString());
+    const testId = generateRandomString();
+    await setupPresignedUrlMock(apiMock, testId);
 
     const editor = new DescriptionEditorPage(page, logger, logDir);
     await editor.navigateToDomain(DOMAIN_URN);
@@ -73,13 +67,11 @@ test.describe('Upload Files', () => {
 
     const fileId = `urn:li:dataHubFile:test_${testId}`;
     await editor.verifyFileNodeInEditor(fileId, fileName);
-
-    expect(true).toBeTruthy();
   });
 
   test('should allow to upload file by button', async ({ page, logger, logDir, apiMock }) => {
-    const testId = Math.floor(Math.random() * 1000000);
-    await setupPresignedUrlMock(apiMock, testId.toString());
+    const testId = generateRandomString();
+    await setupPresignedUrlMock(apiMock, testId);
 
     const editor = new DescriptionEditorPage(page, logger, logDir);
     await editor.navigateToDomain(DOMAIN_URN);
@@ -94,13 +86,11 @@ test.describe('Upload Files', () => {
 
     const fileId = `urn:li:dataHubFile:test_${testId}`;
     await editor.verifyFileNodeInEditor(fileId, fileName);
-
-    expect(true).toBeTruthy();
   });
 
   test('should render file in readonly mode', async ({ page, logger, logDir, apiMock }) => {
-    const testId = Math.floor(Math.random() * 1000000);
-    await setupPresignedUrlMock(apiMock, testId.toString());
+    const testId = generateRandomString();
+    await setupPresignedUrlMock(apiMock, testId);
 
     const editor = new DescriptionEditorPage(page, logger, logDir);
     await editor.navigateToDomain(DOMAIN_URN);
@@ -123,19 +113,15 @@ test.describe('Upload Files', () => {
 
     // Cleanup: clear description for next test
     await editor.clearDescription();
-
-    expect(true).toBeTruthy();
   });
 
   test('should validate file type', async ({ page, logger, logDir, apiMock }) => {
-    const testId = Math.floor(Math.random() * 1000000);
-    await setupPresignedUrlMock(apiMock, testId.toString());
+    const testId = generateRandomString();
+    await setupPresignedUrlMock(apiMock, testId);
 
     const editor = new DescriptionEditorPage(page, logger, logDir);
     await editor.navigateToDomain(DOMAIN_URN);
     await editor.openEditor();
-
-    const fileNodesBefore = await editor.countFileNodesInEditor();
 
     // Attempt to upload unsupported file type
     const unsupportedContent = 'Unsupported file';
@@ -144,17 +130,7 @@ test.describe('Upload Files', () => {
 
     await editor.dropFileIntoEditor(unsupportedContent, unsupportedFileName, unsupportedMimeType);
 
-    // Verify no file node was created
-    const fileNodesAfter = await editor.countFileNodesInEditor();
-    expect(fileNodesAfter).toBe(fileNodesBefore);
-
-    // Attempt to verify error notification (non-critical)
-    try {
-      await editor.verifyErrorNotification('Upload Failed');
-    } catch {
-      logger.info('Error notification not displayed (non-critical)');
-    }
-
-    expect(true).toBeTruthy();
+    // Verify unsupported file was not added to editor
+    await editor.verifyFileNodeDoesNotExist(unsupportedFileName);
   });
 });
