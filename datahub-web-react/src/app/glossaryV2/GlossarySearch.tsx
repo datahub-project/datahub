@@ -15,7 +15,6 @@ import { EntityType } from '@types';
 
 const GlossarySearchWrapper = styled.div`
     position: relative;
-    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const ResultsWrapper = styled.div`

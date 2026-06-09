@@ -3,11 +3,12 @@ import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
+import { House } from '@phosphor-icons/react/dist/csr/House';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Divider } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import type { ItemType } from '@components/components/Menu/types';
@@ -23,6 +24,7 @@ import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils'
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageRoutes } from '@conf/Global';
 
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '@graphql/glossary.generated';
 import { EntityType } from '@types';
@@ -118,17 +120,82 @@ const CollapsedList = styled.div`
     flex: 1;
 `;
 
-const CollapsedItemLink = styled(Link)`
+const CollapsedItemLink = styled(Link)<{ $isSelected?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 4px;
     border-radius: 8px;
     transition: background-color 0.15s ease;
+    background-color: ${(props) => (props.$isSelected ? props.theme.colors.bgActive : 'transparent')};
+    color: ${(props) => (props.$isSelected ? props.theme.colors.iconSelected : props.theme.colors.icon)};
 
     &:hover {
         background-color: ${(props) => props.theme.colors.bgHover};
+        color: ${(props) => props.theme.colors.iconHover};
     }
+`;
+
+// Matches the tree-row styling used elsewhere in the redesigned sidebars: 38px row with
+// a subtle selected background + brand-tinted focus shadow when active, and a neutral
+// hover background + neutral focus shadow otherwise. Horizontal margin (12px) matches
+// the HeaderRow's `padding: 12px` so the row sits flush with the title + actions above.
+const HomeNavLink = styled(Link)<{ $isSelected: boolean }>`
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    margin: 0 12px 8px;
+    min-height: 38px;
+    height: 38px;
+    border-radius: 6px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+
+    ${(props) =>
+        props.$isSelected
+            ? `
+                background: ${props.theme.colors.bgSelectedSubtle};
+                box-shadow: ${props.theme.colors.shadowFocusBrand};
+            `
+            : `
+                &:hover {
+                    background: ${props.theme.colors.bgHover};
+                    box-shadow: ${props.theme.colors.shadowFocus};
+                }
+            `}
+`;
+
+const HomeNavIcon = styled.div<{ $isSelected: boolean }>`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    flex-shrink: 0;
+
+    && svg {
+        color: ${(props) => (props.$isSelected ? props.theme.colors.iconBrand : props.theme.colors.icon)};
+    }
+`;
+
+const HomeNavLabel = styled.span<{ $isSelected: boolean }>`
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    line-height: 20px;
+    color: ${(props) => props.theme.colors.textSecondary};
+
+    ${(props) =>
+        props.$isSelected &&
+        `
+            background: ${props.theme.colors.brandGradientSelected};
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 600;
+        `}
 `;
 
 type Props = {
@@ -137,6 +204,10 @@ type Props = {
 
 export default function GlossarySidebar({ isEntityProfile }: Props) {
     const { t } = useTranslation('governance.glossary');
+    const location = useLocation();
+    // Active when we're on the bare glossary landing page (no specific node/term selected).
+    // A trailing slash would still count as the landing page.
+    const isHomeSelected = location.pathname === PageRoutes.GLOSSARY || location.pathname === `${PageRoutes.GLOSSARY}/`;
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
@@ -230,19 +301,13 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                                 trigger={['click']}
                                 placement="bottomRight"
                             >
-                                <Tooltip
-                                    title={isCreateMenuOpen ? undefined : t('page.createGlossary')}
-                                    placement="left"
-                                    showArrow={false}
-                                >
-                                    <CreateButton
-                                        variant="filled"
-                                        color="violet"
-                                        isCircle
-                                        icon={{ icon: Plus }}
-                                        data-testid="create-glossary-button"
-                                    />
-                                </Tooltip>
+                                <CreateButton
+                                    variant="filled"
+                                    color="violet"
+                                    isCircle
+                                    icon={{ icon: Plus }}
+                                    data-testid="create-glossary-button"
+                                />
                             </Menu>
                         )}
                         <Tooltip
@@ -266,6 +331,11 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                 <ThinDivider />
                 {isCollapsed ? (
                     <CollapsedList>
+                        <Tooltip title={t('sidebar.home')} placement="right" showArrow={false}>
+                            <CollapsedItemLink to={PageRoutes.GLOSSARY} $isSelected={isHomeSelected}>
+                                <House size={20} weight={isHomeSelected ? 'fill' : 'regular'} />
+                            </CollapsedItemLink>
+                        </Tooltip>
                         {collapsedItems.map((item) => (
                             <Tooltip key={item.urn} title={item.name} placement="right" showArrow={false}>
                                 <CollapsedItemLink to={entityRegistry.getEntityUrl(item.type, item.urn)}>
@@ -277,6 +347,13 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                 ) : (
                     <Content>
                         <GlossarySearch />
+                        <HomeNavLink to={PageRoutes.GLOSSARY} $isSelected={isHomeSelected}>
+                            <HomeNavIcon $isSelected={isHomeSelected}>
+                                <House size={20} weight={isHomeSelected ? 'fill' : 'regular'} />
+                            </HomeNavIcon>
+                            <HomeNavLabel $isSelected={isHomeSelected}>{t('sidebar.home')}</HomeNavLabel>
+                        </HomeNavLink>
+                        <ThinDivider />
                         <GlossaryBrowser openToEntity />
                     </Content>
                 )}
