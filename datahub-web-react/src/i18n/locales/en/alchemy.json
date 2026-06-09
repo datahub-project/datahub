@@ -38,7 +38,6 @@
     "editor.table.insertRowBelow": "Insert row below",
     "editor.upload.chooseFile": "Choose File",
     "editor.upload.failedTitle": "Upload Failed",
-    "editor.upload.maxSize": "Max size: 2GB",
     "editor.upload.notSupported": "Uploading files in this context is not currently supported",
     "editor.upload.tabUrl": "URL",
     "editor.upload.uploadFile": "Upload File",

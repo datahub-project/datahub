@@ -130,7 +130,7 @@ export const FileUploadContent = ({ hideDropdown }: Props) => {
             </StyledButton>
             <FileInput ref={fileInputRef} type="file" onChange={handleFileChange} data-testid="file-upload-input" />
             <StyledText size="sm" lineHeight="normal">
-                {t('editor.upload.maxSize')}
+                {t('fileUpload.maxSize')}
             </StyledText>
         </ContentWrapper>
     );
