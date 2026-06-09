@@ -277,7 +277,7 @@ public interface AspectDao {
   @Nonnull
   @OperationContextExempt(
       reason =
-          "TODO: Needs a bigger refactor, will he handled later. Streams need to fllow a consumer pattern")
+          "TODO: Needs a bigger refactor, will he handled later. Streams need to follow a consumer pattern")
   PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
       @Nonnull Map<String, Long> aspectTargetVersions,
       long afterCreatedOnMs,
@@ -294,7 +294,7 @@ public interface AspectDao {
   @Nonnull
   @OperationContextExempt(
       reason =
-          "TODO: Needs a bigger refactor, will he handled later. Streams need to fllow a consumer pattern")
+          "TODO: Needs a bigger refactor, will he handled later. Streams need to follow a consumer pattern")
   Stream<EntityAspect> streamAspects(@Nonnull String entityName, @Nonnull String aspectName);
 
   int deleteUrn(
