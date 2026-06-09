@@ -72,11 +72,15 @@ RUN --mount=type=bind,source=./docker/snippets/uv,target=/tmp/uv-config \
 FROM python-base AS ingestion-base-slim
 
 USER 0
+# cyrus-sasl-mit-* avoids Heimdal SASL (cyrus-sasl-libs resolves via provides:).
+# glibc-iconv: gconv modules required for msodbcsql18 iconv (without it, ODBC init fails with IM004).
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
     apk add --no-cache --update-cache \
     openldap-2.6-dev \
-    cyrus-sasl-dev \
-    cyrus-sasl-libs \
+    cyrus-sasl-mit-dev \
+    cyrus-sasl-mit-libs \
+    glibc-iconv \
+    krb5 \
     krb5-dev \
     krb5-libs \
     libaio-dev \
