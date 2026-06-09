@@ -39,5 +39,7 @@
     "searchPlaceholder": "Search for {{entity}}...",
     "tagDetails": "Tag Details",
     "tagLabel": "Tag",
+    "tagSearchPlaceholder": "Search for tag...",
+    "termSearchPlaceholder": "Search for glossary term...",
     "updateDescriptionError": "Failed to update description: \n {{error}}"
 }

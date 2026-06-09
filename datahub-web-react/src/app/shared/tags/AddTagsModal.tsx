@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { FORBIDDEN_URN_CHARS_REGEX } from '@app/entity/shared/utils';
@@ -65,6 +66,8 @@ export default function AddTagsModal({
     onOkOverride,
     existingUrns,
 }: Props) {
+    const { t } = useTranslation('shared.tags');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const { runMutation, disableAction } = useBatchTagTermMutation();
     const [createTagName, setCreateTagName] = useState<string | null>(null);
@@ -191,7 +194,7 @@ export default function AddTagsModal({
             open={open}
             onCancel={onCloseModal}
             buttons={[
-                { text: 'Cancel', variant: 'text', onClick: onCloseModal },
+                { text: tc('cancel'), variant: 'text', onClick: onCloseModal },
                 {
                     text: actionLabel,
                     id: 'addTagButton',
@@ -217,7 +220,7 @@ export default function AddTagsModal({
                 selectLabelProps={{ variant: 'custom' }}
                 filterResultsByQuery={false}
                 isLoading={isLoading}
-                placeholder="Search for tag..."
+                placeholder={t('tagSearchPlaceholder')}
                 width="full"
                 dataTestId="tag-term-modal-input"
             />

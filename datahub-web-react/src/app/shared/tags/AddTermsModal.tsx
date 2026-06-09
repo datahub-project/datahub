@@ -2,6 +2,7 @@ import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple'
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
@@ -97,6 +98,8 @@ export default function AddTermsModal({
     onOkOverride,
     existingUrns,
 }: Props) {
+    const { t } = useTranslation('shared.tags');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const generateColor = useGenerateGlossaryColorFromPalette();
     const { runMutation, disableAction } = useBatchTagTermMutation();
@@ -285,7 +288,7 @@ export default function AddTermsModal({
             open={open}
             onCancel={onCloseModal}
             buttons={[
-                { text: 'Cancel', variant: 'text', onClick: onCloseModal },
+                { text: tc('cancel'), variant: 'text', onClick: onCloseModal },
                 {
                     text: actionLabel,
                     id: 'addTagButton',
@@ -312,7 +315,7 @@ export default function AddTermsModal({
                 selectLabelProps={{ variant: 'custom' }}
                 filterResultsByQuery={false}
                 isLoading={isSearching ? searchLoading : treeLoading}
-                placeholder="Search for glossary term..."
+                placeholder={t('termSearchPlaceholder')}
                 width="full"
                 dataTestId="tag-term-modal-input"
             />
