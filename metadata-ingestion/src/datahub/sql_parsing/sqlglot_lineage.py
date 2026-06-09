@@ -35,7 +35,6 @@ from sqlglot.optimizer.scope import find_all_in_scope
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.env_vars import (
     get_sql_agg_skip_joins,
-    get_sql_cll_max_ast_depth,
     get_sql_parse_cache_size,
 )
 from datahub.ingestion.graph.client import DataHubGraph
@@ -835,31 +834,6 @@ class SqlUnderstandingError(Exception):
     pass
 
 
-def _statement_exceeds_depth_limit(
-    expression: sqlglot.exp.Expression, max_depth: int
-) -> bool:
-    """Check whether the AST nests deeper than ``max_depth``.
-
-    This is deliberately implemented as an *iterative* depth-first traversal with
-    an explicit stack rather than recursion: column-level lineage feeds the AST
-    into sqlglot[c]'s mypyc-compiled scope/lineage traversal, where very deep
-    nesting (e.g. generated/dynamic SQL from stored procedures) overflows the
-    native C stack and crashes the whole process with a SIGSEGV that no Python
-    ``try/except`` or cooperative timeout can intercept. Measuring depth
-    recursively here would risk the same crash, so we never recurse and we
-    return as soon as the limit is exceeded.
-    """
-    # Stack of (node, depth) pairs. Start the root at depth 1.
-    stack: List[Tuple[sqlglot.exp.Expression, int]] = [(expression, 1)]
-    while stack:
-        node, depth = stack.pop()
-        if depth > max_depth:
-            return True
-        for child in node.iter_expressions():
-            stack.append((child, depth + 1))
-    return False
-
-
 @dataclasses.dataclass
 class _ColumnResolver:
     sqlglot_db_schema: sqlglot.MappingSchema
@@ -1188,19 +1162,6 @@ def _column_level_lineage(
     default_db: Optional[str],
     default_schema: Optional[str],
 ) -> _ColumnLineageWithDebugInfo:
-    # Bail out before handing a pathologically deep AST to sqlglot's compiled
-    # scope/lineage traversal, which would otherwise overflow the native C stack
-    # and crash the entire process with an uncatchable SIGSEGV. Raising here lets
-    # the caller record the error, skip CLL for this one statement, and keep
-    # table-level lineage and the rest of the run intact.
-    max_depth = get_sql_cll_max_ast_depth()
-    if max_depth > 0 and _statement_exceeds_depth_limit(statement, max_depth):
-        raise SqlUnderstandingError(
-            f"Statement AST nesting exceeds the column-level lineage depth limit "
-            f"({max_depth}); skipping CLL to avoid a native stack overflow in "
-            f"sqlglot. Adjust DATAHUB_SQL_CLL_MAX_AST_DEPTH to override."
-        )
-
     # Simplify the input statement for column-level lineage generation.
     try:
         select_statement = _try_extract_select(statement, dialect=dialect)

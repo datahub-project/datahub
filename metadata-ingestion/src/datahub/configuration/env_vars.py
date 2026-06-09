@@ -249,14 +249,26 @@ def get_sql_parse_cache_size() -> int:
     return int(os.getenv("DATAHUB_SQL_PARSE_CACHE_SIZE", "1000"))
 
 
-def get_sql_cll_max_ast_depth() -> int:
-    """Max AST nesting depth before column-level lineage is skipped for a statement.
+def get_sql_parse_max_statement_length() -> int:
+    """Max SQL string length (chars) accepted by parse_statement.
 
-    Guards against native stack overflows (SIGSEGV) in sqlglot[c]'s compiled
-    scope/lineage traversal on pathologically deep SQL (e.g. generated/dynamic
-    SQL from stored procedures). A value <= 0 disables the guard.
+    A pre-parse guard: pathologically large generated/dynamic SQL is rejected
+    before it reaches sqlglot's native parser, where it could overflow the C
+    stack and SIGSEGV the whole process. A value <= 0 disables the guard.
     """
-    return int(os.getenv("DATAHUB_SQL_CLL_MAX_AST_DEPTH", "600"))
+    return int(os.getenv("DATAHUB_SQL_PARSE_MAX_STATEMENT_LENGTH", "1000000"))
+
+
+def get_sql_parse_max_ast_depth() -> int:
+    """Max AST nesting depth accepted by parse_statement.
+
+    A post-parse guard: once a statement is parsed, deeply-nested ASTs are
+    rejected before they are copied, qualified, walked, or fed into column-level
+    lineage - any of which recurse inside sqlglot[c]'s mypyc-compiled code and
+    can overflow the native C stack (an uncatchable SIGSEGV). A value <= 0
+    disables the guard.
+    """
+    return int(os.getenv("DATAHUB_SQL_PARSE_MAX_AST_DEPTH", "600"))
 
 
 def get_dataset_urn_to_lower() -> str:
