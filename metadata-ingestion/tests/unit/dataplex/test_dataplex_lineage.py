@@ -1343,7 +1343,7 @@ class TestLineageMapKeyCollision:
             )
         )
 
-        assert queried_fqns == [
+        assert set(queried_fqns) == [
             "bigquery:test-project.analytics.customers",
             "bigquery:test-project.sales.customers",
         ]
