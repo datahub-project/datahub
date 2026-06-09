@@ -2828,7 +2828,10 @@ ORDER by DataBaseName, TableName;
                         )
                         stall_warned = True
                 else:
-                    # Progress was made — reset so the next stall emits a fresh warning.
+                    # Elapsed time is within the threshold — no stall active.
+                    # If stall_warned was True (a previous stall fired), this means
+                    # _mark_phase was called since then, confirming genuine recovery.
+                    # Clear the flag so a subsequent stall emits a fresh warning.
                     stall_warned = False
 
         watchdog_thread: Optional[Thread] = None
