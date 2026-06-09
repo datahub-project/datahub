@@ -85,7 +85,7 @@ interface Props {
 
 function CreateGlossaryEntityModal(props: Props) {
     const { entityType, onClose, refetchData } = props;
-    const { t } = useTranslation('entityV1.shared.entityDropdown');
+    const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tf } = useTranslation('common.feedback');
     const { t: tcl } = useTranslation('common.labels');
@@ -128,14 +128,14 @@ function CreateGlossaryEntityModal(props: Props) {
     // Validation rules: matches what the antd Form.Item rules used to enforce.
     const nameValidationError = useMemo<string | undefined>(() => {
         const trimmed = stagedName.trim();
-        if (!trimmed) return t('createModal.nameRequiredError', { entityName });
-        if (trimmed.length > 100) return t('createModal.nameMaxLengthError');
+        if (!trimmed) return t('createGlossary.nameRequired', { entityName });
+        if (trimmed.length > 100) return t('createGlossary.nameMaxLengthError');
         return undefined;
     }, [stagedName, entityName, t]);
 
     const idValidationError = useMemo<string | undefined>(() => {
         if (!stagedId) return undefined;
-        if (!validateCustomUrnId(stagedId)) return t('createModal.invalidIdError');
+        if (!validateCustomUrnId(stagedId)) return t('createGlossary.idInvalid');
         return undefined;
     }, [stagedId, t]);
 
@@ -189,7 +189,7 @@ function CreateGlossaryEntityModal(props: Props) {
                         parentNodeUrn: selectedParentUrn || undefined,
                     });
                     toast.success(
-                        t('createModal.createdSuccess', {
+                        t('createGlossary.success', {
                             entityName: entityRegistry.getEntityName(entityType),
                         }),
                         { duration: 2 },
@@ -231,14 +231,14 @@ function CreateGlossaryEntityModal(props: Props) {
                 }, 2000);
             })
             .catch((e) => {
-                toast.error(t('createModal.createError', { message: e.message || '' }), { duration: 3 });
+                toast.error(t('createGlossary.error', { errorMessage: e.message || '' }), { duration: 3 });
             });
         onClose();
     }
 
     return (
         <Modal
-            title={t('createModal.title', { entityName: entityRegistry.getEntityName(entityType) })}
+            title={t('createGlossary.title', { entityName: entityRegistry.getEntityName(entityType) })}
             open
             onCancel={onClose}
             buttons={[
@@ -260,7 +260,7 @@ function CreateGlossaryEntityModal(props: Props) {
                 <Input
                     label={tcl('name')}
                     autoFocus
-                    placeholder={t('createModal.namePlaceholder')}
+                    placeholder={t('createGlossary.namePlaceholder')}
                     value={stagedName}
                     setValue={(v) => {
                         setStagedName(v);
@@ -273,7 +273,7 @@ function CreateGlossaryEntityModal(props: Props) {
             <Field>
                 <FieldLabel>
                     <Text weight="bold">
-                        <Trans t={t} i18nKey="createModal.parentLabel" components={{ optional: <OptionalHint /> }} />
+                        <Trans t={t} i18nKey="createGlossary.parentLabel" components={{ optional: <OptionalHint /> }} />
                     </Text>
                 </FieldLabel>
                 <NodeParentSelect
@@ -287,7 +287,7 @@ function CreateGlossaryEntityModal(props: Props) {
                     <Text weight="bold">
                         <Trans
                             t={t}
-                            i18nKey="createModal.documentationLabel"
+                            i18nKey="createGlossary.documentationLabel"
                             components={{ optional: <OptionalHint /> }}
                         />
                     </Text>
@@ -322,17 +322,17 @@ function CreateGlossaryEntityModal(props: Props) {
             )}
             <AdvancedHeader type="button" onClick={() => setShowAdvanced((prev) => !prev)}>
                 {showAdvanced ? <CaretDown size={14} /> : <CaretRight size={14} />}
-                {t('createModal.advanced')}
+                {t('createGlossary.advanced')}
             </AdvancedHeader>
             {showAdvanced && (
                 <AdvancedBody>
                     <Field>
-                        <HelperText>{t('createModal.idDescription')}</HelperText>
+                        <HelperText>{t('createGlossary.idHelp')}</HelperText>
                         <Input
-                            label={t('createModal.idLabel', {
+                            label={t('createGlossary.idLabel', {
                                 entityName: entityRegistry.getEntityName(props.entityType),
                             })}
-                            placeholder={t('createModal.idPlaceholder')}
+                            placeholder={t('createGlossary.idPlaceholder')}
                             value={stagedId}
                             setValue={(v) => {
                                 setStagedId(v);
