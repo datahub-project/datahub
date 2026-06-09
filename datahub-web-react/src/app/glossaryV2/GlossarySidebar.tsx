@@ -1,4 +1,4 @@
-import { Button, Tooltip } from '@components';
+import { Button, Menu, Tooltip } from '@components';
 import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
@@ -9,6 +9,8 @@ import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
+
+import type { ItemType } from '@components/components/Menu/types';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
@@ -136,10 +138,12 @@ type Props = {
 export default function GlossarySidebar({ isEntityProfile }: Props) {
     const { t } = useTranslation('governance.glossary');
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
+    const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
+    const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     const { data: nodesData, refetch: refetchForNodes } = useGetRootGlossaryNodesQuery();
-    const { data: termsData } = useGetRootGlossaryTermsQuery();
+    const { data: termsData, refetch: refetchForTerms } = useGetRootGlossaryTermsQuery();
 
     const user = useUserContext();
     const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
@@ -174,6 +178,38 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
         ];
     }, [nodesData, termsData, entityRegistry, generateColor]);
 
+    // Sidebar "+" opens a dropdown that lets users pick Term Group vs Term, since DataHub
+    // allows root-level terms and the single-button shortcut hid that workflow. Icons match
+    // the entity types as they appear in the sidebar list (BookmarksSimple for groups,
+    // BookmarkSimple for terms).
+    const createMenuItems = useMemo<ItemType[]>(
+        () => [
+            {
+                type: 'item',
+                key: 'add-term-group',
+                title: t('empty.addTermGroup'),
+                icon: BookmarksSimple,
+                onClick: () => {
+                    setIsCreateNodeModalVisible(true);
+                    setIsCreateMenuOpen(false);
+                },
+                dataTestId: 'glossary-sidebar-add-term-group',
+            },
+            {
+                type: 'item',
+                key: 'add-term',
+                title: t('empty.addTerm'),
+                icon: BookmarkSimple,
+                onClick: () => {
+                    setIsCreateTermModalVisible(true);
+                    setIsCreateMenuOpen(false);
+                },
+                dataTestId: 'glossary-sidebar-add-term',
+            },
+        ],
+        [t],
+    );
+
     return (
         <>
             <SidebarContainer
@@ -187,16 +223,27 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                     {!isCollapsed && <GlossaryTitle>{t('page.title')}</GlossaryTitle>}
                     <Actions>
                         {!isCollapsed && (
-                            <Tooltip title={t('page.createGlossary')} placement="left" showArrow={false}>
-                                <CreateButton
-                                    variant="filled"
-                                    color="violet"
-                                    isCircle
-                                    icon={{ icon: Plus }}
-                                    onClick={() => setIsCreateNodeModalVisible(true)}
-                                    data-testid="create-glossary-button"
-                                />
-                            </Tooltip>
+                            <Menu
+                                open={isCreateMenuOpen}
+                                onOpenChange={setIsCreateMenuOpen}
+                                items={createMenuItems}
+                                trigger={['click']}
+                                placement="bottomRight"
+                            >
+                                <Tooltip
+                                    title={isCreateMenuOpen ? undefined : t('page.createGlossary')}
+                                    placement="left"
+                                    showArrow={false}
+                                >
+                                    <CreateButton
+                                        variant="filled"
+                                        color="violet"
+                                        isCircle
+                                        icon={{ icon: Plus }}
+                                        data-testid="create-glossary-button"
+                                    />
+                                </Tooltip>
+                            </Menu>
                         )}
                         <Tooltip
                             title={isCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
@@ -240,6 +287,14 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                     canCreateGlossaryEntity={!!canManageGlossaries}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
+                />
+            )}
+            {isCreateTermModalVisible && (
+                <CreateGlossaryEntityModal
+                    entityType={EntityType.GlossaryTerm}
+                    canCreateGlossaryEntity={!!canManageGlossaries}
+                    onClose={() => setIsCreateTermModalVisible(false)}
+                    refetchData={refetchForTerms}
                 />
             )}
         </>
