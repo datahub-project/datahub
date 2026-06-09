@@ -129,7 +129,7 @@ function CreateGlossaryEntityModal(props: Props) {
     const nameValidationError = useMemo<string | undefined>(() => {
         const trimmed = stagedName.trim();
         if (!trimmed) return t('createModal.nameRequiredError', { entityName });
-        if (trimmed.length > 100) return 'Name must be 100 characters or less.';
+        if (trimmed.length > 100) return t('createModal.nameMaxLengthError');
         return undefined;
     }, [stagedName, entityName, t]);
 

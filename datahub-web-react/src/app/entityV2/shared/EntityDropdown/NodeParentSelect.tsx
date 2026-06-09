@@ -3,9 +3,10 @@ import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { filterResultsForMove } from '@app/entityV2/shared/EntityDropdown/nodeParentSelectUtils';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { deriveGlossaryLabelFromUrn } from '@app/glossaryV2/utils';
@@ -16,15 +17,6 @@ import { Loader, SimpleSelect } from '@src/alchemy-components';
 
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType, GlossaryNode } from '@types';
-
-// Drop entity itself + any node whose ancestor chain contains it (kept exported for tests).
-export function filterResultsForMove(entity: GlossaryNode, entityUrn: string) {
-    return (
-        entity.urn !== entityUrn &&
-        entity.__typename === 'GlossaryNode' &&
-        !entity.parentNodes?.nodes?.some((node) => node.urn === entityUrn)
-    );
-}
 
 // Caret column (20px) + caret→content gap (8px). Matches AddTermsModal so this picker reads
 // visually like the term picker the user is already familiar with.

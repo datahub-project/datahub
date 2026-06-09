@@ -18,7 +18,8 @@ const BrowserWrapper = styled.div`
     font-size: 12px;
     max-height: calc(100% - 104px);
     padding: 0;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
 `;
 
 const LoadingWrapper = styled.div`

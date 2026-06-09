@@ -97,9 +97,11 @@ const ChildrenCount = styled.div`
     margin-right: 12px;
 `;
 
-const StyledDivider = styled.div<{ depth: number }>`
-    width: calc(100% + 26px + ${(props) => props.depth * 18}px);
-    margin-left: calc(-13px - ${(props) => props.depth * 18}px);
+// Full-bleed divider that spans the row regardless of depth indentation. The previous formula
+// (width: 100% + 26px + depth*18px paired with a negative margin-left) overshot the sidebar by
+// 13px on the right, surfacing as a horizontal scrollbar on BrowserWrapper's overflow:auto.
+const StyledDivider = styled.div`
+    width: 100%;
     border-bottom: 1px solid ${(props) => props.theme.colors.bgActive};
 `;
 
@@ -224,7 +226,7 @@ function NodeItem(props: Props) {
                 {isSelected && <SelectedMark />}
                 {!!noOfChildren && <ChildrenCount>{noOfChildren}</ChildrenCount>}
             </NodeWrapper>
-            <StyledDivider depth={depth} />
+            <StyledDivider />
             {areChildrenVisible && (
                 <>
                     {!children.length && loading && <Loader size="xs" padding={8} />}
@@ -258,7 +260,7 @@ function NodeItem(props: Props) {
                                             selectedUrns={selectedUrns}
                                             iconColor={glossaryColor}
                                         />
-                                        <StyledDivider depth={depth + 1} />
+                                        <StyledDivider />
                                     </span>
                                 ))}
                             <div ref={scrollRef} />

@@ -51,7 +51,7 @@ function snakeToCamel(string: string) {
     return start + rest.map(capitalize).join('');
 }
 
-const IconColorPicker: React.FC<IconColorPickerProps> = ({
+function IconColorPicker({
     name,
     open,
     onClose,
@@ -60,7 +60,7 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
     onChangeColor,
     onChangeIcon,
     showIcon = true,
-}) => {
+}: IconColorPickerProps) {
     const { t } = useTranslation('entity.shared.containers');
     const { t: tc } = useTranslation('common.actions');
     const { t: tcl } = useTranslation('common.labels');
@@ -74,9 +74,9 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
     const [stagedIcon, setStagedIcon] = useState<string>(icon || 'account_circle');
 
     const resolvedName = name || t('iconPicker.defaultDomainName');
-    const title = showIcon
-        ? t('iconPicker.chooseIconForTitle', { name: resolvedName })
-        : `Choose a color for ${resolvedName}`;
+    const title = t(showIcon ? 'iconPicker.chooseIconForTitle' : 'iconPicker.chooseColorForTitle', {
+        name: resolvedName,
+    });
 
     const onApply = () => {
         const input: { colorHex: string; icon?: { iconLibrary: IconLibrary; name: string; style: string } } = {
@@ -113,16 +113,18 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
         })
             .then((result) => {
                 if (result.errors?.length) {
-                    console.error('updateDisplayProperties returned GraphQL errors', result.errors);
-                    toast.error(`Failed to update color: ${result.errors[0].message}`, { duration: 4 });
+                    toast.error(t('iconPicker.updateFailed', { message: result.errors[0].message }), {
+                        duration: 3,
+                    });
                     return;
                 }
                 refetch();
-                toast.success('Color updated', { duration: 2 });
+                toast.success(t('iconPicker.updateSuccess'), { duration: 2 });
             })
-            .catch((e) => {
-                console.error('updateDisplayProperties threw', e);
-                toast.error(`Failed to update color: ${e?.message || 'unknown error'}`, { duration: 4 });
+            .catch((e: unknown) => {
+                if (e instanceof Error) {
+                    toast.error(t('iconPicker.updateFailed', { message: e.message || '' }), { duration: 3 });
+                }
             });
         onChangeColor?.(stagedColor);
         if (showIcon) onChangeIcon?.(stagedIcon);
@@ -159,6 +161,6 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
             )}
         </Modal>
     );
-};
+}
 
 export default IconColorPicker;

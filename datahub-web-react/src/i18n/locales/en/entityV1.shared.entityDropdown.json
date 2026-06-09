@@ -9,6 +9,7 @@
     "createModal.idLabel": "{{entityName}} Id",
     "createModal.idPlaceholder": "classification",
     "createModal.invalidIdError": "Please enter a valid entity id",
+    "createModal.nameMaxLengthError": "Name must be 100 characters or less.",
     "createModal.namePlaceholder": "Provide a name...",
     "createModal.nameRequiredError": "Enter a {{entityName}} name.",
     "createModal.parentLabel": "Parent <optional>(optional)</optional>",

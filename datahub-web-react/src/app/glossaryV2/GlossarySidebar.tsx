@@ -154,6 +154,8 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
         const terms = termsData?.getRootGlossaryTerms?.terms ?? [];
         const sortedNodes = [...nodes].sort((a, b) => sortGlossaryNodes(entityRegistry, a, b));
         const sortedTerms = [...terms].sort((a, b) => sortGlossaryTerms(entityRegistry, a, b));
+        // Root-level entities have no parent, so inheriting from a parent isn't possible here —
+        // fall back directly to a palette color seeded by the entity's own urn.
         return [
             ...sortedNodes.map((node) => ({
                 urn: node.urn,
