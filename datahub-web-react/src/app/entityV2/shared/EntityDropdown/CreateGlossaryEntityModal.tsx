@@ -11,6 +11,7 @@ import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import NodeParentSelect from '@app/entityV2/shared/EntityDropdown/NodeParentSelect';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -103,14 +104,19 @@ function CreateGlossaryEntityModal(props: Props) {
     // the deterministic palette color generated from the URN instead of persisting the default
     // gray placeholder and overriding it.
     const [colorWasPicked, setColorWasPicked] = useState(false);
-    // Tracks the selected parent's own `displayProperties.colorHex` so the color picker can
-    // pre-fill from it. Seeded from the in-context entity when the modal opens inside an entity
-    // profile, then updated as the user changes the parent via the picker. Once the user has
-    // explicitly chosen a color (`colorWasPicked === true`), changes here no longer move the
-    // picker — the user's override sticks.
-    const [parentColor, setParentColor] = useState<string | undefined>(
-        !props.isCloning ? entityData.entityData?.displayProperties?.colorHex || undefined : undefined,
-    );
+    const generateGlossaryColor = useGenerateGlossaryColorFromPalette();
+    // Tracks the selected parent's effective color so the color picker can pre-fill from it.
+    // Mirrors the sidebar/header resolution chain: parent's explicit `displayProperties.colorHex`
+    // first, then the deterministic palette color seeded from the parent's urn — otherwise the
+    // picker would stay on the default whenever the parent only has a palette-derived color.
+    // Once the user explicitly picks a color (`colorWasPicked === true`), changes here no longer
+    // move the picker.
+    const [parentColor, setParentColor] = useState<string | undefined>(() => {
+        if (props.isCloning) return undefined;
+        const parent = entityData.entityData;
+        if (!parent?.urn) return undefined;
+        return parent.displayProperties?.colorHex || generateGlossaryColor(parent.urn);
+    });
     const refetch = useRefetch();
 
     const [createGlossaryTermMutation] = useCreateGlossaryTermMutation();
@@ -201,6 +207,12 @@ function CreateGlossaryEntityModal(props: Props) {
                         const nodeToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
                         updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
                         if (selectedParentUrn && newEntityUrn) {
+                            // Carry the picked color into the optimistic sidebar entry so the new
+                            // node renders with the correct color immediately. Without this, the
+                            // sidebar falls back to the inherited parent color and only corrects
+                            // itself once the search index refetch catches up — which is racy.
+                            const optimisticDisplayProperties =
+                                showColorPicker && colorWasPicked ? { colorHex: selectedColor } : null;
                             setNodeToNewEntity((currData) => ({
                                 ...currData,
                                 [selectedParentUrn]: {
@@ -210,6 +222,7 @@ function CreateGlossaryEntityModal(props: Props) {
                                         name: stagedName,
                                         description: sanitizedDescription || null,
                                     },
+                                    displayProperties: optimisticDisplayProperties,
                                 },
                             }));
                         }
@@ -267,7 +280,13 @@ function CreateGlossaryEntityModal(props: Props) {
                 <NodeParentSelect
                     selectedParentUrn={selectedParentUrn}
                     setSelectedParentUrn={setSelectedParentUrn}
-                    onSelectParent={(parent) => setParentColor(parent?.displayProperties?.colorHex || undefined)}
+                    onSelectParent={(parent) =>
+                        setParentColor(
+                            parent
+                                ? parent.displayProperties?.colorHex || generateGlossaryColor(parent.urn)
+                                : undefined,
+                        )
+                    }
                 />
             </Field>
             <Field>
