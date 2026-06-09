@@ -179,7 +179,7 @@ public class BusinessAttributeUpdateHookService {
 
         Map<Urn, Map<String, Aspect>> entityAspectMap =
             aspectRetriever.getLatestAspectObjects(
-                entityUrns, Set.of(Constants.BUSINESS_ATTRIBUTE_ASPECT));
+                opContext, entityUrns, Set.of(Constants.BUSINESS_ATTRIBUTE_ASPECT));
 
         // Collect all MCLs for batch processing
         List<com.linkedin.mxe.MetadataChangeLog> mcls =

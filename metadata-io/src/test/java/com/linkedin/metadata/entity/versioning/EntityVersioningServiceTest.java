@@ -10,6 +10,7 @@ import static org.testng.Assert.*;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.VersionTag;
@@ -109,7 +110,7 @@ public class EntityVersioningServiceTest {
     VersionPropertiesInput input =
         new VersionPropertiesInput("Test comment", "Test label", 123456789L, "testCreator");
     // Mock version set doesn't exist
-    when(mockAspectRetriever.entityExists(anySet()))
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), anySet()))
         .thenReturn(Map.of(TEST_VERSION_SET_URN, false));
 
     // Capture the proposals
@@ -147,7 +148,8 @@ public class EntityVersioningServiceTest {
     VersionPropertiesInput input =
         new VersionPropertiesInput("Test comment", "Test label", 123456789L, "testCreator");
     // Mock version set exists with invalid versioning scheme
-    when(mockAspectRetriever.entityExists(anySet())).thenReturn(Map.of(TEST_VERSION_SET_URN, true));
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), anySet()))
+        .thenReturn(Map.of(TEST_VERSION_SET_URN, true));
     VersionSetProperties existingVersionSetProps =
         new VersionSetProperties()
             .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
@@ -155,7 +157,8 @@ public class EntityVersioningServiceTest {
     SystemAspect mockVersionSetPropertiesAspect = mock(SystemAspect.class);
     when(mockVersionSetPropertiesAspect.getRecordTemplate()).thenReturn(existingVersionSetProps);
     when(mockVersionSetPropertiesAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
-    when(mockAspectRetriever.getLatestSystemAspect(eq(TEST_VERSION_SET_URN), anyString()))
+    when(mockAspectRetriever.getLatestSystemAspect(
+            any(OperationFingerprint.class), eq(TEST_VERSION_SET_URN), anyString()))
         .thenReturn(mockVersionSetPropertiesAspect);
 
     // Execute
@@ -174,7 +177,8 @@ public class EntityVersioningServiceTest {
         new VersionPropertiesInput("Test comment", "Label2", 123456789L, "testCreator");
 
     // Mock version set exists
-    when(mockAspectRetriever.entityExists(anySet())).thenReturn(Map.of(TEST_VERSION_SET_URN, true));
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), anySet()))
+        .thenReturn(Map.of(TEST_VERSION_SET_URN, true));
 
     // Mock existing version set properties
     VersionSetProperties existingVersionSetProps =
@@ -184,7 +188,8 @@ public class EntityVersioningServiceTest {
     SystemAspect mockVersionSetPropertiesAspect = mock(SystemAspect.class);
     when(mockVersionSetPropertiesAspect.getRecordTemplate()).thenReturn(existingVersionSetProps);
     when(mockVersionSetPropertiesAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
-    when(mockAspectRetriever.getLatestSystemAspect(eq(TEST_VERSION_SET_URN), anyString()))
+    when(mockAspectRetriever.getLatestSystemAspect(
+            any(OperationFingerprint.class), eq(TEST_VERSION_SET_URN), anyString()))
         .thenReturn(mockVersionSetPropertiesAspect);
 
     // Mock existing version properties with a sort ID
@@ -197,7 +202,8 @@ public class EntityVersioningServiceTest {
     SystemAspect mockVersionPropertiesAspect = mock(SystemAspect.class);
     when(mockVersionPropertiesAspect.getRecordTemplate()).thenReturn(existingVersionProps);
     when(mockVersionPropertiesAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
-    when(mockAspectRetriever.getLatestSystemAspect(eq(TEST_DATASET_URN), anyString()))
+    when(mockAspectRetriever.getLatestSystemAspect(
+            any(OperationFingerprint.class), eq(TEST_DATASET_URN), anyString()))
         .thenReturn(mockVersionPropertiesAspect);
 
     // Capture the proposals
@@ -242,7 +248,9 @@ public class EntityVersioningServiceTest {
     when(mockVersionPropsAspect.getRecordTemplate()).thenReturn(versionProps);
     when(mockVersionPropsAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
     when(mockAspectRetriever.getLatestSystemAspect(
-            eq(TEST_DATASET_URN), eq(VERSION_PROPERTIES_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(TEST_DATASET_URN),
+            eq(VERSION_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockVersionPropsAspect);
     VersionSetProperties versionSetProps =
         new VersionSetProperties()
@@ -252,7 +260,9 @@ public class EntityVersioningServiceTest {
     when(mockVersionSetPropsAspect.getRecordTemplate()).thenReturn(versionSetProps);
     when(mockVersionSetPropsAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
     when(mockAspectRetriever.getLatestSystemAspect(
-            eq(TEST_VERSION_SET_URN), eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(TEST_VERSION_SET_URN),
+            eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockVersionSetPropsAspect);
 
     // Mock delete aspect responses
@@ -342,7 +352,9 @@ public class EntityVersioningServiceTest {
     when(mockVersionPropsAspect.getRecordTemplate()).thenReturn(versionProps);
     when(mockVersionPropsAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
     when(mockAspectRetriever.getLatestSystemAspect(
-            eq(TEST_DATASET_URN), eq(VERSION_PROPERTIES_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(TEST_DATASET_URN),
+            eq(VERSION_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockVersionPropsAspect);
 
     VersionSetProperties versionSetProps =
@@ -353,7 +365,9 @@ public class EntityVersioningServiceTest {
     when(mockVersionSetPropsAspect.getRecordTemplate()).thenReturn(versionSetProps);
     when(mockVersionSetPropsAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
     when(mockAspectRetriever.getLatestSystemAspect(
-            eq(TEST_VERSION_SET_URN), eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(TEST_VERSION_SET_URN),
+            eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockVersionSetPropsAspect);
 
     // Mock graph retriever response
@@ -425,7 +439,9 @@ public class EntityVersioningServiceTest {
     when(mockVersionPropsAspect.getRecordTemplate()).thenReturn(versionProps);
     when(mockVersionPropsAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
     when(mockAspectRetriever.getLatestSystemAspect(
-            eq(TEST_DATASET_URN_2), eq(VERSION_PROPERTIES_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(TEST_DATASET_URN_2),
+            eq(VERSION_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockVersionPropsAspect);
 
     VersionSetProperties versionSetProps =
@@ -436,7 +452,9 @@ public class EntityVersioningServiceTest {
     when(mockVersionSetPropsAspect.getRecordTemplate()).thenReturn(versionSetProps);
     when(mockVersionSetPropsAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
     when(mockAspectRetriever.getLatestSystemAspect(
-            eq(TEST_VERSION_SET_URN), eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(TEST_VERSION_SET_URN),
+            eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockVersionSetPropsAspect);
 
     // Mock graph retriever response
@@ -507,7 +525,9 @@ public class EntityVersioningServiceTest {
     when(mockVersionPropsAspect.getRecordTemplate()).thenReturn(versionProps);
     when(mockVersionPropsAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
     when(mockAspectRetriever.getLatestSystemAspect(
-            eq(TEST_DATASET_URN_2), eq(VERSION_PROPERTIES_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(TEST_DATASET_URN_2),
+            eq(VERSION_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockVersionPropsAspect);
 
     VersionSetProperties versionSetProps =
@@ -518,7 +538,9 @@ public class EntityVersioningServiceTest {
     when(mockVersionSetPropsAspect.getRecordTemplate()).thenReturn(versionSetProps);
     when(mockVersionSetPropsAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
     when(mockAspectRetriever.getLatestSystemAspect(
-            eq(TEST_VERSION_SET_URN), eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(TEST_VERSION_SET_URN),
+            eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockVersionSetPropsAspect);
 
     // Mock graph retriever response
@@ -589,7 +611,9 @@ public class EntityVersioningServiceTest {
     when(mockVersionPropsAspect.getRecordTemplate()).thenReturn(versionProps);
     when(mockVersionPropsAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
     when(mockAspectRetriever.getLatestSystemAspect(
-            eq(TEST_DATASET_URN_3), eq(VERSION_PROPERTIES_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(TEST_DATASET_URN_3),
+            eq(VERSION_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockVersionPropsAspect);
 
     VersionSetProperties versionSetProps =
@@ -600,7 +624,9 @@ public class EntityVersioningServiceTest {
     when(mockVersionSetPropsAspect.getRecordTemplate()).thenReturn(versionSetProps);
     when(mockVersionSetPropsAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
     when(mockAspectRetriever.getLatestSystemAspect(
-            eq(TEST_VERSION_SET_URN), eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(TEST_VERSION_SET_URN),
+            eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockVersionSetPropsAspect);
 
     // Mock graph retriever response
@@ -665,7 +691,9 @@ public class EntityVersioningServiceTest {
 
     // Mock no version properties aspect
     when(mockAspectRetriever.getLatestSystemAspect(
-            eq(TEST_DATASET_URN), eq(VERSION_PROPERTIES_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(TEST_DATASET_URN),
+            eq(VERSION_PROPERTIES_ASPECT_NAME)))
         .thenReturn(null);
 
     // Execute

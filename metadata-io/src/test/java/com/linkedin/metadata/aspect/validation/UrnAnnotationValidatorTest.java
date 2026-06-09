@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.validation;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
@@ -90,12 +91,15 @@ public class UrnAnnotationValidatorTest {
     when(mockRecordTemplate.data()).thenReturn(dataMap);
 
     // Set up empty existence map for the strict validation test
-    when(mockAspectRetriever.entityExists(any())).thenReturn(Collections.emptyMap());
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), any()))
+        .thenReturn(Collections.emptyMap());
 
     // Act
     Stream<AspectValidationException> result =
         validator.validateProposedAspects(
-            Collections.singletonList(mockBatchItem), mockRetrieverContext);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(mockBatchItem),
+            mockRetrieverContext);
 
     // Assert
     List<AspectValidationException> exceptions = result.collect(Collectors.toList());
@@ -131,12 +135,15 @@ public class UrnAnnotationValidatorTest {
     when(mockRecordTemplate.data()).thenReturn(dataMap);
 
     // Set up empty existence map for the strict validation test
-    when(mockAspectRetriever.entityExists(any())).thenReturn(Collections.emptyMap());
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), any()))
+        .thenReturn(Collections.emptyMap());
 
     // Act
     Stream<AspectValidationException> result =
         validator.validateProposedAspects(
-            Collections.singletonList(mockBatchItem), mockRetrieverContext);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(mockBatchItem),
+            mockRetrieverContext);
 
     // Assert
     List<AspectValidationException> exceptions = result.collect(Collectors.toList());
@@ -173,12 +180,15 @@ public class UrnAnnotationValidatorTest {
     when(mockRecordTemplate.data()).thenReturn(dataMap);
 
     // Set up empty existence map
-    when(mockAspectRetriever.entityExists(any())).thenReturn(Collections.emptyMap());
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), any()))
+        .thenReturn(Collections.emptyMap());
 
     // Act
     Stream<AspectValidationException> result =
         validator.validateProposedAspects(
-            Collections.singletonList(mockBatchItem), mockRetrieverContext);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(mockBatchItem),
+            mockRetrieverContext);
 
     // Assert
     List<AspectValidationException> exceptions = result.collect(Collectors.toList());
@@ -218,13 +228,16 @@ public class UrnAnnotationValidatorTest {
 
     Map<Urn, Boolean> existenceMap = new HashMap<>();
     existenceMap.put(existingUrn, true);
-    when(mockAspectRetriever.entityExists(Collections.singleton(existingUrn)))
+    when(mockAspectRetriever.entityExists(
+            OperationFingerprint.EMPTY, Collections.singleton(existingUrn)))
         .thenReturn(existenceMap);
 
     // Act
     Stream<AspectValidationException> result =
         validator.validateProposedAspects(
-            Collections.singletonList(mockBatchItem), mockRetrieverContext);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(mockBatchItem),
+            mockRetrieverContext);
 
     // Assert
     List<AspectValidationException> exceptions = result.collect(Collectors.toList());
@@ -262,13 +275,16 @@ public class UrnAnnotationValidatorTest {
 
     Map<Urn, Boolean> existenceMap = new HashMap<>();
     existenceMap.put(nonExistentUrn, false);
-    when(mockAspectRetriever.entityExists(Collections.singleton(nonExistentUrn)))
+    when(mockAspectRetriever.entityExists(
+            OperationFingerprint.EMPTY, Collections.singleton(nonExistentUrn)))
         .thenReturn(existenceMap);
 
     // Act
     Stream<AspectValidationException> result =
         validator.validateProposedAspects(
-            Collections.singletonList(mockBatchItem), mockRetrieverContext);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(mockBatchItem),
+            mockRetrieverContext);
 
     // Assert
     List<AspectValidationException> exceptions = result.collect(Collectors.toList());
