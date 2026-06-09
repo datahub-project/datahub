@@ -159,7 +159,8 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
         args = args.urnLike(getUrnLike());
       }
 
-      try (PartitionedStream<EbeanAspectV2> stream = aspectDao.streamAspectBatches(args)) {
+      try (PartitionedStream<EbeanAspectV2> stream =
+          aspectDao.streamAspectBatches(context.opContext(), args)) {
         stream
             .partition(args.batchSize)
             .forEach(
@@ -174,6 +175,7 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
                                   .flatMap(
                                       ebeanAspectV2 ->
                                           EntityUtils.toSystemAspectFromEbeanAspects(
+                                              opContext,
                                               opContext.getRetrieverContext(),
                                               Set.of(ebeanAspectV2))
                                               .stream())
