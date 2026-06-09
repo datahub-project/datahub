@@ -257,10 +257,42 @@ _TABLE_NAME_NORMALIZATION_RULES = {
 }
 
 
+# Ephemeral object-name markers for temp-aware fingerprinting. Unlike the
+# connector's full-name `temporary_tables_pattern` (which matches a resolved
+# db.schema.table name), these match the distinctive ephemeral token *within* a
+# SQL identifier, so they can be substituted directly on the query text before
+# hashing. Collapsing them lets per-run ETL/sync queries that differ only by an
+# ephemeral name map to a single fingerprint (one Query entity). Lineage-safe:
+# these tables are excluded/resolved from lineage anyway.
+_TMP_UUID = r"[0-9a-f]{8}[-_][0-9a-f]{4}[-_][0-9a-f]{4}[-_][0-9a-f]{4}[-_][0-9a-f]{12}"
+
+
+def _quoted_identifier_containing(marker: str) -> "re.Pattern[str]":
+    """A quoted SQL identifier that contains an ephemeral marker token."""
+    return re.compile(r'"[^"]*' + marker + r'[^"]*"', re.IGNORECASE)
+
+
+# Only patterns whose token varies PER RUN belong here (they're what explode the
+# Query index). Stable-per-object names like dbt's `<model>__dbt_tmp` are
+# deliberately excluded — collapsing them would merge distinct real models.
+DEFAULT_TEMP_TABLE_FINGERPRINT_RULES: List["re.Pattern[str]"] = [
+    _quoted_identifier_containing(rf"-STAGING-{_TMP_UUID}"),  # fivetran/stitch staging
+    _quoted_identifier_containing(rf"segment_{_TMP_UUID}"),  # segment
+    _quoted_identifier_containing(rf"STAGING_[^\"]*_{_TMP_UUID}"),  # stitch
+    _quoted_identifier_containing(
+        r"(?:GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9a-f]{8}"
+    ),  # great expectations
+    _quoted_identifier_containing(r"SNOWPARK_TEMP_TABLE_\w+"),  # snowpark
+    _quoted_identifier_containing(r"temp_[0-9a-f]{32}"),  # pysnowflake scratch
+]
+_TEMP_TABLE_FINGERPRINT_PLACEHOLDER = '"__DATAHUB_TEMP__"'
+
+
 def generalize_query_fast(
     expression: sqlglot.exp.ExpOrStr,
     dialect: DialectOrStr,
     change_table_names: bool = False,
+    temp_table_patterns: Optional[List["re.Pattern[str]"]] = None,
 ) -> str:
     """Variant of `generalize_query` that only does basic normalization.
 
@@ -281,6 +313,13 @@ def generalize_query_fast(
         query_text = expression.sql(dialect=get_dialect(dialect))
     else:
         query_text = str(expression)
+
+    # Apply temp-table normalization BEFORE the basic rules: the basic rules
+    # replace digit runs (e.g. inside a UUID) with placeholders, which would
+    # mangle the ephemeral token before it could be matched here.
+    if temp_table_patterns:
+        for pat in temp_table_patterns:
+            query_text = pat.sub(_TEMP_TABLE_FINGERPRINT_PLACEHOLDER, query_text)
 
     REGEX_REPLACEMENTS = {
         **_BASIC_NORMALIZATION_RULES,
@@ -356,6 +395,7 @@ def get_query_fingerprint_debug(
     platform: DialectOrStr,
     fast: bool = False,
     secondary_id: Optional[str] = None,
+    temp_table_patterns: Optional[List["re.Pattern[str]"]] = None,
 ) -> Tuple[str, Optional[str]]:
     try:
         if not fast:
@@ -366,7 +406,11 @@ def get_query_fingerprint_debug(
                 "?", expression_sql
             )
         else:
-            expression_sql = generalize_query_fast(expression, dialect=platform)
+            expression_sql = generalize_query_fast(
+                expression,
+                dialect=platform,
+                temp_table_patterns=temp_table_patterns,
+            )
     except (ValueError, sqlglot.errors.SqlglotError) as e:
         if not isinstance(expression, str):
             raise
@@ -386,6 +430,7 @@ def get_query_fingerprint(
     platform: DialectOrStr,
     fast: bool = False,
     secondary_id: Optional[str] = None,
+    temp_table_patterns: Optional[List["re.Pattern[str]"]] = None,
 ) -> str:
     """Get a fingerprint for a SQL query.
 
@@ -409,7 +454,11 @@ def get_query_fingerprint(
     """
 
     return get_query_fingerprint_debug(
-        expression=expression, platform=platform, fast=fast, secondary_id=secondary_id
+        expression=expression,
+        platform=platform,
+        fast=fast,
+        secondary_id=secondary_id,
+        temp_table_patterns=temp_table_patterns,
     )[0]
 
 
