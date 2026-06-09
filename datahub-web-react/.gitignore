@@ -12,6 +12,9 @@
 /build
 /dist
 
+# storybook build output
+/storybook-static
+
 # misc
 .DS_Store
 .env.local

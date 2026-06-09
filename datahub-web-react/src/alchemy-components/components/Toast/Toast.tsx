@@ -6,6 +6,7 @@ import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { ThemeProvider, useTheme } from 'styled-components';
 
 import {
@@ -122,6 +123,7 @@ function destroyToast(key?: string) {
 }
 
 const ToastItem = React.memo(({ entry }: { entry: ToastEntry }) => {
+    const { t: tc } = useTranslation('common.actions');
     const icon = entry.options?.icon ?? VARIANT_ICONS[entry.variant];
     const liveRegion = ASSERTIVE_VARIANTS.has(entry.variant) ? 'assertive' : 'polite';
 
@@ -147,7 +149,7 @@ const ToastItem = React.memo(({ entry }: { entry: ToastEntry }) => {
                 className="toast-btn"
                 type="button"
                 onClick={() => removeToast(entry.id)}
-                aria-label="Dismiss"
+                aria-label={tc('dismiss')}
             >
                 <X size={14} weight="bold" />
             </ToastCloseButton>

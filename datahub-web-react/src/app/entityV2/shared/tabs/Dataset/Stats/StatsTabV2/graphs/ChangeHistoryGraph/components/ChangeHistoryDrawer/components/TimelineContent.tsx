@@ -8,6 +8,9 @@ import { Popover, Text } from '@src/alchemy-components';
 import { CorpUser, Operation } from '@src/types.generated';
 import dayjs from '@utils/dayjs';
 
+// dayjs format token (localized date + time), not user-visible text.
+const TIMESTAMP_FORMAT = 'll LTS';
+
 const ContentRow = styled.div`
     display: flex;
     flex-direction: row;
@@ -51,7 +54,7 @@ export default function TimelineContent({ operation, user }: TimelineContentProp
                     />
                 </Text>
             </ContentRow>
-            <Popover content={timestamp.format('ll LTS')} placement="right">
+            <Popover content={timestamp.format(TIMESTAMP_FORMAT)} placement="right">
                 <TimeRow>
                     <Text color="gray" type="span" size="sm">
                         {timestamp.fromNow()}
