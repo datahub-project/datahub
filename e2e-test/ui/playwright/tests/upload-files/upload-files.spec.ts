@@ -8,8 +8,12 @@
  * - File persistence in read-only mode after publish
  * - File type validation and error handling
  *
- * Uses shared domain entity (marketing) like Cypress tests.
- * Only the readonly test publishes and requires cleanup.
+ * Test Isolation Strategy:
+ * - All tests use the shared marketing domain (like Cypress)
+ * - Tests 1, 2, 4 don't publish, so no cleanup needed (file only in editor session)
+ * - Test 3 publishes and calls clearDescription() which clears content and publishes empty
+ * - beforeEach checks for stale readonly nodes and clears them if found
+ * - Each test uses a unique filename to avoid conflicts if cleanup is incomplete
  */
 
 import { test, expect } from '../../fixtures/base-test';

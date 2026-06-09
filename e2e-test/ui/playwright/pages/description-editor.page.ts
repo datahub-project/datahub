@@ -40,21 +40,6 @@ export default class DescriptionEditorPage extends BasePage {
   }
 
   /**
-   * Create a test file object with given content, name, and MIME type
-   */
-  async createTestFile(
-    content: string,
-    fileName: string,
-    mimeType: string,
-  ): Promise<{ name: string; mimeType: string; buffer: Buffer }> {
-    return {
-      name: fileName,
-      mimeType,
-      buffer: Buffer.from(content),
-    };
-  }
-
-  /**
    * Open the description editor modal
    */
   async openEditor(): Promise<void> {
@@ -70,98 +55,6 @@ export default class DescriptionEditorPage extends BasePage {
 
     // Wait for the editor container to appear
     await this.descriptionEditorContainer.waitFor({ state: 'visible', timeout: 10000 });
-  }
-
-  /**
-   * Simulate drag-and-drop using Playwright's native dragAndDrop API
-   * Attempts to drag a file input into the editor
-   * Note: Modal dialog interception often blocks pointer events, so this approach is limited
-   */
-  async dragAndDropFileNative(fileContent: string, fileName: string): Promise<void> {
-    const fs = await import('fs');
-    const path = await import('path');
-    const os = await import('os');
-    const crypto = await import('crypto');
-
-    const tempDir = os.tmpdir();
-    const uniqueSuffix = crypto.randomBytes(6).toString('hex');
-    const tempFilePath = path.join(tempDir, `test-native-${Date.now()}-${uniqueSuffix}-${fileName}`);
-
-    fs.writeFileSync(tempFilePath, fileContent);
-
-    try {
-      // Create a file input element in the modal context to avoid pointer interception
-      await this.page.evaluate(() => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.id = '__playwright-drag-source-native';
-        input.style.position = 'absolute';
-        input.style.top = '0';
-        input.style.left = '0';
-        input.style.zIndex = '10000';
-
-        // Add to the modal dialog itself, not body
-        const modal = document.querySelector('[role="dialog"]') || document.body;
-        modal.appendChild(input);
-        return input.id;
-      });
-
-      // eslint-disable-next-line playwright/no-raw-locators
-      const sourceInput = this.page.locator('#__playwright-drag-source-native');
-
-      // Set the file on the input
-      await sourceInput.setInputFiles(tempFilePath);
-
-      // Create a custom drag event and dispatch it directly to the editor
-      // This avoids the pointer event blocking issues of dragAndDrop()
-      await this.page.evaluate((_params) => {
-        const editor = document.querySelector('.remirror-editor') as HTMLElement;
-        const input = document.getElementById('__playwright-drag-source-native') as HTMLInputElement;
-
-        if (!editor || !input) return;
-
-        // Get the file from the input
-        const files = input.files;
-        if (!files || files.length === 0) return;
-
-        const file = files[0];
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(file);
-
-        // Dispatch drop event directly
-        const dropEvent = new DragEvent('drop', {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          dataTransfer,
-        });
-
-        dropEvent.preventDefault();
-        editor.dispatchEvent(dropEvent);
-      });
-
-      // Clean up
-      await this.page.evaluate(() => {
-        const input = document.getElementById('__playwright-drag-source-native');
-        if (input) input.remove();
-      });
-
-      // Wait for processing
-      await this.page.waitForLoadState('networkidle');
-
-      try {
-        await this.waitForFileNodeToAppear();
-      } catch {
-        this.logger?.warn('Native approach did not produce file node');
-      }
-    } finally {
-      try {
-        const fsCleanup = await import('fs');
-        fsCleanup.unlinkSync(tempFilePath);
-      } catch {
-        // Ignore cleanup errors
-      }
-    }
   }
 
   /**
@@ -219,147 +112,6 @@ export default class DescriptionEditorPage extends BasePage {
       await this.waitForFileNodeToAppear();
     } catch {
       this.logger?.warn('Buffer-based drag-drop did not produce file node');
-    }
-  }
-
-  /**
-   * Simulate drag-and-drop with proper DataTransfer and comprehensive event sequence
-   * Uses Playwright's evaluate to dispatch events with full event context
-   */
-  async dragAndDropFileWithEvents(fileContent: string, fileName: string, mimeType: string): Promise<void> {
-    await this.page.evaluate(
-      async (_params) => {
-        const { content, name, type } = params;
-
-        // Find the editor
-        const editorContainer = document.querySelector('[data-testid="description-editor"]');
-        if (!editorContainer) {
-          throw new Error('Description editor container not found');
-        }
-
-        const editor = editorContainer.querySelector('.remirror-editor') as HTMLElement;
-        if (!editor) {
-          throw new Error('Remirror editor not found');
-        }
-
-        // Create file and DataTransfer
-        const blob = new Blob([content], { type });
-        const file = new File([blob], name, { type });
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(file);
-
-        const rect = editor.getBoundingClientRect();
-        const x = rect.left + rect.width / 2;
-        const y = rect.top + rect.height / 2;
-
-        // Helper to dispatch event and check if default was prevented
-        const dispatchAndLog = (eventType: string) => {
-          const event = new DragEvent(eventType, {
-            bubbles: true,
-            cancelable: true,
-            composed: true,
-            clientX: x,
-            clientY: y,
-            dataTransfer,
-          });
-
-          const defaultPrevented = !editor.dispatchEvent(event);
-          // Log event processing result for debugging
-          return defaultPrevented;
-        };
-
-        // Dispatch comprehensive event sequence
-        dispatchAndLog('dragenter');
-        await new Promise((resolve) => setTimeout(resolve, 50));
-
-        dispatchAndLog('dragover');
-        await new Promise((resolve) => setTimeout(resolve, 50));
-
-        // For drop, preventDefault might be needed
-        const dropEvent = new DragEvent('drop', {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          clientX: x,
-          clientY: y,
-          dataTransfer,
-        });
-
-        // Try preventDefault on drop
-        dropEvent.preventDefault();
-        editor.dispatchEvent(dropEvent);
-
-        // Dispatch dragend to clean up
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        dispatchAndLog('dragleave');
-
-        // Event sequence complete
-      },
-      {
-        content: fileContent,
-        name: fileName,
-        type: mimeType,
-      },
-    );
-
-    await this.page.waitForLoadState('networkidle');
-
-    try {
-      await this.waitForFileNodeToAppear();
-    } catch {
-      this.logger?.warn('Event-based drag-drop did not produce file node');
-    }
-  }
-
-  /**
-   * Simulate drag-and-drop of a file into the editor
-   * Since Remirror doesn't always properly handle programmatic drag events,
-   * we use the file upload button mechanism (same as drag-and-drop upload)
-   * This is functionally equivalent and more reliable in test environments
-   */
-  async dragAndDropFileIntoEditor(fileContent: string, fileName: string, _mimeType: string): Promise<void> {
-    // Create a temporary file for upload with unique name to avoid collisions in parallel tests
-    const fs = await import('fs');
-    const path = await import('path');
-    const os = await import('os');
-    const crypto = await import('crypto');
-
-    const tempDir = os.tmpdir();
-    const uniqueSuffix = crypto.randomBytes(6).toString('hex');
-    const tempFilePath = path.join(tempDir, `test-dragdrop-${Date.now()}-${uniqueSuffix}-${fileName}`);
-
-    // Write the test file to disk
-    fs.writeFileSync(tempFilePath, fileContent);
-
-    try {
-      // Click upload button to open the dropdown
-      await this.uploadFileButton.click();
-
-      // Wait for the file input to be ready with extended timeout
-      await this.fileUploadInput.waitFor({ state: 'attached', timeout: 8000 });
-
-      // Wait a moment before setting files to ensure dropdown is ready
-      await this.page.waitForTimeout(300);
-
-      // Set the file via the file input
-      await this.fileUploadInput.setInputFiles(tempFilePath);
-
-      // Wait for the file input change handler to process
-      await this.page.waitForTimeout(800);
-
-      // Wait for network idle to ensure upload completes
-      await this.page.waitForLoadState('networkidle');
-
-      // Wait for file node to appear after upload
-      await this.waitForFileNodeToAppear();
-    } finally {
-      // Clean up temp file
-      try {
-        const fsCleanup = await import('fs');
-        fsCleanup.unlinkSync(tempFilePath);
-      } catch {
-        // Ignore cleanup errors
-      }
     }
   }
 
@@ -453,6 +205,7 @@ export default class DescriptionEditorPage extends BasePage {
    */
   private async waitForFileNodeToAppear(): Promise<void> {
     // Wait for the first visible file node in the editor
+    // File nodes use dynamic class names from styled-components; class selector is necessary
     // eslint-disable-next-line playwright/no-raw-locators,playwright/no-nth-methods
     const fileNode = this.remirrorEditor.locator('[class*="file-node"]').first();
     // Increase timeout to allow for file upload processing and validation
@@ -467,6 +220,7 @@ export default class DescriptionEditorPage extends BasePage {
    */
   async verifyFileNodeInEditor(_fileId: string, fileName: string): Promise<void> {
     // Verify file node with correct URL pattern and filename
+    // File nodes use dynamic class names from styled-components; class selector is necessary
     // eslint-disable-next-line playwright/no-raw-locators,playwright/no-nth-methods
     const fileNode = this.remirrorEditor.locator('[class*="file-node"]').first();
 
@@ -490,6 +244,7 @@ export default class DescriptionEditorPage extends BasePage {
    * Note: About section file nodes may not have type info displayed
    */
   async verifyFileNodeInAboutSection(_fileId: string, fileName: string): Promise<void> {
+    // File nodes use dynamic class names from styled-components; class selector is necessary
     // eslint-disable-next-line playwright/no-raw-locators,playwright/no-nth-methods
     const fileNode = this.aboutSection.locator('.file-node').first();
 
@@ -528,23 +283,12 @@ export default class DescriptionEditorPage extends BasePage {
       await this.openEditor();
     }
 
-    // Clear editor content using the editable editor locator
+    // Clear all editor content and publish empty description
     await this.remirrorEditorEditable.clear();
-
-    // Publish the empty state
     await this.publishDescription();
 
-    // Wait for the readonly file nodes to disappear
+    // Wait for publish to complete
     await this.page.waitForLoadState('networkidle');
-    await this.page.waitForTimeout(300);
-
-    // Verify file nodes are gone
-    const fileNodeCount = await this.countFileNodesInEditor();
-    if (fileNodeCount > 0) {
-      // If file nodes still exist, navigate away and back to force refresh
-      await this.navigateToDomain(this.page.url());
-      await this.page.waitForLoadState('domcontentloaded');
-    }
   }
 
   /**
@@ -554,6 +298,7 @@ export default class DescriptionEditorPage extends BasePage {
   async verifyErrorNotification(message: string, description?: string): Promise<void> {
     // Wait for the notification container to appear first
     // Try multiple selectors as Ant Design may use different class names
+    // File nodes use dynamic class names from styled-components; class selector is necessary
     // eslint-disable-next-line playwright/no-raw-locators,playwright/no-nth-methods
     const notificationContainer = this.page.locator('[class*="notification"]').first();
 
@@ -580,6 +325,7 @@ export default class DescriptionEditorPage extends BasePage {
    */
   async countFileNodesInEditor(): Promise<number> {
     // Count file nodes in the editor (identified by class)
+    // File nodes use dynamic styled-components class names; class selector is necessary
     // eslint-disable-next-line playwright/no-raw-locators
     return this.remirrorEditor.locator('[class*="file-node"]').count();
   }
