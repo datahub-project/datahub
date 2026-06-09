@@ -22,9 +22,6 @@ import org.testng.annotations.Test;
  * {@code requiredAtIndex} map encodes which type is required at which parameter position — e.g.
  * {@code Map.of(0, OperationContext.class)} means the first parameter must be (or extend) {@code
  * OperationContext}.
- *
- * <p>This test is expected to <strong>fail</strong> until the OperationContext threading refactor
- * (opcontext-pr1-dao-signatures) is merged.
  */
 public class AspectDaoOperationContextTest {
 
