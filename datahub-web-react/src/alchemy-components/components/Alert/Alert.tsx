@@ -5,6 +5,7 @@ import { Question } from '@phosphor-icons/react/dist/csr/Question';
 import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     AlertActions,
@@ -64,6 +65,7 @@ export function Alert({
     style,
     'data-testid': dataTestId,
 }: AlertProps) {
+    const { t: tc } = useTranslation('common.actions');
     const displayIcon = icon ?? DEFAULT_ICONS[variant];
     const showInlineAction = action && actionPlacement === 'inline';
     const showTopRightAction = action && actionPlacement === 'topRight';
@@ -93,7 +95,7 @@ export function Alert({
                                 variant="text"
                                 color={VARIANT_BUTTON_COLOR_MAP[variant]}
                                 type="button"
-                                aria-label="close"
+                                aria-label={tc('close')}
                                 onClick={onClose}
                             >
                                 <X size={16} weight="bold" />
