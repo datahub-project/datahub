@@ -598,6 +598,19 @@ public class TimeseriesAspectServiceUnitTest {
     when(indexConvention.getTimeseriesAspectIndexName(anyString(), anyString()))
         .thenReturn("test_index");
 
+    // Build a service with batchLoadEnabled=false so the thread-pool fan-out path is exercised.
+    ElasticSearchTimeseriesAspectService fanOutService =
+        new ElasticSearchTimeseriesAspectService(
+            searchClient,
+            bulkProcessor,
+            0,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_TIMESERIES_ASPECT_SERVICE_CONFIG.toBuilder().batchLoadEnabled(false).build(),
+            entityRegistry,
+            indexConvention,
+            indexBuilder,
+            null);
+
     // Mock the executor to throw InterruptedException
     ExecutorService mockExecutor = mock(ExecutorService.class);
     Future<Pair<String, EnvelopedAspect>> mockFuture = mock(Future.class);
@@ -607,7 +620,7 @@ public class TimeseriesAspectServiceUnitTest {
     // Use reflection to inject the mock executor
     Field queryPoolField = ElasticSearchTimeseriesAspectService.class.getDeclaredField("queryPool");
     queryPoolField.setAccessible(true);
-    queryPoolField.set(_timeseriesAspectService, mockExecutor);
+    queryPoolField.set(fanOutService, mockExecutor);
 
     Set<Urn> urns = new HashSet<>();
     urns.add(UrnUtils.getUrn("urn:li:dataset:123"));
@@ -616,7 +629,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     // Execute and verify
     try {
-      _timeseriesAspectService.getLatestTimeseriesAspectValues(opContext, urns, aspectNames, null);
+      fanOutService.getLatestTimeseriesAspectValues(opContext, urns, aspectNames, null);
       Assert.fail("Expected RuntimeException to be thrown");
     } catch (RuntimeException e) {
       Assert.assertTrue(e.getCause() instanceof InterruptedException);
@@ -629,6 +642,19 @@ public class TimeseriesAspectServiceUnitTest {
     when(indexConvention.getTimeseriesAspectIndexName(anyString(), anyString()))
         .thenReturn("test_index");
 
+    // Build a service with batchLoadEnabled=false so the thread-pool fan-out path is exercised.
+    ElasticSearchTimeseriesAspectService fanOutService =
+        new ElasticSearchTimeseriesAspectService(
+            searchClient,
+            bulkProcessor,
+            0,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_TIMESERIES_ASPECT_SERVICE_CONFIG.toBuilder().batchLoadEnabled(false).build(),
+            entityRegistry,
+            indexConvention,
+            indexBuilder,
+            null);
+
     // Mock the executor to throw ExecutionException
     ExecutorService mockExecutor = mock(ExecutorService.class);
     Future<Pair<String, EnvelopedAspect>> mockFuture = mock(Future.class);
@@ -639,7 +665,7 @@ public class TimeseriesAspectServiceUnitTest {
     // Use reflection to inject the mock executor
     Field queryPoolField = ElasticSearchTimeseriesAspectService.class.getDeclaredField("queryPool");
     queryPoolField.setAccessible(true);
-    queryPoolField.set(_timeseriesAspectService, mockExecutor);
+    queryPoolField.set(fanOutService, mockExecutor);
 
     Set<Urn> urns = new HashSet<>();
     urns.add(UrnUtils.getUrn("urn:li:dataset:123"));
@@ -648,7 +674,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     // Execute and verify
     try {
-      _timeseriesAspectService.getLatestTimeseriesAspectValues(opContext, urns, aspectNames, null);
+      fanOutService.getLatestTimeseriesAspectValues(opContext, urns, aspectNames, null);
       Assert.fail("Expected RuntimeException to be thrown");
     } catch (RuntimeException e) {
       Assert.assertTrue(e.getCause() instanceof ExecutionException);
