@@ -1,4 +1,4 @@
-import { pluralize } from '@app/shared/textUtil';
+import { forcePluralize, pluralize, pluralizeIfIrregular } from '@app/shared/textUtil';
 
 describe('pluralize text based on the count', () => {
     it('pluralize regular word with count greater than 1', () => {
@@ -30,5 +30,17 @@ describe('pluralize text based on the count', () => {
     });
     it('pluralize irregular word present in the list with count equal to 1', () => {
         expect(pluralize(1, 'query')).toEqual('query');
+    });
+    it('pluralizes "Analysis" to "Analyses" rather than "Analysiss"', () => {
+        expect(pluralize(15, 'Analysis')).toEqual('analyses');
+        expect(pluralizeIfIrregular('Analysis')).toEqual('analyses');
+    });
+    it('does not double-pluralize names that are already plural', () => {
+        expect(pluralizeIfIrregular('Shared Folders')).toEqual('Shared Folders');
+        expect(forcePluralize('Shared Folders')).toEqual('Shared Folders');
+    });
+    it('forcePluralize applies irregular plurals', () => {
+        expect(forcePluralize('Analysis')).toEqual('analyses');
+        expect(forcePluralize('Folder')).toEqual('Folders');
     });
 });

@@ -1,0 +1,50 @@
+source:
+  type: quicksight
+  config:
+    # QuickSight is regional — a single run targets one region.
+    aws_region: us-east-1
+
+    # AWS authentication (pick one). See AwsConnectionConfig for all options.
+    # aws_profile: my-named-profile
+    # -- or explicit keys --
+    # aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
+    # aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+    # -- or role assumption --
+    # aws_role: arn:aws:iam::123456789012:role/datahub-quicksight-ingest
+
+    # Optional - auto-detected via sts:GetCallerIdentity when omitted.
+    # aws_account_id: "123456789012"
+
+    # Lineage & enrichment (all default to true except usage / users-groups).
+    extract_lineage: true
+    extract_column_lineage: true
+    extract_ownership: true
+    extract_tags: true
+    # extract_users_and_groups: true   # opt-in; needs ListUsers/ListGroups perms
+
+    # Container hierarchy
+    # add_shared_folders_container: true  # synthesize a "Shared folders" root
+    # add_namespace_container: true       # only for multi-namespace Enterprise accounts
+
+    # Optional - cross-platform lineage stitching. Key by QuickSight DataSourceId
+    # (UUID, preferred) or display name. Must mirror the upstream connector's
+    # casing/env so URNs line up.
+    # external_data_sources:
+    #   "<data-source-uuid-or-name>":
+    #     env: PROD
+    #     platform_instance: prod-redshift
+    #     convert_urns_to_lowercase: true
+    #     default_database: analytics   # SQL-parser fallback for unqualified CustomSql tables
+    #     default_schema: public
+
+    # Optional - filters (allow/deny regex). Omit to ingest everything.
+    # dashboard_pattern:
+    #   allow:
+    #     - ".*Sales.*"
+
+    # Optional - automatic stale-entity (soft-delete) removal across runs.
+    # stateful_ingestion:
+    #   enabled: true
+
+sink:
+  # sink configs
