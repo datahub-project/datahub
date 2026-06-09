@@ -1,0 +1,2293 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9de10872c74b460e3ba66c5c811445ef",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "quicksight",
+                "env": "PROD",
+                "account_id": "123456789012"
+            },
+            "name": "Shared folders",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141848,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9de10872c74b460e3ba66c5c811445ef",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141849,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9de10872c74b460e3ba66c5c811445ef",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Shared Folders"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141849,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9de10872c74b460e3ba66c5c811445ef",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141849,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "quicksight",
+                "env": "PROD",
+                "account_id": "123456789012",
+                "namespace": "default",
+                "folder_id": "folder-sales"
+            },
+            "name": "Sales",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141850,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141850,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:9de10872c74b460e3ba66c5c811445ef"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141850,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141850,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jane@acme.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141850,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9de10872c74b460e3ba66c5c811445ef",
+                    "urn": "urn:li:container:9de10872c74b460e3ba66c5c811445ef"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141851,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.ds-redshift,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141851,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.ds-redshift,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "type": "REDSHIFT",
+                "arn": "arn:aws:quicksight:us-east-1:123456789012:datasource/ds-redshift",
+                "dataSourceId": "ds-redshift",
+                "RedshiftParameters.Host": "redshift.acme.internal",
+                "RedshiftParameters.Port": "5439",
+                "RedshiftParameters.Database": "dev"
+            },
+            "name": "Redshift Warehouse",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141851,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.ds-redshift,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Data Source"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141851,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.ds-redshift,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jane@acme.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141851,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.ds-redshift,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141852,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.ds-athena,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141852,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.ds-athena,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "type": "ATHENA",
+                "arn": "arn:aws:quicksight:us-east-1:123456789012:datasource/ds-athena",
+                "dataSourceId": "ds-athena",
+                "AthenaParameters.WorkGroup": "primary"
+            },
+            "name": "Athena Lake",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141852,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.ds-athena,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Data Source"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141853,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.ds-athena,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jane@acme.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141853,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.ds-athena,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922141853,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142199,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:quicksight",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "order_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INTEGER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "amount",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "DECIMAL",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "created_at",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "DATETIME",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142199,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataSetId": "dataset-orders",
+                "arn": "arn:aws:quicksight:us-east-1:123456789012:dataset/dataset-orders",
+                "importMode": "SPICE"
+            },
+            "name": "Orders",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142200,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:76bbe3ad5b43145bd94b9987081af882"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142200,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142200,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jane@acme.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142200,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:team=sales"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142200,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142201,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9de10872c74b460e3ba66c5c811445ef",
+                    "urn": "urn:li:container:9de10872c74b460e3ba66c5c811445ef"
+                },
+                {
+                    "id": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
+                    "urn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142201,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-revenue,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142201,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-revenue,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:quicksight",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "region",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "total",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "DECIMAL",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142202,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-revenue,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataSetId": "dataset-revenue",
+                "arn": "arn:aws:quicksight:us-east-1:123456789012:dataset/dataset-revenue",
+                "importMode": "DIRECT_QUERY"
+            },
+            "name": "Revenue by Region",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142202,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-revenue,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142202,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-revenue,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jane@acme.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142202,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-revenue,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:athena,analytics.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,analytics.orders,PROD),region)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-revenue,PROD),region)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,analytics.orders,PROD),amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-revenue,PROD),total)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922277809,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-revenue,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142203,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-upload,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142204,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-upload,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataSetId": "dataset-upload",
+                "arn": "arn:aws:quicksight:us-east-1:123456789012:dataset/dataset-upload",
+                "summaryOnly": "true"
+            },
+            "name": "Manual Upload",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142204,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-upload,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142204,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-upload,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jane@acme.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142205,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-upload,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142205,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,analysis-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142205,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,analysis-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "analysisId": "analysis-sales",
+                "arn": "arn:aws:quicksight:us-east-1:123456789012:analysis/analysis-sales",
+                "status": "CREATION_SUCCESSFUL"
+            },
+            "title": "Sales Analysis",
+            "description": "",
+            "charts": [],
+            "chartEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(quicksight,analysis-sales_v-bar)"
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(quicksight,analysis-sales_v-kpi)"
+                }
+            ],
+            "datasets": [],
+            "datasetEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)"
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-revenue,PROD)"
+                }
+            ],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142205,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,analysis-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:76bbe3ad5b43145bd94b9987081af882"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142206,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,analysis-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Analysis"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142206,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,analysis-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jane@acme.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142206,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,analysis-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9de10872c74b460e3ba66c5c811445ef",
+                    "urn": "urn:li:container:9de10872c74b460e3ba66c5c811445ef"
+                },
+                {
+                    "id": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
+                    "urn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142206,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-sales_v-bar)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142206,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-sales_v-bar)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "visualId": "v-bar",
+                "quicksightVisualType": "BarChartVisual"
+            },
+            "title": "Orders by Region",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)"
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142206,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-sales_v-bar)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:76bbe3ad5b43145bd94b9987081af882"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142207,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-sales_v-bar)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "BarChartVisual"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142207,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-sales_v-bar)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9de10872c74b460e3ba66c5c811445ef",
+                    "urn": "urn:li:container:9de10872c74b460e3ba66c5c811445ef"
+                },
+                {
+                    "id": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
+                    "urn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142207,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-sales_v-kpi)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142208,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-sales_v-kpi)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "visualId": "v-kpi",
+                "quicksightVisualType": "KPIVisual"
+            },
+            "title": "Total Orders",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)"
+                }
+            ],
+            "type": "TABLE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142208,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-sales_v-kpi)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:76bbe3ad5b43145bd94b9987081af882"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142208,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-sales_v-kpi)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "KPIVisual"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142208,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-sales_v-kpi)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9de10872c74b460e3ba66c5c811445ef",
+                    "urn": "urn:li:container:9de10872c74b460e3ba66c5c811445ef"
+                },
+                {
+                    "id": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
+                    "urn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142208,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,analysis-customer)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142209,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,analysis-customer)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "analysisId": "analysis-customer",
+                "arn": "arn:aws:quicksight:us-east-1:123456789012:analysis/analysis-customer",
+                "status": "CREATION_SUCCESSFUL"
+            },
+            "title": "Customer Analysis",
+            "description": "",
+            "charts": [],
+            "chartEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(quicksight,analysis-customer_v-line)"
+                }
+            ],
+            "datasets": [],
+            "datasetEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-revenue,PROD)"
+                }
+            ],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142209,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,analysis-customer)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Analysis"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142209,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,analysis-customer)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jane@acme.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142209,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,analysis-customer)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142209,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-customer_v-line)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142210,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-customer_v-line)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "visualId": "v-line",
+                "quicksightVisualType": "BarChartVisual"
+            },
+            "title": "Revenue Trend",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-revenue,PROD)"
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142211,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-customer_v-line)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "BarChartVisual"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142211,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-customer_v-line)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142211,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,dashboard-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142211,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,dashboard-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dashboardId": "dashboard-sales",
+                "arn": "arn:aws:quicksight:us-east-1:123456789012:dashboard/dashboard-sales"
+            },
+            "title": "Sales Dashboard",
+            "description": "",
+            "charts": [],
+            "chartEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(quicksight,dashboard-sales_v-pie)"
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(quicksight,dashboard-sales_v-table)"
+                }
+            ],
+            "datasets": [],
+            "datasetEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)"
+                }
+            ],
+            "dashboards": [
+                {
+                    "destinationUrn": "urn:li:dashboard:(quicksight,analysis-sales)"
+                }
+            ],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142211,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,dashboard-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:76bbe3ad5b43145bd94b9987081af882"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142212,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,dashboard-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dashboard"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142212,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,dashboard-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jane@acme.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142212,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,dashboard-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:tier=gold"
+                },
+                {
+                    "tag": "urn:li:tag:pii"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142212,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,dashboard-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9de10872c74b460e3ba66c5c811445ef",
+                    "urn": "urn:li:container:9de10872c74b460e3ba66c5c811445ef"
+                },
+                {
+                    "id": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
+                    "urn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142213,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,dashboard-sales_v-pie)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142213,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,dashboard-sales_v-pie)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "visualId": "v-pie",
+                "quicksightVisualType": "BarChartVisual"
+            },
+            "title": "Revenue Share",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)"
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142213,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,dashboard-sales_v-pie)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:76bbe3ad5b43145bd94b9987081af882"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142213,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,dashboard-sales_v-pie)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "BarChartVisual"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142213,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,dashboard-sales_v-pie)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9de10872c74b460e3ba66c5c811445ef",
+                    "urn": "urn:li:container:9de10872c74b460e3ba66c5c811445ef"
+                },
+                {
+                    "id": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
+                    "urn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142213,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,dashboard-sales_v-table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:quicksight"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142214,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,dashboard-sales_v-table)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "visualId": "v-table",
+                "quicksightVisualType": "KPIVisual"
+            },
+            "title": "Order Details",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)"
+                }
+            ],
+            "type": "TABLE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142214,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,dashboard-sales_v-table)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:76bbe3ad5b43145bd94b9987081af882"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142214,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,dashboard-sales_v-table)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "KPIVisual"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142214,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,dashboard-sales_v-table)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9de10872c74b460e3ba66c5c811445ef",
+                    "urn": "urn:li:container:9de10872c74b460e3ba66c5c811445ef"
+                },
+                {
+                    "id": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
+                    "urn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142215,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:sales-team",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142215,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:sales-team",
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+        "json": {
+            "displayName": "sales-team",
+            "admins": [],
+            "members": [],
+            "groups": [],
+            "description": "Sales org"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142215,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:jane@acme.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "jane@acme.com",
+            "email": "jane@acme.com",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142215,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:jane@acme.com",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": [
+                "urn:li:corpGroup:sales-team"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142215,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:jane@acme.com",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142216,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-customer_v-line)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142216,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-sales_v-bar)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142216,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,analysis-sales_v-kpi)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142216,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,dashboard-sales_v-pie)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142216,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(quicksight,dashboard-sales_v-table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142216,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142217,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9de10872c74b460e3ba66c5c811445ef",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142217,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,analysis-customer)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142217,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,analysis-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142217,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(quicksight,dashboard-sales)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142217,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142217,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-revenue,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142218,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-upload,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142218,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.ds-athena,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142218,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.ds-redshift,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142218,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:pii",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "pii"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142218,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:team=sales",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "team=sales"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142219,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:tier=gold",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "tier=gold"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780922142219,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

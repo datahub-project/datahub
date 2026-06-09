@@ -33,17 +33,24 @@ export function pluralize(count: number, noun: string, suffix = 's') {
 }
 
 export function forcePluralize(noun: string, suffix = 's') {
-    return `${noun}${suffix}`;
+    return pluralizeIfIrregular(noun, suffix);
 }
 
 export function pluralizeIfIrregular(noun: string, suffix = 's'): string {
     const irregularPlurals: Record<string, string> = {
         query: 'queries',
         match: 'matches',
+        analysis: 'analyses',
     };
 
-    if (irregularPlurals.hasOwnProperty(noun?.toLowerCase())) {
-        return irregularPlurals[noun?.toLowerCase()];
+    const lower = noun?.toLowerCase();
+    if (irregularPlurals.hasOwnProperty(lower)) {
+        return irregularPlurals[lower];
+    }
+    // Don't double-pluralize names that are already plural (e.g. "Shared Folders",
+    // "Data Sources"). Only applies to the default "s" suffix.
+    if (suffix === 's' && lower?.endsWith('s')) {
+        return noun;
     }
     return `${noun}${suffix}`;
 }

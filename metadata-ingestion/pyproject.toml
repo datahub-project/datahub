@@ -985,6 +985,14 @@ qlik-sense = [
     "websocket-client<2.0.0",
 ]
 
+quicksight = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "patchy==2.8.0",
+    "sqlglot[c]==30.8.0",
+    "urllib3>=1.26,<3.0",
+]
+
 rdf = [
     "rdflib==6.3.2",
     "requests==2.32.5",
@@ -2061,6 +2069,7 @@ dlt = "datahub.ingestion.source.dlt.dlt:DltSource"
 fivetran = "datahub.ingestion.source.fivetran.fivetran:FivetranSource"
 snaplogic = "datahub.ingestion.source.snaplogic.snaplogic:SnaplogicSource"
 qlik-sense = "datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource"
+quicksight = "datahub.ingestion.source.quicksight.quicksight:QuickSightSource"
 sigma = "datahub.ingestion.source.sigma.sigma:SigmaSource"
 sac = "datahub.ingestion.source.sac.sac:SACSource"
 cassandra = "datahub.ingestion.source.cassandra.cassandra:CassandraSource"
