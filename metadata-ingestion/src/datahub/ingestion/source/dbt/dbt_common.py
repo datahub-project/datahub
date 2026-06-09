@@ -169,13 +169,8 @@ class _TwoTierSchemaResolver(SchemaResolver):
     """
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
-        if table.database:
-            # All URNs are 2-part — skip the 3-part lookup entirely.
-            stripped = _TableName(
-                database=None, db_schema=table.db_schema, table=table.table
-            )
-            return super().resolve_table(stripped)
-        return super().resolve_table(table)
+        # All URNs are 2-part — strip any catalog prefix before lookup.
+        return super().resolve_table(table.model_copy(update={"database": None}))
 
 
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
@@ -2115,15 +2110,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         graph: Optional[DataHubGraph] = self.ctx.graph
 
-        resolver_class: Type[SchemaResolver]
-        if not self.config.include_database_name:
-            logger.debug(
-                "include_database_name=False: using two-tier schema resolver "
-                "so 3-part SQL table references match the 2-part dbt URNs."
-            )
-            resolver_class = _TwoTierSchemaResolver
-        else:
-            resolver_class = SchemaResolver
+        resolver_class: Type[SchemaResolver] = (
+            SchemaResolver
+            if self.config.include_database_name
+            else _TwoTierSchemaResolver
+        )
         schema_resolver = resolver_class(
             platform=self.config.target_platform,
             platform_instance=self.config.target_platform_instance,
