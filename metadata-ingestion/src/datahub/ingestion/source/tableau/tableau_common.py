@@ -658,7 +658,13 @@ def get_platform(connection_type: str) -> str:
 # Two-tier (database.table) platforms. Everything else is treated as three-tier
 # (database.schema.table). Used to decide how many trailing name segments make up a
 # DataHub dataset identifier when trimming over-qualified names.
-_TWO_TIER_PLATFORMS = ("athena", "hive", "mysql", "clickhouse")
+#
+# This must be a superset of the two-tier platforms that `get_overridden_info` nulls
+# `upstream_db` for: the GraphQL path drops the db there (yielding a 2-part name), so
+# the SQL-parsed path must trim to 2 parts as well, otherwise the two lineage paths
+# emit mismatched URNs for the same table (e.g. teradata: `db.schema.table` from SQL
+# parsing vs `schema.table` from GraphQL).
+_TWO_TIER_PLATFORMS = ("athena", "hive", "mysql", "clickhouse", "teradata")
 
 
 def _dataset_name_max_parts(platform: str) -> int:

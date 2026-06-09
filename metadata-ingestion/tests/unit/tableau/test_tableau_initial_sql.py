@@ -14,7 +14,10 @@ from datahub.ingestion.source.tableau.tableau import (
     TableauSiteSource,
     TableauSourceReport,
 )
-from datahub.ingestion.source.tableau.tableau_common import make_upstream_class
+from datahub.ingestion.source.tableau.tableau_common import (
+    _normalize_parsed_upstream_urn,
+    make_upstream_class,
+)
 from datahub.ingestion.source.tableau.tableau_initial_sql import (
     extract_definition_bytes,
     extract_initial_sql_by_datasource,
@@ -905,3 +908,26 @@ def test_initial_sql_tsql_batch_splits_and_extracts_real_tables():
     )
     # The #stage / #stage2 temp tables must be filtered out.
     assert not any("#" in u for u in datasets)
+
+
+@pytest.mark.parametrize(
+    "platform,parsed_name,expected_name",
+    [
+        # Two-tier platforms: SQL parsing keeps db.schema.table, but the GraphQL path
+        # yields schema.table (get_overridden_info nulls upstream_db). Normalization
+        # must trim to 2 parts so both lineage paths emit the same URN.
+        # teradata is the regression case — it is nulled by get_overridden_info and so
+        # must also be in _TWO_TIER_PLATFORMS.
+        ("teradata", "db.schema.tbl", "schema.tbl"),
+        ("mysql", "db.schema.tbl", "schema.tbl"),
+        ("clickhouse", "db.schema.tbl", "schema.tbl"),
+        # Three-tier platforms keep all three segments.
+        ("snowflake", "db.schema.tbl", "db.schema.tbl"),
+    ],
+)
+def test_normalize_parsed_upstream_urn_trims_by_tier(
+    platform: str, parsed_name: str, expected_name: str
+) -> None:
+    urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{parsed_name},PROD)"
+    expected = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{expected_name},PROD)"
+    assert _normalize_parsed_upstream_urn(urn, None) == expected
