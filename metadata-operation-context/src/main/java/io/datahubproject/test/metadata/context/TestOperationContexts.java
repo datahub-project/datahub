@@ -4,6 +4,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
+import com.datahub.context.OperationFingerprint;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -98,7 +99,7 @@ public class TestOperationContexts {
       @Nonnull
       @Override
       public Map<Urn, Map<String, Aspect>> getLatestAspectObjects(
-          Set<Urn> urns, Set<String> aspectNames) {
+          @Nonnull OperationFingerprint context, Set<Urn> urns, Set<String> aspectNames) {
         if (urns.stream().allMatch(urn -> urn.toString().startsWith("urn:li:corpuser:"))
             && aspectNames.contains(Constants.CORP_USER_KEY_ASPECT_NAME)) {
           return urns.stream()
@@ -116,7 +117,7 @@ public class TestOperationContexts {
                                       .data()))))
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         }
-        return super.getLatestAspectObjects(urns, aspectNames);
+        return super.getLatestAspectObjects(context, urns, aspectNames);
       }
 
       @Nonnull

@@ -545,7 +545,7 @@ def test_splits_no_semicolon_tsql_batch() -> None:
         "SELECT a INTO #x FROM t1 WHERE d >= @p\n"
         "SELECT b INTO #y FROM #x JOIN t2 ON 1 = 1"
     )
-    stmts = [s.strip() for s in split_statements(batch)]
+    stmts = [s.strip() for s in split_statements(batch, dialect="tsql")]
     assert stmts == [
         "DECLARE @p as DATE",
         "SET @p = DATEADD(yy, -1, GETDATE())",
