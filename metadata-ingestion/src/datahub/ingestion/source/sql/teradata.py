@@ -1116,7 +1116,9 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
 
     def record_lineage_query_timing(self, label: str, elapsed_seconds: float) -> None:
         with self._lock:
-            self.lineage_query_timings[label] = elapsed_seconds
+            self.lineage_query_timings[label] = (
+                self.lineage_query_timings.get(label, 0.0) + elapsed_seconds
+            )
 
     def increment_lineage_slow_query(self) -> None:
         with self._lock:
