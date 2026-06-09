@@ -115,6 +115,7 @@ type Props = {
     isReadOnly?: boolean;
     isPropagated?: boolean;
     attribution?: MetadataAttribution | null;
+    dataTestId?: string;
 };
 
 export default function DescriptionField({
@@ -127,6 +128,7 @@ export default function DescriptionField({
     isReadOnly,
     isPropagated,
     attribution,
+    dataTestId,
 }: Props) {
     const { t } = useTranslation('entity.types');
     const { t: tc } = useTranslation('common.actions');
@@ -173,7 +175,7 @@ export default function DescriptionField({
     const showAddButton = enableEdits && !description;
 
     return (
-        <DescriptionContainer>
+        <DescriptionContainer data-testid={dataTestId}>
             {/* {expanded || !overLimit ? ( */}
             {expanded ? (
                 <>
