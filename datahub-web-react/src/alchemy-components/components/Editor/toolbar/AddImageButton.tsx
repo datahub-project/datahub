@@ -2,12 +2,18 @@ import { Image } from '@phosphor-icons/react/dist/csr/Image';
 import { useCommands } from '@remirror/react';
 import { Form, Input, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
 import { Modal } from '@components/components/Modal';
 
+// Sample URL shown as input placeholder — illustrative, not user-facing copy.
+const EXAMPLE_IMAGE_URL = 'http://www.example.com/image.jpg';
+
 export const AddImageButton = () => {
+    const { t } = useTranslation('alchemy');
+    const { t: tc } = useTranslation('common.actions');
     const [isModalVisible, setModalVisible] = useState(false);
     const [form] = Form.useForm();
     const { insertImage } = useCommands();
@@ -43,12 +49,12 @@ export const AddImageButton = () => {
                 onClick={handleButtonClick}
             />
             <Modal
-                title="Add Image"
+                title={t('editor.addImage.title')}
                 open={isModalVisible}
                 onCancel={handleCancel}
                 buttons={[
                     {
-                        text: 'Save',
+                        text: tc('save'),
                         variant: 'filled',
                         onClick: handleOk,
                     },
@@ -58,12 +64,15 @@ export const AddImageButton = () => {
                 <Form form={form} layout="vertical" colon={false} requiredMark={false}>
                     <Form.Item
                         name="src"
-                        label={<Typography.Text strong>Image URL</Typography.Text>}
+                        label={<Typography.Text strong>{t('editor.addImage.urlLabel')}</Typography.Text>}
                         rules={[{ required: true }]}
                     >
-                        <Input placeholder="http://www.example.com/image.jpg" autoFocus />
+                        <Input placeholder={EXAMPLE_IMAGE_URL} autoFocus />
                     </Form.Item>
-                    <Form.Item name="alt" label={<Typography.Text strong>Alt Text</Typography.Text>}>
+                    <Form.Item
+                        name="alt"
+                        label={<Typography.Text strong>{t('editor.addImage.altLabel')}</Typography.Text>}
+                    >
                         <Input />
                     </Form.Item>
                 </Form>
