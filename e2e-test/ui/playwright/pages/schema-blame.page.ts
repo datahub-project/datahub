@@ -12,6 +12,9 @@ export class SchemaBlamePage extends BasePage {
   readonly schemaTableContainer = this.page.getByTestId('schema-table-container');
   readonly schemaFieldDrawer = this.page.getByTestId('schema-field-drawer-content');
   readonly rawViewButton = this.page.getByTestId('schema-raw-view-button');
+  readonly columnsPanel = this.page.getByRole('tabpanel', { name: /columns/i });
+  readonly changeHistoryText = this.page.getByText('Change History');
+  readonly completeHistoryText = this.page.getByText('Complete change history');
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -28,37 +31,35 @@ export class SchemaBlamePage extends BasePage {
   }
 
   private getFieldRow(fieldName: string) {
-    // Scope to columns panel to avoid matching field names in drawer, tooltips, etc.
-    const columnsPanel = this.page.getByRole('tabpanel', { name: /columns/i });
-    return columnsPanel.getByText(fieldName);
+    return this.columnsPanel.getByText(fieldName);
   }
 
   // ── Public Interaction Methods ──
 
-  async verifyFieldVisible(fieldName: string) {
+  async verifyFieldVisible(fieldName: string): Promise<void> {
     this.logger?.step('verify field visible', { fieldName });
     const fieldRow = this.getFieldRow(fieldName);
     await expect(fieldRow).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
-  async verifyFieldNotVisible(fieldName: string) {
+  async verifyFieldNotVisible(fieldName: string): Promise<void> {
     this.logger?.step('verify field not visible', { fieldName });
     const fieldRow = this.getFieldRow(fieldName);
     await expect(fieldRow).not.toBeVisible({ timeout: TIMEOUTS.SHORT });
   }
 
-  async closeModals() {
+  async closeModals(): Promise<void> {
     this.logger?.step('close modals', {});
     await this.page.keyboard.press('Escape');
   }
 
-  async openVersionSelector() {
+  async openVersionSelector(): Promise<void> {
     this.logger?.step('open version selector', {});
     await this.schemaVersionSelector.click();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
-  async selectVersion(version: string) {
+  async selectVersion(version: string): Promise<void> {
     this.logger?.step('select version', { version });
     const versionButton = this.getVersionButton(version);
     // Match version starting with the requested number (e.g., "0.0.0 -", "1.0.0 -")
@@ -70,57 +71,40 @@ export class SchemaBlamePage extends BasePage {
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
-  async clickField(fieldName: string) {
+  async clickField(fieldName: string): Promise<void> {
     this.logger?.step('click field', { fieldName });
     const fieldRow = this.getFieldRow(fieldName);
     await fieldRow.click();
   }
 
-  async verifyFieldHasTag(fieldName: string, tagName: string) {
+  async verifyFieldHasTag(fieldName: string, tagName: string): Promise<void> {
     this.logger?.step('verify field has tag', { fieldName, tagName });
-    // Tags appear in either Columns panel (table) or field drawer (detail view)
-    // Check both to avoid strict mode violations from duplicate testIds
-    const columnsPanel = this.page.getByRole('tabpanel', { name: /columns/i });
-    const tagInColumns = columnsPanel.getByText(tagName);
-    const tagInDrawer = this.schemaFieldDrawer.getByText(tagName);
-
-    const columnsCount = await tagInColumns.count();
-    const drawerCount = await tagInDrawer.count();
-
-    if (columnsCount === 0 && drawerCount === 0) {
-      throw new Error(`Tag '${tagName}' not found for field '${fieldName}' in Columns panel or drawer`);
-    }
+    const columnsCount = await this.columnsPanel.getByText(tagName).count();
 
     // Verify tag is visible in whichever context contains it
     if (columnsCount > 0) {
-      await expect(columnsPanel).toContainText(tagName, { timeout: TIMEOUTS.MEDIUM });
+      await expect(this.columnsPanel).toContainText(tagName, { timeout: TIMEOUTS.MEDIUM });
     } else {
       await expect(this.schemaFieldDrawer).toContainText(tagName, { timeout: TIMEOUTS.MEDIUM });
     }
   }
 
-  async verifyFieldDoesNotHaveTag(fieldName: string, tagName: string) {
+  async verifyFieldDoesNotHaveTag(fieldName: string, tagName: string): Promise<void> {
     this.logger?.step('verify field does not have tag', { fieldName, tagName });
-    // Check both Columns panel and field drawer for tag absence
-    const columnsPanel = this.page.getByRole('tabpanel', { name: /columns/i });
-    await expect(columnsPanel).not.toContainText(tagName, { timeout: TIMEOUTS.SHORT });
+    await expect(this.columnsPanel).not.toContainText(tagName, { timeout: TIMEOUTS.SHORT });
     await expect(this.schemaFieldDrawer).not.toContainText(tagName, { timeout: TIMEOUTS.SHORT });
   }
 
-  async toggleSchemaBlame() {
+  async toggleSchemaBlame(): Promise<void> {
     this.logger?.step('toggle schema blame', {});
     await this.schemaBlameButton.click();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
-  async verifySchemaBlameOpen() {
+  async verifySchemaBlameOpen(): Promise<void> {
     this.logger?.step('verify schema blame open', {});
-    // Panel shows as "Change History" or "Complete change history"
-    const changeHistoryText = this.page.getByText('Change History');
-    const completeHistoryText = this.page.getByText('Complete change history');
-
-    const changeHistoryVisible = await changeHistoryText.count().then((count) => count > 0);
-    const completeHistoryVisible = await completeHistoryText.count().then((count) => count > 0);
+    const changeHistoryVisible = await this.changeHistoryText.count().then((count) => count > 0);
+    const completeHistoryVisible = await this.completeHistoryText.count().then((count) => count > 0);
 
     if (!changeHistoryVisible && !completeHistoryVisible) {
       throw new Error(
@@ -135,29 +119,25 @@ export class SchemaBlamePage extends BasePage {
     return description;
   }
 
-  async verifyFieldDescriptionContains(descriptionText: string) {
+  async verifyFieldDescriptionContains(descriptionText: string): Promise<void> {
     this.logger?.step('verify field description contains', { descriptionText });
-    // Scope to columns panel to avoid matching text in tooltips or drawer headers
-    const columnsPanel = this.page.getByRole('tabpanel', { name: /columns/i });
-    await expect(columnsPanel.getByText(descriptionText)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await expect(this.columnsPanel.getByText(descriptionText)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
-  async waitForSchemaLoad() {
+  async waitForSchemaLoad(): Promise<void> {
     this.logger?.step('wait for schema load', {});
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    // Get first table (schema table) since other UI elements may contain tables
-    // eslint-disable-next-line playwright/no-nth-methods
-    await this.page.getByRole('table').first().waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
+    await this.columnsPanel.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
   }
 
-  async navigateToDataset(urn: string) {
+  async navigateToDataset(urn: string): Promise<void> {
     this.logger?.step('navigate to dataset', { urn });
     const datasetPath = `/dataset/${urn}`;
     await this.navigate(datasetPath);
     await this.waitForSchemaLoad();
   }
 
-  async verifyRawViewButtonExists() {
+  async verifyRawViewButtonExists(): Promise<void> {
     this.logger?.step('verify raw view button exists', {});
     // Use testId or role-based fallback
     const rawButtonByTestId = this.rawViewButton;
@@ -167,7 +147,7 @@ export class SchemaBlamePage extends BasePage {
     await expect(combinedSelector).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
-  async toggleRawView() {
+  async toggleRawView(): Promise<void> {
     this.logger?.step('toggle raw view', {});
     await this.rawViewButton.click();
   }
