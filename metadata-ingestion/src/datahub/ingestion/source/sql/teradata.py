@@ -2,7 +2,6 @@ import logging
 import random
 import re
 import time
-import traceback
 from collections import defaultdict
 from collections.abc import Generator
 from concurrent.futures import (
@@ -1591,6 +1590,13 @@ AND t.TableKind in ('T', 'V', 'Q', 'O')
 ORDER by DataBaseName, TableName;
 """.strip()
 
+    WARNING_VIEW_ERROR_MAP: Dict[ViewErrorCategory, str] = {
+        ViewErrorCategory.TIMEOUT: "View processing timed out — consider increasing view_processing_timeout_seconds or optimizing the view SQL.",
+        ViewErrorCategory.PERMISSION: "Permission denied processing view — check database access rights for the ingestion user.",
+        ViewErrorCategory.PARSE: "SQL parse error in view definition — check the view SQL for syntax issues.",
+        ViewErrorCategory.UNKNOWN: "Unexpected error processing view — check the logs for the full traceback.",
+    }
+
     def _build_tables_and_views_query(self) -> str:
         excluded_dbs = ",".join([f"'{db}'" for db in EXCLUDED_DATABASES])
 
@@ -2275,12 +2281,11 @@ ORDER by DataBaseName, TableName;
 
                 except Exception as e:
                     _error_category = _categorize_view_error(e)
-                    full_traceback = traceback.format_exc()
                     self.report.increment_view_error(_error_category)
                     logger.error(
-                        f"Failed to process view {schema}.{view_name}: {str(e)}"
+                        f"Failed to process view {schema}.{view_name}: {str(e)}",
+                        exc_info=True,
                     )
-                    logger.error(f"Full traceback: {full_traceback}")
                     self._warn_view_error(schema, view_name, _error_category, e)
 
                 return results
@@ -2443,39 +2448,20 @@ ORDER by DataBaseName, TableName;
     ) -> None:
         """Emit a categorised report warning for a view-processing failure.
 
-        The ``message`` text is chosen based on ``error_category`` so operators
-        see actionable guidance without having to read the full exception context.
-        ``message`` uses compile-time string literals (required by ``report.warning()``);
-        dynamic data (schema, view name) is placed in ``context``.
+        The ``message`` text is looked up from ``WARNING_VIEW_ERROR_MAP`` so
+        operators see actionable guidance without having to read the full
+        exception context.  Dynamic data (schema, view name) is placed in
+        ``context``.
         """
-        if error_category is ViewErrorCategory.TIMEOUT:
-            self.report.warning(
-                title="View processing error",
-                message="View processing timed out — consider increasing view_processing_timeout_seconds or optimizing the view SQL.",
-                context=f"{schema}.{view_name}",
-                exc=exc,
-            )
-        elif error_category is ViewErrorCategory.PERMISSION:
-            self.report.warning(
-                title="View processing error",
-                message="Permission denied processing view — check database access rights for the ingestion user.",
-                context=f"{schema}.{view_name}",
-                exc=exc,
-            )
-        elif error_category is ViewErrorCategory.PARSE:
-            self.report.warning(
-                title="View processing error",
-                message="SQL parse error in view definition — check the view SQL for syntax issues.",
-                context=f"{schema}.{view_name}",
-                exc=exc,
-            )
-        else:
-            self.report.warning(
-                title="View processing error",
-                message="Unexpected error processing view — check the logs for the full traceback.",
-                context=f"{schema}.{view_name}",
-                exc=exc,
-            )
+        message = self.WARNING_VIEW_ERROR_MAP.get(
+            error_category, self.WARNING_VIEW_ERROR_MAP[ViewErrorCategory.UNKNOWN]
+        )
+        self.report.warning(
+            title="View processing error",
+            message=message,  # type: ignore[arg-type]  # all dict values are compile-time literals
+            context=f"{schema}.{view_name}",
+            exc=exc,
+        )
 
     def _process_views_single_threaded(
         self, view_names: List[str], schema: str, sql_config: SQLCommonConfig
@@ -2527,12 +2513,11 @@ ORDER by DataBaseName, TableName;
 
                     except Exception as e:
                         _error_category = _categorize_view_error(e)
-                        full_traceback = traceback.format_exc()
                         self.report.increment_view_error(_error_category)
                         logger.error(
-                            f"Failed to process view {schema}.{view_name}: {str(e)}"
+                            f"Failed to process view {schema}.{view_name}: {str(e)}",
+                            exc_info=True,
                         )
-                        logger.error(f"Full traceback: {full_traceback}")
                         self._warn_view_error(schema, view_name, _error_category, e)
 
         finally:

@@ -4217,6 +4217,7 @@ class TestCategorizeViewError:
                 OperationalError("authentication failed for user foo", None, None),
                 "permission",
             ),
+            (DatabaseError("invalid sql: missing FROM clause", None, None), "parse"),
         ],
         ids=[
             "pool_timeout",
@@ -4239,6 +4240,7 @@ class TestCategorizeViewError:
             "timeout_keyword",
             "error_3003",
             "authentication_failed",
+            "invalid_sql_keyword",
         ],
     )
     def test_categorize(self, exc: BaseException, expected: str) -> None:
