@@ -36,7 +36,8 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
     curl \
     zip \
     unzip \
-    bash
+    bash \
+    openssh-client
 
 # PAM's unix_chkpwd is setuid/setgid in many images for interactive logins. This container does
 # not rely on PAM password checks; clearing bits avoids ABC/DoD-style SUID-SGID file findings
