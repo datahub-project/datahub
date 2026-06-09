@@ -275,6 +275,9 @@ public interface AspectDao {
    * @return partitioned stream of matching rows
    */
   @Nonnull
+  @OperationContextExempt(
+      reason =
+          "TODO: Needs a bigger refactor, will be handled later. Streams need to follow a consumer pattern")
   PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
       @Nonnull Map<String, Long> aspectTargetVersions,
       long afterCreatedOnMs,
@@ -289,6 +292,9 @@ public interface AspectDao {
    * @return stream of aspects; caller is responsible for closing
    */
   @Nonnull
+  @OperationContextExempt(
+      reason =
+          "TODO: Needs a bigger refactor, will be handled later. Streams need to follow a consumer pattern")
   Stream<EntityAspect> streamAspects(@Nonnull String entityName, @Nonnull String aspectName);
 
   int deleteUrn(
@@ -349,6 +355,7 @@ public interface AspectDao {
       @Nonnull final String urn,
       @Nonnull final String aspectName);
 
+  @OperationContextExempt(reason = "Lifecycle/admin toggle, no actor context needed")
   void setWritable(boolean canWrite);
 
   @Nonnull
@@ -389,8 +396,10 @@ public interface AspectDao {
   }
 
   @Nonnull
+  @OperationContextExempt(reason = "Returns static config, no request context needed")
   List<com.linkedin.metadata.aspect.SystemAspectValidator> getSystemAspectValidators();
 
   @Nullable
+  @OperationContextExempt(reason = "Returns static config, no request context needed")
   com.linkedin.metadata.config.AspectSizeValidationConfiguration getValidationConfig();
 }
