@@ -111,13 +111,13 @@ const GlossaryListCard = (props: Props) => {
     const isExceedingMaxDepth = (maxDepth || 0) > MAX_DEPTH_QUERIED;
     const generateColor = useGenerateGlossaryColorFromPalette();
     const isNode = type === EntityType.GlossaryNode;
-    // Priority: the entity's own saved colorHex > the parent (current page) entity's color
-    // (used as a soft inheritance hint for child terms) > a deterministic palette color
-    // generated from the URN.
-    const glossaryColor =
-        displayProperties?.colorHex ||
-        (isNode ? undefined : entityData?.displayProperties?.colorHex) ||
-        generateColor(isNode ? urn : entityData?.urn || urn);
+    // Priority: the child's own saved colorHex > the parent (current page) entity's color
+    // > a deterministic palette color derived from the parent's URN. Falling back to the
+    // parent's URN (rather than the child's) matches the sidebar tree's inheritance, so a
+    // child without an explicit color renders the same swatch wherever it appears.
+    const parentColor = entityData?.displayProperties?.colorHex;
+    const parentUrn = entityData?.urn;
+    const glossaryColor = displayProperties?.colorHex || parentColor || generateColor(parentUrn || urn);
     const Icon = isNode ? BookmarksSimple : BookmarkSimple;
 
     return (
