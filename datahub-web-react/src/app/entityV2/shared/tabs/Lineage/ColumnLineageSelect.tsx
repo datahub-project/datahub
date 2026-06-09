@@ -67,6 +67,7 @@ export default function ColumnsLineageSelect({
         <>
             {isColumnLevelLineage && (
                 <StyledSelect
+                    data-testid="column-selector-virtual-list"
                     value={selectedColumn}
                     onChange={selectColumn}
                     showSearch
