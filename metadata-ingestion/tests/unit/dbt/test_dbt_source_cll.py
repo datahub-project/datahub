@@ -9,6 +9,12 @@ from datahub.ingestion.source.dbt.dbt_common import (
     parse_semantic_view_cll,
 )
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
+from datahub.metadata.schema_classes import (
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+)
 from tests.unit.dbt.test_helpers import (  # type: ignore[import-untyped]
     create_mock_dbt_node,
 )
@@ -205,17 +211,6 @@ def test_empty_column_names_filtered_from_fine_grained_lineage() -> None:
         assert not urn.endswith(",)"), f"Empty field name in schemaField URN: {urn}"
 
 
-# ---------------------------------------------------------------------------
-# dbt + Glue: include_database_name=False with catalog-prefixed compiled SQL
-#
-# When include_database_name=False, dbt registers source URNs as schema.table
-# (2-part) because the Iceberg catalog name is infrastructure, not identity.
-# But dbt's compiled SQL still contains the full catalog.schema.table reference
-# because it connects through Trino/Athena.  _CatalogStrippingSchemaResolver
-# bridges this gap so upstream_cll is populated correctly.
-# ---------------------------------------------------------------------------
-
-
 def _make_glue_source() -> DBTCoreSource:
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-glue")
     ctx.graph = None
@@ -342,13 +337,6 @@ def test_glue_cll_v2_fieldpath_schema_from_graph_resolves() -> None:
     its fieldPaths are v2-encoded (``[version=2.0].[type=string].event_id``).
     `_to_schema_info` must strip the v2 wrapper so the SQL parser can match the
     bare column names; otherwise upstream_cll comes back empty."""
-    from datahub.metadata.schema_classes import (
-        SchemaFieldClass,
-        SchemaFieldDataTypeClass,
-        SchemaMetadataClass,
-        StringTypeClass,
-    )
-
     upstream_dbt_name = "source.project.angi_snowplow.events"
     model_dbt_name = "model.project.my_model"
     upstream, model = _make_glue_nodes(

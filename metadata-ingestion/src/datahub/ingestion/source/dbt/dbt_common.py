@@ -16,6 +16,7 @@ from typing import (
     Sequence,
     Set,
     Tuple,
+    Type,
     TypedDict,
     Union,
 )
@@ -157,7 +158,7 @@ logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
 
 
-class _CatalogStrippingSchemaResolver(SchemaResolver):
+class _TwoTierSchemaResolver(SchemaResolver):
     """SchemaResolver for dbt with include_database_name=False.
 
     With include_database_name=False all URNs are registered as schema.table
@@ -2042,18 +2043,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
     @staticmethod
     def _to_schema_info(schema_fields: List[SchemaField]) -> SchemaInfo:
-        # Schemas fetched from the graph (e.g. a Glue dataset's SchemaMetadata) use
-        # v2 fieldPaths like "[version=2.0].[type=string].event_id". The SQL parser
-        # matches on bare column names, so strip the v2 wrapper here -- mirroring
-        # what the rest of the SQL-parsing stack does in
-        # `_convert_schema_field_list_to_info`. Bare names (from the dbt catalog)
-        # pass through unchanged.
-        return {
-            get_simple_field_path_from_v2_field_path(
+        # Build the bare-name -> type map the SQL parser matches on, reducing v2
+        # fieldPaths to bare names. Mirrors `_convert_schema_field_list_to_info`.
+        schema_info: SchemaInfo = {}
+        for column in schema_fields:
+            simple_field_path = get_simple_field_path_from_v2_field_path(
                 column.fieldPath
-            ): column.nativeDataType
-            for column in schema_fields
-        }
+            )
+            # Skip columns nested within structs -- CLL can't target them yet, and
+            # their dotted paths would otherwise pollute the schema info.
+            if "." in simple_field_path:
+                continue
+            schema_info[simple_field_path] = column.nativeDataType
+        return schema_info
 
     def _determine_cll_required_nodes(
         self, all_nodes_map: Dict[str, DBTNode]
@@ -2113,11 +2115,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         graph: Optional[DataHubGraph] = self.ctx.graph
 
-        resolver_class = (
-            _CatalogStrippingSchemaResolver
-            if not self.config.include_database_name
-            else SchemaResolver
-        )
+        resolver_class: Type[SchemaResolver]
+        if not self.config.include_database_name:
+            logger.debug(
+                "include_database_name=False: using two-tier schema resolver "
+                "so 3-part SQL table references match the 2-part dbt URNs."
+            )
+            resolver_class = _TwoTierSchemaResolver
+        else:
+            resolver_class = SchemaResolver
         schema_resolver = resolver_class(
             platform=self.config.target_platform,
             platform_instance=self.config.target_platform_instance,
