@@ -32,6 +32,7 @@ const RequiredText = styled.span<{ displayBulkStyles?: boolean }>`
     ${(props) =>
         props.displayBulkStyles &&
         `
+        color: ${props.theme.colors.textOnFillError};
         margin-left: 8px;
     `}
 `;
