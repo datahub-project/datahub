@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
@@ -92,7 +93,8 @@ public class IgnoreUnknownMutatorTest {
                     AuditStampUtils.createDefaultAuditStamp(),
                     TEST_REGISTRY));
 
-    List<MCPItem> result = test.proposalMutation(testItems, retrieverContext).toList();
+    List<MCPItem> result =
+        test.proposalMutation(OperationFingerprint.EMPTY, testItems, retrieverContext).toList();
 
     assertEquals(1, result.size());
     assertEquals(
@@ -129,7 +131,8 @@ public class IgnoreUnknownMutatorTest {
                     AuditStampUtils.createDefaultAuditStamp(),
                     TEST_REGISTRY));
 
-    List<MCPItem> result = test.proposalMutation(testItems, retrieverContext).toList();
+    List<MCPItem> result =
+        test.proposalMutation(OperationFingerprint.EMPTY, testItems, retrieverContext).toList();
 
     assertEquals(1, result.size());
     assertEquals(
