@@ -95,6 +95,9 @@ public interface AspectDao {
    * @param aspect the orm model to update
    */
   @Nonnull
+  @OperationContextExempt(
+      reason =
+          "Internal transaction-level write helper; OperationContext is carried by the surrounding saveLatestAspect call")
   Optional<EntityAspect> updateAspect(
       @Nullable TransactionContext txContext, @Nonnull final SystemAspect aspect);
 
@@ -106,6 +109,9 @@ public interface AspectDao {
    * @param aspect the aspect to insert
    */
   @Nonnull
+  @OperationContextExempt(
+      reason =
+          "Internal transaction-level write helper; OperationContext is carried by the surrounding saveLatestAspect call")
   Optional<EntityAspect> insertAspect(
       @Nullable TransactionContext txContext, @Nonnull final SystemAspect aspect, long version);
 
@@ -298,14 +304,19 @@ public interface AspectDao {
   @Nonnull
   Pair<Long, Long> getVersionRange(@Nonnull final String urn, @Nonnull final String aspectName);
 
+  @OperationContextExempt(reason = "Lifecycle/admin toggle, no actor context needed")
   void setWritable(boolean canWrite);
 
   @Nonnull
+  @OperationContextExempt(
+      reason = "Transaction wrapper; OperationContext travels inside the lambda")
   <T> Optional<T> runInTransactionWithRetry(
       @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
       final int maxTransactionRetry);
 
   @Nonnull
+  @OperationContextExempt(
+      reason = "Transaction wrapper; OperationContext travels inside the lambda")
   default <T> Optional<T> runInTransactionWithRetry(
       @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
       AspectsBatch batch,
@@ -336,8 +347,10 @@ public interface AspectDao {
   }
 
   @Nonnull
+  @OperationContextExempt(reason = "Returns static config, no request context needed")
   List<com.linkedin.metadata.aspect.SystemAspectValidator> getSystemAspectValidators();
 
   @Nullable
+  @OperationContextExempt(reason = "Returns static config, no request context needed")
   com.linkedin.metadata.config.AspectSizeValidationConfiguration getValidationConfig();
 }
