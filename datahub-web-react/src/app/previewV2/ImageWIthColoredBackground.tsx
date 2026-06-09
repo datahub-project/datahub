@@ -40,6 +40,23 @@ const ImageWithColoredBackground = ({ src, alt, imgSize, backgroundSize, borderR
     const imgRef = React.useRef<HTMLImageElement>(null);
     const [platformBackground, setPlatformBackground] = React.useState<string | undefined>(undefined);
 
+    const onLoad = () => {
+        const img = imgRef.current;
+        if (img && img.width > 0 && img.height > 0) {
+            const colorThief = new ColorThief();
+            const [r, g, b] = colorThief.getColor(img, 25);
+            setPlatformBackground(`rgb(${getLighterRGBColor(r, g, b).join(', ')})`);
+        }
+    };
+
+    const onError = () => {
+        const img = imgRef.current;
+        if (img) {
+            img.removeAttribute('crossOrigin');
+            setPlatformBackground(theme.colors.bgSurface);
+        }
+    };
+
     const logo = (
         <PreviewImage
             crossOrigin="anonymous"
@@ -47,21 +64,8 @@ const ImageWithColoredBackground = ({ src, alt, imgSize, backgroundSize, borderR
             src={src}
             alt={alt}
             ref={imgRef}
-            onLoad={() => {
-                const img = imgRef.current;
-                if (img && img.width > 0 && img.height > 0) {
-                    const colorThief = new ColorThief();
-                    const [r, g, b] = colorThief.getColor(img, 25);
-                    setPlatformBackground(`rgb(${getLighterRGBColor(r, g, b).join(', ')})`);
-                }
-            }}
-            onError={() => {
-                const img = imgRef.current;
-                if (img) {
-                    img.removeAttribute('crossOrigin');
-                    setPlatformBackground(theme.colors.bgSurface);
-                }
-            }}
+            onLoad={onLoad}
+            onError={onError}
         />
     );
     return (

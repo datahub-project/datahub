@@ -1,13 +1,30 @@
+import { BADGE, defaultBadgesConfig } from '@geometricpanda/storybook-addon-badges';
 import React from 'react';
+import { I18nextProvider } from 'react-i18next';
+import { ThemeProvider } from 'styled-components';
+
+import themes from '../src/conf/theme/themes';
+import DocTemplate from './DocTemplate.mdx';
+import i18n from './i18n';
 import './storybook-theme.css';
 // FYI: import of antd styles required to show components based on it correctly
 import 'antd/dist/antd.css';
 
-import { BADGE, defaultBadgesConfig } from '@geometricpanda/storybook-addon-badges';
-import DocTemplate from './DocTemplate.mdx';
-
 const preview = {
     tags: ['!dev', 'autodocs'],
+    // Wrap every story in the providers the components expect at runtime:
+    // - ThemeProvider: so styled-components reading `theme.colors.*` (e.g. textTertiary) resolve
+    //   (without it `theme` is empty and those reads throw "Cannot read properties of undefined").
+    // - I18nextProvider: so `t()` / <Trans> render real strings instead of raw keys.
+    decorators: [
+        (Story: React.ComponentType) => (
+            <I18nextProvider i18n={i18n}>
+                <ThemeProvider theme={themes.themeV2}>
+                    <Story />
+                </ThemeProvider>
+            </I18nextProvider>
+        ),
+    ],
     parameters: {
         previewTabs: {
             'storybook/docs/panel': { index: -1 },

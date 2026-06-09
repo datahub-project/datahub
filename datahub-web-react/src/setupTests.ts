@@ -6,6 +6,7 @@ import '@testing-library/jest-dom/vitest';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
+import enAlchemy from '@src/i18n/locales/en/alchemy.json';
 import enAnalytics from '@src/i18n/locales/en/analytics.json';
 import enAuth from '@src/i18n/locales/en/auth.json';
 import enCommonActions from '@src/i18n/locales/en/common.actions.json';
@@ -83,6 +84,7 @@ i18n.use(initReactI18next).init({
     ns: [...NAMESPACES],
     resources: {
         en: {
+            alchemy: enAlchemy,
             analytics: enAnalytics,
             auth: enAuth,
             'common.actions': enCommonActions,
