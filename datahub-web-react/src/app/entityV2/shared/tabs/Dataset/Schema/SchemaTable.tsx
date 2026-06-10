@@ -531,24 +531,23 @@ export default function SchemaTable({
                 ref={tableRef}
                 isSearchActive={isSearchActive}
                 hasRowWithDepth={hasSomeRowsWithDepthGreaterThanZero}
+                data-testid="schema-table-container"
             >
                 <ResizeObserver onResize={(dimensions) => setTableHeight(dimensions.height - TABLE_HEADER_HEIGHT)}>
                     <StyledTable
+                        data-testid="schema-table"
                         onChange={handleTableChange}
                         rowClassName={rowClassName}
                         columns={finalColumns}
                         dataSource={dataSource}
-                        // rowKey={(record) => `column-${record.fieldPath}`}
                         rowKey="fieldPath"
                         scroll={{ x: SCROLL_X, y: tableHeight }}
                         components={VT}
                         expandable={{
                             expandedRowKeys: [...Array.from(expandedRows)],
                             defaultExpandAllRows: false,
-
                             expandRowByClick: false,
                             expandIcon: (props) => <ExpandIcon {...props} />,
-
                             onExpand: (expanded, record) => {
                                 if (expanded) {
                                     setExpandedRows((previousRows) => new Set(previousRows.add(record.fieldPath)));
@@ -572,6 +571,7 @@ export default function SchemaTable({
                                 );
                             },
                             id: `column-${record.fieldPath}`,
+                            'data-testid': `schema-field-${record.fieldPath}`,
                         })}
                         showSorterTooltip={false}
                     />
