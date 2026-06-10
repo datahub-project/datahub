@@ -7,7 +7,8 @@ import com.linkedin.common.Urn
  * Information about a DataHub Access Token
  */
 @Aspect = {
-  "name": "dataHubAccessTokenInfo"
+  "name": "dataHubAccessTokenInfo",
+  "schemaVersion": 2
 }
 record DataHubAccessTokenInfo {
 
