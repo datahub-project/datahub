@@ -4,8 +4,6 @@ from typing import List, Optional, Set
 import pytest
 import requests
 import requests_mock as rm
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import DashboardInfoClass
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_chart_urn
@@ -16,6 +14,8 @@ from datahub.ingestion.source.superset import (
     _extract_chart_id_with_status,
     get_filter_name,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.schema_classes import DashboardInfoClass
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
 

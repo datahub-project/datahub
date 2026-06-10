@@ -1,9 +1,6 @@
 from typing import List
 
 import pytest
-from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -18,6 +15,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeSchema,
 )
 from datahub.ingestion.source.snowflake.snowflake_shares import SnowflakeSharesHandler
+from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
 
 
 @pytest.fixture(scope="module")

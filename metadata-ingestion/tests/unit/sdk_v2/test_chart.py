@@ -3,8 +3,10 @@ import re
 from datetime import datetime
 from unittest import mock
 
-import datahub.metadata.schema_classes as models
 import pytest
+
+import datahub.metadata.schema_classes as models
+from datahub.errors import ItemNotFoundError
 from datahub.metadata.urns import (
     ChartUrn,
     ContainerUrn,
@@ -14,8 +16,6 @@ from datahub.metadata.urns import (
     GlossaryTermUrn,
     TagUrn,
 )
-
-from datahub.errors import ItemNotFoundError
 from datahub.sdk.chart import Chart
 from datahub.testing.sdk_v2_helpers import assert_entity_golden
 

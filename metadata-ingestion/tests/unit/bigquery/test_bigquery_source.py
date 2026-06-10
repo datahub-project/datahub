@@ -6,19 +6,6 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import time_machine
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
-from datahub.metadata.schema_classes import (
-    ContainerClass,
-    DataPlatformInstanceClass,
-    DatasetPropertiesClass,
-    GlobalTagsClass,
-    MetadataChangeProposalClass,
-    SchemaMetadataClass,
-    StatusClass,
-    SubTypesClass,
-    TagAssociationClass,
-    TimeStampClass,
-)
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
 
@@ -59,6 +46,19 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdgeColumnMapping,
 )
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
+from datahub.metadata.schema_classes import (
+    ContainerClass,
+    DataPlatformInstanceClass,
+    DatasetPropertiesClass,
+    GlobalTagsClass,
+    MetadataChangeProposalClass,
+    SchemaMetadataClass,
+    StatusClass,
+    SubTypesClass,
+    TagAssociationClass,
+    TimeStampClass,
+)
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 

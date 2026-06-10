@@ -9,13 +9,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
-from datahub.metadata.schema_classes import (
-    DatasetPropertiesClass,
-    DatasetSnapshotClass,
-    MetadataChangeEventClass,
-    StatusClass,
-)
 from typing_extensions import Self
 
 from datahub.configuration.common import DynamicTypedConfig
@@ -30,6 +23,13 @@ from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    DatasetSnapshotClass,
+    MetadataChangeEventClass,
+    StatusClass,
+)
 from datahub.utilities.server_config_util import RestServiceConfig
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.sink_helpers import RecordingSinkReport

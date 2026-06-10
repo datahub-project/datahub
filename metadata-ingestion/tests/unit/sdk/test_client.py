@@ -1,12 +1,11 @@
 from unittest.mock import Mock, patch
 
-from datahub.metadata.schema_classes import CorpUserEditableInfoClass
-
 from datahub.ingestion.graph.client import (
     DatahubClientConfig,
     DataHubGraph,
     entity_type_to_graphql,
 )
+from datahub.metadata.schema_classes import CorpUserEditableInfoClass
 
 
 @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")

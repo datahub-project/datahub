@@ -4,6 +4,9 @@ from typing import List, Type
 
 import pytest
 import typing_inspect
+
+from datahub.configuration.env_vars import get_update_entity_registry
+from datahub.emitter.mce_builder import ALL_ENV_TYPES
 from datahub.metadata.schema_classes import (
     ASPECT_CLASSES,
     KEY_ASPECTS,
@@ -14,9 +17,6 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     _Aspect,
 )
-
-from datahub.configuration.env_vars import get_update_entity_registry
-from datahub.emitter.mce_builder import ALL_ENV_TYPES
 from datahub.utilities.urns._urn_base import URN_TYPES
 
 _UPDATE_ENTITY_REGISTRY = get_update_entity_registry().lower() == "true"

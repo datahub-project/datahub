@@ -3,8 +3,6 @@
 from typing import Dict, Optional, Tuple
 from unittest.mock import patch
 
-from datahub.metadata.schema_classes import InputFieldsClass
-
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -20,6 +18,7 @@ from datahub.ingestion.source.sigma.data_classes import (
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
+from datahub.metadata.schema_classes import InputFieldsClass
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 # ---------------------------------------------------------------------------

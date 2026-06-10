@@ -5,11 +5,11 @@ from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
+
 from datahub.metadata.urns import (
     DataProcessInstanceUrn,
     MlModelGroupUrn,
 )
-
 from datahub.sdk.mlmodelgroup import MLModelGroup
 from datahub.utilities.urns.error import InvalidUrnError
 

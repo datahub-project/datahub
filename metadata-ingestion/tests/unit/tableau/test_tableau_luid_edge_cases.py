@@ -7,10 +7,6 @@ from copy import deepcopy
 from unittest import mock
 
 import time_machine
-from datahub.metadata.schema_classes import (
-    ContainerPropertiesClass,
-    DatasetPropertiesClass,
-)
 from tableauserverclient import SiteItem
 
 import datahub.ingestion.source.tableau.tableau_constant as c
@@ -21,6 +17,10 @@ from datahub.ingestion.source.tableau.tableau import (
     TableauProject,
     TableauSiteSource,
     TableauSourceReport,
+)
+from datahub.metadata.schema_classes import (
+    ContainerPropertiesClass,
+    DatasetPropertiesClass,
 )
 from tests.unit.tableau.test_tableau_config import default_config
 

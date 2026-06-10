@@ -1,12 +1,4 @@
 import pytest
-from datahub.metadata.schema_classes import (
-    ChartInfoClass,
-    DashboardInfoClass,
-    DataPlatformInstanceClass,
-    GlobalTagsClass,
-    OwnershipClass,
-    StatusClass,
-)
 
 from datahub.ingestion.source.grafana.entity_mcp_builder import (
     _build_custom_properties,
@@ -16,6 +8,14 @@ from datahub.ingestion.source.grafana.entity_mcp_builder import (
     build_dashboard_mcps,
 )
 from datahub.ingestion.source.grafana.models import Dashboard, Panel
+from datahub.metadata.schema_classes import (
+    ChartInfoClass,
+    DashboardInfoClass,
+    DataPlatformInstanceClass,
+    GlobalTagsClass,
+    OwnershipClass,
+    StatusClass,
+)
 
 
 @pytest.fixture

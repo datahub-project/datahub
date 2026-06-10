@@ -4,10 +4,6 @@ from typing import Optional, Type
 from unittest.mock import MagicMock
 
 import pytest
-from datahub.metadata.com.linkedin.pegasus2avro.structured import (
-    StructuredPropertyDefinition,
-)
-from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.snowplow.constants import (
@@ -23,6 +19,10 @@ from datahub.ingestion.source.snowplow.snowplow_config import (
     SnowplowBDPConnectionConfig,
     SnowplowSourceConfig,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.structured import (
+    StructuredPropertyDefinition,
+)
+from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass
 
 
 class TestPropertyManagerInit:

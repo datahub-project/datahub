@@ -4,7 +4,6 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     RecordTypeClass,
 )
-
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 

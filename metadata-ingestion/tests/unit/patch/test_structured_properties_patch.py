@@ -2,12 +2,12 @@ import json
 from typing import Any
 
 import pytest
-from datahub.metadata.urns import StructuredPropertyUrn
 
 from datahub.emitter.mcp_builder import (
     StructuredPropertyWriteMode,
     add_structured_properties_to_entity_wu,
 )
+from datahub.metadata.urns import StructuredPropertyUrn
 
 ENTITY_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
 PROP_A = StructuredPropertyUrn.from_string(

@@ -2,15 +2,10 @@ import logging
 from datetime import datetime
 from typing import List, Optional, Union
 
-import datahub.metadata.schema_classes as models
 import pytest
 import time_machine
-from datahub.metadata.schema_classes import (
-    DatasetPropertiesClass,
-    OperationTypeClass,
-    TimeStampClass,
-)
 
+import datahub.metadata.schema_classes as models
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -25,6 +20,11 @@ from datahub.ingestion.api.source_helpers import (
     create_dataset_props_patch_builder,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    OperationTypeClass,
+    TimeStampClass,
+)
 from datahub.specific.dataset import DatasetPatchBuilder
 
 _base_metadata: List[

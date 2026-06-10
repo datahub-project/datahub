@@ -2,11 +2,11 @@ from unittest.mock import MagicMock
 
 import pytest
 import sqlglot
-from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from sqlglot import parse_one
 from sqlglot.expressions import Table
 
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,

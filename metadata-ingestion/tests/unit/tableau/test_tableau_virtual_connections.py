@@ -2,7 +2,6 @@ from unittest import mock
 
 import pytest
 import time_machine
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 from tableauserverclient.models import SiteItem
 
 import datahub.ingestion.source.tableau.tableau_constant as c
@@ -20,6 +19,7 @@ from datahub.ingestion.source.tableau.tableau_common import (
 from datahub.ingestion.source.tableau.tableau_virtual_connections import (
     VirtualConnectionProcessor,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 from tests.unit.tableau.test_tableau_config import default_config
 
 FROZEN_TIME = "2021-12-07 07:00:00"

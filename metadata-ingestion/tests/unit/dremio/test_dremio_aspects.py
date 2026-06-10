@@ -1,6 +1,12 @@
 from unittest.mock import Mock
 
 import pytest
+
+from datahub.ingestion.source.dremio.dremio_aspects import (
+    DremioAspects,
+    SchemaFieldTypeMapper,
+)
+from datahub.ingestion.source.dremio.dremio_models import DremioDatasetType
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -12,12 +18,6 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     TimeTypeClass,
 )
-
-from datahub.ingestion.source.dremio.dremio_aspects import (
-    DremioAspects,
-    SchemaFieldTypeMapper,
-)
-from datahub.ingestion.source.dremio.dremio_models import DremioDatasetType
 
 
 def _make_aspects() -> DremioAspects:

@@ -1,6 +1,8 @@
 from typing import Any, Dict
 
 import pytest
+
+from datahub.emitter.mce_builder import validate_ownership_type
 from datahub.metadata.com.linkedin.pegasus2avro.common import GlobalTags
 from datahub.metadata.schema_classes import (
     DomainsClass,
@@ -12,8 +14,6 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
 )
-
-from datahub.emitter.mce_builder import validate_ownership_type
 from datahub.utilities.mapping import OperationProcessor
 from datahub.utilities.urns.error import InvalidUrnError
 

@@ -6,15 +6,6 @@ from unittest import mock
 import pydantic
 import pytest
 import time_machine
-from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
-    DataProcessInstanceProperties,
-)
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    DataPlatformInstanceClass,
-    StatusClass,
-)
-from datahub.metadata.urns import DataPlatformUrn, QueryUrn
 from pydantic import Field
 
 from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
@@ -36,6 +27,15 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
+    DataProcessInstanceProperties,
+)
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    DataPlatformInstanceClass,
+    StatusClass,
+)
+from datahub.metadata.urns import DataPlatformUrn, QueryUrn
 from datahub.testing import mce_helpers
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from tests.test_helpers.state_helpers import (

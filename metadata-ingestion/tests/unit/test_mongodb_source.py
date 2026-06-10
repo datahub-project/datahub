@@ -3,16 +3,16 @@ from unittest.mock import MagicMock, patch
 
 import bson
 import pytest
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.mongodb import MongoDBConfig, MongoDBSource
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DatasetPropertiesClass,
     SchemaMetadataClass,
 )
-
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.mongodb import MongoDBConfig, MongoDBSource
 from datahub.utilities.urns.urn import guess_entity_type
 
 

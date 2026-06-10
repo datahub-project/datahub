@@ -3,10 +3,10 @@ from pathlib import Path
 from typing import Iterable, List, Union
 
 import time_machine
-from datahub.metadata.schema_classes import MetadataChangeProposalClass
 
 from datahub.api.entities.dataset.dataset import Dataset, Ownership
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.testing.mce_helpers import check_goldens_stream
 from tests.test_helpers.graph_helpers import MockDataHubGraph
 

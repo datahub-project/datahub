@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import Optional
 
 import time_machine
-from datahub.metadata.schema_classes import SystemMetadataClass
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -12,6 +11,7 @@ from datahub.ingestion.run.pipeline_config import (
     PipelineConfig,
     SourceConfig,
 )
+from datahub.metadata.schema_classes import SystemMetadataClass
 
 FROZEN_TIME = datetime.fromisoformat("2023-01-01 00:00:00+00:00")
 FROZEN_TIME_TS = int(FROZEN_TIME.timestamp() * 1000)

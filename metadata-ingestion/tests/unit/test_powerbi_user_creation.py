@@ -3,8 +3,6 @@
 from typing import List, Optional
 from unittest import mock
 
-from datahub.metadata.schema_classes import CorpUserInfoClass, CorpUserKeyClass
-
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
@@ -12,6 +10,7 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import User
+from datahub.metadata.schema_classes import CorpUserInfoClass, CorpUserKeyClass
 
 _NOT_SET = object()  # Sentinel for distinguishing None from "not provided"
 

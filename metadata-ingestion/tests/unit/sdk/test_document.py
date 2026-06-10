@@ -9,11 +9,11 @@ and example scripts. They cover:
 - All property getters and setters
 """
 
-import datahub.metadata.schema_classes as models
 import pytest
-from datahub.metadata.urns import CorpUserUrn, DocumentUrn
 
+import datahub.metadata.schema_classes as models
 from datahub.errors import SdkUsageError
+from datahub.metadata.urns import CorpUserUrn, DocumentUrn
 from datahub.sdk.document import Document
 
 

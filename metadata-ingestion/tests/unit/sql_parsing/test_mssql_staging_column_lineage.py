@@ -6,6 +6,8 @@ to TimeSeries/CurrentData databases was missing.
 """
 
 import pytest
+
+from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
 from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -13,8 +15,6 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StringTypeClass,
 )
-
-from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 

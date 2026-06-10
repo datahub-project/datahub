@@ -3,9 +3,6 @@ from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datahub.metadata.schema_classes import (
-    DataProcessInstancePropertiesClass,
-)
 from google.cloud.aiplatform import ExperimentRun, PipelineJob
 from google.cloud.aiplatform.metadata import constants as metadata_constants
 from google.cloud.aiplatform.metadata.context import Context as MetadataContext
@@ -28,6 +25,9 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     VertexAIResourceCategoryKey,
 )
 from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
+from datahub.metadata.schema_classes import (
+    DataProcessInstancePropertiesClass,
+)
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_experiment,
 )

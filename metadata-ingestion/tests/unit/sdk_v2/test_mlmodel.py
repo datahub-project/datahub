@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
+
+from datahub.errors import ItemNotFoundError
 from datahub.metadata.schema_classes import (
     MLHyperParamClass,
     MLMetricClass,
@@ -15,8 +17,6 @@ from datahub.metadata.urns import (
     MlModelGroupUrn,
     MlModelUrn,
 )
-
-from datahub.errors import ItemNotFoundError
 from datahub.sdk.mlmodel import MLModel
 from datahub.utilities.urns.error import InvalidUrnError
 

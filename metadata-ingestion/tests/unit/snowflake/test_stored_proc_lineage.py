@@ -1,11 +1,10 @@
 from datetime import datetime
 
-from datahub.metadata.urns import CorpUserUrn
-
 from datahub.ingestion.source.snowflake.stored_proc_lineage import (
     StoredProcCall,
     StoredProcLineageTracker,
 )
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import PreparsedQuery
 
 # Reused test constants

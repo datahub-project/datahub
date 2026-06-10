@@ -13,7 +13,6 @@ from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datahub.metadata.urns import CorpUserUrn
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.teradata import (
@@ -21,6 +20,7 @@ from datahub.ingestion.source.sql.teradata import (
     TeradataSource,
     TeradataTable,
 )
+from datahub.metadata.urns import CorpUserUrn
 
 
 @pytest.fixture(autouse=True)

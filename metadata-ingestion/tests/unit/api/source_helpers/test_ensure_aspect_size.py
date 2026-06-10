@@ -1,9 +1,19 @@
 import json
 import time
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
+
+from datahub.emitter.aspect import JSON_CONTENT_TYPE
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
+from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
+from datahub.ingestion.workunit_processors.ensure_aspect_size import (
+    EnsureAspectSizeProcessor,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -34,18 +44,6 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
-)
-
-from unittest.mock import MagicMock
-
-from datahub.emitter.aspect import JSON_CONTENT_TYPE
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
-from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
-from datahub.ingestion.workunit_processors.ensure_aspect_size import (
-    EnsureAspectSizeProcessor,
 )
 
 

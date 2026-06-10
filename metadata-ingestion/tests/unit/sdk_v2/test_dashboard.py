@@ -4,6 +4,9 @@ from datetime import datetime
 from unittest import mock
 
 import pytest
+
+from datahub.emitter import mce_builder
+from datahub.errors import ItemNotFoundError
 from datahub.metadata.urns import (
     ChartUrn,
     CorpUserUrn,
@@ -13,9 +16,6 @@ from datahub.metadata.urns import (
     GlossaryTermUrn,
     TagUrn,
 )
-
-from datahub.emitter import mce_builder
-from datahub.errors import ItemNotFoundError
 from datahub.sdk.dashboard import Dashboard
 from datahub.testing.sdk_v2_helpers import assert_entity_golden
 

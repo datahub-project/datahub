@@ -4,9 +4,9 @@ from typing import Any, Dict
 
 import pytest
 import time_machine
-from datahub.metadata.schema_classes import DomainPropertiesClass
 
 from datahub.api.entities.dataproduct.dataproduct import DataProduct
+from datahub.metadata.schema_classes import DomainPropertiesClass
 from datahub.testing.mce_helpers import check_golden_file
 from tests.test_helpers.graph_helpers import MockDataHubGraph
 

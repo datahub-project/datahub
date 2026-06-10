@@ -1,6 +1,5 @@
-from datahub.metadata.schema_classes import StatusClass, TelemetryClientIdClass
-
 import datahub.emitter.mcp_builder as builder
+from datahub.metadata.schema_classes import StatusClass, TelemetryClientIdClass
 
 
 def test_guid_generator():

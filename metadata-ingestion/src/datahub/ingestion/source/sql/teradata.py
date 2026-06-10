@@ -1525,7 +1525,14 @@ ORDER by DataBaseName, TableName;
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_columns",
-                lambda self, connection, table_name, schema=None, use_qvci=_use_qvci, use_dbc_columns_for_views=_use_dbc_columns_for_views, tables_needing_extraction=_tables_needing_extraction, **kw: (
+                lambda self,
+                connection,
+                table_name,
+                schema=None,
+                use_qvci=_use_qvci,
+                use_dbc_columns_for_views=_use_dbc_columns_for_views,
+                tables_needing_extraction=_tables_needing_extraction,
+                **kw: (
                     optimized_get_columns(
                         self,
                         connection,

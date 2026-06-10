@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import pytest
-from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
@@ -19,6 +18,7 @@ from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
 from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
     AutoWorkunitsReporterProcessor,
 )
+from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 
 
 class TestQueryEntry:

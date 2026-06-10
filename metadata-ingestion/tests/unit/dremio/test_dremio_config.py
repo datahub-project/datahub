@@ -4,13 +4,6 @@ from typing import Iterable, List
 from unittest.mock import Mock
 
 import pytest
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    ChangeTypeClass,
-    DatasetLineageTypeClass,
-    UpstreamClass,
-    UpstreamLineageClass,
-)
 from pydantic import ValidationError
 
 from datahub.emitter.mce_builder import make_dataset_urn
@@ -25,6 +18,13 @@ from datahub.ingestion.source.dremio.dremio_config import (
     DremioSourceConfig,
 )
 from datahub.ingestion.source.dremio.dremio_source import DremioSource
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    ChangeTypeClass,
+    DatasetLineageTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+)
 
 
 class TestDremioConfigValidators:

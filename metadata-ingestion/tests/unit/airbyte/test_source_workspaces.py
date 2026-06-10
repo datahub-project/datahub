@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datahub.metadata.schema_classes import DataProcessInstancePropertiesClass
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
@@ -17,6 +16,7 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteWorkspacePartial,
 )
 from datahub.ingestion.source.airbyte.source import AirbyteSource
+from datahub.metadata.schema_classes import DataProcessInstancePropertiesClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 

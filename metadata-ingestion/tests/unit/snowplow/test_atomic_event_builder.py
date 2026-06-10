@@ -3,13 +3,6 @@
 from unittest.mock import Mock
 
 import pytest
-from datahub.metadata.schema_classes import (
-    ContainerClass,
-    DatasetPropertiesClass,
-    SchemaMetadataClass,
-    StatusClass,
-    SubTypesClass,
-)
 
 from datahub.ingestion.source.snowplow.dependencies import IngestionState
 from datahub.ingestion.source.snowplow.services.atomic_event_builder import (
@@ -18,6 +11,13 @@ from datahub.ingestion.source.snowplow.services.atomic_event_builder import (
 from datahub.ingestion.source.snowplow.snowplow_config import (
     SnowplowBDPConnectionConfig,
     SnowplowSourceConfig,
+)
+from datahub.metadata.schema_classes import (
+    ContainerClass,
+    DatasetPropertiesClass,
+    SchemaMetadataClass,
+    StatusClass,
+    SubTypesClass,
 )
 
 

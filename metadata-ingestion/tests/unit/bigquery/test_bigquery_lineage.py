@@ -1,9 +1,9 @@
 import datetime
 from typing import Dict, List, Optional, Set
 
-import datahub.metadata.schema_classes as models
 import pytest
 
+import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,

@@ -6,13 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
-from datahub.metadata.schema_classes import (
-    DatasetFieldUsageCountsClass,
-    DatasetUsageStatisticsClass,
-    DatasetUserUsageCountsClass,
-    OperationClass,
-    TimeWindowSizeClass,
-)
 
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -33,6 +26,13 @@ from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilde
 from datahub.ingestion.source.bigquery_v2.usage import (
     OPERATION_STATEMENT_TYPES,
     BigQueryUsageExtractor,
+)
+from datahub.metadata.schema_classes import (
+    DatasetFieldUsageCountsClass,
+    DatasetUsageStatisticsClass,
+    DatasetUserUsageCountsClass,
+    OperationClass,
+    TimeWindowSizeClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.testing.compare_metadata_json import diff_metadata_json

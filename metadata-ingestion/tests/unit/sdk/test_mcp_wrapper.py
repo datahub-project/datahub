@@ -1,6 +1,6 @@
-import datahub.metadata.schema_classes as models
 import pytest
 
+import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import DataHubDeprecationWarning
 

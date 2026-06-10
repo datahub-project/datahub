@@ -8,11 +8,6 @@ under their schema container in the UI hierarchy. (ING-2018)
 from typing import Dict, List, Optional
 from unittest.mock import patch
 
-from datahub.metadata.schema_classes import (
-    ContainerClass,
-    DataPlatformInstanceClass,
-)
-
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -23,6 +18,10 @@ from datahub.ingestion.source.redshift.profile import RedshiftProfiler
 from datahub.ingestion.source.redshift.redshift_schema import RedshiftTable
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.sql.sql_utils import gen_schema_key
+from datahub.metadata.schema_classes import (
+    ContainerClass,
+    DataPlatformInstanceClass,
+)
 
 
 def make_profiler(

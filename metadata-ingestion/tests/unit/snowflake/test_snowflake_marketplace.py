@@ -5,13 +5,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, cast
 
 import pytest
-from datahub.metadata.com.linkedin.pegasus2avro.structured import (
-    StructuredPropertyDefinition,
-)
-from datahub.metadata.schema_classes import (
-    DatasetUsageStatisticsClass,
-    GlobalTagsClass,
-)
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -26,6 +19,13 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowsightUrlBuilder,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.structured import (
+    StructuredPropertyDefinition,
+)
+from datahub.metadata.schema_classes import (
+    DatasetUsageStatisticsClass,
+    GlobalTagsClass,
 )
 from tests.unit.snowflake.conftest_marketplace import (  # type: ignore[import-untyped]
     FakeNativeConn as _FakeNativeConn,

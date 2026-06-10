@@ -2,10 +2,6 @@ from typing import Any, Dict, List, Set, Tuple, Union
 from unittest.mock import MagicMock
 
 import pytest
-from datahub.metadata.schema_classes import (
-    DataHubIngestionSourceInfoClass,
-    ExecutionRequestInputClass,
-)
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.sink import Sink
@@ -14,6 +10,10 @@ from datahub.ingestion.reporting.datahub_ingestion_run_summary_provider import (
     DatahubIngestionRunSummaryProviderConfig,
 )
 from datahub.ingestion.run.pipeline_config import PipelineConfig
+from datahub.metadata.schema_classes import (
+    DataHubIngestionSourceInfoClass,
+    ExecutionRequestInputClass,
+)
 
 
 @pytest.mark.parametrize(

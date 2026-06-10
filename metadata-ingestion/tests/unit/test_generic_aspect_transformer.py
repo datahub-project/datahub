@@ -2,6 +2,12 @@ import json
 import unittest
 from typing import Any, List, Optional
 
+from datahub.emitter.aspect import JSON_CONTENT_TYPE
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
+from datahub.ingestion.transformer.generic_aspect_transformer import (
+    GenericAspectTransformer,
+)
 from datahub.metadata.schema_classes import (
     DataJobSnapshotClass,
     DatasetSnapshotClass,
@@ -9,13 +15,6 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     StatusClass,
-)
-
-from datahub.emitter.aspect import JSON_CONTENT_TYPE
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
-from datahub.ingestion.transformer.generic_aspect_transformer import (
-    GenericAspectTransformer,
 )
 from datahub.utilities.urns.urn import Urn
 

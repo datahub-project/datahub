@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Tuple
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.cassandra.cassandra import CassandraToSchemaFieldConverter
@@ -18,6 +17,7 @@ from datahub.ingestion.source.cassandra.cassandra_api import (
 from datahub.ingestion.source.cassandra.cassandra_config import (
     CassandraSourceConfig,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 logger = logging.getLogger(__name__)
 

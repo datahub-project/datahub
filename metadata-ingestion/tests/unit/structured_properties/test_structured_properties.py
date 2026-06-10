@@ -3,11 +3,6 @@ from unittest.mock import Mock
 
 import pytest
 import yaml
-from datahub.metadata.schema_classes import (
-    GenericAspectClass,
-    PropertyValueClass,
-    StructuredPropertyDefinitionClass,
-)
 
 from datahub.api.entities.structuredproperties.structuredproperties import (
     AllowedValue,
@@ -15,6 +10,11 @@ from datahub.api.entities.structuredproperties.structuredproperties import (
     TypeQualifierAllowedTypes,
 )
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import (
+    GenericAspectClass,
+    PropertyValueClass,
+    StructuredPropertyDefinitionClass,
+)
 from datahub.specific.structured_property import StructuredPropertyPatchBuilder
 
 

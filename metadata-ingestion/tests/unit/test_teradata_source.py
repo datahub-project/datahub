@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datahub.metadata.urns import CorpUserUrn
 from pydantic import ValidationError
 from sqlalchemy.exc import (
     DatabaseError,
@@ -38,6 +37,7 @@ from datahub.ingestion.source.sql.teradata import (
     optimized_get_columns,
     optimized_get_view_definition,
 )
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 
 

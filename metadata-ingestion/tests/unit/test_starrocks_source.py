@@ -2,7 +2,6 @@ from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datahub.metadata.schema_classes import ContainerClass, ContainerPropertiesClass
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -11,6 +10,7 @@ from datahub.ingestion.source.sql.starrocks import (
     StarRocksConfig,
     StarRocksSource,
 )
+from datahub.metadata.schema_classes import ContainerClass, ContainerPropertiesClass
 
 
 def _base_config() -> Dict[str, Any]:

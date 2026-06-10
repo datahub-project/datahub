@@ -9,8 +9,6 @@ from datahub.ingestion.api.common import PipelineContext
 
 if TYPE_CHECKING:
     from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.schema_classes import SemanticContentClass
-
 from datahub.ingestion.source.unstructured.chunking_config import (
     ChunkingConfig,
     DocumentChunkingSourceConfig,
@@ -22,6 +20,7 @@ from datahub.ingestion.source.unstructured.chunking_source import (
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingResult,
 )
+from datahub.metadata.schema_classes import SemanticContentClass
 
 
 def _semantic_embeddings(workunit: "MetadataWorkUnit") -> dict:

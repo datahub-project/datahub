@@ -16,21 +16,10 @@ from typing import (
 from unittest import mock
 from uuid import uuid4
 
-import datahub.metadata.schema_classes as models
 import pytest
-from datahub.metadata.schema_classes import (
-    BrowsePathsClass,
-    DatasetPropertiesClass,
-    DatasetUserUsageCountsClass,
-    GlobalTagsClass,
-    MetadataChangeEventClass,
-    OwnershipClass,
-    OwnershipTypeClass,
-    StatusClass,
-    TagAssociationClass,
-)
 
 import datahub.emitter.mce_builder as builder
+import datahub.metadata.schema_classes as models
 from datahub.configuration.common import TransformerSemantics
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api import workunit
@@ -107,6 +96,17 @@ from datahub.ingestion.transformer.replace_external_url import (
     ReplaceExternalUrlDataset,
 )
 from datahub.ingestion.transformer.tags_to_terms import TagsToTermMapper
+from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
+    DatasetPropertiesClass,
+    DatasetUserUsageCountsClass,
+    GlobalTagsClass,
+    MetadataChangeEventClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+    StatusClass,
+    TagAssociationClass,
+)
 from datahub.testing import mce_helpers
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 

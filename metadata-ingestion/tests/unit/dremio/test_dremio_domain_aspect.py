@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-from datahub.metadata.schema_classes import DomainsClass
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.dremio.dremio_aspects import DremioAspects
@@ -13,6 +12,7 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioDatasetType,
     DremioSpace,
 )
+from datahub.metadata.schema_classes import DomainsClass
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 

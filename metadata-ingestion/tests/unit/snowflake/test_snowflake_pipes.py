@@ -2,12 +2,6 @@ from datetime import datetime
 from typing import Dict, List
 from unittest.mock import MagicMock
 
-from datahub.metadata.schema_classes import (
-    DataJobInfoClass,
-    DataJobInputOutputClass,
-    SubTypesClass,
-)
-
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_pipes import (
@@ -27,6 +21,11 @@ from datahub.ingestion.source.snowflake.snowflake_stages import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
+)
+from datahub.metadata.schema_classes import (
+    DataJobInfoClass,
+    DataJobInputOutputClass,
+    SubTypesClass,
 )
 
 # --- parse_copy_into tests ---

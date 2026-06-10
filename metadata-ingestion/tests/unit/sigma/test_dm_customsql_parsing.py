@@ -5,16 +5,6 @@ from contextlib import contextmanager
 from typing import Dict, Generator, cast
 from unittest.mock import patch
 
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    DatasetLineageType,
-    FineGrainedLineageClass,
-    FineGrainedLineageDownstreamTypeClass,
-    FineGrainedLineageUpstreamTypeClass,
-    Upstream,
-    UpstreamLineage,
-)
-from datahub.metadata.urns import SchemaFieldUrn
-
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -30,6 +20,15 @@ from datahub.ingestion.source.sigma.data_classes import (
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetLineageType,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    Upstream,
+    UpstreamLineage,
+)
+from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 

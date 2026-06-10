@@ -5,12 +5,6 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
-from datahub.metadata.schema_classes import (
-    DatasetLineageTypeClass,
-    DatasetPropertiesClass,
-    UpstreamClass,
-    UpstreamLineageClass,
-)
 from tableauserverclient import Server
 
 from datahub.ingestion.api.common import PipelineContext
@@ -29,6 +23,12 @@ from datahub.ingestion.source.tableau.tableau_initial_sql import (
     extract_initial_sql_by_datasource,
     extract_initial_sql_connections,
     extract_tds_bytes,
+)
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    DatasetPropertiesClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 

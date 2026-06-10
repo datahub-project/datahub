@@ -2,7 +2,6 @@ from unittest.mock import MagicMock, patch
 
 import deepdiff
 import pytest
-from datahub.metadata.schema_classes import SubTypesClass, ViewPropertiesClass
 from sqlalchemy import types as sqlalchemy_types
 
 from datahub.ingestion.api.common import PipelineContext
@@ -15,6 +14,7 @@ from datahub.ingestion.source.sql.hive.hive_source import (
 from datahub.ingestion.source.sql.hive.storage_lineage import (
     HiveStorageLineageConfigMixin,
 )
+from datahub.metadata.schema_classes import SubTypesClass, ViewPropertiesClass
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 
 

@@ -1,18 +1,17 @@
 from unittest.mock import MagicMock
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
+from datahub.ingestion.workunit_processors.validate_input_fields import (
+    ValidateInputFieldsProcessor,
+)
 from datahub.metadata.schema_classes import (
     InputFieldClass,
     InputFieldsClass,
     NumberTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
-)
-
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
-from datahub.ingestion.workunit_processors.validate_input_fields import (
-    ValidateInputFieldsProcessor,
 )
 
 DUMMY_CHART_URN = "urn:li:chart:(grafana,dashboard.123)"

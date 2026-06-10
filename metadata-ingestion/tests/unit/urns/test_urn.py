@@ -3,6 +3,8 @@ import pathlib
 from typing import List
 
 import pytest
+
+import datahub.utilities.urns._urn_base
 from datahub.metadata.urns import (
     CorpUserUrn,
     DataPlatformUrn,
@@ -11,8 +13,6 @@ from datahub.metadata.urns import (
     TagUrn,
     Urn,
 )
-
-import datahub.utilities.urns._urn_base
 from datahub.testing.doctest import assert_doctest
 from datahub.utilities.urns.error import InvalidUrnError
 

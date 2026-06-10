@@ -6,6 +6,10 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import RecordEnvelope
+from datahub.ingestion.sink.datahub_pg_queue import DatahubPgQueueSink
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -13,10 +17,6 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
     StatusClass,
 )
-
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import RecordEnvelope
-from datahub.ingestion.sink.datahub_pg_queue import DatahubPgQueueSink
 
 
 @pytest.fixture()
