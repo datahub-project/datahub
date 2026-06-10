@@ -433,16 +433,16 @@ def test_ensure_size_of_too_big_dataset_profile(processor):
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
 )
 def test_wu_processor_triggered_by_data_profile_aspect(
     ensure_dataset_profile_size_mock, ensure_schema_metadata_size_mock, processor
 ):
     ret = [  # noqa: F841
-        *processor.ensure_aspect_size(
+        *processor.process(
             [
                 MetadataChangeProposalWrapper(
                     entityUrn="urn:li:dataset:(urn:li:dataPlatform:s3, dummy_name, DEV)",
@@ -457,10 +457,10 @@ def test_wu_processor_triggered_by_data_profile_aspect(
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
 )
 def test_wu_processor_triggered_by_data_profile_aspect_mcpc(
     ensure_dataset_profile_size_mock, ensure_schema_metadata_size_mock, processor
@@ -479,17 +479,17 @@ def test_wu_processor_triggered_by_data_profile_aspect_mcpc(
             ),
         ),
     )
-    ret = [*processor.ensure_aspect_size([mcpc])]  # noqa: F841
+    ret = [*processor.process([mcpc])]  # noqa: F841
     ensure_dataset_profile_size_mock.assert_called_once()
     ensure_schema_metadata_size_mock.assert_not_called()
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
 )
 def test_wu_processor_triggered_by_data_profile_aspect_mce(
     ensure_dataset_profile_size_mock, ensure_schema_metadata_size_mock, processor
@@ -501,23 +501,23 @@ def test_wu_processor_triggered_by_data_profile_aspect_mce(
     mce = MetadataWorkUnit(
         id="test", mce=MetadataChangeEvent(proposedSnapshot=snapshot)
     )
-    ret = [*processor.ensure_aspect_size([mce])]  # noqa: F841
+    ret = [*processor.process([mce])]  # noqa: F841
     ensure_schema_metadata_size_mock.assert_called_once()
     ensure_dataset_profile_size_mock.assert_not_called()
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
 )
 def test_wu_processor_triggered_by_schema_metadata_aspect(
     ensure_dataset_profile_size_mock, ensure_schema_metadata_size_mock, processor
 ):
     ret = [  # noqa: F841
-        *processor.ensure_aspect_size(
+        *processor.process(
             [
                 MetadataChangeProposalWrapper(
                     entityUrn="urn:li:dataset:(urn:li:dataPlatform:s3, dummy_name, DEV)",
@@ -532,16 +532,16 @@ def test_wu_processor_triggered_by_schema_metadata_aspect(
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
 )
 def test_wu_processor_not_triggered_by_unhandled_aspects(
     ensure_dataset_profile_size_mock, ensure_schema_metadata_size_mock, processor
 ):
     ret = [  # noqa: F841
-        *processor.ensure_aspect_size(
+        *processor.process(
             [
                 MetadataChangeProposalWrapper(
                     entityUrn="urn:li:dataset:(urn:li:dataPlatform:s3, dummy_name, DEV)",
@@ -614,13 +614,13 @@ def test_ensure_size_of_too_big_query_subjects(processor):
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_query_subjects_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_query_subjects_size"
 )
 def test_wu_processor_triggered_by_query_subjects_aspect(
     ensure_query_subjects_size_mock, processor
 ):
     ret = [  # noqa: F841
-        *processor.ensure_aspect_size(
+        *processor.process(
             [
                 MetadataChangeProposalWrapper(
                     entityUrn="urn:li:query:(urn:li:dataPlatform:hive, dummy_query, DEV)",
@@ -718,13 +718,13 @@ def test_ensure_size_of_too_big_upstream_lineage(processor):
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_upstream_lineage_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_upstream_lineage_size"
 )
 def test_wu_processor_triggered_by_upstream_lineage_aspect(
     ensure_upstream_lineage_size_mock, processor
 ):
     ret = [  # noqa: F841
-        *processor.ensure_aspect_size(
+        *processor.process(
             [
                 MetadataChangeProposalWrapper(
                     entityUrn="urn:li:dataset:(urn:li:dataPlatform:hive, dummy_dataset, DEV)",
@@ -749,7 +749,7 @@ def test_ensure_size_of_proper_query_properties(processor):
 
     # Statement should remain unchanged for properly sized query properties
     assert query_properties.statement.value == original_statement
-    assert len(processor.report.warnings) == 0
+    assert len(processor.ctx.source_report.warnings) == 0
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
@@ -786,18 +786,18 @@ def test_ensure_size_of_too_big_query_properties(processor):
     )
 
     # Should have logged a warning
-    assert len(processor.report.warnings) == 1
+    assert len(processor.ctx.source_report.warnings) == 1
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_query_properties_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_query_properties_size"
 )
 def test_wu_processor_triggered_by_query_properties_aspect(
     ensure_query_properties_size_mock, processor
 ):
     list(
-        processor.ensure_aspect_size(
+        processor.process(
             [
                 MetadataChangeProposalWrapper(
                     entityUrn="urn:li:query:test",
@@ -871,7 +871,7 @@ def test_ensure_size_of_proper_view_properties(processor):
     assert orig_repr == json.dumps(view_properties.to_obj()), (
         "Aspect was modified in case where workunit processor should have been no-op"
     )
-    assert len(processor.report.warnings) == 0
+    assert len(processor.ctx.source_report.warnings) == 0
 
 
 def test_ensure_size_of_too_big_view_properties(processor):
@@ -904,7 +904,7 @@ def test_ensure_size_of_too_big_view_properties(processor):
     )
 
     # Should have logged a warning
-    assert len(processor.report.warnings) >= 1
+    assert len(processor.ctx.source_report.warnings) >= 1
 
 
 def test_ensure_size_truncates_formatted_first(processor):
@@ -967,10 +967,10 @@ def test_ensure_size_of_view_properties_viewlogic_only(processor):
 
 
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_view_properties_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_view_properties_size"
 )
 def test_mce_workunit_checks_all_aspects_not_just_first_elif_regression(
     ensure_view_properties_size_mock, ensure_schema_metadata_size_mock, processor
@@ -991,7 +991,7 @@ def test_mce_workunit_checks_all_aspects_not_just_first_elif_regression(
         id="test", mce=MetadataChangeEvent(proposedSnapshot=snapshot)
     )
 
-    list(processor.ensure_aspect_size([mce]))
+    list(processor.process([mce]))
 
     # CRITICAL: Both handlers should be called, not just the first one
     ensure_schema_metadata_size_mock.assert_called_once()

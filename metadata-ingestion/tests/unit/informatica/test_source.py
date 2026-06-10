@@ -27,7 +27,9 @@ from datahub.ingestion.source.informatica.source import (
     InformaticaSource,
     OrchestrateState,
 )
-from datahub.ingestion.source.state import stale_entity_removal_handler
+from datahub.ingestion.workunit_processors.stale_entity_removal import (
+    StaleEntityRemovalProcessor,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DataJobInputOutputClass,
@@ -1470,24 +1472,18 @@ class TestTaskflowStepEmission:
 
 class TestSourceLifecycle:
     def test_stale_entity_removal_handler_registered(self):
-        # Stateful ingestion hinges on StaleEntityRemovalHandler being in the
-        # workunit processor chain. Verify the returned workunit_processor is
-        # actually registered — a refactor that calls ``create`` but drops the
-        # result would silently leave deleted IDMC entities live in DataHub.
-        sentinel = object()
-        fake_handler = MagicMock()
-        fake_handler.workunit_processor = sentinel
-
-        source = _make_source()
-        with patch.object(
-            stale_entity_removal_handler.StaleEntityRemovalHandler,
-            "create",
-            return_value=fake_handler,
-        ) as create_mock:
-            processors = source.get_workunit_processors()
-        create_mock.assert_called_once()
-        assert sentinel in processors, (
-            "StaleEntityRemovalHandler.workunit_processor must be in the "
+        # Stateful ingestion hinges on StaleEntityRemovalProcessor being in the
+        # workunit processor chain when remove_stale_metadata is enabled.
+        source = _make_source(
+            stateful_ingestion={"enabled": True, "remove_stale_metadata": True}
+        )
+        processors = source.get_workunit_processors()
+        assert any(
+            isinstance(getattr(p, "__self__", None), StaleEntityRemovalProcessor)
+            for p in processors
+            if p
+        ), (
+            "StaleEntityRemovalProcessor must be in the "
             "processor chain returned by get_workunit_processors()"
         )
 

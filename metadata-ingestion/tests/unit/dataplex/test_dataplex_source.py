@@ -205,27 +205,17 @@ def test_get_report_returns_source_report_instance() -> None:
 
 
 def test_get_workunit_processors_includes_stale_entity_processor() -> None:
-    source = object.__new__(DataplexSource)
-    source.config = Mock()
-    source.ctx = Mock()
+    # DataplexSource no longer overrides get_workunit_processors() — stale entity
+    # removal is wired up automatically by the base class when stateful ingestion
+    # is enabled. Verify the base class is what gets called (no override present).
+    from datahub.ingestion.source.state.stateful_ingestion_base import (
+        StatefulIngestionSourceBase,
+    )
 
-    stale_processor = Mock()
-    stale_handler = Mock()
-    stale_handler.workunit_processor = stale_processor
-
-    with (
-        patch(
-            "datahub.ingestion.source.dataplex.dataplex.StatefulIngestionSourceBase.get_workunit_processors",
-            return_value=[None],
-        ),
-        patch(
-            "datahub.ingestion.source.dataplex.dataplex.StaleEntityRemovalHandler.create",
-            return_value=stale_handler,
-        ),
-    ):
-        processors = source.get_workunit_processors()
-
-    assert processors == [None, stale_processor]
+    assert "get_workunit_processors" not in DataplexSource.__dict__, (
+        "DataplexSource should not override get_workunit_processors(); "
+        "the base class handles stale entity removal automatically."
+    )
 
 
 def test_get_workunits_internal_iterates_all_projects() -> None:

@@ -10,8 +10,8 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
 from datahub.ingestion.source.notion.notion_report import NotionSourceReport
 from datahub.ingestion.source.notion.notion_source import NotionSource
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
+from datahub.ingestion.workunit_processors.stale_entity_removal import (
+    StaleEntityRemovalProcessor,
 )
 
 
@@ -319,12 +319,28 @@ def test_should_skip_file_text_long_enough():
 # Stateful Ingestion Tests
 
 
-def test_stateful_ingestion_handler_initialized(notion_source):
-    """Verify that StaleEntityRemovalHandler is initialized."""
-    assert hasattr(notion_source, "stale_entity_removal_handler")
-    assert isinstance(
-        notion_source.stale_entity_removal_handler, StaleEntityRemovalHandler
+def test_stateful_ingestion_processor_wired_up():
+    """Verify that StaleEntityRemovalProcessor is in the workunit processor chain."""
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+        stateful_ingestion={"enabled": True, "remove_stale_metadata": True},
     )
+    ctx = PipelineContext(run_id="test_run")
+    source = NotionSource(config=config, ctx=ctx)
+
+    processors = source.get_workunit_processors()
+    assert any(
+        isinstance(getattr(p, "__self__", None), StaleEntityRemovalProcessor)
+        for p in processors
+        if p
+    ), "StaleEntityRemovalProcessor must be in the workunit processor chain"
 
 
 def test_report_is_notion_source_report(notion_source):

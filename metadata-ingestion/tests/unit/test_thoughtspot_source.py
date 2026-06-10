@@ -35,6 +35,9 @@ from datahub.ingestion.source.state.entity_removal_state import GenericCheckpoin
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
+from datahub.ingestion.workunit_processors.stale_entity_removal import (
+    StaleEntityRemovalProcessor,
+)
 from datahub.ingestion.source.thoughtspot.client import (
     _KEY_BUILDERS,
     _MAX_REAUTH_ATTEMPTS,
@@ -5370,20 +5373,19 @@ class TestStatefulStaleRemovalIntegration:
         source = ThoughtSpotSource(config, ctx)
 
         processors = source.get_workunit_processors()
-        # The handler comes through as functools.partial(auto_stale_entity_removal,
-        # <StaleEntityRemovalHandler>) — we check both partial.args and
-        # __self__ to stay robust against the SDK's wrapping style.
-
-        def _references_stale_handler(p: object) -> bool:
-            if isinstance(getattr(p, "__self__", None), StaleEntityRemovalHandler):
+        # The processor comes through as a bound method of StaleEntityRemovalProcessor,
+        # which wraps the StaleEntityRemovalHandler internally.
+        def _references_stale_processor(p: object) -> bool:
+            self_obj = getattr(p, "__self__", None)
+            if isinstance(self_obj, (StaleEntityRemovalHandler, StaleEntityRemovalProcessor)):
                 return True
             for arg in getattr(p, "args", ()):
-                if isinstance(arg, StaleEntityRemovalHandler):
+                if isinstance(arg, (StaleEntityRemovalHandler, StaleEntityRemovalProcessor)):
                     return True
             return False
 
-        assert any(_references_stale_handler(p) for p in processors if p), (
-            "No StaleEntityRemovalHandler workunit processor registered — "
+        assert any(_references_stale_processor(p) for p in processors if p), (
+            "No StaleEntityRemovalProcessor workunit processor registered — "
             "entities that disappear between runs will not be soft-deleted."
         )
 
