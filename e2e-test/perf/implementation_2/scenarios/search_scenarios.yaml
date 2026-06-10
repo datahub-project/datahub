@@ -1,0 +1,98 @@
+# Grasshopper scenario definitions for DataHub search load tests.
+#
+# Run a specific scenario:
+#   pytest implementation_2/tests/ \
+#       --scenario_file=implementation_2/scenarios/search_scenarios.yaml \
+#       --scenario_name=search_smoke \
+#       -H http://localhost:8080
+#
+# Run all scenarios tagged "smoke":
+#   pytest implementation_2/tests/ \
+#       --scenario_file=implementation_2/scenarios/search_scenarios.yaml \
+#       --tags=smoke \
+#       -H http://localhost:8080
+#
+# With InfluxDB metrics export:
+#   pytest implementation_2/tests/ \
+#       --scenario_file=implementation_2/scenarios/search_scenarios.yaml \
+#       --scenario_name=search_ramp \
+#       -H http://localhost:8080 \
+#       --influx_host=localhost
+
+grasshopper:
+  influx_host: ""          # Override via --influx_host=<host> or INFLUX_HOST env var
+  influx_port: 8086
+  influx_ssl: false
+
+scenarios:
+  - name: search_smoke
+    tags: [smoke, search]
+    test_run:
+      users: 5
+      spawn_rate: 1
+      runtime: 60
+    scenario:
+      gms_token: ""          # Override via DATAHUB_GMS_TOKEN env var
+      entity_types: DATASET
+      thresholds:
+        "graphql/searchAcrossEntities [keyword]":
+          type: post
+          limit: 1000
+        "graphql/searchAcrossEntities [typed]":
+          type: post
+          limit: 1500
+        "graphql/searchAcrossEntities [with-facets]":
+          type: post
+          limit: 3000
+        "graphql/autoCompleteForMultiple":
+          type: post
+          limit: 500
+        search_flow:
+          type: custom
+          limit: 5000
+
+  - name: search_ramp
+    tags: [ramp, search]
+    test_run:
+      users: 200
+      spawn_rate: 10
+      runtime: 600
+    scenario:
+      gms_token: ""
+      entity_types: DATASET
+      thresholds:
+        "graphql/searchAcrossEntities [keyword]":
+          type: post
+          limit: 2000
+        "graphql/searchAcrossEntities [typed]":
+          type: post
+          limit: 3000
+        "graphql/searchAcrossEntities [with-facets]":
+          type: post
+          limit: 5000
+        "graphql/autoCompleteForMultiple":
+          type: post
+          limit: 1000
+        search_flow:
+          type: custom
+          limit: 10000
+
+  - name: search_stress
+    tags: [stress, search]
+    test_run:
+      users: 500
+      spawn_rate: 25
+      runtime: 1200
+    scenario:
+      gms_token: ""
+      entity_types: DATASET
+      thresholds:
+        "graphql/searchAcrossEntities [keyword]":
+          type: post
+          limit: 5000
+        "graphql/searchAcrossEntities [with-facets]":
+          type: post
+          limit: 10000
+        search_flow:
+          type: custom
+          limit: 20000

@@ -1,0 +1,3 @@
+locust
+locust-plugins
+-e ../../../metadata-ingestion[datahub-rest,datahub-kafka]
