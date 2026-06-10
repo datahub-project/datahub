@@ -48,3 +48,33 @@ def test_inflight_sql_disabled_by_default(
     # No-op (no error) when the env var is unset.
     monkeypatch.delenv("DATAHUB_SQL_PARSE_INFLIGHT_LOG_FILE", raising=False)
     parse_statement("SELECT 1", dialect=_SNOWFLAKE)
+
+
+def test_optimize_inputs_dumped_for_replay(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # To turn a state-dependent native optimizer crash into a replayable
+    # reproducer, capture the exact inputs to the column-lineage optimize() call
+    # (post-qualify SQL + schema mapping + dialect + rules) crash-safely.
+    import json
+
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
+    from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+
+    dump = tmp_path / "optimize.json"
+    monkeypatch.setenv("DATAHUB_SQL_PARSE_OPTIMIZE_DUMP_FILE", str(dump))
+
+    sr = SchemaResolver(platform="snowflake")
+    sqlglot_lineage(
+        "SELECT a, b FROM db.s.t",
+        schema_resolver=sr,
+        default_db="db",
+        default_schema="s",
+    )
+
+    assert dump.exists()
+    payload = json.loads(dump.read_text())
+    assert payload["sql"]
+    assert payload["dialect"] == "snowflake"
+    assert "schema_mapping" in payload
+    assert isinstance(payload["rules"], list) and payload["rules"]

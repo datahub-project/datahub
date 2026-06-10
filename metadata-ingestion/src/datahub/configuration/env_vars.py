@@ -285,6 +285,19 @@ def get_sql_parse_inflight_log_file() -> Optional[str]:
     return os.getenv("DATAHUB_SQL_PARSE_INFLIGHT_LOG_FILE") or None
 
 
+def get_sql_parse_optimize_dump_file() -> Optional[str]:
+    """Path to dump the exact inputs of the column-lineage optimize() call.
+
+    When the optimizer crashes the process with a native SIGSEGV, the input SQL
+    alone may not reproduce it (the fault can be process-state dependent). When
+    this is set, the post-qualify SQL, schema mapping, dialect, and optimizer
+    rules passed to optimize() are written (JSON, flushed) before each call, so
+    after a crash the file holds a replayable reproducer of the exact inputs.
+    Disabled (None) by default; debugging-only, as it dumps per CLL statement.
+    """
+    return os.getenv("DATAHUB_SQL_PARSE_OPTIMIZE_DUMP_FILE") or None
+
+
 def get_dataset_urn_to_lower() -> str:
     """Convert dataset URNs to lowercase."""
     return os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")
