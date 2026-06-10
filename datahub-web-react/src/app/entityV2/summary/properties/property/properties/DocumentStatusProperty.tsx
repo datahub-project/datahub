@@ -1,5 +1,7 @@
 import { Text, Tooltip } from '@components';
+import i18next from 'i18next';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
@@ -15,16 +17,21 @@ const StatusSelectWrapper = styled.div``;
 
 const statusOptions = [
     {
-        label: 'Published',
+        get label() {
+            return i18next.t('entity.profile.summary:documentStatus.published');
+        },
         value: DocumentState.Published,
     },
     {
-        label: 'Draft',
+        get label() {
+            return i18next.t('entity.profile.summary:documentStatus.draft');
+        },
         value: DocumentState.Unpublished,
     },
 ];
 
 export default function DocumentStatusProperty(props: PropertyComponentProps) {
+    const { t } = useTranslation('entity.profile.summary');
     const { urn, entityData } = useEntityData();
     const document = entityData as Document;
     const refetch = useRefetch();
@@ -69,7 +76,7 @@ export default function DocumentStatusProperty(props: PropertyComponentProps) {
 
         return (
             <StatusSelectWrapper>
-                <Tooltip title={<>Publish this document to make it visible to others</>} placement="top">
+                <Tooltip title={t('documentStatus.publishTooltip')} placement="top">
                     <div data-testid="document-status-select">
                         <SimpleSelect
                             values={[optimisticStatus]}

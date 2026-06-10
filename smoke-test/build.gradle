@@ -1,4 +1,5 @@
 apply plugin: 'com.github.node-gradle.node'
+apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
 
 ext {
   python_executable = 'python3'
@@ -16,10 +17,10 @@ node {
   }
 
   // Version of node to use.
-  version = '22.12.0'
+  version = rootProject.ext.nodeVersion
 
   // Version of Yarn to use.
-  yarnVersion = '1.22.22'
+  yarnVersion = rootProject.ext.yarnVersion
 
   distBaseUrl = gradle.ext['datahub.dependencies.node.distBaseUrl']
 

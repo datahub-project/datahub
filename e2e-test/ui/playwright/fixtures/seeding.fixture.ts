@@ -50,7 +50,13 @@ import { readGmsToken, gmsTokenPath } from './login';
 import type { UserCredentials } from '../data/users';
 import { LoginPage } from '../pages/login.page';
 import { gmsUrl } from '../utils/constants';
-import { extractUrn, extractComplexAspects, ingestComplexAspects, type Mcp } from '../helpers/seeder-utils';
+import {
+  extractUrn,
+  normalizeMcp,
+  extractComplexAspects,
+  ingestComplexAspects,
+  type Mcp,
+} from '../helpers/seeder-utils';
 import { createLogger, type DataHubLogger } from '../utils/logger';
 
 // ── GMS token bootstrap ───────────────────────────────────────────────────────
@@ -206,15 +212,19 @@ async function ingestMcps(
         continue;
       }
 
+      // Normalise the MCP: strip explicit nulls (RestLi rejects null for optional fields)
+      // and convert "aspect.json: {...}" shorthand to the required GenericAspect format.
+      const normalized = normalizeMcp(mcp);
+
       // Legacy snapshot format uses /entities?action=ingest;
       // new MCP format (with entityUrn but no proposedSnapshot) uses /aspects?action=ingestProposal.
-      const response = mcp.proposedSnapshot
+      const response = normalized.proposedSnapshot
         ? await apiContext.post(`${gmsBaseUrl}/entities?action=ingest`, {
-            data: { entity: { value: mcp.proposedSnapshot } },
+            data: { entity: { value: normalized.proposedSnapshot } },
             failOnStatusCode: false,
           })
         : await apiContext.post(`${gmsBaseUrl}/aspects?action=ingestProposal`, {
-            data: { proposal: mcp },
+            data: { proposal: normalized },
             failOnStatusCode: false,
           });
 
@@ -263,7 +273,7 @@ async function ingestMcps(
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
   // ── Option: injectable feature name (worker-scoped) ───────────────────────
   featureName: [null, { option: true, scope: 'worker' }],

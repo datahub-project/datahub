@@ -1,12 +1,14 @@
 import json
 import logging
 import re
+import tempfile
 import time
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
+from pathlib import Path
 from typing import (
     Any,
     Callable,
@@ -15,6 +17,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Sequence,
     Set,
     Tuple,
     Type,
@@ -25,7 +28,7 @@ from urllib.parse import quote, urlparse
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
-from pydantic import field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 from tableauserverclient import (
@@ -96,10 +99,13 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau_common import (
     FIELD_TYPE_MAPPING,
+    DatasourceType,
+    LineageResult,
     MetadataQueryException,
     TableauLineageOverrides,
     TableauUpstreamReference,
     clean_query,
+    clean_table_name,
     custom_sql_graphql_query,
     dashboard_graphql_query,
     database_servers_graphql_query,
@@ -107,7 +113,9 @@ from datahub.ingestion.source.tableau.tableau_common import (
     datasource_upstream_fields_graphql_query,
     embedded_datasource_graphql_query,
     get_filter_pages,
+    get_fully_qualified_table_name,
     get_overridden_info,
+    get_platform,
     get_unique_custom_sql,
     make_filter,
     make_fine_grained_lineage_class,
@@ -119,8 +127,18 @@ from datahub.ingestion.source.tableau.tableau_common import (
     tableau_field_to_schema_field,
     workbook_graphql_query,
 )
+from datahub.ingestion.source.tableau.tableau_initial_sql import (
+    InitialSqlConnection,
+    extract_definition_bytes,
+    extract_initial_sql_by_datasource,
+    extract_initial_sql_connections,
+    extract_tds_bytes,
+)
 from datahub.ingestion.source.tableau.tableau_server_wrapper import UserInfo
 from datahub.ingestion.source.tableau.tableau_validation import check_user_role
+from datahub.ingestion.source.tableau.tableau_virtual_connections import (
+    VirtualConnectionProcessor,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -163,6 +181,8 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     ViewPropertiesClass,
 )
+from datahub.sql_parsing.split_statements import split_statements
+from datahub.sql_parsing.sql_parsing_common import get_dialect_str
 from datahub.sql_parsing.sql_parsing_result_utils import (
     transform_parsing_result_to_in_tables_schemas,
 )
@@ -202,6 +222,14 @@ RETRIABLE_ERROR_CODES = [
     503,  # Service Unavailable
     504,  # Gateway Timeout
 ]
+
+
+class UpstreamTablesResult(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    upstream_tables: List[Upstream]
+    table_id_to_urn: Dict[str, str]
+
 
 # From experience, this expiry time typically ranges from 50 minutes
 # to 2 hours but might as well be configurable. We will allow upto
@@ -457,6 +485,15 @@ class TableauPageSizeConfig(ConfigModel):
     def effective_published_datasource_field_upstream_page_size(self) -> int:
         return self.published_datasource_field_upstream_page_size or self.page_size * 10
 
+    virtual_connection_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of virtual connections to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
+    )
+
+    @property
+    def effective_virtual_connection_page_size(self) -> int:
+        return self.virtual_connection_page_size or self.page_size
+
     custom_sql_table_page_size: Optional[int] = Field(
         default=None,
         description="[advanced] Number of custom sql datasources to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
@@ -541,6 +578,10 @@ class TableauConfig(
         default=False,
         description="Ingest details for tables external to (not embedded in) tableau as entities.",
     )
+    ingest_virtual_connections: bool = Field(
+        default=True,
+        description="Ingest details for virtual connections as entities.",
+    )
     emit_all_published_datasources: bool = Field(
         default=False,
         description="Ingest all published data sources. When False (default), only ingest published data sources that belong to an ingested workbook.",
@@ -602,6 +643,26 @@ class TableauConfig(
     force_extraction_of_lineage_from_custom_sql_queries: bool = Field(
         default=False,
         description="[Experimental] Force extraction of lineage from Custom SQL queries using DataHub's SQL parser, even when the Tableau Catalog API returns lineage already.",
+    )
+
+    ingest_initial_sql: bool = Field(
+        default=False,
+        description="[Experimental] When enabled, downloads published data sources and the "
+        "workbooks that contain embedded data sources to extract their Initial SQL and emit "
+        "lineage and/or a custom property from it. Disabled by default because the extra "
+        "downloads can be slow on large sites.",
+    )
+
+    initial_sql_as_lineage: bool = Field(
+        default=True,
+        description="When ingest_initial_sql is enabled, parse the Initial SQL with DataHub's "
+        "SQL parser and emit the referenced tables as upstream lineage of the data source.",
+    )
+
+    initial_sql_as_custom_property: bool = Field(
+        default=True,
+        description="When ingest_initial_sql is enabled, store the raw Initial SQL text as the "
+        "`initialSql` custom property on the data source dataset.",
     )
 
     sql_parsing_disable_schema_awareness: bool = Field(
@@ -704,6 +765,15 @@ class TableauConfig(
                 "use_email_as_username requires ingest_owner to be enabled."
             )
 
+        if self.ingest_initial_sql and not (
+            self.initial_sql_as_lineage or self.initial_sql_as_custom_property
+        ):
+            raise ValueError(
+                "ingest_initial_sql is enabled but both initial_sql_as_lineage and "
+                "initial_sql_as_custom_property are disabled. Enable at least one, or "
+                "disable ingest_initial_sql to avoid downloading every datasource for nothing."
+            )
+
         return self
 
 
@@ -722,6 +792,28 @@ class SiteKey(ContainerKey):
 @dataclass
 class UsageStat:
     view_count: int
+
+
+@dataclass(frozen=True)
+class InitialSqlLineage:
+    """Result of extracting a datasource's Initial SQL."""
+
+    upstreams: List[Upstream]
+    raw_sql: Optional[str]
+
+    @classmethod
+    def empty(cls) -> "InitialSqlLineage":
+        """The 'no Initial SQL' result (no upstreams, no raw SQL)."""
+        return cls(upstreams=[], raw_sql=None)
+
+
+@dataclass(frozen=True)
+class CustomSqlParseResult:
+    """A parsed custom SQL result plus the (possibly overridden) platform instance used
+    to build its upstream URNs -- needed to normalize those URNs instance-aware."""
+
+    result: "SqlParsingResult"
+    platform_instance: Optional[str]
 
 
 @dataclass
@@ -827,6 +919,12 @@ class TableauSourceReport(
     emit_upstream_tables_timer: Dict[str, float] = dataclass_field(
         default_factory=TopKDict
     )
+    virtual_connection_processing_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    emit_virtual_connections_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
     # lineage
     num_tables_with_upstream_lineage: int = 0
     num_upstream_table_lineage: int = 0
@@ -836,6 +934,15 @@ class TableauSourceReport(
     num_upstream_table_failed_generate_reference: int = 0
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
+    # initial sql
+    num_initial_sql_datasources_processed: int = 0
+    num_initial_sql_connections_found: int = 0
+    num_initial_sql_lineage_upstreams: int = 0
+    num_initial_sql_parse_failures: int = 0
+    num_initial_sql_download_failures: int = 0
+    # Download succeeded but the archive carried no .tds/.twb definition to parse.
+    num_initial_sql_definitions_missing: int = 0
+    num_initial_sql_embedded_datasources_unmatched: int = 0
     num_hidden_assets_skipped: int = 0
     logged_in_user: LossyList[UserInfo] = dataclass_field(default_factory=LossyList)
 
@@ -843,6 +950,13 @@ class TableauSourceReport(
 
     num_expected_tableau_metadata_queries: int = 0
     num_actual_tableau_metadata_queries: int = 0
+    num_virtual_connections_processed: int = 0
+    num_virtual_connections_table_references_found: int = 0
+    num_virtual_connections_lineages_created: int = 0
+    num_virtual_connections_lineage_parsing_errors: int = 0
+    num_virtual_connections_upstream_columns_malformed: int = 0
+    num_virtual_connections_tables_malformed: int = 0
+    num_virtual_connections_fields_skipped_invalid: int = 0
     tableau_server_error_stats: Dict[str, int] = dataclass_field(
         default_factory=(lambda: defaultdict(int))
     )
@@ -1081,6 +1195,8 @@ class TableauSiteSource:
         self.ctx: PipelineContext = ctx
         self.platform = platform
 
+        self.vc_processor: VirtualConnectionProcessor = VirtualConnectionProcessor(self)
+
         self.site: Optional[SiteItem] = None
         if isinstance(site, SiteItem):
             self.site = site
@@ -1099,6 +1215,7 @@ class TableauSiteSource:
         self.tableau_project_registry: Dict[str, TableauProject] = {}
         self.workbook_project_map: Dict[str, str] = {}
         self.datasource_project_map: Dict[str, str] = {}
+        self.db_tables_lookup: Dict[str, dict] = {}
 
         self.group_map: Dict[str, GroupItem] = {}
 
@@ -1113,6 +1230,12 @@ class TableauSiteSource:
         # This list keeps track of embedded datasources in workbooks so that we retrieve those
         # when emitting embedded data sources.
         self.embedded_datasource_ids_being_used: List[str] = []
+        # Initial SQL for embedded datasources lives in the parent workbook's .twb.
+        # Cache the parsed {caption -> [InitialSqlConnection]} map per workbook luid so
+        # we download each workbook at most once (None = download/parse failed).
+        self._workbook_initial_sql_cache: Dict[
+            str, Optional[Dict[str, List[InitialSqlConnection]]]
+        ] = {}
         # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
         # when emitting published data sources.
         self.datasource_ids_being_used: List[str] = []
@@ -1775,7 +1898,7 @@ class TableauSiteSource:
         datasource: dict,
         browse_path: Optional[str],
         is_embedded_ds: bool = False,
-    ) -> Tuple[List[Upstream], List[FineGrainedLineage]]:
+    ) -> LineageResult:
         upstream_tables: List[Upstream] = []
         fine_grained_lineages: List[FineGrainedLineage] = []
         table_id_to_urn = {}
@@ -1783,25 +1906,37 @@ class TableauSiteSource:
         upstream_datasources = self.get_upstream_datasources(datasource)
         upstream_tables.extend(upstream_datasources)
 
+        # Check if this datasource uses Virtual Connection tables first
+        datasource_id = datasource.get(c.ID)
+        vc_upstreams: List[Upstream] = []
+        if datasource_id and self.config.ingest_virtual_connections:
+            vc_result = self.get_upstream_vc_tables(datasource_id)
+            vc_upstreams = vc_result.upstream_tables
+
         # When tableau workbook connects to published datasource, it creates an embedded
         # datasource inside workbook that connects to published datasource. Both embedded
         # and published datasource have same upstreamTables in this case.
-        if upstream_tables and is_embedded_ds:
+        # However, if the embedded datasource has VC references, we should use those instead.
+        if upstream_tables and is_embedded_ds and not vc_upstreams:
             logger.debug(
-                f"Embedded datasource {datasource.get(c.ID)} has upstreamDatasources.\
-                Setting only upstreamDatasources lineage. The upstreamTables lineage \
-                    will be set via upstream published datasource."
+                f"Embedded datasource {datasource.get(c.ID)} has upstreamDatasources; "
+                "skipping upstreamTables (will be set via published datasource)."
             )
         else:
-            # This adds an edge to upstream DatabaseTables using `upstreamTables`
-            upstreams, id_to_urn = self.get_upstream_tables(
-                datasource.get(c.UPSTREAM_TABLES, []),
-                datasource.get(c.NAME),
-                browse_path,
-                is_custom_sql=False,
-            )
-            upstream_tables.extend(upstreams)
-            table_id_to_urn.update(id_to_urn)
+            if vc_upstreams:
+                # VC table IDs are intentionally NOT added to table_id_to_urn here.
+                # Column-level lineage for VC→datasource is handled exclusively by
+                # create_datasource_vc_lineage to avoid duplicate CLL entries.
+                upstream_tables.extend(vc_upstreams)
+            else:
+                upstreams, id_to_urn = self.get_upstream_tables(
+                    datasource.get(c.UPSTREAM_TABLES, []),
+                    datasource.get(c.NAME),
+                    browse_path,
+                    is_custom_sql=False,
+                )
+                upstream_tables.extend(upstreams)
+                table_id_to_urn.update(id_to_urn)
 
             # This adds an edge to upstream CustomSQLTables using `fields`.`upstreamColumns`.`table`
             csql_upstreams, csql_id_to_urn = self.get_upstream_csql_tables(
@@ -1825,18 +1960,42 @@ class TableauSiteSource:
             # Tableau's metadata graphql API sometimes returns an empty list for upstreamTables
             # for embedded datasources. However, the upstreamColumns field often includes information.
             # This attempts to populate upstream table information from the upstreamColumns field.
-            table_id_to_urn = {
-                column[c.TABLE][c.ID]: builder.make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    column[c.TABLE][c.ID],
-                    self.config.platform_instance,
-                    self.config.env,
-                )
-                for field in datasource.get(c.FIELDS, [])
-                for column in field.get(c.UPSTREAM_COLUMNS, [])
-                if column.get(c.TABLE, {}).get(c.TYPE_NAME) == c.CUSTOM_SQL_TABLE
-                and column.get(c.TABLE, {}).get(c.ID)
-            }
+            # Build table_id_to_urn mapping for CustomSQL and VirtualConnection tables
+            table_id_to_urn = {}
+
+            # Handle CustomSQL tables
+            for field in datasource.get(c.FIELDS, []):
+                for column in field.get(c.UPSTREAM_COLUMNS, []):
+                    table = column.get(c.TABLE, {})
+                    table_type = table.get(c.TYPE_NAME)
+                    table_id = table.get(c.ID)
+
+                    if table_id and table_type == c.CUSTOM_SQL_TABLE:
+                        table_id_to_urn[table_id] = (
+                            builder.make_dataset_urn_with_platform_instance(
+                                self.platform,
+                                table_id,
+                                self.config.platform_instance,
+                                self.config.env,
+                            )
+                        )
+                    elif table_id and table_type == c.VIRTUAL_CONNECTION_TABLE:
+                        # For Virtual Connection tables, create URN using VC_ID.TABLE_NAME format
+                        virtual_connection = table.get(c.VIRTUAL_CONNECTION, {})
+                        vc_id = virtual_connection.get(c.ID)
+                        table_name = table.get(c.NAME)
+
+                        if vc_id and table_name:
+                            # Use the same format as VirtualConnectionProcessor: {vc_id}.{table_name}
+                            vc_table_name = f"{vc_id}.{table_name}"
+                            table_id_to_urn[table_id] = (
+                                builder.make_dataset_urn_with_platform_instance(
+                                    self.platform,
+                                    vc_table_name,
+                                    self.config.platform_instance,
+                                    self.config.env,
+                                )
+                            )
             fine_grained_lineages = self.get_upstream_columns_of_fields_in_datasource(
                 datasource, datasource_urn, table_id_to_urn
             )
@@ -1878,7 +2037,9 @@ class TableauSiteSource:
                     f"A total of {len(fine_grained_lineages)} upstream column edges found for datasource {datasource[c.ID]}"
                 )
 
-        return upstream_tables, fine_grained_lineages
+        return LineageResult(
+            upstream_tables=upstream_tables, fine_grained_lineages=fine_grained_lineages
+        )
 
     def get_upstream_datasources(self, datasource: dict) -> List[Upstream]:
         upstream_tables = []
@@ -1900,12 +2061,14 @@ class TableauSiteSource:
         return upstream_tables
 
     def get_upstream_csql_tables(
-        self, fields: List[dict]
+        self, fields: Sequence[Optional[dict]]
     ) -> Tuple[List[Upstream], Dict[str, str]]:
         upstream_csql_urns = set()
         csql_id_to_urn = {}
 
         for field in fields:
+            if not isinstance(field, dict):
+                continue
             if not field.get(c.UPSTREAM_COLUMNS):
                 continue
             for upstream_col in field[c.UPSTREAM_COLUMNS]:
@@ -1931,9 +2094,54 @@ class TableauSiteSource:
             for csql_urn in upstream_csql_urns
         ], csql_id_to_urn
 
+    def get_upstream_vc_tables(self, datasource_id: str) -> UpstreamTablesResult:
+        """Build table-level upstream lineage for datasources that reference VC tables."""
+        if datasource_id not in self.vc_processor.datasource_vc_relationships:
+            return UpstreamTablesResult(upstream_tables=[], table_id_to_urn={})
+
+        vc_refs = self.vc_processor.datasource_vc_relationships[datasource_id]
+        upstream_vc_urns: set = set()
+        vc_id_to_urn: Dict[str, str] = {}
+        vc_tables_seen: set = set()
+
+        for vc_ref in vc_refs:
+            vc_table_id = vc_ref.get("vc_table_id")
+            vc_id = vc_ref.get("vc_id")
+            # vc_table_id_to_name is populated by lookup_vc_ids_from_table_ids(), which runs
+            # after all datasources are emitted. This fallback is always empty at this call
+            # site; references with a null table name will be skipped by the guard below.
+            vc_table_name = vc_ref.get(
+                "vc_table_name"
+            ) or self.vc_processor.vc_table_id_to_name.get(vc_table_id or "", "")
+
+            if not (vc_id and vc_table_name and vc_table_id):
+                continue
+
+            vc_table_full_name = f"{vc_id}.{vc_table_name}"
+            if vc_table_full_name in vc_tables_seen:
+                continue
+
+            vc_tables_seen.add(vc_table_full_name)
+            vc_urn = builder.make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=vc_table_full_name,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+            vc_id_to_urn[vc_table_id] = vc_urn
+            upstream_vc_urns.add(vc_urn)
+
+        return UpstreamTablesResult(
+            upstream_tables=[
+                Upstream(dataset=vc_urn, type=DatasetLineageType.TRANSFORMED)
+                for vc_urn in upstream_vc_urns
+            ],
+            table_id_to_urn=vc_id_to_urn,
+        )
+
     def get_upstream_tables(
         self,
-        tables: List[dict],
+        tables: Sequence[Optional[dict]],
         datasource_name: Optional[str],
         browse_path: Optional[str],
         is_custom_sql: bool,
@@ -1942,6 +2150,12 @@ class TableauSiteSource:
         # Same table urn can be used when setting fine grained lineage,
         table_id_to_urn: Dict[str, str] = {}
         for table in tables:
+            if not isinstance(table, dict):
+                logger.debug(
+                    f"Skipping None/non-dict upstream table entry in datasource '{datasource_name}'"
+                )
+                continue
+
             # Extract column count if available
             num_tbl_cols: Optional[int] = table.get(c.COLUMNS_CONNECTION) and table[
                 c.COLUMNS_CONNECTION
@@ -2017,7 +2231,10 @@ class TableauSiteSource:
         table_id_to_urn: Dict[str, str],
     ) -> List[FineGrainedLineage]:
         fine_grained_lineages = []
+
         for field in datasource.get(c.FIELDS) or []:
+            if not isinstance(field, dict):
+                continue
             field_name = field.get(c.NAME)
             # upstreamColumns lineage will be set via upstreamFields.
             # such as for CalculatedField
@@ -2028,7 +2245,7 @@ class TableauSiteSource:
             ):
                 continue
             input_columns = []
-            for upstream_col in field.get(c.UPSTREAM_COLUMNS):
+            for upstream_col in field.get(c.UPSTREAM_COLUMNS) or []:
                 if not upstream_col:
                     continue
                 name = upstream_col.get(c.NAME)
@@ -2049,7 +2266,7 @@ class TableauSiteSource:
                         # It should not be done if snowflake tables are not pre ingested but
                         # parsed from SQL queries or ingested from Tableau metadata (in this case
                         # it just breaks case sensitive table level linage)
-                        name = name.lower()
+                        name = name.lower().replace(" ", "_")
                     input_columns.append(
                         builder.make_schema_field_urn(
                             parent_urn=parent_dataset_urn,
@@ -2127,7 +2344,7 @@ class TableauSiteSource:
     def get_upstream_fields_from_custom_sql(
         self, datasource: dict, datasource_urn: str
     ) -> List[FineGrainedLineage]:
-        parsed_result = self.parse_custom_sql(
+        parsed = self.parse_custom_sql(
             datasource=datasource,
             datasource_urn=datasource_urn,
             env=self.config.env,
@@ -2136,8 +2353,9 @@ class TableauSiteSource:
             func_overridden_info=None,  # Here we don't want to override any information from configuration
         )
 
-        if parsed_result is None or parsed_result.debug_info.error:
+        if parsed is None or parsed.result.debug_info.error:
             return []
+        parsed_result = parsed.result
 
         cll: List[ColumnLineageInfo] = (
             parsed_result.column_lineage
@@ -2524,16 +2742,19 @@ class TableauSiteSource:
         #   <[Parameters].SomeParameter Name>
         #   <Parameters.SomeParameterName>
         #
+        # It also neutralizes T-SQL / session variables (e.g. @Division, @2YearsAgo)
+        # that appear in Initial SQL batches. These are not valid SQL on their own and
+        # carry no lineage; replacing them with a literal lets the surrounding
+        # SELECT/FROM/JOIN parse so the real source tables are still extracted. (One or
+        # more leading @ also covers @@SYSTEM variables.)
+        #
         # After, it unescapes (Tableau escapes it)
         #   >> to >
         #   << to <
         #
-        return (
-            re.sub(r"\<\[?[Pp]arameters\]?\.(\[[^\]]+\]|[^\>]+)\>", "1", query)
-            .replace("<<", "<")
-            .replace(">>", ">")
-            .replace("\n\n", "\n")
-        )
+        cleaned = re.sub(r"\<\[?[Pp]arameters\]?\.(\[[^\]]+\]|[^\>]+)\>", "1", query)
+        cleaned = re.sub(r"@+\w+", "1", cleaned)
+        return cleaned.replace("<<", "<").replace(">>", ">").replace("\n\n", "\n")
 
     def parse_custom_sql(
         self,
@@ -2556,7 +2777,7 @@ class TableauSiteSource:
                 Tuple[Optional[str], Optional[str], str, str],
             ]
         ],
-    ) -> Optional["SqlParsingResult"]:
+    ) -> Optional["CustomSqlParseResult"]:
         database_field = datasource.get(c.DATABASE) or {}
         database_id: Optional[str] = database_field.get(c.ID)
         database_name: Optional[str] = database_field.get(c.NAME) or c.UNKNOWN.lower()
@@ -2628,7 +2849,225 @@ class TableauSiteSource:
             )
             self.report.num_upstream_fine_grained_lineage_failed_parse_sql += 1
 
-        return parsed_result
+        return CustomSqlParseResult(
+            result=parsed_result, platform_instance=platform_instance
+        )
+
+    def _download_datasource_tds(self, luid: str) -> Optional[bytes]:
+        """Download a published datasource and return its .tds XML bytes (or None)."""
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                # include_extract=False keeps the payload small — we only need the definition.
+                path = self.server.datasources.download(
+                    luid, filepath=tmpdir, include_extract=False
+                )
+                tds_bytes = extract_tds_bytes(Path(path).read_bytes())
+                if tds_bytes is None:
+                    self.report.num_initial_sql_definitions_missing += 1
+                    self.report.warning(
+                        title="No datasource definition for Initial SQL",
+                        message="Downloaded datasource contained no .tds definition; "
+                        "Initial SQL will be skipped for it.",
+                        context=f"datasource_luid={luid}",
+                    )
+                return tds_bytes
+        except Exception as e:
+            self.report.num_initial_sql_download_failures += 1
+            self.report.warning(
+                title="Failed to download datasource for Initial SQL",
+                message="Initial SQL lineage and custom property will be skipped "
+                "for this datasource.",
+                context=f"datasource_luid={luid}",
+                exc=e,
+            )
+            return None
+
+    def get_initial_sql_lineage(
+        self, datasource: dict, datasource_urn: str
+    ) -> InitialSqlLineage:
+        """Extract Initial SQL for a published datasource.
+
+        Performs one REST download per datasource — callers must gate on
+        self.config.ingest_initial_sql.
+        """
+        luid = datasource.get(c.LUID)
+        if not luid:
+            logger.debug(
+                f"Skipping Initial SQL for {datasource_urn}: datasource has no luid"
+            )
+            return InitialSqlLineage.empty()
+
+        tds_xml = self._download_datasource_tds(luid)
+        if tds_xml is None:
+            return InitialSqlLineage.empty()
+        self.report.num_initial_sql_datasources_processed += 1
+
+        # extract_initial_sql_connections already filters empty/whitespace-only SQL.
+        return self._initial_sql_result_from_connections(
+            extract_initial_sql_connections(tds_xml), datasource_urn
+        )
+
+    def _download_workbook_definition(self, workbook_luid: str) -> Optional[bytes]:
+        """Download a workbook and return its .twb XML bytes (or None)."""
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                # include_extract=False keeps the payload small — we only need the
+                # workbook definition (.twb), not its (possibly huge) data extract.
+                path = self.server.workbooks.download(
+                    workbook_luid, filepath=tmpdir, include_extract=False
+                )
+                twb_bytes = extract_definition_bytes(Path(path).read_bytes())
+                if twb_bytes is None:
+                    self.report.num_initial_sql_definitions_missing += 1
+                    self.report.warning(
+                        title="No workbook definition for Initial SQL",
+                        message="Downloaded workbook contained no .twb definition; "
+                        "Initial SQL will be skipped for its embedded datasources.",
+                        context=f"workbook_luid={workbook_luid}",
+                    )
+                return twb_bytes
+        except Exception as e:
+            self.report.num_initial_sql_download_failures += 1
+            self.report.warning(
+                title="Failed to download workbook for Initial SQL",
+                message="Initial SQL lineage and custom property will be skipped "
+                "for this workbook's embedded datasources.",
+                context=f"workbook_luid={workbook_luid}",
+                exc=e,
+            )
+            return None
+
+    def _get_workbook_initial_sql_map(
+        self, workbook_luid: str
+    ) -> Optional[Dict[str, List[InitialSqlConnection]]]:
+        """Return the cached {caption -> [InitialSqlConnection]} map for a workbook,
+        downloading + parsing it on first use. None if the download/parse failed."""
+        if workbook_luid not in self._workbook_initial_sql_cache:
+            twb_xml = self._download_workbook_definition(workbook_luid)
+            self._workbook_initial_sql_cache[workbook_luid] = (
+                extract_initial_sql_by_datasource(twb_xml)
+                if twb_xml is not None
+                else None
+            )
+        return self._workbook_initial_sql_cache[workbook_luid]
+
+    def get_initial_sql_lineage_embedded(
+        self, datasource: dict, datasource_urn: str
+    ) -> InitialSqlLineage:
+        """Extract Initial SQL for an embedded datasource via its parent workbook.
+
+        Callers must gate on self.config.ingest_initial_sql. Matches the embedded
+        datasource to its workbook .twb definition by caption (== Metadata API name).
+        """
+        workbook = datasource.get(c.WORKBOOK) or {}
+        workbook_luid = workbook.get(c.LUID)
+        if not workbook_luid:
+            logger.debug(f"Skipping Initial SQL for {datasource_urn}: no workbook luid")
+            return InitialSqlLineage.empty()
+
+        ds_map = self._get_workbook_initial_sql_map(workbook_luid)
+        if ds_map is None:
+            return InitialSqlLineage.empty()
+        # Counts embedded datasources *processed* for Initial SQL. Unlike the
+        # published path (one download per datasource), many embedded datasources
+        # share one cached workbook download, so this is per-datasource, not
+        # per-download.
+        self.report.num_initial_sql_datasources_processed += 1
+
+        name = datasource.get(c.NAME)
+        if name is None or name not in ds_map:
+            # Name didn't match any uniquely-captioned top-level datasource (mismatch
+            # or ambiguous duplicate caption) -> skip rather than mis-attribute.
+            logger.debug(
+                f"No Initial SQL match for {datasource_urn}: datasource name {name!r} "
+                f"not found among workbook {workbook_luid} captions (mismatch or ambiguous)"
+            )
+            self.report.num_initial_sql_embedded_datasources_unmatched += 1
+            return InitialSqlLineage.empty()
+
+        return self._initial_sql_result_from_connections(ds_map[name], datasource_urn)
+
+    def _initial_sql_result_from_connections(
+        self,
+        connections: List[InitialSqlConnection],
+        datasource_urn: str,
+    ) -> InitialSqlLineage:
+        """Shared tail for both published and embedded Initial SQL paths: turn the
+        Initial SQL connections into upstream lineage + the raw SQL text, updating
+        the per-connection/per-statement counters."""
+        upstreams: List[Upstream] = []
+        sql_texts: List[str] = []
+        for conn in connections:
+            self.report.num_initial_sql_connections_found += 1
+            sql_texts.append(conn.initial_sql)
+
+            if not self.config.initial_sql_as_lineage:
+                continue
+
+            upstream_db, platform_instance, platform, _ = get_overridden_info(
+                connection_type=conn.connection_type,
+                upstream_db=conn.database,
+                upstream_db_id=None,
+                platform_instance_map=self.config.platform_instance_map,
+                lineage_overrides=self.config.lineage_overrides,
+                database_hostname_to_platform_instance_map=self.config.database_hostname_to_platform_instance_map,
+                database_server_hostname_map=self.database_server_hostname_map,
+            )
+            # Initial SQL may contain multiple statements (e.g. a session-level
+            # `SET ...` followed by a temp-table `CREATE ... AS SELECT`), often without
+            # semicolons (idiomatic T-SQL). split_statements handles both. The parser
+            # handles one statement at a time; statements that reference no tables
+            # (e.g. SET) contribute no lineage.
+            for statement in split_statements(
+                conn.initial_sql, dialect=get_dialect_str(platform)
+            ):
+                if not statement.strip():
+                    continue
+                # Resolve Tableau parameter templating + neutralize T-SQL @variables
+                # before parsing (the raw SQL is preserved for the custom property).
+                # Temp-table (#/##) upstreams are dropped in make_upstream_class.
+                cleaned_statement = self._clean_tableau_query_parameters(statement)
+                parsed_result = create_lineage_sql_parsed_result(
+                    query=cleaned_statement,
+                    default_db=upstream_db,
+                    default_schema=conn.schema,
+                    platform=platform,
+                    platform_instance=platform_instance,
+                    env=self.config.env,
+                    graph=self.ctx.graph,
+                    schema_aware=not self.config.sql_parsing_disable_schema_awareness,
+                )
+                # Only table-level upstreams matter for Initial SQL; a column_error
+                # (with no table_error) is acceptable and intentionally ignored.
+                # Consistent with parse_custom_sql: a per-statement parse error is
+                # logged + counted (not raised as a structured report warning, which
+                # would be noisy per-statement). The aggregate surfaces via the counter.
+                if parsed_result.debug_info.table_error:
+                    logger.warning(
+                        f"Failed to parse Initial SQL statement for {datasource_urn}: "
+                        f"{parsed_result.debug_info.table_error}"
+                    )
+                    # The actual SQL is logged at DEBUG only (keeps SQL out of normal logs).
+                    # repr() makes whitespace/newline boundaries visible so you can debug
+                    # whether split_statements chopped the Initial SQL correctly; `cleaned`
+                    # differs from `split_statement` only when param/@var neutralization changed it.
+                    logger.debug(
+                        f"Initial SQL parse failure for {datasource_urn}: "
+                        f"split_statement={statement!r} cleaned={cleaned_statement!r}"
+                    )
+                    self.report.num_initial_sql_parse_failures += 1
+                    continue
+                # platform_instance is the overridden upstream instance so over-qualified
+                # names (e.g. a SQL Server linked-server prefix) are trimmed correctly.
+                upstreams.extend(
+                    make_upstream_class(
+                        parsed_result, platform_instance=platform_instance
+                    )
+                )
+
+        self.report.num_initial_sql_lineage_upstreams += len(upstreams)
+        initial_sql_text = "\n\n".join(sql_texts) if sql_texts else None
+        return InitialSqlLineage(upstreams=upstreams, raw_sql=initial_sql_text)
 
     def _enrich_database_tables_with_parsed_schemas(
         self, parsing_result: SqlParsingResult
@@ -2654,7 +3093,7 @@ class TableauSiteSource:
     def _create_lineage_from_unsupported_csql(
         self, csql_urn: str, csql: dict, out_columns: List[Dict[Any, Any]]
     ) -> Iterable[MetadataWorkUnit]:
-        parsed_result = self.parse_custom_sql(
+        parsed = self.parse_custom_sql(
             datasource=csql,
             datasource_urn=csql_urn,
             env=self.config.env,
@@ -2662,16 +3101,19 @@ class TableauSiteSource:
             platform_instance=self.config.platform_instance,
             func_overridden_info=get_overridden_info,
         )
-        logger.debug(
-            f"_create_lineage_from_unsupported_csql parsed_result = {parsed_result}"
-        )
+        logger.debug(f"_create_lineage_from_unsupported_csql parsed_result = {parsed}")
 
-        if parsed_result is None:
+        if parsed is None:
             return
+        parsed_result = parsed.result
 
         self._enrich_database_tables_with_parsed_schemas(parsed_result)
 
-        upstream_tables = make_upstream_class(parsed_result)
+        # Use the overridden upstream platform instance (not Tableau's own) so the
+        # linked-server / over-qualified name trimming preserves the instance segment.
+        upstream_tables = make_upstream_class(
+            parsed_result, platform_instance=parsed.platform_instance
+        )
 
         logger.debug(f"Upstream tables = {upstream_tables}")
 
@@ -2695,10 +3137,12 @@ class TableauSiteSource:
         self.report.num_upstream_fine_grained_lineage += len(fine_grained_lineages)
 
     def _get_schema_metadata_for_datasource(
-        self, datasource_fields: List[dict]
+        self, datasource_fields: Sequence[Optional[dict]]
     ) -> Optional[SchemaMetadata]:
         fields = []
         for field in datasource_fields:
+            if not isinstance(field, dict):
+                continue
             # check datasource - custom sql relations from a field being referenced
             self._track_custom_sql_ids(field)
             if field.get(c.NAME) is None:
@@ -2740,6 +3184,69 @@ class TableauSiteSource:
             aspect=aspect,
         ).as_workunit()
 
+    def _emit_datasource_upstream_lineage(
+        self,
+        datasource: dict,
+        datasource_urn: str,
+        browse_path: Optional[str],
+        is_embedded_ds: bool,
+        initial_sql_upstreams: List[Upstream],
+    ) -> Iterable[MetadataWorkUnit]:
+        upstream_tables: List[Upstream] = []
+        all_fine_grained_lineages: List[FineGrainedLineage] = []
+
+        if (
+            datasource.get(c.UPSTREAM_TABLES)
+            or datasource.get(c.UPSTREAM_DATA_SOURCES)
+            or datasource.get(c.FIELDS)
+        ):
+            lineage_result = self._create_upstream_table_lineage(
+                datasource, browse_path, is_embedded_ds=is_embedded_ds
+            )
+            upstream_tables = lineage_result.upstream_tables
+            fine_grained_lineages = lineage_result.fine_grained_lineages
+
+            if self.config.ingest_virtual_connections:
+                vc_lineage_result = self.vc_processor.create_datasource_vc_lineage(
+                    datasource_urn
+                )
+                upstream_tables.extend(vc_lineage_result.upstream_tables)
+                all_fine_grained_lineages = (
+                    fine_grained_lineages + vc_lineage_result.fine_grained_lineages
+                )
+                self.report.num_virtual_connections_lineages_created += len(
+                    vc_lineage_result.fine_grained_lineages
+                )
+            else:
+                all_fine_grained_lineages = fine_grained_lineages
+
+        # Merge Initial SQL upstreams (de-duplicated by dataset urn).
+        if initial_sql_upstreams:
+            existing_upstream_urns = {u.dataset for u in upstream_tables}
+            for upstream in initial_sql_upstreams:
+                if upstream.dataset not in existing_upstream_urns:
+                    upstream_tables.append(upstream)
+                    existing_upstream_urns.add(upstream.dataset)
+
+        if upstream_tables or all_fine_grained_lineages:
+            upstream_lineage = UpstreamLineage(
+                upstreams=upstream_tables,
+                fineGrainedLineages=sorted(
+                    all_fine_grained_lineages,
+                    key=lambda x: (x.downstreams, x.upstreams),
+                )
+                or None,
+            )
+            yield self.get_metadata_change_proposal(
+                datasource_urn,
+                aspect=upstream_lineage,
+            )
+            self.report.num_tables_with_upstream_lineage += 1
+            self.report.num_upstream_table_lineage += len(upstream_tables)
+            self.report.num_upstream_fine_grained_lineage += len(
+                all_fine_grained_lineages
+            )
+
     def emit_datasource(
         self,
         datasource: dict,
@@ -2755,6 +3262,21 @@ class TableauSiteSource:
             )
             return
 
+        if self.config.ingest_virtual_connections:
+            try:
+                datasource_type = (
+                    DatasourceType.EMBEDDED
+                    if is_embedded_ds
+                    else DatasourceType.PUBLISHED
+                )
+                self.vc_processor.process_datasource_for_vc_refs(
+                    datasource, datasource_type
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Error collecting VC references from datasource {datasource.get('id', 'unknown')}: {e}"
+                )
+
         datasource_info = workbook
         if not is_embedded_ds:
             datasource_info = datasource
@@ -2768,6 +3290,19 @@ class TableauSiteSource:
         )
         if not is_embedded_ds and datasource_id not in self.datasource_ids_being_used:
             self.datasource_ids_being_used.append(datasource_id)
+
+        initial_sql_upstreams: List[Upstream] = []
+        initial_sql_text: Optional[str] = None
+        # Published datasources expose Initial SQL via their downloaded .tds; embedded
+        # datasources only via the parent workbook's .twb.
+        if self.config.ingest_initial_sql:
+            initial_sql = (
+                self.get_initial_sql_lineage_embedded(datasource, datasource_urn)
+                if is_embedded_ds
+                else self.get_initial_sql_lineage(datasource, datasource_urn)
+            )
+            initial_sql_upstreams = initial_sql.upstreams
+            initial_sql_text = initial_sql.raw_sql
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
@@ -2820,38 +3355,18 @@ class TableauSiteSource:
         )
         dataset_snapshot.aspects.append(dataset_props)
 
-        # Upstream Tables
-        if (
-            datasource.get(c.UPSTREAM_TABLES)
-            or datasource.get(c.UPSTREAM_DATA_SOURCES)
-            or datasource.get(c.FIELDS)
-        ):
-            # datasource -> db table relations
-            (
-                upstream_tables,
-                fine_grained_lineages,
-            ) = self._create_upstream_table_lineage(
-                datasource, browse_path, is_embedded_ds=is_embedded_ds
-            )
+        if initial_sql_text and self.config.initial_sql_as_custom_property:
+            if dataset_props.customProperties is None:
+                dataset_props.customProperties = {}
+            dataset_props.customProperties[c.INITIAL_SQL] = initial_sql_text
 
-            if upstream_tables:
-                upstream_lineage = UpstreamLineage(
-                    upstreams=upstream_tables,
-                    fineGrainedLineages=sorted(
-                        fine_grained_lineages,
-                        key=lambda x: (x.downstreams, x.upstreams),
-                    )
-                    or None,
-                )
-                yield self.get_metadata_change_proposal(
-                    datasource_urn,
-                    aspect=upstream_lineage,
-                )
-                self.report.num_tables_with_upstream_lineage += 1
-                self.report.num_upstream_table_lineage += len(upstream_tables)
-                self.report.num_upstream_fine_grained_lineage += len(
-                    fine_grained_lineages
-                )
+        yield from self._emit_datasource_upstream_lineage(
+            datasource,
+            datasource_urn,
+            browse_path=browse_path,
+            is_embedded_ds=is_embedded_ds,
+            initial_sql_upstreams=initial_sql_upstreams,
+        )
 
         # Datasource Fields
         schema_metadata = self._get_schema_metadata_for_datasource(
@@ -3835,6 +4350,177 @@ class TableauSiteSource:
 
         return {"permissions": json.dumps(groups)} if len(groups) > 0 else None
 
+    def _find_matching_database_table(self, vc_table_name: str) -> Optional[dict]:
+        """Find matching database table using multiple name strategies."""
+        if not self.db_tables_lookup:
+            return None
+
+        clean_vc_name = clean_table_name(vc_table_name)
+        potential_names = [vc_table_name, clean_vc_name]
+
+        # Also try names extracted from "TABLE_NAME (SCHEMA.TABLE_NAME)" format
+        paren_match = re.search(r"^(.*?)\s*\((.*?)\)$", vc_table_name)
+        if paren_match:
+            potential_names.extend(
+                [paren_match.group(1).strip(), paren_match.group(2).strip()]
+            )
+
+        for potential_name in potential_names:
+            clean_potential = clean_table_name(potential_name).lower()
+
+            # Strategy 1: Direct exact match
+            if clean_potential in self.db_tables_lookup:
+                return self.db_tables_lookup[clean_potential]
+
+            # Strategy 2: Qualified suffix match (schema.table or database.table)
+            for db_name_key, db_table in self.db_tables_lookup.items():
+                if (
+                    db_name_key.endswith(f".{clean_potential}")
+                    and len(db_name_key.split(".")) >= 2
+                ):
+                    return db_table
+
+            # Strategy 3: Table name only
+            table_only = self._extract_table_name_only(potential_name)
+            if table_only and table_only.lower() != clean_potential:
+                if table_only.lower() in self.db_tables_lookup:
+                    return self.db_tables_lookup[table_only.lower()]
+
+        logger.debug(f"No database table match for VC table '{vc_table_name}'")
+        return None
+
+    def _create_database_table_urn(self, db_table: dict) -> Optional[str]:
+        """Create a DataHub URN for a database table fetched from Tableau's metadata API."""
+        try:
+            table_name = db_table.get(c.NAME, "")
+            full_name = db_table.get(c.FULL_NAME, "")
+            schema = db_table.get(c.SCHEMA, "")
+            database_info = db_table.get(c.DATABASE, {})
+
+            if database_info and isinstance(database_info, dict):
+                connection_type = database_info.get(c.CONNECTION_TYPE)
+                database_name = database_info.get(c.NAME, "")
+                database_id = database_info.get(c.ID, "")
+            else:
+                connection_type = None
+                database_name = ""
+                database_id = ""
+
+            raw_table_name = full_name or table_name
+            if not connection_type or not raw_table_name:
+                return None
+
+            (
+                upstream_db,
+                platform_instance,
+                platform,
+                original_platform,
+            ) = get_overridden_info(
+                connection_type=connection_type,
+                upstream_db=database_name,
+                upstream_db_id=database_id,
+                lineage_overrides=self.config.lineage_overrides,
+                platform_instance_map=self.config.platform_instance_map,
+                database_hostname_to_platform_instance_map=self.config.database_hostname_to_platform_instance_map,
+                database_server_hostname_map=self.database_server_hostname_map,
+            )
+
+            fully_qualified_name = get_fully_qualified_table_name(
+                platform=original_platform,
+                upstream_db=upstream_db or "",
+                schema=schema,
+                table_name=raw_table_name,
+            )
+
+            return builder.make_dataset_urn_with_platform_instance(
+                platform=platform,
+                name=fully_qualified_name,
+                platform_instance=platform_instance,
+                env=self.config.env,
+            )
+
+        except Exception as e:
+            logger.warning(f"Failed to create database table URN: {e}")
+            logger.debug(f"Database table data: {db_table}")
+            return None
+
+    def _build_database_tables_lookup(self) -> None:
+        """Build a multi-key lookup of database tables for VC→DB table matching.
+
+        Stores each table under several name variations (original, full, table-only,
+        fully-qualified, database.table, schema.table) to maximise match rate against
+        VC table names returned by Tableau's Metadata API.
+        """
+        if self.db_tables_lookup:
+            return
+
+        for db_table in self.get_connection_objects(
+            query=database_tables_graphql_query,
+            connection_type=c.DATABASE_TABLES_CONNECTION,
+            query_filter={},
+            page_size=self.config.effective_database_table_page_size,
+        ):
+            name = db_table.get(c.NAME, "")
+            full_name = db_table.get(c.FULL_NAME, "")
+            schema = db_table.get(c.SCHEMA, "")
+            database_info = db_table.get(c.DATABASE, {})
+            database_name = database_info.get(c.NAME, "") if database_info else ""
+            connection_type = (
+                database_info.get(c.CONNECTION_TYPE, "") if database_info else ""
+            )
+
+            if not name or not connection_type:
+                continue
+
+            name_variations: set = set()
+            name_variations.add(name.lower())
+            if full_name and full_name != name:
+                name_variations.add(full_name.lower())
+
+            table_name_only = self._extract_table_name_only(name)
+            if table_name_only:
+                name_variations.add(table_name_only.lower())
+            if full_name:
+                full_table_name_only = self._extract_table_name_only(full_name)
+                if full_table_name_only and full_table_name_only != table_name_only:
+                    name_variations.add(full_table_name_only.lower())
+
+            if database_name and schema and table_name_only:
+                try:
+                    fq_name = get_fully_qualified_table_name(
+                        platform=get_platform(connection_type),
+                        upstream_db=database_name,
+                        schema=schema,
+                        table_name=table_name_only,
+                    )
+                    name_variations.add(fq_name.lower())
+                except Exception:
+                    pass
+
+            if database_name and table_name_only:
+                name_variations.add(f"{database_name}.{table_name_only}".lower())
+            if schema and table_name_only:
+                name_variations.add(f"{schema}.{table_name_only}".lower())
+
+            for variation in name_variations:
+                if variation and variation not in self.db_tables_lookup:
+                    self.db_tables_lookup[variation] = db_table
+
+        logger.debug(
+            f"Built database tables lookup with {len(self.db_tables_lookup)} entries"
+        )
+
+    def _extract_table_name_only(self, full_name: str) -> Optional[str]:
+        """Extract just the table name from a potentially qualified name"""
+        if not full_name:
+            return None
+
+        # Split by dots and take the last part (table name)
+        parts = full_name.split(".")
+        table_name = parts[-1].strip()
+
+        return table_name if table_name else None
+
     def ingest_tableau_site(self):
         with self.report.new_stage(
             f"Ingesting Tableau Site: {self.site_id} {self.site_content_url}"
@@ -3869,6 +4555,9 @@ class TableauSiteSource:
                     timer.elapsed_seconds(digits=2)
                 )
 
+            # Database tables lookup is now handled conditionally during VC processing
+            # (only when there are actual VC references that need database table matching)
+
             if self.config.add_site_container:
                 yield from self.emit_site_container()
             yield from self.emit_project_containers()
@@ -3893,6 +4582,7 @@ class TableauSiteSource:
                         timer.elapsed_seconds(digits=2)
                     )
 
+            # STEP 1: Emit datasources first (VC references get collected during this step)
             if self.embedded_datasource_ids_being_used:
                 with PerfTimer() as timer:
                     yield from self.emit_embedded_datasources()
@@ -3904,6 +4594,40 @@ class TableauSiteSource:
                 with PerfTimer() as timer:
                     yield from self.emit_published_datasources()
                     self.report.emit_published_datasources_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
+
+            if self.config.ingest_virtual_connections:
+                try:
+                    if self.vc_processor.vc_table_ids_for_lookup:
+                        self.vc_processor.lookup_vc_ids_from_table_ids()
+                        try:
+                            self._build_database_tables_lookup()
+                        except Exception as e:
+                            logger.debug(f"Database tables lookup not available: {e}")
+                    else:
+                        logger.debug("No VC references found, skipping VC processing")
+                except Exception as e:
+                    logger.warning(f"Error building VC mappings: {e}")
+
+            if self.config.ingest_virtual_connections:
+                with PerfTimer() as timer:
+                    self.report.num_virtual_connections_table_references_found = len(
+                        self.vc_processor.vc_table_ids_for_lookup
+                    )
+                    self.report.num_virtual_connections_processed = len(
+                        self.vc_processor.virtual_connection_ids_being_used
+                    )
+
+                    logger.info(
+                        f"Virtual connections: {self.report.num_virtual_connections_table_references_found} table references found, "
+                        f"{self.report.num_virtual_connections_processed} VCs to process"
+                    )
+
+                    if self.vc_processor.virtual_connection_ids_being_used:
+                        yield from self.vc_processor.emit_virtual_connections()
+
+                    self.report.emit_virtual_connections_timer[
                         self.site_content_url
                     ] = timer.elapsed_seconds(digits=2)
 

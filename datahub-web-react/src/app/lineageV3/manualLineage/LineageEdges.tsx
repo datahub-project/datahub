@@ -1,5 +1,6 @@
 import { Empty } from 'antd';
 import React, { useContext, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { LineageNodesContext, getEdgeId, setDifference } from '@app/lineageV3/common';
@@ -30,6 +31,7 @@ interface Props {
 }
 
 export default function LineageEdges({ parentUrn, direction, entitiesToAdd, entitiesToRemove, onRemoveEntity }: Props) {
+    const { t } = useTranslation('lineage');
     const { nodes, edges, adjacencyList } = useContext(LineageNodesContext);
 
     const children = adjacencyList[direction].get(parentUrn) || new Set();
@@ -43,7 +45,13 @@ export default function LineageEdges({ parentUrn, direction, entitiesToAdd, enti
         <LineageEdgesWrapper>
             {!filteredChildren?.length && !entitiesToAdd.length && (
                 <EmptyWrapper data-testid="empty-lineage">
-                    <Empty description={`No ${direction.toLocaleLowerCase()} entities`} />
+                    <Empty
+                        description={
+                            direction === LineageDirection.Upstream
+                                ? t('edges.noUpstreamEntities')
+                                : t('edges.noDownstreamEntities')
+                        }
+                    />
                 </EmptyWrapper>
             )}
             {filteredChildren?.map((childUrn) => {

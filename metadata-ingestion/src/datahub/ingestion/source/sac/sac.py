@@ -1,12 +1,11 @@
 import json
 import logging
+import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from functools import partial
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple
 
-import pyodata
-import pyodata.v2.model
-import pyodata.v2.service
 from authlib.integrations.requests_client import OAuth2Session
 from pydantic import Field, SecretStr, field_validator
 from requests.adapters import HTTPAdapter
@@ -85,6 +84,9 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities import config_clean
 
 logger = logging.getLogger(__name__)
+
+# SAP Analytics Cloud serializes dates in OData verbose-JSON as "/Date(<ms-since-epoch>[±<offset>])/".
+_SAC_JSON_DATE_PATTERN = re.compile(r"^/Date\((?P<ms>-?\d+)(?P<offset>[+-]\d+)?\)/$")
 
 
 class ConnectionMappingConfig(EnvConfigMixin):
@@ -192,17 +194,19 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
     platform = "sac"
 
     session: OAuth2Session
-    client: pyodata.Client
 
-    ingested_dataset_entities: Set[str] = set()
-    ingested_upstream_dataset_keys: Set[str] = set()
+    ingested_dataset_entities: Set[str]
+    ingested_upstream_dataset_keys: Set[str]
 
     def __init__(self, config: SACSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.config = config
         self.report = SACSourceReport()
 
-        self.session, self.client = SACSource.get_sac_connection(self.config)
+        self.ingested_dataset_entities = set()
+        self.ingested_upstream_dataset_keys = set()
+
+        self.session = SACSource.get_sac_connection(self.config)
 
     def close(self) -> None:
         self.session.close()
@@ -220,10 +224,16 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         try:
             config = SACSourceConfig.model_validate(config_dict)
 
-            # when creating the pyodata.Client, the metadata is automatically parsed and validated
-            session, _ = SACSource.get_sac_connection(config)
+            session = SACSource.get_sac_connection(config)
 
-            # test the Data Import Service separately here, because it requires specific properties when configuring the OAuth client
+            # test the Resources API and the Data Import Service separately here, because the Data
+            # Import Service requires specific properties when configuring the OAuth client
+            response = session.get(
+                url=f"{config.tenant_url}/api/v1/Resources",
+                params={"$format": "json", "$top": "1"},
+            )
+            response.raise_for_status()
+
             response = session.get(url=f"{config.tenant_url}/api/v1/dataimport/models")
             response.raise_for_status()
 
@@ -549,7 +559,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
     @staticmethod
     def get_sac_connection(
         config: SACSourceConfig,
-    ) -> Tuple[OAuth2Session, pyodata.Client]:
+    ) -> OAuth2Session:
         session = OAuth2Session(
             client_id=config.client_id,
             client_secret=config.client_secret.get_secret_value(),
@@ -586,13 +596,39 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         )
         session.fetch_token()
 
-        client = pyodata.Client(
-            url=f"{config.tenant_url}/api/v1",
-            connection=session,
-            config=pyodata.v2.model.Config(retain_null=True),
-        )
+        return session
 
-        return session, client
+    def _query_odata_entities(
+        self, path: str, select: str, filter: Optional[str] = None
+    ) -> Iterator[Dict[str, Any]]:
+        # We query the OData endpoints directly instead of going through a metadata-driven OData
+        # client. The "Resources" data endpoints are stable across SAC tenant generations, whereas
+        # the $metadata document is not: newer (CAP-based) tenants no longer advertise the
+        # "Resources" EntitySet there (it is replaced by a non-queryable "*_INDEX" catalog), which
+        # would break any client that resolves endpoints from $metadata. See ING-2650.
+        query: Dict[str, str] = {"$format": "json", "$select": select}
+        if filter is not None:
+            query["$filter"] = filter
+
+        url: Optional[str] = f"{self.config.tenant_url}/api/v1/{path}"
+        params: Optional[Dict[str, str]] = query
+
+        while url is not None:
+            response = self.session.get(url=url, params=params)
+            response.raise_for_status()
+
+            # OData verbose JSON always wraps the payload in a top-level "d"; a missing key means an
+            # unexpected response, which we want to surface rather than silently ingest nothing.
+            payload = response.json()["d"]
+            if isinstance(payload, dict):
+                yield from payload.get("results", [])
+                # follow server-driven paging; "__next" is an absolute URL with the query baked in
+                url = payload.get("__next")
+            else:
+                yield from payload
+                url = None
+
+            params = None
 
     def get_resources(self) -> Iterable[Resource]:
         import_data_model_ids = self.get_import_data_model_ids()
@@ -609,19 +645,12 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         select = "resourceId,resourceType,resourceSubtype,storyId,name,description,createdTime,createdBy,modifiedBy,modifiedTime,openURL,ancestorPath,isMobile"
 
-        entities: pyodata.v2.service.ListWithTotalCount = (
-            self.client.entity_sets.Resources.get_entities()
-            .custom("$format", "json")
-            .filter(filter)
-            .select(select)
-            .execute()
-        )
-        entity: pyodata.v2.service.EntityProxy
-        for entity in entities:
-            resource_id: str = entity.resourceId
-            name: str = (
-                entity.name.strip() if entity.name is not None else entity.resourceId
-            )
+        for entity in self._query_odata_entities(
+            "Resources", select=select, filter=filter
+        ):
+            resource_id: str = entity["resourceId"]
+            entity_name = entity.get("name")
+            name: str = entity_name.strip() if entity_name is not None else resource_id
 
             if not self.config.resource_id_pattern.allowed(
                 resource_id
@@ -630,78 +659,84 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
             ancestor_path: Optional[str] = None
 
-            try:
-                ancestors = json.loads(entity.ancestorPath)
-                ancestor_path = "/".join(
-                    ancestor.replace("/", "%2F") for ancestor in ancestors
-                )
-            except json.JSONDecodeError:
-                pass
+            ancestor_path_raw = entity.get("ancestorPath")
+            if ancestor_path_raw:
+                try:
+                    ancestors = json.loads(ancestor_path_raw)
+                    ancestor_path = "/".join(
+                        ancestor.replace("/", "%2F") for ancestor in ancestors
+                    )
+                except json.JSONDecodeError:
+                    pass
 
             if ancestor_path and not self.config.folder_pattern.allowed(ancestor_path):
                 continue
 
             resource_models: Set[ResourceModel] = set()
 
-            select = "modelId,name,description,externalId,connectionId,systemType"
-
-            nav_entities: pyodata.v2.service.EntitySetProxy = (
-                entity.nav("resourceModels")
-                .get_entities()
-                .custom("$format", "json")
-                .select(select)
-                .execute()
+            models_select = (
+                "modelId,name,description,externalId,connectionId,systemType"
             )
-            nav_entity: pyodata.v2.service.EntityProxy
-            for nav_entity in nav_entities:
+
+            # OData string keys escape a single quote by doubling it
+            escaped_resource_id = resource_id.replace("'", "''")
+            for nav_entity in self._query_odata_entities(
+                f"Resources('{escaped_resource_id}')/resourceModels",
+                select=models_select,
+            ):
                 # the model id can have a different structure, commonly all model ids have a namespace (the part before the colon) and the model id itself
                 # t.4.sap.fpa.services.userFriendlyPerfLog:ACTIVITY_LOG is a builtin model without a possiblity to get more metadata about the model
                 # t.4.YV67EM4QBRU035A7TVKERZ786N:YV67EM4QBRU035A7TVKERZ786N is a model id where the model id itself also appears as part of the namespace
                 # t.4:C76tt2j402o1e69wnvrwfcl79c is a model id without the model id itself as part of the namespace
-                model_id: str = nav_entity.modelId
+                model_id: str = nav_entity["modelId"]
                 namespace, _, model_id = model_id.partition(":")
+
+                nav_name = nav_entity.get("name")
+                nav_description = nav_entity.get("description")
 
                 resource_models.add(
                     ResourceModel(
                         namespace=namespace,
                         model_id=model_id,
-                        name=nav_entity.name.strip()
-                        if nav_entity.name is not None
+                        name=nav_name.strip()
+                        if nav_name is not None
                         else f"{namespace}:{model_id}",
-                        description=nav_entity.description.strip()
-                        if nav_entity.description is not None
+                        description=nav_description.strip()
+                        if nav_description is not None
                         else None,
-                        system_type=nav_entity.systemType,  # BW or HANA
-                        connection_id=nav_entity.connectionId,
-                        external_id=nav_entity.externalId,  # query:[][][query] or view:[schema][schema.namespace][view]
+                        system_type=nav_entity.get("systemType"),  # BW or HANA
+                        connection_id=nav_entity.get("connectionId"),
+                        external_id=nav_entity.get(
+                            "externalId"
+                        ),  # query:[][][query] or view:[schema][schema.namespace][view]
                         is_import=model_id in import_data_model_ids,
                     )
                 )
 
-            created_by: Optional[str] = entity.createdBy
+            created_by: Optional[str] = entity.get("createdBy")
             if created_by in ("SYSTEM", "$DELETED_USER$"):
                 created_by = None
 
-            modified_by: Optional[str] = entity.modifiedBy
+            modified_by: Optional[str] = entity.get("modifiedBy")
             if modified_by in ("SYSTEM", "$DELETED_USER$"):
                 modified_by = None
 
+            description = entity.get("description")
+
             yield Resource(
                 resource_id=resource_id,
-                resource_type=entity.resourceType,
-                resource_subtype=entity.resourceSubtype,
-                story_id=entity.storyId,
+                resource_type=entity["resourceType"],
+                resource_subtype=entity["resourceSubtype"],
+                story_id=entity["storyId"],
                 name=name,
-                description=entity.description.strip()
-                if entity.description is not None
-                else None,
-                created_time=entity.createdTime,
+                description=description.strip() if description is not None else None,
+                created_time=_parse_sac_datetime(entity["createdTime"]),
                 created_by=created_by,
-                modified_time=entity.modifiedTime,
+                modified_time=_parse_sac_datetime(entity["modifiedTime"]),
                 modified_by=modified_by,
-                open_url=entity.openURL,
+                open_url=entity["openURL"],
                 ancestor_path=ancestor_path,
-                is_mobile=entity.isMobile,
+                is_mobile=entity["isMobile"],
                 resource_models=frozenset(resource_models),
             )
 
@@ -797,3 +832,13 @@ def _add_sap_sac_custom_auth_header(
 ) -> Tuple[str, Dict[str, str], Any]:
     headers["x-sap-sac-custom-auth"] = "true"
     return url, headers, body
+
+
+def _parse_sac_datetime(value: str) -> datetime:
+    match = _SAC_JSON_DATE_PATTERN.match(value)
+    if match is None:
+        raise ValueError(f"Unexpected SAP Analytics Cloud date format: {value!r}")
+
+    # The millisecond value is an absolute instant (epoch-relative); an optional ±offset only
+    # affects the displayed wall-clock time, not the instant, so it does not change the UTC value.
+    return datetime.fromtimestamp(int(match.group("ms")) / 1000, tz=timezone.utc)

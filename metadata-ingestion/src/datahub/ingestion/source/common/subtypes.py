@@ -38,6 +38,8 @@ class DatasetSubTypes(StrEnum):
     API_ENDPOINT = "API Endpoint"
     SLACK_CHANNEL = "Slack Channel"
     PROJECTIONS = "Projections"
+    TIMESCALEDB_HYPERTABLE = "Hypertable"
+    TIMESCALEDB_CONTINUOUS_AGGREGATE = "Continuous Aggregate"
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
     CONNECTION = "Connection"
@@ -74,8 +76,10 @@ class DatasetContainerSubTypes(StrEnum):
     ABS_CONTAINER = "ABS container"
     KEYSPACE = "Keyspace"  # Cassandra
     NAMESPACE = "Namespace"  # Iceberg
+    # Dremio
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
+    DREMIO_FOLDER = "Dremio Folder"
     # Matillion
     MATILLION_PROJECT = "Project"
     MATILLION_ENVIRONMENT = "Environment"
@@ -114,6 +118,7 @@ class FlowContainerSubTypes(StrEnum):
     GLUE_JOB = "Job"
     MSSQL_JOB = "Job"
     PROCEDURE_CONTAINER = "Procedures Container"
+    TIMESCALEDB_BACKGROUND_JOBS = "Background Jobs"
     ADF_DATA_FACTORY = "Data Factory"
     MATILLION_PIPELINE = "Pipeline"
     SNOWFLAKE_TASK_GROUP = "Snowflake Task Group"
@@ -124,6 +129,7 @@ class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
     MSSQL_JOBSTEP = "Job Step"
     STORED_PROCEDURE = "Stored Procedure"
+    TIMESCALEDB_BACKGROUND_JOB = "Background Job"
     MATILLION_COMPONENT = "Component"
     FUNCTION = "Function"
 

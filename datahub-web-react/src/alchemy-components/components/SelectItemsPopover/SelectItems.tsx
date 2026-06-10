@@ -1,4 +1,5 @@
 import React, { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Button } from '@components/components/Button';
@@ -90,6 +91,8 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
     handleSelectionChange,
     renderOption,
 }) => {
+    const { t } = useTranslation('alchemy');
+    const { t: tc } = useTranslation('common.actions');
     const {
         filteredAddableOptions,
         filteredPreviouslyAddedOptions,
@@ -134,9 +137,9 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
     const hasExistingEntities = previouslyAddedOptions?.length > 0;
     const entityName =
         entityTypes.length === 1
-            ? (entityRegistry.getCollectionName(entityTypes[0])?.toLowerCase() ?? 'items')
-            : 'entities';
-    const emptyMessage = `No ${entityName} found`;
+            ? (entityRegistry.getCollectionName(entityTypes[0])?.toLowerCase() ?? t('selectItems.itemsLabel'))
+            : t('selectItems.entitiesLabel');
+    const emptyMessage = t('selectItems.noEntityFound', { entityName });
     return (
         <StyledSelectContainer onClick={handleContainerClick}>
             <InlineListSearch
@@ -145,7 +148,11 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
                 matchResultCount={filteredPreviouslyAddedOptions?.length + filteredAddableOptions?.length}
                 numRows={searchResultCount}
                 entityTypeName={entityTypes[0] ?? ''}
-                options={{ hidePrefix: true, hideMatchCountText: true, placeholder: `Search for ${entityName}...` }}
+                options={{
+                    hidePrefix: true,
+                    hideMatchCountText: true,
+                    placeholder: t('selectItems.searchForEntity', { entityName }),
+                }}
             />
             {isLoading ? (
                 <StyledLoader>
@@ -155,7 +162,7 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
                 <StyledCheckBoxContainer>
                     {hasExistingEntities ? (
                         <StyledGroupSection>
-                            <StyledSubSection>Selected</StyledSubSection>
+                            <StyledSubSection>{t('selectItems.selectedSection')}</StyledSubSection>
                             {hasExistingEntitiesMatchingFilters && (
                                 <SelectItemCheckboxGroup
                                     selectedOptions={selectedOptions}
@@ -172,7 +179,7 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
                     ) : null}
                     <StyledGroupSection>
                         {(hasExistingEntitiesMatchingFilters || searchText) && (
-                            <StyledSubSection>Add more</StyledSubSection>
+                            <StyledSubSection>{t('selectItems.addMoreSection')}</StyledSubSection>
                         )}
                         {hasAddableEntitiesMatchingFilters && (
                             <SelectItemCheckboxGroup
@@ -189,14 +196,14 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
             <StyledFooter>
                 {hasExistingEntities && (
                     <Button variant="outline" color="gray" onClick={() => handleUpdate({ isRemoveAll: true })}>
-                        Remove All
+                        {t('selectItems.removeAll')}
                     </Button>
                 )}
                 <StyledUpdateButton
                     style={{ width: !hasExistingEntities ? '100%' : '' }}
                     onClick={() => handleUpdate({})}
                 >
-                    Update
+                    {tc('update')}
                 </StyledUpdateButton>
             </StyledFooter>
         </StyledSelectContainer>

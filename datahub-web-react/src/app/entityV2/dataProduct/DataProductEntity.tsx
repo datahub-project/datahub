@@ -1,6 +1,7 @@
 import { AppstoreOutlined, FileOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -75,9 +76,9 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     getPathName = () => 'dataProduct';
 
-    getEntityName = () => 'Data Product';
+    getEntityName = () => i18next.t('entity.types:dataProduct.name');
 
-    getCollectionName = () => 'Data Products';
+    getCollectionName = () => i18next.t('entity.types:dataProduct.namePlural');
 
     useEntityQuery = useGetDataProductQuery;
 
@@ -147,21 +148,21 @@ export class DataProductEntity implements Entity<DataProduct> {
         return [
             {
                 id: EntityProfileTab.SUMMARY_TAB,
-                name: 'Summary',
+                name: i18next.t('entity.types:tab.summary'),
                 component: showSummaryTab ? SummaryTab : DataProductSummaryTab,
                 icon: ReadOutlined,
             },
             ...(!showSummaryTab
                 ? [
                       {
-                          name: 'Documentation',
+                          name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
                           icon: FileOutlined,
                       },
                   ]
                 : []),
             {
-                name: 'Assets',
+                name: i18next.t('entity.types:tab.assets'),
                 getCount: (entityData, _) => {
                     return entityData?.entities?.total;
                 },
@@ -169,7 +170,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 icon: AppstoreOutlined,
             },
             {
-                name: 'Properties',
+                name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
                 icon: UnorderedListOutlined,
             },
@@ -178,9 +179,9 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];

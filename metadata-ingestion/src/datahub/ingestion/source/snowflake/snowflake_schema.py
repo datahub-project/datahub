@@ -11,6 +11,7 @@ from typing import (
     Iterable,
     List,
     MutableMapping,
+    NamedTuple,
     Optional,
     Set,
     Tuple,
@@ -206,12 +207,19 @@ class SnowflakeTable(BaseTable):
         return DatasetSubTypes.TABLE
 
 
+class SnowflakeDynamicTableInput(NamedTuple):
+    name: str
+    kind: str
+
+
 @dataclass
 class SnowflakeDynamicTable(SnowflakeTable):
     definition: Optional[str] = (
         None  # SQL query that defines the dynamic table's content
     )
     target_lag: Optional[str] = None  # Refresh frequency (e.g., "1 HOUR", "30 MINUTES")
+    # Fully-qualified upstream entries from DYNAMIC_TABLE_GRAPH_HISTORY().INPUTS.
+    upstream_tables: List[SnowflakeDynamicTableInput] = field(default_factory=list)
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.DYNAMIC_TABLE
@@ -363,6 +371,53 @@ class SnowflakeStream:
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.SNOWFLAKE_STREAM
+
+
+@dataclass
+class SnowflakeMarketplaceListing:
+    """Represents an available internal marketplace listing from SHOW AVAILABLE LISTINGS"""
+
+    name: str  # listing name
+    listing_global_name: str
+    title: str  # display name
+    category: Optional[str]
+    description: Optional[str]
+    created_on: Optional[datetime]
+    organization_profile_name: str  # Organization providing the listing
+
+
+@dataclass
+class SnowflakeShare:
+    """Represents a Snowflake share"""
+
+    name: str
+    kind: str  # INBOUND or OUTBOUND
+    database_name: Optional[str]  # Database provided by the share
+    owner: Optional[str]
+    comment: Optional[str]
+    listing_global_name: Optional[str]  # For shares from marketplace listings
+
+
+@dataclass
+class SnowflakeMarketplacePurchase:
+    """Represents a database created from an internal marketplace listing"""
+
+    database_name: str
+    purchase_date: datetime
+    owner: str
+    comment: Optional[str]
+
+
+@dataclass
+class SnowflakeProviderShare:
+    """Represents an OUTBOUND share for provider mode marketplace tracking"""
+
+    share_name: str
+    source_database: str
+    listing_global_name: Optional[str]  # Links to marketplace listing
+    created_on: Optional[datetime]
+    owner: Optional[str]
+    comment: Optional[str]
 
 
 @dataclass
@@ -1945,18 +2000,41 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     if schema_name not in dynamic_tables:
                         dynamic_tables[schema_name] = []
 
-                    # Get definition from SHOW result
                     definition = dt.get("text")
-
-                    # Get target lag from SHOW result or graph info
                     target_lag = dt.get("target_lag")
-                    if not target_lag and dt_graph_info:
+                    upstream_tables: List[SnowflakeDynamicTableInput] = []
+                    if dt_graph_info:
                         qualified_name = f"{db_name}.{schema_name}.{dt_name}"
                         graph_info = dt_graph_info.get(qualified_name, {})
-                        if graph_info.get("target_lag_type") and graph_info.get(
-                            "target_lag_sec"
-                        ):
-                            target_lag = f"{graph_info['target_lag_sec']} {graph_info['target_lag_type']}"
+                        if not target_lag:
+                            if graph_info.get("target_lag_type") and graph_info.get(
+                                "target_lag_sec"
+                            ):
+                                target_lag = f"{graph_info['target_lag_sec']} {graph_info['target_lag_type']}"
+                        raw_inputs = graph_info.get("inputs")
+                        if raw_inputs:
+                            # INPUTS is ARRAY of OBJECTs [{name, kind}, ...]; may be a JSON string.
+                            try:
+                                if isinstance(raw_inputs, str):
+                                    raw_inputs = json.loads(raw_inputs)
+                                # Coerce non-list JSON values (e.g. "null" -> None,
+                                # single object -> dict) so the comprehension below
+                                # doesn't crash the whole database scan.
+                                if not isinstance(raw_inputs, list):
+                                    raw_inputs = []
+                                upstream_tables = [
+                                    SnowflakeDynamicTableInput(
+                                        name=inp["name"],
+                                        kind=inp.get("kind", "Table"),
+                                    )
+                                    for inp in raw_inputs
+                                    if isinstance(inp, dict) and inp.get("name")
+                                ]
+                            except json.JSONDecodeError as e:
+                                logger.warning(
+                                    f"Failed to parse INPUTS for dynamic table "
+                                    f"{db_name}.{schema_name}.{dt_name}: {e}"
+                                )
 
                     dynamic_tables[schema_name].append(
                         SnowflakeDynamicTable(
@@ -1968,6 +2046,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                             comment=dt.get("comment"),
                             definition=definition,
                             target_lag=target_lag,
+                            upstream_tables=upstream_tables,
                             is_dynamic=True,
                             type="DYNAMIC TABLE",
                         )
@@ -2007,6 +2086,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                             if show_dt.name == table.name:
                                 table.definition = show_dt.definition
                                 table.target_lag = show_dt.target_lag
+                                table.upstream_tables = show_dt.upstream_tables
                                 break
         except Exception as e:
             logger.debug(
