@@ -47,7 +47,7 @@ def _make_source(**config_overrides: Any) -> InformaticaSource:
     }
     defaults.update(config_overrides)
     config = InformaticaSourceConfig.model_validate(defaults)
-    ctx = PipelineContext(run_id="informatica-test")
+    ctx = PipelineContext(run_id="informatica-test", pipeline_name="informatica-test")
     return InformaticaSource(config, ctx)
 
 
