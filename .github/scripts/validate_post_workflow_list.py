@@ -29,12 +29,12 @@ IGNORED_WORKFLOWS = {
 }
 
 # Workflows that are intentionally listed in post-workflow-actions.yml but only have
-# schedule or workflow_dispatch triggers (not push/PR), so the validator should not
+# schedule, workflow_dispatch, release etc triggers (not push/PR), so the validator should not
 # flag them as stale extras.
 ALLOWED_NON_PR_WORKFLOWS = {
     "Nightly Docker Test",
-    "Release Tests",
     "Release Validation",
+    "Security scan and Linear sync",
 }
 
 

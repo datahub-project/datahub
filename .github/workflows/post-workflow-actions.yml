@@ -35,8 +35,8 @@ on:
       - "spark smoke test"
       - "Verify Quickstart Compose"
       - "Nightly Docker Test"
-      - "Release Tests"
       - "Release Validation"
+      - "Security scan and Linear sync"
     types:
       - completed
 
