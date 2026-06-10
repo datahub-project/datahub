@@ -314,6 +314,86 @@ def test_temp_table_patterns_default_none_is_unchanged():
     )
 
 
+@pytest.mark.parametrize(
+    "platform,name_a,name_b",
+    [
+        # Snowflake / Redshift / Postgres style: double-quoted identifiers.
+        (
+            "snowflake",
+            '"DB"."S"."T-STAGING-aaaaaaaa-1111-2222-3333-444444444444"',
+            '"DB"."S"."T-STAGING-bbbbbbbb-5555-6666-7777-888888888888"',
+        ),
+        # BigQuery style: backtick-quoted identifiers.
+        (
+            "bigquery",
+            "`proj`.`ds`.`T-STAGING-aaaaaaaa-1111-2222-3333-444444444444`",
+            "`proj`.`ds`.`T-STAGING-bbbbbbbb-5555-6666-7777-888888888888`",
+        ),
+        # MSSQL style: bracket-quoted identifiers.
+        (
+            "mssql",
+            "[db].[s].[T-STAGING-aaaaaaaa-1111-2222-3333-444444444444]",
+            "[db].[s].[T-STAGING-bbbbbbbb-5555-6666-7777-888888888888]",
+        ),
+    ],
+)
+def test_temp_aware_fingerprint_is_dialect_quoting_aware(platform, name_a, name_b):
+    # The same per-run staging token must collapse regardless of the dialect's
+    # identifier quoting (double-quote / backtick / bracket).
+    from datahub.sql_parsing.sqlglot_utils import DEFAULT_TEMP_TABLE_FINGERPRINT_RULES
+
+    fp_a = get_query_fingerprint(
+        f"SELECT * FROM {name_a}",
+        platform,
+        fast=True,
+        temp_table_patterns=DEFAULT_TEMP_TABLE_FINGERPRINT_RULES,
+    )
+    fp_b = get_query_fingerprint(
+        f"SELECT * FROM {name_b}",
+        platform,
+        fast=True,
+        temp_table_patterns=DEFAULT_TEMP_TABLE_FINGERPRINT_RULES,
+    )
+    assert fp_a == fp_b
+
+
+def test_temp_aware_fingerprint_works_on_slow_path():
+    # temp_table_patterns must also collapse on the AST (slow, fast=False) path,
+    # so aggregator-based sources (which fingerprint via sqlglot_lineage) benefit.
+    from datahub.sql_parsing.sqlglot_utils import DEFAULT_TEMP_TABLE_FINGERPRINT_RULES
+
+    run1 = _STAGING_MERGE.format(
+        dest="DEST", uuid="e089db10-8bb1-4989-9859-ea3ec9387b50"
+    )
+    run2 = _STAGING_MERGE.format(
+        dest="DEST", uuid="aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+    )
+    fp1 = get_query_fingerprint(
+        run1,
+        "snowflake",
+        fast=False,
+        temp_table_patterns=DEFAULT_TEMP_TABLE_FINGERPRINT_RULES,
+    )
+    fp2 = get_query_fingerprint(
+        run2,
+        "snowflake",
+        fast=False,
+        temp_table_patterns=DEFAULT_TEMP_TABLE_FINGERPRINT_RULES,
+    )
+    assert fp1 == fp2
+
+    # ...and distinct real destinations still stay distinct on the slow path.
+    fp_other = get_query_fingerprint(
+        _STAGING_MERGE.format(
+            dest="OTHER", uuid="e089db10-8bb1-4989-9859-ea3ec9387b50"
+        ),
+        "snowflake",
+        fast=False,
+        temp_table_patterns=DEFAULT_TEMP_TABLE_FINGERPRINT_RULES,
+    )
+    assert fp_other != fp1
+
+
 def test_redshift_query_fingerprint():
     query1 = "insert into insert_into_table (select * from base_table);"
     query2 = "INSERT INTO insert_into_table (SELECT * FROM base_table)"

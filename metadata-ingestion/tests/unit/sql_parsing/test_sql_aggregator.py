@@ -233,6 +233,59 @@ def test_temp_output_query_not_emitted_as_entity() -> None:
     assert len({m.entityUrn for m in query_entities}) == 1
 
 
+def test_aggregator_temp_aware_fingerprint_default_collapses_per_run() -> None:
+    # Sources that feed ObservedQuery WITHOUT a precomputed query_hash get their
+    # fingerprint from the aggregator (sqlglot_lineage). Temp-aware fingerprinting
+    # is on by default, so two runs of the same load that differ only by a per-run
+    # staging UUID collapse to ONE Query entity; a different real target stays split.
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+
+    def make_aggregator() -> SqlParsingAggregator:
+        return SqlParsingAggregator(
+            platform="snowflake",
+            generate_lineage=True,
+            generate_queries=True,
+            generate_query_usage_statistics=True,
+            generate_operations=False,
+            usage_config=BaseUsageConfig(
+                start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+                end_time=frozen_timestamp,
+            ),
+        )
+
+    def staging_load(dest: str, uuid: str) -> str:
+        return (
+            f'create table "DB"."PUBLIC"."{dest}" as '
+            f'select a from "DB"."FIVETRAN_X_STAGING"."T-STAGING-{uuid}"'
+        )
+
+    aggregator = make_aggregator()
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query=staging_load("real_dest", "aaaaaaaa-1111-2222-3333-444444444444"),
+            timestamp=frozen_timestamp,
+        )
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query=staging_load("real_dest", "bbbbbbbb-5555-6666-7777-888888888888"),
+            timestamp=frozen_timestamp,
+        )
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query=staging_load("other_dest", "cccccccc-9999-0000-1111-222222222222"),
+            timestamp=frozen_timestamp,
+        )
+    )
+
+    query_urns = {
+        m.entityUrn for m in aggregator.gen_metadata() if m.entityType == "query"
+    }
+    # real_dest's two runs collapse to one; other_dest is a distinct entity.
+    assert len(query_urns) == 2
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_multistep_temp_table() -> None:
     aggregator = SqlParsingAggregator(

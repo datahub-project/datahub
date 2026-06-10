@@ -3,6 +3,7 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 import dataclasses
 import functools
 import logging
+import re
 import traceback
 import uuid
 from collections import defaultdict
@@ -1973,6 +1974,7 @@ def _sqlglot_lineage_inner(
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
     generate_column_lineage: bool = True,
+    temp_table_patterns: Optional[Tuple["re.Pattern[str]", ...]] = None,
 ) -> SqlParsingResult:
     if override_dialect:
         dialect = get_dialect(override_dialect)
@@ -2154,7 +2156,7 @@ def _sqlglot_lineage_inner(
         original_statement, dialect=dialect
     )
     query_fingerprint, debug_info.generalized_statement = get_query_fingerprint_debug(
-        original_statement, dialect
+        original_statement, dialect, temp_table_patterns=temp_table_patterns
     )
     return SqlParsingResult(
         query_type=query_type,
@@ -2175,6 +2177,7 @@ def _sqlglot_lineage_nocache(
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
     generate_column_lineage: bool = True,
+    temp_table_patterns: Optional[Tuple["re.Pattern[str]", ...]] = None,
 ) -> SqlParsingResult:
     """Parse a SQL statement and generate lineage information.
 
@@ -2235,6 +2238,7 @@ def _sqlglot_lineage_nocache(
             default_schema=default_schema,
             override_dialect=override_dialect,
             generate_column_lineage=generate_column_lineage,
+            temp_table_patterns=temp_table_patterns,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
@@ -2274,6 +2278,7 @@ def sqlglot_lineage(
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
     generate_column_lineage: bool = True,
+    temp_table_patterns: Optional[Tuple["re.Pattern[str]", ...]] = None,
 ) -> SqlParsingResult:
     if schema_resolver.includes_temp_tables():
         return _sqlglot_lineage_nocache(
@@ -2283,6 +2288,7 @@ def sqlglot_lineage(
             default_schema=default_schema,
             override_dialect=override_dialect,
             generate_column_lineage=generate_column_lineage,
+            temp_table_patterns=temp_table_patterns,
         )
     else:
         return _sqlglot_lineage_cached(
@@ -2292,6 +2298,7 @@ def sqlglot_lineage(
             default_schema=default_schema,
             override_dialect=override_dialect,
             generate_column_lineage=generate_column_lineage,
+            temp_table_patterns=temp_table_patterns,
         )
 
 

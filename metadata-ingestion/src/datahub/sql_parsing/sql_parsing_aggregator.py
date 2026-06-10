@@ -5,11 +5,23 @@ import functools
 import json
 import logging
 import pathlib
+import re
 import tempfile
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
+from typing import (
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
@@ -55,6 +67,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     sqlglot_lineage,
 )
 from datahub.sql_parsing.sqlglot_utils import (
+    DEFAULT_TEMP_TABLE_FINGERPRINT_RULES,
     DialectOrStr,
     _parse_statement,
     get_query_fingerprint,
@@ -422,6 +435,9 @@ class SqlParsingAggregator(Closeable):
         is_allowed_table: Optional[Callable[[str], bool]] = None,
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
+        temp_table_patterns: Optional[
+            Sequence["re.Pattern[str]"]
+        ] = DEFAULT_TEMP_TABLE_FINGERPRINT_RULES,
     ) -> None:
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
@@ -451,6 +467,13 @@ class SqlParsingAggregator(Closeable):
         # can be used by BQ where we have a "temp_table_dataset_prefix"
         self._is_temp_table = is_temp_table
         self._is_allowed_table = is_allowed_table
+
+        # Temp-aware fingerprinting (default on): collapse per-run ephemeral object
+        # names so repeated ETL/sync queries map to one Query entity. Stored as a
+        # tuple so it can be passed through the lru-cached sqlglot_lineage.
+        self._temp_table_patterns: Optional[Tuple["re.Pattern[str]", ...]] = (
+            tuple(temp_table_patterns) if temp_table_patterns else None
+        )
 
         self.format_queries = format_queries
         self.query_log = query_log
@@ -739,6 +762,7 @@ class SqlParsingAggregator(Closeable):
                 query_fingerprint = get_query_fingerprint(
                     known_query_lineage.query_text,
                     platform=self.platform.platform_name,
+                    temp_table_patterns=self._temp_table_patterns,
                 )
         formatted_query = self._maybe_format_query(known_query_lineage.query_text)
 
@@ -972,6 +996,7 @@ class SqlParsingAggregator(Closeable):
             query_fingerprint = get_query_fingerprint(
                 parsed.query_text,
                 platform=self.platform.platform_name,
+                temp_table_patterns=self._temp_table_patterns,
             )
 
         # Format the query.
@@ -1258,6 +1283,7 @@ class SqlParsingAggregator(Closeable):
                 default_db=default_db,
                 default_schema=default_schema,
                 override_dialect=override_dialect,
+                temp_table_patterns=self._temp_table_patterns,
             )
         self.report.num_sql_parsed += 1
 

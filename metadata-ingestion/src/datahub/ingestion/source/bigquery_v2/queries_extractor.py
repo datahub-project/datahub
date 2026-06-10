@@ -50,7 +50,10 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
-from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
+from datahub.sql_parsing.sqlglot_utils import (
+    DEFAULT_TEMP_TABLE_FINGERPRINT_RULES,
+    get_query_fingerprint,
+)
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -128,6 +131,17 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
     include_query_usage_statistics: bool = True
     include_operations: bool = True
 
+    temp_aware_query_fingerprinting: bool = Field(
+        default=True,
+        description=(
+            "Collapse per-run ephemeral object names (e.g. Fivetran/Segment "
+            "staging UUIDs) when fingerprinting queries, so repeated ETL/sync "
+            "queries map to a single Query entity instead of one per run. "
+            "Changes query_id/URNs for affected queries; set to false to retain "
+            "the prior fingerprints."
+        ),
+    )
+
     region_qualifiers: List[str] = Field(
         default_factory=lambda: list(DEFAULT_REGION_QUALIFIERS),
         description="BigQuery regions to be scanned for bigquery jobs. "
@@ -199,6 +213,12 @@ class BigQueryQueriesExtractor(Closeable):
 
         self.start_time, self.end_time = self._get_time_window()
 
+        self._temp_fingerprint_rules = (
+            DEFAULT_TEMP_TABLE_FINGERPRINT_RULES
+            if self.config.temp_aware_query_fingerprinting
+            else None
+        )
+
         self.aggregator = SqlParsingAggregator(
             platform=self.identifiers.platform,
             platform_instance=self.identifiers.identifier_config.platform_instance,
@@ -221,6 +241,7 @@ class BigQueryQueriesExtractor(Closeable):
             is_temp_table=self.is_temp_table,
             is_allowed_table=self.is_allowed_table,
             format_queries=False,
+            temp_table_patterns=self._temp_fingerprint_rules,
         )
 
         self.report.sql_aggregator = self.aggregator.report
@@ -403,7 +424,10 @@ class BigQueryQueriesExtractor(Closeable):
 
             # Not using original BQ query hash as it's not always present
             query.query_hash = get_query_fingerprint(
-                query.query, self.identifiers.platform, fast=True
+                query.query,
+                self.identifiers.platform,
+                fast=True,
+                temp_table_patterns=self._temp_fingerprint_rules,
             )
 
             query_instances = queries_deduped.setdefault(query.query_hash, {})

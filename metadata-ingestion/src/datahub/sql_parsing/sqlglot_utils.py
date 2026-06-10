@@ -3,7 +3,7 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 import functools
 import logging
 import re
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import sqlglot
 import sqlglot.errors
@@ -267,9 +267,28 @@ _TABLE_NAME_NORMALIZATION_RULES = {
 _TMP_UUID = r"[0-9a-f]{8}[-_][0-9a-f]{4}[-_][0-9a-f]{4}[-_][0-9a-f]{4}[-_][0-9a-f]{12}"
 
 
+# (open-quote, close-quote, inner-char-class) for each dialect's identifier
+# quoting: double-quote (Snowflake/Redshift/Postgres), backtick (BigQuery/MySQL),
+# bracket (MSSQL). The marker is wrapped with the quote-appropriate wildcard so a
+# rule fires regardless of how the source dialect quotes the ephemeral name.
+_IDENTIFIER_QUOTE_STYLES = (
+    ('"', '"', r'[^"]'),
+    ("`", "`", r"[^`]"),
+    (r"\[", r"\]", r"[^\]]"),
+)
+
+
 def _quoted_identifier_containing(marker: str) -> "re.Pattern[str]":
-    """A quoted SQL identifier that contains an ephemeral marker token."""
-    return re.compile(r'"[^"]*' + marker + r'[^"]*"', re.IGNORECASE)
+    """A quoted SQL identifier (any dialect's quoting) containing a marker token.
+
+    The marker must not itself reference a specific quote character — use ``\\w``
+    for the variable middle so the pattern stays quote-style agnostic.
+    """
+    alts = [
+        open_q + inner + r"*" + marker + inner + r"*" + close_q
+        for open_q, close_q, inner in _IDENTIFIER_QUOTE_STYLES
+    ]
+    return re.compile("(?:" + "|".join(alts) + ")", re.IGNORECASE)
 
 
 # Only patterns whose token varies PER RUN belong here (they're what explode the
@@ -278,21 +297,37 @@ def _quoted_identifier_containing(marker: str) -> "re.Pattern[str]":
 DEFAULT_TEMP_TABLE_FINGERPRINT_RULES: List["re.Pattern[str]"] = [
     _quoted_identifier_containing(rf"-STAGING-{_TMP_UUID}"),  # fivetran/stitch staging
     _quoted_identifier_containing(rf"segment_{_TMP_UUID}"),  # segment
-    _quoted_identifier_containing(rf"STAGING_[^\"]*_{_TMP_UUID}"),  # stitch
+    _quoted_identifier_containing(rf"STAGING_\w*_{_TMP_UUID}"),  # stitch
     _quoted_identifier_containing(
         r"(?:GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9a-f]{8}"
     ),  # great expectations
     _quoted_identifier_containing(r"SNOWPARK_TEMP_TABLE_\w+"),  # snowpark
     _quoted_identifier_containing(r"temp_[0-9a-f]{32}"),  # pysnowflake scratch
 ]
-_TEMP_TABLE_FINGERPRINT_PLACEHOLDER = '"__DATAHUB_TEMP__"'
+# Unquoted so it stays a valid, parseable identifier under every dialect (the
+# slow/AST path re-parses the substituted text).
+_TEMP_TABLE_FINGERPRINT_PLACEHOLDER = "__DATAHUB_TEMP__"
+
+
+def _apply_temp_table_patterns(
+    query_text: str, temp_table_patterns: Optional[Sequence["re.Pattern[str]"]]
+) -> str:
+    """Replace per-run ephemeral identifiers with a stable placeholder.
+
+    Applied BEFORE basic normalization: the basic rules replace digit runs (e.g.
+    inside a UUID), which would mangle the ephemeral token before it could match.
+    """
+    if temp_table_patterns:
+        for pat in temp_table_patterns:
+            query_text = pat.sub(_TEMP_TABLE_FINGERPRINT_PLACEHOLDER, query_text)
+    return query_text
 
 
 def generalize_query_fast(
     expression: sqlglot.exp.ExpOrStr,
     dialect: DialectOrStr,
     change_table_names: bool = False,
-    temp_table_patterns: Optional[List["re.Pattern[str]"]] = None,
+    temp_table_patterns: Optional[Sequence["re.Pattern[str]"]] = None,
 ) -> str:
     """Variant of `generalize_query` that only does basic normalization.
 
@@ -314,12 +349,7 @@ def generalize_query_fast(
     else:
         query_text = str(expression)
 
-    # Apply temp-table normalization BEFORE the basic rules: the basic rules
-    # replace digit runs (e.g. inside a UUID) with placeholders, which would
-    # mangle the ephemeral token before it could be matched here.
-    if temp_table_patterns:
-        for pat in temp_table_patterns:
-            query_text = pat.sub(_TEMP_TABLE_FINGERPRINT_PLACEHOLDER, query_text)
+    query_text = _apply_temp_table_patterns(query_text, temp_table_patterns)
 
     REGEX_REPLACEMENTS = {
         **_BASIC_NORMALIZATION_RULES,
@@ -395,11 +425,19 @@ def get_query_fingerprint_debug(
     platform: DialectOrStr,
     fast: bool = False,
     secondary_id: Optional[str] = None,
-    temp_table_patterns: Optional[List["re.Pattern[str]"]] = None,
+    temp_table_patterns: Optional[Sequence["re.Pattern[str]"]] = None,
 ) -> Tuple[str, Optional[str]]:
     try:
         if not fast:
             dialect = get_dialect(platform)
+            # On the slow/AST path, substitute ephemeral names on the text first,
+            # then parse — so temp-aware fingerprinting works here too (the fast
+            # path applies these inside generalize_query_fast).
+            if temp_table_patterns:
+                expression = _apply_temp_table_patterns(
+                    _expression_to_string(expression, platform=platform),
+                    temp_table_patterns,
+                )
             expression_sql = generalize_query(expression, dialect=dialect)
             # Normalize placeholders for consistent fingerprinting -> this only needs to be backward compatible with earlier sqglot generated generalized queries where the placeholders were always ?
             expression_sql = PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION.sub(
@@ -430,7 +468,7 @@ def get_query_fingerprint(
     platform: DialectOrStr,
     fast: bool = False,
     secondary_id: Optional[str] = None,
-    temp_table_patterns: Optional[List["re.Pattern[str]"]] = None,
+    temp_table_patterns: Optional[Sequence["re.Pattern[str]"]] = None,
 ) -> str:
     """Get a fingerprint for a SQL query.
 
