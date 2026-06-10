@@ -1,6 +1,7 @@
 import Icon from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React, { useEffect } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
@@ -15,6 +16,9 @@ import dayjs from '@utils/dayjs';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 import NoStatsAvailble from '@images/no-stats-available.svg?react';
+
+/* eslint-disable-next-line i18next/no-literal-string -- route identifier, not UI text */
+const QUERIES_TAB = 'Queries';
 
 interface Props {
     properties: {
@@ -109,6 +113,7 @@ const QueriesTitle = styled(Typography.Text)`
 `;
 
 export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath } }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const isSeparateSiblings = useIsSeparateSiblingsMode();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const urn = (baseEntity && baseEntity.dataset && baseEntity.dataset?.urn) || '';
@@ -145,11 +150,11 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
             {!loading && hasNoQueries && (
                 <NoDataContainer>
                     <StyledIcon component={NoStatsAvailble} />
-                    <Section>No queries for this column found</Section>
+                    <Section>{t('queriesSidebarTab.noQueriesFound')}</Section>
                 </NoDataContainer>
             )}
             {loading && <Loading />}
-            {!loading && firstQueries.length > 0 && <QueriesTitle>Queries</QueriesTitle>}
+            {!loading && firstQueries.length > 0 && <QueriesTitle>{t('queriesSidebarTab.sectionTitle')}</QueriesTitle>}
 
             {firstQueries.length > 0 &&
                 firstQueries.map((query, idx) => (
@@ -158,13 +163,21 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
                             <Query query={query.query} index={idx} isCompact showDetails={false} showHeader={false} />
                             <QuerySubtitleContainer>
                                 <SubtitleSection>
-                                    Last run by{' '}
-                                    {query.createdBy && (
-                                        <StyledCreatedBy>
-                                            <QueryCreatedBy createdBy={query.createdBy} />
-                                        </StyledCreatedBy>
-                                    )}
-                                    on {dayjs(query.lastRun).format('MM/DD/YYYY')}
+                                    <Trans
+                                        t={t}
+                                        i18nKey="queriesSidebarTab.lastRunBy"
+                                        values={{
+                                            name: query.createdBy?.username,
+                                            date: dayjs(query.lastRun).format('MM/DD/YYYY'),
+                                        }}
+                                        components={{
+                                            1: (
+                                                <StyledCreatedBy>
+                                                    {query.createdBy && <QueryCreatedBy createdBy={query.createdBy} />}
+                                                </StyledCreatedBy>
+                                            ),
+                                        }}
+                                    />
                                 </SubtitleSection>
                             </QuerySubtitleContainer>
                         </StyledQueryCard>
@@ -174,12 +187,12 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
                 <SeeAllButton
                     onClick={() => {
                         routeToTab({
-                            tabName: 'Queries',
+                            tabName: QUERIES_TAB,
                             tabParams: { column: schemaFieldUrn, siblingColumn: siblingSchemaFieldUrn },
                         });
                     }}
                 >
-                    See All Queries
+                    {t('queriesSidebarTab.seeAllQueries')}
                 </SeeAllButton>
             )}
         </QueriesTabContainer>

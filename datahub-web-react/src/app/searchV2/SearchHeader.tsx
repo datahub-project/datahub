@@ -1,7 +1,8 @@
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Button, Layout } from 'antd';
 import React, { useContext, useState } from 'react';
-import styled, { useTheme } from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { DefaultTheme, useTheme } from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
@@ -19,10 +20,10 @@ import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AutoCompleteResultForEntity } from '@types';
 
-const getStyles = ($isShowNavBarRedesign?: boolean, themeColors?: { bg: string }) => {
+const getStyles = ($isShowNavBarRedesign?: boolean, theme?: DefaultTheme) => {
     return {
         input: {
-            backgroundColor: themeColors?.bg ?? 'transparent',
+            backgroundColor: theme?.colors?.bg ?? 'transparent',
         },
         searchBox: {
             maxWidth: $isShowNavBarRedesign ? '100%' : 620,
@@ -146,6 +147,7 @@ export const SearchHeader = ({
     entityRegistry,
     hideSearchBar,
 }: Props) => {
+    const { t } = useTranslation('search');
     const [, setIsSearchBarFocused] = useState(false);
     const appConfig = useAppConfig();
     const viewsEnabled = appConfig.config?.viewsConfig?.enabled || false;
@@ -159,7 +161,7 @@ export const SearchHeader = ({
     // hero container (homeV3/header/Header.tsx), not in the global header.
     const hideNavToggler = showHomepageRedesign && isHomePage;
     const themeConfig = useTheme();
-    const styles = getStyles(isShowNavBarRedesign, themeConfig.colors);
+    const styles = getStyles(isShowNavBarRedesign, themeConfig);
 
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
     const FinalSearchBar = showSearchBarAutocompleteRedesign ? SearchBarV2 : SearchBar;
@@ -199,7 +201,7 @@ export const SearchHeader = ({
                             />
                             {isShowNavBarRedesign && (
                                 <StyledButton type="link" onClick={searchViewAll}>
-                                    Discover <ArrowRight />
+                                    {t('searchHeader.discover')} <ArrowRight />
                                 </StyledButton>
                             )}
                         </SearchBarContainer>

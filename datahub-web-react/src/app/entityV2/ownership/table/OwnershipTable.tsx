@@ -1,5 +1,6 @@
 import { Table } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Column } from '@components/components/Table/types';
@@ -20,16 +21,18 @@ type Props = {
 };
 
 export const OwnershipTable = ({ ownershipTypes, setIsOpen, setOwnershipType, refetch }: Props) => {
+    const { t } = useTranslation('entity.ownership');
+
     const columns: Column<OwnershipTypeEntity>[] = [
         {
-            title: 'Name',
+            title: t('table.name'),
             key: 'name',
             width: '25%',
             sorter: (a, b) => (a?.info?.name || '').localeCompare(b?.info?.name || ''),
             render: (record) => <NameText>{record?.info?.name || record?.urn}</NameText>,
         },
         {
-            title: 'Description',
+            title: t('table.description'),
             key: 'description',
             width: '65%',
             render: (record) => record?.info?.description || '',

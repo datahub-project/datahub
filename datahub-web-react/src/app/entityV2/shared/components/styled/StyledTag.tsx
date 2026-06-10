@@ -21,7 +21,7 @@ export const StyledTag = styled(Tag)<{
     overflow: hidden;
     text-overflow: ellipsis;
     &&& {
-        background-color: ${(props) => props.theme.colors.bgSurface};
+        background-color: ${(props) => props.theme.colors.bg};
         border-color: ${(props) => props.theme.colors.border};
         color: ${(props) => props.theme.colors.textSecondary};
         .ant-tag-close-icon {

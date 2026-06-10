@@ -13,6 +13,10 @@ import dayjs from '@utils/dayjs';
 
 import { AnalyticsChart as AnalyticsChartType, BarChart as BarChartType, TimeSeriesChart } from '@types';
 
+// dayjs format tokens for time-series axis ticks and tooltips (not user-visible copy)
+const AXIS_DATE_FORMAT = 'MMM D';
+const TOOLTIP_DATE_FORMAT = 'MMM D, YYYY';
+
 type Props = {
     chartData: AnalyticsChartType;
 };
@@ -62,22 +66,22 @@ const LegendScrollArea = styled.div`
     }
 
     &::-webkit-scrollbar-track {
-        background: ${(props) => props.theme.colors.border};
+        background: ${(props) => props.theme.colors.scrollbarTrack};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.bgSurface};
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${(props) => props.theme.colors.bgSurface};
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
     }
 
     /* Firefox scrollbar */
     scrollbar-width: thin;
-    scrollbar-color: ${(props) => props.theme.colors.textDisabled} ${(props) => props.theme.colors.border};
+    scrollbar-color: ${(props) => props.theme.colors.textDisabled} ${(props) => props.theme.colors.scrollbarThumb};
 `;
 
 const LegendItem = styled.div<{ $isSelected?: boolean }>`
@@ -479,11 +483,11 @@ export const AnalyticsChart = ({ chartData }: Props) => {
                     <AlchemyLineChart
                         data={timeSeriesData}
                         bottomAxisProps={{
-                            tickFormat: (x) => dayjs(x).format('MMM D'),
+                            tickFormat: (x) => dayjs(x).format(AXIS_DATE_FORMAT),
                         }}
                         popoverRenderer={(datum) => (
                             <>
-                                <Text weight="bold">{dayjs(datum.x).format('MMM D, YYYY')}</Text>
+                                <Text weight="bold">{dayjs(datum.x).format(TOOLTIP_DATE_FORMAT)}</Text>
                                 <Text>{datum.y.toLocaleString()}</Text>
                             </>
                         )}

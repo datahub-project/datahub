@@ -1,5 +1,6 @@
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import NoMarkdownViewer from '@app/entityV2/shared/components/styled/StripMarkdownText';
@@ -11,7 +12,7 @@ const Title = styled(Typography.Title)<{ secondary?: boolean }>`
     && {
         margin: 0px;
         padding: 0px;
-        color: ${(props) => (props.secondary && props.theme.colors.textDisabled) || props.theme.colors.text};
+        color: ${(props) => (props.secondary && props.theme.colors.textTertiary) || props.theme.colors.text};
     }
     max-height: 40px;
     overflow: hidden;
@@ -63,7 +64,7 @@ const Date = styled.div`
 
 const EmptyText = styled.div`
     && {
-        color: ${(props) => props.theme.colors.textDisabled};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 
@@ -92,11 +93,13 @@ export default function QueryCardDetails({
     onDeleted,
     index,
 }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
+    const { t: tc } = useTranslation('common.actions');
     return (
         <Details>
             <Header>
                 <Title secondary={!title} level={5}>
-                    {title || 'No title'}
+                    {title || t('queryCard.noTitle')}
                 </Title>
                 <Actions>
                     {showEdit && (
@@ -116,15 +119,17 @@ export default function QueryCardDetails({
                     <NoMarkdownViewer
                         shouldWrap
                         limit={200}
-                        readMore={<MoreButton onClick={onClickExpand}>more</MoreButton>}
+                        readMore={<MoreButton onClick={onClickExpand}>{tc('more')}</MoreButton>}
                     >
                         {description}
                     </NoMarkdownViewer>
-                )) || <EmptyText>No description</EmptyText>}
+                )) || <EmptyText>{t('queryCard.noDescription')}</EmptyText>}
             </Description>
             <Date>
                 {(createdAtMs && (
-                    <Typography.Text type="secondary">Created on {toLocalDateString(createdAtMs)}</Typography.Text>
+                    <Typography.Text type="secondary">
+                        {t('queryCard.createdOn', { date: toLocalDateString(createdAtMs) })}
+                    </Typography.Text>
                 )) ||
                     undefined}
             </Date>

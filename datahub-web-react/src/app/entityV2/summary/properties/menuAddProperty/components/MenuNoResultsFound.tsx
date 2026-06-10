@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const NoResultsFoundWrapper = styled.div`
@@ -8,9 +9,11 @@ const NoResultsFoundWrapper = styled.div`
 `;
 
 export default function MenuNoResultsFound() {
+    const { t: tc } = useTranslation('common.actions');
+
     return (
         <NoResultsFoundWrapper>
-            <Text>No results found</Text>
+            <Text>{tc('noResults')}</Text>
         </NoResultsFoundWrapper>
     );
 }

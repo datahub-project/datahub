@@ -721,14 +721,14 @@
     "img_path": "img/logos/platforms/starrocks.svg"
   },
   "timescaledb": {
-    "api_connector": true,
     "platform_type": "Database",
-    "title": "TimescaleDB",
+    "connection_type": "Pull",
     "description": "Open-source time-series database built on PostgreSQL for fast analytics on time-series data.",
-    "img_path": "img/logos/platforms/timescaledb.svg"
+    "extra_features": [
+      "Status Aspect"
+    ]
   },
   "airbyte": {
-    "api_connector": true,
     "platform_type": "ETL/ELT",
     "title": "Airbyte",
     "description": "Open-source data integration platform for syncing data from APIs, databases, and files to warehouses and lakes.",
@@ -918,7 +918,6 @@
     "img_path": "img/logos/platforms/talend.svg"
   },
   "thoughtspot": {
-    "api_connector": true,
     "platform_type": "BI Tool",
     "title": "ThoughtSpot",
     "description": "AI-powered analytics platform with natural language search for self-service business intelligence.",

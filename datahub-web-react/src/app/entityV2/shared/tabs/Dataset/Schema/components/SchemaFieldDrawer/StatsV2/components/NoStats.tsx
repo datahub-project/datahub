@@ -1,5 +1,6 @@
 import Icon from '@ant-design/icons';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Text } from '@src/alchemy-components';
@@ -16,14 +17,16 @@ const NoDataContainer = styled.div`
 const StyledIcon = styled(Icon)`
     font-size: 80px;
     margin-bottom: 6px;
-    color: ${(props) => props.theme.colors.bg};
+    color: transparent;
 `;
 
 export default function NoStats() {
+    const { t } = useTranslation('entity.profile.schema');
+
     return (
         <NoDataContainer>
             <StyledIcon component={NoStatsAvailble} />
-            <Text size="sm">No column statistics found</Text>
+            <Text size="sm">{t('statsV2.noColumnStatsFound')}</Text>
         </NoDataContainer>
     );
 }

@@ -44,6 +44,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @ComponentScan(
     basePackages = {
       "com.linkedin.metadata.kafka",
+      "com.linkedin.metadata.pgqueue",
       "com.linkedin.gms.factory.kafka",
       "com.linkedin.gms.factory.entity.update.indices",
       "com.linkedin.gms.factory.timeline.eventgenerator",

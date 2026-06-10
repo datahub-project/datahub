@@ -6,6 +6,7 @@ apply from: '../gradle/coverage/java-coverage.gradle'
 dependencies {
   api project(':metadata-utils')
   api project(':metadata-auth:auth-api')
+  implementation project(path: ':li-utils')
 
   // https://mvnrepository.com/artifact/nl.basjes.parse.useragent/yauaa
   // latest caffeine 3.1.8 compatible

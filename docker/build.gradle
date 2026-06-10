@@ -10,7 +10,7 @@ apply from: "../gradle/versioning/versioning.gradle"
 
 ext {
     compose_base = "profiles/docker-compose.yml"
-    project_name = "datahub"
+    project_name = System.getenv("COMPOSE_PROJECT_NAME") ?: "datahub"
 
     backend_profile_modules = [
             ':datahub-upgrade',
@@ -220,6 +220,15 @@ ext {
                             ':datahub-actions',
                     ]
             ],
+            'quickstartPgConsumers': [
+                    profile: 'quickstart-postgres-consumers',
+                    modules: backend_profile_modules + [
+                            ':datahub-frontend',
+                            ':metadata-jobs:mce-consumer-job',
+                            ':metadata-jobs:mae-consumer-job',
+                            ':datahub-actions',
+                    ]
+            ],
             'quickstartPgCdc': [
                 profile: 'quickstart-postgres-cdc',
                 modules: backend_profile_modules + [
@@ -230,14 +239,16 @@ ext {
             'quickstartPgDebug': [
                     profile: 'debug-postgres',
                     modules: python_services_modules + backend_profile_modules + [
-                            ':datahub-frontend'
+                            ':datahub-frontend',
+                            ':datahub-actions',
                     ],
                     isDebug: true
             ],
             'quickstartPgCdcDebug': [
                 profile: 'debug-postgres-cdc',
                 modules: python_services_modules + backend_profile_modules + [
-                    ':datahub-frontend'
+                    ':datahub-frontend',
+                    ':datahub-actions',
                 ],
                 isDebug: true
             ],
@@ -375,7 +386,7 @@ ext {
 apply from: 'postgres/quickstart-publish.gradle'
 
 // Resolve the compose profile(s) for a given quickstart_configs key (used by docker-unified CI when a PR has a smoke:<key> label).
-// Usage: ./gradlew :docker:resolveQuickstartProfile -PconfigKey=quickstartDebug -q
+// Usage: ./gradlew :docker:resolveQuickstartProfile -PconfigKey=<key> -q  (e.g. quickstartDebug, quickstartPg, quickstartPgConsumers, quickstartPgDebug, …)
 tasks.register("resolveQuickstartProfile") {
     doLast {
         def configKey = project.findProperty('configKey')

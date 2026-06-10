@@ -99,6 +99,93 @@ public class PageModuleServiceTest {
   }
 
   @Test
+  public void testUpsertGlobalPageModuleWithoutPrivilegeThrowsUnauthorized() throws Exception {
+    // A Reader-level user must not be able to create a GLOBAL-scoped module.
+    DataHubPageModuleType type = DataHubPageModuleType.RICH_TEXT;
+    PageModuleScope scope = PageModuleScope.GLOBAL;
+    DataHubPageModuleParams params = createTestParams();
+
+    when(mockOpContext.getAuditStamp()).thenReturn(createTestAuditStamp());
+
+    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAuthorized(
+                      mockOpContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE))
+          .thenReturn(false);
+
+      assertThrows(
+          UnauthorizedException.class,
+          () ->
+              service.upsertPageModule(mockOpContext, null, TEST_MODULE_NAME, type, scope, params));
+    }
+  }
+
+  @Test
+  public void testUpsertPersonalScopeOverGlobalModuleUrnThrowsUnauthorized() throws Exception {
+    // Core fix for GHSA-q33f-6fh7-4cgj: a user submits scope=PERSONAL with the URN of an existing
+    // GLOBAL module. The persisted scope must be checked, not the caller-supplied scope.
+    Urn moduleUrn = UrnUtils.getUrn(TEST_MODULE_URN);
+    DataHubPageModuleType type = DataHubPageModuleType.RICH_TEXT;
+    PageModuleScope scope = PageModuleScope.PERSONAL; // attacker supplies PERSONAL
+    DataHubPageModuleParams params = createTestParams();
+
+    // The module already exists in the store with GLOBAL scope.
+    DataHubPageModuleProperties globalProperties = createTestModuleProperties();
+    globalProperties.getVisibility().setScope(com.linkedin.module.PageModuleScope.GLOBAL);
+
+    when(mockOpContext.getAuditStamp()).thenReturn(createTestAuditStamp());
+    when(mockEntityClient.getV2(
+            any(),
+            eq(Constants.DATAHUB_PAGE_MODULE_ENTITY_NAME),
+            eq(moduleUrn),
+            eq(null),
+            eq(false)))
+        .thenReturn(createMockEntityResponse(moduleUrn, globalProperties));
+
+    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAuthorized(
+                      mockOpContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE))
+          .thenReturn(false);
+
+      assertThrows(
+          UnauthorizedException.class,
+          () ->
+              service.upsertPageModule(
+                  mockOpContext, TEST_MODULE_URN, TEST_MODULE_NAME, type, scope, params));
+    }
+  }
+
+  @Test
+  public void testUpsertGlobalPageModuleWithPrivilegeSucceeds() throws Exception {
+    DataHubPageModuleType type = DataHubPageModuleType.RICH_TEXT;
+    PageModuleScope scope = PageModuleScope.GLOBAL;
+    DataHubPageModuleParams params = createTestParams();
+
+    when(mockOpContext.getAuditStamp()).thenReturn(createTestAuditStamp());
+    when(mockEntityClient.batchIngestProposals(any(), any(), eq(false))).thenReturn(null);
+
+    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAuthorized(
+                      mockOpContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE))
+          .thenReturn(true);
+
+      Urn result =
+          service.upsertPageModule(mockOpContext, null, TEST_MODULE_NAME, type, scope, params);
+
+      assertNotNull(result);
+      verify(mockEntityClient, times(1)).batchIngestProposals(any(), any(), eq(false));
+    }
+  }
+
+  @Test
   public void testUpsertPageModuleFailure() throws Exception {
     // Arrange
     DataHubPageModuleType type = DataHubPageModuleType.RICH_TEXT;

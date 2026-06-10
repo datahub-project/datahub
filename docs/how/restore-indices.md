@@ -298,7 +298,7 @@ Run the system update job with the following environment variable `ELASTICSEARCH
 
 :::caution
 Remember to reset this after restoration completes!
-:::caution
+:::
 
 ##### Bulk Processing Improvements:
 

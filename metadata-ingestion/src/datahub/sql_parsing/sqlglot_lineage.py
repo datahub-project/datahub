@@ -62,6 +62,7 @@ from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
     QueryType,
     QueryTypeProps,
+    get_dialect_str,
 )
 from datahub.sql_parsing.sqlglot_utils import (
     DialectOrStr,
@@ -173,26 +174,38 @@ def _table_name_from_sqlglot_table(
                 parts=None,
             )
 
-    # Handle Dot expressions (more than 3-part names)
+    # Handle Dot expressions (more than 3-part names).
+    # Dot is left-associative (a.b.c = Dot(Dot(a,b),c)), so collect right-side
+    # identifiers while walking left, then reverse. Mirror of the traversal in
+    # `_TableName.from_sqlglot_table`; kept in sync intentionally.
     if isinstance(table.this, sqlglot.exp.Dot):
-        parts = []
-        exp = table.this
+        all_parts_exp: List[sqlglot.exp.Expression] = []
+        exp: sqlglot.exp.Expression = table.this
         while isinstance(exp, sqlglot.exp.Dot):
-            parts.append(exp.this.name)
-            exp = exp.expression
-        # Only restore prefix on the final part (the actual table name)
-        final_part = exp.name
-        if is_dialect_instance(dialect, ["mssql"]) and hasattr(exp, "args"):
+            all_parts_exp.append(exp.expression)
+            exp = exp.this
+        all_parts_exp.append(exp)
+        all_parts_exp.reverse()
+
+        # Only restore MSSQL temp prefix on the rightmost part (the actual table name).
+        final_exp = all_parts_exp[-1]
+        final_part = final_exp.name
+        if (
+            dialect is not None
+            and is_dialect_instance(dialect, ["mssql"])
+            and hasattr(final_exp, "args")
+        ):
             # Note: sqlglot v28+ uses "global_" instead of "global"
-            is_global_temp = exp.args.get("global_", False) or exp.args.get(
+            is_global_temp = final_exp.args.get("global_", False) or final_exp.args.get(
                 "global", False
             )
-            is_local_temp = exp.args.get("temporary", False)
+            is_local_temp = final_exp.args.get("temporary", False)
             if is_global_temp and not final_part.startswith("##"):
                 final_part = f"##{final_part}"
             elif is_local_temp and not final_part.startswith("#"):
                 final_part = f"#{final_part}"
-        parts.append(final_part)
+
+        parts = [p.name for p in all_parts_exp[:-1]] + [final_part]
         table_name = ".".join(parts)
     else:
         table_name = _restore_mssql_temp_table_prefix(table, dialect)
@@ -1706,7 +1719,7 @@ def _extract_select_from_update(
     # Note: In sqlglot v28+, the parameter was renamed from "from" to "from_"
     if select_statement.args.get("from_") or select_statement.args.get("from"):
         select_statement = select_statement.join(
-            statement.this, append=True, join_kind="cross"
+            statement.this, append=True, join_type="cross"
         )
     else:
         select_statement = select_statement.from_(statement.this)
@@ -2361,14 +2374,22 @@ def create_lineage_sql_parsed_result(
             schema_resolver.close()
 
 
-def _prepare_sql_query_list(queries: Union[str, List[str]]) -> List[str]:
+def _prepare_sql_query_list(
+    queries: Union[str, List[str]], dialect: Optional[str] = None
+) -> List[str]:
     if isinstance(queries, str):
-        return [stmt for stmt in split_statements(queries) if stmt.strip()]
+        return [
+            stmt for stmt in split_statements(queries, dialect=dialect) if stmt.strip()
+        ]
     else:
         result: List[str] = []
         for q in queries:
             if q and str(q).strip():
-                result.extend(stmt for stmt in split_statements(str(q)) if stmt.strip())
+                result.extend(
+                    stmt
+                    for stmt in split_statements(str(q), dialect=dialect)
+                    if stmt.strip()
+                )
         return result
 
 
@@ -2411,7 +2432,7 @@ def create_lineage_from_sql_statements(
         SqlParsingAggregator,
     )
 
-    queries = _prepare_sql_query_list(queries)
+    queries = _prepare_sql_query_list(queries, dialect=get_dialect_str(platform))
 
     if not queries:
         return SqlParsingResult.make_from_error(

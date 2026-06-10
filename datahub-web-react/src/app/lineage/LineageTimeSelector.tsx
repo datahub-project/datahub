@@ -1,6 +1,7 @@
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import ClickOutside from '@app/shared/ClickOutside';
@@ -37,8 +38,9 @@ type Props = {
 };
 
 export default function LineageTimeSelector({ onChange, initialDates }: Props) {
+    const { t } = useTranslation('lineage');
     const [isOpen, setIsOpen] = useState(false);
-    const [headerText, setHeaderText] = useState('No time range selected');
+    const [headerText, setHeaderText] = useState(() => t('timeSelector.noTimeRangeSelected'));
     const [startDate, setStartDate] = useState<Dayjs | null>(initialDates[0]);
     const [endDate, setEndDate] = useState<Dayjs | null>(initialDates[1]);
 
@@ -48,7 +50,7 @@ export default function LineageTimeSelector({ onChange, initialDates }: Props) {
     }, [startDate, endDate]);
 
     return (
-        <Tooltip title="Filter lineage edges by observed date" placement="topLeft">
+        <Tooltip title={t('timeSelector.filterTooltip')} placement="topLeft">
             <RangePickerWrapper>
                 <ClickOutside onClickOutside={() => setIsOpen(false)}>
                     <Header onClick={() => setIsOpen(!isOpen)}>
@@ -66,10 +68,10 @@ export default function LineageTimeSelector({ onChange, initialDates }: Props) {
                         }}
                         format="ll"
                         ranges={{
-                            'Last 7 days': [dayjs().subtract(7, 'days'), dayjs()],
-                            'Last 14 days': [dayjs().subtract(14, 'days'), dayjs()],
-                            'Last 28 days': [dayjs().subtract(28, 'days'), dayjs()],
-                            'All Time': [null, null],
+                            [t('timeSelector.last7Days')]: [dayjs().subtract(7, 'days'), dayjs()],
+                            [t('timeSelector.last14Days')]: [dayjs().subtract(14, 'days'), dayjs()],
+                            [t('timeSelector.last28Days')]: [dayjs().subtract(28, 'days'), dayjs()],
+                            [t('timeSelector.allTime')]: [null, null],
                         }}
                         onChange={(dates, dateStrings) => {
                             if (dates) {

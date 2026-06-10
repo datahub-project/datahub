@@ -59,12 +59,16 @@ framework_common = {
     # avro has historically made breaking changes, so we have a cautious upper bound.
     "avro>=1.11.3,<1.13",
     "python-dateutil>=2.8.0,<3.0.0",
-    "tabulate<0.10.0",
+    # Floor 0.10.0 is allowed so the package can be installed alongside Airflow
+    # 3.2+, whose constraints file pins tabulate==0.10.0. Our usage is limited to
+    # the stable tabulate(data, headers=..., tablefmt=...) call. 0.10.0 requires
+    # Python 3.10+, so 3.9 environments still resolve to 0.9.x.
+    "tabulate<0.11.0",
     "progressbar2<5.0.0",
     "psutil>=5.8.0,<8.0.0",
     "Deprecated<2.0.0",
     "humanfriendly<11.0.0",
-    "packaging<26.0.0",
+    "packaging<27.0.0",
     # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; patched releases are >=3.13.3.
     # Minimum patch is enforced for Docker via docker/snippets/ingestion/constraints.txt only —
     # do not add a lower bound here: Airflow 2.7.x constraints pin aiohttp==3.8.6 and
@@ -76,9 +80,14 @@ framework_common = {
     "requests_file<4.0.0",
     "jsonref<2.0.0",
     "jsonschema<5.0.0",
-    # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
-    # which is not available as wheel.
-    "ruamel.yaml<0.19.0",
+    # ruamel.yaml 0.19.0 (Dec 31, 2025) made the compiled ruamel.yaml.clib a
+    # mandatory dependency. It was originally capped at <0.19.0 because clib
+    # wheels were unavailable at the time; clib now ships wheels for all
+    # supported Pythons/platforms, and Airflow 3.2's constraints pin
+    # ruamel.yaml==0.19.1, so allow 0.19.x.
+    "ruamel.yaml<0.20.0",
+    # Snappy-compatible codec for pgQueue payload decompression (Java Snappy); not Kafka-specific.
+    "cramjam>=2.8.0,<3.0.0",
 }
 
 rest_common = {
@@ -131,9 +140,10 @@ sqlglot_lib = {
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
     # 30.0.3+ fixes Alias.alias behaviour for Placeholder nodes (Snowflake AS :name syntax)
     # (https://github.com/tobymao/sqlglot/pull/7310), removing the need for _patch_alias_placeholder.
-    #"sqlglot[c]==30.0.3",
-    # memory leak with sqlglot[c] https://github.com/tobymao/sqlglot/issues/7506
-    "sqlglot==30.0.3",
+    # sqlglot[c] was removed in a prior PR as a workaround for a memory leak
+    # (https://github.com/tobymao/sqlglot/issues/7506). 30.8.0 fixes the leak
+    # upstream, so we restore [c] here for performance.
+    "sqlglot[c]==30.8.0",
     "patchy==2.8.0",
 }
 
@@ -182,33 +192,37 @@ great_expectations_lib = {
     "jupyter_server>=2.14.1,<3.0.0",  # CVE-2024-35178
 }
 
+profiling_ge = {
+    *great_expectations_lib,
+    # scipy version restricted to reduce backtracking, used by great-expectations.
+    "scipy>=1.7.2,<2.0.0",
+    # GE added handling for higher version of jinja2.
+    # https://github.com/great-expectations/great_expectations/pull/5382/files
+    # datahub does not depend on traitlets directly but great-expectations does.
+    # https://github.com/ipython/traitlets/issues/741
+    "traitlets!=5.2.2,<6.0.0",
+    # GE depends on IPython - we have no direct dependency on it.
+    # IPython 8.22.0 added a dependency on traitlets 5.13.x, but only declared a
+    # version requirement of traitlets>5.
+    # See https://github.com/ipython/ipython/issues/14352.
+    # This issue was fixed by https://github.com/ipython/ipython/pull/14353,
+    # which first appeared in IPython 8.22.1.
+    # As such, we just need to avoid that version in order to get the
+    # dependencies that we need. IPython probably should've yanked 8.22.0.
+    "IPython!=8.22.0,<9.0.0",
+}
+
 sqlalchemy_lib = {
     # Required for all SQL sources.
     # Multiple packages require <2: sqlalchemy-redshift, databricks-sql-connector, great-expectations
     "sqlalchemy>=1.4.39,<2",
+    # greenlet is imported directly by datahub.utilities.sqlalchemy_query_combiner, which
+    # is used by both the SQLAlchemy and GE profilers (via sql_report.py).
+    "greenlet<4.0.0",
 }
 sql_common = (
     {
         *sqlalchemy_lib,
-        # Required for SQL profiling.
-        *great_expectations_lib,
-        # scipy version restricted to reduce backtracking, used by great-expectations,
-        "scipy>=1.7.2,<2.0.0",
-        # GE added handling for higher version of jinja2
-        # https://github.com/great-expectations/great_expectations/pull/5382/files
-        # datahub does not depend on traitlets directly but great expectations does.
-        # https://github.com/ipython/traitlets/issues/741
-        "traitlets!=5.2.2,<6.0.0",
-        # GE depends on IPython - we have no direct dependency on it.
-        # IPython 8.22.0 added a dependency on traitlets 5.13.x, but only declared a
-        # version requirement of traitlets>5.
-        # See https://github.com/ipython/ipython/issues/14352.
-        # This issue was fixed by https://github.com/ipython/ipython/pull/14353,
-        # which first appeared in IPython 8.22.1.
-        # As such, we just need to avoid that version in order to get the
-        # dependencies that we need. IPython probably should've yanked 8.22.0.
-        "IPython!=8.22.0,<9.0.0",
-        "greenlet<4.0.0",
         *cachetools_lib,
     }
     | usage_common
@@ -482,7 +496,6 @@ mysql_common = sql_common | mysql | aws_common
 
 sac = {
     "requests<3.0.0",
-    "pyodata>=1.11.1,<2.0.0",
     # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
     "Authlib>=1.6.11,<2.0.0",
 }
@@ -522,6 +535,11 @@ confluence_common = {
     # Confluence-specific connector adds atlassian-python-api and related dependencies
     "unstructured-ingest[confluence]==0.7.2",
     "atlassian-python-api>=3.41.0,<5.0.0",  # Supports 3.x and 4.x API versions
+    # Preserve Confluence storage HTML structure as Markdown for chunking/retrieval
+    "markdownify>=0.14.1,<2.0.0",
+    # Required for GraphQL query adaptation (strip_unsupported_fields) when fetching
+    # semantic search config from older DataHub servers that lack vertexProviderConfig.
+    "graphql-core>=3.0.0,<4.0.0",
 } | unstructured_lib
 
 # Note: for all of these, framework_common will be added.
@@ -533,6 +551,12 @@ plugins: Dict[str, Set[str]] = {
         "confluent_kafka[schemaregistry,avro]>=1.9.0,!= 2.8.1,<3.0.0",
         "fastavro>=1.2.0,<2.0.0",
     },
+    "datahub-pg-queue": {
+        "confluent_kafka[schemaregistry,avro]>=1.9.0,!= 2.8.1,<3.0.0",
+        "fastavro>=1.2.0,<2.0.0",
+        "psycopg2-binary<3.0.0",
+    }
+    | aws_common,
     "datahub-rest": rest_common,
     # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
     "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
@@ -542,6 +566,7 @@ plugins: Dict[str, Set[str]] = {
         "uvicorn<0.41.0",
     },
     # Integrations.
+    "airbyte": {"requests"},
     "airflow": {
         f"acryl-datahub-airflow-plugin{_self_pin}",
     },
@@ -556,6 +581,9 @@ plugins: Dict[str, Set[str]] = {
     "great-expectations": {
         f"acryl-datahub-gx-plugin{_self_pin}",
     },
+    # Opt-in extra for the legacy Great Expectations SQL profiler.
+    # Without this extra, SQL connectors fall back to the SQLAlchemy profiler.
+    "profiling-ge": profiling_ge,
     # Misc plugins.
     "sql-parser": sqlglot_lib,
     # Source plugins
@@ -657,12 +685,12 @@ plugins: Dict[str, Set[str]] = {
         # Note: sqlalchemy-hana>=4.0 requires SQLAlchemy>=2, so constrained to 3.x automatically
         "sqlalchemy-hana>=0.5.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
         "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
+        "defusedxml>=0.7.1,<0.8.0",
     },
     "hive": sql_common
     | pyhive_common
     | {
         "databricks-dbapi<0.7.0",
-        *great_expectations_lib,
     },
     # keep in sync with presto-on-hive until presto-on-hive will be removed
     # Supports both SQL (psycopg2/pymysql) and Thrift (pymetastore) connection types
@@ -676,6 +704,7 @@ plugins: Dict[str, Set[str]] = {
         "tenacity>=8.0.1,<9.0.0",
         "kerberos>=1.3.0,<2.0.0",
     },
+    "hex": {"requests<3.0.0"} | sqlglot_lib,
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
     "informatica": {
@@ -770,6 +799,7 @@ plugins: Dict[str, Set[str]] = {
     "superset": superset_common,
     "preset": superset_common,
     "tableau": {"tableauserverclient>=0.24.0,<=0.40"} | sqlglot_lib,
+    "thoughtspot": {"thoughtspot_rest_api>=2.0.0,<3.0.0"} | sqlglot_lib,
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
@@ -778,6 +808,8 @@ plugins: Dict[str, Set[str]] = {
         # in our CI, so we're pinning the version for now.
         "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
     },
+    # aws_common is needed for the inherited PostgresSource RDS IAM auth.
+    "timescaledb": sql_common | postgres_common | aws_common,
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "starrocks": sql_common | {"starrocks>=1.3.3,<2.0", "lark>=1.3.1,<2.0"},
@@ -876,7 +908,7 @@ mypy_stubs = {
     # The boto3-stubs package seems to have regularly breaking minor releases,
     # we pin to a specific version to avoid this.
     "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.40.0",
-    "types-tabulate<0.10.0",
+    "types-tabulate<0.11.0",
     # avrogen package requires this
     "types-pytz<2026.0.0",
     "types-pyOpenSSL>=24.1.0.20240722,<27.0.0",
@@ -937,6 +969,7 @@ base_dev_requirements = {
         for plugin in [
             "abs",
             "aerospike",
+            "airbyte",
             "athena",
             "bigquery",
             "clickhouse",
@@ -979,7 +1012,9 @@ base_dev_requirements = {
             "snaplogic",
             "slack",
             "tableau",
+            "timescaledb",
             "teradata",
+            "thoughtspot",
             "trino",
             "hive",
             "hive-metastore",
@@ -1074,6 +1109,7 @@ entry_points = {
         "file = datahub.ingestion.source.file:GenericFileSource",
         "datahub = datahub.ingestion.source.datahub.datahub_source:DataHubSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
+        "airbyte = datahub.ingestion.source.airbyte.source:AirbyteSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
@@ -1100,7 +1136,7 @@ entry_points = {
         "grafana = datahub.ingestion.source.grafana.grafana_source:GrafanaSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
-        "hana = datahub.ingestion.source.sql.hana:HanaSource",
+        "hana = datahub.ingestion.source.sql.hana.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive.hive_source:HiveSource",
         "hive-metastore = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
@@ -1143,6 +1179,7 @@ entry_points = {
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
         "starrocks = datahub.ingestion.source.sql.starrocks:StarRocksSource",
+        "thoughtspot = datahub.ingestion.source.thoughtspot.source:ThoughtSpotSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
@@ -1171,6 +1208,7 @@ entry_points = {
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "timescaledb = datahub.ingestion.source.sql.timescaledb:TimescaleDBSource",
         "omni = datahub.ingestion.source.omni.omni:OmniSource",
         "pinecone = datahub.ingestion.source.pinecone.pinecone_source:PineconeSource",
     ],
@@ -1222,6 +1260,7 @@ entry_points = {
         "console = datahub.ingestion.sink.console:ConsoleSink",
         "blackhole = datahub.ingestion.sink.blackhole:BlackHoleSink",
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
+        "datahub-pg-queue = datahub.ingestion.sink.datahub_pg_queue:DatahubPgQueueSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
         "datahub-lite = datahub.ingestion.sink.datahub_lite:DataHubLiteSink",
     ],
