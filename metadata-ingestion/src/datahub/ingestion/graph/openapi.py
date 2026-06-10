@@ -411,7 +411,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         See scroll_relationships for parameter documentation.
         """
         return self._scroll_relationships_impl(
-            url=f"{self._gms_server}/openapi/v3/relationship/scrollLineage",
+            url=f"{self._gms_server}/openapi/v3/lineage/scroll",
             relationship_types=relationship_types,
             source_types=source_types,
             destination_types=destination_types,

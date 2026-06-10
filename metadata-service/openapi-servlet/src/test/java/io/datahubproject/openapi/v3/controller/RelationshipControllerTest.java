@@ -58,6 +58,7 @@ import org.testng.annotations.Test;
   SpringWebConfig.class,
   TracingInterceptor.class,
   RelationshipController.class,
+  LineageController.class,
   RelationshipControllerTest.RelationshipControllerTestConfig.class,
   GlobalControllerExceptionHandler.class,
 })
@@ -1338,7 +1339,7 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.post("/openapi/v3/relationship/scrollLineage")
+            MockMvcRequestBuilders.post("/openapi/v3/lineage/scroll")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
                 .accept(MediaType.APPLICATION_JSON))
@@ -1382,7 +1383,7 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.post("/openapi/v3/relationship/scrollLineage")
+            MockMvcRequestBuilders.post("/openapi/v3/lineage/scroll")
                 .param("sourceTypes", "dataset")
                 .param("destinationTypes", "chart")
                 .param("relationshipTypes", "Consumes")
