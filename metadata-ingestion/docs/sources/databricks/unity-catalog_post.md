@@ -48,6 +48,10 @@ If a metric view's `source` is a SQL subquery, or if it uses a 1-part identifier
 
 `include_metric_views` is `false` by default for backwards compatibility — when the flag is off (or when the installed `databricks-sdk` predates `TableType.METRIC_VIEW`), metric views continue to be emitted as plain `Table` entities with no view body.
 
+#### Delta Lake External Tables
+
+When `emit_siblings` is enabled (the default), the connector emits sibling relationships between Unity Catalog external tables and their corresponding `delta-lake` platform entities for tables stored on S3 or other object storage. This means you may see a second dataset entity for each external Delta table — one under the `databricks` platform and one under `delta-lake` — linked as siblings in DataHub. Set `emit_siblings: false` in your recipe to disable this behavior if you don't need cross-platform linkage.
+
 #### Advanced
 
 ##### Multiple Databricks Workspaces
