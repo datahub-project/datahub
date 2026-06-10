@@ -1449,6 +1449,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # Cache for upstream existence checks (skip_missing_upstreams_in_lineage)
         self._upstream_exists_cache: Dict[str, bool] = {}
 
+    def get_excluded_workunit_processors(self) -> List[str]:
+        from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
+            AutoIncrementalLineageProcessor,
+        )
+
+        # dbt converts lineage to incremental patches internally (see dbt_common.py
+        # around the convert_upstream_lineage_to_patch call). Applying the generic
+        # AutoIncrementalLineageProcessor on top of that causes double-processing.
+        return [AutoIncrementalLineageProcessor.NAME]
+
     def _get_query_timestamp(self) -> int:
         """Get timestamp for Query entities, cached for reproducibility."""
         if self._query_timestamp_cache is not None:
