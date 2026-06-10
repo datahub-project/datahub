@@ -35,9 +35,6 @@ from datahub.ingestion.source.state.entity_removal_state import GenericCheckpoin
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
-from datahub.ingestion.workunit_processors.stale_entity_removal import (
-    StaleEntityRemovalProcessor,
-)
 from datahub.ingestion.source.thoughtspot.client import (
     _KEY_BUILDERS,
     _MAX_REAUTH_ATTEMPTS,
@@ -78,6 +75,9 @@ from datahub.ingestion.source.thoughtspot.source import (
     SqlViewWarehouseRef,
     ThoughtSpotSource,
     _resolve_author_login,
+)
+from datahub.ingestion.workunit_processors.stale_entity_removal import (
+    StaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,

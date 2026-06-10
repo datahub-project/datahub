@@ -619,7 +619,11 @@ class Source(Closeable, metaclass=ABCMeta):
             source_report=self.get_report(),
             pipeline_context=self.ctx,
             source_config=self.get_config(),
-            platform=self.infer_platform(),
+            # Use the raw platform instance attribute to preserve backward-compatible
+            # job IDs. Sources without self.platform fall back to "default" in
+            # StaleEntityRemovalHandler._init_job_id(), matching the pre-refactor
+            # behavior of getattr(source, "platform", "default").
+            platform=getattr(self, "platform", None),
             stale_entity_removal_context=stale_entity_removal_ctx,
         )
 

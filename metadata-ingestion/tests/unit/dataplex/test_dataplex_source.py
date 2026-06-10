@@ -208,10 +208,6 @@ def test_get_workunit_processors_includes_stale_entity_processor() -> None:
     # DataplexSource no longer overrides get_workunit_processors() — stale entity
     # removal is wired up automatically by the base class when stateful ingestion
     # is enabled. Verify the base class is what gets called (no override present).
-    from datahub.ingestion.source.state.stateful_ingestion_base import (
-        StatefulIngestionSourceBase,
-    )
-
     assert "get_workunit_processors" not in DataplexSource.__dict__, (
         "DataplexSource should not override get_workunit_processors(); "
         "the base class handles stale entity removal automatically."
