@@ -12,6 +12,8 @@ from avrogen.dict_wrapper import DictWrapper
 
 from datahub.cli import cli_utils, delete_cli, migration_utils
 from datahub.cli.migration_utils import (
+    ALL_ENTITY_TYPES,
+    ENV_ENTITY_TYPES,
     ConflictStrategy,
     make_urn_builder,
     merge_entity,
@@ -123,6 +125,42 @@ def migrate() -> None:
 
 def _get_type_from_urn(urn: str) -> str:
     return urn.split(":")[2]
+
+
+def _parse_entity_types(entity_types_arg: Optional[str]) -> List[str]:
+    """Parse --entity-types CLI argument into a validated list of entity types."""
+    if entity_types_arg is None:
+        return list(ALL_ENTITY_TYPES)
+    types = [t.strip() for t in entity_types_arg.split(",") if t.strip()]
+    invalid = [t for t in types if t not in ALL_ENTITY_TYPES]
+    if invalid:
+        raise click.BadParameter(
+            f"Unknown entity type(s): {', '.join(invalid)}. "
+            f"Available: {', '.join(ALL_ENTITY_TYPES)}",
+            param_hint="--entity-types",
+        )
+    _warn_dataflow_datajob_coupling(types)
+    return types
+
+
+def _warn_dataflow_datajob_coupling(types: List[str]) -> None:
+    """Warn if dataFlow and dataJob are not migrated together."""
+    has_flow = "dataFlow" in types
+    has_job = "dataJob" in types
+    if has_flow and not has_job:
+        click.echo(
+            "\n⚠️  Warning: migrating dataFlow without dataJob. "
+            "DataJob URNs embed their parent DataFlow URN — if you migrate "
+            "flows without their jobs, the jobs will reference stale flow URNs."
+        )
+        click.confirm("Continue without dataJob?", abort=True)
+    elif has_job and not has_flow:
+        click.echo(
+            "\n⚠️  Warning: migrating dataJob without dataFlow. "
+            "DataJob URNs embed their parent DataFlow URN — migrating jobs "
+            "without their parent flows may produce inconsistent URNs."
+        )
+        click.confirm("Continue without dataFlow?", abort=True)
 
 
 # --- Core migration logic ---
@@ -294,6 +332,7 @@ def _migrate_containers(
 
     container_id_map: Dict[str, str] = {}
     containers = _get_containers_for_migration(env)
+    skipped_count = 0
     for container in progressbar.progressbar(containers, redirect_stdout=True):
         subType = container["aspects"]["subTypes"]["value"]["typeNames"][0]
         customProperties = container["aspects"]["containerProperties"]["value"][
@@ -304,6 +343,7 @@ def _migrate_containers(
                 f"{container['urn']} does not match filter criteria, skipping.. "
                 f"{customProperties}"
             )
+            skipped_count += 1
             continue
 
         try:
@@ -360,6 +400,11 @@ def _migrate_containers(
             )
         migration_report.on_entity_migrated(src_urn, "status")  # type: ignore
 
+    if skipped_count > 0:
+        click.echo(
+            f"Skipped {skipped_count} containers that didn't match filter criteria. "
+            "These containers may not have the expected platform/instance properties set."
+        )
     click.echo(f"{migration_report}")
 
 
@@ -475,6 +520,16 @@ def _process_container_relationships(
     default=False,
     help="Skip entities that cause errors instead of aborting.",
 )
+@click.option(
+    "--entity-types",
+    type=str,
+    default=None,
+    help=(
+        "Comma-separated list of entity types to migrate. "
+        f"Available: {','.join(ALL_ENTITY_TYPES)}. "
+        "Default: all types."
+    ),
+)
 @telemetry.with_telemetry()
 @upgrade.check_upgrade
 def dataplatform2instance(
@@ -487,31 +542,28 @@ def dataplatform2instance(
     keep: bool,
     on_conflict: str,
     skip_on_error: bool,
+    entity_types: Optional[str],
 ) -> None:
     """Migrate entities from one dataplatform to a dataplatform instance."""
     click.echo(
         f"Starting migration: platform:{platform}, instance={instance}, "
         f"force={force}, dry-run={dry_run}"
     )
-    click.echo(
-        "This command will migrate DATASETS, CHARTS, DASHBOARDS, DATAFLOWS, "
-        "and CONTAINERS."
-    )
     run_id = f"migrate-{uuid.uuid4()}"
     graph = get_default_graph(ClientMode.CLI)
     conflict = ConflictStrategy(on_conflict)
 
-    entity_types_to_migrate = ["dataset", "chart", "dashboard", "dataFlow"]
-
-    # Charts, dashboards, and dataflows don't have an env/origin field in
-    # ElasticSearch, so passing env would exclude them from results.
-    _ENV_ENTITY_TYPES = {"dataset"}
+    entity_types_to_migrate = _parse_entity_types(entity_types)
+    click.echo(
+        f"This command will migrate {', '.join(t.upper() for t in entity_types_to_migrate)} "
+        "and CONTAINERS."
+    )
 
     for entity_type in entity_types_to_migrate:
         urns_to_migrate: List[str] = []
         for src_urn in graph.get_urns_by_filter(
             platform=platform,
-            env=env if entity_type in _ENV_ENTITY_TYPES else None,
+            env=env if entity_type in ENV_ENTITY_TYPES else None,
             entity_types=[entity_type],
         ):
             response = graph.get_aspects_for_entity(
@@ -598,6 +650,16 @@ def dataplatform2instance(
     default=False,
     help="Skip entities that cause errors instead of aborting.",
 )
+@click.option(
+    "--entity-types",
+    type=str,
+    default=None,
+    help=(
+        "Comma-separated list of entity types to migrate. "
+        f"Available: {','.join(ALL_ENTITY_TYPES)}. "
+        "Default: all types."
+    ),
+)
 @telemetry.with_telemetry()
 @upgrade.check_upgrade
 def instance2instance(
@@ -611,33 +673,29 @@ def instance2instance(
     keep: bool,
     on_conflict: str,
     skip_on_error: bool,
+    entity_types: Optional[str],
 ) -> None:
     """Migrate entities from one platform instance to another."""
     conflict = ConflictStrategy(on_conflict)
+    entity_types_to_migrate = _parse_entity_types(entity_types)
     click.echo(
         f"Starting migration: platform:{platform}, "
         f"old-instance={old_instance}, new-instance={new_instance}, "
         f"force={force}, dry-run={dry_run}, on-conflict={conflict.value}"
     )
     click.echo(
-        "This command will migrate DATASETS, CHARTS, DASHBOARDS, DATAFLOWS, "
+        f"This command will migrate {', '.join(t.upper() for t in entity_types_to_migrate)} "
         "and CONTAINERS."
     )
     run_id = f"migrate-i2i-{uuid.uuid4()}"
     graph = get_default_graph(ClientMode.CLI)
-
-    entity_types_to_migrate = ["dataset", "chart", "dashboard", "dataFlow"]
-
-    # Charts, dashboards, and dataflows don't have an env/origin field in
-    # ElasticSearch, so passing env would exclude them from results.
-    _ENV_ENTITY_TYPES = {"dataset"}
 
     for entity_type in entity_types_to_migrate:
         urns = list(
             graph.get_urns_by_filter(
                 platform=platform,
                 platform_instance=old_instance,
-                env=env if entity_type in _ENV_ENTITY_TYPES else None,
+                env=env if entity_type in ENV_ENTITY_TYPES else None,
                 entity_types=[entity_type],
             )
         )

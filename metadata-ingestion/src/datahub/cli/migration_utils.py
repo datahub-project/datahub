@@ -1,7 +1,6 @@
 """Utilities for DataHub entity migration — aspect operations, merge logic, and URN rewriting."""
 
 import logging
-import re
 import uuid
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
@@ -17,6 +16,7 @@ from datahub.emitter.mce_builder import (
     make_chart_urn,
     make_dashboard_urn,
     make_data_flow_urn,
+    make_data_job_urn_with_flow,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -38,6 +38,7 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.str_enum import StrEnum
 
@@ -45,6 +46,13 @@ log = logging.getLogger(__name__)
 
 
 # --- Constants ---
+
+# Entity types supported by migration commands.
+ALL_ENTITY_TYPES = ["dataset", "chart", "dashboard", "dataFlow", "dataJob"]
+
+# Entity types that support env/origin filtering in ElasticSearch.
+# Charts, dashboards, dataflows, and datajobs don't have env/origin fields.
+ENV_ENTITY_TYPES = {"dataset"}
 
 # TODO: Make this dynamic based on the real aspect class map.
 all_aspects = [
@@ -585,6 +593,30 @@ def merge_mixed_aspects(
     return aspects_merged, conflicts_skipped
 
 
+def _overwrite_entity(
+    src_urn: str,
+    dst_urn: str,
+    graph: DataHubGraph,
+    dry_run: bool,
+) -> tuple[int, int]:
+    """Overwrite target entity with all aspects from source (no merge logic).
+
+    Used as fallback for entity types that don't support Patch-based merge.
+    Returns (aspects_written, 0) — no conflicts since we always overwrite.
+    """
+    aspects_written = 0
+    for mcp in clone_aspect(
+        src_urn,
+        aspect_names=all_aspects,
+        dst_urn=dst_urn,
+        graph=graph,
+    ):
+        if not dry_run:
+            graph.emit_mcp(mcp)
+        aspects_written += 1
+    return aspects_written, 0
+
+
 def merge_entity(
     src_urn: str,
     dst_urn: str,
@@ -594,8 +626,21 @@ def merge_entity(
 ) -> tuple[int, int]:
     """Merge all aspects from source entity into existing target.
 
+    Only dataset entities support full merge via the Patch API. For other entity
+    types (chart, dashboard, dataFlow, dataJob), this falls back to overwrite.
+
     Returns (aspects_merged, conflicts_skipped).
     """
+    # Only datasets support Patch-based merge. Other entity types fall back to
+    # overwrite because there's no ChartPatchBuilder/DashboardPatchBuilder etc.
+    entity_type = dst_urn.split(":")[2]
+    if entity_type != "dataset":
+        log.info(
+            f"Entity type '{entity_type}' does not support merge — "
+            f"falling back to overwrite for {dst_urn}"
+        )
+        return _overwrite_entity(src_urn, dst_urn, graph, dry_run)
+
     src_aspect_map = cli_utils.get_aspects_for_entity(
         graph._session,
         graph.config.server,
@@ -684,11 +729,17 @@ def replace_instance_prefix(name: str, old_instance: str, new_instance: str) -> 
     """Replace the old platform instance prefix in an entity name with the new one.
 
     Entity names with a platform instance are formatted as '{instance}.{name}'.
+    Raises ValueError if the name doesn't start with the expected old instance prefix,
+    as this indicates a data quality issue (entity doesn't belong to the old instance).
     """
     prefix = f"{old_instance}."
     if name.startswith(prefix):
         return f"{new_instance}.{name[len(prefix) :]}"
-    return f"{new_instance}.{name}"
+    raise ValueError(
+        f"Entity name '{name}' does not start with expected instance prefix "
+        f"'{old_instance}.'. This entity may not belong to the source instance. "
+        f"Use --skip-on-error to skip such entities."
+    )
 
 
 # --- Generic URN builder ---
@@ -721,14 +772,6 @@ _ENTITY_URN_SPECS: Dict[str, _UrnSpec] = {
     ),
 }
 
-_DATAFLOW_RE = re.compile(r"urn:li:dataFlow:\((.*),(.*),(.*)\)")
-
-
-def _parse_dataflow_urn(src_urn: str) -> re.Match[str]:
-    match = _DATAFLOW_RE.search(src_urn)
-    assert match, f"Could not parse dataFlow URN: {src_urn}"
-    return match
-
 
 def make_urn_builder(
     entity_type: str,
@@ -750,14 +793,28 @@ def make_urn_builder(
     if entity_type == "dataFlow":
 
         def _dataflow_urn(src_urn: str) -> str:
-            match = _parse_dataflow_urn(src_urn)
+            parsed = DataFlowUrn.from_string(src_urn)
             return make_data_flow_urn(
-                orchestrator=match[1],
-                flow_id=_rewrite_name(match[2]),
-                cluster=match[3],
+                orchestrator=parsed.orchestrator,
+                flow_id=_rewrite_name(parsed.flow_id),
+                cluster=parsed.cluster,
             )
 
         return _dataflow_urn
+
+    if entity_type == "dataJob":
+
+        def _datajob_urn(src_urn: str) -> str:
+            parsed = DataJobUrn.from_string(src_urn)
+            flow = DataFlowUrn.from_string(parsed.flow)
+            new_flow_urn = make_data_flow_urn(
+                orchestrator=flow.orchestrator,
+                flow_id=_rewrite_name(flow.flow_id),
+                cluster=flow.cluster,
+            )
+            return make_data_job_urn_with_flow(new_flow_urn, parsed.job_id)
+
+        return _datajob_urn
 
     spec = _ENTITY_URN_SPECS.get(entity_type)
     if spec is None:
@@ -793,6 +850,10 @@ def make_p2i_dataflow_urn(instance: str) -> Callable[[str], str]:
     return make_urn_builder("dataFlow", new_instance=instance)
 
 
+def make_p2i_datajob_urn(instance: str) -> Callable[[str], str]:
+    return make_urn_builder("dataJob", new_instance=instance)
+
+
 def make_i2i_dataset_urn(old_instance: str, new_instance: str) -> Callable[[str], str]:
     return make_urn_builder(
         "dataset", new_instance=new_instance, old_instance=old_instance
@@ -816,4 +877,10 @@ def make_i2i_dashboard_urn(
 def make_i2i_dataflow_urn(old_instance: str, new_instance: str) -> Callable[[str], str]:
     return make_urn_builder(
         "dataFlow", new_instance=new_instance, old_instance=old_instance
+    )
+
+
+def make_i2i_datajob_urn(old_instance: str, new_instance: str) -> Callable[[str], str]:
+    return make_urn_builder(
+        "dataJob", new_instance=new_instance, old_instance=old_instance
     )

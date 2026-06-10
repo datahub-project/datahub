@@ -407,3 +407,9 @@ class TestMakeUrnBuilderEdgeCases:
 
         result = replace_instance_prefix("a.b.schema.table", "a.b", "x.y")
         assert result == "x.y.schema.table"
+
+    def test_replace_instance_prefix_raises_on_missing_prefix(self) -> None:
+        from datahub.cli.migration_utils import replace_instance_prefix
+
+        with pytest.raises(ValueError, match="does not start with expected"):
+            replace_instance_prefix("unrelated.table", "old_inst", "new_inst")

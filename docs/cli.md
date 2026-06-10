@@ -1044,7 +1044,7 @@ The `migrate` group of commands allows you to perform certain kinds of migration
 
 The `dataplatform2instance` migration command allows you to migrate your entities from an instance-agnostic platform identifier to an instance-specific platform identifier. If you have ingested metadata in the past for this platform and would like to transfer any important metadata over to the new instance-specific entities, then you should use this command. For example, if your users have added documentation or added tags or terms to your datasets, then you should run this command to transfer this metadata over to the new entities. For further context, read the Platform Instance Guide [here](./platform-instances.md).
 
-This command migrates the following entity types: datasets, charts, dashboards, dataflows, and containers.
+This command migrates the following entity types: datasets, charts, dashboards, dataflows, datajobs, and containers.
 
 Options:
 
@@ -1057,6 +1057,7 @@ Options:
 - `--env`: The environment/fabric to filter on (default: `PROD`).
 - `--on-conflict`: How to handle entities that already exist at the target. One of `overwrite` (default), `patch`, or `prompt`.
 - `--skip-on-error`: Continue migrating remaining entities when one fails, instead of aborting.
+- `--entity-types`: Comma-separated list of entity types to migrate (default: all). Available: `dataset`, `chart`, `dashboard`, `dataFlow`, `dataJob`.
 
 **_Note_**: Timeseries aspects such as Usage Statistics and Dataset Profiles are not migrated over to the new entity instances, you will get new data points created when you re-run ingestion using the `usage` or sources with profiling turned on.
 
@@ -1065,11 +1066,12 @@ Options:
 ```console
 datahub migrate dataplatform2instance --platform powerbi --instance my_instance --dry-run --skip-on-error
 Starting migration: platform:powerbi, instance=my_instance, force=False, dry-run=True
-This command will migrate DATASETS, CHARTS, DASHBOARDS, DATAFLOWS, and CONTAINERS.
+This command will migrate DATASET, CHART, DASHBOARD, DATAFLOW, DATAJOB and CONTAINERS.
 No dataset entities found without instance, skipping.
 No chart entities found without instance, skipping.
 No dashboard entities found without instance, skipping.
 No dataFlow entities found without instance, skipping.
+No dataJob entities found without instance, skipping.
 100% (398 of 398) |##############| Elapsed Time: 0:00:00
 [Dry Run] Migration Report:
 --------------
@@ -1084,7 +1086,7 @@ No dataFlow entities found without instance, skipping.
 ```console
 datahub migrate dataplatform2instance --platform hive --instance warehouse
 Starting migration: platform:hive, instance=warehouse, force=False, dry-run=False
-This command will migrate DATASETS, CHARTS, DASHBOARDS, DATAFLOWS, and CONTAINERS.
+This command will migrate DATASET, CHART, DASHBOARD, DATAFLOW, DATAJOB and CONTAINERS.
 Will migrate 4 urns such as [...]
 New urns will look like ['urn:li:dataset:(urn:li:dataPlatform:hive,warehouse.SampleHiveDataset,PROD)', ...]
 Ok to proceed? [y/N]: y
@@ -1101,13 +1103,15 @@ Num entities migrated = 4
 
 The `instance2instance` migration command allows you to migrate entities from one platform instance to another. This is useful when you need to rename or consolidate platform instances, for example when merging two DataHub environments or renaming an instance after an infrastructure change.
 
-Like `dataplatform2instance`, this command migrates datasets, charts, dashboards, dataflows, and containers. It rewrites URNs by replacing the old instance prefix with the new one and updates all incoming relationships (lineage, dashboard references, etc.) to point to the new entities.
+Like `dataplatform2instance`, this command migrates datasets, charts, dashboards, dataflows, datajobs, and containers. It rewrites URNs by replacing the old instance prefix with the new one and updates all incoming relationships (lineage, dashboard references, etc.) to point to the new entities.
 
 When the target entity already exists, the command uses a merge strategy controlled by `--on-conflict`:
 
 - `patch` (default): Additively merge ownership, tags, terms, and lineage. Skip scalar fields (description, custom properties) that conflict.
 - `overwrite`: Replace all target aspects with source values.
 - `prompt`: Ask interactively for each conflict.
+
+**Merge limitation**: Full aspect-level merge (via the Patch API) is only supported for **dataset** entities. For charts, dashboards, dataflows, and datajobs, the merge path falls back to overwrite when the target entity already exists.
 
 Options:
 
@@ -1121,6 +1125,19 @@ Options:
 - `--env`: The environment/fabric to filter on (default: `PROD`).
 - `--on-conflict`: Conflict resolution strategy: `patch` (default), `overwrite`, or `prompt`.
 - `--skip-on-error`: Continue migrating remaining entities when one fails, instead of aborting.
+- `--entity-types`: Comma-separated list of entity types to migrate (default: all). Available: `dataset`, `chart`, `dashboard`, `dataFlow`, `dataJob`.
+
+**⚠️ Note**: `dataFlow` and `dataJob` should always be migrated together. DataJob URNs embed their parent DataFlow URN — migrating one without the other creates orphaned references. The CLI will prompt for confirmation if you attempt to separate them.
+
+##### When to Use Which Command
+
+| Scenario                                                   | Command                                            |
+| ---------------------------------------------------------- | -------------------------------------------------- |
+| First time adding a platform instance to existing entities | `dataplatform2instance`                            |
+| Renaming or consolidating platform instances               | `instance2instance`                                |
+| Partial migration (specific entity types only)             | Either command with `--entity-types=dataset,chart` |
+
+The key difference: `dataplatform2instance` migrates entities that have **no** platform instance to a new instance (prepending the instance prefix). `instance2instance` migrates entities from one **existing** instance to another (replacing the instance prefix). The default `--on-conflict` also differs: `overwrite` for p2i, `patch` for i2i.
 
 ##### Dry Run
 
@@ -1132,7 +1149,7 @@ datahub migrate instance2instance \
   --dry-run \
   --skip-on-error
 Starting migration: platform:powerbi, old-instance=old_inst, new-instance=new_inst, force=False, dry-run=True, on-conflict=patch
-This command will migrate DATASETS, CHARTS, DASHBOARDS, DATAFLOWS, and CONTAINERS.
+This command will migrate DATASET, CHART, DASHBOARD, DATAFLOW, DATAJOB and CONTAINERS.
 Found 689 dataset entities to migrate.
 100% (689 of 689) |##############| Elapsed Time: 0:04:55
 [Dry Run] Migration Report:
@@ -1146,6 +1163,7 @@ Found 689 dataset entities to migrate.
 No chart entities found, skipping.
 No dashboard entities found, skipping.
 No dataFlow entities found, skipping.
+No dataJob entities found, skipping.
 ```
 
 ##### Real Migration with Merge

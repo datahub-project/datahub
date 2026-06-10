@@ -15,10 +15,12 @@ from datahub.cli.migration_utils import (
     make_i2i_chart_urn,
     make_i2i_dashboard_urn,
     make_i2i_dataflow_urn,
+    make_i2i_datajob_urn,
     make_i2i_dataset_urn,
     make_p2i_chart_urn,
     make_p2i_dashboard_urn,
     make_p2i_dataflow_urn,
+    make_p2i_datajob_urn,
     make_p2i_dataset_urn,
     merge_additive_aspects,
     merge_mixed_aspects,
@@ -166,10 +168,10 @@ class TestReplaceInstancePrefix:
         result = replace_instance_prefix("old_inst.db.table", "old_inst", "new_inst")
         assert result == "new_inst.db.table"
 
-    def test_handles_name_without_old_prefix(self):
-        """If name doesn't start with old instance, prepend new instance."""
-        result = replace_instance_prefix("db.table", "old_inst", "new_inst")
-        assert result == "new_inst.db.table"
+    def test_raises_when_name_missing_old_prefix(self):
+        """If name doesn't start with old instance, raise ValueError."""
+        with pytest.raises(ValueError, match="does not start with expected"):
+            replace_instance_prefix("db.table", "old_inst", "new_inst")
 
     def test_only_replaces_first_occurrence(self):
         """Should only strip the leading prefix, not occurrences deeper in the name."""
@@ -464,6 +466,24 @@ class TestUrnBuilders:
         result = make_urn("urn:li:dataFlow:(powerbi,old_inst.my_flow,PROD)")
         assert result == "urn:li:dataFlow:(powerbi,new_inst.my_flow,PROD)"
 
+    def test_datajob_urn_builder(self):
+        make_urn = make_i2i_datajob_urn("old_inst", "new_inst")
+        result = make_urn(
+            "urn:li:dataJob:(urn:li:dataFlow:(airflow,old_inst.my_dag,PROD),my_task)"
+        )
+        assert "new_inst.my_dag" in result
+        assert "old_inst" not in result
+        assert "my_task" in result
+
+    def test_datajob_preserves_job_id(self):
+        """dataJob migration rewrites the flow_id but preserves the job_id."""
+        make_urn = make_i2i_datajob_urn("prod_af", "shared_af")
+        result = make_urn(
+            "urn:li:dataJob:(urn:li:dataFlow:(airflow,prod_af.etl_pipeline,PROD),load_step)"
+        )
+        assert "shared_af.etl_pipeline" in result
+        assert "load_step" in result
+
     def test_preserves_complex_chart_id(self):
         make_urn = make_i2i_chart_urn("musement", "shared")
         result = make_urn("urn:li:chart:(powerbi,musement.reports.abc123.pages.page1)")
@@ -498,6 +518,14 @@ class TestP2iUrnBuilders:
         result = make_urn("urn:li:dataFlow:(powerbi,my_flow,PROD)")
         assert result == "urn:li:dataFlow:(powerbi,myinst.my_flow,PROD)"
 
+    def test_p2i_datajob_urn(self):
+        make_urn = make_p2i_datajob_urn("myinst")
+        result = make_urn(
+            "urn:li:dataJob:(urn:li:dataFlow:(airflow,my_dag,PROD),my_task)"
+        )
+        assert "myinst.my_dag" in result
+        assert "my_task" in result
+
 
 # --- skip-on-error and MigrationReport tests ---
 
@@ -521,3 +549,56 @@ class TestMigrationReportErrorTracking:
         report = MigrationReport("test", dry_run=True, keep=True)
         text = repr(report)
         assert "errored" not in text
+
+
+# --- Non-dataset merge fallback tests ---
+
+
+class TestMergeEntityNonDataset:
+    """Verify merge_entity falls back to overwrite for non-dataset entity types."""
+
+    CHART_SRC = "urn:li:chart:(powerbi,old_inst.my_chart)"
+    CHART_DST = "urn:li:chart:(powerbi,new_inst.my_chart)"
+
+    @patch("datahub.cli.migration_utils.clone_aspect")
+    def test_chart_merge_falls_back_to_overwrite(
+        self,
+        mock_clone: MagicMock,
+    ) -> None:
+        from datahub.cli.migration_utils import merge_entity
+
+        # clone_aspect should be called (overwrite path), not DatasetPatchBuilder
+        mock_clone.return_value = iter([])
+        graph = MagicMock()
+
+        merged, skipped = merge_entity(
+            self.CHART_SRC,
+            self.CHART_DST,
+            ConflictStrategy.PATCH,
+            graph,
+            dry_run=True,
+        )
+
+        mock_clone.assert_called_once()
+        assert skipped == 0
+
+    @patch("datahub.cli.migration_utils.clone_aspect")
+    def test_dataflow_merge_falls_back_to_overwrite(
+        self,
+        mock_clone: MagicMock,
+    ) -> None:
+        from datahub.cli.migration_utils import merge_entity
+
+        mock_clone.return_value = iter([])
+        graph = MagicMock()
+
+        merged, skipped = merge_entity(
+            "urn:li:dataFlow:(airflow,old.dag,PROD)",
+            "urn:li:dataFlow:(airflow,new.dag,PROD)",
+            ConflictStrategy.PATCH,
+            graph,
+            dry_run=True,
+        )
+
+        mock_clone.assert_called_once()
+        assert skipped == 0
