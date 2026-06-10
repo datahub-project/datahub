@@ -53,7 +53,14 @@ public class PlatformEventProcessor {
     this.hooks.forEach(PlatformEventHook::init);
   }
 
-  /** Used by {@link PlatformEventKafkaListener} and pgQueue pollers. */
+  /**
+   * Kafka entry. Used by {@link PlatformEventKafkaListener}. Wraps the consumer record in a
+   * transport-neutral envelope and dispatches to {@link #consumeEnvelope(InboundMetadataEnvelope)}.
+   *
+   * <p>Null payloads short-circuit before envelope construction: they still get a span + queue-lag
+   * metric + a {@link #processPlatformEvent} call (which logs + increments the {@code null_record}
+   * metric and returns), matching the original pre-envelope behavior.
+   */
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord value = consumerRecord.value();
     if (value == null) {
@@ -79,19 +86,10 @@ public class PlatformEventProcessor {
       return;
     }
     consumeEnvelope(
-        InboundMetadataEnvelope.<GenericRecord>builder()
-            .logicalTopic(consumerRecord.topic())
-            .messagingSystem(MetricUtils.MESSAGING_SYSTEM_KAFKA)
-            .key(consumerRecord.key())
-            .payload(value)
-            .enqueuedAtMillis(consumerRecord.timestamp())
-            .consumerGroupId(datahubPlatformEventConsumerGroupId)
-            .kafkaPartition(consumerRecord.partition())
-            .kafkaOffset(consumerRecord.offset())
-            .serializedValueSize(consumerRecord.serializedValueSize())
-            .build());
+        InboundMetadataEnvelope.fromKafka(consumerRecord, datahubPlatformEventConsumerGroupId));
   }
 
+  /** Unified entry point. Both Kafka and pgQueue paths funnel through this method. */
   public void consumeEnvelope(InboundMetadataEnvelope<GenericRecord> envelope) {
     systemOperationContext.withSpan(
         "consume",
@@ -115,7 +113,7 @@ public class PlatformEventProcessor {
   }
 
   private void processPlatformEvent(
-      final GenericRecord record,
+      @Nullable final GenericRecord record,
       final String key,
       final String topic,
       final int partition,

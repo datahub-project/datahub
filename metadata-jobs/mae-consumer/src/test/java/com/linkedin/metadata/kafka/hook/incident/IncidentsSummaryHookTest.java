@@ -61,7 +61,7 @@ public class IncidentsSummaryHookTest {
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, incidentInfo);
-    hook.invoke(event);
+    hook.invoke(opContext, event);
     Mockito.verify(service, Mockito.times(0)).getIncidentInfo(any(OperationContext.class), any());
   }
 
@@ -77,14 +77,14 @@ public class IncidentsSummaryHookTest {
     MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_KEY_ASPECT_NAME, ChangeType.UPSERT, new IncidentInfo());
-    hook.invoke(event);
+    hook.invoke(opContext, event);
     Mockito.verify(service, Mockito.times(0)).getIncidentInfo(any(OperationContext.class), any());
 
     // Case 2: Run Event But Delete
     event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.DELETE, info);
-    hook.invoke(event);
+    hook.invoke(opContext, event);
     Mockito.verify(service, Mockito.times(0)).getIncidentInfo(any(OperationContext.class), any());
   }
 
@@ -149,7 +149,7 @@ public class IncidentsSummaryHookTest {
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, info);
-    hook.invoke(event);
+    hook.invoke(opContext, event);
     Mockito.verify(service, Mockito.times(1))
         .getIncidentInfo(any(OperationContext.class), eq(TEST_INCIDENT_URN));
     Mockito.verify(service, Mockito.times(1))
@@ -194,7 +194,7 @@ public class IncidentsSummaryHookTest {
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, info);
-    hook.invoke(event);
+    hook.invoke(opContext, event);
     Mockito.verify(service, Mockito.times(1))
         .getIncidentInfo(any(OperationContext.class), eq(TEST_INCIDENT_URN));
     Mockito.verify(service, Mockito.times(1))
@@ -246,7 +246,7 @@ public class IncidentsSummaryHookTest {
             ChangeType.UPSERT,
             info,
             prevIncidentInfo);
-    hook.invoke(event);
+    hook.invoke(opContext, event);
     if (summary == null) {
       summary = new IncidentsSummary();
     }
@@ -308,7 +308,7 @@ public class IncidentsSummaryHookTest {
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, STATUS_ASPECT_NAME, ChangeType.UPSERT, mockIncidentSoftDeleted());
-    hook.invoke(event);
+    hook.invoke(opContext, event);
 
     Mockito.verify(service, Mockito.times(1))
         .getIncidentInfo(any(OperationContext.class), eq(TEST_INCIDENT_URN));

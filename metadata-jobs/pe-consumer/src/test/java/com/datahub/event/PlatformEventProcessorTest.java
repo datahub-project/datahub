@@ -19,6 +19,9 @@ import com.datahub.authentication.Authentication;
 import com.datahub.event.hook.PlatformEventHook;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
+import com.linkedin.metadata.queue.PgQueuePayloadCompression;
+import com.linkedin.metadata.queue.QueueMessageHandle;
+import com.linkedin.metadata.queue.QueueReceivedMessage;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.PlatformEvent;
 import io.datahubproject.metadata.context.OperationContext;
@@ -779,26 +782,18 @@ public class PlatformEventProcessorTest {
     setConsumerGroupId(processor, "generic-platform-event-job-client");
 
     GenericRecord pgRecord = mock(GenericRecord.class);
-    InboundMetadataEnvelope<GenericRecord> envelope =
-        InboundMetadataEnvelope.<GenericRecord>builder()
-            .messagingSystem(MetricUtils.MESSAGING_SYSTEM_PGQUEUE)
-            .logicalTopic("PlatformEvent_v1")
-            .key("test-key")
-            .payload(pgRecord)
-            .enqueuedAtMillis(System.currentTimeMillis())
-            .consumerGroupId("generic-platform-event-job-client")
-            .kafkaPartition(0)
-            .kafkaOffset(42L)
-            .serializedValueSize(1024)
-            .priority(1)
-            .build();
+    long enqueuedAtMillis = System.currentTimeMillis();
+
+    QueueReceivedMessage message = newTestPgQueueMessage(enqueuedAtMillis);
 
     try (MockedStatic<EventUtils> mockedEventUtils = Mockito.mockStatic(EventUtils.class)) {
       mockedEventUtils
           .when(() -> EventUtils.avroToPegasusPE(pgRecord))
           .thenReturn(mockPlatformEvent);
 
-      processor.consumeEnvelope(envelope);
+      processor.consumeEnvelope(
+          InboundMetadataEnvelope.fromPgQueue(
+              message, "PlatformEvent_v1", "generic-platform-event-job-client", pgRecord));
 
       verify(mockMetricUtils, times(1))
           .histogram(eq(PlatformEventProcessor.class), eq("kafkaLag"), anyLong());
@@ -823,26 +818,18 @@ public class PlatformEventProcessorTest {
         .invoke(any(OperationContext.class), any(PlatformEvent.class));
 
     GenericRecord pgRecord = mock(GenericRecord.class);
-    InboundMetadataEnvelope<GenericRecord> envelope =
-        InboundMetadataEnvelope.<GenericRecord>builder()
-            .messagingSystem(MetricUtils.MESSAGING_SYSTEM_PGQUEUE)
-            .logicalTopic("PlatformEvent_v1")
-            .key("test-key")
-            .payload(pgRecord)
-            .enqueuedAtMillis(System.currentTimeMillis())
-            .consumerGroupId("generic-platform-event-job-client")
-            .kafkaPartition(0)
-            .kafkaOffset(42L)
-            .serializedValueSize(1024)
-            .priority(1)
-            .build();
+    long enqueuedAtMillis = System.currentTimeMillis();
+
+    QueueReceivedMessage message = newTestPgQueueMessage(enqueuedAtMillis);
 
     try (MockedStatic<EventUtils> mockedEventUtils = Mockito.mockStatic(EventUtils.class)) {
       mockedEventUtils
           .when(() -> EventUtils.avroToPegasusPE(pgRecord))
           .thenReturn(mockPlatformEvent);
 
-      processor.consumeEnvelope(envelope);
+      processor.consumeEnvelope(
+          InboundMetadataEnvelope.fromPgQueue(
+              message, "PlatformEvent_v1", "generic-platform-event-job-client", pgRecord));
 
       verify(mockHook1, times(1)).invoke(any(OperationContext.class), eq(mockPlatformEvent));
       verify(mockHook2, times(1)).invoke(any(OperationContext.class), eq(mockPlatformEvent));
@@ -850,6 +837,20 @@ public class PlatformEventProcessorTest {
       verify(mockMetricUtils, times(1))
           .increment(eq(PlatformEventProcessor.class), eq("consumed_pe_count"), eq(1d));
     }
+  }
+
+  private static QueueReceivedMessage newTestPgQueueMessage(long enqueuedAtMillis) {
+    QueueMessageHandle handle =
+        new QueueMessageHandle(1L, java.time.Instant.ofEpochMilli(enqueuedAtMillis), 1L, 0, 42L);
+    return new QueueReceivedMessage(
+        handle,
+        1,
+        new byte[0],
+        java.util.Optional.empty(),
+        PgQueuePayloadCompression.NONE,
+        java.util.List.of(),
+        "test-key",
+        "test-owner");
   }
 
   // Helper method to set consumer group ID via reflection

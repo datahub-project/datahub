@@ -5,7 +5,7 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.data.template.StringMap;
-import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
+import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
@@ -78,7 +78,12 @@ public class AbstractKafkaListenerTest {
     hook2 = new HookTwo();
     listener = new StubListener();
     listener.init(
-        operationContext, CONSUMER_GROUP, List.of(hook1, hook2), false, Collections.emptyMap());
+        operationContext,
+        CONSUMER_GROUP,
+        List.of(hook1, hook2),
+        false,
+        Collections.emptyMap(),
+        mock(InboundContextResolver.class));
   }
 
   @AfterMethod
@@ -93,24 +98,13 @@ public class AbstractKafkaListenerTest {
   }
 
   @Test
-  public void consumeEnvelopeInvokesHooks() throws Exception {
+  public void consumeInvokesHooks() throws Exception {
     TestEvent event = new TestEvent("evt-1");
     listener.nextEvent = event;
 
-    InboundMetadataEnvelope<String> envelope =
-        InboundMetadataEnvelope.<String>builder()
-            .messagingSystem(MetricUtils.MESSAGING_SYSTEM_KAFKA)
-            .logicalTopic(TOPIC)
-            .key("key")
-            .payload("payload")
-            .enqueuedAtMillis(System.currentTimeMillis())
-            .consumerGroupId(CONSUMER_GROUP)
-            .kafkaPartition(0)
-            .kafkaOffset(1L)
-            .serializedValueSize(10)
-            .build();
+    ConsumerRecord<String, String> record = new ConsumerRecord<>(TOPIC, 0, 1L, "key", "payload");
 
-    listener.consumeEnvelope(envelope);
+    listener.consume(record);
 
     assertTrue(hook1.invoked);
     assertTrue(hook2.invoked);
@@ -135,13 +129,9 @@ public class AbstractKafkaListenerTest {
   public void conversionFailureIncrementsMetricAndSkipsHooks() throws Exception {
     listener.convertThrows = true;
 
-    listener.consumeEnvelope(
-        InboundMetadataEnvelope.<String>builder()
-            .messagingSystem(MetricUtils.MESSAGING_SYSTEM_KAFKA)
-            .logicalTopic(TOPIC)
-            .payload("bad")
-            .enqueuedAtMillis(0L)
-            .build());
+    ConsumerRecord<String, String> record = new ConsumerRecord<>(TOPIC, 0, 0L, null, "bad");
+
+    listener.consume(record);
 
     verify(metricUtils)
         .increment(eq(StubListener.class), eq(CONSUMER_GROUP + "_conversion_failure"), eq(1d));
@@ -153,13 +143,9 @@ public class AbstractKafkaListenerTest {
     listener.skipNext = true;
     listener.nextEvent = new TestEvent("skip");
 
-    listener.consumeEnvelope(
-        InboundMetadataEnvelope.<String>builder()
-            .messagingSystem(MetricUtils.MESSAGING_SYSTEM_KAFKA)
-            .logicalTopic(TOPIC)
-            .payload("payload")
-            .enqueuedAtMillis(0L)
-            .build());
+    ConsumerRecord<String, String> record = new ConsumerRecord<>(TOPIC, 0, 0L, null, "payload");
+
+    listener.consume(record);
 
     assertFalse(hook1.invoked);
     verify(metricUtils, never())
@@ -172,13 +158,9 @@ public class AbstractKafkaListenerTest {
     listener.nextEvent = event;
     hook1.failOnInvoke = true;
 
-    listener.consumeEnvelope(
-        InboundMetadataEnvelope.<String>builder()
-            .messagingSystem(MetricUtils.MESSAGING_SYSTEM_KAFKA)
-            .logicalTopic(TOPIC)
-            .payload("payload")
-            .enqueuedAtMillis(0L)
-            .build());
+    ConsumerRecord<String, String> record = new ConsumerRecord<>(TOPIC, 0, 0L, null, "payload");
+
+    listener.consume(record);
 
     assertTrue(hook1.invoked);
     assertTrue(hook2.invoked);
@@ -193,13 +175,9 @@ public class AbstractKafkaListenerTest {
     event.systemMetadata = new SystemMetadata().setProperties(props);
     listener.nextEvent = event;
 
-    listener.consumeEnvelope(
-        InboundMetadataEnvelope.<String>builder()
-            .messagingSystem(MetricUtils.MESSAGING_SYSTEM_KAFKA)
-            .logicalTopic(TOPIC)
-            .payload("payload")
-            .enqueuedAtMillis(0L)
-            .build());
+    ConsumerRecord<String, String> record = new ConsumerRecord<>(TOPIC, 0, 0L, null, "payload");
+
+    listener.consume(record);
 
     assertEquals(hook1.cascadeIdSeenDuringInvoke, "cascade-123");
     assertNull(MDC.get(CascadeOperationContext.MDC_CASCADE_OPERATION_ID));
@@ -274,7 +252,7 @@ public class AbstractKafkaListenerTest {
     }
 
     @Override
-    public void invoke(TestEvent event) throws Exception {
+    public void invoke(OperationContext operationContext, TestEvent event) throws Exception {
       invoked = true;
       cascadeIdSeenDuringInvoke = MDC.get(CascadeOperationContext.MDC_CASCADE_OPERATION_ID);
       if (failOnInvoke) {

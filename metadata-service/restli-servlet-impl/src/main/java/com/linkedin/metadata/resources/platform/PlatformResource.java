@@ -73,7 +73,8 @@ public class PlatformResource extends CollectionResourceTaskTemplate<String, Ent
     log.debug("Emitting platform event. name: {}, key: {}", eventName, key);
     return RestliUtils.toTask(
         () -> {
-          _eventProducer.producePlatformEvent(eventName, key, event);
+          // TODO(opcontext-followup): replace systemOperationContext with threaded operationContext
+          _eventProducer.producePlatformEvent(opContext, eventName, key, event);
           return null;
         });
   }
