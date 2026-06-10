@@ -9,7 +9,8 @@
             "name": "odcs",
             "displayName": "Open Data Contract Standard",
             "type": "OTHERS",
-            "datasetNameDelimiter": "."
+            "datasetNameDelimiter": ".",
+            "logoUrl": "assets/platforms/odcslogo.png"
         }
     },
     "systemMetadata": {
