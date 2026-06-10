@@ -271,6 +271,20 @@ def get_sql_parse_max_ast_depth() -> int:
     return int(os.getenv("DATAHUB_SQL_PARSE_MAX_AST_DEPTH", "600"))
 
 
+def get_sql_parse_inflight_log_file() -> Optional[str]:
+    """Path to a file where parse_statement records the SQL it is about to parse.
+
+    A native stack overflow inside sqlglot's compiled parser/optimizer crashes
+    the whole process with a SIGSEGV that no try/except can intercept and that
+    discards Python's buffered logs - so the offending statement is normally
+    lost. When this is set, parse_statement writes the in-flight SQL to the file
+    (truncating, then flushing immediately) before parsing, so after a crash the
+    file names the statement that killed the process. Disabled (None) by default;
+    intended for debugging, as it adds a flushed write per parsed statement.
+    """
+    return os.getenv("DATAHUB_SQL_PARSE_INFLIGHT_LOG_FILE") or None
+
+
 def get_dataset_urn_to_lower() -> str:
     """Convert dataset URNs to lowercase."""
     return os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")

@@ -2,7 +2,9 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 
 import functools
 import logging
+import os
 import re
+import threading
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import sqlglot
@@ -11,6 +13,7 @@ import sqlglot.optimizer.eliminate_ctes
 
 from datahub.configuration.env_vars import (
     get_sql_parse_cache_size,
+    get_sql_parse_inflight_log_file,
     get_sql_parse_max_ast_depth,
     get_sql_parse_max_statement_length,
 )
@@ -188,6 +191,31 @@ def _parse_statement(
     return statement
 
 
+_inflight_log_lock = threading.Lock()
+
+
+def _record_inflight_sql(sql: str) -> None:
+    """Crash-safely record the SQL about to be parsed (see
+    ``get_sql_parse_inflight_log_file``).
+
+    Writes to the configured file truncating it first, then flushes so the bytes
+    reach the OS. A SIGSEGV kills the process but not the OS page cache, so the
+    file survives and names the statement that crashed - which buffered logging
+    and even faulthandler's stack dump do not capture. Best-effort: never raises.
+    """
+    path = get_sql_parse_inflight_log_file()
+    if not path:
+        return
+    try:
+        with _inflight_log_lock, open(path, "w") as f:
+            f.write(f"# pid={os.getpid()} thread={threading.current_thread().name}\n")
+            f.write(sql)
+            f.flush()
+    except OSError:
+        # Diagnostics must never break ingestion.
+        pass
+
+
 def parse_statement(
     sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
 ) -> sqlglot.exp.Expression:
@@ -216,6 +244,15 @@ def parse_statement(
         if sanitized != sql:
             logger.debug("Sanitized T-SQL temp tables: %s -> %s", sql, sanitized)
         sql = sanitized
+
+    # Record the statement we are about to parse so that, if sqlglot's native
+    # parser/optimizer overflows the C stack and SIGSEGVs the process, the
+    # offending SQL is recoverable afterwards (no-op unless configured). This
+    # stays "in flight" through the parse, copy, and downstream column-lineage
+    # optimize step, all of which can trigger the crash.
+    if isinstance(sql, str):
+        _record_inflight_sql(sql)
+
     statement = _parse_statement(sql, dialect)
 
     # Post-parse guard: reject deeply-nested ASTs before the .copy() below and
