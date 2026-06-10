@@ -1,6 +1,7 @@
 import functools
 import os
 import pathlib
+import re
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -235,10 +236,12 @@ def test_temp_output_query_not_emitted_as_entity() -> None:
 
 def test_aggregator_temp_aware_fingerprint_default_collapses_per_run() -> None:
     # Sources that feed ObservedQuery WITHOUT a precomputed query_hash get their
-    # fingerprint from the aggregator (sqlglot_lineage). Temp-aware fingerprinting
-    # is on by default, so two runs of the same load that differ only by a per-run
-    # staging UUID collapse to ONE Query entity; a different real target stays split.
+    # fingerprint from the aggregator (sqlglot_lineage). When the connector
+    # supplies its temporary_tables_pattern (resolved-name regexes), two runs of
+    # the same load that differ only by a per-run staging table collapse to ONE
+    # Query entity; a different real target stays split.
     frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    name_patterns = [re.compile(r".*\.fivetran_.*_staging\..*", re.IGNORECASE)]
 
     def make_aggregator() -> SqlParsingAggregator:
         return SqlParsingAggregator(
@@ -251,6 +254,7 @@ def test_aggregator_temp_aware_fingerprint_default_collapses_per_run() -> None:
                 start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
                 end_time=frozen_timestamp,
             ),
+            temp_table_name_patterns=name_patterns,
         )
 
     def staging_load(dest: str, uuid: str) -> str:

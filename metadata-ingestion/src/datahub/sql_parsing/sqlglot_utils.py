@@ -361,7 +361,11 @@ def generalize_query_fast(
     return query_text
 
 
-def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) -> str:
+def generalize_query(
+    expression: sqlglot.exp.ExpOrStr,
+    dialect: DialectOrStr,
+    temp_table_patterns: Optional[Sequence["re.Pattern[str]"]] = None,
+) -> str:
     """
     Generalize/normalize a SQL query.
 
@@ -373,6 +377,11 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
     Args:
         expression: The SQL query to generalize.
         dialect: The SQL dialect to use.
+        temp_table_patterns: Resolved-name regexes (e.g. a connector's
+            ``temporary_tables_pattern``). Any table whose ``catalog.db.name``
+            matches is replaced with a placeholder before fingerprinting, so
+            per-run ephemeral tables collapse. Reusing the connector's existing
+            temp detection avoids a parallel set of text/quoting heuristics.
 
     Returns:
         The generalized SQL query.
@@ -412,6 +421,17 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
             _simplify_node_expressions(node)
         elif isinstance(node, sqlglot.exp.Literal):
             return sqlglot.exp.Placeholder()
+        elif temp_table_patterns and isinstance(node, sqlglot.exp.Table):
+            full_name = ".".join(p for p in (node.catalog, node.db, node.name) if p)
+            if any(pat.search(full_name) for pat in temp_table_patterns):
+                # Collapse the per-run ephemeral table to a fixed placeholder so
+                # repeated runs share one fingerprint. Keeps any alias intact.
+                node.set(
+                    "this",
+                    sqlglot.exp.to_identifier(_TEMP_TABLE_FINGERPRINT_PLACEHOLDER),
+                )
+                node.set("db", None)
+                node.set("catalog", None)
 
         return node
 
@@ -430,15 +450,12 @@ def get_query_fingerprint_debug(
     try:
         if not fast:
             dialect = get_dialect(platform)
-            # On the slow/AST path, substitute ephemeral names on the text first,
-            # then parse — so temp-aware fingerprinting works here too (the fast
-            # path applies these inside generalize_query_fast).
-            if temp_table_patterns:
-                expression = _apply_temp_table_patterns(
-                    _expression_to_string(expression, platform=platform),
-                    temp_table_patterns,
-                )
-            expression_sql = generalize_query(expression, dialect=dialect)
+            # On the slow/AST path, temp tables are normalized by RESOLVED NAME
+            # (reusing the connector's temporary_tables_pattern) inside
+            # generalize_query — no raw-text/quoting heuristics needed here.
+            expression_sql = generalize_query(
+                expression, dialect=dialect, temp_table_patterns=temp_table_patterns
+            )
             # Normalize placeholders for consistent fingerprinting -> this only needs to be backward compatible with earlier sqglot generated generalized queries where the placeholders were always ?
             expression_sql = PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION.sub(
                 "?", expression_sql

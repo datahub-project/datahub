@@ -241,7 +241,8 @@ class BigQueryQueriesExtractor(Closeable):
             is_temp_table=self.is_temp_table,
             is_allowed_table=self.is_allowed_table,
             format_queries=False,
-            temp_table_patterns=self._temp_fingerprint_rules,
+            # BigQuery precomputes query_hash on the fast path (below), so the
+            # aggregator's slow-path name normalization isn't needed here.
         )
 
         self.report.sql_aggregator = self.aggregator.report

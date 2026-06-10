@@ -67,7 +67,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
     sqlglot_lineage,
 )
 from datahub.sql_parsing.sqlglot_utils import (
-    DEFAULT_TEMP_TABLE_FINGERPRINT_RULES,
     DialectOrStr,
     _parse_statement,
     get_query_fingerprint,
@@ -435,9 +434,7 @@ class SqlParsingAggregator(Closeable):
         is_allowed_table: Optional[Callable[[str], bool]] = None,
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
-        temp_table_patterns: Optional[
-            Sequence["re.Pattern[str]"]
-        ] = DEFAULT_TEMP_TABLE_FINGERPRINT_RULES,
+        temp_table_name_patterns: Optional[Sequence["re.Pattern[str]"]] = None,
     ) -> None:
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
@@ -468,11 +465,14 @@ class SqlParsingAggregator(Closeable):
         self._is_temp_table = is_temp_table
         self._is_allowed_table = is_allowed_table
 
-        # Temp-aware fingerprinting (default on): collapse per-run ephemeral object
-        # names so repeated ETL/sync queries map to one Query entity. Stored as a
-        # tuple so it can be passed through the lru-cached sqlglot_lineage.
-        self._temp_table_patterns: Optional[Tuple["re.Pattern[str]", ...]] = (
-            tuple(temp_table_patterns) if temp_table_patterns else None
+        # Temp-aware fingerprinting: collapse per-run ephemeral tables so repeated
+        # ETL/sync queries map to one Query entity. These are RESOLVED-NAME regexes
+        # (a connector's `temporary_tables_pattern`) applied on the parse path —
+        # reusing the connector's existing temp detection rather than a parallel
+        # set of text heuristics. Stored as a tuple for the lru-cached
+        # sqlglot_lineage.
+        self._temp_table_name_patterns: Optional[Tuple["re.Pattern[str]", ...]] = (
+            tuple(temp_table_name_patterns) if temp_table_name_patterns else None
         )
 
         self.format_queries = format_queries
@@ -762,7 +762,7 @@ class SqlParsingAggregator(Closeable):
                 query_fingerprint = get_query_fingerprint(
                     known_query_lineage.query_text,
                     platform=self.platform.platform_name,
-                    temp_table_patterns=self._temp_table_patterns,
+                    temp_table_patterns=self._temp_table_name_patterns,
                 )
         formatted_query = self._maybe_format_query(known_query_lineage.query_text)
 
@@ -996,7 +996,7 @@ class SqlParsingAggregator(Closeable):
             query_fingerprint = get_query_fingerprint(
                 parsed.query_text,
                 platform=self.platform.platform_name,
-                temp_table_patterns=self._temp_table_patterns,
+                temp_table_patterns=self._temp_table_name_patterns,
             )
 
         # Format the query.
@@ -1283,7 +1283,7 @@ class SqlParsingAggregator(Closeable):
                 default_db=default_db,
                 default_schema=default_schema,
                 override_dialect=override_dialect,
-                temp_table_patterns=self._temp_table_patterns,
+                temp_table_name_patterns=self._temp_table_name_patterns,
             )
         self.report.num_sql_parsed += 1
 

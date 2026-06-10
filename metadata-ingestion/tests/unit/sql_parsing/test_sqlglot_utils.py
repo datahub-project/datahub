@@ -357,39 +357,36 @@ def test_temp_aware_fingerprint_is_dialect_quoting_aware(platform, name_a, name_
     assert fp_a == fp_b
 
 
-def test_temp_aware_fingerprint_works_on_slow_path():
-    # temp_table_patterns must also collapse on the AST (slow, fast=False) path,
-    # so aggregator-based sources (which fingerprint via sqlglot_lineage) benefit.
-    from datahub.sql_parsing.sqlglot_utils import DEFAULT_TEMP_TABLE_FINGERPRINT_RULES
+def test_slow_path_temp_normalization_by_table_name():
+    # On the slow/AST path, temp tables are normalized by matching the RESOLVED
+    # table name against the connector's temporary_tables_pattern (no raw-text
+    # quoting regexes). Two runs differing only by a per-run staging table
+    # collapse; a different real destination stays distinct.
+    name_patterns = [re.compile(r".*\.fivetran_.*_staging\..*", re.IGNORECASE)]
 
-    run1 = _STAGING_MERGE.format(
-        dest="DEST", uuid="e089db10-8bb1-4989-9859-ea3ec9387b50"
-    )
-    run2 = _STAGING_MERGE.format(
-        dest="DEST", uuid="aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
-    )
+    def merge(dest: str, uuid: str) -> str:
+        return (
+            f'MERGE INTO "DB"."SCH"."{dest}" AS m '
+            f'USING "DB"."FIVETRAN_X_STAGING"."T-STAGING-{uuid}" AS s '
+            "ON m.id = s.id WHEN MATCHED THEN UPDATE SET m.v = s.v"
+        )
+
     fp1 = get_query_fingerprint(
-        run1,
+        merge("DEST", "e089db10-8bb1-4989-9859-ea3ec9387b50"),
         "snowflake",
-        fast=False,
-        temp_table_patterns=DEFAULT_TEMP_TABLE_FINGERPRINT_RULES,
+        temp_table_patterns=name_patterns,
     )
     fp2 = get_query_fingerprint(
-        run2,
+        merge("DEST", "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"),
         "snowflake",
-        fast=False,
-        temp_table_patterns=DEFAULT_TEMP_TABLE_FINGERPRINT_RULES,
+        temp_table_patterns=name_patterns,
     )
     assert fp1 == fp2
 
-    # ...and distinct real destinations still stay distinct on the slow path.
     fp_other = get_query_fingerprint(
-        _STAGING_MERGE.format(
-            dest="OTHER", uuid="e089db10-8bb1-4989-9859-ea3ec9387b50"
-        ),
+        merge("OTHER", "e089db10-8bb1-4989-9859-ea3ec9387b50"),
         "snowflake",
-        fast=False,
-        temp_table_patterns=DEFAULT_TEMP_TABLE_FINGERPRINT_RULES,
+        temp_table_patterns=name_patterns,
     )
     assert fp_other != fp1
 
