@@ -624,6 +624,9 @@ class Source(Closeable, metaclass=ABCMeta):
             # StaleEntityRemovalHandler._init_job_id(), matching the pre-refactor
             # behavior of getattr(source, "platform", "default").
             platform=getattr(self, "platform", None),
+            # Fully inferred platform (includes @platform_name decorator fallback)
+            # for processors like browse path that need the complete platform value.
+            source_platform=self.infer_platform(),
             stale_entity_removal_context=stale_entity_removal_ctx,
         )
 

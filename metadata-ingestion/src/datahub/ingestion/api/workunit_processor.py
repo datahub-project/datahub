@@ -49,6 +49,10 @@ class WorkunitProcessorContext:
     pipeline_context: "PipelineContext"
     source_config: "Optional[ConfigModel]"
     platform: Optional[str]
+    # Fully inferred platform (includes @platform_name decorator fallback).
+    # Use for browse path generation. Separate from `platform` (raw attribute)
+    # which is used for backward-compatible stale removal job IDs.
+    source_platform: Optional[str] = None
     stale_entity_removal_context: Optional[StaleEntityRemovalContext] = None
 
     def infer_platform(self) -> Optional[str]:

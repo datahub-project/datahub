@@ -20,7 +20,7 @@ class AutoBrowsePathV2Processor(WorkunitProcessor):
         self.dry_run: bool = flags.generate_browse_path_v2_dry_run
 
         config = ctx.source_config
-        platform = ctx.infer_platform()
+        platform = ctx.source_platform or ctx.infer_platform()
         env = getattr(config, "env", None)
         drop_dirs_raw: List[Optional[str]] = [
             platform,

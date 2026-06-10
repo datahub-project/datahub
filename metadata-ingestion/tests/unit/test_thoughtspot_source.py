@@ -5373,14 +5373,19 @@ class TestStatefulStaleRemovalIntegration:
         source = ThoughtSpotSource(config, ctx)
 
         processors = source.get_workunit_processors()
+
         # The processor comes through as a bound method of StaleEntityRemovalProcessor,
         # which wraps the StaleEntityRemovalHandler internally.
         def _references_stale_processor(p: object) -> bool:
             self_obj = getattr(p, "__self__", None)
-            if isinstance(self_obj, (StaleEntityRemovalHandler, StaleEntityRemovalProcessor)):
+            if isinstance(
+                self_obj, (StaleEntityRemovalHandler, StaleEntityRemovalProcessor)
+            ):
                 return True
             for arg in getattr(p, "args", ()):
-                if isinstance(arg, (StaleEntityRemovalHandler, StaleEntityRemovalProcessor)):
+                if isinstance(
+                    arg, (StaleEntityRemovalHandler, StaleEntityRemovalProcessor)
+                ):
                     return True
             return False
 
@@ -7727,9 +7732,11 @@ class TestProcessDatasetSqlViewIntegration:
         monkeypatch.setattr(
             source,
             "_make_self_dataset_urn",
-            lambda name: upstream_urn
-            if name == "prod.public.upstream"
-            else original_make_self_urn(name),
+            lambda name: (
+                upstream_urn
+                if name == "prod.public.upstream"
+                else original_make_self_urn(name)
+            ),
         )
 
         wus = list(source.get_workunits_internal())
