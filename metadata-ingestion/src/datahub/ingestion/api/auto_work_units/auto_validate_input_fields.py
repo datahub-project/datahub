@@ -45,7 +45,6 @@ class ValidateInputFieldsProcessor:
                     logger.debug(
                         f"Filtered {invalid_count} invalid input field(s) with empty fieldPath for {wu.get_urn()}"
                     )
-                    self.report.num_input_fields_filtered += invalid_count
                     self.report.warning(
                         title="Invalid input fields filtered",
                         message="Input fields with empty fieldPath values were filtered out to prevent ingestion errors",

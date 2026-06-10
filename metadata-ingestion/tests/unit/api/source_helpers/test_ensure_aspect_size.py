@@ -36,19 +36,33 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 
+from unittest.mock import MagicMock
+
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 from datahub.ingestion.workunit_processors.ensure_aspect_size import (
     EnsureAspectSizeProcessor,
 )
 
 
+def make_processor_ctx(report=None):
+    if report is None:
+        report = SourceReport()
+    return WorkunitProcessorContext(
+        source_report=report,
+        pipeline_context=MagicMock(),
+        source_config=None,
+        platform=None,
+    )
+
+
 @pytest.fixture
 def processor():
-    return EnsureAspectSizeProcessor(SourceReport())
+    return EnsureAspectSizeProcessor.create(make_processor_ctx())
 
 
 def too_big_schema_metadata() -> SchemaMetadataClass:
@@ -994,9 +1008,9 @@ def test_ensure_size_removes_formatted_view_logic_entirely_when_too_small():
     """
     # Use a smaller payload constraint to trigger the edge case more easily
     small_constraint = 1000  # 1KB constraint
-    processor = EnsureAspectSizeProcessor(
-        SourceReport(), payload_constraint=small_constraint
-    )
+    processor = EnsureAspectSizeProcessor.create(make_processor_ctx())
+    processor.payload_constraint = small_constraint
+    processor.schema_size_constraint = int(small_constraint * 0.985)
 
     # Create view properties where formattedViewLogic is small but total exceeds constraint
     # viewLogic is much larger than formattedViewLogic

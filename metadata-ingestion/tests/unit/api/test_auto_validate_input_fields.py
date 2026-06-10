@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 from datahub.metadata.schema_classes import (
     InputFieldClass,
     InputFieldsClass,
@@ -8,6 +10,7 @@ from datahub.metadata.schema_classes import (
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 from datahub.ingestion.workunit_processors.validate_input_fields import (
     ValidateInputFieldsProcessor,
 )
@@ -16,10 +19,21 @@ DUMMY_CHART_URN = "urn:li:chart:(grafana,dashboard.123)"
 DUMMY_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:grafana,dataset,PROD)"
 
 
+def make_ctx(report=None):
+    if report is None:
+        report = SourceReport()
+    return WorkunitProcessorContext(
+        source_report=report,
+        pipeline_context=MagicMock(),
+        source_config=None,
+        platform=None,
+    )
+
+
 def test_valid_input_fields_pass_through():
     """Test that valid input fields pass through unchanged."""
     report = SourceReport()
-    processor = ValidateInputFieldsProcessor(report)
+    processor = ValidateInputFieldsProcessor.create(make_ctx(report))
 
     # Create input fields with valid fieldPath
     input_fields = InputFieldsClass(
@@ -48,7 +62,7 @@ def test_valid_input_fields_pass_through():
         aspect=input_fields,
     )
 
-    out = list(processor.validate_input_fields([mcpw.as_workunit()]))
+    out = list(processor.process([mcpw.as_workunit()]))
 
     assert len(out) == 1
     result_aspect = out[0].get_aspect_of_type(InputFieldsClass)
@@ -64,7 +78,7 @@ def test_valid_input_fields_pass_through():
 def test_empty_field_paths_filtered():
     """Test that input fields with empty fieldPath values are filtered out."""
     report = SourceReport()
-    processor = ValidateInputFieldsProcessor(report)
+    processor = ValidateInputFieldsProcessor.create(make_ctx(report))
 
     # Create mix of valid and invalid input fields
     input_fields = InputFieldsClass(
@@ -101,7 +115,7 @@ def test_empty_field_paths_filtered():
         aspect=input_fields,
     )
 
-    out = list(processor.validate_input_fields([mcpw.as_workunit()]))
+    out = list(processor.process([mcpw.as_workunit()]))
 
     assert len(out) == 1
     result_aspect = out[0].get_aspect_of_type(InputFieldsClass)
@@ -113,14 +127,19 @@ def test_empty_field_paths_filtered():
     # Verify warning was reported
     assert len(report.warnings) == 1
     assert "Invalid input fields filtered" in str(report.warnings)
-    # Verify counter was incremented
-    assert report.num_input_fields_filtered == 2
+    # Verify counter was incremented on the processor's own report
+    from datahub.ingestion.workunit_processors.validate_input_fields import (
+        ValidateInputFieldsReport,
+    )
+
+    assert isinstance(processor.report, ValidateInputFieldsReport)
+    assert processor.report.num_input_fields_filtered == 2
 
 
 def test_all_invalid_fields_skips_workunit():
     """Test that when all fields are invalid, the workunit is not yielded."""
     report = SourceReport()
-    processor = ValidateInputFieldsProcessor(report)
+    processor = ValidateInputFieldsProcessor.create(make_ctx(report))
 
     # Create only invalid input fields
     input_fields = InputFieldsClass(
@@ -149,7 +168,7 @@ def test_all_invalid_fields_skips_workunit():
         aspect=input_fields,
     )
 
-    out = list(processor.validate_input_fields([mcpw.as_workunit()]))
+    out = list(processor.process([mcpw.as_workunit()]))
 
     # The workunit should not be yielded at all
     assert len(out) == 0
@@ -157,13 +176,18 @@ def test_all_invalid_fields_skips_workunit():
     # Verify warning was reported
     assert len(report.warnings) == 1
     # Verify counter was incremented
-    assert report.num_input_fields_filtered == 2
+    from datahub.ingestion.workunit_processors.validate_input_fields import (
+        ValidateInputFieldsReport,
+    )
+
+    assert isinstance(processor.report, ValidateInputFieldsReport)
+    assert processor.report.num_input_fields_filtered == 2
 
 
 def test_no_input_fields_aspect():
     """Test that workunits without InputFieldsClass pass through unchanged."""
     report = SourceReport()
-    processor = ValidateInputFieldsProcessor(report)
+    processor = ValidateInputFieldsProcessor.create(make_ctx(report))
 
     # Create workunit without InputFieldsClass
     from datahub.metadata.schema_classes import StatusClass
@@ -173,7 +197,7 @@ def test_no_input_fields_aspect():
         aspect=StatusClass(removed=False),
     )
 
-    out = list(processor.validate_input_fields([mcpw.as_workunit()]))
+    out = list(processor.process([mcpw.as_workunit()]))
 
     assert len(out) == 1
     assert out[0].get_aspect_of_type(InputFieldsClass) is None
