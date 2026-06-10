@@ -98,10 +98,10 @@ export default function AddTagsModal({
             !exactMatch &&
             urns.length === 0;
         if (showCreate) {
-            filtered.push({ value: CREATE_TAG_VALUE, label: `Create ${trimmed}` });
+            filtered.push({ value: CREATE_TAG_VALUE, label: t('createOption', { inputValue: trimmed }) });
         }
         return filtered;
-    }, [currentEntities, entityRegistry, excludeSet, operationType, searchText, urns.length]);
+    }, [currentEntities, entityRegistry, excludeSet, operationType, searchText, urns.length, t]);
 
     const combinedOptions = useMemo<TagOption[]>(() => {
         const inDropdown = new Set(dropdownOptions.map((o) => o.value));
@@ -172,7 +172,8 @@ export default function AddTagsModal({
         });
     };
 
-    const actionLabel = isAddOperation(operationType) ? 'Add' : 'Remove';
+    const isAdd = isAddOperation(operationType);
+    const actionLabel = isAdd ? tc('add') : tc('remove');
 
     if (createTagName !== null) {
         return (
@@ -190,7 +191,7 @@ export default function AddTagsModal({
 
     return (
         <Modal
-            title={`${actionLabel} Tags`}
+            title={isAdd ? t('modal.addTagsTitle') : t('modal.removeTagsTitle')}
             open={open}
             onCancel={onCloseModal}
             buttons={[

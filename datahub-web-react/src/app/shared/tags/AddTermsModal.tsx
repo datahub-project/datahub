@@ -205,7 +205,11 @@ export default function AddTermsModal({
                     <NonSelectableRow $depth={depth} data-testid={`tag-term-option-${option.label}`}>
                         <CaretButton
                             type="button"
-                            aria-label={isExpanded ? `Collapse ${option.label}` : `Expand ${option.label}`}
+                            aria-label={
+                                isExpanded
+                                    ? t('collapseTerm', { label: option.label })
+                                    : t('expandTerm', { label: option.label })
+                            }
                             aria-expanded={isExpanded}
                             // Stops alchemy SimpleSelect from treating this as an option click.
                             onMouseDown={(e) => e.preventDefault()}
@@ -247,7 +251,7 @@ export default function AddTermsModal({
                 </OptionRow>
             );
         },
-        [generateColor, nodesWithChildren, expandedNodes, handleCaretClick],
+        [generateColor, nodesWithChildren, expandedNodes, handleCaretClick, t],
     );
 
     const renderSelectedValue = useCallback(
@@ -280,11 +284,12 @@ export default function AddTermsModal({
         });
     };
 
-    const actionLabel = isAddOperation(operationType) ? 'Add' : 'Remove';
+    const isAdd = isAddOperation(operationType);
+    const actionLabel = isAdd ? tc('add') : tc('remove');
 
     return (
         <Modal
-            title={`${actionLabel} Glossary Terms`}
+            title={isAdd ? t('modal.addTermsTitle') : t('modal.removeTermsTitle')}
             open={open}
             onCancel={onCloseModal}
             buttons={[
