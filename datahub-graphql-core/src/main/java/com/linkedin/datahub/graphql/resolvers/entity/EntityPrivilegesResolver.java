@@ -29,9 +29,14 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import graphql.schema.SelectedField;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,31 +55,39 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     final String urnString = ((Entity) environment.getSource()).getUrn();
     final Urn urn = UrnUtils.getUrn(urnString);
 
+    // Each EntityPrivileges field is the result of an independent authorization check. The
+    // resolver only computes query selected fields, to avoid unnecessary auth checks and improve
+    // performance.
+    final Set<String> selected =
+        environment.getSelectionSet().getImmediateFields().stream()
+            .map(SelectedField::getName)
+            .collect(Collectors.toSet());
+
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           switch (urn.getEntityType()) {
             case Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME:
-              return getBusinessAttributePrivileges(urn, context);
+              return getBusinessAttributePrivileges(urn, context, selected);
             case Constants.GLOSSARY_TERM_ENTITY_NAME:
-              return getGlossaryTermPrivileges(urn, context);
+              return getGlossaryTermPrivileges(urn, context, selected);
             case Constants.GLOSSARY_NODE_ENTITY_NAME:
-              return getGlossaryNodePrivileges(urn, context);
+              return getGlossaryNodePrivileges(urn, context, selected);
             case Constants.DATASET_ENTITY_NAME:
-              return getDatasetPrivileges(urn, context);
+              return getDatasetPrivileges(urn, context, selected);
             case Constants.CHART_ENTITY_NAME:
-              return getChartPrivileges(urn, context);
+              return getChartPrivileges(urn, context, selected);
             case Constants.DASHBOARD_ENTITY_NAME:
-              return getDashboardPrivileges(urn, context);
+              return getDashboardPrivileges(urn, context, selected);
             case Constants.DATA_JOB_ENTITY_NAME:
-              return getDataJobPrivileges(urn, context);
+              return getDataJobPrivileges(urn, context, selected);
             case Constants.DOCUMENT_ENTITY_NAME:
-              return getDocumentPrivileges(urn, context);
+              return getDocumentPrivileges(urn, context, selected);
             default:
               log.warn(
                   "Tried to get entity privileges for entity type {}. Adding common privileges only.",
                   urn.getEntityType());
               EntityPrivileges commonPrivileges = new EntityPrivileges();
-              addCommonPrivileges(commonPrivileges, urn, context);
+              addCommonPrivileges(commonPrivileges, urn, context, selected);
               return commonPrivileges;
           }
         },
@@ -82,49 +95,83 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
         "get");
   }
 
-  private EntityPrivileges getBusinessAttributePrivileges(Urn urn, QueryContext context) {
+  /**
+   * Runs an authorization check and stores its result only when the query selected {@code
+   * fieldName}. The field name must match the {@code EntityPrivileges} field in {@code
+   * auth.graphql}; a mismatch silently leaves the field null (guarded by resolver tests).
+   */
+  private static void computeIfSelected(
+      @Nonnull Set<String> selected,
+      @Nonnull String fieldName,
+      @Nonnull BooleanSupplier check,
+      @Nonnull Consumer<Boolean> setter) {
+    if (selected.contains(fieldName)) {
+      setter.accept(check.getAsBoolean());
+    }
+  }
+
+  private EntityPrivileges getBusinessAttributePrivileges(
+      Urn urn, QueryContext context, Set<String> selected) {
     final EntityPrivileges result = new EntityPrivileges();
-    result.setCanManageEntity(
-        BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context));
-    addCommonPrivileges(result, urn, context);
+    computeIfSelected(
+        selected,
+        "canManageEntity",
+        () -> BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context),
+        result::setCanManageEntity);
+    addCommonPrivileges(result, urn, context, selected);
     return result;
   }
 
-  private EntityPrivileges getGlossaryTermPrivileges(Urn termUrn, QueryContext context) {
+  private EntityPrivileges getGlossaryTermPrivileges(
+      Urn termUrn, QueryContext context, Set<String> selected) {
     final EntityPrivileges result = new EntityPrivileges();
-    addCommonPrivileges(result, termUrn, context);
-    result.setCanManageEntity(false);
+    addCommonPrivileges(result, termUrn, context, selected);
+    if (selected.contains("canManageEntity")) {
+      result.setCanManageEntity(computeTermCanManageEntity(termUrn, context));
+    }
+    return result;
+  }
+
+  private boolean computeTermCanManageEntity(Urn termUrn, QueryContext context) {
     if (GlossaryUtils.canManageGlossaries(context)) {
-      result.setCanManageEntity(true);
-      return result;
+      return true;
     }
     Urn parentNodeUrn = GlossaryUtils.getParentUrn(termUrn, context, _entityClient);
-    if (parentNodeUrn != null) {
-      Boolean canManage =
-          GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient);
-      result.setCanManageEntity(canManage);
-    }
-    return result;
+    return parentNodeUrn != null
+        && GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient);
   }
 
-  private EntityPrivileges getGlossaryNodePrivileges(Urn nodeUrn, QueryContext context) {
+  private EntityPrivileges getGlossaryNodePrivileges(
+      Urn nodeUrn, QueryContext context, Set<String> selected) {
     final EntityPrivileges result = new EntityPrivileges();
-    addCommonPrivileges(result, nodeUrn, context);
-    result.setCanManageEntity(false);
-    if (GlossaryUtils.canManageGlossaries(context)) {
-      result.setCanManageEntity(true);
-      result.setCanManageChildren(true);
+    addCommonPrivileges(result, nodeUrn, context, selected);
+
+    final boolean needChildren = selected.contains("canManageChildren");
+    final boolean needEntity = selected.contains("canManageEntity");
+    if (!needChildren && !needEntity) {
       return result;
     }
-    Boolean canManageChildren =
-        GlossaryUtils.canManageChildrenEntities(context, nodeUrn, _entityClient);
-    result.setCanManageChildren(canManageChildren);
 
-    Urn parentNodeUrn = GlossaryUtils.getParentUrn(nodeUrn, context, _entityClient);
-    if (parentNodeUrn != null) {
-      Boolean canManage =
-          GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient);
-      result.setCanManageEntity(canManage);
+    // canManageGlossaries grants both manage privileges; check it once before the parent walk.
+    if (GlossaryUtils.canManageGlossaries(context)) {
+      if (needChildren) {
+        result.setCanManageChildren(true);
+      }
+      if (needEntity) {
+        result.setCanManageEntity(true);
+      }
+      return result;
+    }
+
+    if (needChildren) {
+      result.setCanManageChildren(
+          GlossaryUtils.canManageChildrenEntities(context, nodeUrn, _entityClient));
+    }
+    if (needEntity) {
+      Urn parentNodeUrn = GlossaryUtils.getParentUrn(nodeUrn, context, _entityClient);
+      result.setCanManageEntity(
+          parentNodeUrn != null
+              && GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient));
     }
     return result;
   }
@@ -133,77 +180,175 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     return AuthUtil.isAuthorizedUrns(context.getOperationContext(), LINEAGE, UPDATE, List.of(urn));
   }
 
-  private EntityPrivileges getDatasetPrivileges(Urn urn, QueryContext context) {
+  private EntityPrivileges getDatasetPrivileges(
+      Urn urn, QueryContext context, Set<String> selected) {
     final EntityPrivileges result = new EntityPrivileges();
-    result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
+    computeIfSelected(
+        selected,
+        "canEditEmbed",
+        () -> EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context),
+        result::setCanEditEmbed);
+    computeIfSelected(
+        selected,
+        "canEditQueries",
+        () -> AuthorizationUtils.canCreateQuery(ImmutableList.of(urn), context),
+        result::setCanEditQueries);
     // Schema Field Edits are a bit of a hack.
-    result.setCanEditQueries(AuthorizationUtils.canCreateQuery(ImmutableList.of(urn), context));
-    result.setCanEditSchemaFieldTags(
-        LabelUtils.isAuthorizedToUpdateTags(
-            context, urn, "ignored", Collections.singleton(WILDCARD_URN)));
-    result.setCanEditSchemaFieldGlossaryTerms(
-        LabelUtils.isAuthorizedToUpdateTerms(context, urn, "ignored"));
-    result.setCanEditSchemaFieldDescription(
-        DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, urn));
-    result.setCanViewDatasetUsage(AuthorizationUtils.isViewDatasetUsageAuthorized(context, urn));
-    result.setCanViewDatasetProfile(
-        AuthorizationUtils.isViewDatasetProfileAuthorized(context, urn));
-    result.setCanViewDatasetOperations(
-        AuthorizationUtils.isViewDatasetOperationsAuthorized(context, urn));
-    addCommonPrivileges(result, urn, context);
+    computeIfSelected(
+        selected,
+        "canEditSchemaFieldTags",
+        () ->
+            LabelUtils.isAuthorizedToUpdateTags(
+                context, urn, "ignored", Collections.singleton(WILDCARD_URN)),
+        result::setCanEditSchemaFieldTags);
+    computeIfSelected(
+        selected,
+        "canEditSchemaFieldGlossaryTerms",
+        () -> LabelUtils.isAuthorizedToUpdateTerms(context, urn, "ignored"),
+        result::setCanEditSchemaFieldGlossaryTerms);
+    computeIfSelected(
+        selected,
+        "canEditSchemaFieldDescription",
+        () -> DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, urn),
+        result::setCanEditSchemaFieldDescription);
+    computeIfSelected(
+        selected,
+        "canViewDatasetUsage",
+        () -> AuthorizationUtils.isViewDatasetUsageAuthorized(context, urn),
+        result::setCanViewDatasetUsage);
+    computeIfSelected(
+        selected,
+        "canViewDatasetProfile",
+        () -> AuthorizationUtils.isViewDatasetProfileAuthorized(context, urn),
+        result::setCanViewDatasetProfile);
+    computeIfSelected(
+        selected,
+        "canViewDatasetOperations",
+        () -> AuthorizationUtils.isViewDatasetOperationsAuthorized(context, urn),
+        result::setCanViewDatasetOperations);
+    addCommonPrivileges(result, urn, context, selected);
     return result;
   }
 
-  private EntityPrivileges getChartPrivileges(Urn urn, QueryContext context) {
+  private EntityPrivileges getChartPrivileges(Urn urn, QueryContext context, Set<String> selected) {
     final EntityPrivileges result = new EntityPrivileges();
-    result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
-    addCommonPrivileges(result, urn, context);
+    computeIfSelected(
+        selected,
+        "canEditEmbed",
+        () -> EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context),
+        result::setCanEditEmbed);
+    addCommonPrivileges(result, urn, context, selected);
     return result;
   }
 
-  private EntityPrivileges getDashboardPrivileges(Urn urn, QueryContext context) {
+  private EntityPrivileges getDashboardPrivileges(
+      Urn urn, QueryContext context, Set<String> selected) {
     final EntityPrivileges result = new EntityPrivileges();
-    result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
-    addCommonPrivileges(result, urn, context);
+    computeIfSelected(
+        selected,
+        "canEditEmbed",
+        () -> EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context),
+        result::setCanEditEmbed);
+    addCommonPrivileges(result, urn, context, selected);
     return result;
   }
 
-  private EntityPrivileges getDataJobPrivileges(Urn urn, QueryContext context) {
+  private EntityPrivileges getDataJobPrivileges(
+      Urn urn, QueryContext context, Set<String> selected) {
     final EntityPrivileges result = new EntityPrivileges();
-    addCommonPrivileges(result, urn, context);
+    addCommonPrivileges(result, urn, context, selected);
     return result;
   }
 
-  private EntityPrivileges getDocumentPrivileges(Urn urn, QueryContext context) {
+  private EntityPrivileges getDocumentPrivileges(
+      Urn urn, QueryContext context, Set<String> selected) {
     final EntityPrivileges result = new EntityPrivileges();
-    addCommonPrivileges(result, urn, context);
+    addCommonPrivileges(result, urn, context, selected);
     // Document-specific: canManageEntity includes ability to delete/move documents
-    result.setCanManageEntity(AuthorizationUtils.canEditDocument(urn, context));
+    computeIfSelected(
+        selected,
+        "canManageEntity",
+        () -> AuthorizationUtils.canEditDocument(urn, context),
+        result::setCanManageEntity);
     return result;
   }
 
   private void addCommonPrivileges(
-      @Nonnull EntityPrivileges result, @Nonnull Urn urn, @Nonnull QueryContext context) {
-    result.setCanEditLineage(canEditEntityLineage(urn, context));
-    result.setCanEditProperties(AuthorizationUtils.canEditProperties(urn, context));
-    result.setCanEditAssertions(
-        AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, urn));
-    result.setCanEditAssertionOwners(
-        OwnerUtils.isAuthorizedToUpdateAssertionOwnersOnEntity(context, urn));
-    result.setCanEditIncidents(IncidentUtils.isAuthorizedToEditIncidentForResource(urn, context));
-    result.setCanEditDomains(
-        DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, urn, _entityClient));
-    result.setCanEditDataProducts(
-        DataProductAuthorizationUtils.isAuthorizedToUpdateDataProductsForEntity(context, urn));
-    result.setCanEditDeprecation(
-        DeprecationUtils.isAuthorizedToUpdateDeprecationForEntity(context, urn));
-    result.setCanEditGlossaryTerms(LabelUtils.isAuthorizedToUpdateTerms(context, urn, null));
-    result.setCanEditTags(
-        LabelUtils.isAuthorizedToUpdateTags(
-            context, urn, null, Collections.singleton(WILDCARD_URN)));
-    result.setCanEditOwners(OwnerUtils.isAuthorizedToUpdateOwners(context, urn));
-    result.setCanEditDescription(DescriptionUtils.isAuthorizedToUpdateDescription(context, urn));
-    result.setCanEditLinks(LinkUtils.isAuthorizedToUpdateLinks(context, urn));
-    result.setCanManageAssetSummary(AuthorizationUtils.canManageAssetSummary(context, urn));
+      @Nonnull EntityPrivileges result,
+      @Nonnull Urn urn,
+      @Nonnull QueryContext context,
+      @Nonnull Set<String> selected) {
+    computeIfSelected(
+        selected,
+        "canEditLineage",
+        () -> canEditEntityLineage(urn, context),
+        result::setCanEditLineage);
+    computeIfSelected(
+        selected,
+        "canEditProperties",
+        () -> AuthorizationUtils.canEditProperties(urn, context),
+        result::setCanEditProperties);
+    computeIfSelected(
+        selected,
+        "canEditAssertions",
+        () -> AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, urn),
+        result::setCanEditAssertions);
+    computeIfSelected(
+        selected,
+        "canEditAssertionOwners",
+        () -> OwnerUtils.isAuthorizedToUpdateAssertionOwnersOnEntity(context, urn),
+        result::setCanEditAssertionOwners);
+    computeIfSelected(
+        selected,
+        "canEditIncidents",
+        () -> IncidentUtils.isAuthorizedToEditIncidentForResource(urn, context),
+        result::setCanEditIncidents);
+    computeIfSelected(
+        selected,
+        "canEditDomains",
+        () -> DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, urn, _entityClient),
+        result::setCanEditDomains);
+    computeIfSelected(
+        selected,
+        "canEditDataProducts",
+        () -> DataProductAuthorizationUtils.isAuthorizedToUpdateDataProductsForEntity(context, urn),
+        result::setCanEditDataProducts);
+    computeIfSelected(
+        selected,
+        "canEditDeprecation",
+        () -> DeprecationUtils.isAuthorizedToUpdateDeprecationForEntity(context, urn),
+        result::setCanEditDeprecation);
+    computeIfSelected(
+        selected,
+        "canEditGlossaryTerms",
+        () -> LabelUtils.isAuthorizedToUpdateTerms(context, urn, null),
+        result::setCanEditGlossaryTerms);
+    computeIfSelected(
+        selected,
+        "canEditTags",
+        () ->
+            LabelUtils.isAuthorizedToUpdateTags(
+                context, urn, null, Collections.singleton(WILDCARD_URN)),
+        result::setCanEditTags);
+    computeIfSelected(
+        selected,
+        "canEditOwners",
+        () -> OwnerUtils.isAuthorizedToUpdateOwners(context, urn),
+        result::setCanEditOwners);
+    computeIfSelected(
+        selected,
+        "canEditDescription",
+        () -> DescriptionUtils.isAuthorizedToUpdateDescription(context, urn),
+        result::setCanEditDescription);
+    computeIfSelected(
+        selected,
+        "canEditLinks",
+        () -> LinkUtils.isAuthorizedToUpdateLinks(context, urn),
+        result::setCanEditLinks);
+    computeIfSelected(
+        selected,
+        "canManageAssetSummary",
+        () -> AuthorizationUtils.canManageAssetSummary(context, urn),
+        result::setCanManageAssetSummary);
   }
 }
