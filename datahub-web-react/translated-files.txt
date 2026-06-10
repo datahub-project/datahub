@@ -2,6 +2,7 @@ src/alchemy-components/components/**/*.{ts,tsx}
 src/app/analyticsDashboardV2/**/*.{ts,tsx}
 src/app/domain/**/*.{ts,tsx}
 src/app/domainV2/**/*.{ts,tsx}
+src/app/embed/**/*.{ts,tsx}
 src/app/entityV2/**/*.{ts,tsx}
 src/app/glossary/**/*.{ts,tsx}
 src/app/glossaryV2/**/*.{ts,tsx}
