@@ -333,6 +333,7 @@ def test_stateful_ingestion_processor_wired_up():
         stateful_ingestion={"enabled": True, "remove_stale_metadata": True},
     )
     ctx = PipelineContext(run_id="test_run", pipeline_name="test_run")
+    ctx.graph = MagicMock()
     source = NotionSource(config=config, ctx=ctx)
 
     processors = source.get_workunit_processors()

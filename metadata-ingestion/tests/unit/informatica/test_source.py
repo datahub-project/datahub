@@ -1474,9 +1474,17 @@ class TestSourceLifecycle:
     def test_stale_entity_removal_handler_registered(self):
         # Stateful ingestion hinges on StaleEntityRemovalProcessor being in the
         # workunit processor chain when remove_stale_metadata is enabled.
-        source = _make_source(
-            stateful_ingestion={"enabled": True, "remove_stale_metadata": True}
+        config = InformaticaSourceConfig.model_validate(
+            {
+                "username": "svc",
+                "password": "pw",
+                "login_url": "https://dm-us.informaticacloud.com",
+                "stateful_ingestion": {"enabled": True, "remove_stale_metadata": True},
+            }
         )
+        ctx = PipelineContext(run_id="informatica-test", pipeline_name="informatica-test")
+        ctx.graph = MagicMock()
+        source = InformaticaSource(config, ctx)
         processors = source.get_workunit_processors()
         assert any(
             isinstance(getattr(p, "__self__", None), StaleEntityRemovalProcessor)
