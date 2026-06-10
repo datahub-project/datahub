@@ -14,6 +14,7 @@ export const EntityContext = React.createContext<EntityContextType>({
     updateEntity: () => Promise.resolve({}),
     routeToTab: () => {},
     refetch: () => Promise.resolve({}),
+    refetchForms: undefined,
     lineage: undefined,
     dataNotCombinedWithSiblings: null,
     entityState: { shouldRefetchContents: false, setShouldRefetchContents: () => {} },

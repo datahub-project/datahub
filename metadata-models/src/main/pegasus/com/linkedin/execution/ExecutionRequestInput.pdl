@@ -7,7 +7,8 @@ import com.linkedin.common.Urn
  * TODO: Determine who is responsible for emitting execution request success or failure. Executor?
  */
 @Aspect = {
-  "name": "dataHubExecutionRequestInput"
+  "name": "dataHubExecutionRequestInput",
+  "schemaVersion": 2
 }
 record ExecutionRequestInput {
   /**
@@ -52,4 +53,15 @@ record ExecutionRequestInput {
     "fieldType": "URN"
   }
   actorUrn: optional Urn
+
+  /**
+   * Audit metadata for the CLI version chosen for this execution — which tier of the
+   * resolution chain produced the version (source config override / matrix cohort / matrix
+   * connector default / application default) and which GMS performed the resolution. Stamped at
+   * request time so post-hoc forensics does not require iterating the generic args map. The
+   * resolved CLI version string itself lives in `args.version` on this same aspect; this record
+   * deliberately does not duplicate it. Optional for backward compatibility — older execution
+   * requests will not have this set.
+   */
+  cliVersionAudit: optional CliVersionAudit
 }

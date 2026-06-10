@@ -8,6 +8,7 @@ import static org.testng.Assert.*;
 
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.EntitySpec;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Secret;
@@ -35,6 +36,7 @@ public class IngestTestUtils {
     when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
     when(mockContext.getOperationContext().authorize(any(), nullable(EntitySpec.class), any()))
         .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    when(mockContext.getOperationContext().getObjectMapper()).thenReturn(new ObjectMapper());
     return mockContext;
   }
 

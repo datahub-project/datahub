@@ -1,5 +1,6 @@
 import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { AvatarImage, AvatarImageWrapper, AvatarText, Container } from '@components/components/Avatar/components';
 import { AvatarProps } from '@components/components/Avatar/types';
@@ -18,7 +19,7 @@ export const avatarDefaults: AvatarProps = {
 };
 
 export const Avatar = ({
-    name = avatarDefaults.name,
+    name,
     imageUrl,
     size = avatarDefaults.size,
     onClick,
@@ -26,8 +27,10 @@ export const Avatar = ({
     showInPill = avatarDefaults.showInPill,
     isOutlined = avatarDefaults.isOutlined,
 }: AvatarProps) => {
+    const { t } = useTranslation('alchemy');
+    const resolvedName = name ?? t('avatar.defaultName');
     const [hasError, setHasError] = useState(false);
-    const scheme = getAvatarColorScheme(name);
+    const scheme = getAvatarColorScheme(resolvedName);
 
     return (
         <Container onClick={onClick} $hasOnClick={!!onClick} $showInPill={showInPill}>
@@ -36,7 +39,7 @@ export const Avatar = ({
                     {!hasError && imageUrl ? (
                         <AvatarImage src={imageUrl} onError={() => setHasError(true)} />
                     ) : (
-                        type === AvatarType.user && getNameInitials(name)
+                        type === AvatarType.user && getNameInitials(resolvedName)
                     )}
                 </AvatarImageWrapper>
             )}
@@ -47,10 +50,10 @@ export const Avatar = ({
             )}
             {type === AvatarType.role && !imageUrl && (
                 <AvatarImageWrapper $scheme={scheme} $size={size} $isOutlined={isOutlined}>
-                    {mapRoleIcon(name)}
+                    {mapRoleIcon(resolvedName)}
                 </AvatarImageWrapper>
             )}
-            {showInPill && <AvatarText $size={size}>{name}</AvatarText>}
+            {showInPill && <AvatarText $size={size}>{resolvedName}</AvatarText>}
         </Container>
     );
 };
