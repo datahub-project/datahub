@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Iterable, Optional, Type
+from typing import TYPE_CHECKING, Dict, Iterable, Optional, Type, TypeVar
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 
@@ -17,6 +17,8 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
+
+_WorkunitProcessorT = TypeVar("_WorkunitProcessorT", bound="WorkunitProcessor")
 
 
 @dataclass
@@ -68,7 +70,9 @@ class WorkunitProcessor(ABC):
         self.report: WorkunitProcessorReport
 
     @classmethod
-    def create(cls, ctx: WorkunitProcessorContext) -> "WorkunitProcessor":
+    def create(
+        cls: Type[_WorkunitProcessorT], ctx: WorkunitProcessorContext
+    ) -> _WorkunitProcessorT:
         """Instantiate processor and register its report with the source report."""
         processor = cls(ctx)
         report_class = cls.get_report_class()
