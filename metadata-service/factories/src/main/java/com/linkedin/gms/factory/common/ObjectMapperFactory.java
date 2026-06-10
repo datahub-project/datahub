@@ -1,6 +1,8 @@
 package com.linkedin.gms.factory.common;
 
+import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
+import static com.linkedin.metadata.Constants.MAX_JACKSON_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 
 import com.fasterxml.jackson.core.JsonFactory;
@@ -28,9 +30,17 @@ public class ObjectMapperFactory {
         Integer.parseInt(
             System.getenv()
                 .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    int maxNameLength =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_NAME_LENGTH, MAX_JACKSON_NAME_LENGTH));
     JsonFactory factory =
         JsonFactory.builder()
-            .streamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build())
+            .streamReadConstraints(
+                StreamReadConstraints.builder()
+                    .maxStringLength(maxSize)
+                    .maxNameLength(maxNameLength)
+                    .build())
             .disable(StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION)
             .build();
     API_SANITIZING_MAPPER = new ObjectMapper(factory);
@@ -45,9 +55,17 @@ public class ObjectMapperFactory {
         Integer.parseInt(
             System.getenv()
                 .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    int maxNameLength =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_NAME_LENGTH, MAX_JACKSON_NAME_LENGTH));
     objectMapper
         .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+        .setStreamReadConstraints(
+            StreamReadConstraints.builder()
+                .maxStringLength(maxSize)
+                .maxNameLength(maxNameLength)
+                .build());
     objectMapper.registerModule(new Jdk8Module());
     return objectMapper;
   }

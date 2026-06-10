@@ -68,6 +68,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(GMS / metadata service)** Raised Jackson's JSON property-name length limit (`maxNameLength`) on the metadata deserialization paths. Previously only the string-value length limit was raised, leaving `maxNameLength` at Jackson's default of 50,000 characters. Deeply-nested struct field paths (e.g. dbt column-level lineage) can be carried as JSON property names in `upstreamLineage` patches and exceed that, causing GMS to reject the change with `StreamConstraintsException: Name length (N) exceeds the maximum allowed (50000)` when applying the patch. The limit now defaults to 16 MB (matching the existing value-length limit) and is tunable via the new `INGESTION_MAX_SERIALIZED_NAME_LENGTH` environment variable.
+
 - #17376: **(Ingestion / Hex)** Major in-place upgrade of the `hex` connector: upstream lineage (table-level and column-level), Project → Component links, run history (`lastRefreshed`), and optional AI context documents are now extracted directly from Hex REST APIs — no external CLI, warehouse-side ingestion dependency, or query-tag scraping required. See the [Hex connector docs](https://docs.datahub.com/docs/generated/ingestion/sources/hex) for the new `include_lineage`, `use_queried_tables_lineage`, `connection_platform_map`, and `include_context_documents` options.
 
 - **(Ingestion / dbt)** dbt test assertion entities now emit an `ownership` aspect when the dbt test node has explicit owner metadata (`meta.owner` / `config.meta.owner`).

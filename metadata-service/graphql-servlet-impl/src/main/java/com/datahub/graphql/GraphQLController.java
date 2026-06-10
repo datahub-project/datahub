@@ -84,9 +84,17 @@ public class GraphQLController {
         Integer.parseInt(
             System.getenv()
                 .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    int maxNameLength =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_NAME_LENGTH, MAX_JACKSON_NAME_LENGTH));
     mapper
         .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+        .setStreamReadConstraints(
+            StreamReadConstraints.builder()
+                .maxStringLength(maxSize)
+                .maxNameLength(maxNameLength)
+                .build());
     mapper.registerModule(new Jdk8Module());
     return mapper;
   }
