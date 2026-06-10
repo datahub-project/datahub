@@ -608,6 +608,7 @@ public class ElasticSearchTimeseriesAspectService
       searchRequest.source(sourceBuilder);
       searchRequest.indices(indexName);
 
+      log.debug("Batch timeseries search request: {}", searchRequest);
       try {
         SearchResponse response = searchClient.search(searchRequest, RequestOptions.DEFAULT);
         ParsedTerms terms = response.getAggregations().get("urn_buckets");

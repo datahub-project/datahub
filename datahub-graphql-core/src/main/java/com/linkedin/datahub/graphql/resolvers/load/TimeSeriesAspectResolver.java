@@ -117,18 +117,21 @@ public class TimeSeriesAspectResolver
     final QueryContext context = environment.getContext();
     final String urn = ((Entity) environment.getSource()).getUrn();
 
+    // Auth is checked eagerly per-URN before DataLoader dispatch. Unauthorized URNs never
+    // submit a key to the loader, so they cannot receive or leak data from authorized URNs
+    // that are batched in the same request.
     if (!isAuthorized(context, urn)) {
       return CompletableFuture.completedFuture(Collections.emptyList());
     }
 
-    final Long startTimeMillis = environment.getArgumentOrDefault("startTimeMillis", null);
-    final Long endTimeMillis = environment.getArgumentOrDefault("endTimeMillis", null);
-    final Integer limit = environment.getArgumentOrDefault("limit", null);
-    final FilterInput filterInput =
+    final Long maybeStartTimeMillis = environment.getArgumentOrDefault("startTimeMillis", null);
+    final Long maybeEndTimeMillis = environment.getArgumentOrDefault("endTimeMillis", null);
+    final Integer maybeLimit = environment.getArgumentOrDefault("limit", null);
+    final FilterInput maybeFilters =
         environment.getArgument("filter") != null
             ? bindArgument(environment.getArgument("filter"), FilterInput.class)
             : null;
-    final Filter filter = buildFilters(filterInput);
+    final Filter maybeFilter = buildFilters(maybeFilters);
 
     final DataLoader<TimeseriesAspectBatchLoader.Key, List<EnvelopedAspect>> loader =
         _batchLoadEnabled
@@ -140,7 +143,14 @@ public class TimeSeriesAspectResolver
     if (loader != null) {
       final TimeseriesAspectBatchLoader.Key key =
           new TimeseriesAspectBatchLoader.Key(
-              urn, _entityName, _aspectName, startTimeMillis, endTimeMillis, limit, filter, _sort);
+              urn,
+              _entityName,
+              _aspectName,
+              maybeStartTimeMillis,
+              maybeEndTimeMillis,
+              maybeLimit,
+              maybeFilter,
+              _sort);
       return loader
           .load(key)
           .thenApply(
@@ -160,10 +170,10 @@ public class TimeSeriesAspectResolver
                     urn,
                     _entityName,
                     _aspectName,
-                    startTimeMillis,
-                    endTimeMillis,
-                    limit,
-                    filter,
+                    maybeStartTimeMillis,
+                    maybeEndTimeMillis,
+                    maybeLimit,
+                    maybeFilter,
                     _sort)
                 .stream()
                 .map(a -> _aspectMapper.apply(context, a))

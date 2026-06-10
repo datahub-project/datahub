@@ -58,6 +58,10 @@ import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.Request;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
+import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
+import org.opensearch.search.aggregations.metrics.ParsedTopHits;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -959,6 +963,159 @@ public class TimeseriesAspectServiceUnitTest {
     Assert.assertTrue(result.containsKey(expectedUrn2));
     Assert.assertEquals(result.get(expectedUrn1).get(aspectName), sourceMap1);
     Assert.assertEquals(result.get(expectedUrn2).get(aspectName), sourceMap2);
+  }
+
+  @Test
+  public void testBatchGetAspectValuesEmptyUrns() throws IOException {
+    // Empty URN set must return immediately without touching ES.
+    Map<Urn, List<com.linkedin.metadata.aspect.EnvelopedAspect>> result =
+        _timeseriesAspectService.batchGetAspectValues(
+            opContext,
+            Collections.emptySet(),
+            "dataset",
+            "datasetProfile",
+            null,
+            null,
+            10,
+            null,
+            null);
+
+    Assert.assertNotNull(result);
+    Assert.assertTrue(result.isEmpty());
+    verify(searchClient, never()).search(any(), any());
+  }
+
+  @Test
+  public void testBatchGetAspectValuesLimitExceedsPerBucketLimit() throws IOException {
+    // limit=200 > topHitsPerBucketLimit=100 → falls back to per-URN getAspectValues path.
+    String urnString = "urn:li:dataset:123";
+    Urn urn = UrnUtils.getUrn(urnString);
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+        .thenReturn("dataset_datasetProfile_index_v1");
+
+    SearchHits emptyHits = mock(SearchHits.class);
+    when(emptyHits.getHits()).thenReturn(new SearchHit[] {});
+    when(emptyHits.getTotalHits()).thenReturn(new TotalHits(0, TotalHits.Relation.EQUAL_TO));
+
+    SearchResponse emptyResponse = mock(SearchResponse.class);
+    when(emptyResponse.getHits()).thenReturn(emptyHits);
+    when(searchClient.search(any(), any())).thenReturn(emptyResponse);
+
+    Set<Urn> urns = new HashSet<>(Collections.singletonList(urn));
+    Map<Urn, List<com.linkedin.metadata.aspect.EnvelopedAspect>> result =
+        _timeseriesAspectService.batchGetAspectValues(
+            opContext, urns, "dataset", "datasetProfile", null, null, 200, null, null);
+
+    // The fallback issues one search per URN (here just one URN).
+    verify(searchClient, times(1)).search(any(), any());
+    Assert.assertNotNull(result.get(urn));
+    Assert.assertTrue(result.get(urn).isEmpty());
+  }
+
+  @Test
+  public void testBatchGetAspectValuesSubBatchFailure() throws IOException {
+    // When searchClient.search throws, the failed URN is still present with emptyList.
+    String urnString = "urn:li:dataset:123";
+    Urn urn = UrnUtils.getUrn(urnString);
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+        .thenReturn("dataset_datasetProfile_index_v1");
+    when(searchClient.search(any(), any())).thenThrow(new IOException("ES unavailable"));
+
+    Set<Urn> urns = new HashSet<>(Collections.singletonList(urn));
+    Map<Urn, List<com.linkedin.metadata.aspect.EnvelopedAspect>> result =
+        _timeseriesAspectService.batchGetAspectValues(
+            opContext, urns, "dataset", "datasetProfile", null, null, 10, null, null);
+
+    // Partial failure: all input URNs must still be present with emptyList.
+    Assert.assertTrue(result.containsKey(urn));
+    Assert.assertTrue(result.get(urn).isEmpty());
+  }
+
+  @Test
+  public void testBatchGetAspectValuesResultMapping() throws IOException {
+    // Verify that a full aggregation response is mapped correctly.
+    String urnString = "urn:li:dataset:123";
+    Urn urn = UrnUtils.getUrn(urnString);
+    String urnString2 = "urn:li:dataset:456";
+    Urn urn2 = UrnUtils.getUrn(urnString2);
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+        .thenReturn("dataset_datasetProfile_index_v1");
+
+    // Build the mock hit with an event payload.
+    SearchHit mockHit = mock(SearchHit.class);
+    Map<String, Object> sourceMap = new HashMap<>();
+    sourceMap.put(MappingsBuilder.EVENT_FIELD, Map.of("rowCount", 100));
+    when(mockHit.getSourceAsMap()).thenReturn(sourceMap);
+
+    SearchHits topHitsResult = mock(SearchHits.class);
+    when(topHitsResult.getHits()).thenReturn(new SearchHit[] {mockHit});
+
+    ParsedTopHits parsedTopHits = mock(ParsedTopHits.class);
+    when(parsedTopHits.getHits()).thenReturn(topHitsResult);
+
+    Aggregations bucketAggs = mock(Aggregations.class);
+    when(bucketAggs.get("top_hits")).thenReturn(parsedTopHits);
+
+    Terms.Bucket bucket = mock(Terms.Bucket.class);
+    when(bucket.getKeyAsString()).thenReturn(urnString);
+    when(bucket.getAggregations()).thenReturn(bucketAggs);
+
+    ParsedTerms parsedTerms = mock(ParsedTerms.class);
+    // getBuckets() returns List<? extends Terms.Bucket>; use doReturn to bypass wildcard check.
+    doReturn(Collections.singletonList(bucket)).when(parsedTerms).getBuckets();
+
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get("urn_buckets")).thenReturn(parsedTerms);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+
+    Set<Urn> urns = new HashSet<>(Arrays.asList(urn, urn2));
+    Map<Urn, List<com.linkedin.metadata.aspect.EnvelopedAspect>> result =
+        _timeseriesAspectService.batchGetAspectValues(
+            opContext, urns, "dataset", "datasetProfile", null, null, 10, null, null);
+
+    // urn1 has one aspect (from the mock hit); urn2 was not in ES response → emptyList.
+    Assert.assertEquals(result.get(urn).size(), 1);
+    Assert.assertNotNull(result.get(urn2));
+    Assert.assertTrue(result.get(urn2).isEmpty());
+  }
+
+  @Test
+  public void testGetLatestTimeseriesAspectValuesBatchPath() throws IOException {
+    // When batchLoadEnabled=true (default), getLatestTimeseriesAspectValues uses the aggregation
+    // query path, not the thread pool, so exactly one search call is made.
+    String urnString = "urn:li:dataset:123";
+    Urn urn = UrnUtils.getUrn(urnString);
+    String aspectName = "datasetProfile";
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName)))
+        .thenReturn("dataset_datasetProfile_index_v1");
+
+    ParsedTerms emptyTerms = mock(ParsedTerms.class);
+    doReturn(Collections.emptyList()).when(emptyTerms).getBuckets();
+
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get("urn_buckets")).thenReturn(emptyTerms);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+
+    Set<Urn> urns = new HashSet<>(Collections.singletonList(urn));
+    Set<String> aspectNames = new HashSet<>(Collections.singletonList(aspectName));
+
+    Map<Urn, Map<String, com.linkedin.metadata.aspect.EnvelopedAspect>> result =
+        _timeseriesAspectService.getLatestTimeseriesAspectValues(
+            opContext, urns, aspectNames, null);
+
+    // Exactly one aggregation search issued (batch path, not fan-out).
+    verify(searchClient, times(1)).search(any(), any());
+    Assert.assertNotNull(result);
   }
 
   @Test
