@@ -1,6 +1,7 @@
 import { Text, Tooltip } from '@components';
 import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useGetPlatforms } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetPlatforms';
@@ -17,6 +18,7 @@ import { DataHubPageModuleType, Entity } from '@types';
 const NUMBER_OF_PLATFORMS = 15;
 
 const PlatformsModule = (props: ModuleProps) => {
+    const { t } = useTranslation('modules');
     const { platformPrivileges } = useUserContext();
 
     const { config } = useAppConfig();
@@ -49,7 +51,10 @@ const PlatformsModule = (props: ModuleProps) => {
         const platformEntity = platforms.find((platform) => platform.platform.urn === entity.urn);
         return (
             <Tooltip
-                title={`View ${formatNumberWithoutAbbreviation(platformEntity?.count)} ${platformEntity?.platform.name} assets`}
+                title={t('platforms.viewAssets', {
+                    formattedCount: formatNumberWithoutAbbreviation(platformEntity?.count),
+                    platformName: platformEntity?.platform.name,
+                })}
                 placement="bottom"
             >
                 {children}
@@ -62,9 +67,9 @@ const PlatformsModule = (props: ModuleProps) => {
             {platforms.length === 0 ? (
                 <EmptyContent
                     icon={Database}
-                    title="No Platforms Yet"
-                    description="You have not ingested any data."
-                    linkText={hasPermissionsToManageIngestion ? 'Add data sources' : undefined}
+                    title={t('platforms.emptyTitle')}
+                    description={t('platforms.emptyDescription')}
+                    linkText={hasPermissionsToManageIngestion ? t('platforms.emptyLink') : undefined}
                     onLinkClick={navigateToDataSources}
                 />
             ) : (

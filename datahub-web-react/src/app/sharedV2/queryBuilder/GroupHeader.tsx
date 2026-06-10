@@ -2,6 +2,7 @@ import { Tooltip } from '@components';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Button } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { LogicalOperatorType } from '@app/sharedV2/queryBuilder/builder/types';
 import {
@@ -34,6 +35,7 @@ const GroupHeader = ({
     showDeleteButton,
     hideAddGroup,
 }: Props) => {
+    const { t } = useTranslation('shared.query-builder');
     const [selectedOperation, setSelectedOperation] = useState<LogicalOperatorType>(
         operator ?? LogicalOperatorType.AND,
     );
@@ -67,31 +69,31 @@ const GroupHeader = ({
     return (
         <ToolbarContainer>
             <Button.Group>
-                <Tooltip showArrow={false} title="Match assets that satisfy all of the following conditions (AND)">
+                <Tooltip showArrow={false} title={t('group.andTooltip')}>
                     <OperationButton
                         variant="text"
                         onClick={(e) => selectOperator(e, LogicalOperatorType.AND)}
                         isSelected={selectedOperation === LogicalOperatorType.AND}
                     >
-                        All
+                        {t('group.allLabel')}
                     </OperationButton>
                 </Tooltip>
-                <Tooltip showArrow={false} title="Match assets that satisfy all of the following conditions (OR)">
+                <Tooltip showArrow={false} title={t('group.orTooltip')}>
                     <OperationButton
                         variant="text"
                         onClick={(e) => selectOperator(e, LogicalOperatorType.OR)}
                         isSelected={selectedOperation === LogicalOperatorType.OR}
                     >
-                        Any
+                        {t('group.anyLabel')}
                     </OperationButton>
                 </Tooltip>
-                <Tooltip showArrow={false} title="Match assets that do not match any of the following conditions (NOT)">
+                <Tooltip showArrow={false} title={t('group.notTooltip')}>
                     <OperationButton
                         variant="text"
                         onClick={(e) => selectOperator(e, LogicalOperatorType.NOT)}
                         isSelected={selectedOperation === LogicalOperatorType.NOT}
                     >
-                        None
+                        {t('group.noneLabel')}
                     </OperationButton>
                 </Tooltip>
             </Button.Group>
@@ -101,7 +103,7 @@ const GroupHeader = ({
                     onClick={handleAddPropertyPredicate}
                     data-testid="query-builder-add-condition-button"
                 >
-                    Add Condition
+                    {t('group.addCondition')}
                 </ButtonComponent>
                 {!hideAddGroup && (
                     <ButtonComponent
@@ -109,7 +111,7 @@ const GroupHeader = ({
                         onClick={handleAddLogicalPredicate}
                         data-testid="query-builder-add-group-button"
                     >
-                        Add Group
+                        {t('group.addGroup')}
                     </ButtonComponent>
                 )}
                 <CardIcons>

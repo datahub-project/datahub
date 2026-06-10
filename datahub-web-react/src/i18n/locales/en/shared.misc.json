@@ -1,0 +1,13 @@
+{
+    "backButton.tooltip": "Go back",
+    "confirmationModal.areYouSure": "Are you sure?",
+    "copyUrn.tooltip": "Copy URN. An URN uniquely identifies an entity on DataHub.",
+    "customIcon.alt": "Icon",
+    "entityCountCard.viewCountTooltip": "View {{formattedCount}} {{tooltipDescriptor}}",
+    "multiStepForm.disabledNextTooltip": "Please complete all required fields before moving to the next step",
+    "noEntityFound.subtitle": "Sorry, we are unable to find this entity in DataHub",
+    "noEntityFound.title": "Not Found",
+    "noPageFound.backToHome": "Back to Home",
+    "noPageFound.subtitle": "The page you requested was not found.",
+    "platformIcon.alt": "Platform Logo"
+}

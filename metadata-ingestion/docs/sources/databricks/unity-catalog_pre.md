@@ -20,10 +20,10 @@ You can authenticate with Databricks using OAuth, Azure authentication, a Person
 
 **Option 2: Azure Authentication (for Azure Databricks)**
 
-- Create an Azure Active Directory application:
-  - Follow the [Azure AD app registration guide](https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app)
+- Create a Microsoft Entra ID application:
+  - Follow the [Microsoft Entra ID app registration guide](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app)
   - Note down the `client_id` (Application ID), `tenant_id` (Directory ID), and create a `client_secret`
-- Grant the Azure AD application access to your Databricks workspace:
+- Grant the Microsoft Entra ID application access to your Databricks workspace:
   - Add the service principal to your Databricks workspace following [this guide](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#add-a-service-principal-to-your-azure-databricks-account-using-the-account-console)
 
 **Option 3: Personal Access Token (PAT) (legacy)**
@@ -53,6 +53,7 @@ You can authenticate with Databricks using OAuth, Azure authentication, a Person
 - To `include_usage_statistics` (enabled by default), your service principal must have one of the following:
   - `CAN_MANAGE` permissions on any SQL Warehouses you want to ingest: [guide](https://docs.databricks.com/security/auth-authz/access-control/sql-endpoint-acl.html).
   - When `usage_data_source` is set to `SYSTEM_TABLES` or `AUTO` (default) with `warehouse_id` configured: `SELECT` privilege on `system.query.history` table for improved performance with large query volumes and multi-workspace setups.
+- To `include_table_constraints` (disabled by default), no additional permissions are required beyond the `SELECT` privilege already listed above. The connector uses the same `tables.get()` API endpoint.
 - To ingest `profiling` information with the default SQLAlchemy profiler (`method: sqlalchemy`), you need `SELECT` privilege on tables and views.
 - To ingest `profiling` information with `method: ge` (requires `pip install 'acryl-datahub[profiling-ge]'`), you need `SELECT` privileges on all profiled tables.
 - To ingest `profiling` information with `method: analyze` and `call_analyze: true` (enabled by default), your service principal must have ownership or `MODIFY` privilege on any tables you want to profile.

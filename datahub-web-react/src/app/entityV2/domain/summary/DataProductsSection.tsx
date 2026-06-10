@@ -1,5 +1,6 @@
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
@@ -38,6 +39,8 @@ const StyledCarousel = styled(Carousel)`
 `;
 
 export const DataProductsSection = () => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const { urn, entityType, entityData } = useEntityData();
     const history = useHistory();
     const domainUrn = entityData?.urn || '';
@@ -76,16 +79,16 @@ export const DataProductsSection = () => {
                             IconStyleType.ACCENT,
                             theme.colors.text,
                         )}
-                        title={`Data Products (${numDataProducts})`}
+                        title={t('domain.dataProductsCountTitle', { count: numDataProducts })}
                     />
                     <SectionActionButton
-                        tip="Create Data Product"
+                        tip={t('dataProduct.createTitle')}
                         icon={Plus}
                         onClick={() => navigateToDomainDataProducts(urn, entityType, history, entityRegistry, true)}
                     />
                 </SummaryHeaderButtonGroup>
                 <ViewAllButton onClick={() => navigateToDomainDataProducts(urn, entityType, history, entityRegistry)}>
-                    View all
+                    {tc('viewAll')}
                 </ViewAllButton>
             </SummaryTabHeaderWrapper>
             {loading && <ContentSectionLoading />}

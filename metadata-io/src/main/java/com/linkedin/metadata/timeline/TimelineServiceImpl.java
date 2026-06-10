@@ -33,6 +33,7 @@ import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerat
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.StructuredPropertyChangeEventGenerator;
+import io.datahubproject.metadata.context.OperationContext;
 import jakarta.json.Json;
 import jakarta.json.JsonPatch;
 import jakarta.json.JsonValue;
@@ -482,6 +483,7 @@ public class TimelineServiceImpl implements TimelineService {
   @Nonnull
   @Override
   public List<ChangeTransaction> getTimeline(
+      @Nonnull final OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final Set<ChangeCategory> elementNames,
       long startTimeMillis,
@@ -515,10 +517,17 @@ public class TimelineServiceImpl implements TimelineService {
             .map(AspectSpec::getName)
             .collect(Collectors.toSet());
     List<EntityAspect> aspectsInRange =
-        this._aspectDao.getAspectsInRange(urn, fullAspectNames, startTimeMillis, endTimeMillis);
+        this._aspectDao.getAspectsInRange(
+            opContext, urn, fullAspectNames, startTimeMillis, endTimeMillis);
 
     return processAspectTimeline(
-        urn, elementNames, aspectNames, fullAspectNames, aspectsInRange, rawDiffRequested);
+        opContext,
+        urn,
+        elementNames,
+        aspectNames,
+        fullAspectNames,
+        aspectsInRange,
+        rawDiffRequested);
   }
 
   /**
@@ -531,13 +540,14 @@ public class TimelineServiceImpl implements TimelineService {
   @Nonnull
   @Override
   public List<ChangeTransaction> getTimeline(
+      @Nonnull final OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final Set<ChangeCategory> elementNames,
       int maxChangeTransactions,
       boolean rawDiffRequested) {
 
     List<ChangeTransaction> allTransactions =
-        getTimeline(urn, elementNames, 0, 0, null, null, rawDiffRequested);
+        getTimeline(opContext, urn, elementNames, 0, 0, null, null, rawDiffRequested);
 
     if (maxChangeTransactions > 0 && allTransactions.size() > maxChangeTransactions) {
       return allTransactions.subList(
@@ -547,6 +557,7 @@ public class TimelineServiceImpl implements TimelineService {
   }
 
   private List<ChangeTransaction> processAspectTimeline(
+      @Nonnull final OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final Set<ChangeCategory> elementNames,
       @Nonnull final Set<String> aspectNames,
@@ -555,7 +566,7 @@ public class TimelineServiceImpl implements TimelineService {
       boolean rawDiffRequested) {
 
     Map<String, TreeSet<EntityAspect>> aspectRowSetMap =
-        constructAspectRowSetMap(urn, fullAspectNames, fetchedAspects);
+        constructAspectRowSetMap(opContext, urn, fullAspectNames, fetchedAspects);
 
     Map<Long, SortedMap<String, Long>> timestampVersionCache =
         constructTimestampVersionCache(aspectRowSetMap);
@@ -587,13 +598,17 @@ public class TimelineServiceImpl implements TimelineService {
    * sentinel values for when the oldest aspect possible has been retrieved or no value exists in
    * the DB for an aspect
    *
+   * @param opContext operation context for database operations
    * @param urn urn of the entity
    * @param fullAspectNames full list of aspects relevant to the entity
    * @param aspectsInRange aspects returned by the range query by timestampm
    * @return map constructed as described
    */
   private Map<String, TreeSet<EntityAspect>> constructAspectRowSetMap(
-      Urn urn, Set<String> fullAspectNames, List<EntityAspect> aspectsInRange) {
+      @Nonnull final OperationContext opContext,
+      Urn urn,
+      Set<String> fullAspectNames,
+      List<EntityAspect> aspectsInRange) {
     Map<String, TreeSet<EntityAspect>> aspectRowSetMap = new HashMap<>();
     fullAspectNames.forEach(
         aspectName ->
@@ -606,7 +621,8 @@ public class TimelineServiceImpl implements TimelineService {
         });
 
     // we need to pull previous versions of these aspects that are currently at a 0
-    Map<String, Long> nextVersions = _aspectDao.getNextVersions(urn.toString(), fullAspectNames);
+    Map<String, Long> nextVersions =
+        _aspectDao.getNextVersions(opContext, urn.toString(), fullAspectNames);
 
     for (Map.Entry<String, TreeSet<EntityAspect>> aspectMinVersion : aspectRowSetMap.entrySet()) {
       TreeSet<EntityAspect> aspectSet = aspectMinVersion.getValue();
@@ -628,7 +644,8 @@ public class TimelineServiceImpl implements TimelineService {
               (oldestAspect.getVersion() == 0L) ? nextVersion - 1 : oldestAspect.getVersion() - 1;
         }
         EntityAspect row =
-            _aspectDao.getAspect(urn.toString(), aspectMinVersion.getKey(), versionToGet);
+            _aspectDao.getAspect(
+                opContext, urn.toString(), aspectMinVersion.getKey(), versionToGet);
         if (row != null) {
           aspectRowSetMap.get(row.getAspect()).add(row);
         } else {

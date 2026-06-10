@@ -1,0 +1,195 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SchemaBlameTesterDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.dataset.DatasetProperties": {
+              "description": "Dataset for schema blame testing",
+              "tags": [],
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1704016800000,
+                "actor": "urn:li:corpuser:datahub"
+              }
+            }
+          },
+          {
+            "com.linkedin.schema.SchemaMetadata": {
+              "schemaName": "SchemaBlameTesterSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1704016800000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1704016800000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SchemaBlameTesterSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Schema blame test dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "field_foo",
+                  "nullable": false,
+                  "description": "Foo field description",
+                  "type": {
+                    "type": {
+                      "com.linkedin.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "field_bar",
+                  "nullable": false,
+                  "description": "Bar field description",
+                  "type": {
+                    "type": {
+                      "com.linkedin.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:PlaywrightTest"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SchemaBlameTesterDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1704067200000,
+                "actor": "urn:li:corpuser:datahub"
+              }
+            }
+          },
+          {
+            "com.linkedin.schema.EditableSchemaMetadata": {
+              "created": {
+                "time": 1704067200000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "lastModified": {
+                "time": 1704067200000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "editableSchemaFieldInfo": [
+                {
+                  "fieldPath": "field_foo",
+                  "description": "Foo field description has changed",
+                  "globalTags": {
+                    "tags": [
+                      {
+                        "tag": "urn:li:tag:Legacy"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.schema.SchemaMetadata": {
+              "schemaName": "SchemaBlameTesterSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 1,
+              "created": {
+                "time": 1704067200000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "lastModified": {
+                "time": 1704067200000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SchemaBlameTesterSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Schema blame test dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_baz\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "field_foo",
+                  "nullable": false,
+                  "description": "Foo field description",
+                  "type": {
+                    "type": {
+                      "com.linkedin.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "field_baz",
+                  "nullable": false,
+                  "description": "Baz field description",
+                  "type": {
+                    "type": {
+                      "com.linkedin.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:PlaywrightTest"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  }
+]

@@ -181,7 +181,8 @@ public class CriterionFilterAspectsBlockingStep implements UpgradeStep {
       java.util.concurrent.atomic.AtomicLong totalIngested =
           new java.util.concurrent.atomic.AtomicLong(0);
 
-      try (PartitionedStream<EbeanAspectV2> stream = aspectDao.streamAspectBatches(args)) {
+      try (PartitionedStream<EbeanAspectV2> stream =
+          aspectDao.streamAspectBatches(context.opContext(), args)) {
         stream
             .partition(args.batchSize)
             .forEach(
@@ -193,7 +194,7 @@ public class CriterionFilterAspectsBlockingStep implements UpgradeStep {
                           .flatMap(
                               ea ->
                                   EntityUtils.toSystemAspectFromEbeanAspects(
-                                      opContext.getRetrieverContext(), Set.of(ea))
+                                      opContext, opContext.getRetrieverContext(), Set.of(ea))
                                       .stream())
                           .map(
                               CriterionFilterAspectsBlockingStep
