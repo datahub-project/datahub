@@ -42,18 +42,21 @@ def test_inflight_sql_records_only_latest_statement(
     assert "first_table" not in contents
 
 
-def test_inflight_sql_defaults_to_temp_path(
+def test_inflight_sql_defaults_to_tmp(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # On this debugging branch the breadcrumb is on by default at a temp path,
-    # so it needs no per-run configuration.
-    import tempfile
-
-    from datahub.configuration.env_vars import get_sql_parse_inflight_log_file
+    # On this debugging branch the breadcrumb is on by default at a fixed /tmp
+    # path (literal /tmp, not $TMPDIR, so it survives the executor's
+    # per-execution workspace cleanup) and needs no per-run configuration.
+    from datahub.configuration.env_vars import (
+        get_sql_parse_inflight_log_file,
+        get_sql_parse_optimize_dump_file,
+    )
 
     monkeypatch.delenv("DATAHUB_SQL_PARSE_INFLIGHT_LOG_FILE", raising=False)
-    path = get_sql_parse_inflight_log_file()
-    assert path and path.startswith(tempfile.gettempdir())
+    monkeypatch.delenv("DATAHUB_SQL_PARSE_OPTIMIZE_DUMP_FILE", raising=False)
+    assert get_sql_parse_inflight_log_file() == "/tmp/datahub_sql_inflight.log"
+    assert get_sql_parse_optimize_dump_file() == "/tmp/datahub_sql_optimize_dump.json"
 
 
 def test_optimize_inputs_dumped_for_replay(

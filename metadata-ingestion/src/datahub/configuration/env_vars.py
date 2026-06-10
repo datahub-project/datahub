@@ -2,7 +2,6 @@
 # ABOUTME: All environment variable reads should go through this module for discoverability and maintainability.
 
 import os
-import tempfile
 from typing import Optional
 
 # ============================================================================
@@ -282,12 +281,17 @@ def get_sql_parse_inflight_log_file() -> Optional[str]:
     then flushing immediately) before parsing, so after a crash the file names
     the statement that killed the process.
 
-    On this debugging branch it is ON by default at a fixed temp path so it
-    needs no configuration; override the location with
+    On this debugging branch it is ON by default at a fixed /tmp path so it
+    needs no configuration. We use a literal /tmp (not tempfile.gettempdir())
+    on purpose: on the executor $TMPDIR points at the per-execution workspace,
+    which is deleted on teardown - so a dump written there would vanish before
+    it could be retrieved. Override the location with
     DATAHUB_SQL_PARSE_INFLIGHT_LOG_FILE.
     """
-    return os.getenv("DATAHUB_SQL_PARSE_INFLIGHT_LOG_FILE") or os.path.join(
-        tempfile.gettempdir(), "datahub_sql_inflight.log"
+    return (
+        os.getenv("DATAHUB_SQL_PARSE_INFLIGHT_LOG_FILE")
+        # Literal /tmp on purpose (see docstring); intentional debug dump location.
+        or "/tmp/datahub_sql_inflight.log"
     )
 
 
@@ -300,12 +304,17 @@ def get_sql_parse_optimize_dump_file() -> Optional[str]:
     optimize() are written (JSON, flushed) before each call, so after a crash
     the file holds a replayable reproducer of the exact inputs.
 
-    On this debugging branch it is ON by default at a fixed temp path so it
-    needs no configuration; override the location with
+    On this debugging branch it is ON by default at a fixed /tmp path so it
+    needs no configuration. We use a literal /tmp (not tempfile.gettempdir())
+    on purpose: on the executor $TMPDIR points at the per-execution workspace,
+    which is deleted on teardown - so a dump written there would vanish before
+    it could be retrieved. Override the location with
     DATAHUB_SQL_PARSE_OPTIMIZE_DUMP_FILE.
     """
-    return os.getenv("DATAHUB_SQL_PARSE_OPTIMIZE_DUMP_FILE") or os.path.join(
-        tempfile.gettempdir(), "datahub_sql_optimize_dump.json"
+    return (
+        os.getenv("DATAHUB_SQL_PARSE_OPTIMIZE_DUMP_FILE")
+        # Literal /tmp on purpose (see docstring); intentional debug dump location.
+        or "/tmp/datahub_sql_optimize_dump.json"
     )
 
 
