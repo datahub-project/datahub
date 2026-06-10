@@ -267,42 +267,33 @@ _TABLE_NAME_NORMALIZATION_RULES = {
 _TMP_UUID = r"[0-9a-f]{8}[-_][0-9a-f]{4}[-_][0-9a-f]{4}[-_][0-9a-f]{4}[-_][0-9a-f]{12}"
 
 
-# (open-quote, close-quote, inner-char-class) for each dialect's identifier
-# quoting: double-quote (Snowflake/Redshift/Postgres), backtick (BigQuery/MySQL),
-# bracket (MSSQL). The marker is wrapped with the quote-appropriate wildcard so a
-# rule fires regardless of how the source dialect quotes the ephemeral name.
-_IDENTIFIER_QUOTE_STYLES = (
-    ('"', '"', r'[^"]'),
-    ("`", "`", r"[^`]"),
-    (r"\[", r"\]", r"[^\]]"),
-)
+def _ephemeral_identifier(marker: str) -> "re.Pattern[str]":
+    """Match an ephemeral table identifier that carries a per-run marker token.
 
-
-def _quoted_identifier_containing(marker: str) -> "re.Pattern[str]":
-    """A quoted SQL identifier (any dialect's quoting) containing a marker token.
-
-    The marker must not itself reference a specific quote character — use ``\\w``
-    for the variable middle so the pattern stays quote-style agnostic.
+    Only the identifier-NAME characters around the marker are matched. A
+    dialect's quote characters (``"``, `` ` ``, ``[`` / ``]``) are not identifier
+    characters, so they naturally bound the match and are left in place — the
+    rule therefore fires regardless of how the dialect quotes the name, without
+    enumerating per-dialect quoting (sqlglot already owns that knowledge, and we
+    avoid duplicating it here).
     """
-    alts = [
-        open_q + inner + r"*" + marker + inner + r"*" + close_q
-        for open_q, close_q, inner in _IDENTIFIER_QUOTE_STYLES
-    ]
-    return re.compile("(?:" + "|".join(alts) + ")", re.IGNORECASE)
+    return re.compile(r"[\w$]*" + marker + r"[\w$]*", re.IGNORECASE)
 
 
-# Only patterns whose token varies PER RUN belong here (they're what explode the
-# Query index). Stable-per-object names like dbt's `<model>__dbt_tmp` are
-# deliberately excluded — collapsing them would merge distinct real models.
+# Fast-path only (raw-text substitution for connectors that fingerprint without
+# parsing — Snowflake/BigQuery). The slow/AST path instead reuses the connector's
+# temporary_tables_pattern by resolved name. Only patterns whose token varies PER
+# RUN belong here; stable names like dbt's `<model>__dbt_tmp` are excluded so we
+# don't merge distinct real models.
 DEFAULT_TEMP_TABLE_FINGERPRINT_RULES: List["re.Pattern[str]"] = [
-    _quoted_identifier_containing(rf"-STAGING-{_TMP_UUID}"),  # fivetran/stitch staging
-    _quoted_identifier_containing(rf"segment_{_TMP_UUID}"),  # segment
-    _quoted_identifier_containing(rf"STAGING_\w*_{_TMP_UUID}"),  # stitch
-    _quoted_identifier_containing(
+    _ephemeral_identifier(rf"-STAGING-{_TMP_UUID}"),  # fivetran/stitch staging
+    _ephemeral_identifier(rf"segment_{_TMP_UUID}"),  # segment
+    _ephemeral_identifier(rf"STAGING_\w*_{_TMP_UUID}"),  # stitch
+    _ephemeral_identifier(
         r"(?:GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9a-f]{8}"
     ),  # great expectations
-    _quoted_identifier_containing(r"SNOWPARK_TEMP_TABLE_\w+"),  # snowpark
-    _quoted_identifier_containing(r"temp_[0-9a-f]{32}"),  # pysnowflake scratch
+    _ephemeral_identifier(r"SNOWPARK_TEMP_TABLE_\w+"),  # snowpark
+    _ephemeral_identifier(r"temp_[0-9a-f]{32}"),  # pysnowflake scratch
 ]
 # Unquoted so it stays a valid, parseable identifier under every dialect (the
 # slow/AST path re-parses the substituted text).
