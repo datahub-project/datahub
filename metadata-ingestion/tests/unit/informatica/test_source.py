@@ -1482,7 +1482,9 @@ class TestSourceLifecycle:
                 "stateful_ingestion": {"enabled": True, "remove_stale_metadata": True},
             }
         )
-        ctx = PipelineContext(run_id="informatica-test", pipeline_name="informatica-test")
+        ctx = PipelineContext(
+            run_id="informatica-test", pipeline_name="informatica-test"
+        )
         ctx.graph = MagicMock()
         source = InformaticaSource(config, ctx)
         processors = source.get_workunit_processors()
