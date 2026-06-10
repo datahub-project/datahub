@@ -639,4 +639,118 @@ public class PatchItemImplTest {
     assertFalse(patched.getTerms().isEmpty(), "The added term must be present");
     assertEquals(patched.getTerms().get(0).getUrn().toString(), "urn:li:glossaryTerm:CustomerData");
   }
+
+  // ---------------------------------------------------------------------------
+  // findOversizedContent: diagnostic scan for over-long JSON names / string values.
+  // Uses small thresholds + tiny inputs so the cases are fast and explicit.
+  // ---------------------------------------------------------------------------
+
+  private static JsonPatch patchOf(String json) {
+    return Json.createPatch(Json.createReader(new StringReader(json)).readArray());
+  }
+
+  @Test
+  public void testFindOversizedContent_normalPatch_noFindings() {
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"add\",\"path\":\"/description\",\"value\":\"short\"}]"), 100, 100);
+    assertTrue(found.isEmpty(), "Short keys and values must not be flagged");
+  }
+
+  @Test
+  public void testFindOversizedContent_oversizedKey() {
+    String longKey = "k".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/customProperties/"
+                    + longKey
+                    + "\",\"value\":\"v\"}]"),
+            50,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.NAME);
+    assertEquals(found.get(0).length(), 60);
+  }
+
+  @Test
+  public void testFindOversizedContent_oversizedTopLevelStringValue() {
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"add\",\"path\":\"/description\",\"value\":\"" + longVal + "\"}]"),
+            100,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.VALUE);
+    assertEquals(found.get(0).length(), 60);
+    assertEquals(found.get(0).path(), "/description");
+  }
+
+  @Test
+  public void testFindOversizedContent_oversizedValueNestedInObject() {
+    // Recurse into an object value (e.g. queryProperties statement: { value, language }).
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/statement\",\"value\":{\"value\":\""
+                    + longVal
+                    + "\",\"language\":\"SQL\"}}]"),
+            100,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.VALUE);
+  }
+
+  @Test
+  public void testFindOversizedContent_oversizedValueNestedInArray() {
+    // Recurse into an array value; only the long element is flagged.
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"add\",\"path\":\"/tags\",\"value\":[\"ok\",\"" + longVal + "\"]}]"),
+            100,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.VALUE);
+  }
+
+  @Test
+  public void testFindOversizedContent_nonStringValueIgnored() {
+    // Only string values are length-checked; a large number must not be flagged.
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"add\",\"path\":\"/count\",\"value\":123456789012345}]"), 100, 1);
+    assertTrue(found.isEmpty());
+  }
+
+  @Test
+  public void testFindOversizedContent_opWithoutValueDoesNotThrow() {
+    // A remove op carries no "value" — must not NPE or produce a value finding.
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"remove\",\"path\":\"/description\"}]"), 100, 1);
+    assertTrue(found.isEmpty());
+  }
+
+  @Test
+  public void testFindOversizedContent_multipleOpsMixed() {
+    String longKey = "k".repeat(60);
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/a/"
+                    + longKey
+                    + "\",\"value\":\"v\"},"
+                    + "{\"op\":\"add\",\"path\":\"/b\",\"value\":\""
+                    + longVal
+                    + "\"}]"),
+            50,
+            50);
+    assertEquals(found.size(), 2);
+    assertTrue(found.stream().anyMatch(c -> c.kind() == PatchItemImpl.OversizedContent.Kind.NAME));
+    assertTrue(found.stream().anyMatch(c -> c.kind() == PatchItemImpl.OversizedContent.Kind.VALUE));
+  }
 }
