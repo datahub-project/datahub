@@ -12,14 +12,17 @@ import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.USER_ID_
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authentication.LoginDenialReason;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.session.UserSessionEligibilityChecker;
 import com.datahub.authentication.token.StatefulTokenService;
+import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.token.TokenClaims;
 import com.datahub.authentication.token.TokenException;
 import com.datahub.authentication.token.TokenType;
+import com.datahub.authentication.token.TokenVersion;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -100,6 +103,8 @@ public class AuthServiceController {
   private static final String PREFERRED_JWS_ALGORITHM_2 = "preferredJwsAlgorithm2";
   private static final String BEARER_PREFIX = "Bearer ";
 
+  @Autowired private StatelessTokenService _statelessTokenService;
+
   @Autowired private StatefulTokenService _statefulTokenService;
 
   @Autowired private Authentication _systemAuthentication;
@@ -173,10 +178,9 @@ public class AuthServiceController {
           // 1. Verify that only those authorized to generate a token (datahub system) are able to.
           if (isAuthorizedToGenerateSessionToken(actorId)) {
             try {
-              final boolean verboseAuthFailureLogging =
-                  _configProvider.getAuthentication().isVerboseAuthFailureLogging();
-              final boolean enforceExistence =
-                  _configProvider.getAuthentication().isEnforceExistenceEnabled();
+              final AuthenticationConfiguration authConfig = _configProvider.getAuthentication();
+              final boolean verboseAuthFailureLogging = authConfig.isVerboseAuthFailureLogging();
+              final boolean enforceExistence = authConfig.isEnforceExistenceEnabled();
               final Optional<LoginDenialReason> eligibilityDenial =
                   _userSessionEligibilityChecker.checkEligibility(
                       systemOperationContext, userId.asText(), enforceExistence);
@@ -191,13 +195,14 @@ public class AuthServiceController {
               }
 
               // 2. Generate a new DataHub JWT
-              final long sessionTokenDurationMs =
-                  _configProvider.getAuthentication().getSessionTokenDurationMs();
+              final long sessionTokenDurationMs = authConfig.getSessionTokenDurationMs();
+              final Actor sessionActor = new Actor(ActorType.USER, userId.asText());
               final String token =
-                  _statefulTokenService.generateAccessToken(
-                      TokenType.SESSION,
-                      new Actor(ActorType.USER, userId.asText()),
-                      sessionTokenDurationMs);
+                  authConfig.isStatefulSessionTokensEnabled()
+                      ? _statefulTokenService.generateSessionAccessToken(
+                          systemOperationContext, sessionActor, sessionTokenDurationMs, actorUrn)
+                      : _statelessTokenService.generateAccessToken(
+                          TokenType.SESSION, sessionActor, sessionTokenDurationMs);
               log.info(
                   "Successfully generated session token for userRef: {}, duration: {} ms",
                   LoginIdentityMask.mask(userId.asText()),
@@ -251,8 +256,6 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
 
-    final Authentication authentication = AuthenticationContext.getAuthentication();
-    final String actorUrn = authentication == null ? null : authentication.getActor().toUrnStr();
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -260,9 +263,12 @@ public class AuthServiceController {
             if (!claims.getTokenType().equals(TokenType.SESSION)) {
               return new ResponseEntity<Void>(HttpStatus.FORBIDDEN);
             }
+            if (!claims.getTokenVersion().equals(TokenVersion.TWO)) {
+              return new ResponseEntity<Void>(HttpStatus.OK);
+            }
 
-            _statefulTokenService.revokeSessionAccessToken(
-                systemOperationContext, accessToken, actorUrn, claims.getExpirationInMs());
+            _statefulTokenService.revokeAccessToken(
+                systemOperationContext, _statefulTokenService.hash(accessToken));
             return new ResponseEntity<Void>(HttpStatus.OK);
           } catch (TokenException e) {
             log.info("Session token is already invalid or revoked during logout.", e);

@@ -169,6 +169,30 @@ public class StatefulTokenServiceTest {
   }
 
   @Test
+  public void testGenerateSessionAccessTokenHelper() throws Exception {
+    StatefulTokenService tokenService =
+        new StatefulTokenService(
+            opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+    Actor datahub = new Actor(ActorType.USER, "datahub");
+    String token =
+        tokenService.generateSessionAccessToken(
+            opContext,
+            datahub,
+            StatelessTokenService.DEFAULT_EXPIRES_IN_MS,
+            "urn:li:corpuser:__datahub_system");
+
+    assertNotNull(token);
+
+    TokenClaims claims = tokenService.validateAccessToken(token);
+
+    assertEquals(claims.getTokenVersion(), TokenVersion.TWO);
+    assertEquals(claims.getTokenType(), TokenType.SESSION);
+    assertEquals(claims.getActorType(), ActorType.USER);
+    assertEquals(claims.getActorId(), "datahub");
+    assertTrue(claims.getExpirationInMs() > System.currentTimeMillis());
+  }
+
+  @Test
   public void testValidateAccessTokenFailsDueToExpiration() {
     StatefulTokenService tokenService =
         new StatefulTokenService(
@@ -259,76 +283,26 @@ public class StatefulTokenServiceTest {
   }
 
   @Test
-  public void revokeSessionTokenPreventsReuse() throws TokenException {
+  public void generateRevokeSessionToken() throws TokenException {
+    final RollbackRunResult result =
+        new RollbackRunResult(ImmutableList.of(), 0, ImmutableList.of());
+    Mockito.when(mockService.deleteUrn(any(OperationContext.class), any(Urn.class)))
+        .thenReturn(result);
+
     StatefulTokenService tokenService =
         new StatefulTokenService(
             opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
     Actor datahub = new Actor(ActorType.USER, "datahub");
     String token =
-        tokenService.generateAccessToken(
-            TokenType.SESSION, datahub, StatelessTokenService.DEFAULT_EXPIRES_IN_MS);
+        tokenService.generateSessionAccessToken(
+            opContext,
+            datahub,
+            StatelessTokenService.DEFAULT_EXPIRES_IN_MS,
+            "urn:li:corpuser:__datahub_system");
 
-    TokenClaims claims = tokenService.validateAccessToken(token);
-    tokenService.revokeSessionAccessToken(
-        opContext, token, datahub.toUrnStr(), claims.getExpirationInMs());
+    tokenService.revokeAccessToken(opContext, tokenService.hash(token));
 
     assertThrows(TokenException.class, () -> tokenService.validateAccessToken(token));
-  }
-
-  @Test
-  public void revokeSessionTokenAlreadyRevokedShortCircuits() throws TokenException {
-    StatefulTokenService tokenService =
-        new StatefulTokenService(
-            opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
-    Actor datahub = new Actor(ActorType.USER, "datahub");
-    String token =
-        tokenService.generateAccessToken(
-            TokenType.SESSION, datahub, StatelessTokenService.DEFAULT_EXPIRES_IN_MS);
-
-    tokenService.revokeSessionAccessToken(opContext, token, datahub.toUrnStr(), 123L);
-    tokenService.revokeSessionAccessToken(opContext, token, datahub.toUrnStr(), 123L);
-
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(eq(opContext), any(), eq(false));
-  }
-
-  @Test
-  public void revokeSessionTokenAllowsNullActorAndExpiration() throws TokenException {
-    StatefulTokenService tokenService =
-        new StatefulTokenService(
-            opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
-    Actor datahub = new Actor(ActorType.USER, "datahub");
-    String token =
-        tokenService.generateAccessToken(
-            TokenType.SESSION, datahub, StatelessTokenService.DEFAULT_EXPIRES_IN_MS);
-
-    tokenService.revokeSessionAccessToken(opContext, token, null, null);
-
-    Mockito.verify(mockService).ingestProposal(eq(opContext), any(), eq(false));
-    assertThrows(TokenException.class, () -> tokenService.validateAccessToken(token));
-  }
-
-  @Test
-  public void revokeSessionTokenWrapsIngestFailures() {
-    StatefulTokenService tokenService =
-        new StatefulTokenService(
-            opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
-    Actor datahub = new Actor(ActorType.USER, "datahub");
-    String token =
-        tokenService.generateAccessToken(
-            TokenType.SESSION, datahub, StatelessTokenService.DEFAULT_EXPIRES_IN_MS);
-
-    Mockito.doThrow(new RuntimeException("ingest failed"))
-        .when(mockService)
-        .ingestProposal(eq(opContext), any(), eq(false));
-
-    TokenException exception =
-        expectThrows(
-            TokenException.class,
-            () ->
-                tokenService.revokeSessionAccessToken(
-                    opContext, token, datahub.toUrnStr(), System.currentTimeMillis()));
-
-    assertEquals(exception.getMessage(), "Failed to revoke session token");
   }
 
   private void mockStateful() {}

@@ -204,16 +204,50 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   }
 
   @Test
+  public void testGenerateSessionTokenForUserStatefulSuccess() throws Exception {
+    String userId = "testUser";
+    String generatedToken = "stateful-session-token";
+
+    Authentication systemAuth = mock(Authentication.class);
+    Actor systemActor = new Actor(ActorType.USER, SYSTEM_CLIENT_ID);
+    when(systemAuth.getActor()).thenReturn(systemActor);
+    AuthenticationContext.setAuthentication(systemAuth);
+
+    when(mockTokenService.generateSessionAccessToken(
+            eq(systemOperationContext), any(Actor.class), anyLong(), eq(systemActor.toUrnStr())))
+        .thenReturn(generatedToken);
+
+    AuthenticationConfiguration authConfig = new AuthenticationConfiguration();
+    authConfig.setStatefulSessionTokensEnabled(true);
+    when(mockConfigProvider.getAuthentication()).thenReturn(authConfig);
+
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userId", userId);
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response =
+        authServiceController.generateSessionTokenForUser(httpEntity).join();
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    JsonNode responseJson = objectMapper.readTree(response.getBody());
+    assertEquals(generatedToken, responseJson.get("accessToken").asText());
+
+    verify(mockTokenService)
+        .generateSessionAccessToken(
+            eq(systemOperationContext), any(Actor.class), anyLong(), eq(systemActor.toUrnStr()));
+    verify(mockTokenService, never())
+        .generateAccessToken(eq(TokenType.SESSION), any(Actor.class), anyLong());
+  }
+
+  @Test
   public void testRevokeSessionTokenSuccess() throws Exception {
     final String sessionToken = "session-token";
-    final Authentication userAuth = mock(Authentication.class);
-    final Actor actor = new Actor(ActorType.USER, "testUser");
-    when(userAuth.getActor()).thenReturn(actor);
-    AuthenticationContext.setAuthentication(userAuth);
+    final String hashedSessionToken = "hashed-session-token";
 
     when(mockTokenService.validateAccessToken(sessionToken))
         .thenReturn(
-            new TokenClaims(TokenVersion.ONE, TokenType.SESSION, ActorType.USER, "testUser", 123L));
+            new TokenClaims(TokenVersion.TWO, TokenType.SESSION, ActorType.USER, "testUser", 123L));
+    when(mockTokenService.hash(sessionToken)).thenReturn(hashedSessionToken);
 
     HttpHeaders headers = new HttpHeaders();
     headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + sessionToken);
@@ -222,9 +256,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     ResponseEntity<Void> response = authServiceController.revokeSessionToken(httpEntity).join();
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
-    verify(mockTokenService)
-        .revokeSessionAccessToken(
-            eq(systemOperationContext), eq(sessionToken), eq(actor.toUrnStr()), eq(123L));
+    verify(mockTokenService).hash(sessionToken);
+    verify(mockTokenService).revokeAccessToken(eq(systemOperationContext), eq(hashedSessionToken));
   }
 
   @Test
@@ -242,8 +275,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     ResponseEntity<Void> response = authServiceController.revokeSessionToken(httpEntity).join();
 
     assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-    verify(mockTokenService, never())
-        .revokeSessionAccessToken(any(OperationContext.class), anyString(), any(), any());
+    verify(mockTokenService, never()).revokeAccessToken(any(OperationContext.class), anyString());
   }
 
   @Test
@@ -277,11 +309,11 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   }
 
   @Test
-  public void testRevokeSessionTokenWithoutAuthenticationUsesNullActorUrn() throws Exception {
-    final String sessionToken = "session-token-without-auth";
+  public void testRevokeSessionTokenStatelessSessionReturnsOkWithoutRevoke() throws Exception {
+    final String sessionToken = "stateless-session-token";
     when(mockTokenService.validateAccessToken(sessionToken))
         .thenReturn(
-            new TokenClaims(TokenVersion.TWO, TokenType.SESSION, ActorType.USER, "testUser", 123L));
+            new TokenClaims(TokenVersion.ONE, TokenType.SESSION, ActorType.USER, "testUser", 123L));
 
     HttpHeaders headers = new HttpHeaders();
     headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + sessionToken);
@@ -289,8 +321,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
         authServiceController.revokeSessionToken(new HttpEntity<>("", headers)).join();
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
-    verify(mockTokenService)
-        .revokeSessionAccessToken(eq(systemOperationContext), eq(sessionToken), isNull(), eq(123L));
+    verify(mockTokenService, never()).hash(anyString());
+    verify(mockTokenService, never()).revokeAccessToken(any(OperationContext.class), anyString());
   }
 
   @Test
@@ -305,24 +337,20 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
         authServiceController.revokeSessionToken(new HttpEntity<>("", headers)).join();
 
     assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-    verify(mockTokenService, never())
-        .revokeSessionAccessToken(any(OperationContext.class), anyString(), any(), any());
+    verify(mockTokenService, never()).revokeAccessToken(any(OperationContext.class), anyString());
   }
 
   @Test
   public void testRevokeSessionTokenUnexpectedFailureReturnsInternalServerError() throws Exception {
     final String sessionToken = "session-token";
-    final Authentication userAuth = mock(Authentication.class);
-    final Actor actor = new Actor(ActorType.USER, "testUser");
-    when(userAuth.getActor()).thenReturn(actor);
-    AuthenticationContext.setAuthentication(userAuth);
+    final String hashedSessionToken = "hashed-session-token";
     when(mockTokenService.validateAccessToken(sessionToken))
         .thenReturn(
             new TokenClaims(TokenVersion.TWO, TokenType.SESSION, ActorType.USER, "testUser", 123L));
+    when(mockTokenService.hash(sessionToken)).thenReturn(hashedSessionToken);
     org.mockito.Mockito.doThrow(new RuntimeException("revoke failed"))
         .when(mockTokenService)
-        .revokeSessionAccessToken(
-            eq(systemOperationContext), eq(sessionToken), eq(actor.toUrnStr()), eq(123L));
+        .revokeAccessToken(eq(systemOperationContext), eq(hashedSessionToken));
 
     HttpHeaders headers = new HttpHeaders();
     headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + sessionToken);
@@ -399,6 +427,9 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
         LoginDenialReason.SOFT_DELETED.name(), responseJson.get("loginDenialReason").asText());
     verify(mockTokenService, never())
         .generateAccessToken(eq(TokenType.SESSION), any(Actor.class), anyLong());
+    verify(mockTokenService, never())
+        .generateSessionAccessToken(
+            any(OperationContext.class), any(Actor.class), anyLong(), anyString());
   }
 
   @Test

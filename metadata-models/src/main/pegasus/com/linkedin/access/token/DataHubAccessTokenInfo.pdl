@@ -36,6 +36,14 @@ record DataHubAccessTokenInfo {
   ownerUrn: Urn
 
   /**
+   * The type of token represented by this record.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  tokenType: optional string
+
+  /**
    * When the token was created.
    */
   @Searchable = {

@@ -151,9 +151,10 @@ public class AuthServiceClient {
   }
 
   /**
-   * Revokes the current UI session token.
+   * Revokes the current UI session token when it is statefully tracked.
    *
-   * @return true when the token was actively revoked, false when it was already invalid.
+   * @return true when logout revocation completed or was unnecessary, false when the token was
+   *     already invalid.
    */
   public boolean revokeSessionToken(@Nonnull final String accessToken) {
     Objects.requireNonNull(accessToken, "accessToken must not be null");
