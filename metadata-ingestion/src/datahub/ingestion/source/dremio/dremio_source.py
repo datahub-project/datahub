@@ -228,6 +228,11 @@ class DremioSourceMapEntry:
     SourceCapability.OPERATION_CAPTURE,
     "Optionally enabled via `include_query_lineage`; generated from Dremio job history",
 )
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Enabled by default via stateful ingestion",
+    supported=True,
+)
 class DremioSource(StatefulIngestionSourceBase):
     """
     Source that extracts metadata from Dremio via REST API and SQL queries.

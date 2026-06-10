@@ -20,6 +20,9 @@ from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
 )
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
@@ -229,6 +232,11 @@ class DremioSourceConfig(
         description="Enable stateful time window tracking for query lineage/usage extraction. "
         "When enabled, subsequent runs will skip time windows already fully processed, "
         "avoiding redundant API calls. Requires stateful_ingestion to be configured.",
+    )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None,
+        description="Stateful ingestion config with stale-entity removal support.",
     )
 
     ingest_owner: bool = Field(
