@@ -1,6 +1,8 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
+import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
+import static com.linkedin.metadata.Constants.MAX_JACKSON_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -54,10 +56,26 @@ public class PatchItemImpl implements PatchMCP {
         Integer.parseInt(
             System.getenv()
                 .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    int maxNameLength =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_NAME_LENGTH, MAX_JACKSON_NAME_LENGTH));
     OBJECT_MAPPER
         .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+        .setStreamReadConstraints(
+            StreamReadConstraints.builder()
+                .maxStringLength(maxSize)
+                .maxNameLength(maxNameLength)
+                .build());
   }
+
+  // A JSON property name (patch key) longer than this previously failed with a Jackson
+  // StreamConstraintsException (default maxNameLength=50000). Such names are now accepted, but we
+  // log which entity/aspect/key was oversized — the exception never included the offending name, so
+  // these were impossible to identify from logs. Configurable; defaults to the old limit.
+  private static final int OVERSIZED_NAME_WARN_THRESHOLD =
+      Integer.parseInt(
+          System.getenv().getOrDefault("INGESTION_OVERSIZED_NAME_WARN_THRESHOLD", "50000"));
 
   // urn an urn associated with the new aspect
   private final Urn urn;
@@ -115,6 +133,7 @@ public class PatchItemImpl implements PatchMCP {
   }
 
   public ChangeItemImpl applyPatch(RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
+    warnOnOversizedPatchKeys();
     if (genericJsonPatch != null) {
       if (!genericJsonPatch.getArrayPrimaryKeys().isEmpty()
           || genericJsonPatch.isForceGenericPatch()) {
@@ -122,6 +141,50 @@ public class PatchItemImpl implements PatchMCP {
       }
     }
     return applyTemplatePatch(recordTemplate, aspectRetriever);
+  }
+
+  /**
+   * Logs which entity/aspect/key carried an over-long JSON property name in this patch.
+   *
+   * <p>Jackson's {@code StreamConstraintsException} never includes the offending name, so oversized
+   * field paths (e.g. deeply-nested dbt struct column-level lineage) were impossible to identify
+   * from logs. Now that {@code maxNameLength} is raised these writes succeed, so this is the only
+   * signal that an unusually large key was ingested. Purely diagnostic — never affects ingestion.
+   */
+  private void warnOnOversizedPatchKeys() {
+    try {
+      for (JsonValue op : getPatch().toJsonArray()) {
+        // JSON Pointer path; each '/'-separated segment is a property name in the patched aspect.
+        // Walk segment boundaries with indexOf rather than split("/") so the common case (no
+        // oversized key) allocates nothing — a substring is only materialized on an actual hit.
+        String path = op.asJsonObject().getString("path", "");
+        int start = 0;
+        while (start <= path.length()) {
+          int slash = path.indexOf('/', start);
+          int end = (slash < 0) ? path.length() : slash;
+          if (end - start > OVERSIZED_NAME_WARN_THRESHOLD) {
+            String key = path.substring(start, end).replace("~1", "/").replace("~0", "~");
+            log.warn(
+                "Oversized JSON key in patch: urn={}, aspect={}, keyLength={} (warn threshold {}). "
+                    + "Key prefix: '{}…'. The write will succeed (maxNameLength raised), but a key this "
+                    + "large is likely unusable downstream (UI / Elasticsearch); review the source "
+                    + "(e.g. a deeply-nested dbt struct field path).",
+                getUrn(),
+                getAspectName(),
+                key.length(),
+                OVERSIZED_NAME_WARN_THRESHOLD,
+                key.substring(0, Math.min(key.length(), 200)));
+          }
+          if (slash < 0) {
+            break;
+          }
+          start = slash + 1;
+        }
+      }
+    } catch (Exception e) {
+      // Diagnostic only — must never affect ingestion.
+      log.debug("Could not scan patch keys for oversized names: {}", e.getMessage());
+    }
   }
 
   private ChangeItemImpl applyGenericPatch(
