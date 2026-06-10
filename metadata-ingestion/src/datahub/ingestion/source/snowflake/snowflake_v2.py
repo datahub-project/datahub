@@ -1,5 +1,4 @@
 import contextlib
-import functools
 import json
 import logging
 import os
@@ -17,13 +16,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
-from datahub.ingestion.api.incremental_properties_helper import (
-    auto_incremental_properties,
-)
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
     TestableSource,
@@ -92,9 +86,6 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
     RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -536,20 +527,6 @@ class SnowflakeV2Source(
         return self.filters.is_dataset_pattern_allowed(
             name, SnowflakeObjectDomain.TABLE
         )
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
-            ),
-            functools.partial(
-                auto_incremental_properties, self.config.incremental_properties
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()

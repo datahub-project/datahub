@@ -19,7 +19,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceReport,
     TestConnectionReport,
 )
@@ -71,9 +70,6 @@ from datahub.ingestion.source.matillion_dpc.models import (
     StepLineage,
     StepTiming,
     TimeWindow,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -256,14 +252,6 @@ class MatillionSource(StatefulIngestionSourceBase):
 
     def get_platform_instance_id(self) -> str:
         return self.config.platform_instance or self.platform
-
-    def get_workunit_processors(self) -> list[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def _discover_and_process_pipelines_from_executions(
         self, projects: List[MatillionProject]

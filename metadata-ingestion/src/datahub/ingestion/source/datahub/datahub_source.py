@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from functools import partial
 from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -13,11 +12,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
-from datahub.ingestion.api.source_helpers import (
-    auto_fix_duplicate_schema_field_paths,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.datahub.config import (
@@ -33,6 +28,12 @@ from datahub.ingestion.source.datahub.report import DataHubSourceReport
 from datahub.ingestion.source.datahub.state import StatefulDataHubIngestionHandler
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_fix_duplicate_schema_field_paths import (
+    AutoFixDuplicateSchemaFieldPathsProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
 )
 from datahub.metadata.schema_classes import ChangeTypeClass
 from datahub.utilities.progress_timer import ProgressTimer
@@ -81,16 +82,12 @@ class DataHubSource(StatefulIngestionSourceBase):
     def get_report(self) -> SourceReport:
         return self.report
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        # Exactly replicate data from DataHub source
-        return [
-            (
-                auto_fix_duplicate_schema_field_paths
-                if self.config.drop_duplicate_schema_fields
-                else None
-            ),
-            partial(auto_workunit_reporter, self.get_report()),
-        ]
+    def get_allowed_workunit_processors(self) -> List[str]:
+        # Exactly replicate data from DataHub source — avoid processors that create/remove workunits
+        processors = [AutoWorkunitsReporterProcessor.NAME]
+        if self.config.drop_duplicate_schema_fields:
+            processors.insert(0, AutoFixDuplicateSchemaFieldPathsProcessor.NAME)
+        return processors
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.report.stop_time = datetime.now(tz=timezone.utc)

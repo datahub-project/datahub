@@ -4,8 +4,8 @@ import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from functools import partial
 from typing import (
+    TYPE_CHECKING,
     Callable,
     Dict,
     Generic,
@@ -29,35 +29,19 @@ from datahub.configuration.env_vars import (
     get_report_info_sample_size,
     get_report_warning_sample_size,
 )
-from datahub.configuration.source_common import PlatformInstanceConfigMixin
-from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
-    auto_patch_last_modified,
-)
-from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
-    EnsureAspectSizeProcessor,
-)
-from datahub.ingestion.api.auto_work_units.auto_validate_input_fields import (
-    ValidateInputFieldsProcessor,
-)
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import ExamplesReport, Report
 from datahub.ingestion.api.source_helpers import (
     AutoSystemMetadata,
-    auto_browse_path_v2,
-    auto_fix_duplicate_schema_field_paths,
-    auto_fix_empty_field_paths,
-    auto_lowercase_urns,
-    auto_materialize_referenced_tags_terms,
-    auto_status_aspect,
     auto_workunit,
-    auto_workunit_reporter,
 )
 from datahub.ingestion.api.source_protocols import (
     MetadataWorkUnitIterable,
     ProfilingCapable,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessorReport
 from datahub.ingestion.source_report.ingestion_stage import (
     IngestionHighStage,
     IngestionStageReport,
@@ -65,6 +49,11 @@ from datahub.ingestion.source_report.ingestion_stage import (
 from datahub.telemetry import stats
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.state.entity_removal_state import (
+        GenericCheckpointState,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +247,9 @@ class SourceReport(ExamplesReport, IngestionStageReport):
     event_not_produced_warn: bool = True
     events_produced: int = 0
     events_produced_per_sec: int = 0
-    num_input_fields_filtered: int = 0
+    workunit_processor_reports: Dict[str, WorkunitProcessorReport] = field(
+        default_factory=dict
+    )
 
     _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
 
@@ -555,53 +546,127 @@ class Source(Closeable, metaclass=ABCMeta):
         # method abstract.
         raise NotImplementedError('sources must implement "create"')
 
+    def get_excluded_workunit_processors(self) -> List[str]:
+        """Processor names to exclude from automatic discovery.
+
+        Override ONLY when specific processors are architecturally unsafe for this source
+        (e.g. parallelism incompatibilities). Default: empty list (no exclusions).
+
+        Use ProcessorClass.NAME constants for type safety and IDE autocomplete.
+        The order in the master processor list is preserved.
+        """
+        return []
+
+    def get_allowed_workunit_processors(self) -> Optional[List[str]]:
+        """Whitelist of processor names to use. If None, all are considered.
+
+        Override when your source should use ONLY a specific small set of
+        processors (e.g. utility/cleanup sources). Default: None (use all).
+
+        Use ProcessorClass.NAME constants for type safety and IDE autocomplete.
+        The order in the master processor list is preserved.
+        """
+        return None
+
+    def get_stale_entity_state_type(self) -> "Optional[Type[GenericCheckpointState]]":
+        """Override to provide a custom checkpoint state type for stale entity removal."""
+        return None
+
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         """A list of functions that transforms the workunits produced by this source.
         Run in order, first in list is applied first. Be careful with order when overriding.
         """
-        browse_path_processor: Optional[MetadataWorkUnitProcessor] = None
-        if self.ctx.flags.generate_browse_path_v2:
-            browse_path_processor = self._get_browse_path_processor(
-                self.ctx.flags.generate_browse_path_v2_dry_run
+        # Deferred imports to avoid circular dependency:
+        # source.py → workunit_processors → stale_entity_removal → stateful_ingestion_base → source.py
+        from datahub.ingestion.api.workunit_processor import (
+            StaleEntityRemovalContext,
+            WorkunitProcessor,
+            WorkunitProcessorContext,
+        )
+        from datahub.ingestion.source.state.entity_removal_state import (
+            GenericCheckpointState,
+        )
+        from datahub.ingestion.workunit_processors import (
+            AutoBrowsePathV2Processor,
+            AutoFixDuplicateSchemaFieldPathsProcessor,
+            AutoFixEmptyFieldPathsProcessor,
+            AutoIncrementalLineageProcessor,
+            AutoIncrementalOwnershipProcessor,
+            AutoIncrementalPropertiesProcessor,
+            AutoLowercaseUrnsProcessor,
+            AutoMaterializeReferencedTagsTermsProcessor,
+            AutoPatchLastModifiedProcessor,
+            AutoStatusAspectProcessor,
+            AutoWorkunitsReporterProcessor,
+            EnsureAspectSizeProcessor,
+            StaleEntityRemovalProcessor,
+            ValidateInputFieldsProcessor,
+        )
+
+        # Build stale entity removal context for stateful sources.
+        stale_entity_removal_ctx = None
+        state_provider = getattr(self, "state_provider", None)
+        if state_provider is not None:
+            state_type_class = (
+                self.get_stale_entity_state_type() or GenericCheckpointState
+            )
+            stale_entity_removal_ctx = StaleEntityRemovalContext(
+                state_provider=state_provider,
+                state_type_class=state_type_class,
             )
 
-        auto_lowercase_dataset_urns: Optional[MetadataWorkUnitProcessor] = None
-        if (
-            self.ctx.pipeline_config
-            and self.ctx.pipeline_config.source
-            and self.ctx.pipeline_config.source.config
-            and (
-                (
-                    hasattr(
-                        self.ctx.pipeline_config.source.config,
-                        "convert_urns_to_lowercase",
-                    )
-                    and self.ctx.pipeline_config.source.config.convert_urns_to_lowercase
-                )
-                or (
-                    hasattr(self.ctx.pipeline_config.source.config, "get")
-                    and self.ctx.pipeline_config.source.config.get(
-                        "convert_urns_to_lowercase"
-                    )
-                )
-            )
-        ):
-            auto_lowercase_dataset_urns = auto_lowercase_urns
+        ctx = WorkunitProcessorContext(
+            source_report=self.get_report(),
+            pipeline_context=self.ctx,
+            source_config=self.get_config(),
+            platform=self.infer_platform(),
+            stale_entity_removal_context=stale_entity_removal_ctx,
+        )
 
-        return [
-            auto_lowercase_dataset_urns,
-            auto_status_aspect,
-            auto_materialize_referenced_tags_terms,
-            partial(
-                auto_fix_duplicate_schema_field_paths, platform=self.infer_platform()
-            ),
-            partial(auto_fix_empty_field_paths, platform=self.infer_platform()),
-            browse_path_processor,
-            partial(auto_workunit_reporter, self.get_report()),
-            auto_patch_last_modified,
-            ValidateInputFieldsProcessor(self.get_report()).validate_input_fields,
-            EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
+        # ORDER IS CRITICAL for deterministic output and golden file validation.
+        # Do NOT reorder without understanding the impact on all sources.
+        _ALL_PROCESSOR_CLASSES: List[Type[WorkunitProcessor]] = [
+            AutoLowercaseUrnsProcessor,
+            AutoStatusAspectProcessor,
+            AutoMaterializeReferencedTagsTermsProcessor,
+            AutoFixDuplicateSchemaFieldPathsProcessor,
+            AutoFixEmptyFieldPathsProcessor,
+            AutoBrowsePathV2Processor,
+            AutoIncrementalLineageProcessor,
+            AutoIncrementalPropertiesProcessor,
+            AutoIncrementalOwnershipProcessor,
+            AutoWorkunitsReporterProcessor,
+            AutoPatchLastModifiedProcessor,
+            ValidateInputFieldsProcessor,
+            EnsureAspectSizeProcessor,
+            StaleEntityRemovalProcessor,
         ]
+
+        excluded = set(self.get_excluded_workunit_processors())
+        allowed = self.get_allowed_workunit_processors()
+        allowed_set = set(allowed) if allowed is not None else None
+
+        processors: List[WorkunitProcessor] = []
+        for processor_class in _ALL_PROCESSOR_CLASSES:
+            name = processor_class.get_name()
+            if name in excluded:
+                logger.debug(f"Workunit processor '{name}' excluded by source")
+                continue
+            if allowed_set is not None and name not in allowed_set:
+                logger.debug(f"Workunit processor '{name}' not in allowed list")
+                continue
+            if processor_class.should_enable(ctx):
+                logger.debug(f"Workunit processor '{name}' enabled")
+                try:
+                    processors.append(processor_class.create(ctx))
+                except Exception:
+                    logger.warning(
+                        f"Failed to create workunit processor '{name}'", exc_info=True
+                    )
+            else:
+                logger.debug(f"Workunit processor '{name}' disabled by should_enable()")
+
+        return [p.process for p in processors]
 
     @staticmethod
     def _apply_workunit_processors(
@@ -675,31 +740,6 @@ class Source(Closeable, metaclass=ABCMeta):
             platform = type(self).get_platform_id()
 
         return platform
-
-    def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
-        config = self.get_config()
-
-        platform = self.infer_platform()
-        env = getattr(config, "env", None)
-        browse_path_drop_dirs = [
-            platform,
-            platform and platform.lower(),
-            env,
-            env and env.lower(),
-        ]
-
-        platform_instance: Optional[str] = None
-        if isinstance(config, PlatformInstanceConfigMixin) and config.platform_instance:
-            platform_instance = config.platform_instance
-
-        browse_path_processor = partial(
-            auto_browse_path_v2,
-            platform=platform,
-            platform_instance=platform_instance,
-            drop_dirs=[s for s in browse_path_drop_dirs if s is not None],
-            dry_run=dry_run,
-        )
-        return lambda stream: browse_path_processor(stream)
 
 
 class TestableSource(Source):

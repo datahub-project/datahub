@@ -52,9 +52,6 @@ from datahub.ingestion.source.omni.omni_lineage_parser import (
     parse_field_list,
 )
 from datahub.ingestion.source.omni.omni_report import OmniSourceReport
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -127,9 +124,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             api_key=config.api_key,
             timeout_seconds=config.timeout_seconds,
             max_requests_per_minute=config.max_requests_per_minute,
-        )
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, self.ctx
         )
         # Internal caches – populated during _ingest_semantic_model and reused
         # later when processing documents/dashboards.

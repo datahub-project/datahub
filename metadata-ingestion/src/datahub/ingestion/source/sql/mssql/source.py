@@ -1451,13 +1451,13 @@ class SQLServerSource(SQLAlchemySource):
                                 schema_resolver=self.get_schema_resolver(),
                                 procedure=procedure.to_base_procedure(),
                                 procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
-                                is_temp_table=lambda name: not self.is_discovered_table(
-                                    name
+                                is_temp_table=lambda name: (
+                                    not self.is_discovered_table(name)
                                 ),
                                 default_db=procedure.db,
                                 default_schema=procedure.schema,
-                                report_failure=lambda name: self._report_procedure_failure(
-                                    name
+                                report_failure=lambda name: (
+                                    self._report_procedure_failure(name)
                                 ),
                             ),
                             procedure_name=procedure.name,

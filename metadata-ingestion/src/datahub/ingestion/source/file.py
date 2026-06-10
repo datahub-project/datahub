@@ -5,7 +5,6 @@ import os.path
 import pathlib
 from dataclasses import dataclass, field
 from enum import auto
-from functools import partial
 from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 
 import ijson
@@ -27,25 +26,28 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     TestableSource,
     TestConnectionReport,
-)
-from datahub.ingestion.api.source_helpers import (
-    auto_status_aspect,
-    auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.fs.fs_base import FileInfo, get_path_schema
 from datahub.ingestion.fs.fs_registry import fs_registry
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_status_aspect import (
+    AutoStatusAspectProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
+from datahub.ingestion.workunit_processors.stale_entity_removal import (
+    StaleEntityRemovalProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -220,15 +222,15 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 yield file_info
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        # No super() call, as we don't want helpers that create / remove workunits
-        return [
-            partial(auto_workunit_reporter, self.report),
-            auto_status_aspect if self.config.stateful_ingestion else None,
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
+    def get_allowed_workunit_processors(self) -> List[str]:
+        # No helpers that create/remove workunits (replays existing metadata)
+        processors: List[str] = [
+            AutoWorkunitsReporterProcessor.NAME,
+            StaleEntityRemovalProcessor.NAME,
         ]
+        if self.config.stateful_ingestion:
+            processors.insert(0, AutoStatusAspectProcessor.NAME)
+        return processors
 
     def get_workunits_internal(
         self,

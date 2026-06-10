@@ -43,11 +43,16 @@ from datahub.ingestion.source.rdf.ingestion.ast_converter import RDFToASTConvert
 from datahub.ingestion.source.rdf.ingestion.workunit_generator import WorkUnitGenerator
 from datahub.ingestion.source.rdf.rdf_config import RDFSourceConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
+from datahub.ingestion.workunit_processors.stale_entity_removal import (
+    StaleEntityRemovalProcessor,
 )
 
 logger = logging.getLogger(__name__)
@@ -348,18 +353,8 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
 
         return report
 
-    def get_workunit_processors(self) -> List[Any]:
-        """
-        Get work unit processors for stateful ingestion.
-
-        Returns:
-            List of work unit processors including stale entity removal handler
-        """
-        return [
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
+    def get_allowed_workunit_processors(self) -> List[str]:
+        return [AutoWorkunitsReporterProcessor.NAME, StaleEntityRemovalProcessor.NAME]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """

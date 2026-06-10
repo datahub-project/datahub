@@ -1,5 +1,4 @@
 import logging
-from functools import partial
 from typing import Dict, Iterable, List, Optional, Set
 
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -20,9 +19,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
 )
@@ -53,7 +50,6 @@ from datahub.ingestion.source.airbyte.models import (
     PropertyFieldPath,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -279,15 +275,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 kind=PlatformKind.DESTINATION,
             )
         )
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            partial(auto_incremental_lineage, self.source_config.incremental_lineage),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def _get_pipelines(self) -> Iterable[AirbytePipelineInfo]:
         for workspace in self.client.list_workspaces(
