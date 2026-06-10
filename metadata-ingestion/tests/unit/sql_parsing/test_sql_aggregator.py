@@ -1,6 +1,7 @@
 import functools
 import os
 import pathlib
+import re
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -185,6 +186,108 @@ def test_temp_table() -> None:
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_temp_table.json",
     )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_temp_output_query_not_emitted_as_entity() -> None:
+    # A query whose OUTPUT is a temp table should not produce a persistent Query
+    # entity (it has no real downstream); a query writing a real table should.
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_queries=True,
+        generate_query_usage_statistics=True,
+        generate_operations=False,
+        usage_config=BaseUsageConfig(
+            start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+            end_time=frozen_timestamp,
+        ),
+        is_temp_table=lambda name: name.split(".")[-1].lower().startswith("tmp_"),
+    )
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("redshift", "dev.public.bar").urn(),
+        {"a": "int"},
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table tmp_scratch as select a from bar",
+            default_db="dev",
+            default_schema="public",
+            timestamp=frozen_timestamp,
+            session_id="s1",
+        )
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table real_out as select a from bar",
+            default_db="dev",
+            default_schema="public",
+            timestamp=frozen_timestamp,
+            session_id="s1",
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+    query_entities = [m for m in mcps if m.entityType == "query"]
+    # Only the real-output query yields a Query entity; the temp-output one is dropped.
+    assert len({m.entityUrn for m in query_entities}) == 1
+
+
+def test_aggregator_temp_aware_fingerprint_default_collapses_per_run() -> None:
+    # Sources that feed ObservedQuery WITHOUT a precomputed query_hash get their
+    # fingerprint from the aggregator (sqlglot_lineage). When the connector
+    # supplies its temporary_tables_pattern (resolved-name regexes), two runs of
+    # the same load that differ only by a per-run staging table collapse to ONE
+    # Query entity; a different real target stays split.
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    name_patterns = [re.compile(r".*\.fivetran_.*_staging\..*", re.IGNORECASE)]
+
+    def make_aggregator() -> SqlParsingAggregator:
+        return SqlParsingAggregator(
+            platform="snowflake",
+            generate_lineage=True,
+            generate_queries=True,
+            generate_query_usage_statistics=True,
+            generate_operations=False,
+            usage_config=BaseUsageConfig(
+                start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+                end_time=frozen_timestamp,
+            ),
+            temp_table_name_patterns=name_patterns,
+        )
+
+    def staging_load(dest: str, uuid: str) -> str:
+        return (
+            f'create table "DB"."PUBLIC"."{dest}" as '
+            f'select a from "DB"."FIVETRAN_X_STAGING"."T-STAGING-{uuid}"'
+        )
+
+    aggregator = make_aggregator()
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query=staging_load("real_dest", "aaaaaaaa-1111-2222-3333-444444444444"),
+            timestamp=frozen_timestamp,
+        )
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query=staging_load("real_dest", "bbbbbbbb-5555-6666-7777-888888888888"),
+            timestamp=frozen_timestamp,
+        )
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query=staging_load("other_dest", "cccccccc-9999-0000-1111-222222222222"),
+            timestamp=frozen_timestamp,
+        )
+    )
+
+    query_urns = {
+        m.entityUrn for m in aggregator.gen_metadata() if m.entityType == "query"
+    }
+    # real_dest's two runs collapse to one; other_dest is a distinct entity.
+    assert len(query_urns) == 2
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

@@ -75,7 +75,10 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
 )
-from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
+from datahub.sql_parsing.sqlglot_utils import (
+    DEFAULT_TEMP_TABLE_FINGERPRINT_RULES,
+    get_query_fingerprint,
+)
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedList,
@@ -184,6 +187,17 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
 
     query_dedup_strategy: QueryDedupStrategyType = QueryDedupStrategyType.STANDARD
 
+    temp_aware_query_fingerprinting: bool = pydantic.Field(
+        default=True,
+        description="Collapse per-run ephemeral object names (ELT staging UUIDs, "
+        "temp tables, etc.) when computing query fingerprints, so repeated ETL/sync "
+        "runs that differ only by an ephemeral name map to a single Query entity "
+        "instead of a new one per run. Lineage-safe. NOTE: this changes query_id (and "
+        "thus Query URNs), so enabling it produces a one-time set of new Query "
+        "entities; stale ones are cleaned up by datahub-gc. Set to False to keep the "
+        "previous per-run fingerprints.",
+    )
+
     @cached_property
     def _compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
         return [
@@ -248,6 +262,12 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         self.report = SnowflakeQueriesExtractorReport()
         self.filters = filters
         self.identifiers = identifiers
+        # Temp-aware fingerprint rules (None disables, leaving prior behavior).
+        self._temp_fingerprint_rules = (
+            DEFAULT_TEMP_TABLE_FINGERPRINT_RULES
+            if config.temp_aware_query_fingerprinting
+            else None
+        )
         self.discovered_tables = set(discovered_tables) if discovered_tables else None
         self.redundant_run_skip_handler = redundant_run_skip_handler
 
@@ -282,6 +302,14 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 is_temp_table=self.is_temp_table,
                 is_allowed_table=self.is_allowed_table,
                 format_queries=False,
+                # Reuse the connector's existing temp-table detection for
+                # fingerprint normalization on the aggregator's parse path
+                # (single source of truth) when temp-aware fingerprinting is on.
+                temp_table_name_patterns=(
+                    self.config._compiled_temporary_tables_pattern
+                    if self.config.temp_aware_query_fingerprinting
+                    else None
+                ),
             )
         )
         self.report.sql_aggregator = self.aggregator.report
@@ -734,7 +762,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 default_db=res["default_db"],
                 default_schema=res["default_schema"],
                 query_hash=get_query_fingerprint(
-                    query_text, self.identifiers.platform, fast=True
+                    query_text,
+                    self.identifiers.platform,
+                    fast=True,
+                    temp_table_patterns=self._temp_fingerprint_rules,
                 ),
                 extra_info=extra_info,
             )
@@ -792,7 +823,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         default_db=res["default_db"],
                         default_schema=res["default_schema"],
                         query_hash=get_query_fingerprint(
-                            query_text, self.identifiers.platform, fast=True
+                            query_text,
+                            self.identifiers.platform,
+                            fast=True,
+                            temp_table_patterns=self._temp_fingerprint_rules,
                         ),
                         extra_info=extra_info,
                     )
@@ -823,7 +857,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 default_schema=res["default_schema"],
                 usage_multiplier=res["query_count"],
                 query_hash=get_query_fingerprint(
-                    query_text, self.identifiers.platform, fast=True
+                    query_text,
+                    self.identifiers.platform,
+                    fast=True,
+                    temp_table_patterns=self._temp_fingerprint_rules,
                 ),
                 extra_info=extra_info,
             )
@@ -851,7 +888,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 default_schema=res["default_schema"],
                 usage_multiplier=res["query_count"],
                 query_hash=get_query_fingerprint(
-                    query_text, self.identifiers.platform, fast=True
+                    query_text,
+                    self.identifiers.platform,
+                    fast=True,
+                    temp_table_patterns=self._temp_fingerprint_rules,
                 ),
                 extra_info=extra_info,
             )
@@ -871,6 +911,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     self.identifiers.platform,
                     fast=True,
                     secondary_id=target.secondary_id,
+                    temp_table_patterns=self._temp_fingerprint_rules,
                 ),
                 query_text=query_text,
                 upstreams=list(upstreams),
