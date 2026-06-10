@@ -100,6 +100,7 @@ def glue_source(
     include_column_lineage: bool = False,
     extract_transforms: bool = True,
     extract_lakeformation_tags: bool = False,
+    incremental_properties: bool = False,
     propagate_lakeformation_tags: bool = False,
 ) -> GlueSource:
     pipeline_context = PipelineContext(run_id="glue-source-tes")
@@ -118,6 +119,7 @@ def glue_source(
             emit_storage_lineage=emit_storage_lineage,
             include_column_lineage=include_column_lineage,
             extract_lakeformation_tags=extract_lakeformation_tags,
+            incremental_properties=incremental_properties,
             propagate_lakeformation_tags=propagate_lakeformation_tags,
         ),
     )
@@ -2001,6 +2003,81 @@ def test_glue_redact_job_script_secret_fields(secret_name):
     assert _redact_secret_fields_in_dataflow_script(script) == script.replace(
         secret_value, "*****"
     )
+
+
+# ── incremental_properties (PATCH mode) ──────────────────────────────────────
+
+
+def test_incremental_properties_emits_patch_mcps(
+    pytestconfig: pytest.Config, tmp_path: Path, mock_time: None
+) -> None:
+    source = glue_source(
+        incremental_properties=True,
+        extract_transforms=False,
+        use_s3_bucket_tags=False,
+        use_s3_object_tags=False,
+    )
+
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", get_databases_response, {})
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_1,
+            {"DatabaseName": "flights-database"},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_2,
+            {"DatabaseName": "test-database"},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            {"TableList": []},
+            {"DatabaseName": "empty-database"},
+        )
+        glue_stubber.add_response(
+            "get_jobs",
+            get_jobs_response_empty,
+            {},
+        )
+
+        workunits = list(source.get_workunits())
+
+    # Find patch MCPs for datasetProperties
+    patch_wus = [
+        wu
+        for wu in workunits
+        if wu.metadata
+        and isinstance(wu.metadata, models.MetadataChangeProposalClass)
+        and wu.metadata.aspectName == "datasetProperties"
+    ]
+    assert len(patch_wus) > 0, "Expected patch MCPs for datasetProperties"
+
+    # Verify patch MCPs are PATCH changeType with JSON Patch operations
+    for wu in patch_wus:
+        assert isinstance(wu.metadata, models.MetadataChangeProposalClass)
+        assert wu.metadata.changeType == "PATCH"
+        assert wu.metadata.aspect is not None
+        patch_ops = json.loads(wu.metadata.aspect.value)
+        assert isinstance(patch_ops, list)
+        assert all("op" in op and "path" in op for op in patch_ops)
+
+    # Verify that dataset MCEs do NOT contain DatasetProperties aspect
+    mce_wus = [
+        wu
+        for wu in workunits
+        if wu.metadata
+        and isinstance(wu.metadata, models.MetadataChangeEventClass)
+        and wu.metadata.proposedSnapshot
+    ]
+    for wu in mce_wus:
+        assert isinstance(wu.metadata, models.MetadataChangeEventClass)
+        snapshot = wu.metadata.proposedSnapshot
+        if snapshot and hasattr(snapshot, "aspects"):
+            for aspect in snapshot.aspects:
+                assert not isinstance(aspect, models.DatasetPropertiesClass), (
+                    "DatasetPropertiesClass should not be in MCE snapshot in PATCH mode"
+                )
 
 
 # ── extract_column_parameters (structured properties) ─────────────────────────
