@@ -2,6 +2,7 @@
 # ABOUTME: All environment variable reads should go through this module for discoverability and maintainability.
 
 import os
+import tempfile
 from typing import Optional
 
 # ============================================================================
@@ -277,25 +278,35 @@ def get_sql_parse_inflight_log_file() -> Optional[str]:
     A native stack overflow inside sqlglot's compiled parser/optimizer crashes
     the whole process with a SIGSEGV that no try/except can intercept and that
     discards Python's buffered logs - so the offending statement is normally
-    lost. When this is set, parse_statement writes the in-flight SQL to the file
-    (truncating, then flushing immediately) before parsing, so after a crash the
-    file names the statement that killed the process. Disabled (None) by default;
-    intended for debugging, as it adds a flushed write per parsed statement.
+    lost. parse_statement writes the in-flight SQL to this file (truncating,
+    then flushing immediately) before parsing, so after a crash the file names
+    the statement that killed the process.
+
+    On this debugging branch it is ON by default at a fixed temp path so it
+    needs no configuration; override the location with
+    DATAHUB_SQL_PARSE_INFLIGHT_LOG_FILE.
     """
-    return os.getenv("DATAHUB_SQL_PARSE_INFLIGHT_LOG_FILE") or None
+    return os.getenv("DATAHUB_SQL_PARSE_INFLIGHT_LOG_FILE") or os.path.join(
+        tempfile.gettempdir(), "datahub_sql_inflight.log"
+    )
 
 
 def get_sql_parse_optimize_dump_file() -> Optional[str]:
     """Path to dump the exact inputs of the column-lineage optimize() call.
 
     When the optimizer crashes the process with a native SIGSEGV, the input SQL
-    alone may not reproduce it (the fault can be process-state dependent). When
-    this is set, the post-qualify SQL, schema mapping, dialect, and optimizer
-    rules passed to optimize() are written (JSON, flushed) before each call, so
-    after a crash the file holds a replayable reproducer of the exact inputs.
-    Disabled (None) by default; debugging-only, as it dumps per CLL statement.
+    alone may not reproduce it (the fault can be process-state dependent). The
+    post-qualify SQL, schema mapping, dialect, and optimizer rules passed to
+    optimize() are written (JSON, flushed) before each call, so after a crash
+    the file holds a replayable reproducer of the exact inputs.
+
+    On this debugging branch it is ON by default at a fixed temp path so it
+    needs no configuration; override the location with
+    DATAHUB_SQL_PARSE_OPTIMIZE_DUMP_FILE.
     """
-    return os.getenv("DATAHUB_SQL_PARSE_OPTIMIZE_DUMP_FILE") or None
+    return os.getenv("DATAHUB_SQL_PARSE_OPTIMIZE_DUMP_FILE") or os.path.join(
+        tempfile.gettempdir(), "datahub_sql_optimize_dump.json"
+    )
 
 
 def get_dataset_urn_to_lower() -> str:

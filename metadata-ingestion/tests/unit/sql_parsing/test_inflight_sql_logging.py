@@ -42,12 +42,18 @@ def test_inflight_sql_records_only_latest_statement(
     assert "first_table" not in contents
 
 
-def test_inflight_sql_disabled_by_default(
+def test_inflight_sql_defaults_to_temp_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # No-op (no error) when the env var is unset.
+    # On this debugging branch the breadcrumb is on by default at a temp path,
+    # so it needs no per-run configuration.
+    import tempfile
+
+    from datahub.configuration.env_vars import get_sql_parse_inflight_log_file
+
     monkeypatch.delenv("DATAHUB_SQL_PARSE_INFLIGHT_LOG_FILE", raising=False)
-    parse_statement("SELECT 1", dialect=_SNOWFLAKE)
+    path = get_sql_parse_inflight_log_file()
+    assert path and path.startswith(tempfile.gettempdir())
 
 
 def test_optimize_inputs_dumped_for_replay(
