@@ -352,7 +352,9 @@ public class PlatformEventProcessorTest {
       verify(specificMockRecord, times(1)).offset();
       verify(specificMockRecord, times(1)).timestamp();
       verify(specificMockRecord, times(1)).serializedValueSize();
-      verify(specificMockRecord, times(1)).value(); // Called to get the GenericRecord
+      // value() is called twice: once in consume() for the null-payload short-circuit, and once
+      // inside InboundMetadataEnvelope.fromKafka() to populate the envelope payload.
+      verify(specificMockRecord, times(2)).value();
     }
   }
 
