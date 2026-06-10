@@ -2,6 +2,8 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Union
 
+import google.auth
+import google.auth.exceptions
 from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
 from pydantic import Field, PrivateAttr, SecretStr, field_validator, model_validator
@@ -53,7 +55,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 GCS_ENDPOINT_URL = "https://storage.googleapis.com"
 
-# S3 API operations used by the S3 source when browsing/reading GCS
 _GCS_OAUTH_S3_OPERATIONS = (
     "ListBuckets",
     "ListObjectsV2",
@@ -67,19 +68,16 @@ _GCS_OAUTH_S3_OPERATIONS = (
 
 def _register_gcs_oauth_before_send(
     client: Any,
-    credentials: Any,
+    credentials: Credentials,
     project_id: Optional[str],
 ) -> None:
-    """
-    Register a before-send handler on the boto3 S3 client to inject
-    Authorization: Bearer <token> for GCS (Workload Identity Federation).
-    boto3 uses SigV4 by default; GCS XML API accepts Bearer tokens instead.
-    """
+    # boto3 uses SigV4 by default; GCS XML API accepts Bearer tokens instead.
 
     def inject_bearer(request: Any, **kwargs: Any) -> None:
         need_refresh = not getattr(credentials, "token", None)
-        if not need_refresh and getattr(credentials, "expiry", None) is not None:
-            need_refresh = credentials.expiry.timestamp() < time.time()
+        expiry = getattr(credentials, "expiry", None)
+        if not need_refresh and expiry is not None:
+            need_refresh = expiry.timestamp() < time.time()
         if need_refresh:
             credentials.refresh(Request())
         request.headers["Authorization"] = f"Bearer {credentials.token}"
@@ -91,21 +89,23 @@ def _register_gcs_oauth_before_send(
 
 
 class GCSOAuthAwsConnectionConfig(AwsConnectionConfig):
-    """
-    AwsConnectionConfig-compatible wrapper for GCS with Workload Identity Federation.
-    Uses dummy AWS-style keys so boto3 creates a session; before-send handlers
-    replace the Authorization header with Bearer <token> from WIF credentials.
-    Only used when auth_type is workload_identity_federation.
-    """
+    # Shared by both OAuth-based GCS auth types: workload_identity_federation (WIF)
+    # and workload_identity (Application Default Credentials). Uses dummy AWS-style
+    # keys so boto3 creates a session; before-send handlers then replace the
+    # Authorization header with Bearer <token> from the GCP credentials.
 
     _gcs_oauth_credentials: Optional[Credentials] = PrivateAttr(default=None)
     _gcs_oauth_project_id: Optional[str] = PrivateAttr(default=None)
 
     def _apply_oauth(self, boto3_client: Any) -> None:
         creds = self._gcs_oauth_credentials
-        project_id = self._gcs_oauth_project_id
-        if creds is not None:
-            _register_gcs_oauth_before_send(boto3_client, creds, project_id)
+        # Explicit raise (not assert) so the fail-fast guarantee survives `python -O`,
+        # which strips asserts. Missing creds would otherwise produce opaque 403s.
+        if creds is None:
+            raise RuntimeError(
+                "_gcs_oauth_credentials must be set before calling get_s3_client/get_s3_resource"
+            )
+        _register_gcs_oauth_before_send(boto3_client, creds, self._gcs_oauth_project_id)
 
     def get_s3_client(
         self, verify_ssl: Optional[Union[bool, str]] = None
@@ -125,6 +125,7 @@ class GCSOAuthAwsConnectionConfig(AwsConnectionConfig):
 class GCSAuthType(StrEnum):
     HMAC = "hmac"
     WORKLOAD_IDENTITY_FEDERATION = "workload_identity_federation"
+    WORKLOAD_IDENTITY = "workload_identity"
 
 
 class HMACKey(ConfigModel):
@@ -141,7 +142,11 @@ class GCSSourceConfig(
 ):
     auth_type: GCSAuthType = Field(
         default=GCSAuthType.HMAC,
-        description="Authentication type to use. Defaults to HMAC keys. Set to 'workload_identity_federation' to use Workload Identity Federation.",
+        description=(
+            "Authentication type to use. Defaults to 'hmac'. "
+            "Set to 'workload_identity_federation' to authenticate via a WIF configuration file (for external workloads). "
+            "Set to 'workload_identity' to use Application Default Credentials — the recommended option when running inside GKE with Workload Identity enabled."
+        ),
     )
 
     credential: Optional[HMACKey] = Field(
@@ -169,6 +174,11 @@ class GCSSourceConfig(
             credential = values.get("credential")
             if auth_type == GCSAuthType.HMAC and credential is None:
                 raise ValueError("credential is required when auth_type is 'hmac'")
+            if auth_type != GCSAuthType.HMAC and credential is not None:
+                raise ValueError(
+                    f"credential (HMAC key) must not be set when auth_type is '{auth_type}'. "
+                    "HMAC credentials are only used with auth_type 'hmac'."
+                )
         return values
 
     @model_validator(mode="before")
@@ -176,16 +186,22 @@ class GCSSourceConfig(
     def validate_gcp_wif_configuration_options(cls, values: Any) -> Any:
         if isinstance(values, dict):
             auth_type = values.get("auth_type", GCSAuthType.HMAC)
+            wif_options = [
+                values.get("gcp_wif_configuration"),
+                values.get("gcp_wif_configuration_json"),
+                values.get("gcp_wif_configuration_json_string"),
+            ]
             if auth_type == GCSAuthType.WORKLOAD_IDENTITY_FEDERATION:
-                wif_options = [
-                    values.get("gcp_wif_configuration"),
-                    values.get("gcp_wif_configuration_json"),
-                    values.get("gcp_wif_configuration_json_string"),
-                ]
                 if not any(opt is not None for opt in wif_options):
                     raise ValueError(
                         "One of gcp_wif_configuration (file path), gcp_wif_configuration_json (JSON content), "
                         "or gcp_wif_configuration_json_string (JSON string) is required when auth_type is 'workload_identity_federation'"
+                    )
+            elif auth_type == GCSAuthType.WORKLOAD_IDENTITY:
+                if any(opt is not None for opt in wif_options):
+                    raise ValueError(
+                        "gcp_wif_configuration options must not be set when auth_type is 'workload_identity'. "
+                        "Credentials are sourced automatically from Application Default Credentials (e.g. GKE Workload Identity)."
                     )
         return values
 
@@ -197,7 +213,6 @@ class GCSSourceConfig(
         if len(path_specs) == 0:
             raise ValueError("path_specs must not be empty")
 
-        # Check that all path specs have the gs:// prefix.
         if any([not is_gcs_uri(path_spec.include) for path_spec in path_specs]):
             raise ValueError("All path_spec.include should start with gs://")
 
@@ -225,10 +240,10 @@ class GCSSource(StatefulIngestionSourceBase):
     def __init__(self, config: GCSSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.config = config
-        self.report = GCSSourceReport()
+        self.report: GCSSourceReport = GCSSourceReport()
         self.platform: str = PLATFORM_GCS
-        self._wif_credentials: Optional[Credentials] = None
-        self._wif_project_id: Optional[str] = None
+        self._gcp_credentials: Optional[Credentials] = None
+        self._gcp_project_id: Optional[str] = None
         self.s3_source = self.create_equivalent_s3_source(ctx)
 
     @classmethod
@@ -237,7 +252,59 @@ class GCSSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def _setup_wif_credentials(self) -> None:
-        self._wif_credentials, self._wif_project_id = load_wif_credentials(self.config)
+        self._gcp_credentials, self._gcp_project_id = load_wif_credentials(self.config)
+
+    def _setup_adc_credentials(self) -> None:
+        try:
+            self._gcp_credentials, self._gcp_project_id = google.auth.default(
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+            logger.info(
+                "Loaded Application Default Credentials (project: %s)",
+                self._gcp_project_id,
+            )
+            if self._gcp_project_id is None:
+                logger.warning(
+                    "Application Default Credentials did not return a project ID. "
+                    "If GCS requests fail with permission errors, set the "
+                    "GCLOUD_PROJECT or GOOGLE_CLOUD_PROJECT environment variable."
+                )
+        except google.auth.exceptions.DefaultCredentialsError as e:
+            raise ValueError(
+                "Failed to load Application Default Credentials for GCS workload_identity auth. "
+                "Ensure GKE Workload Identity is enabled and the pod service account is bound. "
+                f"Details: {e}"
+            ) from e
+        except google.auth.exceptions.GoogleAuthError as e:
+            raise ValueError(
+                "Unexpected Google Auth error while loading Application Default Credentials "
+                f"for GCS workload_identity auth: {e}"
+            ) from e
+
+    def _build_gcs_oauth_aws_config(self) -> GCSOAuthAwsConnectionConfig:
+        aws_config = GCSOAuthAwsConnectionConfig(
+            aws_endpoint_url=GCS_ENDPOINT_URL,
+            aws_region="auto",
+            aws_access_key_id="gcs-oauth",
+            aws_secret_access_key="not-used",
+        )
+        aws_config._gcs_oauth_credentials = self._gcp_credentials
+        aws_config._gcs_oauth_project_id = self._gcp_project_id
+        return aws_config
+
+    def _build_s3_config(
+        self, s3_path_specs: List[PathSpec], aws_config: AwsConnectionConfig
+    ) -> DataLakeSourceConfig:
+        return DataLakeSourceConfig(
+            path_specs=s3_path_specs,
+            aws_config=aws_config,
+            env=self.config.env,
+            convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
+            max_rows=self.config.max_rows,
+            number_of_files_to_sample=self.config.number_of_files_to_sample,
+            platform=PLATFORM_GCS,
+            platform_instance=self.config.platform_instance,
+        )
 
     def create_equivalent_s3_config(self) -> DataLakeSourceConfig:
         s3_path_specs = self.create_equivalent_s3_path_specs()
@@ -247,48 +314,22 @@ class GCSSource(StatefulIngestionSourceBase):
                 raise ValueError(
                     "HMAC credentials are required when auth_type is 'hmac'"
                 )
-
-            s3_config = DataLakeSourceConfig(
-                path_specs=s3_path_specs,
-                aws_config=AwsConnectionConfig(
-                    aws_endpoint_url=GCS_ENDPOINT_URL,
-                    aws_access_key_id=self.config.credential.hmac_access_id,
-                    aws_secret_access_key=self.config.credential.hmac_access_secret.get_secret_value(),
-                    aws_region="auto",
-                ),
-                env=self.config.env,
-                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
-                max_rows=self.config.max_rows,
-                number_of_files_to_sample=self.config.number_of_files_to_sample,
-                platform=PLATFORM_GCS,
-                platform_instance=self.config.platform_instance,
-            )
-        else:  # workload_identity_federation
-            # For workload identity federation, we don't use HMAC credentials.
-            # Use a GCS OAuth config that injects Bearer token into boto3 requests.
-            self._setup_wif_credentials()
-
-            aws_config = GCSOAuthAwsConnectionConfig(
+            aws_config: AwsConnectionConfig = AwsConnectionConfig(
                 aws_endpoint_url=GCS_ENDPOINT_URL,
+                aws_access_key_id=self.config.credential.hmac_access_id,
+                aws_secret_access_key=self.config.credential.hmac_access_secret.get_secret_value(),
                 aws_region="auto",
-                aws_access_key_id="gcs-oauth",
-                aws_secret_access_key="not-used",
             )
-            aws_config._gcs_oauth_credentials = self._wif_credentials
-            aws_config._gcs_oauth_project_id = self._wif_project_id
+        elif self.config.auth_type == GCSAuthType.WORKLOAD_IDENTITY_FEDERATION:
+            self._setup_wif_credentials()
+            aws_config = self._build_gcs_oauth_aws_config()
+        elif self.config.auth_type == GCSAuthType.WORKLOAD_IDENTITY:
+            self._setup_adc_credentials()
+            aws_config = self._build_gcs_oauth_aws_config()
+        else:
+            raise ValueError(f"Unsupported auth_type: {self.config.auth_type!r}")
 
-            s3_config = DataLakeSourceConfig(
-                path_specs=s3_path_specs,
-                aws_config=aws_config,
-                env=self.config.env,
-                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
-                max_rows=self.config.max_rows,
-                number_of_files_to_sample=self.config.number_of_files_to_sample,
-                platform=PLATFORM_GCS,
-                platform_instance=self.config.platform_instance,
-            )
-
-        return s3_config
+        return self._build_s3_config(s3_path_specs, aws_config)
 
     def create_equivalent_s3_path_specs(self) -> List[PathSpec]:
         s3_path_specs = []
@@ -333,24 +374,7 @@ class GCSSource(StatefulIngestionSourceBase):
         return self.s3_source_overrides(s3_source)
 
     def s3_source_overrides(self, source: S3Source) -> S3Source:
-        """
-        Override S3Source methods with GCS-specific implementations using the adapter pattern.
-
-        This method customizes the S3Source instance to behave like a GCS source by
-        applying the GCS-specific adapter that replaces the necessary functionality.
-
-        Args:
-            source: The S3Source instance to customize
-
-        Returns:
-            The modified S3Source instance with GCS behavior
-        """
-        # Create a GCS adapter with project ID and region from our config
-        adapter = create_object_store_adapter(
-            "gcs",
-        )
-
-        # Apply all customizations to the source
+        adapter = create_object_store_adapter("gcs")
         return adapter.apply_customizations(source)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
@@ -364,7 +388,7 @@ class GCSSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         return self.s3_source.get_workunits_internal()
 
-    def get_report(self):
+    def get_report(self) -> GCSSourceReport:
         return self.report
 
     def close(self) -> None:

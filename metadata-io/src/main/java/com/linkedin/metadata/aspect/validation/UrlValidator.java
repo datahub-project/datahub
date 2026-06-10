@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.validation;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.url.Url;
 import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.identity.CorpUserEditableInfo;
@@ -75,6 +76,7 @@ public class UrlValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
 
@@ -183,7 +185,9 @@ public class UrlValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 }

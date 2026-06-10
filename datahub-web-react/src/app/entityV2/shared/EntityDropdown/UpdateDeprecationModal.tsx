@@ -1,6 +1,7 @@
 import { Form, Select, Skeleton, message } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
@@ -32,6 +33,9 @@ type Props = {
 const SCHEMA_FIELD_PREFIX = 'urn:li:schemaField:';
 
 export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, zIndexOverride }: Props) => {
+    const { t } = useTranslation('entity.shared.entityDropdown');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tcf } = useTranslation('common.feedback');
     const { entityWithSchema } = useGetEntityWithSchema();
     const schemaMetadata: any = entityWithSchema?.schemaMetadata || undefined;
 
@@ -59,7 +63,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
     };
 
     const handleOk = async (formData: any) => {
-        message.loading({ content: 'Updating...' });
+        message.loading({ content: tcf('updating') });
         try {
             await batchUpdateDeprecation({
                 variables: {
@@ -79,13 +83,13 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                 resources: isDeprecatingFields ? resourceRefs : undefined,
             });
             message.destroy();
-            message.success({ content: 'Deprecation Updated', duration: 2 });
+            message.success({ content: t('deprecation.updated'), duration: 2 });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to update Deprecation: \n ${e.message || ''}`,
+                        content: t('deprecation.updateError', { errorMessage: e.message || '' }),
                         duration: 2,
                     }),
                 );
@@ -97,36 +101,44 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
 
     return (
         <Modal
-            title="Set as Deprecated"
+            title={t('deprecation.modalTitle')}
             zIndex={zIndexOverride ?? 1000}
             onCancel={handleClose}
             keyboard
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: handleClose,
                 },
                 {
                     buttonDataTestId: 'add',
-                    text: 'Save',
+                    text: tc('save'),
                     onClick: form.submit,
                 },
             ]}
         >
             <Form form={form} name="addDeprecationForm" onFinish={handleOk} layout="vertical">
-                <Form.Item name="note" label="Reason" rules={[{ whitespace: true }, { min: 0, max: 1000 }]}>
-                    <TextArea placeholder="Add Reason" autoFocus rows={4} />
+                <Form.Item
+                    name="note"
+                    label={t('deprecation.reasonLabel')}
+                    rules={[{ whitespace: true }, { min: 0, max: 1000 }]}
+                >
+                    <TextArea placeholder={t('deprecation.reasonPlaceholder')} autoFocus rows={4} />
                 </Form.Item>
-                <Form.Item name="decommissionTime" label="Decommission Date" initialValue={dayjs()}>
+                <Form.Item
+                    name="decommissionTime"
+                    label={t('deprecation.decommissionDateLabel')}
+                    initialValue={dayjs()}
+                >
                     <DatePicker style={{ width: '100%' }} defaultValue={dayjs()} />
                 </Form.Item>
-                <Form.Item name="replacement" label="Replacement">
+                <Form.Item name="replacement" label={t('deprecation.replacementLabel')}>
                     {isReplacementModalVisible && !isDeprecatingFields && (
                         <SearchSelectModal
                             limit={1}
-                            titleText="Select one entity to replace the deprecated entity with."
-                            continueText="Set Replacement"
+                            titleText={t('deprecation.replacementSearchTitle')}
+                            continueText={t('deprecation.setReplacement')}
                             onContinue={(entityUrns) => {
                                 if (entityUrns.length > 0) {
                                     setReplacementUrn(entityUrns[0]);
@@ -142,7 +154,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                     {isReplacementModalVisible && isDeprecatingFields && (
                         <Modal
                             open
-                            title="Select Replacement"
+                            title={t('deprecation.selectReplacement')}
                             onCancel={() => setIsReplacementModalVisible(false)}
                             onOk={() => setIsReplacementModalVisible(false)}
                             buttons={[]}
@@ -150,7 +162,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                             <Select
                                 style={{ width: 250 }}
                                 dropdownMatchSelectWidth
-                                placeholder="Select Replacement"
+                                placeholder={t('deprecation.selectReplacement')}
                                 onChange={(value) =>
                                     setReplacementUrn(
                                         generateSchemaFieldUrn(value, resourceFromWhichReplacementIsSelected || ''),
@@ -195,7 +207,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                             size="sm"
                             onClick={() => setIsReplacementModalVisible(true)}
                         >
-                            Select Replacement
+                            {t('deprecation.selectReplacement')}
                         </Button>
                     )}
                 </Form.Item>

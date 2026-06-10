@@ -107,6 +107,7 @@ com.sun.istack:istack-commons-runtime:4.1.2=runtimeClasspath,testFixturesRuntime
 com.sun.mail:jakarta.mail:2.0.2=runtimeClasspath,testFixturesRuntimeClasspath,testRuntimeClasspath
 com.sun.mail:javax.mail:1.6.2=runtimeClasspath,testFixturesRuntimeClasspath,testRuntimeClasspath
 com.tdunning:t-digest:3.2=compileClasspath,runtimeClasspath,testCompileClasspath,testFixturesCompileClasspath,testFixturesRuntimeClasspath,testRuntimeClasspath
+com.tngtech.archunit:archunit:1.4.2=testCompileClasspath,testRuntimeClasspath
 com.typesafe:config:1.4.1=compileClasspath,runtimeClasspath,testCompileClasspath,testFixturesCompileClasspath,testFixturesRuntimeClasspath,testRuntimeClasspath
 commons-cli:commons-cli:1.0=compileClasspath,pegasusPlugin,restClient,restClientCompile,runtimeClasspath,testCompileClasspath,testFixturesCompileClasspath,testFixturesRuntimeClasspath,testRestClient,testRuntimeClasspath
 commons-codec:commons-codec:1.17.1=pegasusPlugin,restClient,restClientCompile,testRestClient

@@ -1,5 +1,6 @@
 import { message } from 'antd';
 import React, { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
@@ -40,6 +41,8 @@ export default function EditStructuredPropertyModal({
     refetch,
     isAddMode,
 }: Props) {
+    const { t } = useTranslation('entity.profile.tabs');
+    const { t: tc } = useTranslation(['common.actions', 'common.feedback']);
     const { refetch: entityRefetch } = useEntityContext();
     const mutationUrn = useMutationUrn();
     const { entityType } = useEntityData();
@@ -55,7 +58,7 @@ export default function EditStructuredPropertyModal({
     }, [isOpen, initialValues, setSelectedValues]);
 
     function upsertProperties() {
-        message.loading(isAddMode ? 'Adding...' : 'Updating...');
+        message.loading(isAddMode ? t('properties.adding.loading') : tc('common.feedback:updating'));
         const propValues = selectedValues.map((value) => {
             if (typeof value === 'string') {
                 return { stringValue: value as string };
@@ -92,13 +95,13 @@ export default function EditStructuredPropertyModal({
                     entityRefetch();
                 }
                 message.destroy();
-                message.success(`Successfully ${isAddMode ? 'added' : 'updated'} structured property!`);
+                message.success(isAddMode ? t('properties.added.success') : t('properties.updated.success'));
                 closeModal();
             })
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: 'Unable to save structured property. Something went wrong.',
+                    defaultMessage: t('properties.save.error'),
                 });
                 closeModal();
             });
@@ -108,17 +111,17 @@ export default function EditStructuredPropertyModal({
 
     return (
         <Modal
-            title={`${isAddMode ? 'Add property' : 'Edit property'} ${structuredProperty?.definition?.displayName}`}
+            title={`${isAddMode ? t('properties.addProperty.title') : t('properties.editProperty.title')} ${structuredProperty?.definition?.displayName}`}
             onCancel={closeModal}
             open={isOpen}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('common.actions:cancel'),
                     onClick: closeModal,
                     variant: 'text',
                 },
                 {
-                    text: isAddMode ? 'Add' : 'Update',
+                    text: isAddMode ? tc('common.actions:add') : tc('common.actions:update'),
                     onClick: upsertProperties,
                     disabled: !selectedValues.length,
                     buttonDataTestId: 'add-update-structured-prop-on-entity-button',

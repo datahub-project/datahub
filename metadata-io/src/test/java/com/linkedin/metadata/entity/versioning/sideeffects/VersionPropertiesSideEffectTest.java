@@ -5,6 +5,7 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Legac
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.VersionProperties;
@@ -81,9 +82,11 @@ public class VersionPropertiesSideEffectTest {
   private MockAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
   private VersionPropertiesSideEffect sideEffect;
+  private OperationFingerprint mockOpContext;
 
   @BeforeMethod
   public void setup() {
+    mockOpContext = mock(OperationFingerprint.class);
     VersionProperties previousLatestVersionProperties =
         new VersionProperties()
             .setVersionSet(HAS_SET_PROPERTIES_VERSION_SET_URN)
@@ -145,7 +148,8 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results: key, set properties, and isLatest=true write for the entity
@@ -200,7 +204,8 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results: set properties, old-latest patch, and isLatest=true write for new entity
@@ -255,7 +260,8 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results
@@ -288,7 +294,8 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results: key, set properties, and isLatest=true write for the entity
@@ -341,7 +348,8 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results: set properties and isLatest=true write for the entity
@@ -381,7 +389,7 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .postMCPSideEffect(Collections.singletonList(mclItem), retrieverContext)
+            .postMCPSideEffect(mockOpContext, Collections.singletonList(mclItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify no changes for non-version set properties aspects
@@ -412,7 +420,7 @@ public class VersionPropertiesSideEffectTest {
 
     // First pass (initial transaction attempt)
     sideEffect
-        .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+        .applyMCPSideEffect(mockOpContext, Collections.singletonList(changeItem), retrieverContext)
         .collect(Collectors.toList());
 
     // The incoming recordTemplate must not have isLatest set — if it were mutated here,
@@ -424,7 +432,8 @@ public class VersionPropertiesSideEffectTest {
     // Second pass (simulated transaction retry) — must produce the same result without error
     List<MCPItem> retryResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     assertEquals(retryResults.size(), 3, "Retry must produce the same three MCPs");
@@ -459,7 +468,7 @@ public class VersionPropertiesSideEffectTest {
 
     // First pass
     sideEffect
-        .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+        .applyMCPSideEffect(mockOpContext, Collections.singletonList(changeItem), retrieverContext)
         .collect(Collectors.toList());
 
     assertFalse(
@@ -469,7 +478,8 @@ public class VersionPropertiesSideEffectTest {
     // Second pass (simulated retry) — must succeed without error
     List<MCPItem> retryResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     assertEquals(retryResults.size(), 3, "Retry must produce the same three MCPs");

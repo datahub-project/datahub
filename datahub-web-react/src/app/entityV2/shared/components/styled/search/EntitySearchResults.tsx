@@ -1,5 +1,6 @@
 import { Checkbox, Empty, List } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useInitializeColumnLineageCards } from '@app/entityV2/shared/components/styled/search/useInitializeColumnLineageCards';
@@ -104,6 +105,7 @@ export const EntitySearchResults = ({
     noResultsMessage,
     selectLimit,
 }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities?.map((entity) => entity.urn) || [];
 
@@ -143,10 +145,7 @@ export const EntitySearchResults = ({
             locale={{
                 emptyText: (
                     <>
-                        <Empty
-                            description={noResultsMessage || 'No results found'}
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        />
+                        <Empty description={noResultsMessage || tc('noResults')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
                     </>
                 ),
             }}

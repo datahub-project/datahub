@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.GetTimelineInput;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import org.testng.annotations.Test;
 
@@ -63,7 +64,8 @@ public class GetTimelineResolverTest {
   @Test
   public void testGetAuthorizedReturnsResult() throws Exception {
     TimelineService mockTimelineService = mock(TimelineService.class);
-    when(mockTimelineService.getTimeline(any(), any(), anyInt(), anyBoolean()))
+    when(mockTimelineService.getTimeline(
+            any(OperationContext.class), any(), any(), anyInt(), anyBoolean()))
         .thenReturn(List.of());
 
     GetTimelineResolver resolver = new GetTimelineResolver(mockTimelineService);
@@ -77,6 +79,7 @@ public class GetTimelineResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
 
     assertNotNull(resolver.get(mockEnv).get());
-    verify(mockTimelineService, times(1)).getTimeline(any(), any(), anyInt(), anyBoolean());
+    verify(mockTimelineService, times(1))
+        .getTimeline(any(OperationContext.class), any(), any(), anyInt(), anyBoolean());
   }
 }

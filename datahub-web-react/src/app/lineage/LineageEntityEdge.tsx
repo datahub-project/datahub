@@ -37,6 +37,9 @@ export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Prop
     const updatedOn = updatedOnTimestamp ? dayjs(updatedOnTimestamp).format('ll') : undefined;
     const hasTimestamps = createdOn || updatedOn;
     const isManual = edge?.isManual;
+    // Presentational SVG values (marker URL suffix, dash pattern) — not translatable.
+    const highlightSuffix = isHighlighted ? '-highlighted' : '';
+    const dashArray = isManual ? '5, 5' : 'none';
 
     return (
         <>
@@ -77,10 +80,10 @@ export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Prop
                         data={edge.curve}
                         stroke={isHighlighted ? theme.colors.hyperlinks : theme.colors.border}
                         strokeWidth="1"
-                        markerEnd={`url(#triangle-downstream${isHighlighted ? '-highlighted' : ''})`}
-                        markerStart={`url(#triangle-upstream${isHighlighted ? '-highlighted' : ''})`}
+                        markerEnd={`url(#triangle-downstream${highlightSuffix})`}
+                        markerStart={`url(#triangle-upstream${highlightSuffix})`}
                         data-testid={`edge-${edge.source.data.urn}-${edge.target.data.urn}-${edge.target.direction}`}
-                        strokeDasharray={isManual ? '5, 5' : 'none'}
+                        strokeDasharray={dashArray}
                     />
                 </Group>
             </Tooltip>

@@ -1,6 +1,7 @@
 import { Button, Checkbox, Modal, Text } from '@components';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { LinkFormWrapper } from '@app/entityV2/shared/components/links/LinkFormWrapper';
@@ -50,10 +51,12 @@ export default function AddEditLinkModal({
     showInAssetPreview,
     setShowInAssetPreview,
 }: Props) {
+    const { t } = useTranslation('entity.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     return (
         <Modal
             data-testid="add-edit-link-modal"
-            title={`${variant === 'create' ? 'Add Link' : 'Edit Link'}`}
+            title={variant === 'create' ? t('links.addLink') : t('links.editLink')}
             onCancel={onClose}
             footer={
                 <FooterContainer>
@@ -65,15 +68,15 @@ export default function AddEditLinkModal({
                             dataTestId="show-in-asset-preview-checkbox"
                         />
                         <FooterCheckboxLabel color="gray" onClick={() => setShowInAssetPreview(!showInAssetPreview)}>
-                            Add to asset header
+                            {t('links.addToAssetHeader')}
                         </FooterCheckboxLabel>
                     </FooterCheckboxContainer>
                     <FooterButtonsContainer>
                         <Button variant="outline" onClick={onClose}>
-                            Cancel
+                            {tc('cancel')}
                         </Button>
                         <Button data-testid="link-form-modal-submit-button" onClick={onSubmit}>
-                            {`${variant === 'create' ? 'Add Link' : 'Edit Link'}`}
+                            {variant === 'create' ? t('links.addLink') : t('links.editLink')}
                         </Button>
                     </FooterButtonsContainer>
                 </FooterContainer>

@@ -1,5 +1,6 @@
 import { Avatar } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export default function SummaryCreatedBySection({ owner }: Props) {
+    const { t } = useTranslation('entity.shared.profile');
     const entityRegistry = useEntityRegistryV2();
 
     let ownerName;
@@ -52,7 +54,7 @@ export default function SummaryCreatedBySection({ owner }: Props) {
         <>
             {!!ownerName && (
                 <SectionContainer>
-                    <StyledTitle>Created By</StyledTitle>
+                    <StyledTitle>{t('summary.createdByTitle')}</StyledTitle>
                     <Details>
                         <Avatar name={ownerName} imageUrl={ownerPictureLink} type={avatarType} />
                         {ownerName}

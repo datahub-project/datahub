@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.Constants.SYSTEM_POLICY_ONE;
 import static com.linkedin.metadata.Constants.SYSTEM_POLICY_ZERO;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
@@ -44,6 +45,7 @@ public class SystemPolicyValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
 
@@ -66,7 +68,8 @@ public class SystemPolicyValidator extends AspectPayloadValidator {
             final Aspect aspect =
                 retrieverContext
                     .getAspectRetriever()
-                    .getLatestAspectObject(entityUrn, Constants.DATAHUB_POLICY_INFO_ASPECT_NAME);
+                    .getLatestAspectObject(
+                        operationContext, entityUrn, Constants.DATAHUB_POLICY_INFO_ASPECT_NAME);
             if (aspect != null) {
               DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo(aspect.data());
               if (!dataHubPolicyInfo.isEditable()) {
@@ -89,7 +92,9 @@ public class SystemPolicyValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 }

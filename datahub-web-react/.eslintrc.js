@@ -98,8 +98,12 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     'rel',
     'href',
     'name',
+    // Source/connector display names are proper nouns (Athena, BigQuery, Confluence, …) and
+    // must never be translated. Exempt any `displayName`/`*DisplayName` property or attribute.
+    '.*[Dd]isplayName$',
     'form',
     'entityTypeName',
+    'commandName',
     'autoComplete',
     'preload',
     'placement',
@@ -109,6 +113,20 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     'justifyContent',
     'field',
     'tab',
+    'commandName',
+    'optionLabelProp',
+    'classNames',
+    // SVG / format / placement presentation attributes — never user-visible text.
+    'optionFilterProp',
+    '.*[Aa]lign$',
+    'dy',
+    'fontFamily',
+    'format',
+    'pointerEvents',
+    'textAnchor',
+    'textDecoration',
+    'tooltipPlacement',
+    'viewBox',
     '.*Path$',
     '.*background$',
     '.*Background$',
@@ -301,7 +319,17 @@ module.exports = {
             ? [
                   {
                       files: [...translatedFiles],
-                      excludedFiles: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
+                      excludedFiles: [
+                          '**/__tests__/**',
+                          '**/*.test.ts',
+                          '**/*.test.tsx',
+                          // Storybook demo files render only in Storybook, never in the production app — their
+                          // demo strings must not be enforced as translatable.
+                          '**/*.stories.tsx',
+                          // The alchemy rich-text Editor is not yet migrated; excluded so a directory-level
+                          // glob can lock the rest of alchemy-components under enforcement without failing on it.
+                          '**/alchemy-components/components/Editor/**',
+                      ],
                       rules: {
                           'i18next/no-literal-string': [
                               'error',
@@ -328,6 +356,7 @@ module.exports = {
                                   },
                               },
                           ],
+                          'rulesdir/no-manual-pluralize-in-i18n': 'error',
                       },
                   },
               ]

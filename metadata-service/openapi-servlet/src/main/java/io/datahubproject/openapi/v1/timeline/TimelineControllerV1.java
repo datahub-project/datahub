@@ -104,6 +104,13 @@ public class TimelineControllerV1 {
     }
     return ResponseEntity.ok(
         _timelineService.getTimeline(
-            urn, categories, startTime, endTime, startVersionStamp, endVersionStamp, raw));
+            opContext,
+            urn,
+            categories,
+            startTime,
+            endTime,
+            startVersionStamp,
+            endVersionStamp,
+            raw));
   }
 }

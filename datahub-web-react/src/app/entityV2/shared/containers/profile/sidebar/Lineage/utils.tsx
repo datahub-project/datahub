@@ -1,7 +1,7 @@
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
-import { pluralize } from '@app/shared/textUtil';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AggregationMetadata, EntityType, FacetMetadata, SearchAcrossLineageResults } from '@types';
@@ -107,13 +107,13 @@ export const getRelatedEntitySummary = (
             {summary.types.map((type, idx) => {
                 return (
                     <SummaryText>
-                        {type.count}{' '}
-                        {pluralize(
-                            type.count,
-                            type.isEntityType
-                                ? (entityRegistry.getEntityName(type.type as EntityType) ?? '')
-                                : type.type,
-                        ).toLocaleLowerCase()}
+                        {i18next.t('entity.shared.containers:sidebar.entityTypeCount', {
+                            count: type.count,
+                            type: (type.isEntityType
+                                ? entityRegistry.getEntityName(type.type as EntityType)
+                                : type.type
+                            )?.toLocaleLowerCase(),
+                        })}
                         {/* eslint-disable-next-line i18next/no-literal-string -- list separator punctuation, not translatable UI text */}
                         {idx < summary.types.length - 1 && <>, </>}
                     </SummaryText>

@@ -1335,6 +1335,7 @@ module.exports = {
       label: "Advanced Guides",
       items: [
         "docs/deploy/confluent-cloud",
+        "docs/deploy/gms-rate-limiting",
         "docs/deploy/environment-vars",
         "docs/how/extract-container-logs",
       ],

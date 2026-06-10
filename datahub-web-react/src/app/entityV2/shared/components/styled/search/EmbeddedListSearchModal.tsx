@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { EmbeddedListSearch } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearch';
@@ -59,6 +60,7 @@ export const EmbeddedListSearchModal = ({
     entityTypes,
     searchFlags,
 }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     // Component state
     const [query, setQuery] = useState<string>('');
     const [page, setPage] = useState(1);
@@ -86,7 +88,7 @@ export const EmbeddedListSearchModal = ({
             title={title}
             open
             onCancel={onClose || (() => {})}
-            buttons={[{ text: 'Close', variant: 'text', onClick: onClose || (() => {}) }]}
+            buttons={[{ text: tc('close'), variant: 'text', onClick: onClose || (() => {}) }]}
         >
             <SearchContainer height={height}>
                 <EmbeddedListSearch

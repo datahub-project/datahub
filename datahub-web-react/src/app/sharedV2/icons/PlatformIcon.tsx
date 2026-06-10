@@ -1,4 +1,5 @@
 import ColorThief from 'colorthief';
+import i18next from 'i18next';
 import React, { useCallback, useRef, useState } from 'react';
 import styled, { CSSObject, css, useTheme } from 'styled-components/macro';
 
@@ -44,7 +45,7 @@ const PreviewImage = styled.img<{ size: number; imageStyles?: CSSObject | undefi
 const PlatformIcon: React.FC<PlatformIconProps> = ({
     platform,
     size = 17,
-    alt = 'Platform Logo',
+    alt = i18next.t('shared.misc:platformIcon.alt'),
     entityType = EntityType.DataPlatform,
     color,
     title,
@@ -83,6 +84,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
                         if (img && img.width > 0 && img.height > 0) {
                             const colorThief = new ColorThief();
                             const [r, g, b] = colorThief.getColor(img, 25);
+                            // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) numeric rgb join separator
                             setBackground(`rgb(${getLighterRGBColor(r, g, b).join(', ')})`);
                         }
                     }}

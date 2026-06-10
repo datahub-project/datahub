@@ -195,3 +195,38 @@ END
 
     # Staging table should be in outputs (from INSERT/DELETE)
     assert any("staging_table" in urn for urn in output_urns)
+
+
+def test_go_separated_batch_generates_lineage_for_all_batches(
+    mssql_schema_resolver: SchemaResolver,
+) -> None:
+    """A GO-separated MSSQL batch must split on GO so every batch contributes lineage.
+
+    Without GO-batch splitting, sqlglot sees `... GO ...` as a single statement,
+    fails to parse it, and the second batch's lineage is silently lost. This
+    exercises the GO path threaded through parse_procedure_code end-to-end.
+    """
+    procedure_code = """
+INSERT INTO staging_orders SELECT * FROM raw_orders
+GO
+INSERT INTO final_orders SELECT * FROM staging_orders
+GO
+"""
+
+    result = parse_procedure_code(
+        schema_resolver=mssql_schema_resolver,
+        default_db="TestDB",
+        default_schema="dbo",
+        code=procedure_code,
+        is_temp_table=lambda x: x.startswith("#"),
+        procedure_name="GoBatchProc",
+    )
+
+    assert result is not None, "parse_procedure_code should return DataJobInputOutput"
+    input_urns = [urn.lower() for urn in (result.inputDatasets or [])]
+    output_urns = [urn.lower() for urn in (result.outputDatasets or [])]
+
+    # First batch's source proves batch 1 parsed; second batch's target proves the
+    # GO separator split the script and batch 2 parsed too (not swallowed into batch 1).
+    assert any("raw_orders" in urn for urn in input_urns)
+    assert any("final_orders" in urn for urn in output_urns)

@@ -1,4 +1,5 @@
 import { CheckCircleOutlined, PlusCircleOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
+import i18next from 'i18next';
 import React from 'react';
 
 import {
@@ -25,8 +26,12 @@ import { FilterOperator } from '@types';
  */
 export const EQUALS_OPERATOR = {
     type: FilterOperatorType.EQUALS,
-    text: 'equals',
-    pluralText: 'is any of',
+    get text() {
+        return i18next.t('search:operator.equals');
+    },
+    get pluralText() {
+        return i18next.t('search:operator.isAnyOf');
+    },
     filter: {
         operator: FilterOperator.Equal,
         negated: false,
@@ -36,8 +41,12 @@ export const EQUALS_OPERATOR = {
 
 export const ALL_EQUALS_OPERATOR = {
     type: FilterOperatorType.ALL_EQUALS,
-    text: 'equals',
-    pluralText: 'is all of',
+    get text() {
+        return i18next.t('search:operator.equals');
+    },
+    get pluralText() {
+        return i18next.t('search:operator.isAllOf');
+    },
     filter: {
         operator: FrontendFilterOperator.AllEqual,
         negated: false,
@@ -47,7 +56,9 @@ export const ALL_EQUALS_OPERATOR = {
 
 export const EXISTS_OPERATOR = {
     type: FilterOperatorType.EXISTS,
-    text: 'exists',
+    get text() {
+        return i18next.t('search:operator.exists');
+    },
     filter: {
         operator: FilterOperator.Exists,
         negated: false,
@@ -57,8 +68,12 @@ export const EXISTS_OPERATOR = {
 
 export const NOT_EQUALS_OPERATOR = {
     type: FilterOperatorType.NOT_EQUALS,
-    text: 'does not equal',
-    pluralText: 'is not any of',
+    get text() {
+        return i18next.t('search:operator.doesNotEqual');
+    },
+    get pluralText() {
+        return i18next.t('search:operator.isNotAnyOf');
+    },
     filter: {
         operator: FilterOperator.Equal,
         negated: true,
@@ -68,7 +83,9 @@ export const NOT_EQUALS_OPERATOR = {
 
 export const NOT_EXISTS_OPERATOR = {
     type: FilterOperatorType.NOT_EXISTS,
-    text: 'does not exist',
+    get text() {
+        return i18next.t('search:operator.doesNotExist');
+    },
     filter: {
         operator: FilterOperator.Exists,
         negated: true,
@@ -78,8 +95,12 @@ export const NOT_EXISTS_OPERATOR = {
 
 const CONTAINS_OPERATOR = {
     type: FilterOperatorType.CONTAINS,
-    text: 'contains',
-    pluralText: 'contains any of',
+    get text() {
+        return i18next.t('search:operator.contains');
+    },
+    get pluralText() {
+        return i18next.t('search:operator.containsAnyOf');
+    },
     filter: {
         operator: FilterOperator.Contain,
         negated: false,
@@ -88,8 +109,12 @@ const CONTAINS_OPERATOR = {
 
 const NOT_CONTAINS_OPERATOR = {
     type: FilterOperatorType.NOT_CONTAINS,
-    text: 'does not contain',
-    pluralText: 'does not contain any of',
+    get text() {
+        return i18next.t('search:operator.doesNotContain');
+    },
+    get pluralText() {
+        return i18next.t('search:operator.doesNotContainAnyOf');
+    },
     filter: {
         operator: FilterOperator.Contain,
         negated: true,
@@ -98,7 +123,9 @@ const NOT_CONTAINS_OPERATOR = {
 
 const GREATER_THAN_OPERATOR = {
     type: FilterOperatorType.GREATER_THAN,
-    text: 'is greater than',
+    get text() {
+        return i18next.t('search:operator.isGreaterThan');
+    },
     filter: {
         operator: FilterOperator.GreaterThan,
         negated: false,
@@ -107,7 +134,9 @@ const GREATER_THAN_OPERATOR = {
 
 const GREATER_THAN_OR_EQUALS_OPERATOR = {
     type: FilterOperatorType.GREATER_THAN_OR_EQUALS,
-    text: 'is greater than or equal to',
+    get text() {
+        return i18next.t('search:operator.isGreaterThanOrEqualTo');
+    },
     filter: {
         operator: FilterOperator.GreaterThanOrEqualTo,
         negated: false,
@@ -116,7 +145,9 @@ const GREATER_THAN_OR_EQUALS_OPERATOR = {
 
 const LESS_THAN_OPERATOR = {
     type: FilterOperatorType.LESS_THAN,
-    text: 'is less than',
+    get text() {
+        return i18next.t('search:operator.isLessThan');
+    },
     filter: {
         operator: FilterOperator.LessThan,
         negated: false,
@@ -125,7 +156,9 @@ const LESS_THAN_OPERATOR = {
 
 const LESS_THAN_OR_EQUALS_OPERATOR = {
     type: FilterOperatorType.LESS_THAN_OR_EQUALS,
-    text: 'is less than or equal to',
+    get text() {
+        return i18next.t('search:operator.isLessThanOrEqualTo');
+    },
     filter: {
         operator: FilterOperator.LessThanOrEqualTo,
         negated: false,

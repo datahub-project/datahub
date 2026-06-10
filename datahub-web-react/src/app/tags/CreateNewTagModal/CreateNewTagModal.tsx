@@ -11,20 +11,36 @@ import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import TagDetailsSection from '@app/tags/CreateNewTagModal/TagDetailsSection';
 
-import { useBatchAddOwnersMutation, useSetTagColorMutation } from '@graphql/mutations.generated';
+import {
+    useBatchAddOwnersMutation,
+    useBatchAddTagsMutation,
+    useSetTagColorMutation,
+} from '@graphql/mutations.generated';
 import { useCreateTagMutation } from '@graphql/tag.generated';
+import { ResourceRefInput } from '@types';
 
 type CreateNewTagModalProps = {
     open: boolean;
     onClose: () => void;
+    /**
+     * Pre-fills the tag name field. Used by `AddTagsModal` when the user clicks the synthetic
+     * "Create <name>" option in the dropdown so they don't have to retype it.
+     */
+    initialTagName?: string;
+    /**
+     * When set, the newly-created tag is batch-added to these resources after creation. Mirrors
+     * the legacy `CreateTagModal` "create-and-assign" flow used by the entity-sidebar Add Tags
+     * button. Omit when the modal is opened from the standalone /tags admin page.
+     */
+    resources?: ResourceRefInput[];
 };
 
-const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) => {
+const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, initialTagName, resources }) => {
     const { t } = useTranslation('misc');
     const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const defaultTagColor = theme.colors.textBrand;
-    const [tagName, setTagName] = useState('');
+    const [tagName, setTagName] = useState(initialTagName ?? '');
     const [tagDescription, setTagDescription] = useState('');
     const [tagColor, setTagColor] = useState(defaultTagColor);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
@@ -33,6 +49,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
     const [createTagMutation] = useCreateTagMutation();
     const [setTagColorMutation] = useSetTagColorMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
+    const [batchAddTagsMutation] = useBatchAddTagsMutation();
 
     const onOk = async () => {
         if (!tagName) {
@@ -77,6 +94,19 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
                         input: {
                             owners: ownerInputs,
                             resources: [{ resourceUrn: newTagUrn }],
+                        },
+                    },
+                });
+            }
+
+            // When launched from `AddTagsModal` the caller passes the entity resources so the new
+            // tag is also assigned to them — preserves the legacy inline "create and apply" flow.
+            if (resources && resources.length > 0) {
+                await batchAddTagsMutation({
+                    variables: {
+                        input: {
+                            tagUrns: [newTagUrn],
+                            resources,
                         },
                     },
                 });

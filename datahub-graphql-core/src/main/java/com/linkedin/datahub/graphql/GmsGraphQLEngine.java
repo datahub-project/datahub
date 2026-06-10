@@ -347,6 +347,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -453,6 +454,7 @@ public class GmsGraphQLEngine {
   private final FeatureFlags featureFlags;
 
   private final IngestionConfiguration ingestionConfiguration;
+  private final IngestionCliVersionMatrixService ingestionCliVersionMatrixService;
   private final AuthenticationConfiguration authenticationConfiguration;
   private final AuthorizationConfiguration authorizationConfiguration;
   private final VisualConfiguration visualConfiguration;
@@ -596,6 +598,8 @@ public class GmsGraphQLEngine {
 
     this.businessAttributeService = args.businessAttributeService;
     this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
+    this.ingestionCliVersionMatrixService =
+        Objects.requireNonNull(args.ingestionCliVersionMatrixService);
     this.authenticationConfiguration = Objects.requireNonNull(args.authenticationConfiguration);
     this.authorizationConfiguration = Objects.requireNonNull(args.authorizationConfiguration);
     this.visualConfiguration = args.visualConfiguration;
@@ -1368,14 +1372,18 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "createIngestionExecutionRequest",
                   new CreateIngestionExecutionRequestResolver(
-                      this.entityClient, this.ingestionConfiguration))
+                      this.entityClient,
+                      this.ingestionConfiguration,
+                      this.ingestionCliVersionMatrixService))
               .dataFetcher(
                   "cancelIngestionExecutionRequest",
                   new CancelIngestionExecutionRequestResolver(this.entityClient))
               .dataFetcher(
                   "createTestConnectionRequest",
                   new CreateTestConnectionRequestResolver(
-                      this.entityClient, this.ingestionConfiguration))
+                      this.entityClient,
+                      this.ingestionConfiguration,
+                      this.ingestionCliVersionMatrixService))
               .dataFetcher(
                   "upsertCustomAssertion", new UpsertCustomAssertionResolver(assertionService))
               .dataFetcher(

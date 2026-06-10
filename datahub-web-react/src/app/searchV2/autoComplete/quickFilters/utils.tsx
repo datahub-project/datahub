@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -24,7 +25,7 @@ export function getQuickFilterDetails(quickFilter: QuickFilter, entityRegistry: 
         const genericProps = entityRegistry.getGenericEntityProperties(EntityType.DataPlatform, quickFilter.entity);
         const logoUrl = genericProps?.platform?.properties?.logoUrl || '';
         if (logoUrl) {
-            icon = <StyledIcon alt="icon" src={logoUrl} />;
+            icon = <StyledIcon alt={i18next.t('search:autoComplete.quickFilter.iconAlt')} src={logoUrl} />;
         } else {
             icon = entityRegistry.getIcon(EntityType.DataPlatform, 14, IconStyleType.ACCENT, iconColor);
         }

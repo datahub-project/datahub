@@ -1,9 +1,12 @@
 package com.linkedin.metadata.aspect.validators;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -70,6 +73,7 @@ public class SystemPolicyValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.DELETE)
@@ -101,6 +105,7 @@ public class SystemPolicyValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.DELETE)
@@ -131,6 +136,7 @@ public class SystemPolicyValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.DELETE)
@@ -164,6 +170,7 @@ public class SystemPolicyValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.DELETE)
@@ -206,7 +213,7 @@ public class SystemPolicyValidatorTest {
             .setType("");
 
     when(mockAspectRetriever.getLatestAspectObject(
-            SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
+            any(), eq(SYSTEM_POLICY_ZERO), eq(DATAHUB_POLICY_INFO_ASPECT_NAME)))
         .thenReturn(new Aspect(policyInfo.data()));
 
     final AuditStamp auditStamp = new AuditStamp();
@@ -216,6 +223,7 @@ public class SystemPolicyValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -239,6 +247,7 @@ public class SystemPolicyValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPDATE)
@@ -262,6 +271,7 @@ public class SystemPolicyValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.PATCH)
@@ -296,7 +306,7 @@ public class SystemPolicyValidatorTest {
             .setType("");
 
     when(mockAspectRetriever.getLatestAspectObject(
-            SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
+            any(), eq(SYSTEM_POLICY_ZERO), eq(DATAHUB_POLICY_INFO_ASPECT_NAME)))
         .thenReturn(new Aspect(policyInfo.data()));
 
     final AuditStamp auditStamp = new AuditStamp();
@@ -305,6 +315,7 @@ public class SystemPolicyValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -339,7 +350,7 @@ public class SystemPolicyValidatorTest {
             .setType("");
 
     when(mockAspectRetriever.getLatestAspectObject(
-            SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
+            any(), eq(SYSTEM_POLICY_ZERO), eq(DATAHUB_POLICY_INFO_ASPECT_NAME)))
         .thenReturn(new Aspect(policyInfo.data()));
 
     final AuditStamp auditStamp = new AuditStamp();
@@ -348,6 +359,7 @@ public class SystemPolicyValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -382,12 +394,13 @@ public class SystemPolicyValidatorTest {
             .setType("");
 
     when(mockAspectRetriever.getLatestAspectObject(
-            SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
+            any(), eq(SYSTEM_POLICY_ZERO), eq(DATAHUB_POLICY_INFO_ASPECT_NAME)))
         .thenReturn(new Aspect(policyInfo.data()));
 
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -412,7 +425,7 @@ public class SystemPolicyValidatorTest {
   public void testModifyWhenNoPolicyInfoAspectExists() {
     // When no existing policy info aspect exists, modification should be allowed
     when(mockAspectRetriever.getLatestAspectObject(
-            SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
+            any(), eq(SYSTEM_POLICY_ZERO), eq(DATAHUB_POLICY_INFO_ASPECT_NAME)))
         .thenReturn(null);
 
     final AuditStamp auditStamp = new AuditStamp();
@@ -421,6 +434,7 @@ public class SystemPolicyValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)

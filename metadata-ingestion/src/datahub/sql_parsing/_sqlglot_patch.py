@@ -8,7 +8,6 @@ import sqlglot
 import sqlglot.expressions
 import sqlglot.lineage
 import sqlglot.optimizer.scope
-import sqlglot.optimizer.unnest_subqueries
 
 from datahub.utilities.is_pytest import is_pytest_running
 from datahub.utilities.unified_diff import apply_diff
@@ -117,39 +116,6 @@ def _patch_scope_traverse() -> None:
     sqlglot.optimizer.scope.Scope.traverse = _traverse_with_cycle_detection  # type: ignore
 
 
-def _patch_unnest_subqueries() -> None:
-    patchy.patch(
-        sqlglot.optimizer.unnest_subqueries.decorrelate,
-        """\
-@@ -148,16 +148,19 @@
-         if key in group_by:
-             key.replace(nested)
-         elif isinstance(predicate, exp.EQ):
--            parent_predicate = _replace(
--                parent_predicate,
--                f"({parent_predicate} AND ARRAY_CONTAINS({nested}, {column}))",
--            )
-+            if parent_predicate:
-+                parent_predicate = _replace(
-+                    parent_predicate,
-+                    f"({parent_predicate} AND ARRAY_CONTAINS({nested}, {column}))",
-+                )
-         else:
-             key.replace(exp.to_identifier("_x"))
--            parent_predicate = _replace(
--                parent_predicate,
--                f"({parent_predicate} AND ARRAY_ANY({nested}, _x -> {predicate}))",
--            )
-+
-+            if parent_predicate:
-+                parent_predicate = _replace(
-+                    parent_predicate,
-+                    f"({parent_predicate} AND ARRAY_ANY({nested}, _x -> {predicate}))",
-+                )
-""",
-    )
-
-
 def _patch_lineage() -> None:
     import importlib.util
     import os
@@ -253,13 +219,8 @@ def _patch_lineage() -> None:
 
 # Apply patches
 
-# sqlglot.Expression was removed as a top-level re-export in v30; restore it for
-# backward compatibility with existing DataHub type annotations.
-sqlglot.Expression = sqlglot.expressions.Expression  # type: ignore
-
 sqlglot.expressions.Expression.__deepcopy__ = _deepcopy_wrapper  # type: ignore
 _patch_scope_traverse()
-_patch_unnest_subqueries()
 _patch_lineage()
 
 SQLGLOT_PATCHED = True

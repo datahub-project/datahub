@@ -385,48 +385,85 @@ removed in a future release.
 
 #### Python Package Index (PyPI)
 
-Docker images for `datahub-ingestion`, `datahub-executor`, and `datahub-actions` install Python
-packages at build time. Override these URLs to point to an internal PyPI mirror or add a secondary
-index for airgapped or corporate environments:
+Docker images for `datahub-ingestion` and `datahub-actions` install Python packages at build time
+using [uv](https://docs.astral.sh/uv/). Index configuration is profile-based: a `uv.toml` is
+written into the image at build time, and credentials are injected via a `netrc` file that is
+**never baked into any image layer**.
 
-| Property                                       | Default                          | Purpose                                        |
-| ---------------------------------------------- | -------------------------------- | ---------------------------------------------- |
-| `datahub.dependencies.python.pipMirrorUrl`     | `https://pypi.python.org/simple` | Replace PyPI entirely (e.g. airgapped mirrors) |
-| `datahub.dependencies.python.pipExtraIndexUrl` | _(empty)_                        | Add a secondary index alongside the main one   |
+##### Gradle properties
+
+| Property                                       | Default                          | Purpose                                              |
+| ---------------------------------------------- | -------------------------------- | ---------------------------------------------------- |
+| `datahub.dependencies.python.pipMirrorUrl`     | `https://pypi.python.org/simple` | Default index URL (used when profile is `custom`)    |
+| `datahub.dependencies.python.pipExtraIndexUrl` | _(empty)_                        | Additional index URL (used when profile is `custom`) |
+| `datahub.dependencies.python.uvProfile`        | `default`                        | Which index profile to use (see below)               |
 
 The defaults are defined in the root `gradle.properties` file, which is the canonical reference.
 
-**Override options (in order of precedence):**
+##### UV index profiles
 
-1. **Command-line flag:**
+The `datahub.dependencies.python.uvProfile` property selects how uv resolves packages:
 
-   ```bash
-   ./gradlew :docker:datahub-ingestion:docker \
-     -P'datahub.dependencies.python.pipMirrorUrl'=https://nexus.company.com/pypi/simple/ \
-     -P'datahub.dependencies.python.pipExtraIndexUrl'=https://nexus.company.com/pypi-extra/simple/
-   ```
+| Profile   | Behaviour                                                                                      |
+| --------- | ---------------------------------------------------------------------------------------------- |
+| `default` | Uses PyPI (`https://pypi.org/simple/`) as the sole index.                                      |
+| `custom`  | Uses `pipMirrorUrl` as the default index. Adds `pipExtraIndexUrl` as a secondary index if set. |
 
-2. **Environment variable:**
+Setting `pipExtraIndexUrl` without explicitly setting `uvProfile=custom` will **automatically
+activate the `custom` profile** — you do not need to set both.
 
-   ```bash
-   export 'ORG_GRADLE_PROJECT_datahub.dependencies.python.pipMirrorUrl'=https://nexus.company.com/pypi/simple/
-   export 'ORG_GRADLE_PROJECT_datahub.dependencies.python.pipExtraIndexUrl'=https://nexus.company.com/pypi-extra/simple/
-   ```
+Profile toml files live in [`docker/snippets/uv/profiles/`](../docker/snippets/uv/profiles/).
+Add a new `.toml` file there and pass its basename as `uvProfile` to use a fully custom static profile. For example create a `ci.toml` file and pass `datahub.dependencies.python.uvProfile=ci` as a gradle property to use the ci.toml file.
 
-3. **User-level `~/.gradle/gradle.properties`:**
+##### Configuring a private index
 
-   ```properties
-   datahub.dependencies.python.pipMirrorUrl=https://nexus.company.com/pypi/simple/
-   datahub.dependencies.python.pipExtraIndexUrl=https://nexus.company.com/pypi-extra/simple/
-   ```
+**Step 1 — tell the build where the index is:**
 
-:::note Authentication
+```bash
+# Command-line (highest precedence)
+./gradlew :docker:datahub-ingestion:docker \
+  -P'datahub.dependencies.python.pipMirrorUrl'=https://nexus.company.com/pypi/simple/ \
+  -P'datahub.dependencies.python.pipExtraIndexUrl'=https://nexus.company.com/pypi-extra/simple/
 
-For indices that require credentials, embed them in the URL:
+# Environment variable
+export 'ORG_GRADLE_PROJECT_datahub.dependencies.python.pipMirrorUrl'=https://nexus.company.com/pypi/simple/
+export 'ORG_GRADLE_PROJECT_datahub.dependencies.python.pipExtraIndexUrl'=https://nexus.company.com/pypi-extra/simple/
+
+# User-level ~/.gradle/gradle.properties
+datahub.dependencies.python.pipMirrorUrl=https://nexus.company.com/pypi/simple/
+datahub.dependencies.python.pipExtraIndexUrl=https://nexus.company.com/pypi-extra/simple/
+```
+
+**Step 2 — supply credentials via `netrc` (never embed them in URLs):**
+
+Create a `netrc` file with one `machine` entry per index hostname:
+
+```
+machine nexus.company.com login <username> password <token>
+```
+
+Place the file at `docker/snippets/uv/.netrc` (gitignored by default), or point to any path via
+the `DATAHUB_NETRC_PATH` environment variable:
+
+```bash
+export DATAHUB_NETRC_PATH=/path/to/.netrc
+./gradlew :docker:datahub-ingestion:docker ...
+```
+
+See `docker/snippets/uv/.netrc.example` for the full format
+and examples. The file is mounted into the build via a Docker BuildKit secret — it is **never
+written to any image layer** and will not appear in `docker history` output.
+
+:::warning Credentials in URLs
+
+Do not embed credentials directly in index URLs:
 
 ```properties
-datahub.dependencies.python.pipExtraIndexUrl=https://user:password@custom-pypi.company.com/simple/
+# BAD — password baked into image layer via build arg
+datahub.dependencies.python.pipExtraIndexUrl=https://user:password@nexus.company.com/simple/
 ```
+
+Use the `netrc` file instead. uv reads it natively for authentication.
 
 :::
 
@@ -437,6 +474,34 @@ The `pipMirrorUrl` and `pipExtraIndexUrls` Gradle properties are **deprecated** 
 They are still honoured for backward compatibility but will be removed in a future release.
 
 :::
+
+##### Local Python installs (non-Docker)
+
+Local Gradle Python install tasks — `./gradlew :metadata-ingestion:installDev` and the equivalents
+in `datahub-actions`, the `metadata-ingestion-modules/*` plugins, and `smoke-test` — consume the
+same profile and netrc that Docker builds use, so a private index is picked up automatically with
+no per-developer shell wiring.
+
+Wiring:
+
+- `UV_CONFIG_FILE` is exported to every `uv pip` invocation, pointing at
+  `docker/snippets/uv/profiles/${uvProfile}.toml` (falling back to `profiles/default.toml` if the
+  selected profile file doesn't exist).
+- `NETRC` is exported when a netrc file is present at `docker/snippets/uv/.netrc` or at the path
+  given by `DATAHUB_NETRC_PATH`.
+
+In the default OSS configuration this is a no-op: `default.toml` declares only PyPI, so uv resolves
+exactly as it does today. To opt in to a private index for local installs, either edit
+`profiles/default.toml` to declare your index, or set `datahub.dependencies.python.uvProfile` to a
+custom profile name and author the matching `profiles/<name>.toml`.
+
+For direct `uv pip install` calls inside an already-activated venv (no Gradle in the loop), export
+the same env vars in your shell, mise, or direnv config:
+
+```bash
+export UV_CONFIG_FILE="$(git rev-parse --show-toplevel)/docker/snippets/uv/profiles/default.toml"
+export NETRC="$(git rev-parse --show-toplevel)/docker/snippets/uv/.netrc"
+```
 
 ## Deploying Local Versions
 

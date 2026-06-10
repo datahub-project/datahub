@@ -5,7 +5,10 @@ import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { RelatedTermTypes } from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
+import {
+    RelatedTermTypes,
+    getRelatedTermTypeLabel,
+} from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
@@ -69,7 +72,7 @@ export default function RelatedTermsModule(props: ModuleProps) {
                                     moduleType={DataHubPageModuleType.RelatedTerms}
                                     customDetailsRenderer={() => (
                                         <Text size="sm" color="gray">
-                                            {RelatedTermTypes[relationshipType]}
+                                            {getRelatedTermTypeLabel(RelatedTermTypes[relationshipType])}
                                         </Text>
                                     )}
                                 />

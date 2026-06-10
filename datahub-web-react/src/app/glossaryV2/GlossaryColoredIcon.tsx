@@ -5,11 +5,11 @@ import styled from 'styled-components/macro';
 import { hexToRgb } from '@app/sharedV2/colors/colorUtils';
 import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
 
-const Container = styled.div<{ $bg: string; $size: number }>`
+const Container = styled.div<{ $bg: string; $size: number; $radius: number }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: ${(props) => props.$size / 4}px;
+    border-radius: ${(props) => props.$radius}px;
     height: ${(props) => props.$size}px;
     width: ${(props) => props.$size}px;
     min-width: ${(props) => props.$size}px;
@@ -22,16 +22,26 @@ interface Props {
     icon: Icon;
     size?: number;
     iconSize?: number;
+    /** Override the container's border-radius (defaults to `size / 4`). */
+    radius?: number;
     className?: string;
 }
 
-export default function GlossaryColoredIcon({ color, icon: IconComponent, size = 24, iconSize, className }: Props) {
+export default function GlossaryColoredIcon({
+    color,
+    icon: IconComponent,
+    size = 24,
+    iconSize,
+    radius,
+    className,
+}: Props) {
     const [r, g, b] = hexToRgb(color);
     const bg = `rgb(${getLighterRGBColor(r, g, b).join(', ')})`;
     const resolvedIconSize = iconSize ?? Math.round(size * 0.6);
+    const resolvedRadius = radius ?? size / 4;
 
     return (
-        <Container $bg={bg} $size={size} className={className}>
+        <Container $bg={bg} $size={size} $radius={resolvedRadius} className={className}>
             <IconComponent size={resolvedIconSize} color={color} weight="regular" />
         </Container>
     );

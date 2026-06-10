@@ -1,6 +1,7 @@
 import { DeleteOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Redirect } from 'react-router';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export default function DeleteEntityMenuItem({ options, onDelete }: Props) {
+    const { t } = useTranslation('entity.shared.entityDropdown');
     const { urn, entityData, entityType } = useEntityData();
     const me = useUserContext();
     const entityRegistry = useEntityRegistry();
@@ -43,13 +45,15 @@ export default function DeleteEntityMenuItem({ options, onDelete }: Props) {
     return (
         <Tooltip
             placement="bottom"
-            title={
-                shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)
-                    ? `Can't delete ${entityRegistry.getEntityName(entityType)} with ${
-                          isDomainEntity ? 'sub-domain' : 'child'
-                      } entities.`
-                    : `Delete this ${entityRegistry.getEntityName(entityType)}`
-            }
+            title={(() => {
+                const entityName = entityRegistry.getEntityName(entityType);
+                if (shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)) {
+                    return isDomainEntity
+                        ? t('delete.cantDeleteSubDomain', { entityName })
+                        : t('delete.cantDeleteChild', { entityName });
+                }
+                return t('delete.tooltip', { entityName });
+            })()}
         >
             <ActionMenuItem
                 key="delete"

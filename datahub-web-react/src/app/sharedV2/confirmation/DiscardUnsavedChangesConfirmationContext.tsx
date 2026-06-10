@@ -1,5 +1,6 @@
 import { Location } from 'history';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Prompt, useHistory } from 'react-router';
 
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
@@ -40,6 +41,8 @@ export function DiscardUnsavedChangesConfirmationProvider({
     confirmButtonText,
     closeButtonText,
 }: React.PropsWithChildren<Props>) {
+    const { t } = useTranslation('shared.confirmation');
+    const { t: tc } = useTranslation('common.actions');
     const [isDirty, setIsDirty] = useState<boolean>(false);
     const [isConfirmationShown, setIsConfirmationShown] = useState<boolean>(false);
     const [onConfirmHandler, setOnConfirmHandler] = useState<(() => void) | undefined>(undefined);
@@ -98,19 +101,16 @@ export function DiscardUnsavedChangesConfirmationProvider({
 
             <ConfirmationModal
                 isOpen={isConfirmationShown}
-                modalTitle={confirmationModalTitle ?? 'You have unsaved changes'}
-                modalText={
-                    confirmationModalContent ??
-                    'Exiting now will discard your changes. You can continue or exit and start over later'
-                }
+                modalTitle={confirmationModalTitle ?? t('unsavedChanges.title')}
+                modalText={confirmationModalContent ?? t('unsavedChanges.text')}
                 closeButtonColor="gray"
                 handleConfirm={() => {
                     setIsConfirmationShown(false);
                     setIsRedirectConfirmed(false); // restore redirect handling
                 }}
-                confirmButtonText={confirmButtonText ?? 'Continue'}
+                confirmButtonText={confirmButtonText ?? tc('continue')}
                 handleClose={() => onConfirmHandler?.()}
-                closeButtonText={closeButtonText ?? 'Exit'}
+                closeButtonText={closeButtonText ?? tc('exit')}
                 closeOnPrimaryAction
             />
 
@@ -120,16 +120,13 @@ export function DiscardUnsavedChangesConfirmationProvider({
 
                     <ConfirmationModal
                         isOpen={isRedirectConfirmationShown}
-                        modalTitle={confirmationModalTitle ?? 'You have unsaved changes'}
-                        modalText={
-                            confirmationModalContent ??
-                            'Exiting now will discard your changes. You can continue or exit and start over later'
-                        }
+                        modalTitle={confirmationModalTitle ?? t('unsavedChanges.title')}
+                        modalText={confirmationModalContent ?? t('unsavedChanges.text')}
                         closeButtonColor="gray"
                         handleConfirm={() => setIsRedirectConfirmationShown(false)}
-                        confirmButtonText={confirmButtonText ?? 'Continue'}
+                        confirmButtonText={confirmButtonText ?? tc('continue')}
                         handleClose={onRedirectConfirm}
-                        closeButtonText={closeButtonText ?? 'Exit'}
+                        closeButtonText={closeButtonText ?? tc('exit')}
                         closeOnPrimaryAction
                     />
                 </>

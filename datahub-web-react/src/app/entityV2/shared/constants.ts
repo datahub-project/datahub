@@ -1,6 +1,8 @@
 // Disabling no hardcoded colors rule right now
 // TO-DO: Remove these colors once their usage in other files is migrated to semantic tokens
 /* eslint-disable rulesdir/no-hardcoded-colors */
+import i18next from 'i18next';
+
 import { EntityType } from '@types';
 
 // TODO(Gabe): integrate this w/ the theme
@@ -146,58 +148,110 @@ export const LINEAGE_COLORS = {
 
 export const EMPTY_MESSAGES = {
     documentation: {
-        title: 'No documentation yet',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.documentation.title');
+        },
     },
     tags: {
-        title: 'No tags yet',
-        description: 'Tag entities to help make them more discoverable and call out their most important attributes.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.tags.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.tags.description');
+        },
     },
     terms: {
-        title: 'No terms yet',
-        description: 'Apply glossary terms to entities to classify their data.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.terms.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.terms.description');
+        },
     },
     owners: {
-        title: 'No owners yet',
-        description: 'Adding owners helps you keep track of who is responsible for this data.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.owners.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.owners.description');
+        },
     },
     properties: {
-        title: 'No properties',
-        description: 'Properties will appear here if they exist in your data source.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.properties.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.properties.description');
+        },
     },
     queries: {
-        title: 'No queries yet',
-        description: 'Create, view, and share commonly used queries for this dataset.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.queries.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.queries.description');
+        },
     },
     domain: {
-        title: 'No domain yet',
-        description: 'Group related entities based on your organizational structure using by adding them to a Domain.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.domain.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.domain.description');
+        },
     },
     dataProduct: {
-        title: 'No product yet',
-        description: 'Group related entities based on shared characteristics by adding them to a Data Product.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.dataProduct.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.dataProduct.description');
+        },
     },
     application: {
-        title: 'No application yet',
-        description: 'Associate entities with applications to track ownership and lifecycle.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.application.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.application.description');
+        },
     },
     contains: {
-        title: 'Does not Contain any Glossary Terms',
-        description: 'Terms can contain other terms to represent a "Has A" style relationship.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.contains.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.contains.description');
+        },
     },
     inherits: {
-        title: 'Does not Inherit any Glossary Terms',
-        description: 'Terms can inherit from other terms to represent an "Is A" style relationship.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.inherits.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.inherits.description');
+        },
     },
     'contained by': {
-        title: 'Is not Contained by any Glossary Terms',
-        description: 'Terms can be contained by other terms to represent a "Has A" style relationship.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.containedBy.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.containedBy.description');
+        },
     },
     'inherited by': {
-        title: 'Is not Inherited by any Glossary Terms',
-        description: 'Terms can be inherited by other terms to represent an "Is A" style relationship.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.inheritedBy.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.inheritedBy.description');
+        },
     },
     structuredProps: {
-        title: 'No value set',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.structuredProps.title');
+        },
     },
 };
 

@@ -1,8 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import useGetPromptInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
 import { getFormAssociation } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
 import FormRequestedBy from '@app/entity/shared/entityForm/FormSelectionModal/FormRequestedBy';
@@ -20,7 +20,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { FormPrompt } from '@types';
 
 const TabWrapper = styled.div`
-    background-color: ${ANTD_GRAY_V2[1]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     overflow: auto;
     padding: 24px;
     flex: 1;
@@ -39,7 +39,7 @@ const SubTitle = styled(PromptSubTitle)`
 `;
 
 const RequestedByWrapper = styled(PromptSubTitle)`
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface Props {
@@ -47,6 +47,7 @@ interface Props {
 }
 
 function Form({ formUrn }: Props) {
+    const { t } = useTranslation('entity.form');
     const entityRegistry = useEntityRegistry();
     const { entityType, entityData } = useEntityData();
     const { entityPrompts, fieldPrompts } = useGetPromptInfo(formUrn);
@@ -65,7 +66,11 @@ function Form({ formUrn }: Props) {
         <TabWrapper>
             <HeaderWrapper>
                 <IntroTitle>
-                    {title ? <>{title}</> : <>{entityRegistry.getEntityName(entityType)} Requirements</>}
+                    {title ? (
+                        <>{title}</>
+                    ) : (
+                        <>{t('requirementsTitle', { entityName: entityRegistry.getEntityName(entityType) })}</>
+                    )}
                 </IntroTitle>
                 {owners && owners.length > 0 && (
                     <RequestedByWrapper>
@@ -78,8 +83,7 @@ function Form({ formUrn }: Props) {
                     </SubTitle>
                 ) : (
                     <SubTitle>
-                        Please fill out the following information for this {entityRegistry.getEntityName(entityType)} so
-                        that we can keep track of the status of the asset
+                        {t('introDescription', { entityName: entityRegistry.getEntityName(entityType) })}
                     </SubTitle>
                 )}
             </HeaderWrapper>

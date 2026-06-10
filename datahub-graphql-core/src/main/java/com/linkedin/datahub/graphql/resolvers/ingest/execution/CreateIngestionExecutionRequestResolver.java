@@ -23,6 +23,9 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionResolutionHelper;
+import com.linkedin.metadata.ingestion.IngestionCliVersionResolutionLogger;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.IngestionUtils;
@@ -31,12 +34,15 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import lombok.extern.slf4j.Slf4j;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 /** Creates an on-demand ingestion execution request. */
+@Slf4j
 public class CreateIngestionExecutionRequestResolver
     implements DataFetcher<CompletableFuture<String>> {
 
@@ -48,11 +54,16 @@ public class CreateIngestionExecutionRequestResolver
 
   private final EntityClient _entityClient;
   private final IngestionConfiguration _ingestionConfiguration;
+  private final IngestionCliVersionMatrixService _versionMatrixService;
 
   public CreateIngestionExecutionRequestResolver(
-      final EntityClient entityClient, final IngestionConfiguration ingestionConfiguration) {
+      final EntityClient entityClient,
+      final IngestionConfiguration ingestionConfiguration,
+      final IngestionCliVersionMatrixService versionMatrixService) {
     _entityClient = entityClient;
     _ingestionConfiguration = ingestionConfiguration;
+    // Always a wired Spring bean (NoOp-backed when no matrix backend is configured), never null.
+    _versionMatrixService = Objects.requireNonNull(versionMatrixService);
   }
 
   @Override
@@ -122,11 +133,25 @@ public class CreateIngestionExecutionRequestResolver
               recipe = injectRunId(recipe, executionRequestUrn.toString());
               recipe = IngestionUtils.injectPipelineName(recipe, ingestionSourceUrn.toString());
               arguments.put(RECIPE_ARG_NAME, recipe);
-              arguments.put(
-                  VERSION_ARG_NAME,
-                  IngestionUtils.resolveIngestionCliVersion(
+              // getVersion() returns null for an unset optional field, so no hasVersion() guard is
+              // needed. The helper normalizes null / empty / whitespace-only versions (bootstrap
+              // YAML can render `version: "{{ config.version }}"` as 3 spaces) to "unset", falling
+              // through to the matrix / application default instead of pinning the bundled CLI.
+              final IngestionCliVersionResolutionHelper.Result resolution =
+                  IngestionCliVersionResolutionHelper.resolve(
                       ingestionSourceInfo.getConfig().getVersion(),
-                      _ingestionConfiguration.getDefaultCliVersion()));
+                      ingestionSourceInfo.getType(),
+                      _versionMatrixService,
+                      _ingestionConfiguration.getDefaultCliVersion());
+              arguments.put(VERSION_ARG_NAME, resolution.getVersion());
+              execInput.setCliVersionAudit(resolution.getStamp());
+              IngestionCliVersionResolutionLogger.log(
+                  log,
+                  IngestionCliVersionResolutionLogger.TRIGGER_MANUAL,
+                  resolution,
+                  ingestionSourceInfo.getType(),
+                  IngestionCliVersionResolutionLogger.IDENTIFIER_INGESTION_SOURCE,
+                  ingestionSourceUrn.toString());
               String debugMode = "false";
               if (ingestionSourceInfo.getConfig().hasDebugMode()) {
                 debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";

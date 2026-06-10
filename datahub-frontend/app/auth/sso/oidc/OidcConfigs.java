@@ -4,8 +4,12 @@ import static auth.AuthUtils.*;
 import static auth.ConfigUtil.*;
 
 import auth.sso.SsoConfigs;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.Getter;
 
 /** Class responsible for extracting and validating OIDC related configurations. */
@@ -48,6 +52,7 @@ public class OidcConfigs extends SsoConfigs {
   public static final String OIDC_HTTP_RETRY_DELAY = "auth.oidc.httpRetryDelay";
   public static final String OIDC_ACCESS_DENIED_REDIRECT_URL = "auth.oidc.accessDeniedRedirectUrl";
   public static final String OIDC_DISABLE_PKCE = "auth.oidc.disablePkce";
+  public static final String OIDC_REQUIRED_GROUPS_CONFIG_PATH = "auth.oidc.requiredGroups";
 
   /** Default values */
   private static final String DEFAULT_OIDC_USERNAME_CLAIM = "email";
@@ -94,6 +99,9 @@ public class OidcConfigs extends SsoConfigs {
   private final Optional<String> accessDeniedRedirectUrl;
   private final boolean disablePkce;
 
+  /* Group Access Control */
+  private final Set<String> requiredGroups;
+
   public OidcConfigs(Builder builder) {
     super(builder);
     this.clientId = builder.clientId;
@@ -122,6 +130,7 @@ public class OidcConfigs extends SsoConfigs {
     this.httpRetryDelay = builder.httpRetryDelay;
     this.accessDeniedRedirectUrl = builder.accessDeniedRedirectUrl;
     this.disablePkce = builder.disablePkce;
+    this.requiredGroups = builder.requiredGroups;
   }
 
   public String getHttpRetryAttempts() {
@@ -162,6 +171,7 @@ public class OidcConfigs extends SsoConfigs {
     private String httpRetryDelay = DEFAULT_OIDC_HTTP_RETRY_DELAY;
     private Optional<String> accessDeniedRedirectUrl = Optional.empty();
     private boolean disablePkce = false;
+    private Set<String> requiredGroups = Collections.emptySet();
 
     public Builder from(final com.typesafe.config.Config configs) {
       super.from(configs);
@@ -218,6 +228,15 @@ public class OidcConfigs extends SsoConfigs {
       if (configs.hasPath(OIDC_DISABLE_PKCE)) {
         disablePkce = configs.getBoolean(OIDC_DISABLE_PKCE);
       }
+      requiredGroups =
+          getOptional(configs, OIDC_REQUIRED_GROUPS_CONFIG_PATH)
+              .map(
+                  s ->
+                      Arrays.stream(s.split(","))
+                          .map(String::trim)
+                          .filter(str -> !str.isEmpty())
+                          .collect(Collectors.toSet()))
+              .orElse(Collections.emptySet());
       return this;
     }
 

@@ -2,6 +2,7 @@ package com.linkedin.metadata.aspect.hooks;
 
 import static com.linkedin.metadata.Constants.DEFAULT_SCHEMA_VERSION;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -111,7 +112,9 @@ public class AspectMigrationMutatorChain extends MutationHook {
 
   @Override
   protected Stream<Pair<ReadItem, Boolean>> readMutation(
-      @Nonnull Collection<ReadItem> items, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ReadItem> items,
+      @Nonnull RetrieverContext retrieverContext) {
     if (!enabled.get()) {
       return items.stream().map(i -> Pair.of(i, false));
     }
@@ -162,7 +165,9 @@ public class AspectMigrationMutatorChain extends MutationHook {
 
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPS,
+      @Nonnull RetrieverContext retrieverContext) {
     if (!enabled.get()) {
       return changeMCPS.stream().map(i -> Pair.of(i, false));
     }

@@ -13,6 +13,7 @@ dependencies {
   implementation project(':metadata-service:schema-registry-api')
   implementation project (':metadata-service:openapi-servlet:models')
   implementation project(':metadata-service:events-service')
+  implementation project(':metadata-service:rate-limit')
 
   implementation externalDependency.reflections
   implementation externalDependency.springBoot

@@ -17,6 +17,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.query.ListResult;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
@@ -120,7 +121,15 @@ public class IngestionSchedulerTest {
 
     ingestionScheduler =
         new IngestionScheduler(
-            Mockito.mock(OperationContext.class), mockClient, ingestionConfiguration, 1, 1200);
+            Mockito.mock(OperationContext.class),
+            mockClient,
+            ingestionConfiguration,
+            new IngestionCliVersionMatrixService(
+                new com.linkedin.metadata.ingestion.NoOpIngestionCliVersionMatrixSource(),
+                "test",
+                null),
+            1,
+            1200);
     ingestionScheduler.init();
     Thread.sleep(2000); // Sleep so the runnable can execute. (not ideal)
   }

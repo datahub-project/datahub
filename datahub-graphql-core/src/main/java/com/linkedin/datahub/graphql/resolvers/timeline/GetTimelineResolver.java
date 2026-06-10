@@ -66,6 +66,7 @@ public class GetTimelineResolver implements DataFetcher<CompletableFuture<GetTim
                     : Arrays.stream(ChangeCategory.values()).collect(Collectors.toSet());
             final List<ChangeTransaction> changeTransactionList =
                 _timelineService.getTimeline(
+                    context.getOperationContext(),
                     entityUrn,
                     changeCategorySet,
                     TimelineService.DEFAULT_MAX_CHANGE_TRANSACTIONS,

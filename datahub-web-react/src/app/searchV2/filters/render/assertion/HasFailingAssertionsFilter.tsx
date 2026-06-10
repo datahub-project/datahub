@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import BooleanMoreFilter from '@app/searchV2/filters/render/shared/BooleanMoreFilter';
 import BooleanSearchFilter from '@app/searchV2/filters/render/shared/BooleanSearchFilter';
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function HasFailingAssertionsFilter({ icon, scenario, filter, activeFilters, onChangeFilters }: Props) {
+    const { t } = useTranslation('search');
     const isSelected = activeFilters?.find((f) => f.field === 'hasFailingAssertions')?.values?.includes('true');
 
     const toggleFilter = () => {
@@ -38,8 +40,8 @@ export function HasFailingAssertionsFilter({ icon, scenario, filter, activeFilte
         <>
             {scenario === FilterScenarioType.SEARCH_V1 && (
                 <BooleanSimpleSearchFilter
-                    title="Assertions"
-                    option="Has failing assertions"
+                    title={t('filters.assertions.title')}
+                    option={t('filters.assertions.hasFailingOption')}
                     isSelected={isSelected || false}
                     onSelect={toggleFilter}
                     defaultDisplayFilters
@@ -49,8 +51,8 @@ export function HasFailingAssertionsFilter({ icon, scenario, filter, activeFilte
             {scenario === FilterScenarioType.SEARCH_V2_PRIMARY && (
                 <BooleanSearchFilter
                     icon={icon}
-                    title="Assertions"
-                    option="Has failing assertions"
+                    title={t('filters.assertions.title')}
+                    option={t('filters.assertions.hasFailingOption')}
                     initialSelected={isSelected || false}
                     onUpdate={toggleFilter}
                     count={aggregateCount}
@@ -59,8 +61,8 @@ export function HasFailingAssertionsFilter({ icon, scenario, filter, activeFilte
             {scenario === FilterScenarioType.SEARCH_V2_SECONDARY && (
                 <BooleanMoreFilter
                     icon={icon}
-                    title="Assertions"
-                    option="Has failing assertions"
+                    title={t('filters.assertions.title')}
+                    option={t('filters.assertions.hasFailingOption')}
                     initialSelected={isSelected || false}
                     onUpdate={toggleFilter}
                     count={aggregateCount}

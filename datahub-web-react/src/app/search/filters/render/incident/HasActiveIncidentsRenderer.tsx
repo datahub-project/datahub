@@ -1,4 +1,5 @@
 import { WarningOutlined } from '@ant-design/icons';
+import i18next from 'i18next';
 import React from 'react';
 
 import { FilterRenderer } from '@app/search/filters/render/FilterRenderer';
@@ -14,8 +15,8 @@ export class HasActiveIncidentsRenderer implements FilterRenderer {
 
     valueLabel = (value: string) => {
         if (value === 'true') {
-            return <>Has Active Incidents</>;
+            return <>{i18next.t('search:filters.incidents.hasActiveLabel')}</>;
         }
-        return <>Has Resolved Incidents</>;
+        return <>{i18next.t('search:filters.incidents.hasResolvedLabel')}</>;
     };
 }

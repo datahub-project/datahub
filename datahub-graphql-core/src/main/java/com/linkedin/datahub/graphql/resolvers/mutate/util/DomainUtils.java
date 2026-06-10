@@ -201,12 +201,36 @@ public class DomainUtils {
       @Nonnull final EntityClient entityClient)
       throws RemoteInvocationException {
     Filter parentDomainFilter = buildParentDomainFilter(domainUrn);
-    // Search for entities matching parent domain
-    // Limit count to 1 for existence check
+    // Fetch candidate child domains from OpenSearch. OpenSearch is eventually
+    // consistent -- a recently-deleted child may still appear here.
+    final int pageSize = 200;
     final SearchResult searchResult =
         entityClient.filter(
-            context.getOperationContext(), DOMAIN_ENTITY_NAME, parentDomainFilter, null, 0, 1);
-    return (searchResult.getNumEntities() > 0);
+            context.getOperationContext(),
+            DOMAIN_ENTITY_NAME,
+            parentDomainFilter,
+            null,
+            0,
+            pageSize);
+    // Cross-check each candidate against the primary store (MySQL) which is
+    // strongly consistent. Discard stale OpenSearch entries whose deletions
+    // have not yet been indexed. Only block deletion if at least one child
+    // still exists in the primary store.
+    final Set<Urn> candidateUrns =
+        searchResult.getEntities().stream()
+            .map(SearchEntity::getEntity)
+            .collect(Collectors.toSet());
+    if (candidateUrns.isEmpty()) {
+      return false;
+    }
+    if (!entityClient.filterExistingUrns(context.getOperationContext(), candidateUrns).isEmpty()) {
+      return true;
+    }
+    // If OpenSearch reported more candidates than we fetched in this page, we
+    // cannot confirm the domain is childless without checking the remaining
+    // entries. Fall back to treating the domain as having children to prevent
+    // accidental deletion when the index is stale on a large hierarchy.
+    return searchResult.getNumEntities() > searchResult.getEntities().size();
   }
 
   private static Map<Urn, EntityResponse> getDomainsByNameAndParent(

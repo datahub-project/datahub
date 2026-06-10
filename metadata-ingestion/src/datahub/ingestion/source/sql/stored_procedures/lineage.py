@@ -14,7 +14,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
-from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sql_parsing_common import QueryType, get_dialect_str
 from datahub.sql_parsing.sqlglot_utils import (
     get_dialect,
     is_dialect_instance,
@@ -168,7 +168,7 @@ def parse_procedure_code(
     dialect = get_dialect(platform)
 
     # Split statements using split_statements()
-    statements = list(split_statements(code))
+    statements = list(split_statements(code, dialect=get_dialect_str(platform)))
 
     # Filter out non-DML statements
     dml_statements = _filter_dml_statements(

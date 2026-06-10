@@ -238,7 +238,7 @@ public class LoadIndicesStep implements UpgradeStep {
       // Use streaming approach ordered by URN/aspect for optimal ES document batching
       RestoreIndicesArgs restoreArgs = convertToRestoreIndicesArgs(args, limit);
       try (PartitionedStream<EbeanAspectV2> stream =
-          aspectDao.streamAspectBatches(restoreArgs, TxIsolation.READ_UNCOMMITTED)) {
+          aspectDao.streamAspectBatches(opContext, restoreArgs, TxIsolation.READ_UNCOMMITTED)) {
 
         // Simple forEach approach since SQL handles the limiting
         stream

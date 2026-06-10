@@ -1,6 +1,7 @@
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Button, Layout } from 'antd';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { DefaultTheme, useTheme } from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
@@ -146,6 +147,7 @@ export const SearchHeader = ({
     entityRegistry,
     hideSearchBar,
 }: Props) => {
+    const { t } = useTranslation('search');
     const [, setIsSearchBarFocused] = useState(false);
     const appConfig = useAppConfig();
     const viewsEnabled = appConfig.config?.viewsConfig?.enabled || false;
@@ -199,7 +201,7 @@ export const SearchHeader = ({
                             />
                             {isShowNavBarRedesign && (
                                 <StyledButton type="link" onClick={searchViewAll}>
-                                    Discover <ArrowRight />
+                                    {t('searchHeader.discover')} <ArrowRight />
                                 </StyledButton>
                             )}
                         </SearchBarContainer>

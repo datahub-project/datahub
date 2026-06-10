@@ -389,7 +389,7 @@ public class ESAggregatedStatsDAO {
     // Build and attach the grouping aggregations
     final Pair<AggregationBuilder, AggregationBuilder> topAndBottomAggregations =
         makeGroupingAggregationBuilder(
-            aspectSpec, null, groupingBuckets, opContext.getAspectRetriever());
+            aspectSpec, null, groupingBuckets, opContext, opContext.getAspectRetriever());
     AggregationBuilder rootAggregationBuilder = topAndBottomAggregations.getFirst();
     AggregationBuilder mostNested = topAndBottomAggregations.getSecond();
 
@@ -473,6 +473,7 @@ public class ESAggregatedStatsDAO {
       AspectSpec aspectSpec,
       @Nullable AggregationBuilder baseAggregationBuilder,
       @Nullable GroupingBucket[] groupingBuckets,
+      @Nonnull OperationContext opContext,
       @Nonnull AspectRetriever aspectRetriever) {
 
     AggregationBuilder firstAggregationBuilder = baseAggregationBuilder;
@@ -491,7 +492,7 @@ public class ESAggregatedStatsDAO {
           // Process the string grouping bucket using the 'terms' aggregation.
           // The field can be Keyword, Numeric, ip, boolean, or binary.
           String fieldName =
-              ESUtils.toKeywordField(curGroupingBucket.getKey(), true, aspectRetriever);
+              ESUtils.toKeywordField(opContext, curGroupingBucket.getKey(), true, aspectRetriever);
           DataSchema.Type fieldType = getGroupingBucketKeyType(aspectSpec, curGroupingBucket);
           curAggregationBuilder =
               AggregationBuilders.terms(getGroupingBucketAggName(curGroupingBucket))

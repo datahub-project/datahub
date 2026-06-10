@@ -2,6 +2,7 @@ import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import * as QueryString from 'query-string';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -10,7 +11,6 @@ import { useSearchContext } from '@app/search/context/SearchContext';
 import { useEntityType, useMatchedFieldsForList, useSearchResult } from '@app/search/context/SearchResultContext';
 import { GroupedMatch } from '@app/searchV2/matches/GroupedMatch';
 import { getColumnsTabUrlPath, getMatchedFieldLabel } from '@app/searchV2/matches/utils';
-import { pluralize } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { MatchedField } from '@types';
@@ -74,6 +74,7 @@ type Props = {
 };
 
 export const MatchedFieldList = ({ customFieldRenderer, matchSuffix }: Props) => {
+    const { t } = useTranslation('search');
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const searchContext = useSearchContext();
@@ -109,14 +110,21 @@ export const MatchedFieldList = ({ customFieldRenderer, matchSuffix }: Props) =>
                     <Tooltip
                         title={
                             matchSuffix
-                                ? `Matches ${pluralize(groupedMatch.matchedFields.length, label)} ${matchSuffix}`
+                                ? t('matches.matchedField.tooltipCount', {
+                                      count: groupedMatch.matchedFields.length,
+                                      label,
+                                      suffix: matchSuffix,
+                                  })
                                 : undefined
                         }
                     >
                         <MatchContainer>
                             <MatchHeader>
-                                <b>Matches:</b>
-                                {pluralize(groupedMatch.matchedFields.length, label)}
+                                <b>{t('matches.matchedField.matchesLabel')}</b>
+                                {t('matches.matchedField.fieldLabelCount', {
+                                    count: groupedMatch.matchedFields.length,
+                                    label,
+                                })}
                             </MatchHeader>
                             <MatchText key={groupedMatch.fieldName}>
                                 <GroupedMatch

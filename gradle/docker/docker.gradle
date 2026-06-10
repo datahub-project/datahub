@@ -65,7 +65,8 @@ class DockerPluginExtension {
   // For quickStart debug builds that use APP_ENV=dev like pattern. Not used in matrix builds.
   MapProperty<String, String> debugBuildArgs
 
-
+  // Optional: set by python-docker.gradle for Python image builds to inject netrc secret.
+  Property<String> netrcPath
 
   DockerPluginExtension(Project project) {
     this.project = project
@@ -77,12 +78,12 @@ class DockerPluginExtension {
     dependencies = project.objects.listProperty(Object)
     target = project.objects.property(String)
     variants = project.objects.mapProperty(String, Map)
-    // quickstart builds does not require all variants to be built. So, if default variant is specified, and 
-    // projectProperty matrixBuild is not set to true, then only default variant is built to save time. 
+    // quickstart builds does not require all variants to be built. So, if default variant is specified, and
+    // projectProperty matrixBuild is not set to true, then only default variant is built to save time.
     // The defaultVariant does not use a suffix in the tag.
     defaultVariant = project.objects.property(String)
-    
     debugBuildArgs = project.objects.mapProperty(String, String)
+    netrcPath = project.objects.property(String)
   }
 
   def files(Object... files) {
@@ -174,6 +175,10 @@ project.afterEvaluate {
     dockerCmd += ["--metadata-file", marker]
 
     extension.buildArgs.get().each { k, v -> dockerCmd += ["--build-arg", "${k}=${v}"]
+    }
+
+    if (extension.netrcPath.isPresent()) {
+      dockerCmd += ["--secret", "id=netrc,src=${extension.netrcPath.get()}"]
     }
 
     extension.tags.get().each { taskName, tag ->
@@ -274,6 +279,10 @@ project.afterEvaluate {
           bake_spec_target.args = new HashMap(extension.buildArgs.get())
         } else {
           bake_spec_target.args = [:]
+        }
+
+        if (extension.netrcPath.isPresent()) {
+          bake_spec_target.secret = ["id=netrc,src=${extension.netrcPath.get()}"]
         }
 
         if (extension.debugBuildArgs.get() && bake_spec_target.tags.findAll { tag -> tag.contains("debug") }.size() > 0) {

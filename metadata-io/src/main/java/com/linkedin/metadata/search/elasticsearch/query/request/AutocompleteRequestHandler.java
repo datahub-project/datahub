@@ -358,7 +358,8 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
 
     return Stream.concat(
         Stream.of(fieldName, fieldName + ".*", fieldName + ".ngram", fieldName + ".delimited"),
-        Stream.of(ESUtils.toKeywordField(fieldName, false, opContext.getAspectRetriever())));
+        Stream.of(
+            ESUtils.toKeywordField(opContext, fieldName, false, opContext.getAspectRetriever())));
   }
 
   private List<Pair<String, String>> getAutocompleteFields(@Nullable String field) {

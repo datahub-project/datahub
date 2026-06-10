@@ -1,0 +1,7 @@
+{
+    "fieldLabel": "Feld: {{fieldPath}}",
+    "promptsCompleted_one": "{{count}} Frage abgeschlossen",
+    "promptsCompleted_other": "{{count}} Fragen abgeschlossen",
+    "promptsRemaining_one": "{{count}} ausstehende Frage",
+    "promptsRemaining_other": "{{count}} ausstehende Fragen"
+}

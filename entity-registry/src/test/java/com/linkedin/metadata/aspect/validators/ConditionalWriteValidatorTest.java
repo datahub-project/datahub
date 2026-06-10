@@ -1,12 +1,14 @@
 package com.linkedin.metadata.aspect.validators;
 
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.net.HttpHeaders;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
@@ -123,7 +125,7 @@ public class ConditionalWriteValidatorTest {
       }
 
       Set<AspectValidationException> exceptions =
-          test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
+          test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
       assertEquals(Set.of(), exceptions, "Expected no exceptions for change type " + changeType);
@@ -142,7 +144,7 @@ public class ConditionalWriteValidatorTest {
           reset(mockRetrieverContext.getAspectRetriever());
           when(mockRetrieverContext
                   .getAspectRetriever()
-                  .getLatestSystemAspects(eq(Map.of(testEntityUrn, Set.of("status")))))
+                  .getLatestSystemAspects(any(), eq(Map.of(testEntityUrn, Set.of("status")))))
               .thenReturn(
                   Map.of(
                       testEntityUrn,
@@ -223,7 +225,7 @@ public class ConditionalWriteValidatorTest {
       }
 
       Set<AspectValidationException> exceptions =
-          test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
+          test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
       assertEquals(
@@ -243,7 +245,7 @@ public class ConditionalWriteValidatorTest {
     reset(mockRetrieverContext.getAspectRetriever());
     when(mockRetrieverContext
             .getAspectRetriever()
-            .getLatestSystemAspects(eq(Map.of(testEntityUrn, Set.of("status")))))
+            .getLatestSystemAspects(any(), eq(Map.of(testEntityUrn, Set.of("status")))))
         .thenReturn(
             Map.of(
                 testEntityUrn,
@@ -291,7 +293,7 @@ public class ConditionalWriteValidatorTest {
       }
 
       Set<AspectValidationException> exceptions =
-          test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
+          test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
       assertEquals(Set.of(), exceptions, "Expected no exceptions for change type " + changeType);
@@ -306,7 +308,7 @@ public class ConditionalWriteValidatorTest {
     // Prepare mock lookup based on version
     when(mockRetrieverContext
             .getAspectRetriever()
-            .getLatestSystemAspects(eq(Map.of(testEntityUrn, Set.of("status")))))
+            .getLatestSystemAspects(any(), eq(Map.of(testEntityUrn, Set.of("status")))))
         .thenReturn(
             Map.of(
                 testEntityUrn,
@@ -353,7 +355,7 @@ public class ConditionalWriteValidatorTest {
       }
 
       Set<AspectValidationException> exceptions =
-          test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
+          test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
       assertEquals(Set.of(), exceptions, "Expected no exceptions for change type " + changeType);
@@ -372,7 +374,7 @@ public class ConditionalWriteValidatorTest {
           // allow lookup of previous value
           when(mockRetrieverContext
                   .getAspectRetriever()
-                  .getLatestSystemAspects(Map.of(testEntityUrn, Set.of("status"))))
+                  .getLatestSystemAspects(any(), eq(Map.of(testEntityUrn, Set.of("status")))))
               .thenReturn(
                   Map.of(
                       testEntityUrn,
@@ -430,7 +432,7 @@ public class ConditionalWriteValidatorTest {
       }
 
       Set<AspectValidationException> exceptions =
-          test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
+          test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
       switch (changeType) {
@@ -492,7 +494,7 @@ public class ConditionalWriteValidatorTest {
       }
 
       Set<AspectValidationException> exceptions =
-          test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
+          test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
       switch (changeType) {
@@ -524,7 +526,7 @@ public class ConditionalWriteValidatorTest {
     // Prepare mock lookup based on version
     when(mockRetrieverContext
             .getAspectRetriever()
-            .getLatestSystemAspects(eq(Map.of(testEntityUrn, Set.of("status")))))
+            .getLatestSystemAspects(any(), eq(Map.of(testEntityUrn, Set.of("status")))))
         .thenReturn(
             Map.of(
                 testEntityUrn,
@@ -572,7 +574,7 @@ public class ConditionalWriteValidatorTest {
       }
 
       Set<AspectValidationException> exceptions =
-          test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
+          test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
       switch (changeType) {
@@ -604,7 +606,7 @@ public class ConditionalWriteValidatorTest {
     // Prepare mock lookup based on version
     when(mockRetrieverContext
             .getAspectRetriever()
-            .getLatestSystemAspects(eq(Map.of(testEntityUrn, Set.of("status")))))
+            .getLatestSystemAspects(any(), eq(Map.of(testEntityUrn, Set.of("status")))))
         .thenReturn(
             Map.of(
                 testEntityUrn,
@@ -651,7 +653,7 @@ public class ConditionalWriteValidatorTest {
       }
 
       Set<AspectValidationException> exceptions =
-          test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
+          test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
       switch (changeType) {
@@ -745,7 +747,7 @@ public class ConditionalWriteValidatorTest {
       }
 
       Set<AspectValidationException> exceptions =
-          test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
+          test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
       assertEquals(Set.of(), exceptions, "Expected no exceptions for change type " + changeType);
@@ -767,7 +769,7 @@ public class ConditionalWriteValidatorTest {
     // Prepare mock lookup
     when(mockRetrieverContext
             .getAspectRetriever()
-            .getLatestSystemAspects(eq(Map.of(testEntityUrn, Set.of("status")))))
+            .getLatestSystemAspects(any(), eq(Map.of(testEntityUrn, Set.of("status")))))
         .thenReturn(
             Map.of(
                 testEntityUrn,
@@ -822,7 +824,7 @@ public class ConditionalWriteValidatorTest {
       }
 
       Set<AspectValidationException> exceptions =
-          test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
+          test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
       assertEquals(Set.of(), exceptions, "Expected no exceptions for change type " + changeType);
@@ -899,7 +901,7 @@ public class ConditionalWriteValidatorTest {
       }
 
       Set<AspectValidationException> exceptions =
-          test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
+          test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
       switch (changeType) {
@@ -988,7 +990,7 @@ public class ConditionalWriteValidatorTest {
       }
 
       Set<AspectValidationException> exceptions =
-          test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
+          test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
       switch (changeType) {
@@ -1022,7 +1024,7 @@ public class ConditionalWriteValidatorTest {
     // Prepare mock lookup
     when(mockRetrieverContext
             .getAspectRetriever()
-            .getLatestSystemAspects(eq(Map.of(testEntityUrn, Set.of("status")))))
+            .getLatestSystemAspects(any(), eq(Map.of(testEntityUrn, Set.of("status")))))
         .thenReturn(
             Map.of(
                 testEntityUrn,
@@ -1077,7 +1079,7 @@ public class ConditionalWriteValidatorTest {
       }
 
       Set<AspectValidationException> exceptions =
-          test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
+          test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
       switch (changeType) {
@@ -1111,7 +1113,7 @@ public class ConditionalWriteValidatorTest {
     // Prepare mock lookup
     when(mockRetrieverContext
             .getAspectRetriever()
-            .getLatestSystemAspects(eq(Map.of(testEntityUrn, Set.of("status")))))
+            .getLatestSystemAspects(any(), eq(Map.of(testEntityUrn, Set.of("status")))))
         .thenReturn(
             Map.of(
                 testEntityUrn,
@@ -1166,7 +1168,7 @@ public class ConditionalWriteValidatorTest {
       }
 
       Set<AspectValidationException> exceptions =
-          test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
+          test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
       switch (changeType) {

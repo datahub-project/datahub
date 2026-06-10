@@ -1,5 +1,6 @@
 import { Button, Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled, { css, useTheme } from 'styled-components';
 
@@ -7,7 +8,6 @@ type ErrorFallbackProps = {
     variant?: ErrorVariant;
     actionMessage?: string;
 };
-const DEFAULT_MESSAGE = 'Our team has been notified of this unexpected error and is working on a resolution.';
 export type ErrorVariant = 'route' | 'tab' | 'sidebar';
 
 const getVariantStyles = (variant: ErrorVariant) => {
@@ -53,9 +53,12 @@ const TextContainer = styled.div`
     text-align: center;
 `;
 
-const ErrorFallback: React.FC<ErrorFallbackProps> = ({ variant, actionMessage = DEFAULT_MESSAGE }) => {
+const ErrorFallback: React.FC<ErrorFallbackProps> = ({ variant, actionMessage }) => {
+    const { t } = useTranslation('shared.error');
+    const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const theme = useTheme();
+    const message = actionMessage ?? t('fallback.defaultMessage');
     return (
         <Container variant={variant}>
             <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -67,24 +70,31 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({ variant, actionMessage = 
             </svg>
             <TextContainer>
                 <Text weight="bold" size="xl" style={{ color: theme.colors.textSecondary }}>
-                    Whoops!
+                    {t('fallback.title')}
                 </Text>
                 <TextContainer>
                     <Text size="lg" style={{ color: theme.colors.textSecondary }}>
-                        Something didn&apos;t go as planned.
+                        {t('fallback.subtitle')}
                     </Text>
                     <Text size="lg" style={{ color: theme.colors.textSecondary }}>
-                        {actionMessage}
+                        {message}
                     </Text>
                 </TextContainer>
             </TextContainer>
             {variant !== 'sidebar' && (
                 <ButtonContainer>
                     <Button size="sm" variant="outline" onClick={() => history.go(0)}>
-                        Refresh
+                        {tc('refresh')}
                     </Button>
-                    <Button size="sm" variant="filled" onClick={() => history.push('/')}>
-                        Home
+                    <Button
+                        size="sm"
+                        variant="filled"
+                        onClick={() => {
+                            // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) route path
+                            history.push('/');
+                        }}
+                    >
+                        {tc('home')}
                     </Button>
                 </ButtonContainer>
             )}

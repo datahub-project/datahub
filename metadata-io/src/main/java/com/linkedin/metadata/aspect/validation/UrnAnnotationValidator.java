@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.validation;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.ReadItem;
@@ -33,6 +34,7 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     List<BatchItem> typeSafeItems = new ArrayList<>(mcpItems);
@@ -113,7 +115,11 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
             .map(entry -> UrnUtils.getUrn(entry.getUrn()))
             .collect(Collectors.toSet());
     Map<Urn, Boolean> missingUrns =
-        retrieverContext.getAspectRetriever().entityExists(checkUrns).entrySet().stream()
+        retrieverContext
+            .getAspectRetriever()
+            .entityExists(operationContext, checkUrns)
+            .entrySet()
+            .stream()
             .filter(urnExistsEntry -> Boolean.FALSE.equals(urnExistsEntry.getValue()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     Set<AspectValidationException> existenceFailures =
@@ -144,7 +150,9 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 }

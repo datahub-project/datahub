@@ -9,6 +9,7 @@ dependencies {
   implementation project(':metadata-auth:auth-api')
   implementation project(':metadata-service:auth-impl')
   implementation project(':metadata-service:factories')
+  implementation project(':metadata-service:rate-limit')
 
   implementation externalDependency.servletApi
   implementation externalDependency.springCore

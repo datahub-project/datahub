@@ -58,19 +58,24 @@ jobs:
           SHA="${{ github.event.workflow_run.head_sha }}"
           REPO="${{ github.repository }}"
 
-          DEPLOY_ID=$(gh api "/repos/${REPO}/deployments?sha=${SHA}&per_page=10" \
-            --jq '[.[] | select(.environment | test("wheels"; "i"))][0].id // empty')
-
-          if [ -z "$DEPLOY_ID" ]; then
-            echo "::error::No Cloudflare deployment found for SHA ${SHA}. Re-run the Python Build workflow."
-            exit 1
-          fi
-
-          DEPLOY_URL=$(gh api "/repos/${REPO}/deployments/${DEPLOY_ID}/statuses" \
-            --jq '.[0].environment_url // empty')
+          # The wheels build publishes to Cloudflare Pages, which registers a GitHub
+          # deployment whose .environment is the generic Pages environment ("preview" on
+          # PRs, "production" on master) — it does NOT contain "wheels". The wheels project
+          # is only identifiable by its deployment URL (*.datahub-wheels.pages.dev). The
+          # same SHA also carries unrelated docs/frontend Pages deployments, so we scan all
+          # deployments for the SHA and pick the one whose success-status URL is the wheels
+          # site.
+          DEPLOY_URL=""
+          for ID in $(gh api "/repos/${REPO}/deployments?sha=${SHA}&per_page=30" --jq '.[].id'); do
+            URL=$(gh api "/repos/${REPO}/deployments/${ID}/statuses" \
+              --jq '[.[] | select(.state == "success") | .environment_url][0] // empty')
+            case "$URL" in
+              *wheels*) DEPLOY_URL="$URL"; break ;;
+            esac
+          done
 
           if [ -z "$DEPLOY_URL" ]; then
-            echo "::error::Cloudflare deployment ${DEPLOY_ID} exists but has no URL."
+            echo "::error::No Cloudflare wheels deployment (*.datahub-wheels.pages.dev) found for SHA ${SHA}. Re-run the Python Build workflow."
             exit 1
           fi
 

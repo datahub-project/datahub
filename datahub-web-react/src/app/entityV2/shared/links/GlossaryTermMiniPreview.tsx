@@ -1,74 +1,54 @@
-import Book from '@mui/icons-material/Book';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
+import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, GlossaryTerm } from '@types';
 
-const GlossaryTermMiniPreviewContainer = styled.div<{ color: string }>`
+const GlossaryTermMiniPreviewContainer = styled.div`
     display: inline-flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 8px;
     flex-grow: 1;
-    padding-left: 16px;
-    padding-right: 12px;
-    padding-top: 8px;
-    // padding-bottom: 8px;
+    padding: 6px 10px;
     margin: 4px;
     height: 34px;
     border-radius: 5px;
-    justify-content: center;
     border: 1px solid ${(props) => props.theme.colors.border};
     background-color: ${(props) => props.theme.colors.bgSurface};
-    :hover {
-        background-color: ${(props) => props.theme.colors.bgSurface};
-    }
     color: ${(props) => props.theme.colors.textSecondary};
     cursor: pointer;
     font-family: Mulish;
     overflow: hidden;
 
-    :after {
-        content: '';
-        width: 141.421%;
-        background-color: ${(props) => props.color};
-        min-height: 10px;
-        position: relative;
-        left: -64px;
-        top: 20px;
-        transform: rotate(-45deg);
-        transform-origin: 1px 1px;
+    :hover {
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
 const GlossaryTermTitleText = styled.span`
-    margin-bottom: 600px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
 export const GlossaryTermMiniPreview = ({ glossaryTerm }: { glossaryTerm: GlossaryTerm }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const { parentNodes, urn } = glossaryTerm;
+    const { urn } = glossaryTerm;
     const url = entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn as string);
-    const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
     const generateColor = useGenerateGlossaryColorFromPalette();
-    const termColor = lastParentNode
-        ? lastParentNode.displayProperties?.colorHex || generateColor(lastParentNode.urn)
-        : generateColor(urn);
+    const termColor = getGlossaryTermColor(glossaryTerm, generateColor);
     return (
         <Link to={url}>
             <HoverEntityTooltip entity={glossaryTerm} showArrow={false} placement="bottom">
-                <GlossaryTermMiniPreviewContainer color={termColor}>
-                    <span>
-                        <Book
-                            style={{ verticalAlign: 'bottom', fontSize: 22, paddingRight: 6 }}
-                            fontSize="large"
-                            // sx={{ px: 1 }}
-                        />
-                        <GlossaryTermTitleText>{glossaryTerm?.properties?.name}</GlossaryTermTitleText>
-                    </span>
+                <GlossaryTermMiniPreviewContainer>
+                    <GlossaryColoredIcon color={termColor} icon={BookmarkSimple} size={20} iconSize={12} />
+                    <GlossaryTermTitleText>{glossaryTerm?.properties?.name}</GlossaryTermTitleText>
                 </GlossaryTermMiniPreviewContainer>
             </HoverEntityTooltip>
         </Link>

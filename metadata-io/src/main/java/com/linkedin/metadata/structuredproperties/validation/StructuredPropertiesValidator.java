@@ -5,6 +5,7 @@ import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalVal
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getValueTypeId;
 import static com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator.softDeleteCheck;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
@@ -79,9 +80,11 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     return validateProposedUpserts(
+        operationContext,
         mcpItems.stream()
             .filter(i -> CHANGE_TYPES.contains(i.getChangeType()))
             .collect(Collectors.toList()),
@@ -91,8 +94,11 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return validateImmutable(
+        operationContext,
         changeMCPs.stream()
             .filter(
                 i ->
@@ -103,18 +109,21 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
   }
 
   public static Stream<AspectValidationException> validateProposedUpserts(
-      @Nonnull Collection<BatchItem> mcpItems, @Nonnull AspectRetriever aspectRetriever) {
-    return validateProposedUpserts(mcpItems, aspectRetriever, false);
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<BatchItem> mcpItems,
+      @Nonnull AspectRetriever aspectRetriever) {
+    return validateProposedUpserts(operationContext, mcpItems, aspectRetriever, false);
   }
 
   public static Stream<AspectValidationException> validateProposedUpserts(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<BatchItem> mcpItems,
       @Nonnull AspectRetriever aspectRetriever,
       boolean dropMissingPropertyValuesWithWarning) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     Map<Urn, Map<String, Aspect>> allStructuredPropertiesAspects =
-        fetchPropertyAspects(mcpItems, aspectRetriever, exceptions, false);
+        fetchPropertyAspects(operationContext, mcpItems, aspectRetriever, exceptions, false);
 
     // Validate assignments
     for (BatchItem i : exceptions.successful(mcpItems)) {
@@ -126,7 +135,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
         if (assignmentCountBefore > 0) {
           final Pair<StructuredProperties, Set<Urn>> filtered =
               StructuredPropertyUtils.filterMissingPropertyDefinitions(
-                  structuredProperties, aspectRetriever);
+                  operationContext, structuredProperties, aspectRetriever);
           missingPropertyUrns = filtered.getSecond();
           final boolean noValidAssignmentsRemain =
               filtered.getFirst().getProperties() == null
@@ -202,11 +211,13 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
   }
 
   public static Stream<AspectValidationException> validateImmutable(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull AspectRetriever aspectRetriever) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     final Map<Urn, Map<String, Aspect>> allStructuredPropertiesAspects =
-        fetchPropertyAspects(changeMCPs, aspectRetriever, exceptions, true);
+        fetchPropertyAspects(operationContext, changeMCPs, aspectRetriever, exceptions, true);
 
     Set<Urn> immutablePropertyUrns =
         allStructuredPropertiesAspects.keySet().stream()
@@ -449,6 +460,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
   }
 
   private static Map<Urn, Map<String, Aspect>> fetchPropertyAspects(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       AspectRetriever aspectRetriever,
       @Nonnull ValidationExceptionCollection exceptions,
@@ -467,6 +479,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
       return Collections.emptyMap();
     } else {
       return aspectRetriever.getLatestAspectObjects(
+          operationContext,
           validPropertyUrns,
           ImmutableSet.of(
               Constants.STATUS_ASPECT_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));

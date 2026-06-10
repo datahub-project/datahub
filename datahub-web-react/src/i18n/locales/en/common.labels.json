@@ -7,12 +7,14 @@
     "description": "Description",
     "details": "Details",
     "domain": "Domain",
+    "groups": "Groups",
     "lastModifiedAt": "Last Modified At",
     "na": "N/A",
     "name": "Name",
     "none": "None",
     "owner": "Owner",
     "owners": "Owners",
+    "roles": "Roles",
     "rows": "Rows",
     "source": "Source",
     "state": "State",
@@ -21,5 +23,6 @@
     "title": "Title",
     "type": "Type",
     "usage": "Usage",
+    "users": "Users",
     "value": "Value"
 }

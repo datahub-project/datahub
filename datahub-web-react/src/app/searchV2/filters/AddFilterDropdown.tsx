@@ -3,6 +3,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Button, Popover } from '@components';
 import { Dropdown, Menu } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
@@ -71,6 +72,7 @@ interface Props {
 }
 
 export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAddFilter, includeCount }: Props) {
+    const { t } = useTranslation('search');
     const [dropdownOpen, setDropdownOpen] = useState(false);
 
     const items = fields.map((field) => {
@@ -97,7 +99,7 @@ export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAd
         >
             <AddFilterButton variant="text">
                 <StyledPlusOutlined />
-                Add filter
+                {t('filters.addFilter')}
             </AddFilterButton>
         </Dropdown>
     );

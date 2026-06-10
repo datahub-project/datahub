@@ -2,6 +2,7 @@ package com.linkedin.metadata.models;
 
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.structured.PrimitivePropertyValue;
@@ -57,7 +58,9 @@ public class StructuredPropertyUtilsTest {
 
     Set<Urn> missing =
         StructuredPropertyUtils.getMissingPropertyDefinitionUrns(
-            Set.of(propertyUrnA, propertyUrnMissing, propertyUrnOrphanKeyOnly), retriever);
+            OperationFingerprint.EMPTY,
+            Set.of(propertyUrnA, propertyUrnMissing, propertyUrnOrphanKeyOnly),
+            retriever);
 
     assertEquals(missing, Set.of(propertyUrnMissing, propertyUrnOrphanKeyOnly));
   }
@@ -89,7 +92,8 @@ public class StructuredPropertyUtilsTest {
         new MockAspectRetriever(Map.of(propertyUrnA, List.of(definition)));
 
     Pair<StructuredProperties, Set<Urn>> result =
-        StructuredPropertyUtils.filterMissingPropertyDefinitions(properties, retriever);
+        StructuredPropertyUtils.filterMissingPropertyDefinitions(
+            OperationFingerprint.EMPTY, properties, retriever);
 
     assertEquals(result.getFirst().getProperties().size(), 1);
     assertEquals(result.getFirst().getProperties().get(0).getPropertyUrn(), propertyUrnA);

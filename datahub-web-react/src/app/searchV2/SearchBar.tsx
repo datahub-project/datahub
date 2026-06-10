@@ -2,6 +2,7 @@ import { CloseCircleFilled } from '@ant-design/icons';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { AutoComplete, Input } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
@@ -189,6 +190,7 @@ export const SearchBar = ({
     placeholderColor,
     isShowNavBarRedesign,
 }: SearchBarProps) => {
+    const { t } = useTranslation('search');
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string | undefined>(initialQuery);
     const [selected, setSelected] = useState<string>();
@@ -230,7 +232,7 @@ export const SearchBar = ({
             return null;
         }
         return {
-            label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
+            label: <EntityTypeLabel>{t('searchBar.filterBy')}</EntityTypeLabel>,
             options: [
                 {
                     value: 'quick-filter-unique-key',
@@ -241,7 +243,7 @@ export const SearchBar = ({
                 },
             ],
         };
-    }, [searchQuery, quickFilters, showAutoCompleteResults, showQuickFilters]);
+    }, [searchQuery, quickFilters, showAutoCompleteResults, showQuickFilters, t]);
 
     const emptyQueryOptions = useMemo(() => {
         const moduleOptions =
@@ -321,7 +323,7 @@ export const SearchBar = ({
                 type: '',
                 label: (
                     <Button variant="text" onClick={onClickExploreAll}>
-                        Explore all →
+                        {t('searchBar.exploreAll')}
                     </Button>
                 ),
                 style: { marginLeft: 'auto', cursor: 'auto' },
@@ -337,6 +339,7 @@ export const SearchBar = ({
         showViewAllResults,
         showAutoCompleteResults,
         onClickExploreAll,
+        t,
     ]);
 
     const searchBarWrapperRef = useRef<HTMLDivElement>(null);

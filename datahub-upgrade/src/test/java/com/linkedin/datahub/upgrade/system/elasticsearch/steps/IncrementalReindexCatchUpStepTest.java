@@ -106,7 +106,7 @@ public class IncrementalReindexCatchUpStepTest {
 
     setupPhase1Result(phase1State);
 
-    when(aspectDao.streamAspectBatches(any()))
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
         .thenReturn(
             PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
 
@@ -116,7 +116,7 @@ public class IncrementalReindexCatchUpStepTest {
     // Should still stream aspects for the T0 gap window
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao).streamAspectBatches(argsCaptor.capture());
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
     RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
     assertEquals(capturedArgs.urnLike, "urn:li:dataset:%");
     assertEquals(capturedArgs.gePitEpochMs, 1000L);
@@ -156,7 +156,7 @@ public class IncrementalReindexCatchUpStepTest {
     UpgradeStepResult result = step.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    verify(aspectDao, never()).streamAspectBatches(any());
+    verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any());
   }
 
   @Test
@@ -188,7 +188,7 @@ public class IncrementalReindexCatchUpStepTest {
     UpgradeStepResult result = step.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    verify(aspectDao, never()).streamAspectBatches(any());
+    verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any());
   }
 
   @Test
@@ -210,7 +210,7 @@ public class IncrementalReindexCatchUpStepTest {
     setupPhase1Result(phase1State);
 
     // Mock empty stream so we don't need real aspects
-    when(aspectDao.streamAspectBatches(any()))
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
         .thenReturn(
             PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
 
@@ -220,7 +220,7 @@ public class IncrementalReindexCatchUpStepTest {
     // Verify the stream query was scoped to the dataset entity type
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao).streamAspectBatches(argsCaptor.capture());
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
     RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
     assertEquals(capturedArgs.urnLike, "urn:li:dataset:%");
     assertEquals(capturedArgs.gePitEpochMs, 1000L);
@@ -260,7 +260,7 @@ public class IncrementalReindexCatchUpStepTest {
     setupPhase1Result(phase1State);
 
     // Return a fresh empty stream for each call (PartitionedStream is closed after use)
-    when(aspectDao.streamAspectBatches(any()))
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
         .thenAnswer(
             invocation ->
                 PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
@@ -271,7 +271,8 @@ public class IncrementalReindexCatchUpStepTest {
     // Verify two separate streams were opened, one per entity type
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao, org.mockito.Mockito.times(2)).streamAspectBatches(argsCaptor.capture());
+    verify(aspectDao, org.mockito.Mockito.times(2))
+        .streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
 
     java.util.List<RestoreIndicesArgs> allArgs = argsCaptor.getAllValues();
     java.util.Set<String> urnLikes =
@@ -301,7 +302,7 @@ public class IncrementalReindexCatchUpStepTest {
 
     setupPhase1Result(phase1State);
 
-    when(aspectDao.streamAspectBatches(any()))
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
         .thenReturn(
             PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
 
@@ -310,7 +311,7 @@ public class IncrementalReindexCatchUpStepTest {
 
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao).streamAspectBatches(argsCaptor.capture());
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
     RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
     assertEquals(capturedArgs.urnLike, "%");
   }
@@ -346,7 +347,7 @@ public class IncrementalReindexCatchUpStepTest {
               return Optional.empty();
             });
 
-    when(aspectDao.streamAspectBatches(any()))
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
         .thenReturn(
             PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
 

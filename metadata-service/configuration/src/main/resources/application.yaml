@@ -104,6 +104,29 @@ ingestion:
   defaultCliVersion: "${UI_INGESTION_DEFAULT_CLI_VERSION:@cliVersion@}"
   maxSerializedStringLength: "${INGESTION_MAX_SERIALIZED_STRING_LENGTH:16000000}" # Indicates the maximum allowed JSON String length Jackson will handle, impacts the maximum size of ingested aspects
   batchRefreshCount: ${INGESTION_BATCH_REFRESH_COUNT:100} # The number of entities to refresh in a single batch when refreshing entities after ingestion
+  # Per-connector CLI version matrix. When configured, overrides defaultCliVersion on a per-connector
+  # basis. Update the matrix file externally (S3/CDN/gist) without redeploying GMS to change
+  # connector versions. Set source=none (or leave url empty) to disable.
+  cliVersionMatrix:
+    # Source backend: "http" (default) or "none". Setting "none" is an explicit kill-switch even
+    # when an http.url is configured. With "http" but no url, the factory wires a no-op source.
+    source: "${INGESTION_VERSION_MATRIX_SOURCE:http}"
+    http:
+      url: "${INGESTION_VERSION_MATRIX_URL:}"
+      refreshSeconds: ${INGESTION_VERSION_MATRIX_REFRESH_SECONDS:600}
+      # Optional. Sent verbatim as the `Authorization` header when fetching the matrix URL.
+      # Required when the URL is hosted behind authentication (e.g. a private GitHub gist).
+      # Format examples:
+      #   token ghp_xxxxxxxxxxxxxxxx           (GitHub PAT)
+      #   Bearer eyJ...                        (OAuth / OIDC bearer)
+      # Leave unset for public URLs. Property name ends with "Token" so it is auto-redacted in
+      # system-info.
+      authToken: "${INGESTION_VERSION_MATRIX_AUTH_TOKEN:}"
+  # Identifier for this deployment, used for matching against `deployments` allowlists in the
+  # version matrix. Sourced from DATAHUB_EXECUTOR_CUSTOMER_ID, which the Acryl Cloud Helm chart
+  # injects from the K8s namespace. Empty in single-tenant / OSS deployments — cohort matching
+  # never fires in that case and only the per-connector `_default` from the matrix applies.
+  deploymentId: "${DATAHUB_EXECUTOR_CUSTOMER_ID:}"
   scheduler:
     refreshIntervalSeconds: ${INGESTION_SOURCE_REFRESH_INTERVAL_SECONDS:43200} # The interval at which the ingestion source scheduler will check for new or updated ingestion sources
 
@@ -153,6 +176,45 @@ datahub:
 
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
+
+    # GMS HTTP service rate limiting (disabled by default).
+    # Limits incoming GMS API traffic — NOT MCP ingestion or Kafka lag throttle.
+    # Guide: docs/deploy/gms-rate-limiting.md
+    #
+    # Hierarchy: capacity.enabled | endpoint.enabled (by type)
+    #            → capacity.default / capacity.graphql (sub-pools) / capacity.rules
+    #            → endpoint.rules (cluster-wide buckets via Hazelcast when endpoint.enabled)
+    rateLimits:
+      failOpen: ${RATE_LIMITS_FAIL_OPEN:true}
+      minRetryAfterSeconds: ${RATE_LIMITS_MIN_RETRY_AFTER:60}
+      retryAfterJitterPercent: ${RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT:10}
+      excludedPaths: ${RATE_LIMITS_EXCLUDED_PATHS:/health,/health/live,/actuator/prometheus,/openapi/v1/rate-limits/**}
+      configFile:
+        enabled: ${RATE_LIMITS_CONFIG_FILE_ENABLED:false}
+        path: ${RATE_LIMITS_CONFIG_FILE:/etc/datahub/rate-limits.yaml}
+      # Adaptive in-flight limits (Netflix Gradient2) — per pod
+      capacity:
+        enabled: ${RATE_LIMITS_CAPACITY_ENABLED:false}
+        default:
+          enabled: ${RATE_LIMITS_CAPACITY_DEFAULT_ENABLED:true}
+          initialLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT:200}
+          minLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT:20}
+          maxLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT:5000}
+        graphql:
+          enabled: ${RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED:true}
+          pathPattern: ${RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN:/api/graphql}
+          operationRulesEnabled: ${RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED:true}
+          initialLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT:100}
+          minLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT:20}
+          maxLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT:2000}
+        rules: []
+      # Token-bucket limits (Bucket4j) — cluster-wide via Hazelcast
+      endpoint:
+        enabled: ${RATE_LIMITS_ENDPOINT_ENABLED:false}
+        hazelcastMapName: ${RATE_LIMITS_ENDPOINT_HAZELCAST_MAP:gmsRateLimitEndpointBuckets}
+        rules: []
+      metrics:
+        detailed: ${RATE_LIMITS_METRICS_DETAILED:false}
 
   plugin:
     pluginSecurityMode: ${PLUGIN_SECURITY_MODE:RESTRICTED} # Possible value RESTRICTED or LENIENT, default to RESTRICTED
@@ -886,6 +948,10 @@ kafka:
     backoffTimeout: ${KAFKA_PRODUCER_BACKOFF_TIMEOUT:500}
     compressionType: ${KAFKA_PRODUCER_COMPRESSION_TYPE:snappy} # producer's compression algorithm
     maxRequestSize: ${KAFKA_PRODUCER_MAX_REQUEST_SIZE:5242880} # the max bytes sent by the producer, also see kafka-setup MAX_MESSAGE_BYTES for matching value
+    initializationRetryCount: ${KAFKA_PRODUCER_INITIALIZATION_RETRY_COUNT:5} # total construction attempts, including the first try
+    initializationRetryBackoffMs: ${KAFKA_PRODUCER_INITIALIZATION_RETRY_BACKOFF_MS:500} # initial backoff delay in ms for initialization retries
+    initializationRetryMaxBackoffMs: ${KAFKA_PRODUCER_INITIALIZATION_RETRY_MAX_BACKOFF_MS:4000} # max backoff delay in ms between initialization retries
+    initializationRetryMaxTotalWaitMs: ${KAFKA_PRODUCER_INITIALIZATION_RETRY_MAX_TOTAL_WAIT_MS:15000} # max cumulative wait in ms across initialization retries
   consumer:
     bootstrapServers: ${KAFKA_CONSUMER_BOOTSTRAP_SERVER:} # Used as an override for the base setting for when split producer/consumer is desired
     securityProtocol: ${KAFKA_CONSUMER_SECURITY_PROTOCOL:} # Used as an override for the base security protocol setting for when split producer/consumer is desired
@@ -1110,6 +1176,12 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_BATCH_SIZE:1000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_DELAY_MS:30000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_CLL_LIMIT:0}
+  restoreColumnLineageIndices:
+    enabled: ${RESTORE_COLUMN_LINEAGE_INDICES_ENABLED:true}
+  restoreFormInfoIndices:
+    enabled: ${RESTORE_FORM_INFO_INDICES_ENABLED:true}
+  restoreGlossaryIndices:
+    enabled: ${RESTORE_GLOSSARY_INDICES_ENABLED:true}
   browsePathsV2:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_BATCH_SIZE:5000}
@@ -1138,6 +1210,10 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_BATCH_SIZE:100}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_REPROCESS:false}
+  indexDataPlatforms:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_INDEX_DATA_PLATFORMS_ENABLED:true}
+  migrateHomePageLinks:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_MIGRATE_HOME_PAGE_LINKS_ENABLED:true}
   migrateAspects:
     enabled: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED:${ZDU_STAGE_20:false}}
     batchSize: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_BATCH_SIZE:500}
@@ -1197,6 +1273,8 @@ systemUpdate:
       includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
   ingestEntityTypes:
     enabled: ${SYSTEM_UPDATE_INGEST_ENTITY_TYPES_ENABLED:true}
+  restoreDbtSiblingsIndices:
+    enabled: ${SYSTEM_UPDATE_RESTORE_DBT_SIBLINGS_INDICES_ENABLED:true}
   ingestDefaultGlobalSettings:
     enabled: ${SYSTEM_UPDATE_INGEST_DEFAULT_GLOBAL_SETTINGS_ENABLED:true}
   ingestPolicies:

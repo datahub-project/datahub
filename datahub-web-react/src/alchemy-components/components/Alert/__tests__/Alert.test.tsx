@@ -53,6 +53,19 @@ describe('Alert', () => {
         expect(screen.getByText('Retry')).toBeInTheDocument();
     });
 
+    it('should still render the action when actionPlacement is "topRight"', () => {
+        renderAlert({
+            title: 'Error',
+            variant: 'error',
+            action: <button type="button">Retry</button>,
+            actionPlacement: 'topRight',
+            onClose: () => {},
+        });
+
+        expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument();
+    });
+
     it('should render a close button when onClose is provided', () => {
         const onClose = vi.fn();
         renderAlert({ title: 'Dismissable', onClose });
@@ -70,7 +83,7 @@ describe('Alert', () => {
         expect(screen.queryByRole('button', { name: /close/i })).not.toBeInTheDocument();
     });
 
-    it.each<AlertVariant>(['success', 'error', 'warning', 'info', 'brand'])(
+    it.each<AlertVariant>(['success', 'error', 'warning', 'info', 'brand', 'unknown'])(
         'should render without errors for variant "%s"',
         (variant) => {
             const { container } = renderAlert({ variant, title: `${variant} alert` });
@@ -79,6 +92,22 @@ describe('Alert', () => {
             expect(container.firstChild).toBeInTheDocument();
         },
     );
+
+    it('should render a technical errorMessage when provided', () => {
+        renderAlert({
+            variant: 'error',
+            title: 'Something failed',
+            errorMessage: 'TypeError: cannot read property "x" of undefined',
+        });
+
+        expect(screen.getByText('TypeError: cannot read property "x" of undefined')).toBeInTheDocument();
+    });
+
+    it('should not render the errorMessage block when omitted', () => {
+        renderAlert({ variant: 'error', title: 'Something failed' });
+
+        expect(screen.queryByText(/TypeError: cannot read property/)).not.toBeInTheDocument();
+    });
 
     it('should apply className and style props', () => {
         const { container } = renderAlert({

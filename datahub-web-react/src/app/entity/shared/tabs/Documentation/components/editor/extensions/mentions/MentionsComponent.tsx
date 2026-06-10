@@ -1,6 +1,7 @@
 import { FloatingWrapper } from '@remirror/react';
 import { Empty, Spin } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import { Positioner, selectionPositioner } from 'remirror/extensions';
 import styled from 'styled-components';
@@ -22,6 +23,7 @@ const StyledEmpty = styled(Empty)`
 `;
 
 export const MentionsComponent = () => {
+    const { t: tc } = useTranslation('common.actions');
     const userContext = useUserContext();
     const [getAutoComplete, { data: autocompleteData, loading }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const { active, range, filter: query } = useDataHubMentions({});
@@ -56,7 +58,7 @@ export const MentionsComponent = () => {
                     {suggestions?.length > 0 ? (
                         <MentionsDropdown suggestions={suggestions} />
                     ) : (
-                        <StyledEmpty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No results found" />
+                        <StyledEmpty image={Empty.PRESENTED_IMAGE_SIMPLE} description={tc('noResults')} />
                     )}
                 </Spin>
             </Container>

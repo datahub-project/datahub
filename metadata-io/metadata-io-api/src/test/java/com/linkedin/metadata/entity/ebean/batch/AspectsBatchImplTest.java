@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
@@ -123,7 +124,10 @@ public class AspectsBatchImplTest {
 
     assertEquals(
         testBatch.toUpsertBatchItems(
-            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
+            OperationFingerprint.EMPTY,
+            new HashMap<>(),
+            new HashMap<>(),
+            (changeMCP, systemAspect) -> systemAspect),
         Pair.of(Map.of(), testItems),
         "Expected noop, pass through with no additional MCPs or changes");
   }
@@ -180,7 +184,10 @@ public class AspectsBatchImplTest {
 
     assertEquals(
         testBatch.toUpsertBatchItems(
-            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
+            OperationFingerprint.EMPTY,
+            new HashMap<>(),
+            new HashMap<>(),
+            (changeMCP, systemAspect) -> systemAspect),
         Pair.of(
             Map.of(),
             List.of(
@@ -268,7 +275,10 @@ public class AspectsBatchImplTest {
 
     assertEquals(
         testBatch.toUpsertBatchItems(
-            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
+            OperationFingerprint.EMPTY,
+            new HashMap<>(),
+            new HashMap<>(),
+            (changeMCP, systemAspect) -> systemAspect),
         Pair.of(
             Map.of(),
             List.of(
@@ -355,7 +365,10 @@ public class AspectsBatchImplTest {
     assertEquals(
         testBatch
             .toUpsertBatchItems(
-                new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect)
+                OperationFingerprint.EMPTY,
+                new HashMap<>(),
+                new HashMap<>(),
+                (changeMCP, systemAspect) -> systemAspect)
             .getSecond()
             .size(),
         1,
@@ -371,6 +384,7 @@ public class AspectsBatchImplTest {
 
     @Override
     protected Stream<MCPItem> proposalMutation(
+        @Nonnull OperationFingerprint operationContext,
         @Nonnull Collection<MCPItem> mcpItems,
         @Nonnull com.linkedin.metadata.aspect.RetrieverContext retrieverContext) {
       return mcpItems.stream()

@@ -281,7 +281,8 @@ public class OperationContextTest {
 
     // Mock ActorContext isActive
     ActorContext mockActorContext = mock(ActorContext.class);
-    when(mockActorContext.isActive(any(AspectRetriever.class))).thenReturn(true);
+    when(mockActorContext.isActive(any(OperationContext.class), any(AspectRetriever.class)))
+        .thenReturn(true);
 
     // Build OperationContext with all required dependencies
     OperationContext operationContext =

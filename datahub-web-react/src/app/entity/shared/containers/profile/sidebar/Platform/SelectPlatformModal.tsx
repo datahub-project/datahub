@@ -1,5 +1,6 @@
 import { Button, Form, Modal, Select, Tag, Tooltip } from 'antd';
 import React, { ReactNode, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
@@ -36,6 +37,8 @@ const PreviewImage = styled.img`
 `;
 
 export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOk, titleOverride }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
     const [platformSearch, { data: platforSearchData }] = useGetSearchResultsLazyQuery();
     const platformSearchResults =
         platforSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
@@ -138,16 +141,16 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOk, titleOv
 
     return (
         <Modal
-            title={titleOverride || 'Select Platform'}
+            title={titleOverride || t('platformModal.title')}
             open
             onCancel={onModalClose}
             footer={
                 <>
                     <Button onClick={onModalClose} type="text">
-                        Cancel
+                        {tc('cancel')}
                     </Button>
                     <Button id="setPlatformButton" disabled={selectedPlatforms?.length === 0} onClick={handleOk}>
-                        Add
+                        {tc('add')}
                     </Button>
                 </>
             }
@@ -160,7 +163,7 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOk, titleOv
                         showSearch
                         mode="multiple"
                         defaultActiveFirstOption={false}
-                        placeholder="Search for Platforms..."
+                        placeholder={t('platformModal.searchPlaceholder')}
                         onSelect={(platformUrn: any) => onSelectPlatform(platformUrn)}
                         onDeselect={onDeselectPlatform}
                         onSearch={(value: string) => {

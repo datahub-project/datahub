@@ -8,9 +8,14 @@ const applyAdvancedSearchFilter = (filterType, value) => {
   cy.clickOptionWithId("#search-results-advanced-search");
   cy.clickOptionWithText("Add Filter");
   cy.clickOptionWithText(filterType);
-  cy.get("div.ant-select-selection-overflow").type(value);
-  cy.get(`[data-testid="tag-term-option-${value}"]`).click();
-  cy.clickOptionWithText("Add Tags");
+  // Tag/GlossaryTerm filter types reuse AddTagsModal / AddTermsModal (both
+  // alchemy SimpleSelect): click the trigger to open the portal-rendered
+  // dropdown, then type into its search input and pick the suffixed option.
+  cy.get('[data-testid="tag-term-modal-input"]').click();
+  cy.get('[data-testid="dropdown-search-input"]').type(value);
+  cy.get(`[data-testid="tag-term-option-${value}"]`)
+    .first()
+    .click({ force: true });
   cy.clickOptionWithTestId("add-tag-term-from-modal-btn");
 };
 

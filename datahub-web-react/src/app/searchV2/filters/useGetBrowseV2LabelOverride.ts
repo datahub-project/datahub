@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { getLastBrowseEntryFromFilterValue } from '@app/searchV2/filters/utils';
 import { BROWSE_PATH_V2_FILTER_NAME } from '@app/searchV2/utils/constants';
@@ -15,6 +16,7 @@ export default function useGetBrowseV2LabelOverride(
     filterValue: string,
     entityRegistry: EntityRegistry,
 ) {
+    const { t: tc } = useTranslation('common.feedback');
     const [getEntityDisplayName, { data, loading }] = useGetEntityDisplayNameLazyQuery();
 
     useEffect(() => {
@@ -27,7 +29,7 @@ export default function useGetBrowseV2LabelOverride(
     }, [filterField, filterValue, getEntityDisplayName]);
 
     if (loading) {
-        return '...';
+        return tc('loading');
     }
 
     return data?.entity && entityRegistry.getDisplayName(data.entity.type, data.entity);

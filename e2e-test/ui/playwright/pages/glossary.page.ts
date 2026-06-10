@@ -114,8 +114,10 @@ export class GlossaryPage extends BasePage {
     this.advancedSearchButton = page.getByTestId('search-results-advanced-search');
     this.addFilterButton = page.getByTestId('adv-search-add-filter-select');
     this.addFilterTagsButton = page.getByTestId('adv-search-add-filter-tags');
-    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design tag select overflow input; compound selector with no data-testid
-    this.filterTagSelectInput = page.locator('div.ant-select-selection-overflow input');
+    // Alchemy SimpleSelect renders its search input in a floating dropdown popover with
+    // `data-testid="dropdown-search-input"`. The dropdown must be opened (by clicking the
+    // SimpleSelect container `tag-term-modal-input`) before this input is in the DOM.
+    this.filterTagSelectInput = page.getByTestId('dropdown-search-input');
     this.addTagsConfirmButton = page.getByTestId('add-tag-term-from-modal-btn');
 
     this.batchAddButton = page.getByTestId('glossary-batch-add');
@@ -345,8 +347,10 @@ export class GlossaryPage extends BasePage {
     await this.advancedSearchButton.click();
     await this.addFilterButton.click();
     await this.addFilterTagsButton.click();
-    // AntD Select: type into the overflow input to trigger the options search.
-    await this.filterTagSelectInput.pressSequentially(tagName);
+    // Alchemy SimpleSelect: click the trigger to open the dropdown, then type into the
+    // search input inside the dropdown popover.
+    await this.page.getByTestId('tag-term-modal-input').click();
+    await this.filterTagSelectInput.fill(tagName);
     await this.getTagFilterOption(tagName).click();
     await this.modalComponent.title.click();
     await this.addTagsConfirmButton.click();

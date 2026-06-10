@@ -179,7 +179,7 @@ public class MigrateAspectsStep implements UpgradeStep {
                           .flatMap(
                               ea ->
                                   EntityUtils.toSystemAspectFromEbeanAspects(
-                                      opContext.getRetrieverContext(), Set.of(ea))
+                                      opContext, opContext.getRetrieverContext(), Set.of(ea))
                                       .stream())
                           .map(
                               systemAspect ->

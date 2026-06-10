@@ -90,11 +90,12 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
               + " invalid type: "
               + newLatestVersion.getEntityType());
     }
-    if (!aspectRetriever.entityExists(ImmutableSet.of(versionSet)).get(versionSet)) {
+    if (!aspectRetriever.entityExists(opContext, ImmutableSet.of(versionSet)).get(versionSet)) {
       sortId = INITIAL_VERSION_SORT_ID;
     } else {
       SystemAspect versionSetPropertiesAspect =
-          aspectRetriever.getLatestSystemAspect(versionSet, VERSION_SET_PROPERTIES_ASPECT_NAME);
+          aspectRetriever.getLatestSystemAspect(
+              opContext, versionSet, VERSION_SET_PROPERTIES_ASPECT_NAME);
       VersionSetProperties versionSetProperties =
           RecordUtils.toRecordTemplate(
               VersionSetProperties.class, versionSetPropertiesAspect.getRecordTemplate().data());
@@ -107,7 +108,7 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
 
       SystemAspect latestVersion =
           aspectRetriever.getLatestSystemAspect(
-              versionSetProperties.getLatest(), VERSION_PROPERTIES_ASPECT_NAME);
+              opContext, versionSetProperties.getLatest(), VERSION_PROPERTIES_ASPECT_NAME);
       VersionProperties latestVersionProperties =
           RecordUtils.toRecordTemplate(
               VersionProperties.class, latestVersion.getRecordTemplate().data());
@@ -115,7 +116,8 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
     }
 
     SystemAspect currentVersionPropertiesAspect =
-        aspectRetriever.getLatestSystemAspect(newLatestVersion, VERSION_PROPERTIES_ASPECT_NAME);
+        aspectRetriever.getLatestSystemAspect(
+            opContext, newLatestVersion, VERSION_PROPERTIES_ASPECT_NAME);
     if (currentVersionPropertiesAspect != null) {
       VersionProperties currentVersionProperties =
           RecordUtils.toRecordTemplate(
@@ -191,7 +193,8 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
     List<RollbackResult> deletedAspects = new ArrayList<>();
     AspectRetriever aspectRetriever = opContext.getAspectRetriever();
     SystemAspect linkedVersionPropertiesAspect =
-        aspectRetriever.getLatestSystemAspect(linkedVersion, VERSION_PROPERTIES_ASPECT_NAME);
+        aspectRetriever.getLatestSystemAspect(
+            opContext, linkedVersion, VERSION_PROPERTIES_ASPECT_NAME);
     // Not currently versioned, do nothing
     if (linkedVersionPropertiesAspect == null) {
       return deletedAspects;
@@ -225,7 +228,8 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
                 opContext.getEntityRegistryContext().getKeyAspectSpec(versionSetUrn));
 
     SystemAspect versionSetPropertiesAspect =
-        aspectRetriever.getLatestSystemAspect(versionSetUrn, VERSION_SET_PROPERTIES_ASPECT_NAME);
+        aspectRetriever.getLatestSystemAspect(
+            opContext, versionSetUrn, VERSION_SET_PROPERTIES_ASPECT_NAME);
     if (versionSetPropertiesAspect == null) {
       throw new IllegalStateException(
           String.format(

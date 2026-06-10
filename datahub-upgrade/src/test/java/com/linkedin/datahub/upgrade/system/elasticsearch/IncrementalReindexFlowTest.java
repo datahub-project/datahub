@@ -98,14 +98,13 @@ public class IncrementalReindexFlowTest {
         .ingestProposal(eq(opContext), any(MetadataChangeProposal.class), any(), eq(false));
 
     // Return empty stream for any aspect batch queries (overridden in specific tests)
-    when(aspectDao.streamAspectBatches(any()))
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
         .thenAnswer(
             invocation ->
                 PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
 
     when(upgradeContext.opContext()).thenReturn(opContext);
     when(upgradeContext.upgrade()).thenReturn(upgrade);
-
     when(upgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenAnswer(
             invocation -> {
@@ -171,7 +170,7 @@ public class IncrementalReindexFlowTest {
 
     org.mockito.ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         org.mockito.ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao).streamAspectBatches(argsCaptor.capture());
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
     RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
     assertEquals(capturedArgs.gePitEpochMs, 1000L);
     assertEquals(capturedArgs.lePitEpochMs, 1500L);
@@ -212,10 +211,10 @@ public class IncrementalReindexFlowTest {
     SystemAspect chartAspect = createMockSystemAspect("urn:li:chart:ch1");
 
     entityUtilsMock
-        .when(() -> EntityUtils.toSystemAspectFromEbeanAspects(any(), any()))
+        .when(() -> EntityUtils.toSystemAspectFromEbeanAspects(any(), any(), any()))
         .thenAnswer(
             invocation -> {
-              List<EbeanAspectV2> aspects = invocation.getArgument(1);
+              List<EbeanAspectV2> aspects = invocation.getArgument(2);
               if (aspects.isEmpty()) {
                 return List.of();
               }
@@ -231,10 +230,10 @@ public class IncrementalReindexFlowTest {
             any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(Pair.of(CompletableFuture.completedFuture(null), true));
 
-    when(aspectDao.streamAspectBatches(any()))
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
         .thenAnswer(
             invocation -> {
-              RestoreIndicesArgs args = invocation.getArgument(0);
+              RestoreIndicesArgs args = invocation.getArgument(1);
               EbeanAspectV2 mockAspect = mock(EbeanAspectV2.class);
               if (args.urnLike != null && args.urnLike.contains("dataset")) {
                 when(mockAspect.getUrn()).thenReturn("urn:li:dataset:ds1");
@@ -272,7 +271,8 @@ public class IncrementalReindexFlowTest {
       assertEquals(checkpointMap.get(INDEX_NAME + ".lastUrn"), "urn:li:dataset:ds1");
       assertEquals(checkpointMap.get(index2 + ".lastUrn"), "urn:li:chart:ch1");
     } else {
-      verify(aspectDao, org.mockito.Mockito.times(2)).streamAspectBatches(any());
+      verify(aspectDao, org.mockito.Mockito.times(2))
+          .streamAspectBatches(any(OperationContext.class), any());
     }
   }
 

@@ -1,0 +1,22 @@
+# docker/snippets/uv/.netrc
+#
+# Credentials for private PyPI indexes used during Docker image builds.
+# UV reads this file natively for authentication when resolving packages.
+#
+# Copy this file to docker/snippets/uv/.netrc and fill in your credentials.
+# The .gitignore in this directory ensures it is never committed.
+#
+# The default path is docker/snippets/uv/.netrc (repo root relative).
+# Override with:
+#   export DATAHUB_NETRC_PATH=/path/to/.netrc
+#
+# One "machine" entry per index host. The host must match the hostname in the
+# index URL — do not include the path, port, or scheme.
+#
+# Format:
+#   machine <hostname> login <username> password <token-or-password>
+#
+# Examples:
+machine dl.cloudsmith.io      login api-key    password <your-cloudsmith-api-key>
+machine cgr.dev               login <your-user> password <your-chainguard-token>
+machine my-nexus.example.com  login <user>     password <password>

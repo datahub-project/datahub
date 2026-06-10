@@ -516,7 +516,9 @@ public class SearchDocumentTransformer {
         opContext
             .getAspectRetriever()
             .getLatestAspectObjects(
-                propertyMap.keySet(), Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
+                opContext,
+                propertyMap.keySet(),
+                Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
 
     if (definitions.size() < propertyMap.size()) {
       String message =
@@ -672,7 +674,8 @@ public class SearchDocumentTransformer {
         String entityType = eAUrn.getEntityType();
         String entityKeyAspectName = entityRegistry.getEntitySpec(entityType).getKeyAspectName();
         Optional<Aspect> entityKeyAspect =
-            Optional.ofNullable(aspectRetriever.getLatestAspectObject(eAUrn, entityKeyAspectName));
+            Optional.ofNullable(
+                aspectRetriever.getLatestAspectObject(opContext, eAUrn, entityKeyAspectName));
         if (entityKeyAspect.isEmpty()) {
           return Optional.ofNullable(JsonNodeFactory.instance.nullNode());
         }
@@ -684,7 +687,8 @@ public class SearchDocumentTransformer {
           String aspectClass = aspectSpec.getDataTemplateClass().getCanonicalName();
           if (!Constants.SKIP_REFERENCE_ASPECT.contains(aspectName)) {
             try {
-              Aspect aspectDetails = aspectRetriever.getLatestAspectObject(eAUrn, aspectName);
+              Aspect aspectDetails =
+                  aspectRetriever.getLatestAspectObject(opContext, eAUrn, aspectName);
               DataMap aspectDataMap = aspectDetails.data();
               RecordTemplate aspectRecord =
                   RecordUtils.toRecordTemplate(aspectClass, aspectDataMap);

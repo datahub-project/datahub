@@ -2486,6 +2486,33 @@ class TestRequestsSessionConfig:
         assert type(emitter._session.get_adapter("https://example.com")) is HTTPAdapter
         assert type(emitter._session.get_adapter("http://example.com")) is HTTPAdapter
 
+    def test_client_cert_unset_leaves_session_cert_none(self):
+        """No client cert configured -> requests.Session.cert stays at its default (None)."""
+        session = RequestsSessionConfig().build_session()
+        assert session.cert is None
+
+    def test_client_cert_only_sets_session_cert_to_string(self):
+        """Single combined-PEM path is passed through as a string."""
+        session = RequestsSessionConfig(
+            client_certificate_path="/etc/certs/combined.pem"
+        ).build_session()
+        assert session.cert == "/etc/certs/combined.pem"
+
+    def test_client_cert_and_key_sets_session_cert_to_tuple(self):
+        """Separate cert and key paths are passed to requests as a (cert, key) tuple."""
+        session = RequestsSessionConfig(
+            client_certificate_path="/etc/certs/client.crt",
+            client_key_path="/etc/certs/client.key",
+        ).build_session()
+        assert session.cert == ("/etc/certs/client.crt", "/etc/certs/client.key")
+
+    def test_client_key_without_cert_is_ignored(self):
+        """A key without a cert is meaningless; session.cert stays None."""
+        session = RequestsSessionConfig(
+            client_key_path="/etc/certs/client.key"
+        ).build_session()
+        assert session.cert is None
+
 
 class TestDataHubGraphTcpKeepalive:
     """Regression tests covering tcp_keepalive propagation from a RestEmitter

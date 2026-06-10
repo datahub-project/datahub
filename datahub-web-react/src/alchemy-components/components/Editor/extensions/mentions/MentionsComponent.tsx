@@ -3,6 +3,7 @@ import { FloatingWrapper, useRemirrorContext } from '@remirror/react';
 import { Empty, Spin } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import { Positioner, selectionPositioner } from 'remirror/extensions';
 import styled from 'styled-components';
@@ -51,6 +52,7 @@ interface MentionsComponentProps {
 }
 
 export const MentionsComponent = ({ renderOutsideEditor = false }: MentionsComponentProps) => {
+    const { t: tc } = useTranslation('common.actions');
     const userContext = useUserContext();
     const { view } = useRemirrorContext();
     const [getAutoComplete, { data: autocompleteData, loading }] = useGetAutoCompleteMultipleResultsLazyQuery();
@@ -110,7 +112,7 @@ export const MentionsComponent = ({ renderOutsideEditor = false }: MentionsCompo
             {suggestions?.length > 0 ? (
                 <MentionsDropdown suggestions={suggestions} />
             ) : (
-                <StyledEmpty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No results found" />
+                <StyledEmpty image={Empty.PRESENTED_IMAGE_SIMPLE} description={tc('noResults')} />
             )}
         </Spin>
     );

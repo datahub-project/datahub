@@ -10,6 +10,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.businessattribute.BusinessAttributes;
@@ -93,7 +94,9 @@ public class BusinessAttributeUpdateHookTest {
     when(opContext
             .getAspectRetriever()
             .getLatestAspectObjects(
-                eq(Set.of(SCHEMA_FIELD_URN)), eq(Set.of(BUSINESS_ATTRIBUTE_ASPECT))))
+                any(OperationFingerprint.class),
+                eq(Set.of(SCHEMA_FIELD_URN)),
+                eq(Set.of(BUSINESS_ATTRIBUTE_ASPECT))))
         .thenReturn(
             Map.of(
                 SCHEMA_FIELD_URN,

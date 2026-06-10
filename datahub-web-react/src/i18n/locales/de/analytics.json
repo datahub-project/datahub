@@ -1,0 +1,11 @@
+{
+    "allDomains": "Alle Domänen",
+    "dataLandscapeSummary": "Übersicht der Datenlandschaft",
+    "domainLandscapeSummary": "Übersicht der Domänenlandschaft",
+    "failedToLoadCharts": "Charts konnten nicht geladen werden",
+    "failedToLoadDomains": "Domänen konnten nicht geladen werden",
+    "failedToLoadHighlights": "Highlights konnten nicht geladen werden",
+    "noDomainData": "Keine Analytics-Daten für diese Domäne",
+    "selectDomain": "Domäne auswählen",
+    "usageAnalytics": "Analytics"
+}

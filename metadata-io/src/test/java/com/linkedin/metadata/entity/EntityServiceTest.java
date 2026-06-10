@@ -1533,8 +1533,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     // Validate retrieval of CorpUserInfo Aspect #2
     RecordTemplate readAspect2 =
         _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName);
-    EntityAspect readAspectDao1 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 1);
-    EntityAspect readAspectDao2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
+    EntityAspect readAspectDao1 =
+        _aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 1);
+    EntityAspect readAspectDao2 =
+        _aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 0);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
     SystemMetadataUtils.setNoOp(expectedMetadata2, false);
@@ -1641,8 +1643,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     // Validate retrieval of CorpUserInfo Aspect #2
     EnvelopedAspect readAspect2 =
         _entityServiceImpl.getLatestEnvelopedAspect(opContext, "corpuser", entityUrn, aspectName);
-    EntityAspect readAspectDao1 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 1);
-    EntityAspect readAspectDao2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
+    EntityAspect readAspectDao1 =
+        _aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 1);
+    EntityAspect readAspectDao2 =
+        _aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 0);
 
     assertTrue(
         DataTemplateUtil.areEqual(writeAspect2, new CorpUserInfo(readAspect2.getValue().data())));
@@ -1786,7 +1790,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     RecordTemplate readAspect2 =
         _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName);
     EntityAspect readAspectDao2 =
-        _aspectDao.getAspect(entityUrn.toString(), aspectName, ASPECT_LATEST_VERSION);
+        _aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, ASPECT_LATEST_VERSION);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
     assertFalse(
@@ -2406,7 +2410,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
               .map(
                   entityAspect ->
                       EntityUtils.toSystemAspect(
-                              opContext.getRetrieverContext(), entityAspect, false)
+                              opContext, opContext.getRetrieverContext(), entityAspect, false)
                           .get()
                           .getAspect(StructuredPropertyDefinition.class))
               .collect(Collectors.toSet());
@@ -2493,7 +2497,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
               .map(
                   entityAspect ->
                       EntityUtils.toSystemAspect(
-                              opContext.getRetrieverContext(), entityAspect, false)
+                              opContext, opContext.getRetrieverContext(), entityAspect, false)
                           .get()
                           .getAspect(StructuredPropertyDefinition.class))
               .collect(Collectors.toSet());
@@ -3136,6 +3140,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     // Then insert another run-123 with version gap
     _aspectDao.insertAspect(
+        opContext,
         null,
         EntityAspect.EntitySystemAspect.builder()
             .forInsert(
@@ -3403,26 +3408,26 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     // Test case 1: No filter - should return count of all aspects
     RestoreIndicesArgs args1 = new RestoreIndicesArgs();
-    int count1 = _entityServiceImpl.countAspect(args1, logMessages::add);
+    int count1 = _entityServiceImpl.countAspect(opContext, args1, logMessages::add);
     assertTrue(count1 >= 3, "Should have at least 3 aspects (corpUserInfo x2 + datasetProperties)");
 
     // Test case 2: urnLike filter - should return count of aspects matching the URN pattern
     RestoreIndicesArgs args2 = new RestoreIndicesArgs();
     args2.urnLike = "%corpuser:testCountAspect%";
-    int count2 = _entityServiceImpl.countAspect(args2, logMessages::add);
+    int count2 = _entityServiceImpl.countAspect(opContext, args2, logMessages::add);
     assertTrue(count2 >= 2, "Should have at least 2 corpuser aspects");
 
     // Test case 3: urnLike + aspectName filter - should return count of matching aspects
     RestoreIndicesArgs args3 = new RestoreIndicesArgs();
     args3.urnLike = "%corpuser:testCountAspect%";
     args3.aspectName = "corpUserInfo";
-    int count3 = _entityServiceImpl.countAspect(args3, logMessages::add);
+    int count3 = _entityServiceImpl.countAspect(opContext, args3, logMessages::add);
     assertEquals(count3, 2, "Should have exactly 2 corpUserInfo aspects for testCountAspect users");
 
     // Test case 4: aspectName filter only
     RestoreIndicesArgs args4 = new RestoreIndicesArgs();
     args4.aspectName = "datasetProperties";
-    int count4 = _entityServiceImpl.countAspect(args4, logMessages::add);
+    int count4 = _entityServiceImpl.countAspect(opContext, args4, logMessages::add);
     assertTrue(count4 >= 1, "Should have at least 1 datasetProperties aspect");
 
     // Verify logger was called

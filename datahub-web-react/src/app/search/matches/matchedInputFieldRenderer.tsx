@@ -22,7 +22,8 @@ export const matchedInputFieldParams = (matchedField: MatchedField, entity: Char
         );
 
         if (matchedGlossaryTerm) {
-            let termType = 'term';
+            let termType =
+                'term'; /* untranslated-text -- dynamic value from backend custom properties; full sentence needs Trans rewrite */
             const typeProperty = matchedGlossaryTerm.term.properties?.customProperties?.find(
                 (property) => property.key === TYPE_PROPERTY_KEY_NAME,
             );

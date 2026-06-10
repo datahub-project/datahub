@@ -89,19 +89,22 @@ acryldata/datahub-ingestion:v0.x.y-locked   # locked
 | Glue                  | Yes  | Yes  |   -    |
 | Spark lineage (JRE)   | Yes  |  -   |   -    |
 | Oracle client         | Yes  |  -   |   -    |
+| MSSQL ODBC driver     | Yes  |  -   |   -    |
 | Runtime `pip install` | Yes  | Yes  |   -    |
 
 ### datahub-actions Feature Matrix
 
-| Feature                      | full | slim | locked |
-| ---------------------------- | :--: | :--: | :----: |
-| Core actions                 | Yes  | Yes  |  Yes   |
-| Kafka / Executor             | Yes  | Yes  |  Yes   |
-| Slack / Teams                | Yes  | Yes  |  Yes   |
-| Tag / Term / Doc propagation | Yes  | Yes  |  Yes   |
-| Snowflake tag propagation    | Yes  | Yes  |  Yes   |
-| Bundled CLI venvs            | Yes  | Yes  |  Yes   |
-| Runtime `pip install`        | Yes  | Yes  |   -    |
+| Feature                       | full | slim | locked |
+| ----------------------------- | :--: | :--: | :----: |
+| Core actions                  | Yes  | Yes  |  Yes   |
+| Kafka / Executor              | Yes  | Yes  |  Yes   |
+| Slack / Teams                 | Yes  | Yes  |  Yes   |
+| Tag / Term / Doc propagation  | Yes  | Yes  |  Yes   |
+| Snowflake tag propagation     | Yes  | Yes  |  Yes   |
+| Bundled CLI venvs             | Yes  | Yes  |  Yes   |
+| Oracle client (full only)     | Yes  |  -   |   -    |
+| MSSQL ODBC driver (full only) | Yes  |  -   |   -    |
+| Runtime `pip install`         | Yes  | Yes  |   -    |
 
 ### CI Testing Coverage
 

@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { EntityType } from '@types';
 
 export const FILTER_URL_PREFIX = 'filter_';
@@ -70,6 +72,33 @@ export const ORDERED_FIELDS = [
     HAS_FAILING_ASSERTIONS_FILTER_NAME,
 ];
 
+export function getFieldToLabel(): Record<string, string> {
+    return {
+        owners: i18next.t('search:fieldLabel.owner'),
+        tags: i18next.t('search:fieldLabel.tag'),
+        domains: i18next.t('search:fieldLabel.domain'),
+        platform: i18next.t('search:fieldLabel.platform'),
+        fieldTags: i18next.t('search:fieldLabel.columnTag'),
+        glossaryTerms: i18next.t('search:fieldLabel.glossaryTerm'),
+        fieldGlossaryTerms: i18next.t('search:fieldLabel.columnGlossaryTerm'),
+        fieldPaths: i18next.t('search:fieldLabel.columnName'),
+        description: i18next.t('common.labels:description'),
+        fieldDescriptions: i18next.t('search:fieldLabel.columnDescription'),
+        removed: i18next.t('search:fieldLabel.softDeleted'),
+        entity: i18next.t('search:fieldLabel.entityType'),
+        entityType: i18next.t('search:fieldLabel.entityType'),
+        _entityType: i18next.t('search:fieldLabel.entityType'),
+        container: i18next.t('search:fieldLabel.container'),
+        typeNames: i18next.t('search:fieldLabel.subType'),
+        origin: i18next.t('search:fieldLabel.environment'),
+        degree: i18next.t('search:fieldLabel.degree'),
+        [BROWSE_PATH_V2_FILTER_NAME]: i18next.t('search:fieldLabel.browse'),
+        hasActiveIncidents: i18next.t('search:filters.incidents.title'),
+        hasFailingAssertions: i18next.t('search:fieldLabel.assertions'),
+    };
+}
+
+/** @deprecated use getFieldToLabel() instead */
 export const FIELD_TO_LABEL = {
     owners: 'Owner',
     tags: 'Tag',

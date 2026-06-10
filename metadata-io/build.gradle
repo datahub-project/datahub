@@ -176,6 +176,7 @@ dependencies {
   testFixturesApi project(':metadata-service:configuration')
   testImplementation project(':li-utils')
   testImplementation externalDependency.testng
+  testImplementation externalDependency.archunit
   testImplementation externalDependency.h2
   testImplementation externalDependency.mysqlConnector
   testImplementation externalDependency.mockito

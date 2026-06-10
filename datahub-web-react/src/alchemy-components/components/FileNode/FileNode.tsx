@@ -2,6 +2,7 @@ import { Button } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Typography } from 'antd';
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { getExtensionFromFileName } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
@@ -59,6 +60,7 @@ export function FileNode({
     onClick,
     onClose,
 }: FileNodeProps) {
+    const { t } = useTranslation('alchemy');
     const extension = useMemo(() => getExtensionFromFileName(fileName || ''), [fileName]);
 
     const closeHandler = useCallback(
@@ -92,7 +94,7 @@ export function FileNode({
             <Container $border={border} className={className} $fontSize={fontSize}>
                 <FileDetails>
                     <Loading height={18} width={20} marginTop={0} />
-                    <FileName ellipsis={{ tooltip: fileName }}>Uploading {fileName}...</FileName>
+                    <FileName ellipsis={{ tooltip: fileName }}>{t('fileNode.uploading', { fileName })}</FileName>
                 </FileDetails>
             </Container>
         );

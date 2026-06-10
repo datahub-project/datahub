@@ -1,21 +1,15 @@
 import { Button, Tooltip } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
-
-/**
- * Tooltip message for when user already has access
- */
-const ACCESS_GRANTED_TOOLTIP = 'You already have access to this role';
 
 /**
  * Styled button component for access management actions.
  * Supports both enabled (request) and disabled (granted) states.
  */
-const AccessButton = styled(Button)`
-    background-color: ${REDESIGN_COLORS.BLUE};
-    color: ${ANTD_GRAY[1]};
+const StyledAccessButton = styled(Button)`
+    background-color: ${(props) => props.theme.colors.buttonFillBrand};
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     width: 80px;
     height: 30px;
     border-radius: 3.5px;
@@ -23,22 +17,22 @@ const AccessButton = styled(Button)`
     font-weight: bold;
 
     &:hover {
-        background-color: ${(props) => props.theme.styles['primary-color'] || '#18baff'};
-        color: ${ANTD_GRAY[1]};
+        background-color: ${(props) => props.theme.styles['primary-color'] || props.theme.colors.bgSurfaceBrandHover};
+        color: ${(props) => props.theme.colors.textOnFillBrand};
         border: none;
     }
 
     /* Disabled state when user already has access */
     &:disabled {
-        background-color: ${ANTD_GRAY[3]};
-        color: ${ANTD_GRAY[6]};
+        background-color: ${(props) => props.theme.colors.bgDisabled};
+        color: ${(props) => props.theme.colors.textDisabled};
         cursor: not-allowed;
-        border: 1px solid ${ANTD_GRAY[5]};
+        border: 1px solid ${(props) => props.theme.colors.borderDisabled};
 
         &:hover {
-            background-color: ${ANTD_GRAY[3]};
-            color: ${ANTD_GRAY[6]};
-            border: 1px solid ${ANTD_GRAY[5]};
+            background-color: ${(props) => props.theme.colors.bgDisabled};
+            color: ${(props) => props.theme.colors.textDisabled};
+            border: 1px solid ${(props) => props.theme.colors.borderDisabled};
         }
     }
 `;
@@ -63,31 +57,37 @@ const handleAccessButtonClick = (hasAccess: boolean, url?: string) => (e: React.
     }
 };
 
+type AccessButtonProps = {
+    roleData: RoleAccessData;
+    fallback?: React.ReactElement | null;
+};
+
 /**
  * Renders an access button with appropriate state and tooltip.
  * Shows "Granted" (disabled) if user has access, "Request" (enabled) if they don't.
  */
-export const renderAccessButton = (roleData: RoleAccessData): React.ReactElement | null => {
+export const AccessButton = ({ roleData, fallback = null }: AccessButtonProps): React.ReactElement | null => {
+    const { t } = useTranslation('entity.profile.access');
     const { hasAccess, url } = roleData;
 
     // Only show button if there's a URL to request access or user already has access
     if (!url && !hasAccess) {
-        return null;
+        return fallback;
     }
 
     const button = (
-        <AccessButton
+        <StyledAccessButton
             disabled={hasAccess}
             onClick={handleAccessButtonClick(hasAccess, url)}
-            aria-label={hasAccess ? 'Access already granted' : 'Request access'}
+            aria-label={hasAccess ? t('accessManagement.accessAlreadyGranted') : t('accessManagement.requestAccess')}
         >
-            {hasAccess ? 'Granted' : 'Request'}
-        </AccessButton>
+            {hasAccess ? t('accessManagement.granted') : t('accessManagement.request')}
+        </StyledAccessButton>
     );
 
     // Wrap with tooltip if user already has access
     return hasAccess ? (
-        <Tooltip title={ACCESS_GRANTED_TOOLTIP} placement="top">
+        <Tooltip title={t('accessManagement.accessGrantedTooltip')} placement="top">
             {button}
         </Tooltip>
     ) : (

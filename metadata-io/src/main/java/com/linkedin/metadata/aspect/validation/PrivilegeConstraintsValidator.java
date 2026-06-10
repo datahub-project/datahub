@@ -9,6 +9,7 @@ import static com.linkedin.metadata.Constants.UI_SOURCE;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
+import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.Streams;
 import com.linkedin.common.GlobalTags;
@@ -58,6 +59,7 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspectsWithAuth(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext,
       @Nullable AuthorizationSession session) {
@@ -110,7 +112,8 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
                   session,
                   item,
                   aspectRetriever,
-                  aspectRetriever.getLatestAspectObject(item.getUrn(), GLOBAL_TAGS_ASPECT_NAME))
+                  aspectRetriever.getLatestAspectObject(
+                      operationContext, item.getUrn(), GLOBAL_TAGS_ASPECT_NAME))
               .forEach(exceptions::addException);
           break;
         case SCHEMA_METADATA_ASPECT_NAME:
@@ -118,7 +121,8 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
                   session,
                   item,
                   aspectRetriever,
-                  aspectRetriever.getLatestAspectObject(item.getUrn(), SCHEMA_METADATA_ASPECT_NAME))
+                  aspectRetriever.getLatestAspectObject(
+                      operationContext, item.getUrn(), SCHEMA_METADATA_ASPECT_NAME))
               .forEach(exceptions::addException);
           break;
         case EDITABLE_SCHEMA_METADATA_ASPECT_NAME:
@@ -127,7 +131,7 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
                   item,
                   aspectRetriever,
                   aspectRetriever.getLatestAspectObject(
-                      item.getUrn(), EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
+                      operationContext, item.getUrn(), EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
               .forEach(exceptions::addException);
           break;
         default:
@@ -324,6 +328,7 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
@@ -331,7 +336,9 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 }

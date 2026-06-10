@@ -3,6 +3,7 @@ import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { Divider, Typography } from 'antd';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '@app/onboarding/config/SearchOnboardingConfig';
@@ -101,6 +102,7 @@ type Props = {
 };
 
 const BrowseSidebar = ({ visible }: Props) => {
+    const { t } = useTranslation('search');
     const isPlatformBrowseMode = useIsPlatformBrowseMode();
     const [isClosed, setIsClosed] = useState(false);
     const [isHidden, setIsHidden] = useState(false);
@@ -128,7 +130,7 @@ const BrowseSidebar = ({ visible }: Props) => {
                 <Controls isCollapsed={isClosed}>
                     {!isClosed ? (
                         <NavigateTitle level={5} isClosed={isClosed}>
-                            Navigate
+                            {t('sidebar.navigate')}
                         </NavigateTitle>
                     ) : null}
                     <Button

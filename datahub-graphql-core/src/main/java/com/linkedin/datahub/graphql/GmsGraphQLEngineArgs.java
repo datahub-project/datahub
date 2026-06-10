@@ -21,6 +21,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.search.SemanticSearchService;
@@ -64,6 +65,7 @@ public class GmsGraphQLEngineArgs {
   SecretService secretService;
   NativeUserService nativeUserService;
   IngestionConfiguration ingestionConfiguration;
+  IngestionCliVersionMatrixService ingestionCliVersionMatrixService;
   AuthenticationConfiguration authenticationConfiguration;
   AuthorizationConfiguration authorizationConfiguration;
   GitVersion gitVersion;

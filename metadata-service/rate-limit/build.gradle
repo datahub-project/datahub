@@ -1,0 +1,31 @@
+plugins {
+  id 'java-library'
+}
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
+dependencies {
+  api project(':metadata-service:configuration')
+  implementation project(':metadata-utils')
+
+  implementation externalDependency.concurrencyLimitsCore
+  implementation externalDependency.bucket4jCore
+  implementation externalDependency.bucket4jHazelcast
+  implementation externalDependency.hazelcast
+  implementation externalDependency.graphqlJava
+  implementation externalDependency.servletApi
+  implementation externalDependency.slf4jApi
+  implementation externalDependency.springWeb
+  implementation externalDependency.springContext
+  implementation externalDependency.micrometerObserve
+  compileOnly externalDependency.lombok
+  compileOnly externalDependency.springBootMicrometerMetrics
+
+  annotationProcessor externalDependency.lombok
+
+  testImplementation project(':metadata-operation-context')
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.jacksonDataFormatYaml
+  testImplementation "io.micrometer:micrometer-core:${micrometerVersion}"
+}

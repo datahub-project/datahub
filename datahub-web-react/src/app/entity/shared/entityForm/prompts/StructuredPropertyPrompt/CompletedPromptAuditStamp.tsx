@@ -1,9 +1,8 @@
 import Icon from '@ant-design/icons';
 import { Typography } from 'antd';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 
 import GreenCircleIcon from '@images/greenCircleTwoTone.svg?react';
 
@@ -20,7 +19,7 @@ const CompletedPromptContainer = styled.div`
 `;
 
 const AuditStamp = styled.div`
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     font-family: Manrope;
     font-weight: 600;
@@ -31,7 +30,7 @@ const AuditStamp = styled.div`
 `;
 
 const AuditStampSubTitle = styled.div`
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-family: Manrope;
     font-weight: 500;
@@ -54,6 +53,8 @@ interface Props {
 }
 
 export default function CompletedPromptAuditStamp({ completedByName, completedByTime }: Props) {
+    const { t } = useTranslation('entity.form');
+
     return (
         <CompletedPromptContainer>
             <PadIcon>
@@ -61,8 +62,12 @@ export default function CompletedPromptAuditStamp({ completedByName, completedBy
             </PadIcon>
             <AuditWrapper>
                 <AuditStamp>
-                    Completed by&nbsp;
-                    <Typography.Text ellipsis={{ tooltip: completedByName }}>{completedByName}</Typography.Text>
+                    <Trans
+                        t={t}
+                        i18nKey="completedBy"
+                        values={{ completedByName }}
+                        components={{ name: <Typography.Text ellipsis={{ tooltip: completedByName }} /> }}
+                    />
                 </AuditStamp>
                 <AuditStampSubTitle>{completedByTime}</AuditStampSubTitle>
             </AuditWrapper>

@@ -24,6 +24,8 @@ import {
     UnderlineExtension,
 } from 'remirror/extensions';
 
+import RemirrorLocaleProvider from '@components/components/Editor/RemirrorLocaleProvider';
+
 import { EditorContainer, EditorTheme } from '@app/entity/shared/tabs/Documentation/components/editor/EditorTheme';
 import { OnChangeMarkdown } from '@app/entity/shared/tabs/Documentation/components/editor/OnChangeMarkdown';
 import { htmlToMarkdown } from '@app/entity/shared/tabs/Documentation/components/editor/extensions/htmlToMarkdown';
@@ -104,26 +106,33 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     return (
         <EditorContainer className={className} onKeyDown={onKeyDown} data-testid={dataTestId} editorStyle={editorStyle}>
             <ThemeProvider theme={EditorTheme}>
-                <Remirror classNames={['ant-typography']} editable={!readOnly} manager={manager} initialContent={state}>
-                    {!readOnly && (
-                        <>
-                            <Toolbar />
-                            <CodeBlockToolbar />
-                            <FloatingToolbar />
-                            <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
-                            <MentionsComponent />
-                            {onChange && (
-                                <OnChangeMarkdown
-                                    onChange={(md: string) => {
-                                        setModifiedContent(md);
-                                        onChange(md);
-                                    }}
-                                />
-                            )}
-                        </>
-                    )}
-                    <EditorComponent />
-                </Remirror>
+                <RemirrorLocaleProvider>
+                    <Remirror
+                        classNames={['ant-typography']}
+                        editable={!readOnly}
+                        manager={manager}
+                        initialContent={state}
+                    >
+                        {!readOnly && (
+                            <>
+                                <Toolbar />
+                                <CodeBlockToolbar />
+                                <FloatingToolbar />
+                                <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
+                                <MentionsComponent />
+                                {onChange && (
+                                    <OnChangeMarkdown
+                                        onChange={(md: string) => {
+                                            setModifiedContent(md);
+                                            onChange(md);
+                                        }}
+                                    />
+                                )}
+                            </>
+                        )}
+                        <EditorComponent />
+                    </Remirror>
+                </RemirrorLocaleProvider>
             </ThemeProvider>
         </EditorContainer>
     );

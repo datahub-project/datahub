@@ -152,7 +152,10 @@ public class MostPopularSource implements EntityRecommendationSource {
         AggregationBuilders.terms(ENTITY_AGG_NAME)
             .field(
                 ESUtils.toKeywordField(
-                    DataHubUsageEventConstants.ENTITY_URN, false, opContext.getAspectRetriever()))
+                    opContext,
+                    DataHubUsageEventConstants.ENTITY_URN,
+                    false,
+                    opContext.getAspectRetriever()))
             .size(MAX_CONTENT * 2);
     source.aggregation(aggregation);
     source.size(0);

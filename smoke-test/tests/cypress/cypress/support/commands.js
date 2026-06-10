@@ -319,7 +319,11 @@ Cypress.Commands.add("addViaModal", (text, modelHeader, value, dataTestId) => {
     .first()
     .type(text);
   cy.get(`[data-testid="${dataTestId}"]`).click();
-  cy.contains(value).should("be.visible");
+  // After the modal closes the test may land on the new entity's profile page,
+  // where the entity name appears in multiple DOM nodes (page header, breadcrumbs,
+  // hidden tab panes, self-referencing links). Filter to visible matches before
+  // asserting so an `<a>` inside a `display: none` tab pane doesn't win the lookup.
+  cy.contains(value).filter(":visible").first().should("be.visible");
 });
 
 Cypress.Commands.add(
@@ -465,8 +469,14 @@ Cypress.Commands.add(
 );
 
 Cypress.Commands.add("selectOptionInTagTermModal", (text) => {
-  cy.enterTextInTestId("tag-term-modal-input", text);
-  cy.clickOptionWithTestId("tag-term-option");
+  // AddTagsModal / AddTermsModal both use alchemy SimpleSelect: the trigger
+  // opens a portal-rendered dropdown containing the search input and the
+  // options.
+  cy.getWithTestId("tag-term-modal-input").click();
+  cy.get('[data-testid="dropdown-search-input"]').type(text);
+  cy.get(`[data-testid="tag-term-option-${text}"]`)
+    .first()
+    .click({ force: true });
   const btn_id = "add-tag-term-from-modal-btn";
   cy.clickOptionWithTestId(btn_id);
   cy.get(selectorWithtestId(btn_id)).should("not.exist");
@@ -485,7 +495,7 @@ Cypress.Commands.add(
   (urn, dataset_name, domain_urn) => {
     cy.goToDataset(urn, dataset_name);
     cy.get(
-      `.sidebar-domain-section [href="/domain/${domain_urn}"] .anticon-close`,
+      `.sidebar-domain-section [href="/domain/${domain_urn}"] [data-testid="remove-icon"]`,
     ).click();
     cy.clickOptionWithText("Yes");
   },
@@ -495,7 +505,7 @@ Cypress.Commands.add(
   "removeApplicationFromDataset",
   (urn, dataset_name, application_urn) => {
     cy.goToDataset(urn, dataset_name);
-    cy.get(`.sidebar-application-section .anticon-close`).click();
+    cy.get(`.sidebar-application-section [data-testid="remove-icon"]`).click();
     cy.clickOptionWithText("Yes");
   },
 );

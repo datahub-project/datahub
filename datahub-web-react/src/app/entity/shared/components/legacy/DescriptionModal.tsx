@@ -1,8 +1,8 @@
 import { Button, Form, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 
 const FormLabel = styled(Typography.Text)`
@@ -11,7 +11,7 @@ const FormLabel = styled(Typography.Text)`
 `;
 
 const StyledEditor = styled(Editor)`
-    border: 1px solid ${ANTD_GRAY[4.5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const StyledViewer = styled(Editor)`
@@ -43,6 +43,8 @@ export default function UpdateDescriptionModal({
     onSubmit,
     isAddDesc,
 }: Props) {
+    const { t } = useTranslation('entityV1.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const [updatedDesc, setDesc] = useState(description || original || '');
 
     const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -62,16 +64,16 @@ export default function UpdateDescriptionModal({
             open
             width={900}
             onCancel={onClose}
-            okText={isAddDesc ? 'Submit' : 'Update'}
+            okText={isAddDesc ? tc('submit') : tc('update')}
             footer={
                 <>
-                    <Button onClick={onClose}>Cancel</Button>
+                    <Button onClick={onClose}>{tc('cancel')}</Button>
                     <Button
                         onClick={() => onSubmit(updatedDesc)}
                         disabled={updatedDesc === description}
                         data-testid="description-modal-update-button"
                     >
-                        Update
+                        {tc('update')}
                     </Button>
                 </>
             }
@@ -86,12 +88,12 @@ export default function UpdateDescriptionModal({
                     />
                 </Form.Item>
                 {!isAddDesc && description && original && (
-                    <OriginalDocumentation label={<FormLabel>Original:</FormLabel>}>
+                    <OriginalDocumentation label={<FormLabel>{t('descriptionModal.original')}</FormLabel>}>
                         <StyledViewer content={original || ''} readOnly />
                     </OriginalDocumentation>
                 )}
                 {!isAddDesc && description && propagatedDescription && (
-                    <OriginalDocumentation label={<FormLabel>Propagated:</FormLabel>}>
+                    <OriginalDocumentation label={<FormLabel>{t('descriptionModal.propagated')}</FormLabel>}>
                         <StyledViewer content={propagatedDescription || ''} readOnly />
                     </OriginalDocumentation>
                 )}

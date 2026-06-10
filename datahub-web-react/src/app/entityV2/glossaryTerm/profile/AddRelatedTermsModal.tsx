@@ -6,11 +6,12 @@ import styled, { useTheme } from 'styled-components/macro';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
+import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
 import { getParentEntities } from '@app/searchV2/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
-import TermLabel from '@app/shared/TermLabel';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
@@ -50,6 +51,7 @@ function AddRelatedTermsModal(props: Props) {
     const { urn: entityDataUrn } = useEntityData();
     const refetch = useRefetch();
     const { reloadByKeyType } = useReloadableContext();
+    const generateTermColor = useGenerateGlossaryColorFromPalette();
 
     const [AddRelatedTerms] = useAddRelatedTermsMutation();
 
@@ -97,7 +99,11 @@ function AddRelatedTermsModal(props: Props) {
                 <Select.Option value={result.entity.urn} key={result.entity.urn} name={displayName}>
                     <SearchResultContainer>
                         <ParentEntities parentEntities={getParentEntities(result.entity) || []} />
-                        <TermLabel name={displayName} />
+                        <GlossaryTermPill
+                            name={displayName}
+                            color={generateTermColor(result.entity.urn)}
+                            variant="borderless"
+                        />
                     </SearchResultContainer>
                 </Select.Option>
             );
@@ -123,7 +129,19 @@ function AddRelatedTermsModal(props: Props) {
         const newUrns = [...selectedUrns, urn];
         setSelectedUrns(newUrns);
         const selectedSearchOption = tagSearchOptions.find((option) => option.props.value === urn);
-        setSelectedTerms([...selectedTerms, { urn, component: <TermLabel name={selectedSearchOption?.props.name} /> }]);
+        setSelectedTerms([
+            ...selectedTerms,
+            {
+                urn,
+                component: (
+                    <GlossaryTermPill
+                        name={selectedSearchOption?.props.name}
+                        color={generateTermColor(urn)}
+                        variant="borderless"
+                    />
+                ),
+            },
+        ]);
     };
 
     // When a Tag or term search result is deselected, remove the urn from the Owners
@@ -139,7 +157,13 @@ function AddRelatedTermsModal(props: Props) {
         setIsFocusedOnInput(false);
         const newUrns = [...selectedUrns, urn];
         setSelectedUrns(newUrns);
-        setSelectedTerms([...selectedTerms, { urn, component: <TermLabel name={displayName} /> }]);
+        setSelectedTerms([
+            ...selectedTerms,
+            {
+                urn,
+                component: <GlossaryTermPill name={displayName} color={generateTermColor(urn)} variant="borderless" />,
+            },
+        ]);
     }
 
     function clearInput() {
