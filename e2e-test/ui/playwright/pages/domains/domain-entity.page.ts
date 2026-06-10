@@ -250,9 +250,14 @@ export class DomainEntityPage extends BasePage {
     await editInput.fill(newName);
     await editInput.press(KEYS.ENTER);
 
-    // Wait for mutation to complete and verify the new name is visible
+    // Wait for mutation to complete and verify the new name is applied.
+    // antd's Typography.Text ellipsizes the visible text in the header (the
+    // available width shrunk after icon/color chrome was added), so the visible
+    // textContent may be a truncated form like "EditedXXXX...". The full name is
+    // mirrored in `aria-label` (antd adds it when the ellipsis tooltip is on),
+    // which is what we assert against.
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    await expect(editableContainer).toContainText(newName, { timeout: TIMEOUTS.MEDIUM });
+    await expect(editableContainer).toHaveAttribute('aria-label', newName, { timeout: TIMEOUTS.MEDIUM });
   }
 }
