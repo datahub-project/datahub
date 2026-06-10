@@ -2827,12 +2827,6 @@ ORDER by DataBaseName, TableName;
                             context=f"phase={phase}, query_index={query_index}, stalled_for={elapsed:.0f}s",
                         )
                         stall_warned = True
-                else:
-                    # Elapsed time is within the threshold — no stall active.
-                    # If stall_warned was True (a previous stall fired), this means
-                    # _mark_phase was called since then, confirming genuine recovery.
-                    # Clear the flag so a subsequent stall emits a fresh warning.
-                    stall_warned = False
 
         watchdog_thread: Optional[Thread] = None
         if stall_seconds > 0:
