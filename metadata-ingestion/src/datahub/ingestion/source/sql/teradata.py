@@ -1059,6 +1059,7 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # Per-phase error breakdown for self-service diagnostics; categories align
     # with _categorize_view_error() so support can pinpoint root cause quickly.
     schema_discovery_failures: int = 0
+    historical_lineage_check_failures: int = 0
     view_timeout_errors: int = 0
     view_parse_errors: int = 0
     view_permission_errors: int = 0
@@ -1081,6 +1082,10 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     def increment_schema_discovery_failures(self) -> None:
         with self._lock:
             self.schema_discovery_failures += 1
+
+    def increment_historical_lineage_check_failures(self) -> None:
+        with self._lock:
+            self.historical_lineage_check_failures += 1
 
     def increment_pool_timeout_retries(self) -> None:
         with self._lock:
@@ -2999,7 +3004,7 @@ ORDER by DataBaseName, TableName;
                 return True
         except Exception as e:
             if isinstance(e, PoolTimeoutError):
-                self.report.increment_schema_discovery_failures()
+                self.report.increment_historical_lineage_check_failures()
                 self.report.warning(
                     title="Connection pool exhausted checking historical lineage table",
                     message="Could not acquire a connection to verify PDCRINFO.DBQLSqlTbl_Hst — the connection pool was exhausted. Historical lineage will be skipped for this run. Consider increasing connection_pool_timeout_ms or reducing max_workers.",
@@ -3007,7 +3012,7 @@ ORDER by DataBaseName, TableName;
                     exc=e,
                 )
             elif _should_retry_connect(e):
-                self.report.increment_schema_discovery_failures()
+                self.report.increment_historical_lineage_check_failures()
                 self.report.warning(
                     title="Historical lineage table unreachable",
                     message="Historical lineage table PDCRINFO.DBQLSqlTbl_Hst check failed after repeated transient errors. Historical lineage will be skipped for this run.",

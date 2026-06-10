@@ -4014,6 +4014,66 @@ class TestHistoricalTableCheckLogging:
         # so no report.warning should leak through for an expected "table not found".
         assert len(source.report.warnings) == 0
 
+    def test_pool_timeout_increments_historical_lineage_check_failures(self):
+        """A PoolTimeoutError increments historical_lineage_check_failures."""
+        source = _create_source_patched()
+
+        pool_exc = PoolTimeoutError("pool timed out")
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = pool_exc
+
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            result = source._check_historical_table_exists()
+
+        assert result is False
+        assert source.report.historical_lineage_check_failures == 1
+
+    def test_transient_error_increments_historical_lineage_check_failures(self):
+        """A transient connectivity error increments historical_lineage_check_failures."""
+        source = _create_source_patched()
+
+        transient_exc = OperationalError("connect timed out", None, None)
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = transient_exc
+
+        with (
+            patch.object(source, "get_metadata_engine", return_value=mock_engine),
+            patch("time.sleep"),
+        ):
+            result = source._check_historical_table_exists()
+
+        assert result is False
+        assert source.report.historical_lineage_check_failures == 1
+
+    def test_non_transient_error_does_not_increment_historical_lineage_check_failures(
+        self,
+    ):
+        """A 'table not found' error (expected case) leaves historical_lineage_check_failures at zero."""
+        source = _create_source_patched()
+
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = Exception("Object does not exist")
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            result = source._check_historical_table_exists()
+
+        assert result is False
+        assert source.report.historical_lineage_check_failures == 0
+
+    def test_success_does_not_increment_historical_lineage_check_failures(self):
+        """A successful table check leaves historical_lineage_check_failures at zero."""
+        source = _create_source_patched()
+
+        mock_engine = MagicMock()
+
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            result = source._check_historical_table_exists()
+
+        assert result is True
+        assert source.report.historical_lineage_check_failures == 0
+
 
 class TestExecuteWithCursorFallback:
     """_execute_with_cursor_fallback() falls back to client-side buffering only
@@ -4255,6 +4315,12 @@ class TestErrorCategorizationReport:
         report.increment_schema_discovery_failures()
         report.increment_schema_discovery_failures()
         assert report.schema_discovery_failures == 2
+
+    def test_increment_historical_lineage_check_failures(self) -> None:
+        report = TeradataReport()
+        report.increment_historical_lineage_check_failures()
+        report.increment_historical_lineage_check_failures()
+        assert report.historical_lineage_check_failures == 2
 
     def test_schema_discovery_failures_is_thread_safe(self) -> None:
         report = TeradataReport()
