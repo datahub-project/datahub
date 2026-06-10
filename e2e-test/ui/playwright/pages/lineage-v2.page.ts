@@ -131,6 +131,21 @@ export class LineageV2Page extends BasePage {
     await expect(this.getNode(nodeUrn)).not.toBeAttached({ timeout: 5000 });
   }
 
+  /** Get graph node by dataset path (e.g., "transactions.transactions" or "transactions.user_profile"). */
+  getGraphNodeByDatasetPath(datasetPath: string): Locator {
+    return this.page.locator(`[data-testid*="rf__node"][data-testid*="${datasetPath}"]`).first();
+  }
+
+  /** Check if a dataset node is visible in the graph by its path. */
+  async checkDatasetNodeVisible(datasetPath: string): Promise<void> {
+    await expect(this.getGraphNodeByDatasetPath(datasetPath)).toBeVisible({ timeout: 5000 });
+  }
+
+  /** Check if a dataset node is hidden in the graph by its path. */
+  async checkDatasetNodeHidden(datasetPath: string): Promise<void> {
+    await expect(this.getGraphNodeByDatasetPath(datasetPath)).not.toBeVisible({ timeout: 5000 });
+  }
+
   // ── Edge existence checks ───────────────────────────────────────────────────
 
   async checkEdgeExists(node1Urn: string, node2Urn: string): Promise<void> {

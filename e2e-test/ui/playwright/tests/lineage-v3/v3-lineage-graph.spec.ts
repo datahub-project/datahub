@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures/base-test';
 import { LineageV2Page } from '../../pages/lineage-v2.page';
+import { seedDatasetStub, seedDataJobStub, seedDataJobInputOutput, seedUpstreamLineage, makeEdge, daysAgoMs } from './utils';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,82 @@ const _FILTERING_NODE20_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,pla
 test.describe('lineage v3 — lineage graph', () => {
   let lineagePage: LineageV2Page;
 
+  test.beforeAll(async ({ playwright, gmsToken, logger }) => {
+    // Seed fixture data using the working ingestProposal endpoint
+    const request = await playwright.request.newContext();
+    try {
+      const eightDaysAgo = daysAgoMs(8);
+      const oneDayAgo = daysAgoMs(1);
+
+      // ── Case 1: transaction_etl input datasets change ──────────────────────────
+      await seedDatasetStub(request, gmsToken, 'urn:li:dataset:(urn:li:dataPlatform:bigquery,transactions.transactions,PROD)', 'Transactions', logger);
+      await seedDatasetStub(request, gmsToken, 'urn:li:dataset:(urn:li:dataPlatform:bigquery,transactions.user_profile,PROD)', 'User Profile', logger);
+      await seedDatasetStub(request, gmsToken, 'urn:li:dataset:(urn:li:dataPlatform:bigquery,transactions.aggregated_transactions,PROD)', 'Aggregated Transactions', logger);
+      const bqEtlFlowUrn = 'urn:li:dataFlow:(airflow,bq_etl,prod)';
+      await seedDataJobStub(request, gmsToken, _TRANSACTION_ETL_URN, 'transaction_etl', bqEtlFlowUrn, logger);
+      await seedDataJobInputOutput(request, gmsToken, _TRANSACTION_ETL_URN,
+        [
+          makeEdge('urn:li:dataset:(urn:li:dataPlatform:bigquery,transactions.transactions,PROD)', eightDaysAgo, oneDayAgo),
+          makeEdge('urn:li:dataset:(urn:li:dataPlatform:bigquery,transactions.user_profile,PROD)', oneDayAgo, oneDayAgo),
+        ],
+        [makeEdge('urn:li:dataset:(urn:li:dataPlatform:bigquery,transactions.aggregated_transactions,PROD)', eightDaysAgo, oneDayAgo)],
+        logger);
+
+      // ── Case 2: temperature_etl_1 → temperature_etl_2 replacement ────────────
+      const snowflakeEtlFlowUrn = 'urn:li:dataFlow:(airflow,snowflake_etl,PROD)';
+      const temperatureEtl1Urn = 'urn:li:dataJob:(urn:li:dataFlow:(airflow,snowflake_etl,PROD),temperature_etl_1)';
+      const temperatureEtl2Urn = 'urn:li:dataJob:(urn:li:dataFlow:(airflow,snowflake_etl,PROD),temperature_etl_2)';
+      const dailyTempUrn = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.daily_temperature,PROD)';
+      await seedDatasetStub(request, gmsToken, dailyTempUrn, 'Daily Temperature', logger);
+      await seedDatasetStub(request, gmsToken, _MONTHLY_TEMPERATURE_DATASET_URN, 'Monthly Temperature', logger);
+      await seedDataJobStub(request, gmsToken, temperatureEtl1Urn, 'temperature_etl_1', snowflakeEtlFlowUrn, logger);
+      await seedDataJobStub(request, gmsToken, temperatureEtl2Urn, 'temperature_etl_2', snowflakeEtlFlowUrn, logger);
+      await seedDataJobInputOutput(request, gmsToken, temperatureEtl1Urn,
+        [makeEdge(dailyTempUrn, eightDaysAgo, eightDaysAgo)],
+        [makeEdge(_MONTHLY_TEMPERATURE_DATASET_URN, eightDaysAgo, eightDaysAgo)],
+        logger);
+      await seedDataJobInputOutput(request, gmsToken, temperatureEtl2Urn,
+        [makeEdge(dailyTempUrn, oneDayAgo, oneDayAgo)],
+        [makeEdge(_MONTHLY_TEMPERATURE_DATASET_URN, oneDayAgo, oneDayAgo)],
+        logger);
+
+      // ── Case 3: gnp dataset join change ──────────────────────────────────────
+      const gdpUrn = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,economic_data.gdp,PROD)';
+      const factorIncomeUrn = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,economic_data.factor_income,PROD)';
+      await seedDatasetStub(request, gmsToken, gdpUrn, 'GDP Dataset', logger);
+      await seedDatasetStub(request, gmsToken, factorIncomeUrn, 'Factor Income Dataset', logger);
+      await seedDatasetStub(request, gmsToken, _GNP_DATASET_URN, 'GNP Dataset', logger);
+      await seedUpstreamLineage(request, gmsToken, _GNP_DATASET_URN,
+        [
+          { urn: gdpUrn, createdMs: eightDaysAgo, updatedMs: oneDayAgo },
+          { urn: factorIncomeUrn, createdMs: eightDaysAgo, updatedMs: eightDaysAgo },
+        ],
+        logger);
+
+      // Seed all node types for complete graph test
+      await seedDatasetStub(request, gmsToken, _NODE1_DATASET_URN, 'Node 1 Dataset', logger);
+      await seedDatasetStub(request, gmsToken, _NODE2_DATASET_URN, 'Node 2 Dataset', logger);
+      await seedDatasetStub(request, gmsToken, _NODE3_DATASET_URN, 'Node 3 Dataset', logger);
+      await seedDatasetStub(request, gmsToken, _NODE5_DATASET_MANUAL_URN, 'Node 5 Manual Dataset', logger);
+      await seedDatasetStub(request, gmsToken, _NODE6_DATASET_URN, 'Node 6 Dataset', logger);
+      await seedDataJobStub(request, gmsToken, _NODE7_DATAJOB_URN, 'node7_datajob', 'urn:li:dataFlow:(airflow,playwright_lineage_pipeline,PROD)', logger);
+      await seedDatasetStub(request, gmsToken, _NODE8_DATASET_URN, 'Node 8 Dataset', logger);
+
+      // Seed filtering nodes
+      await seedDatasetStub(request, gmsToken, FILTERING_NODE7_URN, 'Filtering Node 7', logger);
+      for (let i = 1; i <= 6; i++) {
+        const nodeUrn = eval(`_FILTERING_NODE${i}_URN`);
+        await seedDatasetStub(request, gmsToken, nodeUrn, `Filtering Node ${i}`, logger);
+      }
+      for (let i = 8; i <= 20; i++) {
+        const nodeUrn = eval(`_FILTERING_NODE${i}_URN`);
+        await seedDatasetStub(request, gmsToken, nodeUrn, `Filtering Node ${i}`, logger);
+      }
+    } finally {
+      await request.dispose();
+    }
+  });
+
   test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
     lineagePage = new LineageV2Page(page, logger, logDir);
 
@@ -110,10 +187,7 @@ test.describe('lineage v3 — lineage graph', () => {
     await expect(page.getByTestId(hdfsNodeId)).toBeHidden();
   });
 
-  test.skip('can see when the inputs to a data job change', async ({ page }) => {
-    // TODO: Requires custom fixture data (_TRANSACTION_ETL_URN) to be seeded before test runs.
-    // Fixture file exists at tests/lineage-v3/fixtures/data.json but seeding infrastructure
-    // needs to be wired up. See featureDataLoader in base-test.ts for how to implement.
+  test('can see when the inputs to a data job change', async ({ page }) => {
     await lineagePage.goToLineageGraphWithTimeRange(
       TASKS_ENTITY_TYPE,
       _TRANSACTION_ETL_URN,
@@ -122,9 +196,10 @@ test.describe('lineage v3 — lineage graph', () => {
     );
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('aggregated', { exact: false })).toBeVisible();
-    await expect(page.getByText('transactions', { exact: false })).toBeVisible();
-    await expect(page.getByText('user_profile')).toBeHidden();
+    // Time range 14-7 days ago: transactions and aggregated visible, user_profile hidden
+    await lineagePage.checkDatasetNodeVisible('transactions.aggregated_transactions');
+    await lineagePage.checkDatasetNodeVisible('transactions.transactions');
+    await lineagePage.checkDatasetNodeHidden('transactions.user_profile');
 
     await lineagePage.goToLineageGraphWithTimeRange(
       TASKS_ENTITY_TYPE,
@@ -134,15 +209,13 @@ test.describe('lineage v3 — lineage graph', () => {
     );
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('aggregated', { exact: false })).toBeVisible();
-    await expect(page.getByText('transactions', { exact: false })).toBeVisible();
-    await expect(page.getByText('user_profile')).toBeVisible();
+    // Time range 7 days - now: all three visible (user_profile added)
+    await lineagePage.checkDatasetNodeVisible('transactions.aggregated_transactions');
+    await lineagePage.checkDatasetNodeVisible('transactions.transactions');
+    await lineagePage.checkDatasetNodeVisible('transactions.user_profile');
   });
 
-  test.skip('can see when a data job is replaced', async ({ page }) => {
-    // TODO: Requires custom fixture data (_MONTHLY_TEMPERATURE_DATASET_URN) to be seeded before test runs.
-    // Fixture file exists at tests/lineage-v3/fixtures/data.json but seeding infrastructure
-    // needs to be wired up. See featureDataLoader in base-test.ts for how to implement.
+  test('can see when a data job is replaced', async ({ page }) => {
     await lineagePage.goToLineageGraphWithTimeRange(
       DATASET_ENTITY_TYPE,
       _MONTHLY_TEMPERATURE_DATASET_URN,
@@ -151,8 +224,9 @@ test.describe('lineage v3 — lineage graph', () => {
     );
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('monthly_temperature', { exact: false })).toBeVisible();
-    await expect(page.getByText('temperature_etl_2')).toBeHidden();
+    // Time range 14-7 days ago: only temperature_etl_1 job visible
+    await lineagePage.checkDatasetNodeVisible('climate.monthly_temperature');
+    await lineagePage.checkDatasetNodeHidden('temperature_etl_2');
 
     await lineagePage.goToLineageGraphWithTimeRange(
       DATASET_ENTITY_TYPE,
@@ -162,14 +236,12 @@ test.describe('lineage v3 — lineage graph', () => {
     );
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('monthly_temperature', { exact: false })).toBeVisible();
-    await expect(page.getByText('temperature_etl_1')).toBeHidden();
+    // Time range 7 days - now: only temperature_etl_2 job visible (replaced)
+    await lineagePage.checkDatasetNodeVisible('climate.monthly_temperature');
+    await lineagePage.checkDatasetNodeHidden('temperature_etl_1');
   });
 
-  test.skip('can see when a dataset join changes', async ({ page }) => {
-    // TODO: Requires custom fixture data (_GNP_DATASET_URN) to be seeded before test runs.
-    // Fixture file exists at tests/lineage-v3/fixtures/data.json but seeding infrastructure
-    // needs to be wired up. See featureDataLoader in base-test.ts for how to implement.
+  test('can see when a dataset join changes', async ({ page }) => {
     await lineagePage.goToLineageGraphWithTimeRange(
       DATASET_ENTITY_TYPE,
       _GNP_DATASET_URN,
@@ -178,9 +250,10 @@ test.describe('lineage v3 — lineage graph', () => {
     );
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('gnp', { exact: false })).toBeVisible();
-    await expect(page.getByText('gdp', { exact: false })).toBeVisible();
-    await expect(page.getByText('factor_income', { exact: false })).toBeVisible();
+    // Time range 14 days - now: both upstream sources visible (gdp and factor_income)
+    await lineagePage.checkDatasetNodeVisible('economic_data.gnp');
+    await lineagePage.checkDatasetNodeVisible('economic_data.gdp');
+    await lineagePage.checkDatasetNodeVisible('economic_data.factor_income');
 
     await lineagePage.goToLineageGraphWithTimeRange(
       DATASET_ENTITY_TYPE,
@@ -190,9 +263,10 @@ test.describe('lineage v3 — lineage graph', () => {
     );
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('gnp', { exact: false })).toBeVisible();
-    await expect(page.getByText('gdp', { exact: false })).toBeVisible();
-    await expect(page.getByText('factor_income')).toBeHidden();
+    // Time range 7 days - now: only gdp visible (factor_income join removed after 8 days)
+    await lineagePage.checkDatasetNodeVisible('economic_data.gnp');
+    await lineagePage.checkDatasetNodeVisible('economic_data.gdp');
+    await lineagePage.checkDatasetNodeHidden('economic_data.factor_income');
   });
 
   test('can edit upstream lineage', async ({ page }) => {
@@ -214,10 +288,7 @@ test.describe('lineage v3 — lineage graph', () => {
     await expect(page.getByRole('button', { name: /Set Upstreams/i })).not.toHaveAttribute('disabled');
   });
 
-  test.skip('displays complete lineage graph with all node types', async () => {
-    // TODO: Requires custom fixture data (NODE1-NODE12, FILTERING_NODE1-20) to be seeded before test runs.
-    // Fixture file exists at tests/lineage-v3/fixtures/data.json but seeding infrastructure
-    // needs to be wired up. See featureDataLoader in base-test.ts for how to implement.
+  test('displays complete lineage graph with all node types', async () => {
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, _NODE1_DATASET_URN);
 
     // Check initial state
@@ -257,10 +328,7 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkNodeNotExists(_NODE10_DASHBOARD_URN);
   });
 
-  test.skip('should allow to expand and filter children', async () => {
-    // TODO: Requires custom fixture data (FILTERING_NODE1-20) to be seeded before test runs.
-    // Fixture file exists at tests/lineage-v3/fixtures/data.json but seeding infrastructure
-    // needs to be wired up. See featureDataLoader in base-test.ts for how to implement.
+  test('should allow to expand and filter children', async () => {
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, FILTERING_NODE7_URN);
 
     await lineagePage.checkNodeExists(FILTERING_NODE7_URN);
