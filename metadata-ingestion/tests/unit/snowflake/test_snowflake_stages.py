@@ -2,6 +2,12 @@ from datetime import datetime
 from typing import List
 from unittest.mock import MagicMock
 
+from datahub.metadata.schema_classes import (
+    ContainerPropertiesClass,
+    DatasetPropertiesClass,
+    SubTypesClass,
+)
+
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
@@ -13,11 +19,6 @@ from datahub.ingestion.source.snowflake.snowflake_stages import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
-)
-from datahub.metadata.schema_classes import (
-    ContainerPropertiesClass,
-    DatasetPropertiesClass,
-    SubTypesClass,
 )
 
 

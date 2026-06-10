@@ -10,6 +10,12 @@ Tests for stateful and incremental features added to the Dremio connector:
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    DatasetPropertiesClass,
+    MetadataChangeProposalClass,
+)
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.incremental_properties_helper import (
     auto_incremental_properties,
@@ -20,11 +26,6 @@ from datahub.ingestion.source.dremio.dremio_api import (
     DremioEdition,
 )
 from datahub.ingestion.source.dremio.dremio_entities import DremioCatalog
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    DatasetPropertiesClass,
-    MetadataChangeProposalClass,
-)
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -3,6 +3,11 @@ from typing import Any, List
 from unittest.mock import MagicMock, patch
 
 import pytest
+from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
+    DataJobInputOutputClass,
+    OwnershipTypeClass,
+)
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -28,11 +33,6 @@ from datahub.ingestion.source.informatica.source import (
     OrchestrateState,
 )
 from datahub.ingestion.source.state import stale_entity_removal_handler
-from datahub.metadata.schema_classes import (
-    BrowsePathsV2Class,
-    DataJobInputOutputClass,
-    OwnershipTypeClass,
-)
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 

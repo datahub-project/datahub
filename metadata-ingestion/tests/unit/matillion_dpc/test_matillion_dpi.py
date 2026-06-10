@@ -2,6 +2,12 @@ from typing import Any, Dict, List
 from unittest.mock import patch
 
 import pytest
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    DataProcessInstancePropertiesClass,
+    DataProcessInstanceRunEventClass,
+    RunResultTypeClass,
+)
 from pydantic import SecretStr
 
 from datahub.ingestion.api.common import PipelineContext
@@ -16,12 +22,6 @@ from datahub.ingestion.source.matillion_dpc.models import (
     MatillionPipelineExecution,
     MatillionPipelineExecutionStepResult,
     MatillionProject,
-)
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    DataProcessInstancePropertiesClass,
-    DataProcessInstanceRunEventClass,
-    RunResultTypeClass,
 )
 
 

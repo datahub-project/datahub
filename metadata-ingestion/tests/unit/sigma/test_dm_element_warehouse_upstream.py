@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import patch
 
 import requests
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sigma.config import (
@@ -39,7 +40,6 @@ from datahub.ingestion.source.sigma.sigma import (
     _WarehouseTableRef,
 )
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 
 # ---------------------------------------------------------------------------
 # Helpers

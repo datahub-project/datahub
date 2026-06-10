@@ -2,6 +2,10 @@ from datetime import datetime, timezone
 from typing import Dict, List
 
 import pytest
+from datahub.metadata.schema_classes import (
+    DatahubIngestionCheckpointClass,
+    IngestionCheckpointStateClass,
+)
 from pydantic import model_validator
 
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
@@ -10,10 +14,6 @@ from datahub.ingestion.source.state.sql_common_state import (
 )
 from datahub.ingestion.source.state.usage_common_state import (
     BaseTimeWindowCheckpointState,
-)
-from datahub.metadata.schema_classes import (
-    DatahubIngestionCheckpointClass,
-    IngestionCheckpointStateClass,
 )
 
 # 1. Setup common test param values.

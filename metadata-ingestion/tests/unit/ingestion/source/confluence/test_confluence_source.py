@@ -569,8 +569,9 @@ def test_browse_path_emitted_for_root_page(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Test that BrowsePathsV2 is emitted for root pages with just space name."""
-    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import BrowsePathsV2Class
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
         create_mock_confluence_client,
     )
@@ -610,8 +611,9 @@ def test_browse_path_emitted_for_nested_page(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Test that BrowsePathsV2 is emitted for nested pages with full hierarchy."""
-    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import BrowsePathsV2Class
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
         create_mock_confluence_client,
     )
@@ -663,8 +665,9 @@ def test_browse_path_deep_hierarchy(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Test that BrowsePathsV2 handles deeply nested pages correctly."""
-    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import BrowsePathsV2Class
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
         create_mock_confluence_client,
     )
@@ -713,8 +716,9 @@ def test_browse_path_ancestor_not_ingested(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Test that ancestors not being ingested don't get URNs in browse path."""
-    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import BrowsePathsV2Class
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
         create_mock_confluence_client,
     )
@@ -936,8 +940,9 @@ def test_created_time_read_from_history(
     """created_time must come from history.createdDate, not default to ingestion time."""
     import datetime
 
-    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import DocumentInfoClass
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
     page = _make_page_with_timestamps(
         created_date="2024-03-15T10:00:00.000Z",
@@ -990,8 +995,9 @@ def test_missing_history_does_not_crash(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Source must not crash when API response lacks a history field."""
-    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import DocumentInfoClass
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
     page = {
         "id": "12345",
@@ -1044,8 +1050,9 @@ def test_content_hash_in_custom_properties(
     import hashlib
     import json
 
-    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import DocumentInfoClass
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
     page = {
         "id": "99999",

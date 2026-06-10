@@ -7,9 +7,10 @@ while the legacy *Dataset* variants preserve their original entity type set.
 
 from unittest import mock
 
+from datahub.metadata.schema_classes import OwnerClass, OwnershipClass
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
-from datahub.metadata.schema_classes import OwnerClass, OwnershipClass
 
 
 class TestCallbackBasedOwnershipTransformers:

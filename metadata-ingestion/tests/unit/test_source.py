@@ -1,10 +1,5 @@
 from typing import Iterable
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import platform_name
-from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     CalendarIntervalClass,
     DatasetLineageTypeClass,
@@ -19,6 +14,12 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import platform_name
+from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 

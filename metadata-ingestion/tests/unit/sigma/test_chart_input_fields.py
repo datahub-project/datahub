@@ -12,6 +12,8 @@ Covers:
 from typing import Dict, List, Optional
 from unittest.mock import patch
 
+from datahub.metadata.schema_classes import InputFieldsClass
+
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
@@ -23,7 +25,6 @@ from datahub.ingestion.source.sigma.data_classes import (
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
-from datahub.metadata.schema_classes import InputFieldsClass
 
 # ---------------------------------------------------------------------------
 # Helpers

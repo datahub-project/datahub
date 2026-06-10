@@ -3,6 +3,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
+from datahub.metadata.urns import GlossaryNodeUrn
 from google.cloud import dataplex_v1
 
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
@@ -18,7 +19,6 @@ from datahub.ingestion.source.dataplex.dataplex_glossary import (
     _term_urn_id,
 )
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
-from datahub.metadata.urns import GlossaryNodeUrn
 
 # ---------------------------------------------------------------------------
 # URN helpers

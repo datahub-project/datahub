@@ -1,6 +1,10 @@
 from unittest.mock import MagicMock
 
 import pytest
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    UpstreamLineageClass,
+)
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -8,10 +12,6 @@ from datahub.ingestion.source.grafana.grafana_config import PlatformConnectionCo
 from datahub.ingestion.source.grafana.lineage import LineageExtractor
 from datahub.ingestion.source.grafana.models import Panel
 from datahub.ingestion.source.grafana.report import GrafanaSourceReport
-from datahub.metadata.schema_classes import (
-    DatasetLineageTypeClass,
-    UpstreamLineageClass,
-)
 
 
 @pytest.fixture

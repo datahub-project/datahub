@@ -3,15 +3,15 @@ from typing import Union
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import RecordEnvelope
-from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
 )
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import RecordEnvelope
+from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 
 
 def test_file_sink_local_write_backward_compatibility(tmp_path):

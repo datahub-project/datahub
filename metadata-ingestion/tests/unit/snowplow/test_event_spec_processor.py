@@ -4,6 +4,14 @@ from typing import List, Type, TypeVar
 from unittest.mock import Mock
 
 import pytest
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    SchemaFieldClass,
+    SchemaMetadataClass,
+    StructuredPropertiesClass,
+    UpstreamLineageClass,
+    _Aspect,
+)
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -16,14 +24,6 @@ from datahub.ingestion.source.snowplow.models.snowplow_models import (
 )
 from datahub.ingestion.source.snowplow.processors.event_spec_processor import (
     EventSpecProcessor,
-)
-from datahub.metadata.schema_classes import (
-    DatasetLineageTypeClass,
-    SchemaFieldClass,
-    SchemaMetadataClass,
-    StructuredPropertiesClass,
-    UpstreamLineageClass,
-    _Aspect,
 )
 
 _T = TypeVar("_T", bound=_Aspect)

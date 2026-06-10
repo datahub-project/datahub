@@ -8,8 +8,9 @@ dataFlow), while the legacy *Dataset* variants remain dataset-only.
 from typing import List, Optional, Type
 from unittest import mock
 
-import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
+
+import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.transformer.add_domain import AddDomain

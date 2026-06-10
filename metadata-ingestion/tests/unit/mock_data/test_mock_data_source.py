@@ -1,4 +1,12 @@
 import pytest
+from datahub.metadata.schema_classes import (
+    DatasetProfileClass,
+    DatasetUsageStatisticsClass,
+    StatusClass,
+    SubTypesClass,
+    UpstreamLineageClass,
+)
+from datahub.metadata.urns import DatasetUrn
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -9,14 +17,6 @@ from datahub.ingestion.source.mock_data.datahub_mock_data import (
     SubTypePattern,
 )
 from datahub.ingestion.source.mock_data.table_naming_helper import TableNamingHelper
-from datahub.metadata.schema_classes import (
-    DatasetProfileClass,
-    DatasetUsageStatisticsClass,
-    StatusClass,
-    SubTypesClass,
-    UpstreamLineageClass,
-)
-from datahub.metadata.urns import DatasetUrn
 
 
 def assert_workunit_aspect_type(workunit, expected_aspect_class):

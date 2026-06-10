@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, Mock
 
 import pytest
+from datahub.metadata.schema_classes import MLHyperParamClass, MLMetricClass
 
 from datahub.ingestion.source.vertexai.vertexai_ml_metadata_helper import (
     MLMetadataHelper,
@@ -9,7 +10,6 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     LineageMetadata,
     MLMetadataConfig,
 )
-from datahub.metadata.schema_classes import MLHyperParamClass, MLMetricClass
 
 
 def make_execution_pager(*executions: object) -> MagicMock:

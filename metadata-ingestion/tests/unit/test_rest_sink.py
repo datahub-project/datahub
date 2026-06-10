@@ -4,11 +4,11 @@ import threading
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
+import datahub.metadata.schema_classes as models
 import pytest
 import requests
 import time_machine
 
-import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink, RestSinkMode

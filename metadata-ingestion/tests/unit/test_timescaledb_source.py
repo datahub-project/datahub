@@ -2,6 +2,14 @@ from datetime import datetime, timedelta
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
+from datahub.metadata.schema_classes import (
+    DataJobInfoClass,
+    DataProcessInstancePropertiesClass,
+    DataProcessInstanceRelationshipsClass,
+    DataProcessInstanceRunEventClass,
+    GlobalTagsClass,
+    SubTypesClass,
+)
 from sqlalchemy.exc import DatabaseError
 
 from datahub.ingestion.api.common import PipelineContext
@@ -22,14 +30,6 @@ from datahub.ingestion.source.sql.timescaledb import (
     _SchemaMetadata,
     format_timedelta_human_readable,
     safe_str_convert,
-)
-from datahub.metadata.schema_classes import (
-    DataJobInfoClass,
-    DataProcessInstancePropertiesClass,
-    DataProcessInstanceRelationshipsClass,
-    DataProcessInstanceRunEventClass,
-    GlobalTagsClass,
-    SubTypesClass,
 )
 
 

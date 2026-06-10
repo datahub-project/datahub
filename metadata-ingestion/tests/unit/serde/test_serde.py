@@ -4,12 +4,14 @@ import pathlib
 import shutil
 from unittest.mock import patch
 
+import datahub.metadata.schema_classes as models
 import fastavro
 import pytest
 import time_machine
 from avrogen import avrojson
+from datahub.metadata.schema_classes import MetadataChangeEventClass
+from datahub.metadata.schemas import getMetadataChangeEventSchema
 
-import datahub.metadata.schema_classes as models
 from datahub.cli.json_file import check_mce_file
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -20,8 +22,6 @@ from datahub.ingestion.source.file import (
     GenericFileSource,
     read_metadata_file,
 )
-from datahub.metadata.schema_classes import MetadataChangeEventClass
-from datahub.metadata.schemas import getMetadataChangeEventSchema
 from datahub.testing import mce_helpers
 from datahub.testing.pytest_hooks import get_golden_settings
 from tests.test_helpers.click_helpers import run_datahub_cmd

@@ -5,6 +5,16 @@ from unittest import mock
 
 import pytest
 import time_machine
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+)
 from tableauserverclient import Server, SiteItem
 
 import datahub.ingestion.source.tableau.tableau_constant as c
@@ -31,16 +41,6 @@ from datahub.ingestion.source.tableau.tableau_common import (
     make_filter,
     optimize_query_filter,
     tableau_field_to_schema_field,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
-from datahub.metadata.schema_classes import (
-    DatasetLineageTypeClass,
-    DatasetPropertiesClass,
-    FineGrainedLineageClass,
-    FineGrainedLineageDownstreamTypeClass,
-    FineGrainedLineageUpstreamTypeClass,
-    UpstreamClass,
-    UpstreamLineageClass,
 )
 from tests.test_helpers import test_connection_helpers
 from tests.unit.tableau.test_tableau_config import default_config

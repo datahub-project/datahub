@@ -4,17 +4,6 @@ from typing import Any, Dict, Union
 
 import pytest
 import time_machine
-
-from datahub.emitter.mce_builder import (
-    make_chart_urn,
-    make_dashboard_urn,
-    make_data_flow_urn,
-    make_data_job_urn_with_flow,
-    make_dataset_urn,
-    make_schema_field_urn,
-    make_tag_urn,
-)
-from datahub.ingestion.sink.file import write_metadata_file
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetLineageTypeClass,
@@ -27,6 +16,17 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
 )
+
+from datahub.emitter.mce_builder import (
+    make_chart_urn,
+    make_dashboard_urn,
+    make_data_flow_urn,
+    make_data_job_urn_with_flow,
+    make_dataset_urn,
+    make_schema_field_urn,
+    make_tag_urn,
+)
+from datahub.ingestion.sink.file import write_metadata_file
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.datajob import DataJobPatchBuilder

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Union
 
 import pytest
+from datahub.metadata.schema_classes import UpstreamLineageClass
 from mlflow import MlflowClient
 from mlflow.entities import (
     Dataset as MLflowDataset,
@@ -19,7 +20,6 @@ from mlflow.store.entities import PagedList
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.mlflow import MLflowConfig, MLflowSource
-from datahub.metadata.schema_classes import UpstreamLineageClass
 
 
 @pytest.fixture

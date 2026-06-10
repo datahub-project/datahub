@@ -484,13 +484,14 @@ class TestColumnLineageFiltering:
 
     def test_filter_column_lineage_with_aliases(self, mssql_source):
         """Test that column lineage with alias tables is filtered out."""
-        from datahub.emitter.mcp import MetadataChangeProposalWrapper
         from datahub.metadata.schema_classes import (
             DataJobInputOutputClass,
             FineGrainedLineageClass,
             FineGrainedLineageDownstreamTypeClass,
             FineGrainedLineageUpstreamTypeClass,
         )
+
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
         # Create MCPs with column lineage including aliases
         mcps = [
@@ -586,13 +587,14 @@ class TestColumnLineageFiltering:
 
     def test_filter_column_lineage_all_filtered(self, mssql_source):
         """Test that when all column lineage is filtered, fineGrainedLineages is None."""
-        from datahub.emitter.mcp import MetadataChangeProposalWrapper
         from datahub.metadata.schema_classes import (
             DataJobInputOutputClass,
             FineGrainedLineageClass,
             FineGrainedLineageDownstreamTypeClass,
             FineGrainedLineageUpstreamTypeClass,
         )
+
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
         mcps = [
             MetadataChangeProposalWrapper(

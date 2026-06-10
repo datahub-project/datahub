@@ -1,11 +1,11 @@
 from unittest.mock import Mock
 
 import pytest
+from datahub.metadata.urns import CorpUserUrn
 
 from datahub.errors import ItemNotFoundError, MultipleItemsFoundError, SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
-from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk.main_client import DataHubClient
 
 

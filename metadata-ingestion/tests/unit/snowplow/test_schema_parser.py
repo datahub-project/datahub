@@ -1,11 +1,5 @@
 """Unit tests for SnowplowSchemaParser."""
 
-from datahub.ingestion.source.snowplow.utils.schema_parser import (
-    ARRAY_TYPE_TOKEN,
-    RECORD_TYPE_TOKEN,
-    VERSION_PREFIX,
-    SnowplowSchemaParser,
-)
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -15,6 +9,13 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     RecordTypeClass,
     StringTypeClass,
+)
+
+from datahub.ingestion.source.snowplow.utils.schema_parser import (
+    ARRAY_TYPE_TOKEN,
+    RECORD_TYPE_TOKEN,
+    VERSION_PREFIX,
+    SnowplowSchemaParser,
 )
 
 

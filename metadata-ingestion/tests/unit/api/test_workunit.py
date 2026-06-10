@@ -1,8 +1,5 @@
 import json
 
-from datahub.emitter.aspect import JSON_CONTENT_TYPE, JSON_PATCH_CONTENT_TYPE
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ContainerClass,
@@ -13,6 +10,10 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     UpstreamLineageClass,
 )
+
+from datahub.emitter.aspect import JSON_CONTENT_TYPE, JSON_PATCH_CONTENT_TYPE
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 
 
 def test_get_aspects_of_type_mcp():

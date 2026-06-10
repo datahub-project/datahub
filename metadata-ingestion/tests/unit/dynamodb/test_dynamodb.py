@@ -1,15 +1,15 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from datahub.metadata.schema_classes import (
+    GlobalTagsClass,
+)
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dynamodb.dynamodb import (
     PAGE_SIZE,
     DynamoDBConfig,
     DynamoDBSource,
-)
-from datahub.metadata.schema_classes import (
-    GlobalTagsClass,
 )
 
 

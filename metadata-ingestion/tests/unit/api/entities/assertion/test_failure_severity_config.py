@@ -1,9 +1,9 @@
 from typing import Union
 
+import datahub.metadata.schema_classes as models
 import pytest
 from pydantic import ValidationError
 
-import datahub.metadata.schema_classes as models
 from datahub.api.entities.assertion.assertion import (
     AssertionFailureSeverity,
     AssertionFailureSeverityConfig,

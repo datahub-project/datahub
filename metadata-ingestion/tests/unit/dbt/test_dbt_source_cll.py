@@ -1,6 +1,13 @@
 from typing import Any, Dict, List
 from unittest import mock
 
+from datahub.metadata.schema_classes import (
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+)
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
@@ -9,12 +16,6 @@ from datahub.ingestion.source.dbt.dbt_common import (
     parse_semantic_view_cll,
 )
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
-from datahub.metadata.schema_classes import (
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    SchemaMetadataClass,
-    StringTypeClass,
-)
 from tests.unit.dbt.test_helpers import (  # type: ignore[import-untyped]
     create_mock_dbt_node,
 )

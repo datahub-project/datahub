@@ -1,5 +1,7 @@
 from unittest.mock import Mock, patch
 
+from datahub.metadata.urns import TagUrn
+
 from datahub.api.entities.external.external_entities import (
     LinkedResourceSet,
     PlatformResourceRepository,
@@ -16,7 +18,6 @@ from datahub.ingestion.source.aws.tag_entities import (
     LakeFormationTagPlatformResourceId,
     LakeFormationTagSyncContext,
 )
-from datahub.metadata.urns import TagUrn
 
 
 class TestLakeFormationTagSyncContext:

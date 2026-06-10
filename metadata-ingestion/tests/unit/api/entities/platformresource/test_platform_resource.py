@@ -1,8 +1,8 @@
 import json
 
+import datahub.metadata.schema_classes as models
 from pydantic import BaseModel
 
-import datahub.metadata.schema_classes as models
 from datahub.api.entities.platformresource.platform_resource import (
     ElasticPlatformResourceQuery,
     PlatformResource,

@@ -3,6 +3,7 @@ from unittest.mock import Mock, PropertyMock, patch
 
 import cachetools
 import pytest
+from datahub.metadata.urns import PlatformResourceUrn, Urn
 
 # Import the classes from your module
 from datahub.api.entities.external.external_entities import (
@@ -23,7 +24,6 @@ from datahub.ingestion.source.unity.tag_entities import (
     UnityCatalogTagPlatformResource,
     UnityCatalogTagPlatformResourceId,
 )
-from datahub.metadata.urns import PlatformResourceUrn, Urn
 from datahub.utilities.search_utils import ElasticDocumentQuery
 from datahub.utilities.urns.error import InvalidUrnError
 

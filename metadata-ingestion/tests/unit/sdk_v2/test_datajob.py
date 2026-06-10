@@ -3,11 +3,8 @@ import re
 from datetime import datetime, timezone
 from unittest import mock
 
-import pytest
-
 import datahub.metadata.schema_classes as models
-from datahub.emitter.mcp_builder import ContainerKey
-from datahub.errors import ItemNotFoundError
+import pytest
 from datahub.metadata.urns import (
     CorpUserUrn,
     DataFlowUrn,
@@ -18,6 +15,9 @@ from datahub.metadata.urns import (
     DomainUrn,
     TagUrn,
 )
+
+from datahub.emitter.mcp_builder import ContainerKey
+from datahub.errors import ItemNotFoundError
 from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob

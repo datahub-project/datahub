@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 
-import datahub.emitter.mce_builder as builder
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
     DatasetPropertiesClass,
@@ -8,6 +7,8 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     OwnershipClass,
 )
+
+import datahub.emitter.mce_builder as builder
 from datahub.utilities.urn_encoder import RESERVED_CHARS_EXTENDED
 
 _RESERVED_CHARS_STRING = "".join(sorted(list(RESERVED_CHARS_EXTENDED)))

@@ -6,14 +6,14 @@ from typing import Dict, Optional
 import dateutil.parser
 import pytest
 import time_machine
-
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.dbt.dbt_common import DBTNode, EmitDirective
-from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.metadata.schema_classes import (
     QueryPropertiesClass,
     QuerySubjectsClass,
 )
+
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.dbt.dbt_common import DBTNode, EmitDirective
+from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.utilities.time import datetime_to_ts_millis
 
 # Standard URN used across tests

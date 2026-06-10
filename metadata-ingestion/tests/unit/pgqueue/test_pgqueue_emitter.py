@@ -5,13 +5,13 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from datahub.emitter.kafka_emitter import MCP_KEY
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass as MetadataChangeEvent,
     MetadataChangeProposalClass as MetadataChangeProposal,
 )
+
+from datahub.emitter.kafka_emitter import MCP_KEY
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.pgqueue.config import PgQueueConnectionConfig, PgQueueEmitterConfig
 
 

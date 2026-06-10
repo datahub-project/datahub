@@ -3,6 +3,10 @@
 from typing import Dict, List
 
 import pytest
+from datahub.metadata.schema_classes import (
+    OwnershipClass,
+    OwnershipTypeClass,
+)
 
 from datahub.ingestion.source.snowplow.builders.ownership_builder import (
     OwnershipBuilder,
@@ -14,10 +18,6 @@ from datahub.ingestion.source.snowplow.models.snowplow_models import (
 from datahub.ingestion.source.snowplow.snowplow_config import (
     SnowplowBDPConnectionConfig,
     SnowplowSourceConfig,
-)
-from datahub.metadata.schema_classes import (
-    OwnershipClass,
-    OwnershipTypeClass,
 )
 
 

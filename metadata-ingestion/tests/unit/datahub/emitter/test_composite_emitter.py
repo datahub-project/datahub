@@ -1,11 +1,11 @@
 from unittest.mock import MagicMock
 
 import pytest
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
 
 from datahub.emitter.composite_emitter import CompositeEmitter
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
 
 
 @pytest.fixture

@@ -6,13 +6,13 @@ from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from datahub.emitter.kafka_emitter import MCE_KEY, MCP_KEY
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass as MetadataChangeEvent,
     MetadataChangeLogClass,
     MetadataChangeProposalClass as MetadataChangeProposal,
 )
+
+from datahub.emitter.kafka_emitter import MCE_KEY, MCP_KEY
 from datahub.pgqueue.config import PgQueueConnectionConfig, PgQueueConsumerConfig
 from datahub.pgqueue.repository import PgQueueMessageHandle
 

@@ -2,6 +2,8 @@ import time
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.urns import DatasetUrn
 from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
 
 from datahub.ingestion.api.common import PipelineContext
@@ -13,8 +15,6 @@ from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
 )
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
-from datahub.metadata.schema_classes import UpstreamLineageClass
-from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 from datahub.sql_parsing.sqlglot_lineage import SqlUnderstandingError
 

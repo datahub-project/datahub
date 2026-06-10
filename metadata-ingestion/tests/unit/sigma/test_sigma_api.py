@@ -5,6 +5,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from datahub.metadata.schema_classes import (
+    ChartInfoClass,
+    OwnershipClass,
+    SchemaMetadataClass,
+)
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
@@ -28,11 +33,6 @@ from datahub.ingestion.source.sigma.data_classes import (
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource, _WorkbookWarehouseIndex
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
-from datahub.metadata.schema_classes import (
-    ChartInfoClass,
-    OwnershipClass,
-    SchemaMetadataClass,
-)
 
 
 def _create_sigma_api() -> SigmaAPI:

@@ -1,8 +1,8 @@
 import pathlib
 
 import pytest
-
 from datahub.metadata.urns import CorpUserUrn, GlossaryNodeUrn
+
 from datahub.sdk.glossary_node import GlossaryNode
 from datahub.testing.sdk_v2_helpers import assert_entity_golden
 

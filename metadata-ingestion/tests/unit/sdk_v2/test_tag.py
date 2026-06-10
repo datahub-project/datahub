@@ -1,8 +1,8 @@
 import pathlib
 
 import pytest
-
 from datahub.metadata.urns import CorpUserUrn, TagUrn
+
 from datahub.sdk.tag import Tag
 from datahub.testing.sdk_v2_helpers import assert_entity_golden
 

@@ -3,6 +3,13 @@ from typing import Any, Dict, List, cast
 from unittest.mock import MagicMock
 
 import pytest
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    SchemaMetadataClass,
+    StatusClass,
+    SubTypesClass,
+    ViewPropertiesClass,
+)
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -32,13 +39,6 @@ from datahub.ingestion.source.sql.hana.models import (
     HanaObservedQueryRow,
     ScriptViewDefinition,
     UpstreamColumnRef,
-)
-from datahub.metadata.schema_classes import (
-    DatasetPropertiesClass,
-    SchemaMetadataClass,
-    StatusClass,
-    SubTypesClass,
-    ViewPropertiesClass,
 )
 from tests.integration.hana._xml_fixtures import (
     PROJECTION_VIEW_XML as _SIMPLE_CALC_VIEW_XML,

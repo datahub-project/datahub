@@ -5,6 +5,12 @@ from unittest import mock
 import pytest
 import sqlglot
 import time_machine
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    BooleanTypeClass,
+    MapTypeClass,
+    StringTypeClass,
+)
 from pyathena import OperationalError
 from pyathena.model import AthenaTableMetadata
 from sqlalchemy import types
@@ -24,12 +30,6 @@ from datahub.ingestion.source.sql.athena import (
     Partitionitem,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.metadata.schema_classes import (
-    ArrayTypeClass,
-    BooleanTypeClass,
-    MapTypeClass,
-    StringTypeClass,
-)
 from datahub.utilities.sqlalchemy_type_converter import MapType
 
 FROZEN_TIME = "2020-04-14 07:00:00"

@@ -2,12 +2,8 @@ import pathlib
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
-import pytest
-
 import datahub.metadata.schema_classes as models
-from datahub.emitter.mcp_builder import SchemaKey
-from datahub.errors import SchemaFieldKeyError
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+import pytest
 from datahub.metadata.urns import (
     CorpGroupUrn,
     CorpUserUrn,
@@ -18,6 +14,10 @@ from datahub.metadata.urns import (
     TagUrn,
     Urn,
 )
+
+from datahub.emitter.mcp_builder import SchemaKey
+from datahub.errors import SchemaFieldKeyError
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.sdk._shared import UrnOrStr
 from datahub.sdk.dataset import Dataset

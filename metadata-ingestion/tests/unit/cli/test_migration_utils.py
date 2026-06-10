@@ -1,16 +1,16 @@
 """Tests for datahub.cli.migration_utils — relationship-to-aspect mapping and URN rewriting."""
 
 import pytest
-
-from datahub.cli.migration_utils import (
-    get_aspect_name_from_relationship,
-    modify_urn_list_for_aspect,
-)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeAuditStampsClass,
     DashboardInfoClass,
     EdgeClass,
+)
+
+from datahub.cli.migration_utils import (
+    get_aspect_name_from_relationship,
+    modify_urn_list_for_aspect,
 )
 
 # --- get_aspect_name_from_relationship tests ---

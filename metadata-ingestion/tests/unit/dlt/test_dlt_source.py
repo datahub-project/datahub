@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
+from datahub.metadata.urns import DataFlowUrn
 from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
@@ -37,7 +38,6 @@ from datahub.ingestion.source.dlt.data_classes import (
 from datahub.ingestion.source.dlt.dlt import DltSource
 from datahub.ingestion.source.dlt.dlt_client import DltClient
 from datahub.ingestion.source.dlt.dlt_report import DltSourceReport
-from datahub.metadata.urns import DataFlowUrn
 
 # Frozen timestamp used by run history unit tests to ensure deterministic DPI timestamps.
 FROZEN_TIME = "2026-02-24 12:00:00+00:00"

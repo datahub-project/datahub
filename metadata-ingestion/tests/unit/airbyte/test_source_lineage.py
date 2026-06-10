@@ -2,6 +2,13 @@ from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+from datahub.metadata.schema_classes import (
+    DataFlowInfoClass,
+    DataJobInfoClass,
+    DataJobInputOutputClass,
+    GlobalTagsClass,
+    UpstreamLineageClass,
+)
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.airbyte.config import (
@@ -22,13 +29,6 @@ from datahub.ingestion.source.airbyte.models import (
     PropertyFieldPath,
 )
 from datahub.ingestion.source.airbyte.source import AirbyteSource
-from datahub.metadata.schema_classes import (
-    DataFlowInfoClass,
-    DataJobInfoClass,
-    DataJobInputOutputClass,
-    GlobalTagsClass,
-    UpstreamLineageClass,
-)
 from datahub.sdk.dataflow import DataFlow
 
 

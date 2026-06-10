@@ -5,6 +5,7 @@ from io import StringIO
 
 import pytest
 import yaml
+from datahub.metadata.urns import DataPlatformUrn, DocumentUrn, QueryUrn, Urn
 from pydantic import ValidationError
 
 from datahub.ingestion.graph.filters import (
@@ -12,7 +13,6 @@ from datahub.ingestion.graph.filters import (
     SearchFilterRule,
     generate_filter,
 )
-from datahub.metadata.urns import DataPlatformUrn, DocumentUrn, QueryUrn, Urn
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import compile_filters, compute_entity_types
 from datahub.sdk.search_filters import (

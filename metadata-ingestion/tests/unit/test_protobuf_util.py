@@ -1,12 +1,12 @@
 from typing import List
 
 import pytest
+from datahub.metadata.schema_classes import ArrayTypeClass, SchemaFieldClass
 
 from datahub.ingestion.extractor.protobuf_util import (
     ProtobufSchema,
     protobuf_schema_to_mce_fields,
 )
-from datahub.metadata.schema_classes import ArrayTypeClass, SchemaFieldClass
 
 
 def test_protobuf_schema_to_mce_fields_with_single_empty_message() -> None:

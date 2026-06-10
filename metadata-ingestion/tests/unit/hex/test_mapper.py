@@ -1,22 +1,5 @@
 from datetime import datetime
 
-from datahub.emitter.mce_builder import make_tag_urn, make_ts_millis, make_user_urn
-from datahub.emitter.mcp import (
-    MetadataChangeProposalWrapper,
-)
-from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
-from datahub.ingestion.source.hex.constants import HEX_PLATFORM_NAME
-from datahub.ingestion.source.hex.mapper import Mapper
-from datahub.ingestion.source.hex.model import (
-    Analytics,
-    Category,
-    Collection,
-    Component,
-    Owner,
-    Project,
-    Status,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStampClass,
     ChangeAuditStampsClass,
@@ -39,6 +22,24 @@ from datahub.metadata.schema_classes import (
     TimeWindowSizeClass,
 )
 from datahub.metadata.urns import DashboardUrn
+
+from datahub.emitter.mce_builder import make_tag_urn, make_ts_millis, make_user_urn
+from datahub.emitter.mcp import (
+    MetadataChangeProposalWrapper,
+)
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
+from datahub.ingestion.source.hex.constants import HEX_PLATFORM_NAME
+from datahub.ingestion.source.hex.mapper import Mapper
+from datahub.ingestion.source.hex.model import (
+    Analytics,
+    Category,
+    Collection,
+    Component,
+    Owner,
+    Project,
+    Status,
+)
 
 
 class TestMapper:

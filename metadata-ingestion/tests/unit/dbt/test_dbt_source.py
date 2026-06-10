@@ -3,6 +3,20 @@ from typing import Any, Dict, List, Optional, TypedDict, Union
 from unittest import mock
 
 import pytest
+from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionResultSeverityClass,
+    AssertionResultTypeClass,
+    AssertionRunEventClass,
+    AssertionTypeClass,
+    CustomAssertionInfoClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipSourceClass,
+    OwnershipSourceTypeClass,
+    OwnershipTypeClass,
+    SubTypesClass,
+)
 from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
@@ -44,20 +58,6 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     make_assertion_result_from_freshness,
     make_assertion_result_from_test,
     parse_freshness_criteria,
-)
-from datahub.metadata.schema_classes import (
-    AssertionInfoClass,
-    AssertionResultSeverityClass,
-    AssertionResultTypeClass,
-    AssertionRunEventClass,
-    AssertionTypeClass,
-    CustomAssertionInfoClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipSourceClass,
-    OwnershipSourceTypeClass,
-    OwnershipTypeClass,
-    SubTypesClass,
 )
 from datahub.testing.doctest import assert_doctest
 from tests.unit.dbt.test_helpers import (  # type: ignore[import-untyped]

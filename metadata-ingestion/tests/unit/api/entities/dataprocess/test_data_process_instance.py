@@ -3,18 +3,19 @@ import unittest
 from unittest.mock import Mock
 
 import datahub.metadata.schema_classes as models
-from datahub.api.entities.datajob import DataFlow, DataJob
-from datahub.api.entities.dataprocess.dataprocess_instance import (
-    DataProcessInstance,
-    InstanceRunResult,
-)
-from datahub.emitter.mcp_builder import ContainerKey
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import RunResultType
 from datahub.metadata.schema_classes import (
     DataProcessRunStatusClass,
     DataProcessTypeClass,
 )
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn, DataPlatformUrn, DatasetUrn
+
+from datahub.api.entities.datajob import DataFlow, DataJob
+from datahub.api.entities.dataprocess.dataprocess_instance import (
+    DataProcessInstance,
+    InstanceRunResult,
+)
+from datahub.emitter.mcp_builder import ContainerKey
 
 
 class TestDataProcessInstance(unittest.TestCase):

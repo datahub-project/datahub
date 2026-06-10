@@ -20,6 +20,8 @@ import datetime as dt
 from typing import Dict, List, Optional, Set
 from unittest.mock import patch
 
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import FineGrainedLineageClass
+
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sigma.config import (
@@ -40,7 +42,6 @@ from datahub.ingestion.source.sigma.sigma import (
     _WarehouseTableRef,
 )
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import FineGrainedLineageClass
 
 # ---------------------------------------------------------------------------
 # Constants

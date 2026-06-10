@@ -3,6 +3,8 @@ from typing import Any, Dict, Iterable, List, Optional
 from unittest.mock import patch
 
 import datahub.metadata.schema_classes as models
+from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
+
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_data_flow_urn,
@@ -18,7 +20,6 @@ from datahub.ingestion.api.source_helpers import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_utils import gen_schema_container
-from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
 
 
 def test_auto_browse_path_v2_gen_containers_threaded():
