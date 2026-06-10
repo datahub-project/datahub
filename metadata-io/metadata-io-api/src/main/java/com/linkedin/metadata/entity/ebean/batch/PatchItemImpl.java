@@ -33,6 +33,7 @@ import jakarta.json.Json;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonPatch;
 import jakarta.json.JsonReader;
+import jakarta.json.JsonString;
 import jakarta.json.JsonStructure;
 import jakarta.json.JsonValue;
 import java.io.StringReader;
@@ -76,6 +77,14 @@ public class PatchItemImpl implements PatchMCP {
   private static final int OVERSIZED_NAME_WARN_THRESHOLD =
       Integer.parseInt(
           System.getenv().getOrDefault("INGESTION_OVERSIZED_NAME_WARN_THRESHOLD", "50000"));
+
+  // A JSON string value longer than this is flagged as approaching the maxStringLength
+  // deserialization limit (MAX_JACKSON_STRING_SIZE, 16MB) — e.g. an enormous SQL statement or view
+  // definition. Unlike names this limit is not being raised; the warning just identifies which
+  // field is at risk before it fails. Configurable; default 10M chars to keep noise low.
+  private static final int OVERSIZED_VALUE_WARN_THRESHOLD =
+      Integer.parseInt(
+          System.getenv().getOrDefault("INGESTION_OVERSIZED_VALUE_WARN_THRESHOLD", "10000000"));
 
   // urn an urn associated with the new aspect
   private final Urn urn;
@@ -133,7 +142,7 @@ public class PatchItemImpl implements PatchMCP {
   }
 
   public ChangeItemImpl applyPatch(RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
-    warnOnOversizedPatchKeys();
+    warnOnOversizedPatchContent();
     if (genericJsonPatch != null) {
       if (!genericJsonPatch.getArrayPrimaryKeys().isEmpty()
           || genericJsonPatch.isForceGenericPatch()) {
@@ -144,20 +153,23 @@ public class PatchItemImpl implements PatchMCP {
   }
 
   /**
-   * Logs which entity/aspect/key carried an over-long JSON property name in this patch.
+   * Logs which entity/aspect carried an over-long JSON property name (maxNameLength) or string
+   * value (maxStringLength) in this patch.
    *
-   * <p>Jackson's {@code StreamConstraintsException} never includes the offending name, so oversized
-   * field paths (e.g. deeply-nested dbt struct column-level lineage) were impossible to identify
-   * from logs. Now that {@code maxNameLength} is raised these writes succeed, so this is the only
-   * signal that an unusually large key was ingested. Purely diagnostic — never affects ingestion.
+   * <p>Jackson's {@code StreamConstraintsException} never includes the offending name/value, so
+   * oversized field paths (e.g. deeply-nested dbt struct column-level lineage) or huge values (e.g.
+   * a very large SQL statement) were impossible to identify from logs. Purely diagnostic — never
+   * affects ingestion.
    */
-  private void warnOnOversizedPatchKeys() {
+  private void warnOnOversizedPatchContent() {
     try {
       for (JsonValue op : getPatch().toJsonArray()) {
-        // JSON Pointer path; each '/'-separated segment is a property name in the patched aspect.
+        JsonObject opObj = op.asJsonObject();
+        String path = opObj.getString("path", "");
+
+        // (1) over-long property NAME (maxNameLength) — each '/'-separated path segment is a name.
         // Walk segment boundaries with indexOf rather than split("/") so the common case (no
         // oversized key) allocates nothing — a substring is only materialized on an actual hit.
-        String path = op.asJsonObject().getString("path", "");
         int start = 0;
         while (start <= path.length()) {
           int slash = path.indexOf('/', start);
@@ -180,10 +192,52 @@ public class PatchItemImpl implements PatchMCP {
           }
           start = slash + 1;
         }
+
+        // (2) over-long string VALUE (maxStringLength) — recurse into the op's value.
+        JsonValue value = opObj.get("value");
+        if (value != null) {
+          warnOnOversizedStringValue(path, value);
+        }
       }
     } catch (Exception e) {
       // Diagnostic only — must never affect ingestion.
-      log.debug("Could not scan patch keys for oversized names: {}", e.getMessage());
+      log.debug("Could not scan patch for oversized content: {}", e.getMessage());
+    }
+  }
+
+  /**
+   * Recursively flags JSON string values longer than {@link #OVERSIZED_VALUE_WARN_THRESHOLD}. The
+   * length check is O(1) per node, so this stays cheap even for large patches.
+   */
+  private void warnOnOversizedStringValue(String path, JsonValue value) {
+    switch (value.getValueType()) {
+      case STRING:
+        int length = ((JsonString) value).getString().length();
+        if (length > OVERSIZED_VALUE_WARN_THRESHOLD) {
+          log.warn(
+              "Oversized JSON string value in patch: urn={}, aspect={}, path={}, valueLength={} "
+                  + "(warn threshold {}). A value this large approaches the maxStringLength "
+                  + "deserialization limit and is likely unusable downstream; review the source "
+                  + "(e.g. a very large SQL statement or view definition).",
+              getUrn(),
+              getAspectName(),
+              path,
+              length,
+              OVERSIZED_VALUE_WARN_THRESHOLD);
+        }
+        break;
+      case OBJECT:
+        for (JsonValue child : value.asJsonObject().values()) {
+          warnOnOversizedStringValue(path, child);
+        }
+        break;
+      case ARRAY:
+        for (JsonValue child : value.asJsonArray()) {
+          warnOnOversizedStringValue(path, child);
+        }
+        break;
+      default:
+        // NUMBER / TRUE / FALSE / NULL — nothing to check.
     }
   }
 
