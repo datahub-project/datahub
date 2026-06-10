@@ -1,4 +1,5 @@
 import datetime
+import functools
 import json
 import logging
 import re
@@ -56,6 +57,10 @@ from datahub.ingestion.api.decorators import (
     config_class,
     platform_name,
     support_status,
+)
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+    auto_incremental_properties,
 )
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -199,7 +204,10 @@ class TargetPlatformConfig(ConfigModel):
 
 
 class GlueSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    AwsSourceConfig,
+    IncrementalPropertiesConfigMixin,
 ):
     platform: str = Field(
         default=DEFAULT_PLATFORM,
@@ -1706,6 +1714,10 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            functools.partial(
+                auto_incremental_properties,
+                self.source_config.incremental_properties,
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.source_config, self.ctx
             ).workunit_processor,
