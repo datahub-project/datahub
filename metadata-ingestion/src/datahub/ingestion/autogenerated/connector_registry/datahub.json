@@ -2778,7 +2778,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "ODCS soft-deletes only DataContract and Assertion entities it owns; Datasets are never marked removed by this source.",
+          "description": "ODCS soft-deletes only the logical `odcs` Datasets and Assertions it owns; physical datasets and their `logicalParent` links are never marked removed.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2796,7 +2796,7 @@
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "Column descriptions and tags from `properties[]`.",
+          "description": "Canonical schema (types, descriptions, keys) from `schema[].properties[]`.",
           "subtype_modifier": null,
           "supported": true
         }
