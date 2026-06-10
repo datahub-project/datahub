@@ -97,7 +97,6 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
       ImmutableSet.of("CREATE", "UPSERT", "DELETE");
 
   private final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry;
-  private final OperationContext systemOperationContext;
   private final EventProducer eventProducer;
   private final Boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
@@ -106,7 +105,6 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
 
   @Autowired
   public PlatformEventGeneratorHook(
-      @Nonnull OperationContext systemOperationContext,
       @Nonnull @Qualifier("entityChangeEventGeneratorRegistry")
           final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
       @Nonnull final EventProducer eventProducer,
@@ -116,7 +114,6 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
           List<String> entityExclusions,
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
           final List<String> fineGrainedLineageNotAllowedForPlatforms) {
-    this.systemOperationContext = systemOperationContext;
     this.entityChangeEventGeneratorRegistry =
         Objects.requireNonNull(entityChangeEventGeneratorRegistry);
     this.eventProducer = Objects.requireNonNull(eventProducer);
@@ -128,12 +125,10 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
 
   @VisibleForTesting
   public PlatformEventGeneratorHook(
-      @Nonnull OperationContext systemOperationContext,
       @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
       @Nonnull final EventProducer eventProducer,
       @Nonnull Boolean isEnabled) {
     this(
-        systemOperationContext,
         entityChangeEventGeneratorRegistry,
         eventProducer,
         isEnabled,

@@ -3,6 +3,7 @@ package com.datahub.event;
 import com.datahub.event.hook.PlatformEventHook;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
+import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.PlatformEvent;
 import io.datahubproject.metadata.context.OperationContext;
@@ -29,6 +30,7 @@ public class PlatformEventProcessor {
       "${PLATFORM_EVENT_KAFKA_CONSUMER_GROUP_ID:generic-platform-event-job-client}";
 
   private final OperationContext systemOperationContext;
+  private final InboundContextResolver inboundContextResolver;
 
   @Getter private final List<PlatformEventHook> hooks;
 
@@ -38,9 +40,11 @@ public class PlatformEventProcessor {
   @Autowired
   public PlatformEventProcessor(
       @Qualifier("systemOperationContext") @Nonnull final OperationContext systemOperationContext,
+      @Nonnull final InboundContextResolver inboundContextResolver,
       List<PlatformEventHook> platformEventHooks) {
     log.info("Creating Platform Event Processor");
     this.systemOperationContext = systemOperationContext;
+    this.inboundContextResolver = inboundContextResolver;
     this.hooks =
         platformEventHooks.stream()
             .filter(PlatformEventHook::isEnabled)
@@ -64,6 +68,8 @@ public class PlatformEventProcessor {
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord value = consumerRecord.value();
     if (value == null) {
+      // Null payload short-circuits before envelope construction; the resolver requires an
+      // envelope, so we run this branch under systemOperationContext (no record to enrich from).
       systemOperationContext.withSpan(
           "consume",
           () -> {
@@ -73,6 +79,7 @@ public class PlatformEventProcessor {
                 MetricUtils.MESSAGING_SYSTEM_KAFKA,
                 null);
             processPlatformEvent(
+                systemOperationContext,
                 null,
                 consumerRecord.key(),
                 consumerRecord.topic(),
@@ -91,6 +98,10 @@ public class PlatformEventProcessor {
 
   /** Unified entry point. Both Kafka and pgQueue paths funnel through this method. */
   public void consumeEnvelope(InboundMetadataEnvelope<GenericRecord> envelope) {
+    // Resolve the per-event OperationContext upfront so the PE hook chain sees the same per-event
+    // routing / tenant / trace context that the MCE + MAE paths thread through.
+    final OperationContext eventContext =
+        inboundContextResolver.resolve(envelope, systemOperationContext);
     systemOperationContext.withSpan(
         "consume",
         () -> {
@@ -100,6 +111,7 @@ public class PlatformEventProcessor {
               envelope.getMessagingSystem(),
               envelope.getPriority());
           processPlatformEvent(
+              eventContext,
               envelope.getPayload(),
               envelope.getKey(),
               envelope.getLogicalTopic(),
@@ -113,6 +125,7 @@ public class PlatformEventProcessor {
   }
 
   private void processPlatformEvent(
+      @Nonnull final OperationContext eventContext,
       @Nullable final GenericRecord record,
       final String key,
       final String topic,
@@ -170,7 +183,7 @@ public class PlatformEventProcessor {
           hook.getClass().getSimpleName(),
           () -> {
             try {
-              hook.invoke(systemOperationContext, event);
+              hook.invoke(eventContext, event);
             } catch (Exception e) {
               // Just skip this hook and continue.
               systemOperationContext

@@ -19,6 +19,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.event.hook.PlatformEventHook;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
+import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.queue.PgQueuePayloadCompression;
 import com.linkedin.metadata.queue.QueueMessageHandle;
 import com.linkedin.metadata.queue.QueueReceivedMessage;
@@ -44,6 +45,7 @@ import org.testng.annotations.Test;
 public class PlatformEventProcessorTest {
 
   private OperationContext mockOperationContext;
+  private InboundContextResolver mockInboundContextResolver;
   private MetricUtils mockMetricUtils;
   private PlatformEventHook mockHook1;
   private PlatformEventHook mockHook2;
@@ -68,6 +70,12 @@ public class PlatformEventProcessorTest {
     mockMetricUtils = mock(MetricUtils.class);
     when(mockMetricUtils.getRegistry()).thenReturn(new SimpleMeterRegistry());
     when(mockOperationContext.getMetricUtils()).thenReturn(Optional.of(mockMetricUtils));
+
+    // Pass-through inbound resolver — returns the base context unchanged, matching the OSS no-op.
+    mockInboundContextResolver = mock(InboundContextResolver.class);
+    when(mockInboundContextResolver.resolve(
+            any(InboundMetadataEnvelope.class), any(OperationContext.class)))
+        .thenAnswer(invocation -> invocation.getArgument(1));
 
     // Create mock hooks
     mockHook1 = mock(PlatformEventHook.class);
@@ -95,7 +103,8 @@ public class PlatformEventProcessorTest {
     when(mockConsumerRecord.serializedValueSize()).thenReturn(1024);
 
     processor =
-        new PlatformEventProcessor(mockOperationContext, Arrays.asList(mockHook1, mockHook2));
+        new PlatformEventProcessor(
+            mockOperationContext, mockInboundContextResolver, Arrays.asList(mockHook1, mockHook2));
   }
 
   @Test
@@ -113,7 +122,7 @@ public class PlatformEventProcessorTest {
     // Create processor with mixed enabled/disabled hooks
     List<PlatformEventHook> allHooks = Arrays.asList(testHook1, testDisabledHook, testHook2);
     PlatformEventProcessor testProcessor =
-        new PlatformEventProcessor(mockOperationContext, allHooks);
+        new PlatformEventProcessor(mockOperationContext, mockInboundContextResolver, allHooks);
 
     // Verify only enabled hooks are kept
     assertEquals(testProcessor.getHooks().size(), 2);
@@ -129,7 +138,9 @@ public class PlatformEventProcessorTest {
 
   @Test
   public void testConstructorWithNoHooks() {
-    processor = new PlatformEventProcessor(mockOperationContext, Collections.emptyList());
+    processor =
+        new PlatformEventProcessor(
+            mockOperationContext, mockInboundContextResolver, Collections.emptyList());
     assertEquals(processor.getHooks().size(), 0);
   }
 
@@ -137,7 +148,7 @@ public class PlatformEventProcessorTest {
   public void testConsumeSuccessful() throws Exception {
     // Setup
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1, mockHook2);
-    processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    processor = new PlatformEventProcessor(mockOperationContext, mockInboundContextResolver, hooks);
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
 
@@ -167,7 +178,7 @@ public class PlatformEventProcessorTest {
   public void testConsumeWithAvroConversionFailure() throws Exception {
     // Setup
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1);
-    processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    processor = new PlatformEventProcessor(mockOperationContext, mockInboundContextResolver, hooks);
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
 
@@ -197,7 +208,7 @@ public class PlatformEventProcessorTest {
   public void testConsumeWithHookFailure() throws Exception {
     // Setup
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1, mockHook2);
-    processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    processor = new PlatformEventProcessor(mockOperationContext, mockInboundContextResolver, hooks);
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
 
@@ -234,7 +245,7 @@ public class PlatformEventProcessorTest {
   public void testConsumeWithAllHooksFailing() throws Exception {
     // Setup
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1, mockHook2);
-    processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    processor = new PlatformEventProcessor(mockOperationContext, mockInboundContextResolver, hooks);
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
 
@@ -276,7 +287,7 @@ public class PlatformEventProcessorTest {
     when(mockOperationContext.getMetricUtils()).thenReturn(Optional.empty());
 
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1);
-    processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    processor = new PlatformEventProcessor(mockOperationContext, mockInboundContextResolver, hooks);
 
     try (MockedStatic<EventUtils> mockedEventUtils = Mockito.mockStatic(EventUtils.class)) {
       mockedEventUtils
@@ -295,7 +306,7 @@ public class PlatformEventProcessorTest {
   public void testConsumeVerifiesKafkaRecordDetails() throws Exception {
     // Setup
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1);
-    processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    processor = new PlatformEventProcessor(mockOperationContext, mockInboundContextResolver, hooks);
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
 
@@ -349,7 +360,7 @@ public class PlatformEventProcessorTest {
   public void testMultipleEventsProcessedSequentially() throws Exception {
     // Setup
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1);
-    processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    processor = new PlatformEventProcessor(mockOperationContext, mockInboundContextResolver, hooks);
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
 
@@ -404,7 +415,7 @@ public class PlatformEventProcessorTest {
   public void testConsumeWithNullGenericRecord() throws Exception {
     // Setup
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1);
-    processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    processor = new PlatformEventProcessor(mockOperationContext, mockInboundContextResolver, hooks);
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
 
@@ -778,7 +789,7 @@ public class PlatformEventProcessorTest {
   @Test
   public void testConsumePgQueueSuccessful() throws Exception {
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1, mockHook2);
-    processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    processor = new PlatformEventProcessor(mockOperationContext, mockInboundContextResolver, hooks);
     setConsumerGroupId(processor, "generic-platform-event-job-client");
 
     GenericRecord pgRecord = mock(GenericRecord.class);
@@ -810,7 +821,7 @@ public class PlatformEventProcessorTest {
   @Test
   public void testConsumePgQueueWithHookFailure() throws Exception {
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1, mockHook2);
-    processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    processor = new PlatformEventProcessor(mockOperationContext, mockInboundContextResolver, hooks);
     setConsumerGroupId(processor, "generic-platform-event-job-client");
 
     doThrow(new RuntimeException("Hook 1 failed"))

@@ -116,8 +116,7 @@ public class PlatformEventGeneratorHookTest {
         createEntityChangeEventGeneratorRegistry(mockProcessInstanceEntityClient);
     opContext = createMockOperationContext();
     _entityChangeEventHook =
-        new PlatformEventGeneratorHook(
-            opContext, entityChangeEventGeneratorRegistry, mockProducer, true);
+        new PlatformEventGeneratorHook(entityChangeEventGeneratorRegistry, mockProducer, true);
   }
 
   @Test

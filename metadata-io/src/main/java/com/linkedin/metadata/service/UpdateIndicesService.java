@@ -106,11 +106,11 @@ public class UpdateIndicesService implements SearchIndicesService {
     LinkedHashMap<Urn, List<MCLItem>> groupedEvents =
         UpdateIndicesUtil.groupEventsByUrn(Stream.concat(mclItems.stream(), sideEffects.stream()));
 
-    // TODO(opcontext-followup-strategy-routing): per-tenant ES routing is a follow-up — once the
-    // inbound enricher exposes a stable routing key, group by (Urn, routingKey) and thread the
-    // per-event OperationContext through to the strategy contract. URNs are not tenant-scoped
-    // (two tenants can legitimately produce the same URN string), so grouping by URN alone is
-    // not safe for cross-tenant batches in the multi-tenant target deployment.
+    // TODO(opcontext-batch-followup): per event ES routing is a follow-up — once the inbound
+    // enricher exposes a stable routing key, group by (Urn, routingKey) and thread the per-event
+    // OperationContext through to the strategy contract. URNs are not tenant-scoped (two tenants
+    // can legitimately produce the same URN string), so grouping by URN alone is not safe for
+    // cross-tenant batches in the multi-tenant target deployment.
     for (UpdateIndicesStrategy strategy : updateStrategies) {
       if (strategy.isEnabled()) {
         strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
