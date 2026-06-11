@@ -388,6 +388,10 @@ docstring-parser==0.17.0
 docutils==0.22.4
     # via readme-renderer
 duckdb==1.5.0
+    # via
+    #   acryl-datahub
+    #   duckdb-engine
+duckdb-engine==0.17.0
     # via acryl-datahub
 ecdsa==0.19.1
     # via python-jose
@@ -1007,6 +1011,7 @@ packaging==24.2
     #   dask
     #   db-dtypes
     #   dlt
+    #   duckdb-engine
     #   geoalchemy2
     #   google-cloud-aiplatform
     #   google-cloud-bigquery
@@ -1608,6 +1613,7 @@ sqlalchemy==1.4.44
     #   clickhouse-sqlalchemy
     #   databricks-sql-connector
     #   dataflows-tabulator
+    #   duckdb-engine
     #   feast
     #   geoalchemy2
     #   ibm-db-sa
