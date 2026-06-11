@@ -84,6 +84,7 @@ export function normalizeMcp(mcp: Mcp): Mcp {
  * MCP array (namespace replacement already applied by the caller).
  *
  * Transformations applied per entity type:
+ *   dataset  siblings         — posted as-is (ensures merging is properly persisted)
  *   dataset  upstreamLineage  — posted as-is (the legacy endpoint fails on union types)
  *   dataset  schemaMetadata   — strip nulls; replace platformSchema with OtherSchema
  *   chart    chartInfo        — strip nulls; normalise inputs to [{"string":"urn"}]
@@ -111,6 +112,11 @@ export function extractComplexAspects(mcps: Mcp[]): ComplexAspect[] {
         const keys = Object.keys(aspect);
 
         if (urn.startsWith('urn:li:dataset:')) {
+          const siblingsKey = keys.find((k) => k.includes('Siblings'));
+          if (siblingsKey) {
+            results.push({ urn, entityType: 'dataset', aspectName: 'siblings', value: aspect[siblingsKey] });
+            continue;
+          }
           const lineageKey = keys.find((k) => k.includes('UpstreamLineage'));
           if (lineageKey) {
             results.push({ urn, entityType: 'dataset', aspectName: 'upstreamLineage', value: aspect[lineageKey] });

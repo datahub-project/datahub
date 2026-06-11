@@ -6,6 +6,7 @@ import '@testing-library/jest-dom/vitest';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
+import enAlchemy from '@src/i18n/locales/en/alchemy.json';
 import enAnalytics from '@src/i18n/locales/en/analytics.json';
 import enAuth from '@src/i18n/locales/en/auth.json';
 import enCommonActions from '@src/i18n/locales/en/common.actions.json';
@@ -41,7 +42,6 @@ import enEntitySharedVersioning from '@src/i18n/locales/en/entity.shared.version
 import enEntityTypes from '@src/i18n/locales/en/entity.types.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
 import enEntityV1SharedComponents from '@src/i18n/locales/en/entityV1.shared.components.json';
-import enEntityV1SharedEntityDropdown from '@src/i18n/locales/en/entityV1.shared.entityDropdown.json';
 import enGovernanceDomain from '@src/i18n/locales/en/governance.domain.json';
 import enGovernanceGlossary from '@src/i18n/locales/en/governance.glossary.json';
 import enGovernanceStructuredProperties from '@src/i18n/locales/en/governance.structured-properties.json';
@@ -83,6 +83,7 @@ i18n.use(initReactI18next).init({
     ns: [...NAMESPACES],
     resources: {
         en: {
+            alchemy: enAlchemy,
             analytics: enAnalytics,
             auth: enAuth,
             'common.actions': enCommonActions,
@@ -118,7 +119,6 @@ i18n.use(initReactI18next).init({
             'entity.types': enEntityTypes,
             'entity.views': enEntityViews,
             'entityV1.shared.components': enEntityV1SharedComponents,
-            'entityV1.shared.entityDropdown': enEntityV1SharedEntityDropdown,
             'governance.domain': enGovernanceDomain,
             'governance.glossary': enGovernanceGlossary,
             'governance.structured-properties': enGovernanceStructuredProperties,

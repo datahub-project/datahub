@@ -156,6 +156,7 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
+import com.linkedin.datahub.graphql.resolvers.load.TimeseriesAspectBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.logical.SetLogicalParentResolver;
 import com.linkedin.datahub.graphql.resolvers.module.DeletePageModuleResolver;
 import com.linkedin.datahub.graphql.resolvers.module.UpsertPageModuleResolver;
@@ -923,6 +924,10 @@ public class GmsGraphQLEngine {
             WeaklyTypedAspectsResolver.LOADER_NAME,
             context ->
                 WeaklyTypedAspectsResolver.createDataLoader(entityClient, entityRegistry, context))
+        .addDataLoader(
+            TimeseriesAspectBatchLoader.LOADER_NAME,
+            context ->
+                TimeseriesAspectBatchLoader.createDataLoader(timeseriesAspectService, context))
         .setGraphQLConfiguration(graphQLConfiguration)
         .setMetricUtils(metricUtils)
         .configureRuntimeWiring(this::configureRuntimeWiring);
@@ -1867,7 +1872,9 @@ public class GmsGraphQLEngine {
                             this.entityClient,
                             "dataset",
                             "datasetProfile",
-                            DatasetProfileMapper::map))
+                            DatasetProfileMapper::map,
+                            null,
+                            featureFlags.isTimeseriesAspectBatchLoadEnabled()))
                     .dataFetcher(
                         "operations",
                         new TimeSeriesAspectResolver(
@@ -1877,7 +1884,8 @@ public class GmsGraphQLEngine {
                             OperationMapper::map,
                             new SortCriterion()
                                 .setField(OPERATION_EVENT_TIME_FIELD_NAME)
-                                .setOrder(SortOrder.DESCENDING)))
+                                .setOrder(SortOrder.DESCENDING),
+                            featureFlags.isTimeseriesAspectBatchLoadEnabled()))
                     .dataFetcher("usageStats", new DatasetUsageStatsResolver(this.usageClient))
                     .dataFetcher(
                         "operationsStats",
@@ -3525,7 +3533,9 @@ public class GmsGraphQLEngine {
                         this.entityClient,
                         "dataProcessInstance",
                         DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
-                        DataProcessInstanceRunEventMapper::map)));
+                        DataProcessInstanceRunEventMapper::map,
+                        null,
+                        featureFlags.isTimeseriesAspectBatchLoadEnabled())));
   }
 
   private void configureTestResultResolvers(final RuntimeWiring.Builder builder) {

@@ -13,6 +13,7 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -148,7 +149,7 @@ public class ActorContextTest {
         new Authentication(new Actor(ActorType.USER, "__datahub_system"), "");
     ActorContext ctx = ActorContext.asSessionRestricted(systemAuth, Set.of(), List.of(), true);
     AspectRetriever retriever = mock(AspectRetriever.class);
-    assertTrue(ctx.isActive(retriever));
+    assertTrue(ctx.isActive(mock(OperationContext.class), retriever));
     verifyNoInteractions(retriever);
   }
 
@@ -158,10 +159,10 @@ public class ActorContextTest {
     Authentication userAuth = new Authentication(new Actor(ActorType.USER, "nobody"), "");
     ActorContext ctx = ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), true);
     AspectRetriever retriever = mock(AspectRetriever.class);
-    when(retriever.getLatestAspectObjects(any(), any()))
+    when(retriever.getLatestAspectObjects(any(OperationFingerprint.class), any(), any()))
         .thenReturn(
             Map.of(userUrn, Map.of("status", new Aspect(new Status().setRemoved(false).data()))));
-    assertFalse(ctx.isActive(retriever));
+    assertFalse(ctx.isActive(mock(OperationContext.class), retriever));
   }
 
   @Test
@@ -170,8 +171,9 @@ public class ActorContextTest {
     Authentication userAuth = new Authentication(new Actor(ActorType.USER, "nobody"), "");
     ActorContext ctx = ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), false);
     AspectRetriever retriever = mock(AspectRetriever.class);
-    when(retriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of(userUrn, Map.of()));
-    assertTrue(ctx.isActive(retriever));
+    when(retriever.getLatestAspectObjects(any(OperationFingerprint.class), any(), any()))
+        .thenReturn(Map.of(userUrn, Map.of()));
+    assertTrue(ctx.isActive(mock(OperationContext.class), retriever));
   }
 
   @Test
@@ -181,7 +183,7 @@ public class ActorContextTest {
     ActorContext ctx = ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), true);
     CorpUserKey key = new CorpUserKey().setUsername("activeone");
     AspectRetriever retriever = mock(AspectRetriever.class);
-    when(retriever.getLatestAspectObjects(any(), any()))
+    when(retriever.getLatestAspectObjects(any(OperationFingerprint.class), any(), any()))
         .thenReturn(
             Map.of(
                 userUrn,
@@ -190,7 +192,7 @@ public class ActorContextTest {
                     "status", new Aspect(new Status().setRemoved(false).data()),
                     "corpUserStatus",
                         new Aspect(new CorpUserStatus().setStatus("ACTIVE").data()))));
-    assertTrue(ctx.isActive(retriever));
+    assertTrue(ctx.isActive(mock(OperationContext.class), retriever));
   }
 
   @Test
@@ -201,7 +203,7 @@ public class ActorContextTest {
     CorpUserKey key = new CorpUserKey().setUsername("suspended");
     CorpUserStatus suspended = new CorpUserStatus().setStatus(CORP_USER_STATUS_SUSPENDED);
     AspectRetriever retriever = mock(AspectRetriever.class);
-    when(retriever.getLatestAspectObjects(any(), any()))
+    when(retriever.getLatestAspectObjects(any(OperationFingerprint.class), any(), any()))
         .thenReturn(
             Map.of(
                 userUrn,
@@ -209,6 +211,6 @@ public class ActorContextTest {
                     "corpUserKey", new Aspect(key.data()),
                     "status", new Aspect(new Status().setRemoved(false).data()),
                     "corpUserStatus", new Aspect(suspended.data()))));
-    assertFalse(ctx.isActive(retriever));
+    assertFalse(ctx.isActive(mock(OperationContext.class), retriever));
   }
 }
