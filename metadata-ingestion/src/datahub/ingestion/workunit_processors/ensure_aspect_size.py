@@ -1,8 +1,8 @@
 import json
 import logging
 import os
-from dataclasses import dataclass
-from typing import Iterable, List, Optional
+from dataclasses import dataclass, field
+from typing import Dict, Iterable, List, Optional, Type
 
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -10,6 +10,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessor,
     WorkunitProcessorContext,
+    WorkunitProcessorReport,
 )
 from datahub.metadata.schema_classes import (
     DatasetProfileClass,
@@ -40,15 +41,36 @@ class _TruncationResult:
     retained_length: int
 
 
+@dataclass
+class EnsureAspectSizeProcessorReport(WorkunitProcessorReport):
+    """Tracks how many workunits had each aspect type truncated."""
+
+    num_truncations_by_aspect: Dict[str, int] = field(default_factory=dict)
+
+
 class EnsureAspectSizeProcessor(WorkunitProcessor):
     """Ensure aspects don't exceed the 16MB payload limit by truncating in priority order."""
 
     NAME = "ensure_aspect_size"
 
+    @classmethod
+    def get_report_class(cls) -> Type[EnsureAspectSizeProcessorReport]:
+        return EnsureAspectSizeProcessorReport
+
     def __init__(self, ctx: WorkunitProcessorContext) -> None:
         super().__init__(ctx)
         self.payload_constraint = INGEST_MAX_PAYLOAD_BYTES
         self.schema_size_constraint = int(self.payload_constraint * 0.985)
+
+    @property
+    def _report(self) -> EnsureAspectSizeProcessorReport:
+        assert isinstance(self.report, EnsureAspectSizeProcessorReport)
+        return self.report
+
+    def _record_truncation(self, aspect_name: str) -> None:
+        self._report.num_truncations_by_aspect[aspect_name] = (
+            self._report.num_truncations_by_aspect.get(aspect_name, 0) + 1
+        )
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         for wu in stream:
@@ -71,12 +93,14 @@ class EnsureAspectSizeProcessor(WorkunitProcessor):
         self, dataset_urn: str, profile: DatasetProfileClass
     ) -> None:
         sample_fields_size = 0
+        truncated = False
         if profile.fieldProfiles:
             for field in profile.fieldProfiles:
                 if field.sampleValues:
                     values_len = sum(len(v) for v in field.sampleValues if v)
                     if sample_fields_size + values_len > self.payload_constraint:
                         field.sampleValues = []
+                        truncated = True
                         self.ctx.source_report.warning(
                             title="Dataset profile truncated due to size constraint",
                             message="Dataset profile contained too much data and would have caused ingestion to fail",
@@ -84,23 +108,27 @@ class EnsureAspectSizeProcessor(WorkunitProcessor):
                         )
                     else:
                         sample_fields_size += values_len
+        if truncated:
+            self._record_truncation("datasetProfile")
 
     def ensure_schema_metadata_size(
         self, dataset_urn: str, schema: SchemaMetadataClass
     ) -> None:
         total_fields_size = 0
         accepted_fields: List[SchemaFieldClass] = []
-        for field in schema.fields:
-            field_size = len(json.dumps(pre_json_transform(field.to_obj())))
+        for schema_field in schema.fields:
+            field_size = len(json.dumps(pre_json_transform(schema_field.to_obj())))
             if total_fields_size + field_size < self.schema_size_constraint:
-                accepted_fields.append(field)
+                accepted_fields.append(schema_field)
                 total_fields_size += field_size
             else:
                 self.ctx.source_report.warning(
                     title="Schema truncated due to size constraint",
                     message="Dataset schema contained too much data and would have caused ingestion to fail",
-                    context=f"Field {field.fieldPath} was removed from schema for {dataset_urn} due to aspect size constraints",
+                    context=f"Field {schema_field.fieldPath} was removed from schema for {dataset_urn} due to aspect size constraints",
                 )
+        if len(accepted_fields) < len(schema.fields):
+            self._record_truncation("schemaMetadata")
         schema.fields = accepted_fields
 
     def ensure_query_subjects_size(
@@ -153,6 +181,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor):
             self._maybe_warn_query_subjects(
                 entity_urn, column_level_skipped_count, "column-level lineage subjects"
             )
+            self._record_truncation("querySubjects")
 
         query_subjects.subjects = (
             accepted_table_level_subjects + accepted_column_level_subjects
@@ -302,6 +331,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor):
             self._maybe_warn_upstream_lineage(
                 entity_urn, none_fg_skipped_count, "none-level fine-grained lineages"
             )
+            self._record_truncation("upstreamLineage")
 
         accepted_fine_grained_lineages = (
             accepted_dataset_fg_lineages
@@ -344,6 +374,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor):
                 message="Query properties contained too much data and would have caused ingestion to fail",
                 context=f"Query statement was truncated from {original_statement_size} to {new_statement_length} characters for {entity_urn} due to aspect size constraints",
             )
+            self._record_truncation("queryProperties")
         else:
             logger.warning(
                 f"Cannot truncate query statement for {entity_urn} as it is smaller than or equal to the required reduction size {reduction_needed}."
@@ -359,6 +390,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor):
         if current_size < self.payload_constraint:
             return
 
+        truncated = False
         reduction_needed = (
             current_size - self.payload_constraint + QUERY_STATEMENT_TRUNCATION_BUFFER
         )
@@ -370,9 +402,12 @@ class EnsureAspectSizeProcessor(WorkunitProcessor):
             self._warn_view_properties_truncation(
                 entity_urn, "formattedViewLogic", result
             )
+            truncated = True
 
         current_size = len(json.dumps(pre_json_transform(view_properties.to_obj())))
         if current_size < self.payload_constraint:
+            if truncated:
+                self._record_truncation("viewProperties")
             return
 
         reduction_needed = (
@@ -390,6 +425,10 @@ class EnsureAspectSizeProcessor(WorkunitProcessor):
                 )
             view_properties.viewLogic = result.truncated_value
             self._warn_view_properties_truncation(entity_urn, "viewLogic", result)
+            truncated = True
+
+        if truncated:
+            self._record_truncation("viewProperties")
 
     def _warn_view_properties_truncation(
         self, entity_urn: str, field_name: str, result: _TruncationResult

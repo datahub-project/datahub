@@ -13,6 +13,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 from datahub.ingestion.workunit_processors.ensure_aspect_size import (
     EnsureAspectSizeProcessor,
+    EnsureAspectSizeProcessorReport,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
@@ -1035,3 +1036,74 @@ def test_ensure_size_removes_formatted_view_logic_entirely_when_too_small(
         f"original was {original_formatted_size} chars"
         in view_properties.formattedViewLogic
     )
+
+
+class TestEnsureAspectSizeProcessorReport:
+    @pytest.fixture
+    def ctx(self):
+        return WorkunitProcessorContext(
+            source_report=SourceReport(),
+            pipeline_context=MagicMock(),
+            source_config=None,
+            platform=None,
+        )
+
+    def test_report_is_correct_type(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        assert isinstance(proc.report, EnsureAspectSizeProcessorReport)
+
+    def test_no_truncation_leaves_report_empty(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_schema_metadata_size("urn:x", proper_schema_metadata())
+        assert proc.report.num_truncations_by_aspect == {}
+
+    def test_schema_metadata_truncation_recorded(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_schema_metadata_size("urn:x", too_big_schema_metadata())
+        assert proc.report.num_truncations_by_aspect.get("schemaMetadata", 0) == 1
+
+    def test_dataset_profile_truncation_recorded(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        profile = proper_dataset_profile()
+        big_field = DatasetFieldProfileClass(
+            fieldPath="big",
+            sampleValues=20 * [(int(INGEST_MAX_PAYLOAD_BYTES / 20) - 10) * "a"],
+        )
+        assert profile.fieldProfiles
+        profile.fieldProfiles.insert(0, big_field)
+        proc.ensure_dataset_profile_size("urn:x", profile)
+        assert proc.report.num_truncations_by_aspect.get("datasetProfile", 0) == 1
+
+    def test_query_subjects_truncation_recorded(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_query_subjects_size("urn:x", too_big_query_subjects())
+        assert proc.report.num_truncations_by_aspect.get("querySubjects", 0) == 1
+
+    def test_upstream_lineage_truncation_recorded(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_upstream_lineage_size("urn:x", too_big_upstream_lineage())
+        assert proc.report.num_truncations_by_aspect.get("upstreamLineage", 0) == 1
+
+    def test_query_properties_truncation_recorded(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_query_properties_size("urn:x", too_big_query_properties())
+        assert proc.report.num_truncations_by_aspect.get("queryProperties", 0) == 1
+
+    def test_view_properties_truncation_recorded(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_view_properties_size("urn:x", too_big_view_properties())
+        assert proc.report.num_truncations_by_aspect.get("viewProperties", 0) == 1
+
+    def test_multiple_workunits_accumulate_count(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        for _ in range(3):
+            proc.ensure_schema_metadata_size("urn:x", too_big_schema_metadata())
+        assert proc.report.num_truncations_by_aspect.get("schemaMetadata", 0) == 3
+
+    def test_multiple_aspect_types_tracked_independently(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_schema_metadata_size("urn:x", too_big_schema_metadata())
+        proc.ensure_query_subjects_size("urn:y", too_big_query_subjects())
+        assert proc.report.num_truncations_by_aspect.get("schemaMetadata", 0) == 1
+        assert proc.report.num_truncations_by_aspect.get("querySubjects", 0) == 1
+        assert proc.report.num_truncations_by_aspect.get("upstreamLineage", 0) == 0
