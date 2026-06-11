@@ -1,12 +1,17 @@
 import os
 import tempfile
+from unittest.mock import patch
 
+import pytest
 import sqlalchemy as sa
 
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters import get_adapter
-from datahub.ingestion.source.sqlalchemy_profiler.adapters.duckdb import DuckDBAdapter
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.duckdb import (
+    DuckDBAdapter,
+    _convert_bound,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
@@ -75,10 +80,55 @@ def test_summarize_cache_miss_falls_back():
         assert adapter.get_column_min(ctx.sql_table, "num", conn) is not None
 
 
+@pytest.mark.parametrize(
+    "value,col_type,expected,expected_type",
+    [
+        (None, "BIGINT", None, type(None)),
+        ("42", "BIGINT", 42, int),
+        ("42", "INTEGER", 42, int),
+        ("42", "UINTEGER", 42, int),
+        ("3.5", "DOUBLE", 3.5, float),
+        ("3.5", "DECIMAL(10,2)", 3.5, float),
+        ("3.5", "FLOAT", 3.5, float),
+        ("abc", "VARCHAR", "abc", str),
+        # Malformed numeric falls back to the original string.
+        ("notanumber", "BIGINT", "notanumber", str),
+    ],
+)
+def test_convert_bound(value, col_type, expected, expected_type):
+    result = _convert_bound(value, col_type)
+    assert result == expected
+    assert isinstance(result, expected_type)
+
+
+def test_summarize_failure_fallback():
+    """When _run_summarize raises, _summary is empty and metric calls use SQL fallback."""
+    eng = _engine()
+    with eng.begin() as conn:
+        conn.execute("CREATE TABLE t AS SELECT * FROM (VALUES (1),(2),(3)) AS v(num)")
+    with eng.connect() as conn:
+        adapter = DuckDBAdapter(ProfilingConfig(), SQLSourceReport(), eng)
+        with patch.object(
+            DuckDBAdapter, "_run_summarize", side_effect=RuntimeError("forced fail")
+        ):
+            ctx = adapter.setup_profiling(
+                ProfilingContext(pretty_name="t", table="t"), conn
+            )
+        # After failure, cache must be empty.
+        assert adapter._summary == {}
+        assert adapter._row_count is None
+
+        # SQL fallback must still return correct values — no crash.
+        table = ctx.sql_table
+        assert table is not None
+        assert int(adapter.get_column_min(table, "num", conn)) == 1
+        assert float(adapter.get_column_mean(table, "num", conn)) == pytest.approx(2.0)  # type: ignore[arg-type]
+        assert adapter.get_row_count(table, conn) == 3
+        assert adapter.get_column_non_null_count(table, "num", conn) == 3
+
+
 def test_summarize_cache_is_populated_and_served():
     """Proves setup_profiling populates _summary AND that the cache is served (not base SQL)."""
-    from unittest.mock import patch
-
     from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
         PlatformAdapter,
     )
@@ -98,11 +148,12 @@ def test_summarize_cache_is_populated_and_served():
         assert adapter._summary, "_summary must be non-empty after setup_profiling"
         assert "num" in adapter._summary and "txt" in adapter._summary
         assert adapter._row_count == 5
-        assert adapter._summary["num"]["approx_unique"] == 5
-        assert adapter._summary["txt"]["non_null"] == 4
+        assert adapter._summary["num"].approx_unique == 5
+        assert adapter._summary["txt"].non_null == 4
 
         # 2. Cache is served: if base SQL ran, the monkeypatched method would raise.
         table = ctx.sql_table
+        assert table is not None
         with patch.object(
             PlatformAdapter, "get_column_min", side_effect=RuntimeError("base called")
         ):

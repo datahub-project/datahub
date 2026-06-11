@@ -1,6 +1,7 @@
 """DuckDB-specific profiling adapter."""
 
 import logging
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import sqlalchemy as sa
@@ -17,6 +18,18 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _ColumnSummary:
+    min: Any  # post-conversion: int | float | str | None
+    max: Any
+    avg: Optional[float]
+    std: Optional[float]
+    q50: Optional[float]
+    approx_unique: int
+    non_null: int
+
 
 _INTEGER_TYPE_PREFIXES = (
     "TINYINT",
@@ -65,7 +78,7 @@ class DuckDBAdapter(PlatformAdapter):
         super().__init__(*args, **kwargs)
         # Per-table cache: column_name -> parsed SUMMARIZE stats. A fresh adapter is
         # created per table in _generate_single_profile, so instance state is safe.
-        self._summary: Dict[str, Any] = {}
+        self._summary: Dict[str, _ColumnSummary] = {}
         self._row_count: Optional[int] = None
 
     def setup_profiling(
@@ -89,8 +102,8 @@ class DuckDBAdapter(PlatformAdapter):
     def _run_summarize(self, context: ProfilingContext, conn: Connection) -> None:
         """Execute SUMMARIZE and populate the per-column stats cache."""
         identifier = self.quote_identifier(context.get_table_identifier())
-        rows = conn.execute(f"SUMMARIZE {identifier}").fetchall()
-        summary: Dict[str, Any] = {}
+        rows = conn.execute(sa.text(f"SUMMARIZE {identifier}")).fetchall()
+        summary: Dict[str, _ColumnSummary] = {}
         for row in rows:
             m = row._mapping
             name = m["column_name"]
@@ -99,17 +112,17 @@ class DuckDBAdapter(PlatformAdapter):
             )
             count = int(m["count"]) if m["count"] is not None else 0
             col_type = m["column_type"]
-            summary[name] = {
-                "min": _convert_bound(m["min"], col_type),
-                "max": _convert_bound(m["max"], col_type),
-                "avg": self._to_float(m["avg"]),
-                "std": self._to_float(m["std"]),
-                "q50": self._to_float(m["q50"]),
-                "approx_unique": (
+            summary[name] = _ColumnSummary(
+                min=_convert_bound(m["min"], col_type),
+                max=_convert_bound(m["max"], col_type),
+                avg=self._to_float(m["avg"]),
+                std=self._to_float(m["std"]),
+                q50=self._to_float(m["q50"]),
+                approx_unique=(
                     int(m["approx_unique"]) if m["approx_unique"] is not None else 0
                 ),
-                "non_null": round(count * (1.0 - null_pct / 100.0)),
-            }
+                non_null=round(count * (1.0 - null_pct / 100.0)),
+            )
             self._row_count = count
         self._summary = summary
 
@@ -215,7 +228,7 @@ class DuckDBAdapter(PlatformAdapter):
         """Return cached non-null count derived from SUMMARIZE null_percentage."""
         s = self._summary.get(column)
         if s is not None:
-            return int(s["non_null"])
+            return int(s.non_null)
         return super().get_column_non_null_count(table, column, conn)
 
     def get_column_unique_count(
@@ -228,44 +241,38 @@ class DuckDBAdapter(PlatformAdapter):
         """Return cached approx_unique from SUMMARIZE (HyperLogLog)."""
         s = self._summary.get(column)
         if use_approx and s is not None:
-            return int(s["approx_unique"])
+            return int(s.approx_unique)
         return super().get_column_unique_count(table, column, conn, use_approx)
 
     def get_column_min(self, table: sa.Table, column: str, conn: Connection) -> Any:
         """Return cached SUMMARIZE min (VARCHAR); falls back to SQL on cache miss."""
         s = self._summary.get(column)
-        return (
-            s["min"] if s is not None else super().get_column_min(table, column, conn)
-        )
+        return s.min if s is not None else super().get_column_min(table, column, conn)
 
     def get_column_max(self, table: sa.Table, column: str, conn: Connection) -> Any:
         """Return cached SUMMARIZE max (VARCHAR); falls back to SQL on cache miss."""
         s = self._summary.get(column)
-        return (
-            s["max"] if s is not None else super().get_column_max(table, column, conn)
-        )
+        return s.max if s is not None else super().get_column_max(table, column, conn)
 
     def get_column_mean(
         self, table: sa.Table, column: str, conn: Connection
     ) -> Optional[Any]:
         """Return cached SUMMARIZE avg (float); falls back to SQL on cache miss."""
         s = self._summary.get(column)
-        return (
-            s["avg"] if s is not None else super().get_column_mean(table, column, conn)
-        )
+        return s.avg if s is not None else super().get_column_mean(table, column, conn)
 
     def get_column_stdev(
         self, table: sa.Table, column: str, conn: Connection
     ) -> Optional[Any]:
-        """Return cached SUMMARIZE std (float); falls back to SQL on cache miss."""
+        """Return cached SUMMARIZE std (float); falls back to SQL on cache miss or when std is None."""
         s = self._summary.get(column)
-        if s is not None and s["std"] is not None:
-            return s["std"]
+        if s is not None and s.std is not None:
+            return s.std
         return super().get_column_stdev(table, column, conn)
 
     def get_column_median(self, table: sa.Table, column: str, conn: Connection) -> Any:
-        """Return cached SUMMARIZE q50 (p50 median); falls back to quantile_cont."""
+        """Return cached SUMMARIZE q50 (p50 median); falls back to quantile_cont on cache miss or when q50 is None."""
         s = self._summary.get(column)
-        if s is not None and s["q50"] is not None:
-            return s["q50"]
+        if s is not None and s.q50 is not None:
+            return s.q50
         return super().get_column_median(table, column, conn)
