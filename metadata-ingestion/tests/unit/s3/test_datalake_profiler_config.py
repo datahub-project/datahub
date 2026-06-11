@@ -18,3 +18,20 @@ def test_table_level_only_does_not_raise_with_default_metrics():
     cfg = DataLakeProfilerConfig(enabled=True, profile_table_level_only=True)
     assert cfg.include_field_quantiles is False  # validator forces field metrics off
     assert cfg.include_field_histogram is False
+
+
+def test_duckdb_extension_directory_defaults_from_env(monkeypatch):
+    """The extension directory defaults from DATAHUB_DUCKDB_EXTENSION_DIRECTORY so
+    the datahub-ingestion image can point profiling at its baked extensions."""
+    monkeypatch.setenv("DATAHUB_DUCKDB_EXTENSION_DIRECTORY", "/baked/ext")
+    assert DataLakeProfilerConfig().duckdb_extension_directory == "/baked/ext"
+    monkeypatch.delenv("DATAHUB_DUCKDB_EXTENSION_DIRECTORY")
+    assert DataLakeProfilerConfig().duckdb_extension_directory is None
+    # Explicit recipe value overrides the env default.
+    monkeypatch.setenv("DATAHUB_DUCKDB_EXTENSION_DIRECTORY", "/baked/ext")
+    assert (
+        DataLakeProfilerConfig(
+            duckdb_extension_directory="/explicit"
+        ).duckdb_extension_directory
+        == "/explicit"
+    )
