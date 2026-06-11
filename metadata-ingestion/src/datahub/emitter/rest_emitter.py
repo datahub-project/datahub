@@ -327,11 +327,6 @@ class RequestsSessionConfig(ConfigModel):
         headers = {**base_headers, **self.extra_headers}
         session.headers.update(headers)
 
-        # Fall back to env vars when explicit cert paths aren't supplied.
-        # Mirrors the __from_env__ pattern in DataHubRestEmitter.__init__ so any
-        # caller that builds a session via RequestsSessionConfig — directly or
-        # transitively through DataHubRestEmitter / DataHubGraph / sinks — gets
-        # the same env-var resolution.
         cert_path = self.client_certificate_path or os.environ.get(
             "DATAHUB_CLIENT_CERT_PATH"
         )
