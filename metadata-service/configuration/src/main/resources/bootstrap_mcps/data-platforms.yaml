@@ -289,6 +289,16 @@
     displayName: Matillion
     type: OTHERS
     logoUrl: "assets/platforms/matillionlogo.png"
+- entityUrn: urn:li:dataPlatform:odcs
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: odcs
+    displayName: Open Data Contract Standard
+    type: OTHERS
+    logoUrl: "assets/platforms/odcslogo.png"
 - entityUrn: urn:li:dataPlatform:OpenApi
   entityType: dataPlatform
   aspectName: dataPlatformInfo

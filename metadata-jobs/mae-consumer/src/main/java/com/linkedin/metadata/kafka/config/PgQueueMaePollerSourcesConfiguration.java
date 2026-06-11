@@ -10,6 +10,7 @@ import com.linkedin.metadata.config.pgqueue.PgQueueConsumerPollSettings;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.metadata.kafka.DataHubUsageEventsProcessor;
 import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
+import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.listener.GenericKafkaListener;
 import com.linkedin.metadata.kafka.listener.mcl.MCLKafkaListener;
@@ -83,6 +84,7 @@ public class PgQueueMaePollerSourcesConfiguration {
       List<MetadataChangeLogHook> hooks,
       ObjectMapper objectMapper,
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
+      InboundContextResolver inboundContextResolver,
       @Value("${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}")
           String consumerGroupBase,
       @Value(
@@ -125,6 +127,7 @@ public class PgQueueMaePollerSourcesConfiguration {
                           configurationProvider,
                           objectMapper,
                           systemOperationContext,
+                          inboundContextResolver,
                           consumerGroupBase,
                           mclVersionedTopicName,
                           mclTimeseriesTopicName,
@@ -149,7 +152,8 @@ public class PgQueueMaePollerSourcesConfiguration {
                                 configurationProvider,
                                 objectMapper,
                                 gid,
-                                e.getValue());
+                                e.getValue(),
+                                inboundContextResolver);
                     return new PgQueuePollerRegistration(
                         gid,
                         List.of(mclVersionedTopicName, mclTimeseriesTopicName),
@@ -214,6 +218,7 @@ public class PgQueueMaePollerSourcesConfiguration {
       ConfigurationProvider configurationProvider,
       ObjectMapper objectMapper,
       OperationContext systemOperationContext,
+      InboundContextResolver inboundContextResolver,
       String consumerGroupBase,
       String mclVersionedTopicName,
       String mclTimeseriesTopicName,
@@ -227,7 +232,12 @@ public class PgQueueMaePollerSourcesConfiguration {
 
     GenericKafkaListener<MetadataChangeLog, MetadataChangeLogHook, GenericRecord> listener =
         createListener(
-            systemOperationContext, configurationProvider, objectMapper, gid, groupHooks);
+            systemOperationContext,
+            configurationProvider,
+            objectMapper,
+            gid,
+            groupHooks,
+            inboundContextResolver);
     List<MetadataChangeLogHook> initHooks = listener.getHooks();
 
     return new PgQueuePollerRegistration(
@@ -241,24 +251,24 @@ public class PgQueueMaePollerSourcesConfiguration {
         (logicalTopic, batch, ctx) -> {},
         policy,
         (logicalTopic, batch, ctx) -> {
-          List<MetadataChangeLog> allMCLs = new ArrayList<>(batch.size());
+          List<MetadataChangeLog> mcls = new ArrayList<>(batch.size());
           List<QueueMessageHandle> handles = new ArrayList<>(batch.size());
           for (QueueReceivedMessage msg : batch) {
             try {
               GenericRecord record = ctx.decodeAvro(msg, logicalTopic);
               MetadataChangeLog mcl = EventUtils.avroToPegasusMCL(record);
               if (!MCLKafkaListener.shouldSkipMcl(mcl, aspectsToDrop)) {
-                allMCLs.add(mcl);
+                mcls.add(mcl);
               }
               handles.add(msg.handle());
             } catch (Exception ex) {
               log.error("MCL pgQueue batch deserialization failed for group {}", gid, ex);
             }
           }
-          if (!allMCLs.isEmpty()) {
+          if (!mcls.isEmpty()) {
             for (MetadataChangeLogHook hook : initHooks) {
               try {
-                hook.invokeBatch(allMCLs);
+                hook.invokeBatch(systemOperationContext, mcls);
               } catch (Exception ex) {
                 log.error(
                     "MCL pgQueue batch hook {} failed for group {}",
@@ -321,14 +331,20 @@ public class PgQueueMaePollerSourcesConfiguration {
           ConfigurationProvider configurationProvider,
           ObjectMapper objectMapper,
           String consumerGroupId,
-          List<MetadataChangeLogHook> groupHooks) {
+          List<MetadataChangeLogHook> groupHooks,
+          InboundContextResolver inboundContextResolver) {
     boolean fineGrained =
         configurationProvider.getKafka().getConsumer().getMcl().isFineGrainedLoggingEnabled();
     Map<String, Set<String>> aspectsToDrop =
         parseAspectsToDrop(configurationProvider, objectMapper);
     MCLKafkaListener listener = new MCLKafkaListener();
     return listener.init(
-        systemOperationContext, consumerGroupId, groupHooks, fineGrained, aspectsToDrop);
+        systemOperationContext,
+        consumerGroupId,
+        groupHooks,
+        fineGrained,
+        aspectsToDrop,
+        inboundContextResolver);
   }
 
   private static Map<String, Set<String>> parseAspectsToDrop(

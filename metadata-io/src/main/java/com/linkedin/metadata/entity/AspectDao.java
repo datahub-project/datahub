@@ -47,24 +47,24 @@ public interface AspectDao {
 
   @Nullable
   EntityAspect getAspect(
-      OperationContext operationContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final String urn,
       @Nonnull final String aspectName,
       final long version);
 
   @Nullable
   EntityAspect getAspect(
-      OperationContext operationContext, @Nonnull final EntityAspectIdentifier key);
+      @Nonnull OperationContext opContext, @Nonnull final EntityAspectIdentifier key);
 
   @Nonnull
   Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      OperationContext operationContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final Set<EntityAspectIdentifier> keys,
       boolean forUpdate);
 
   @Nonnull
   List<EntityAspect> getAspectsInRange(
-      OperationContext operationContext,
+      @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       Set<String> aspectNames,
       long startTimeMillis,
@@ -320,20 +320,24 @@ public interface AspectDao {
       final int pageSize);
 
   Map<String, Map<String, Long>> getNextVersions(
-      OperationContext operationContext, @Nonnull Map<String, Set<String>> urnAspectMap);
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<String, Set<String>> urnAspectMap,
+      boolean lockLatestForWrite);
 
   default long getNextVersion(
-      OperationContext operationContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final String urn,
       @Nonnull final String aspectName) {
-    return getNextVersions(operationContext, urn, Set.of(aspectName)).get(aspectName);
+    return getNextVersions(opContext, Map.of(urn, Set.of(aspectName)), true)
+        .get(urn)
+        .get(aspectName);
   }
 
   default Map<String, Long> getNextVersions(
-      OperationContext operationContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final String urn,
       @Nonnull final Set<String> aspectNames) {
-    return getNextVersions(operationContext, Map.of(urn, aspectNames)).get(urn);
+    return getNextVersions(opContext, Map.of(urn, aspectNames), true).get(urn);
   }
 
   long getMaxVersion(

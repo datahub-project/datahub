@@ -1336,6 +1336,7 @@ module.exports = {
       items: [
         "docs/deploy/confluent-cloud",
         "docs/deploy/gms-rate-limiting",
+        "docs/deploy/primary-storage-read-pool",
         "docs/deploy/environment-vars",
         "docs/how/extract-container-logs",
       ],

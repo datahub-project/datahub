@@ -33,6 +33,7 @@ import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.mxe.TopicConvention;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -73,12 +74,14 @@ public class PgQueueEventProducerTest {
   private TopicConvention topicConvention;
   private SchemaRegistryService schemaRegistryService;
   private PgQueueEventProducer producer;
+  private OperationContext opContext;
 
   @BeforeMethod
   public void setUp() {
     queueStore = mock(MetadataQueueStore.class);
     topicConvention = mock(TopicConvention.class);
     schemaRegistryService = mock(SchemaRegistryService.class);
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     when(topicConvention.getDataHubUpgradeHistoryTopicName()).thenReturn(DUHE_TOPIC);
     producer =
         new PgQueueEventProducer(
@@ -105,7 +108,7 @@ public class PgQueueEventProducerTest {
         .thenReturn(mock(QueueMessageHandle.class));
 
     DataHubUpgradeHistoryEvent event = new DataHubUpgradeHistoryEvent().setVersion("0.10.0-test");
-    producer.produceDataHubUpgradeHistoryEvent(event);
+    producer.produceDataHubUpgradeHistoryEvent(opContext, event);
 
     ArgumentCaptor<byte[]> payloadCaptor = ArgumentCaptor.forClass(byte[].class);
     ArgumentCaptor<String> routingKeyCaptor = ArgumentCaptor.forClass(String.class);
@@ -144,7 +147,8 @@ public class PgQueueEventProducerTest {
   public void testProduceDataHubUpgradeHistoryEventSkipsWhenSchemaIdUnknown() {
     when(schemaRegistryService.getSchemaIdForTopic(DUHE_TOPIC)).thenReturn(Optional.empty());
 
-    producer.produceDataHubUpgradeHistoryEvent(new DataHubUpgradeHistoryEvent().setVersion("v"));
+    producer.produceDataHubUpgradeHistoryEvent(
+        opContext, new DataHubUpgradeHistoryEvent().setVersion("v"));
 
     verify(queueStore, never())
         .enqueue(any(), any(), any(), anyInt(), any(byte[].class), any(), any(), any());
@@ -158,7 +162,8 @@ public class PgQueueEventProducerTest {
         .thenThrow(new IllegalStateException("simulated DB failure"));
 
     // Behavior under test: the upgrade success must NOT be masked by a queue write failure.
-    producer.produceDataHubUpgradeHistoryEvent(new DataHubUpgradeHistoryEvent().setVersion("v"));
+    producer.produceDataHubUpgradeHistoryEvent(
+        opContext, new DataHubUpgradeHistoryEvent().setVersion("v"));
   }
 
   @Test
@@ -187,7 +192,7 @@ public class PgQueueEventProducerTest {
             .setChangeType(ChangeType.UPSERT)
             .setEntityUrn(urn);
 
-    producer.produceMetadataChangeLog(urn, aspectSpec, mcl);
+    producer.produceMCL(opContext, urn, aspectSpec, mcl);
 
     verify(queueStore, times(1))
         .enqueue(
@@ -217,7 +222,7 @@ public class PgQueueEventProducerTest {
             .setChangeType(ChangeType.UPSERT)
             .setEntityUrn(urn);
 
-    producer.produceMetadataChangeLog(urn, aspectSpec, mcl);
+    producer.produceMCL(opContext, urn, aspectSpec, mcl);
 
     verify(queueStore, never())
         .enqueue(any(), any(), any(), anyInt(), any(byte[].class), any(), any(), any());
@@ -247,7 +252,7 @@ public class PgQueueEventProducerTest {
             .setAspectName("datasetProperties")
             .setChangeType(ChangeType.UPSERT);
 
-    Future<?> result = producer.produceMetadataChangeProposal(urn, mcp);
+    Future<?> result = producer.produceMetadataChangeProposal(opContext, urn, mcp);
 
     assertNotNull(result);
     assertEquals(result.isDone(), true);
@@ -341,7 +346,8 @@ public class PgQueueEventProducerTest {
             .setValue(com.linkedin.data.ByteString.copy("{}".getBytes()))
             .setContentType("application/json"));
 
-    Future<?> result = producer.producePlatformEvent("EntityChangeEvent_v1", "myKey", event);
+    Future<?> result =
+        producer.producePlatformEvent(opContext, "EntityChangeEvent_v1", "myKey", event);
 
     assertNotNull(result);
     assertEquals(result.isDone(), true);
@@ -381,7 +387,8 @@ public class PgQueueEventProducerTest {
             .setValue(com.linkedin.data.ByteString.copy("{}".getBytes()))
             .setContentType("application/json"));
 
-    Future<?> result = producer.producePlatformEvent("EntityChangeEvent_v1", null, event);
+    Future<?> result =
+        producer.producePlatformEvent(opContext, "EntityChangeEvent_v1", null, event);
 
     assertNotNull(result);
     assertEquals(result.isDone(), true);
@@ -464,7 +471,7 @@ public class PgQueueEventProducerTest {
             .setAspectName("datasetProperties")
             .setChangeType(ChangeType.UPSERT);
 
-    producer.produceMetadataChangeProposal(urn, mcp);
+    producer.produceMetadataChangeProposal(opContext, urn, mcp);
 
     verify(queueStore, never())
         .enqueue(any(), any(), any(), anyInt(), any(byte[].class), any(), any(), any());
@@ -507,7 +514,8 @@ public class PgQueueEventProducerTest {
             .setValue(com.linkedin.data.ByteString.copy("{}".getBytes()))
             .setContentType("application/json"));
 
-    Future<?> result = producer.producePlatformEvent("EntityChangeEvent_v1", "key", event);
+    Future<?> result =
+        producer.producePlatformEvent(opContext, "EntityChangeEvent_v1", "key", event);
 
     assertTrue(result.isDone());
     verify(queueStore, never())
@@ -533,7 +541,7 @@ public class PgQueueEventProducerTest {
           .when(() -> EventUtils.pegasusToAvroMCL(mcl))
           .thenThrow(new IOException("conversion failed"));
 
-      Future<?> result = producer.produceMetadataChangeLog(urn, aspectSpec, mcl);
+      Future<?> result = producer.produceMCL(opContext, urn, aspectSpec, mcl);
 
       assertTrue(result.isDone());
       try {
@@ -563,7 +571,7 @@ public class PgQueueEventProducerTest {
             .setAspectName("datasetProperties")
             .setChangeType(ChangeType.UPSERT);
 
-    Future<?> result = producer.produceMetadataChangeProposal(urn, mcp);
+    Future<?> result = producer.produceMetadataChangeProposal(opContext, urn, mcp);
 
     assertTrue(result.isDone());
     org.testng.Assert.assertNull(result.get());

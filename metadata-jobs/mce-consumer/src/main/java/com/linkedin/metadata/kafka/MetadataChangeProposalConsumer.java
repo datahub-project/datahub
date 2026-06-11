@@ -11,6 +11,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
+import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
@@ -19,6 +20,7 @@ import io.opentelemetry.api.trace.StatusCode;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -35,10 +37,14 @@ public class MetadataChangeProposalConsumer {
   private final OperationContext systemOperationContext;
   private final SystemEntityClient entityClient;
   private final EventProducer eventProducer;
+  private final InboundContextResolver inboundContextResolver;
 
+  /** Unified entry: both Kafka and pgQueue paths funnel through this method. */
   public void accept(InboundMetadataEnvelope<GenericRecord> envelope, String mceConsumerGroupId) {
+    final OperationContext eventContext =
+        inboundContextResolver.resolve(envelope, systemOperationContext);
     try {
-      systemOperationContext
+      eventContext
           .getMetricUtils()
           .ifPresent(
               metricUtils ->
@@ -51,8 +57,6 @@ public class MetadataChangeProposalConsumer {
                       envelope.getMessagingSystem(),
                       envelope.getPriority()));
 
-      final GenericRecord record = envelope.getPayload();
-
       log.info(
           "Got MCP event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
           envelope.getKey(),
@@ -62,58 +66,64 @@ public class MetadataChangeProposalConsumer {
           envelope.getSerializedValueSize(),
           envelope.getEnqueuedAtMillis());
 
-      if (log.isDebugEnabled()) {
-        log.debug("Record {}", record);
-      }
-
-      final MetadataChangeProposal event;
-      try {
-        event = EventUtils.avroToPegasusMCP(record);
-
-        systemOperationContext.withQueueSpan(
-            "consume",
-            event.getSystemMetadata(),
-            envelope.getLogicalTopic(),
-            () -> {
-              try {
-                Urn entityUrn = event.getEntityUrn();
-                String aspectName = event.hasAspectName() ? event.getAspectName() : null;
-                String entityType = event.hasEntityType() ? event.getEntityType() : null;
-                ChangeType changeType = event.hasChangeType() ? event.getChangeType() : null;
-                MDC.put(
-                    MDC_ENTITY_URN, Optional.ofNullable(entityUrn).map(Urn::toString).orElse(""));
-                MDC.put(MDC_ASPECT_NAME, aspectName);
-                MDC.put(MDC_ENTITY_TYPE, entityType);
-                MDC.put(
-                    MDC_CHANGE_TYPE,
-                    Optional.ofNullable(changeType).map(ChangeType::toString).orElse(""));
-
-                if (log.isDebugEnabled()) {
-                  log.debug("MetadataChangeProposal {}", event);
-                }
-                entityClient.ingestProposal(systemOperationContext, event, false);
-
-                log.info("Successfully processed MCP event urn: {}", event.getEntityUrn());
-              } catch (Throwable throwable) {
-                log.error("MCP Processor Error", throwable);
-                log.error("Message: {}", record);
-                Span currentSpan = Span.current();
-                currentSpan.recordException(throwable);
-                currentSpan.setStatus(StatusCode.ERROR, throwable.getMessage());
-                currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
-
-                eventProducer.produceFailedMetadataChangeProposal(
-                    systemOperationContext, List.of(event), throwable);
-              }
-            },
-            MetricUtils.DROPWIZARD_NAME,
-            MetricUtils.name(this.getClass(), "consume"));
-      } catch (IOException e) {
-        log.error(
-            "Unrecoverable message deserialization error. Cannot forward to failure topic.", e);
-      }
+      processRecord(envelope.getPayload(), envelope.getLogicalTopic(), eventContext);
     } finally {
       MDC.clear();
+    }
+  }
+
+  /** Shared processing path used after intake metric + log. */
+  private void processRecord(
+      @Nonnull final GenericRecord record,
+      @Nonnull final String topic,
+      @Nonnull final OperationContext eventContext) {
+    if (log.isDebugEnabled()) {
+      log.debug("Record {}", record);
+    }
+
+    final MetadataChangeProposal event;
+    try {
+      event = EventUtils.avroToPegasusMCP(record);
+
+      eventContext.withQueueSpan(
+          "consume",
+          event.getSystemMetadata(),
+          topic,
+          () -> {
+            try {
+              Urn entityUrn = event.getEntityUrn();
+              String aspectName = event.hasAspectName() ? event.getAspectName() : null;
+              String entityType = event.hasEntityType() ? event.getEntityType() : null;
+              ChangeType changeType = event.hasChangeType() ? event.getChangeType() : null;
+              MDC.put(MDC_ENTITY_URN, Optional.ofNullable(entityUrn).map(Urn::toString).orElse(""));
+              MDC.put(MDC_ASPECT_NAME, aspectName);
+              MDC.put(MDC_ENTITY_TYPE, entityType);
+              MDC.put(
+                  MDC_CHANGE_TYPE,
+                  Optional.ofNullable(changeType).map(ChangeType::toString).orElse(""));
+
+              if (log.isDebugEnabled()) {
+                log.debug("MetadataChangeProposal {}", event);
+              }
+              entityClient.ingestProposal(eventContext, event, false);
+
+              log.info("Successfully processed MCP event urn: {}", event.getEntityUrn());
+            } catch (Throwable throwable) {
+              log.error("MCP Processor Error", throwable);
+              log.error("Message: {}", record);
+              Span currentSpan = Span.current();
+              currentSpan.recordException(throwable);
+              currentSpan.setStatus(StatusCode.ERROR, throwable.getMessage());
+              currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
+
+              eventProducer.produceFailedMetadataChangeProposal(
+                  eventContext, List.of(event), throwable);
+            }
+          },
+          MetricUtils.DROPWIZARD_NAME,
+          MetricUtils.name(this.getClass(), "consume"));
+    } catch (IOException e) {
+      log.error("Unrecoverable message deserialization error. Cannot forward to failure topic.", e);
     }
   }
 }

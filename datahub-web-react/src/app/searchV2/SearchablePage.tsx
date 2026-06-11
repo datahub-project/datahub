@@ -1,5 +1,6 @@
 import { debounce } from 'lodash';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -81,6 +82,7 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
 
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
+    const { t } = useTranslation('search');
     const { selectedQuickFilter } = useQuickFiltersContext();
 
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
@@ -130,7 +132,9 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
         <>
             <SearchHeader
                 initialQuery={currentQuery as string}
-                placeholderText={themeConfig.content.search.searchbarMessage}
+                placeholderText={t('searchBar.placeholder', {
+                    defaultValue: themeConfig.content.search.searchbarMessage,
+                })}
                 suggestions={
                     (newSuggestionData &&
                         newSuggestionData?.autoCompleteForMultiple &&

@@ -14,6 +14,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.MetadataChangeLogConfig;
 import com.linkedin.metadata.config.kafka.ConsumerConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.listener.BatchKafkaListenerEndpoint;
 import com.linkedin.metadata.kafka.listener.GenericKafkaListener;
@@ -39,6 +40,7 @@ public class MCLKafkaListenerRegistrarTest {
   private String mockConsumerGroupBase = "test-consumer-group";
   @Mock private ObjectMapper mockObjectMapper;
   @Mock private OperationContext mockOperationContext;
+  @Mock private InboundContextResolver mockInboundContextResolver;
   @Mock private ConfigurationProvider mockConfigurationProvider;
   @Mock private MetadataChangeLogConfig mockMetadataChangeLogConfig;
   @Mock private MetadataChangeLogConfig.ConsumerBatchConfig mockConsumerBatchConfig;
@@ -66,6 +68,7 @@ public class MCLKafkaListenerRegistrarTest {
             hooks,
             mockObjectMapper,
             mockOperationContext,
+            mockInboundContextResolver,
             mockConfigurationProvider);
 
     when(mockConfigurationProvider.getMetadataChangeLog()).thenReturn(mockMetadataChangeLogConfig);

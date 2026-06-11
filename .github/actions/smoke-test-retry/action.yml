@@ -53,7 +53,7 @@ runs:
         ARTIFACT_NAME="Test Results (smoke tests) ${TEST_STRATEGY} ${BATCH}"
         echo "Looking for artifact: ${ARTIFACT_NAME}"
 
-        ARTIFACT_ID=$(gh api "repos/${REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
+        ARTIFACT_ID=$(gh api --paginate "repos/${REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
           --jq ".artifacts[] | select(.name == \"${ARTIFACT_NAME}\") | .id" | head -1)
 
         if [[ -z "$ARTIFACT_ID" ]]; then

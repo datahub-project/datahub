@@ -118,7 +118,7 @@ jobs:
         run: |
           run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
-          artifact_id=$(gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
+          artifact_id=$(gh api --paginate "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
           gh api "repos/datahub-project/datahub/actions/artifacts/${artifact_id}/zip" >"${{ github.workspace }}/build/build-metadata.zip"
           unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
           ls -l "${{ github.workspace }}/build/"
@@ -225,7 +225,7 @@ jobs:
           echo "Looking for artifact: ${ARTIFACT_NAME}"
 
           # Query artifacts for this workflow run
-          ARTIFACT_ID=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+          ARTIFACT_ID=$(gh api --paginate "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
             --jq ".artifacts[] | select(.name == \"${ARTIFACT_NAME}\") | .id" | head -1)
 
           if [[ -z "$ARTIFACT_ID" ]]; then
@@ -367,7 +367,7 @@ jobs:
         run: |
           run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
-          artifact_id=$(gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
+          artifact_id=$(gh api --paginate "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
           gh api "repos/datahub-project/datahub/actions/artifacts/${artifact_id}/zip" >"${{ github.workspace }}/build/build-metadata.zip"
           unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
           ls -l "${{ github.workspace }}/build/"
@@ -632,7 +632,7 @@ jobs:
         run: |
           run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
-          artifact_id=$(gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
+          artifact_id=$(gh api --paginate "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
           gh api "repos/datahub-project/datahub/actions/artifacts/${artifact_id}/zip" >"${{ github.workspace }}/build/build-metadata.zip"
           unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
           ls -l "${{ github.workspace }}/build/"

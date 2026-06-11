@@ -75,7 +75,7 @@
     "tags.appliedToEntityCount_other": "{{count}} Entitäten",
     "tags.color": "Farbe",
     "tags.columnAppliedTo": "Angewendet auf",
-    "tags.columnOwners": "Owners",
+    "tags.columnOwners": "Owner",
     "tags.columnTag": "Tag",
     "tags.copyUrn": "URN kopieren",
     "tags.createButton": "Tag erstellen",

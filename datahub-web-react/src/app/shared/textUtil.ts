@@ -28,14 +28,23 @@ export function validateCustomUrnId(str: string) {
     return true;
 }
 
+/**
+ * @deprecated - use i18next pluralization instead
+ */
 export function pluralize(count: number, noun: string, suffix = 's') {
     return count !== 1 ? pluralizeIfIrregular(noun, suffix) : noun;
 }
 
+/**
+ * @deprecated - use i18next pluralization instead
+ */
 export function forcePluralize(noun: string, suffix = 's') {
     return `${noun}${suffix}`;
 }
 
+/**
+ * @deprecated - use i18next pluralization instead
+ */
 export function pluralizeIfIrregular(noun: string, suffix = 's'): string {
     const irregularPlurals: Record<string, string> = {
         query: 'queries',

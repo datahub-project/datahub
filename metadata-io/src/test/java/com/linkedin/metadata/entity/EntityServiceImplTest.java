@@ -440,7 +440,8 @@ public class EntityServiceImplTest {
 
     // Assert
     assertFalse(result.isEmitted(), "Should not produce MCL when system metadata is no-op");
-    verify(mockEventProducer, never()).produceMetadataChangeLog(any(), any(), any());
+    verify(mockEventProducer, never())
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }
 
   @Test
@@ -472,7 +473,8 @@ public class EntityServiceImplTest {
 
     // Assert
     assertFalse(result.isEmitted(), "Should not produce MCL when aspects are equal");
-    verify(mockEventProducer, never()).produceMetadataChangeLog(any(), any(), any());
+    verify(mockEventProducer, never())
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }
 
   @Test
