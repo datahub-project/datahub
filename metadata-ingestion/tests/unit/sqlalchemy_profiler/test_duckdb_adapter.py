@@ -60,10 +60,13 @@ def test_summarize_cache_serves_column_stats():
         ctx = adapter.setup_profiling(ctx, conn)
 
         table = ctx.sql_table
+        assert table is not None
         assert adapter.get_row_count(table, conn) == 5
         assert int(adapter.get_column_min(table, "num", conn)) == 1
         assert int(adapter.get_column_max(table, "num", conn)) == 5
-        assert abs(float(adapter.get_column_mean(table, "num", conn)) - 3.0) < 1e-9
+        mean = adapter.get_column_mean(table, "num", conn)
+        assert mean is not None
+        assert abs(float(mean) - 3.0) < 1e-9
         assert adapter.get_column_non_null_count(table, "txt", conn) == 4
         assert adapter.get_column_unique_count(table, "num", conn) == 5
 
@@ -77,7 +80,9 @@ def test_summarize_cache_miss_falls_back():
         ctx = adapter.setup_profiling(
             ProfilingContext(pretty_name="t", table="t"), conn
         )
-        assert adapter.get_column_min(ctx.sql_table, "num", conn) is not None
+        table = ctx.sql_table
+        assert table is not None
+        assert adapter.get_column_min(table, "num", conn) is not None
 
 
 @pytest.mark.parametrize(
