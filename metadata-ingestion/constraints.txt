@@ -959,7 +959,6 @@ numpy==1.26.4
     #   db-dtypes
     #   feast
     #   pandas
-    #   pydeequ
     #   scipy
     #   spacy
     #   thinc
@@ -1047,7 +1046,6 @@ pandas==2.1.4
     #   databricks-sql-connector
     #   db-dtypes
     #   feast
-    #   pydeequ
     #   unstructured-ingest
 pandocfilters==1.5.1
     # via nbconvert
@@ -1214,8 +1212,6 @@ pydantic-core==2.33.2
     # via pydantic
 pydash==8.0.6
     # via okta
-pydeequ==1.5.0
-    # via acryl-datahub
 pydruid==0.6.9
     # via acryl-datahub
 pygments==2.19.2
