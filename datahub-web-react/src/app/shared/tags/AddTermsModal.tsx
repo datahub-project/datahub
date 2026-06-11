@@ -2,6 +2,7 @@ import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple'
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
@@ -97,6 +98,8 @@ export default function AddTermsModal({
     onOkOverride,
     existingUrns,
 }: Props) {
+    const { t } = useTranslation('shared.tags');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const generateColor = useGenerateGlossaryColorFromPalette();
     const { runMutation, disableAction } = useBatchTagTermMutation();
@@ -202,7 +205,11 @@ export default function AddTermsModal({
                     <NonSelectableRow $depth={depth} data-testid={`tag-term-option-${option.label}`}>
                         <CaretButton
                             type="button"
-                            aria-label={isExpanded ? `Collapse ${option.label}` : `Expand ${option.label}`}
+                            aria-label={
+                                isExpanded
+                                    ? t('collapseTerm', { label: option.label })
+                                    : t('expandTerm', { label: option.label })
+                            }
                             aria-expanded={isExpanded}
                             // Stops alchemy SimpleSelect from treating this as an option click.
                             onMouseDown={(e) => e.preventDefault()}
@@ -244,7 +251,7 @@ export default function AddTermsModal({
                 </OptionRow>
             );
         },
-        [generateColor, nodesWithChildren, expandedNodes, handleCaretClick],
+        [generateColor, nodesWithChildren, expandedNodes, handleCaretClick, t],
     );
 
     const renderSelectedValue = useCallback(
@@ -277,15 +284,16 @@ export default function AddTermsModal({
         });
     };
 
-    const actionLabel = isAddOperation(operationType) ? 'Add' : 'Remove';
+    const isAdd = isAddOperation(operationType);
+    const actionLabel = isAdd ? tc('add') : tc('remove');
 
     return (
         <Modal
-            title={`${actionLabel} Glossary Terms`}
+            title={isAdd ? t('modal.addTermsTitle') : t('modal.removeTermsTitle')}
             open={open}
             onCancel={onCloseModal}
             buttons={[
-                { text: 'Cancel', variant: 'text', onClick: onCloseModal },
+                { text: tc('cancel'), variant: 'text', onClick: onCloseModal },
                 {
                     text: actionLabel,
                     id: 'addTagButton',
@@ -312,7 +320,7 @@ export default function AddTermsModal({
                 selectLabelProps={{ variant: 'custom' }}
                 filterResultsByQuery={false}
                 isLoading={isSearching ? searchLoading : treeLoading}
-                placeholder="Search for glossary term..."
+                placeholder={t('termSearchPlaceholder')}
                 width="full"
                 dataTestId="tag-term-modal-input"
             />

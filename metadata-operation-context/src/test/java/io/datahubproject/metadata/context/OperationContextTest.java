@@ -304,6 +304,38 @@ public class OperationContextTest {
     verify(mockEntityRegistryContext).getEntityAspectNames(entityType);
   }
 
+  @Test
+  public void withReadPreference_updatesPrimaryStorageContext() {
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    OperationContext readContext = opContext.withReadPreference(ReadPreference.READ);
+
+    assertEquals(readContext.getPrimaryStorageContext().getReadPreference(), ReadPreference.READ);
+    assertEquals(opContext.getPrimaryStorageContext().getReadPreference(), ReadPreference.PRIMARY);
+  }
+
+  @Test
+  public void asSystem_usesProvidedPrimaryStorageContext() {
+    PrimaryStorageContext storageContext =
+        PrimaryStorageContext.builder()
+            .readPreference(ReadPreference.READ)
+            .includeReadPreferenceInEntityCacheKey(true)
+            .build();
+    OperationContext opContext =
+        OperationContext.asSystem(
+            OperationContextConfig.builder().build(),
+            new Authentication(new Actor(ActorType.USER, "SYSTEM"), ""),
+            mock(EntityRegistry.class),
+            null,
+            null,
+            TestOperationContexts.emptyActiveUsersRetrieverContext(null),
+            mock(ValidationContext.class),
+            null,
+            storageContext,
+            false);
+
+    assertEquals(opContext.getPrimaryStorageContext(), storageContext);
+  }
+
   private OperationContext buildTraceMock() {
     return buildTraceMock(null);
   }
