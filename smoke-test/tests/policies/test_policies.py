@@ -243,6 +243,23 @@ def _ensure_deny_policy_present(auth_session, deny_urn):
     assert result[0]["effect"] == "DENY"
 
 
+def _post_graphql(session, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+    """Execute a GraphQL request by posting directly to the frontend URL.
+
+    Unlike ``execute_graphql``, this does not require ``session.frontend_url()``, so it
+    works with the plain ``requests.Session`` returned by ``login_as`` / ``create_user``
+    as well as the module ``auth_session`` wrapper."""
+    response = session.post(
+        f"{get_frontend_url()}/api/v2/graphql",
+        json={"query": query, "variables": variables},
+    )
+    response.raise_for_status()
+    res_data = response.json()
+    assert res_data, "GraphQL response is empty"
+    assert "errors" not in res_data, f"GraphQL errors: {res_data.get('errors')}"
+    return res_data
+
+
 def _timed_list_policies(session) -> List[float]:
     """Return trimmed per-query ``listPolicies`` durations (seconds). Posts directly so
     that both the module ``auth_session`` and a plain ``login_as`` session work."""
@@ -287,7 +304,7 @@ def _create_deny_policy(
             },
         }
     }
-    res = execute_graphql(session, _CREATE_POLICY_QUERY, variables)
+    res = _post_graphql(session, _CREATE_POLICY_QUERY, variables)
     return res["data"]["createPolicy"]
 
 
@@ -363,21 +380,21 @@ def test_deny_policy_perf_with_many_group_memberships(auth_session, num_groups):
     policy_urns: List[str] = []
     try:
         for i in range(num_groups):
-            res = execute_graphql(
+            res = _post_graphql(
                 admin_session,
                 _CREATE_GROUP_QUERY,
-                {"input": {"name": f"{PERF_GROUP_PREFIX}{i}"}},
+                {"input": {"name": f"{PERF_GROUP_PREFIX}{num_groups}-{i}"}},
             )
             group_urn = res["data"]["createGroup"]
             group_urns.append(group_urn)
-            execute_graphql(
+            _post_graphql(
                 admin_session,
                 _ADD_GROUP_MEMBERS_QUERY,
                 {"groupUrn": group_urn, "userUrns": [user_urn]},
             )
 
         # Grant MANAGE_POLICIES to the user via its first group so listPolicies authorizes.
-        grant = execute_graphql(
+        grant = _post_graphql(
             admin_session,
             _CREATE_POLICY_QUERY,
             {
@@ -420,12 +437,12 @@ def test_deny_policy_perf_with_many_group_memberships(auth_session, num_groups):
     finally:
         for urn in policy_urns:
             try:
-                execute_graphql(admin_session, _DELETE_POLICY_QUERY, {"urn": urn})
+                _post_graphql(admin_session, _DELETE_POLICY_QUERY, {"urn": urn})
             except Exception:
                 logger.warning("Failed to clean up perf policy %s", urn)
         for urn in group_urns:
             try:
-                execute_graphql(admin_session, _REMOVE_GROUP_QUERY, {"urn": urn})
+                _post_graphql(admin_session, _REMOVE_GROUP_QUERY, {"urn": urn})
             except Exception:
                 logger.warning("Failed to clean up perf group %s", urn)
         try:
