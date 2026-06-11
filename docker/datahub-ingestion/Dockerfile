@@ -191,6 +191,15 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private 
     && datahub --version
 RUN rm -rf $HOME/.config/uv
 
+# Pre-install the DuckDB extensions used by data lake profiling: httpfs (remote
+# object-store reads) and avro (Avro files). Build-time has network access, and
+# buildx runs this on the target platform, so the correct per-platform binary is
+# baked into the datahub user's DuckDB extension directory. At runtime the
+# profiler's LOAD-first path finds them without a download — so profiling works
+# in air-gapped deployments of this image with no extra configuration.
+RUN python -c "import duckdb; conn = duckdb.connect(); [conn.execute(f'INSTALL {ext}') for ext in ('httpfs', 'avro')]; conn.close()" \
+    && echo "Pre-installed DuckDB profiling extensions: httpfs, avro"
+
 FROM add-code-locked AS final-locked
 
 ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt

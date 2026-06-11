@@ -106,16 +106,31 @@ class DuckDBProfiler:
         """Load a DuckDB extension, preferring an offline LOAD.
 
         `LOAD` succeeds for statically-linked extensions or ones already present
-        in the (optionally pre-staged) extension directory — no network. Only if
-        that fails do we `INSTALL`, which downloads from DuckDB's extension
-        repository. In an air-gapped environment without a pre-staged extension
-        the download fails, and we raise an actionable error.
+        in the (optionally pre-staged) extension directory — no network.
+
+        When `duckdb_extension_directory` is set, the operator has declared an
+        offline/air-gapped intent: we do NOT attempt `INSTALL` (which would reach
+        out to DuckDB's extension repository and can hang on a black-holed
+        network) and instead fail fast with guidance to pre-stage the binary.
+        Otherwise we fall back to `INSTALL` (a one-time download).
         """
         if extension in self._loaded_extensions:
             return
+        offline = bool(
+            getattr(self.profiling_config, "duckdb_extension_directory", None)
+        )
         try:
             conn.execute(sa.text(f"LOAD {extension}"))
-        except Exception:
+        except Exception as load_err:
+            if offline:
+                raise ValueError(
+                    f"Could not load the DuckDB '{extension}' extension from the "
+                    f"configured `profiling.duckdb_extension_directory`. Downloads "
+                    f"are disabled when that directory is set; pre-stage the "
+                    f"matching '{extension}.duckdb_extension' binary (for your "
+                    f"DuckDB version and platform) there "
+                    f"({type(load_err).__name__}: {load_err})."
+                ) from load_err
             try:
                 conn.execute(sa.text(f"INSTALL {extension}; LOAD {extension};"))
             except Exception as e:
