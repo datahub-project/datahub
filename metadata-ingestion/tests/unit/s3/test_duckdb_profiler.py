@@ -151,12 +151,16 @@ def _sampling_config(**kw) -> GEProfilingConfig:
     return GEProfilingConfig(enabled=True, **kw)
 
 
+def _warning_texts(report: DataLakeSourceReport) -> list:
+    """Return all warning message strings from the report."""
+    return [w.message for w in report.warnings]
+
+
 def test_large_table_is_sampled_but_reports_true_rowcount(tmp_path):
     parquet = _make_parquet(str(tmp_path))  # 3-row parquet
     cfg = _sampling_config(use_sampling=True, sample_size=2, profile_table_row_limit=2)
-    profiler = DuckDBProfiler(
-        aws_config=None, report=DataLakeSourceReport(), profiling_config=cfg
-    )
+    report = DataLakeSourceReport()
+    profiler = DuckDBProfiler(aws_config=None, report=report, profiling_config=cfg)
     profile = _extract_profile(
         profiler.get_table_profile(
             _table_data(parquet), "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"
@@ -166,6 +170,8 @@ def test_large_table_is_sampled_but_reports_true_rowcount(tmp_path):
     assert profile is not None
     # 3 rows > row limit 2 and use_sampling -> sampled, but rowCount reports the true 3.
     assert profile.rowCount == 3
+    # The sampling branch must have emitted a warning mentioning sampling.
+    assert any("sampl" in t.lower() for t in _warning_texts(report))
 
 
 def test_small_table_not_sampled(tmp_path):
@@ -173,9 +179,8 @@ def test_small_table_not_sampled(tmp_path):
     cfg = _sampling_config(
         use_sampling=True, sample_size=2, profile_table_row_limit=1000
     )
-    profiler = DuckDBProfiler(
-        aws_config=None, report=DataLakeSourceReport(), profiling_config=cfg
-    )
+    report = DataLakeSourceReport()
+    profiler = DuckDBProfiler(aws_config=None, report=report, profiling_config=cfg)
     profile = _extract_profile(
         profiler.get_table_profile(
             _table_data(parquet), "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"
@@ -183,6 +188,8 @@ def test_small_table_not_sampled(tmp_path):
     )
     profiler.close()
     assert profile.rowCount == 3  # full scan, all 3 rows
+    # 3 rows < row limit 1000 so no sampling warning should be emitted.
+    assert not any("sampl" in t.lower() for t in _warning_texts(report))
 
 
 def test_path_and_ext_empty_extension_falls_through(tmp_path):
