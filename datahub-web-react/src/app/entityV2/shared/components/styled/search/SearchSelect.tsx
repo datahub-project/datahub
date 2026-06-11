@@ -2,6 +2,7 @@ import { FilterOutlined } from '@ant-design/icons';
 import { Button, Typography, message } from 'antd';
 import { debounce } from 'lodash';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -9,7 +10,6 @@ import { EntityAndType } from '@app/entity/shared/types';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { EmbeddedListSearchResults } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchResults';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { isListSubset } from '@app/entityV2/shared/utils';
 import { SearchBar } from '@app/search/SearchBar';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
@@ -33,7 +33,7 @@ const SearchBarContainer = styled.div`
     justify-content: space-between;
     align-items: center;
     padding: 12px;
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
 `;
 
 const SEARCH_BAR_STYLE = {
@@ -68,6 +68,7 @@ export const SearchSelect = ({
     setSelectedEntities,
     limit,
 }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
     const entityRegistry = useEntityRegistry();
 
     // Component state
@@ -165,15 +166,15 @@ export const SearchSelect = ({
 
     return (
         <Container>
-            {error && message.error(`Failed to complete search: ${error && error.message}`)}
+            {error && message.error(t('embeddedSearch.searchError', { message: error?.message }))}
             <SearchBarContainer>
-                <Button type="text" onClick={onToggleFilters}>
+                <Button type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
                     <FilterOutlined />
-                    <Typography.Text>Filters</Typography.Text>
+                    <Typography.Text>{t('embeddedSearch.filters')}</Typography.Text>
                 </Button>
                 <SearchBar
                     initialQuery=""
-                    placeholderText={placeholderText || 'Search entities...'}
+                    placeholderText={placeholderText || t('embeddedSearch.searchEntitiesPlaceholder')}
                     suggestions={[]}
                     style={SEARCH_BAR_STYLE}
                     inputStyle={SEARCH_INPUT_STYLE}

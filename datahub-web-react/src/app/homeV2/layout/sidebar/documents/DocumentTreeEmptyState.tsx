@@ -1,5 +1,5 @@
-import { colors } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const EmptyStateContainer = styled.div`
@@ -8,9 +8,10 @@ const EmptyStateContainer = styled.div`
     align-items: start;
     justify-content: start;
     text-align: center;
-    colors: ${colors.gray[1700]};
+    colors: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const DocumentTreeEmptyState: React.FC = () => {
-    return <EmptyStateContainer>No documents yet.</EmptyStateContainer>;
+    const { t } = useTranslation('home.v2');
+    return <EmptyStateContainer>{t('documents.emptyState')}</EmptyStateContainer>;
 };

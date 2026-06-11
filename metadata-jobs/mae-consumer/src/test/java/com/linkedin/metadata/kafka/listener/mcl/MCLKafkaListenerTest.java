@@ -9,6 +9,7 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.trace.TraceServiceImpl;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -92,7 +93,8 @@ public class MCLKafkaListenerTest {
         TEST_CONSUMER_GROUP,
         Arrays.asList(mockHook1, mockHook2),
         true, // fineGrainedLoggingEnabled
-        aspectsToDrop);
+        aspectsToDrop,
+        new InboundContextResolver(Collections.emptyList()));
 
     // Setup mock consumer record
     when(mockConsumerRecord.topic()).thenReturn(TEST_TOPIC);
@@ -121,8 +123,8 @@ public class MCLKafkaListenerTest {
       listener.consume(mockConsumerRecord);
 
       // Then
-      verify(mockHook1).invoke(eq(event));
-      verify(mockHook2).invoke(eq(event));
+      verify(mockHook1).invoke(any(OperationContext.class), eq(event));
+      verify(mockHook2).invoke(any(OperationContext.class), eq(event));
 
       // Verify metrics
       verify(metricUtils, times(1))
@@ -202,8 +204,8 @@ public class MCLKafkaListenerTest {
 
       // Then
       // Verify hooks were called
-      verify(mockHook1).invoke(event);
-      verify(mockHook2).invoke(event);
+      verify(mockHook1).invoke(any(OperationContext.class), eq(event));
+      verify(mockHook2).invoke(any(OperationContext.class), eq(event));
 
       // Verify no timer was recorded
       Timer timer1 =
@@ -248,8 +250,8 @@ public class MCLKafkaListenerTest {
       listener.consume(mockConsumerRecord);
 
       // Then - hooks should not be invoked
-      verify(mockHook1, never()).invoke(any());
-      verify(mockHook2, never()).invoke(any());
+      verify(mockHook1, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
+      verify(mockHook2, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
 
       // Verify metrics still recorded for received event
       verify(metricUtils)
@@ -281,8 +283,8 @@ public class MCLKafkaListenerTest {
       listener.consume(mockConsumerRecord);
 
       // Then - hooks should not be invoked
-      verify(mockHook1, never()).invoke(any());
-      verify(mockHook2, never()).invoke(any());
+      verify(mockHook1, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
+      verify(mockHook2, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
     }
   }
 
@@ -301,8 +303,8 @@ public class MCLKafkaListenerTest {
       verify(metricUtils)
           .increment(
               eq(MCLKafkaListener.class), eq(TEST_CONSUMER_GROUP + "_conversion_failure"), eq(1d));
-      verify(mockHook1, never()).invoke(any());
-      verify(mockHook2, never()).invoke(any());
+      verify(mockHook1, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
+      verify(mockHook2, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
     }
   }
 
@@ -312,7 +314,9 @@ public class MCLKafkaListenerTest {
     MetadataChangeLog event = createTestMCL(ChangeType.UPSERT);
 
     // First hook throws exception
-    doThrow(new RuntimeException("Hook failed")).when(mockHook1).invoke(any());
+    doThrow(new RuntimeException("Hook failed"))
+        .when(mockHook1)
+        .invoke(any(OperationContext.class), any(MetadataChangeLog.class));
 
     try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class)) {
       eventUtils.when(() -> EventUtils.avroToPegasusMCL(any())).thenReturn(event);
@@ -321,8 +325,8 @@ public class MCLKafkaListenerTest {
       listener.consume(mockConsumerRecord);
 
       // Then - second hook should still be invoked
-      verify(mockHook1).invoke(event);
-      verify(mockHook2).invoke(event);
+      verify(mockHook1).invoke(any(OperationContext.class), eq(event));
+      verify(mockHook2).invoke(any(OperationContext.class), eq(event));
 
       // Verify failure metric for first hook
       verify(metricUtils).increment(eq(MCLKafkaListener.class), eq("TestHook1_failure"), eq(1d));
@@ -367,7 +371,8 @@ public class MCLKafkaListenerTest {
         TEST_CONSUMER_GROUP,
         Arrays.asList(mockHook1, mockHook2),
         false, // fineGrainedLoggingEnabled = false
-        new HashMap<>());
+        new HashMap<>(),
+        new InboundContextResolver(Collections.emptyList()));
 
     MetadataChangeLog event = createTestMCL(ChangeType.UPSERT);
 
@@ -425,10 +430,12 @@ public class MCLKafkaListenerTest {
       // Then
       Timer timer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-              "topic",
+              MetricUtils.MESSAGING_QUEUE_TIME,
+              MetricUtils.MESSAGING_SYSTEM,
+              MetricUtils.MESSAGING_SYSTEM_KAFKA,
+              MetricUtils.MESSAGING_TOPIC,
               TEST_TOPIC,
-              "consumer.group",
+              MetricUtils.MESSAGING_CONSUMER_GROUP,
               TEST_CONSUMER_GROUP);
 
       assertEquals(timer.count(), 1);
@@ -487,10 +494,12 @@ public class MCLKafkaListenerTest {
       // Then
       Timer kafkaTimer =
           meterRegistry.timer(
-              MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-              "topic",
+              MetricUtils.MESSAGING_QUEUE_TIME,
+              MetricUtils.MESSAGING_SYSTEM,
+              MetricUtils.MESSAGING_SYSTEM_KAFKA,
+              MetricUtils.MESSAGING_TOPIC,
               TEST_TOPIC,
-              "consumer.group",
+              MetricUtils.MESSAGING_CONSUMER_GROUP,
               TEST_CONSUMER_GROUP);
 
       assertEquals(kafkaTimer.count(), queueTimes.length);
@@ -525,7 +534,8 @@ public class MCLKafkaListenerTest {
         TEST_CONSUMER_GROUP,
         Arrays.asList(mockHook1, mockHook2),
         true,
-        new HashMap<>());
+        new HashMap<>(),
+        new InboundContextResolver(Collections.emptyList()));
 
     MetadataChangeLog event = createTestMCL(ChangeType.UPSERT);
 
@@ -536,13 +546,131 @@ public class MCLKafkaListenerTest {
       listener.consume(mockConsumerRecord);
 
       // Then - hooks should still be called
-      verify(mockHook1).invoke(event);
-      verify(mockHook2).invoke(event);
+      verify(mockHook1).invoke(any(OperationContext.class), eq(event));
+      verify(mockHook2).invoke(any(OperationContext.class), eq(event));
 
       // But no metrics interactions
       verify(metricUtils, never()).histogram(any(), any(), anyLong());
       verify(metricUtils, never()).increment(any(), any(), anyInt());
     }
+  }
+
+  @Test
+  public void testUpdateMetricsWithInvalidTimestampAvoidsOverflow() throws Exception {
+    // Given - External trace IDs from observability tools that don't follow DataHub's format
+    // can parse as timestamps far in the future, causing ArithmeticException during conversion
+    long futureTimestamp = System.currentTimeMillis() + 100_000_000_000L; // Far future
+
+    MetadataChangeLog event = createTestMCL(ChangeType.UPSERT);
+    event.setSystemMetadata(mockSystemMetadata);
+
+    try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class);
+        MockedStatic<TraceServiceImpl> traceService = mockStatic(TraceServiceImpl.class)) {
+
+      eventUtils.when(() -> EventUtils.avroToPegasusMCL(any())).thenReturn(event);
+      traceService
+          .when(() -> TraceServiceImpl.extractTraceIdEpochMillis(mockSystemMetadata))
+          .thenReturn(futureTimestamp);
+
+      // When
+      listener.consume(mockConsumerRecord);
+
+      // Then - hooks should still be called successfully
+      verify(mockHook1).invoke(any(OperationContext.class), eq(event));
+      verify(mockHook2).invoke(any(OperationContext.class), eq(event));
+
+      // Verify no timer was recorded due to invalid timestamp
+      Timer timer1 =
+          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook1");
+      Timer timer2 =
+          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook2");
+
+      assertEquals(timer1.count(), 0);
+      assertEquals(timer2.count(), 0);
+
+      // Verify event was still processed successfully
+      verify(metricUtils)
+          .increment(
+              eq(MCLKafkaListener.class),
+              eq(TEST_CONSUMER_GROUP + "_consumed_event_count"),
+              eq(1d));
+    }
+  }
+
+  @Test
+  public void testUpdateMetricsWithNegativeTimestampSkipsRecording() throws Exception {
+    // Given - negative timestamp that would cause overflow
+    long negativeTimestamp = -1000L;
+
+    MetadataChangeLog event = createTestMCL(ChangeType.CREATE);
+    event.setSystemMetadata(mockSystemMetadata);
+
+    try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class);
+        MockedStatic<TraceServiceImpl> traceService = mockStatic(TraceServiceImpl.class)) {
+
+      eventUtils.when(() -> EventUtils.avroToPegasusMCL(any())).thenReturn(event);
+      traceService
+          .when(() -> TraceServiceImpl.extractTraceIdEpochMillis(mockSystemMetadata))
+          .thenReturn(negativeTimestamp);
+
+      // When
+      listener.consume(mockConsumerRecord);
+
+      // Then - no timer should be recorded
+      Timer timer1 =
+          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook1");
+      Timer timer2 =
+          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook2");
+
+      assertEquals(timer1.count(), 0);
+      assertEquals(timer2.count(), 0);
+    }
+  }
+
+  @Test
+  public void testConsumeBatchDelegatesToConsumeForEachRecord() throws Exception {
+    MetadataChangeLog mcl1 = createTestMCL(ChangeType.UPSERT);
+    MetadataChangeLog mcl2 = createTestMCL(ChangeType.CREATE);
+
+    ConsumerRecord<String, GenericRecord> record1 = mock(ConsumerRecord.class);
+    ConsumerRecord<String, GenericRecord> record2 = mock(ConsumerRecord.class);
+    GenericRecord genericRecord1 = mock(GenericRecord.class);
+    GenericRecord genericRecord2 = mock(GenericRecord.class);
+
+    when(record1.topic()).thenReturn(TEST_TOPIC);
+    when(record1.partition()).thenReturn(0);
+    when(record1.offset()).thenReturn(100L);
+    when(record1.timestamp()).thenReturn(TEST_TIMESTAMP - 1000);
+    when(record1.key()).thenReturn("key-1");
+    when(record1.serializedValueSize()).thenReturn(512);
+    when(record1.value()).thenReturn(genericRecord1);
+
+    when(record2.topic()).thenReturn(TEST_TOPIC);
+    when(record2.partition()).thenReturn(0);
+    when(record2.offset()).thenReturn(101L);
+    when(record2.timestamp()).thenReturn(TEST_TIMESTAMP - 2000);
+    when(record2.key()).thenReturn("key-2");
+    when(record2.serializedValueSize()).thenReturn(256);
+    when(record2.value()).thenReturn(genericRecord2);
+
+    try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class)) {
+      eventUtils.when(() -> EventUtils.avroToPegasusMCL(genericRecord1)).thenReturn(mcl1);
+      eventUtils.when(() -> EventUtils.avroToPegasusMCL(genericRecord2)).thenReturn(mcl2);
+
+      listener.consumeBatch(List.of(record1, record2));
+
+      verify(mockHook1).invoke(any(OperationContext.class), eq(mcl1));
+      verify(mockHook1).invoke(any(OperationContext.class), eq(mcl2));
+      verify(mockHook2).invoke(any(OperationContext.class), eq(mcl1));
+      verify(mockHook2).invoke(any(OperationContext.class), eq(mcl2));
+    }
+  }
+
+  @Test
+  public void testConsumeBatchWithEmptyList() throws Exception {
+    listener.consumeBatch(Collections.emptyList());
+    verify(mockHook1, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
+    verify(mockHook2, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
   }
 
   // Helper method to create test MCL
@@ -570,7 +698,7 @@ public class MCLKafkaListenerTest {
     }
 
     @Override
-    public void invoke(MetadataChangeLog event) {}
+    public void invoke(OperationContext operationContext, MetadataChangeLog event) {}
   }
 
   static class TestHook2 implements MetadataChangeLogHook {
@@ -586,6 +714,6 @@ public class MCLKafkaListenerTest {
     }
 
     @Override
-    public void invoke(MetadataChangeLog event) {}
+    public void invoke(OperationContext operationContext, MetadataChangeLog event) {}
   }
 }

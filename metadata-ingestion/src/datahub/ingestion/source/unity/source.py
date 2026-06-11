@@ -1,10 +1,28 @@
 import dataclasses
+import functools
 import json
 import logging
 import re
 import time
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union, cast
+from typing import (
+    AbstractSet,
+    Any,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 from urllib.parse import urljoin
+
+import sqlglot
+import sqlglot.errors
+import sqlglot.expressions as sqlglot_exp
+import yaml
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
@@ -40,15 +58,17 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_ownership_helper import (
+    auto_incremental_ownership,
+)
+from datahub.ingestion.api.incremental_properties_helper import (
+    auto_incremental_properties,
+)
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
-)
-from datahub.ingestion.api.source_helpers import (
-    create_dataset_owners_patch_builder,
-    create_dataset_props_patch_builder,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
@@ -67,6 +87,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source.unity import proxy_types as unity_proxy_types
 from datahub.ingestion.source.unity.analyze_profiler import UnityCatalogAnalyzeProfiler
 from datahub.ingestion.source.unity.config import (
     UnityCatalogAnalyzeProfilerConfig,
@@ -81,6 +102,7 @@ from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
 )
+from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.platform_resource_repository import (
     UnityCatalogPlatformResourceRepository,
 )
@@ -116,6 +138,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     FineGrainedLineage,
+    FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
     Upstream,
     UpstreamLineage,
@@ -128,6 +151,7 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     DomainsClass,
+    ForeignKeyConstraintClass,
     MLModelPropertiesClass,
     MySqlDDLClass,
     NullTypeClass,
@@ -153,6 +177,122 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+# MEASURE(name) is a Databricks-specific token: https://docs.databricks.com/aws/en/business-semantics/metric-views/advanced-techniques
+_MEASURE_REF_RE = re.compile(
+    r"\bMEASURE\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)", re.IGNORECASE
+)
+
+_DISPLAY_NAME_MAX_LEN = 255
+_SYNONYMS_MAX_COUNT = 10
+_SYNONYM_MAX_LEN = 255
+
+# Known format subkeys per type, from the agent-metadata spec
+_FORMAT_NUMERIC_SUBKEYS = frozenset(
+    {"decimal_places", "hide_group_separator", "abbreviation", "currency_code"}
+)
+_FORMAT_DATE_SUBKEYS = frozenset({"date_format", "leading_zeros"})
+_FORMAT_DATETIME_SUBKEYS = frozenset({"date_format", "time_format", "leading_zeros"})
+_FORMAT_DECIMAL_PLACES_SUBKEYS = frozenset({"type", "places"})
+_FORMAT_KNOWN_SUBKEYS: Dict[str, FrozenSet[str]] = {
+    "number": _FORMAT_NUMERIC_SUBKEYS,
+    "currency": _FORMAT_NUMERIC_SUBKEYS,
+    "percentage": frozenset({"decimal_places", "hide_group_separator"}),
+    "byte": frozenset({"decimal_places", "hide_group_separator"}),
+    "date": _FORMAT_DATE_SUBKEYS,
+    "date_time": _FORMAT_DATETIME_SUBKEYS,
+}
+
+
+# PyYAML's safe_load follows YAML 1.1, which coerces bareword keys/values
+# `on`/`off`/`yes`/`no` to booleans. Databricks metric-view join entries use
+# `on:` as a key (the SQL join predicate), which would silently become `True`.
+# This loader removes the YAML 1.1 bool resolver, matching YAML 1.2 behavior.
+class _MetricViewYamlLoader(yaml.SafeLoader):
+    pass
+
+
+_MetricViewYamlLoader.yaml_implicit_resolvers = {
+    ch: [(tag, regex) for tag, regex in resolvers if tag != "tag:yaml.org,2002:bool"]
+    for ch, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+# Restore only the YAML 1.2 bool spelling: true/True/TRUE, false/False/FALSE.
+_MetricViewYamlLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:bool",
+    re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"),
+    list("tTfF"),
+)
+
+
+def _safe_load_metric_view_yaml(stream: str) -> Any:
+    """Safe-load (SafeLoader subclass) with YAML 1.2 bool spelling so `on:` stays a string key."""
+    loader = _MetricViewYamlLoader(stream)
+    try:
+        return loader.get_single_data()
+    finally:
+        loader.dispose()
+
+
+def _collect_join_name_source_pairs(
+    joins: object,
+) -> List[Tuple[str, str]]:
+    """Return (alias_name, source_str) pairs for every level of a nested joins hierarchy."""
+    pairs: List[Tuple[str, str]] = []
+    if not isinstance(joins, list):
+        return pairs
+    for join in joins:
+        if not isinstance(join, dict):
+            continue
+        name = join.get("name")
+        src = join.get("source")
+        if isinstance(name, str) and isinstance(src, str):
+            pairs.append((name, src))
+        pairs.extend(_collect_join_name_source_pairs(join.get("joins")))
+    return pairs
+
+
+def _parse_metric_view_source(
+    raw: str,
+    *,
+    default_catalog: str,
+    default_metastore: Optional[str],
+) -> Optional[TableReference]:
+    # Returns None for subqueries, 1-part names, or malformed input so the caller falls back to REST lineage.
+    if not raw:
+        logger.debug("metric view source rejected: empty input")
+        return None
+    if any(ch in raw for ch in ("(", "\n")):
+        logger.debug("metric view source rejected (subquery / newline): %r", raw)
+        return None
+    if any(ch in raw for ch in (" ", "\t")) and "`" not in raw:
+        logger.debug("metric view source rejected (unquoted whitespace): %r", raw)
+        return None
+    parts = split_databricks_identifier(raw)
+    if parts is None:
+        logger.debug("metric view source rejected (unterminated backtick): %r", raw)
+        return None
+    if len(parts) == 3:
+        catalog, schema, name = parts
+    elif len(parts) == 2:
+        catalog = default_catalog
+        schema, name = parts
+    else:
+        logger.debug(
+            "metric view source rejected (need 2 or 3 parts, got %d): %r",
+            len(parts),
+            raw,
+        )
+        return None
+    if not (catalog and schema and name):
+        logger.debug("metric view source rejected (empty part after split): %r", raw)
+        return None
+    return TableReference(
+        metastore=default_metastore,
+        catalog=catalog,
+        schema=schema,
+        table=name,
+    )
+
+
 @platform_name("Databricks")
 @config_class(UnityCatalogSourceConfig)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
@@ -160,6 +300,10 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_FINE, "Enabled by default")
 @capability(SourceCapability.USAGE_STATS, "Enabled by default")
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default via usage extraction, can be disabled via `include_operational_stats`",
+)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(
@@ -265,6 +409,23 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 "Hive Metastore Extraction is disabled due to missing warehouse_id in config",
             )
 
+        # SDK lacks TableType.METRIC_VIEW; warn so the no-op flag isn't silent.
+        if (
+            self.config.include_metric_views
+            and not unity_proxy_types.metric_view_supported()
+        ):
+            try:
+                from databricks.sdk.version import __version__ as _sdk_version
+            except Exception:
+                _sdk_version = "unknown"
+            self.report.report_warning(
+                "include_metric_views has no effect with installed databricks-sdk",
+                f"databricks-sdk {_sdk_version} does not expose TableType.METRIC_VIEW. "
+                "Metric views will be emitted as plain Tables. Upgrade databricks-sdk "
+                "to >= 0.58.0 (the release that added this enum) to enable "
+                "metric-view ingestion.",
+            )
+
         # Include platform resource repository in report for automatic cache statistics
         if self.config.include_tags and self.platform_resource_repository:
             self.report.tag_urn_resolver_cache = self.platform_resource_repository
@@ -325,6 +486,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            functools.partial(
+                auto_incremental_ownership, self.config.incremental_ownership
+            ),
+            functools.partial(
+                auto_incremental_properties, self.config.incremental_properties
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
@@ -576,8 +743,19 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 continue
 
             if (
+                table.is_metric_view
+                and self.config.include_metric_views
+                and not self.config.metric_view_pattern.allowed(
+                    table.ref.qualified_table_name
+                )
+            ):
+                self.report.tables.dropped(table.id, f"table ({table.table_type})")
+                self.report.metric_views.dropped(table.id)
+                continue
+
+            if (
                 self.config.is_profiling_enabled()
-                and self.config.is_ge_profiling()
+                and self.config.uses_table_level_profiler()
                 and self.config.profiling.pattern.allowed(
                     table.ref.qualified_table_name
                 )
@@ -588,15 +766,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if table.is_view:
                 self.view_refs.add(table.ref)
             else:
+                # Keep metric views in table_refs so stateful soft-delete still tracks them.
                 self.table_refs.add(table.ref)
             yield from self.process_table(table, schema)
             self.report.tables.processed(table.id, f"table ({table.table_type})")
+            if table.is_metric_view and self.config.include_metric_views:
+                self.report.metric_views.processed(table.id)
 
     def process_table(self, table: Table, schema: Schema) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self.gen_dataset_urn(table.ref)
         yield from self.add_table_to_dataset_container(dataset_urn, schema)
 
-        table_props = self._create_table_property_aspect(table)
+        metric_view_spec: Optional[Dict[str, Any]] = None
+        if table.is_metric_view and self.config.include_metric_views:
+            metric_view_spec = self._load_metric_view_spec(table)
+
+        table_props = self._create_table_property_aspect(table, metric_view_spec)
         tags = None
         if not isinstance(table.table_type, HiveTableType) and self.config.include_tags:
             try:
@@ -627,17 +812,35 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         view_props = None
         if table.view_definition:
-            view_props = self._create_view_property_aspect(table)
+            view_props = self._create_view_property_aspect(table, metric_view_spec)
 
         sub_type = self._create_table_sub_type_aspect(table)
-        schema_metadata, platform_resources = self._create_schema_metadata_aspect(table)
+        schema_metadata, platform_resources = self._create_schema_metadata_aspect(
+            table, metric_view_spec
+        )
         yield from platform_resources
 
         domain = self._get_domain_aspect(dataset_name=table.ref.qualified_table_name)
         ownership = self._create_table_ownership_aspect(table)
         data_platform_instance = self._create_data_platform_instance_aspect()
 
-        lineage = self.ingest_lineage(table)
+        if table.is_metric_view and self.config.include_metric_views:
+            # REST fallback so subquery sources / parse failures don't lose upstreams.
+            lineage = (
+                self._extract_metric_view_lineage(table, metric_view_spec)
+                if metric_view_spec is not None
+                else None
+            )
+            if lineage is None:
+                lineage = self.ingest_lineage(table)
+                if lineage is None:
+                    self.report.report_warning(
+                        "Metric view has no upstream lineage",
+                        f"{table.ref.qualified_table_name}: neither YAML parsing "
+                        "nor the table-lineage REST API produced any upstreams.",
+                    )
+        else:
+            lineage = self.ingest_lineage(table)
 
         if self.config.include_notebooks:
             for notebook_id in table.downstream_notebooks:
@@ -654,7 +857,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.sql_parser_schema_resolver.add_schema_metadata(
                 dataset_urn, schema_metadata
             )
-            if table.view_definition and self.sql_parsing_aggregator:
+            if (
+                table.view_definition
+                and self.sql_parsing_aggregator
+                and not (table.is_metric_view and self.config.include_metric_views)
+            ):
                 self.sql_parsing_aggregator.add_view_definition(
                     view_urn=dataset_urn,
                     view_definition=table.view_definition,
@@ -683,31 +890,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
                 yield from self.gen_lineage_workunit(dataset_urn, source_dataset_urn)
 
-        if ownership:
-            patch_builder = create_dataset_owners_patch_builder(dataset_urn, ownership)
-            for patch_mcp in patch_builder.build():
-                yield MetadataWorkUnit(
-                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
-                )
-
-        if table_props:
-            # TODO: use auto_incremental_properties workunit processor instead
-            # Consider enabling incremental_properties by default
-            patch_builder = create_dataset_props_patch_builder(dataset_urn, table_props)
-            for patch_mcp in patch_builder.build():
-                yield MetadataWorkUnit(
-                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
-                )
-
         yield from [
             mcp.as_workunit()
             for mcp in MetadataChangeProposalWrapper.construct_many(
                 entityUrn=dataset_urn,
                 aspects=[
+                    table_props,
                     view_props,
                     sub_type,
                     schema_metadata,
                     domain,
+                    ownership,
                     data_platform_instance,
                     lineage,
                     tags,
@@ -1160,7 +1353,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         all_tags = self.unity_catalog_api_proxy.get_column_tags(catalog)
         return all_tags.get(f"{catalog}.{schema}.{table}.{column}", [])
 
-    def _create_table_property_aspect(self, table: Table) -> DatasetPropertiesClass:
+    def _create_table_property_aspect(
+        self,
+        table: Table,
+        metric_view_spec: Optional[Dict[str, Any]] = None,
+    ) -> DatasetPropertiesClass:
         custom_properties: dict = {}
         if table.storage_location is not None:
             custom_properties["storage_location"] = table.storage_location
@@ -1175,7 +1372,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if table.created_by:
             custom_properties["created_by"] = table.created_by
         if table.properties:
-            custom_properties.update({k: str(v) for k, v in table.properties.items()})
+            # Unity Catalog injects ~150 view.sqlConfig.spark.* keys per metric view; drop them.
+            drop_sql_config = table.is_metric_view and self.config.include_metric_views
+            for k, v in table.properties.items():
+                if drop_sql_config and k.startswith("view.sqlConfig.spark."):
+                    continue
+                custom_properties[k] = str(v)
         if table.table_id:
             custom_properties["table_id"] = table.table_id
         if table.owner:
@@ -1184,6 +1386,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             custom_properties["updated_by"] = table.updated_by
         if table.updated_at:
             custom_properties["updated_at"] = str(table.updated_at)
+
+        if (
+            table.is_metric_view
+            and self.config.include_metric_views
+            and metric_view_spec is not None
+        ):
+            custom_properties.update(
+                self._build_metric_view_spec_custom_props(metric_view_spec)
+            )
 
         created: Optional[TimeStampClass] = None
         if table.created_at:
@@ -1203,10 +1414,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     table.updated_by and make_user_urn(table.updated_by),
                 )
 
+        # YAML top-level `comment` is the metric view's own documentation; UC's table.comment
+        # is separate and may not be kept in sync. Prefer YAML when present.
+        description: Optional[str] = table.comment
+        if (
+            table.is_metric_view
+            and self.config.include_metric_views
+            and metric_view_spec is not None
+        ):
+            yaml_comment = metric_view_spec.get("comment")
+            if isinstance(yaml_comment, str) and yaml_comment.strip():
+                description = yaml_comment
+
         return DatasetPropertiesClass(
             name=table.name,
             qualifiedName=table.ref.qualified_table_name,
-            description=table.comment,
+            description=description,
             customProperties=custom_properties,
             created=created,
             lastModified=last_modified,
@@ -1243,15 +1466,372 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return None
 
     def _create_table_sub_type_aspect(self, table: Table) -> SubTypesClass:
-        return SubTypesClass(
-            typeNames=[DatasetSubTypes.VIEW if table.is_view else DatasetSubTypes.TABLE]
+        if table.is_metric_view and self.config.include_metric_views:
+            type_name = DatasetSubTypes.METRIC_VIEW
+        elif table.is_view:
+            type_name = DatasetSubTypes.VIEW
+        else:
+            type_name = DatasetSubTypes.TABLE
+        return SubTypesClass(typeNames=[type_name])
+
+    def _create_view_property_aspect(
+        self, table: Table, metric_view_spec: Optional[Dict[str, Any]] = None
+    ) -> ViewProperties:
+        assert table.view_definition
+        materialized = False
+        if table.is_metric_view and self.config.include_metric_views:
+            view_language = "YAML"
+            if metric_view_spec is not None:
+                mat = metric_view_spec.get("materialization")
+                # v0.1 used the string "materialized"; v1.1 uses an object.
+                materialized = isinstance(mat, dict) or (
+                    isinstance(mat, str) and mat.lower() == "materialized"
+                )
+        else:
+            view_language = "SQL"
+        return ViewProperties(
+            materialized=materialized,
+            viewLanguage=view_language,
+            viewLogic=table.view_definition,
         )
 
-    def _create_view_property_aspect(self, table: Table) -> ViewProperties:
-        assert table.view_definition
-        return ViewProperties(
-            materialized=False, viewLanguage="SQL", viewLogic=table.view_definition
+    def _load_metric_view_spec(self, table: Table) -> Optional[Dict[str, Any]]:
+        consequence = (
+            "Falling back to the REST table-lineage API; column-level lineage "
+            "and Dimension/Measure tags will be absent for this view."
         )
+        if not table.view_definition:
+            self.report.num_metric_views_yaml_shape_invalid += 1
+            self.report.report_warning(
+                "Metric view has no YAML body",
+                f"{table.ref.qualified_table_name}: view_definition is empty. "
+                f"{consequence}",
+            )
+            return None
+        try:
+            spec = _safe_load_metric_view_yaml(table.view_definition)
+        except (yaml.YAMLError, RecursionError, UnicodeDecodeError) as e:
+            self.report.num_metric_views_yaml_parse_failures += 1
+            self.report.report_warning(
+                "Metric view YAML failed to parse",
+                f"{table.ref.qualified_table_name}: {type(e).__name__}: {e}. "
+                f"{consequence}",
+            )
+            return None
+        if not isinstance(spec, dict):
+            self.report.num_metric_views_yaml_shape_invalid += 1
+            self.report.report_warning(
+                "Metric view YAML is not a mapping",
+                f"{table.ref.qualified_table_name}: top-level type is "
+                f"{type(spec).__name__!r}, expected dict. {consequence}",
+            )
+            return None
+        return spec
+
+    def _extract_metric_view_lineage(
+        self,
+        table: Table,
+        metric_view_spec: Optional[Dict[str, Any]] = None,
+    ) -> Optional[UpstreamLineageClass]:
+        if metric_view_spec is None:
+            metric_view_spec = self._load_metric_view_spec(table)
+        if metric_view_spec is None:
+            return None
+
+        shape_issues: List[str] = []
+        source_names: List[str] = []
+        top_source = metric_view_spec.get("source")
+        if isinstance(top_source, str):
+            source_names.append(top_source)
+        elif top_source is not None:
+            shape_issues.append(
+                f"`source` is {type(top_source).__name__}, expected str"
+            )
+
+        joins = metric_view_spec.get("joins")
+        if isinstance(joins, list):
+            invalid_join_entries = [j for j in joins if not isinstance(j, dict)]
+            if invalid_join_entries:
+                shape_issues.append(
+                    f"`joins` has {len(invalid_join_entries)} non-mapping entry/entries"
+                )
+            for _name, src in _collect_join_name_source_pairs(joins):
+                source_names.append(src)
+        elif joins is not None:
+            shape_issues.append(f"`joins` is {type(joins).__name__}, expected list")
+
+        if shape_issues:
+            self.report.num_metric_views_yaml_shape_invalid += 1
+            self.report.report_warning(
+                "Metric view YAML has unexpected shape",
+                f"{table.ref.qualified_table_name}: {'; '.join(shape_issues)}. "
+                "Affected entries are skipped; remaining YAML continues to be processed.",
+            )
+
+        default_catalog = table.ref.catalog
+        default_metastore = table.ref.metastore
+        upstreams: List[UpstreamClass] = []
+        unparseable: List[str] = []
+        for raw in source_names:
+            ref = _parse_metric_view_source(
+                raw,
+                default_catalog=default_catalog,
+                default_metastore=default_metastore,
+            )
+            if ref is None:
+                unparseable.append(raw)
+                continue
+            upstreams.append(
+                self._create_upstream_class(
+                    self.gen_dataset_urn(ref),
+                    DatasetLineageTypeClass.TRANSFORMED,
+                    None,
+                )
+            )
+
+        if unparseable and upstreams:
+            # All-rejected case is reported below via num_metric_views_no_parseable_sources.
+            self.report.num_metric_view_unparseable_sources += len(unparseable)
+            self.report.report_warning(
+                "Metric view source(s) skipped",
+                f"{table.ref.qualified_table_name}: unparseable sources="
+                f"{unparseable!r}. Need 2-part (schema.table) or 3-part "
+                "(catalog.schema.table) identifiers; 1-part names and SQL "
+                "subqueries are not supported by the YAML lineage path.",
+            )
+
+        if not upstreams:
+            if source_names:
+                self.report.num_metric_views_no_parseable_sources += 1
+                self.report.report_warning(
+                    "Metric view has no parseable upstream sources",
+                    f"{table.ref.qualified_table_name}: sources={source_names!r}. "
+                    "Lineage extraction needs 2-part (schema.table) or 3-part "
+                    "(catalog.schema.table) identifiers; 1-part names and SQL "
+                    "subqueries fall back to the REST table-lineage API.",
+                )
+            return None
+
+        fine_grained: Optional[List[FineGrainedLineage]] = None
+        if self.config.include_column_lineage:
+            fine_grained = (
+                self._extract_metric_view_column_lineage(table, metric_view_spec)
+                or None
+            )
+        return UpstreamLineageClass(
+            upstreams=upstreams,
+            fineGrainedLineages=fine_grained,
+        )
+
+    def _extract_metric_view_column_lineage(
+        self, table: Table, spec: Dict[str, Any]
+    ) -> List[FineGrainedLineage]:
+        default_catalog = table.ref.catalog
+        default_metastore = table.ref.metastore
+        alias_map: Dict[str, TableReference] = {}
+        source_raw = spec.get("source")
+        if isinstance(source_raw, str):
+            source_ref = _parse_metric_view_source(
+                source_raw,
+                default_catalog=default_catalog,
+                default_metastore=default_metastore,
+            )
+            if source_ref is not None:
+                alias_map[""] = source_ref
+
+        joins_skipped = 0
+        joins = spec.get("joins")
+        if isinstance(joins, list):
+            joins_skipped += sum(1 for j in joins if not isinstance(j, dict))
+            for join_name, join_source in _collect_join_name_source_pairs(joins):
+                ref = _parse_metric_view_source(
+                    join_source,
+                    default_catalog=default_catalog,
+                    default_metastore=default_metastore,
+                )
+                if ref is None:
+                    joins_skipped += 1
+                    continue
+                alias_map[join_name.lower()] = ref
+
+        if joins_skipped:
+            self.report.num_metric_view_joins_skipped += joins_skipped
+            self.report.report_warning(
+                "Metric view joins skipped",
+                f"{table.ref.qualified_table_name}: {joins_skipped} join "
+                "entry/entries skipped due to malformed shape or unparseable "
+                "source. Column lineage for join-qualified columns will be absent.",
+            )
+
+        downstream_urn = self.gen_dataset_urn(table.ref)
+        fine: List[FineGrainedLineage] = []
+        unresolved_qualifiers: Set[str] = set()
+        skipped_entries = 0
+        for key in ("dimensions", "measures"):
+            entries = spec.get(key)
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    skipped_entries += 1
+                    continue
+                col_name = entry.get("name")
+                expr = entry.get("expr")
+                if not isinstance(col_name, str) or not isinstance(expr, str):
+                    skipped_entries += 1
+                    continue
+                upstream_cols, unresolved = self._parse_metric_view_expr(
+                    expr,
+                    alias_map,
+                    context=f"{table.ref.qualified_table_name}:{col_name}",
+                )
+                unresolved_qualifiers.update(unresolved)
+                if not upstream_cols:
+                    continue
+                upstream_urns = [
+                    make_schema_field_urn(self.gen_dataset_urn(ref), upc)
+                    for (ref, upc) in upstream_cols
+                ]
+                fine.append(
+                    FineGrainedLineage(
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        upstreams=upstream_urns,
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        downstreams=[make_schema_field_urn(downstream_urn, col_name)],
+                    )
+                )
+
+        if skipped_entries:
+            self.report.num_metric_view_skipped_dim_measure_entries += skipped_entries
+            self.report.report_warning(
+                "Metric view dimension/measure entries skipped",
+                f"{table.ref.qualified_table_name}: {skipped_entries} "
+                "dimension/measure entry/entries skipped due to malformed shape "
+                "(non-mapping entry, missing or non-string `name`/`expr`). Column "
+                "lineage for affected columns will be absent.",
+            )
+
+        if unresolved_qualifiers:
+            self.report.num_metric_view_unresolved_qualifiers += len(
+                unresolved_qualifiers
+            )
+            self.report.report_warning(
+                "Metric view expression references unknown qualifier",
+                f"{table.ref.qualified_table_name}: qualifiers="
+                f"{sorted(unresolved_qualifiers)!r} not found in `source`/`joins`. "
+                "Lineage rows for affected columns were skipped.",
+            )
+
+        fine.extend(self._extract_intra_mv_measure_lineage(spec, downstream_urn, table))
+        return fine
+
+    def _extract_intra_mv_measure_lineage(
+        self,
+        spec: Dict[str, Any],
+        downstream_urn: str,
+        table: Table,
+    ) -> List[FineGrainedLineage]:
+        """Emit intra-dataset lineage for MEASURE(name) composable measure references."""
+        measures = spec.get("measures")
+        if not isinstance(measures, list):
+            return []
+        # Maps lowercase name → original-case name so emitted URNs match the field path.
+        known_measures: Dict[str, str] = {}
+        for entry in measures:
+            if isinstance(entry, dict):
+                n = entry.get("name")
+                if isinstance(n, str) and n:
+                    known_measures[n.lower()] = n
+
+        fine: List[FineGrainedLineage] = []
+        unresolved_refs: Set[str] = set()
+        for entry in measures:
+            if not isinstance(entry, dict):
+                continue
+            col_name = entry.get("name")
+            expr = entry.get("expr")
+            if not isinstance(col_name, str) or not isinstance(expr, str):
+                continue
+            downstream_field = make_schema_field_urn(downstream_urn, col_name)
+            for match in _MEASURE_REF_RE.finditer(expr):
+                ref_name = match.group(1)
+                canonical = known_measures.get(ref_name.lower())
+                if canonical is not None:
+                    fine.append(
+                        FineGrainedLineage(
+                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                            upstreams=[
+                                make_schema_field_urn(downstream_urn, canonical)
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                            downstreams=[downstream_field],
+                        )
+                    )
+                else:
+                    unresolved_refs.add(ref_name)
+
+        if unresolved_refs:
+            self.report.num_metric_view_unresolved_measure_refs += len(unresolved_refs)
+            self.report.warning(
+                title="Unresolved MEASURE() reference in metric view",
+                message=(
+                    "A MEASURE() reference does not match any measure defined in "
+                    "the same metric view. Intra-view lineage for affected fields "
+                    "was skipped."
+                ),
+                context=(
+                    f"{table.ref.qualified_table_name}: refs="
+                    f"{sorted(unresolved_refs)!r}"
+                ),
+            )
+        return fine
+
+    def _parse_metric_view_expr(
+        self,
+        expr: str,
+        alias_map: Dict[str, TableReference],
+        context: str = "",
+    ) -> Tuple[List[Tuple[TableReference, str]], Set[str]]:
+        # MEASURE(name) refers to a peer measure, not a source column — strip so sqlglot can't extract the inner name.
+        expr = _MEASURE_REF_RE.sub("0", expr)
+        try:
+            # sqlglot internals can leak AttributeError/TypeError on malformed ASTs.
+            tree = sqlglot.parse_one(expr, dialect="databricks")
+        except (
+            sqlglot.errors.SqlglotError,
+            RecursionError,
+            ValueError,
+            AttributeError,
+            TypeError,
+        ) as e:
+            self.report.num_metric_views_expr_parse_failures += 1
+            self.report.report_warning(
+                "Metric view expression failed to parse",
+                f"{context}: expr={expr!r}: {type(e).__name__}: {e}".lstrip(": "),
+            )
+            return [], set()
+        if tree is None:
+            self.report.num_metric_view_expr_empty_tree += 1
+            return [], set()
+
+        result: List[Tuple[TableReference, str]] = []
+        unresolved: Set[str] = set()
+        seen: Set[Tuple[str, str]] = set()
+        for col in tree.find_all(sqlglot_exp.Column):
+            qualifier = col.table.lower() if col.table else ""
+            ref = alias_map.get(qualifier)
+            if ref is None:
+                # "<source>" sentinel surfaces unqualified columns when top `source`
+                # was unparseable; without it they would be silently dropped.
+                unresolved.add(qualifier or "<source>")
+                continue
+            col_name = col.name
+            key = (str(ref), col_name)
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append((ref, col_name))
+        return result, unresolved
 
     def get_or_create_from_unity_tag(
         self,
@@ -1323,10 +1903,81 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     continue
 
     def _create_schema_metadata_aspect(
-        self, table: Table
+        self,
+        table: Table,
+        metric_view_spec: Optional[Dict[str, Any]] = None,
     ) -> Tuple[SchemaMetadataClass, Iterable[MetadataWorkUnit]]:
+        # Collect primary-key column names and FK constraints from the API when
+        # enabled. `tables.get()` is required because `tables.list()` does not
+        # return table_constraints. Partition index values (used for
+        # `isPartitioningKey`) come from `tables.list()` — no extra API call needed.
+        primary_key_columns: Optional[Set[str]] = None
+        datahub_foreign_keys: Optional[List[ForeignKeyConstraintClass]] = None
+
+        # Fetch PK/FK constraints if requested
+        if self.config.include_table_constraints:
+            primary_key_columns = set()
+            raw_constraints = self.unity_catalog_api_proxy.get_table_constraints(table)
+            for constraint in raw_constraints:
+                if constraint.primary_key_constraint:
+                    primary_key_columns.update(
+                        constraint.primary_key_constraint.child_columns or []
+                    )
+
+            fk_raw = [
+                c.foreign_key_constraint
+                for c in raw_constraints
+                if c.foreign_key_constraint
+            ]
+            if fk_raw:
+                dataset_urn = self.gen_dataset_urn(table.ref)
+                datahub_foreign_keys = []
+                for fk in fk_raw:
+                    if not fk.name:
+                        logger.warning(
+                            f"FK constraint on {table.ref} has no name — skipping"
+                        )
+                        continue
+                    if not fk.parent_columns or not fk.child_columns:
+                        logger.warning(
+                            f"FK constraint '{fk.name}' on {table.ref} has empty "
+                            f"column list — skipping"
+                        )
+                        continue
+                    parent_parts = (fk.parent_table or "").split(".")
+                    if len(parent_parts) != 3:
+                        logger.warning(
+                            f"Unexpected parent_table format in FK constraint "
+                            f"'{fk.name}': {fk.parent_table!r} — skipping"
+                        )
+                        continue
+                    parent_ref = TableReference(
+                        metastore=table.ref.metastore,
+                        catalog=parent_parts[0],
+                        schema=parent_parts[1],
+                        table=parent_parts[2],
+                    )
+                    foreign_dataset_urn = self.gen_dataset_urn(parent_ref)
+                    datahub_foreign_keys.append(
+                        ForeignKeyConstraintClass(
+                            name=fk.name,
+                            foreignDataset=foreign_dataset_urn,
+                            foreignFields=[
+                                make_schema_field_urn(foreign_dataset_urn, col)
+                                for col in fk.parent_columns
+                            ],
+                            sourceFields=[
+                                make_schema_field_urn(dataset_urn, col)
+                                for col in fk.child_columns
+                            ],
+                        )
+                    )
+
         schema_fields: List[SchemaFieldClass] = []
         unique_tags: Set[UnityCatalogTag] = set()
+        dim_measure_tags, dim_measure_descriptions = (
+            self._build_metric_view_column_overrides(table, metric_view_spec)
+        )
         for column in table.columns:
             tag_urns: Optional[List[TagUrn]] = None
             if self.config.include_tags:
@@ -1335,7 +1986,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 unique_tags.update(column_tags)
                 tag_urns = [tag.to_datahub_tag_urn() for tag in column_tags]
-            schema_fields.extend(self._create_schema_field(column, tag_urns))
+            extra_tags = dim_measure_tags.get(column.name.lower())
+            description_override = dim_measure_descriptions.get(column.name.lower())
+            schema_fields.extend(
+                self._create_schema_field(
+                    column,
+                    tag_urns,
+                    extra_tags=extra_tags,
+                    description_override=description_override,
+                    primary_key_columns=primary_key_columns,
+                    include_partition_keys=self.config.include_partition_keys,
+                )
+            )
 
         platform_resources = self.gen_platform_resources(list(unique_tags))
         return (
@@ -1346,46 +2008,248 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 hash="",
                 version=0,
                 platformSchema=MySqlDDLClass(tableSchema=""),
+                primaryKeys=(
+                    sorted(primary_key_columns)
+                    if primary_key_columns is not None
+                    else None
+                ),
+                foreignKeys=datahub_foreign_keys if datahub_foreign_keys else None,
             ),
             platform_resources,
         )
 
-    @staticmethod
-    def _create_schema_field(
-        column: Column, tags: Optional[List[TagUrn]]
-    ) -> List[SchemaFieldClass]:
-        _COMPLEX_TYPE = re.compile("^(struct|array)")
-        global_tags: Optional[GlobalTags] = None
-        if _COMPLEX_TYPE.match(column.type_text.lower()):
-            return get_schema_fields_for_hive_column(
-                column.name, column.type_text.lower(), description=column.comment
+    def _build_metric_view_column_overrides(
+        self, table: Table, metric_view_spec: Optional[Dict[str, Any]]
+    ) -> Tuple[Dict[str, List[TagUrn]], Dict[str, str]]:
+        """Return (tag_map, desc_map) keyed by lowercase field name."""
+        if not (
+            table.is_metric_view
+            and self.config.include_metric_views
+            and metric_view_spec is not None
+        ):
+            return {}, {}
+        tag_map: Dict[str, List[TagUrn]] = {}
+        desc_map: Dict[str, str] = {}
+        for key, base_tag in (("dimensions", "Dimension"), ("measures", "Measure")):
+            entries = metric_view_spec.get(key)
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("name")
+                if not isinstance(name, str) or not name:
+                    continue
+                key_lower = name.lower()
+                tags: List[TagUrn] = [TagUrn(base_tag)]
+                window = entry.get("window")
+                if key == "measures" and isinstance(window, list) and window:
+                    tags.append(TagUrn("Window Measure"))
+                tag_map[key_lower] = tags
+
+                # v1.1 uses "comment"; fall back to "description" for older YAML.
+                raw_desc = entry.get("comment") or entry.get("description")
+                if isinstance(raw_desc, str) and raw_desc.strip():
+                    desc_map[key_lower] = raw_desc
+        return tag_map, desc_map
+
+    def _build_metric_view_spec_custom_props(
+        self, spec: Dict[str, Any]
+    ) -> Dict[str, str]:
+        """Return dataset-level custom properties derived from the metric view YAML spec."""
+        props: Dict[str, str] = {}
+        filter_expr = spec.get("filter")
+        if isinstance(filter_expr, str) and filter_expr.strip():
+            props["metric_view.filter"] = filter_expr
+
+        version = spec.get("version")
+        if version is not None:
+            props["metric_view.spec_version"] = str(version)
+
+        joins = spec.get("joins")
+        if isinstance(joins, list) and joins:
+            props["metric_view.joins"] = json.dumps(
+                joins, separators=(",", ":"), default=str
             )
-        else:
-            if tags is not None:
-                attribution = MetadataAttribution(
-                    source="urn:li:dataPlatform:unity-catalog",
-                    actor="urn:li:corpuser:datahub",
-                    time=int(time.time() * 1000),
-                )
-                global_tags = GlobalTags(
-                    tags=[
-                        TagAssociation(tag=tag.urn(), attribution=attribution)
-                        for tag in tags
-                    ]
+
+        mat = spec.get("materialization")
+        if isinstance(mat, dict):
+            if isinstance(mat.get("schedule"), str):
+                props["metric_view.materialization.schedule"] = mat["schedule"]
+            if isinstance(mat.get("mode"), str):
+                props["metric_view.materialization.mode"] = mat["mode"]
+            mvs = mat.get("materialized_views")
+            if isinstance(mvs, list):
+                props["metric_view.materialization.materialized_views"] = json.dumps(
+                    mvs, separators=(",", ":"), default=str
                 )
 
-            return [
-                SchemaFieldClass(
-                    fieldPath=column.name,
-                    type=SchemaFieldDataTypeClass(
-                        type=DATA_TYPE_REGISTRY.get(column.type_name, NullTypeClass)()
-                    ),
-                    nativeDataType=column.type_text,
-                    nullable=column.nullable,
-                    description=column.comment,
-                    globalTags=global_tags if tags else None,
+        props.update(self._build_metric_view_field_custom_props(spec))
+        return props
+
+    def _build_metric_view_field_custom_props(
+        self, spec: Dict[str, Any]
+    ) -> Dict[str, str]:
+        """Flatten per-field agent metadata (display_name, synonyms, format, window) into custom properties keyed by metric_view.field.<name>.*."""
+        props: Dict[str, str] = {}
+        for section in ("dimensions", "measures"):
+            entries = spec.get(section)
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("name")
+                if not isinstance(name, str) or not name:
+                    continue
+                # Lowercase keeps prop keys consistent with tag/description keys (case-insensitive lookup).
+                prefix = f"metric_view.field.{name.lower()}"
+                self._add_display_name_prop(entry, prefix, props)
+                self._add_synonyms_props(entry, prefix, props)
+                self._add_format_props(entry, prefix, props)
+                if section == "measures":
+                    self._add_window_props(entry, prefix, props)
+        return props
+
+    def _add_display_name_prop(
+        self, entry: Dict[str, Any], prefix: str, props: Dict[str, str]
+    ) -> None:
+        raw = entry.get("display_name")
+        if not isinstance(raw, str) or not raw.strip():
+            return
+        truncated = raw[:_DISPLAY_NAME_MAX_LEN]
+        if len(raw) > _DISPLAY_NAME_MAX_LEN:
+            self.report.num_metric_view_display_name_truncated += 1
+        props[f"{prefix}.display_name"] = truncated
+
+    def _add_synonyms_props(
+        self, entry: Dict[str, Any], prefix: str, props: Dict[str, str]
+    ) -> None:
+        synonyms = entry.get("synonyms")
+        if not isinstance(synonyms, list) or not synonyms:
+            return
+        cleaned: List[str] = []
+        for s in synonyms:
+            if not isinstance(s, str) or not s.strip():
+                self.report.num_metric_view_synonyms_dropped_invalid += 1
+                continue
+            if len(s) > _SYNONYM_MAX_LEN:
+                self.report.num_metric_view_synonyms_truncated += 1
+            cleaned.append(s[:_SYNONYM_MAX_LEN])
+        if len(cleaned) > _SYNONYMS_MAX_COUNT:
+            self.report.num_metric_view_synonyms_overflow += 1
+            cleaned = cleaned[:_SYNONYMS_MAX_COUNT]
+        if cleaned:
+            props[f"{prefix}.synonyms"] = ",".join(cleaned)
+
+    def _add_format_props(
+        self, entry: Dict[str, Any], prefix: str, props: Dict[str, str]
+    ) -> None:
+        fmt = entry.get("format")
+        if not isinstance(fmt, dict):
+            return
+        fmt_type = fmt.get("type")
+        if not isinstance(fmt_type, str):
+            return
+        props[f"{prefix}.format.type"] = fmt_type
+        known = _FORMAT_KNOWN_SUBKEYS.get(fmt_type.lower(), frozenset())
+        for subkey, val in fmt.items():
+            if subkey == "type":
+                continue
+            if subkey not in known:
+                self.report.num_metric_view_format_unknown_subkeys += 1
+                continue
+            if subkey == "decimal_places" and isinstance(val, dict):
+                for dp_key, dp_val in val.items():
+                    if dp_key in _FORMAT_DECIMAL_PLACES_SUBKEYS:
+                        props[f"{prefix}.format.decimal_places.{dp_key}"] = str(dp_val)
+                    else:
+                        self.report.num_metric_view_format_unknown_subkeys += 1
+            else:
+                props[f"{prefix}.format.{subkey}"] = str(val)
+
+    def _add_window_props(
+        self, entry: Dict[str, Any], prefix: str, props: Dict[str, str]
+    ) -> None:
+        window = entry.get("window")
+        if not isinstance(window, list) or not window:
+            return
+        if len(window) == 1 and isinstance(window[0], dict):
+            w = window[0]
+            for wk in ("order", "range", "semiadditive"):
+                wv = w.get(wk)
+                if wv is not None:
+                    props[f"{prefix}.window.{wk}"] = str(wv)
+        else:
+            props[f"{prefix}.window"] = json.dumps(
+                window, separators=(",", ":"), default=str
+            )
+
+    @staticmethod
+    def _create_schema_field(
+        column: Column,
+        tags: Optional[List[TagUrn]],
+        extra_tags: Optional[List[TagUrn]] = None,
+        description_override: Optional[str] = None,
+        primary_key_columns: Optional[AbstractSet[str]] = None,
+        include_partition_keys: bool = False,
+    ) -> List[SchemaFieldClass]:
+        _COMPLEX_TYPE = re.compile("^(struct|array)")
+        attribution = MetadataAttribution(
+            source="urn:li:dataPlatform:unity-catalog",
+            actor="urn:li:corpuser:datahub",
+            time=int(time.time() * 1000),
+        )
+        description = description_override if description_override else column.comment
+
+        if _COMPLEX_TYPE.match(column.type_text.lower()):
+            fields = get_schema_fields_for_hive_column(
+                column.name, column.type_text.lower(), description=description
+            )
+            # Complex types: tag the root field only; children carry no semantics.
+            if fields and extra_tags:
+                fields[0].globalTags = GlobalTags(
+                    tags=[
+                        TagAssociation(tag=t.urn(), attribution=attribution)
+                        for t in extra_tags
+                    ]
                 )
-            ]
+            return fields
+
+        tag_associations: List[TagAssociation] = []
+        if tags is not None:
+            tag_associations.extend(
+                TagAssociation(tag=tag.urn(), attribution=attribution) for tag in tags
+            )
+        if extra_tags:
+            tag_associations.extend(
+                TagAssociation(tag=t.urn(), attribution=attribution) for t in extra_tags
+            )
+        global_tags = GlobalTags(tags=tag_associations) if tag_associations else None
+
+        return [
+            SchemaFieldClass(
+                fieldPath=column.name,
+                type=SchemaFieldDataTypeClass(
+                    type=DATA_TYPE_REGISTRY.get(column.type_name, NullTypeClass)()
+                ),
+                nativeDataType=column.type_text,
+                nullable=column.nullable,
+                description=description,
+                globalTags=global_tags,
+                isPartOfKey=(
+                    True
+                    if primary_key_columns is not None
+                    and column.name in primary_key_columns
+                    else None
+                ),
+                isPartitioningKey=(
+                    True
+                    if include_partition_keys and column.partition_index is not None
+                    else None
+                ),
+            )
+        ]
 
     def get_view_lineage(self) -> Iterable[MetadataWorkUnit]:
         if not (

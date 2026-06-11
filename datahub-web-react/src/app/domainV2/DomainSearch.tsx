@@ -1,11 +1,11 @@
 import { LoadingOutlined, SearchOutlined } from '@ant-design/icons';
 import { SearchBar } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
 import DomainSearchResultItem from '@app/domainV2/DomainSearchResultItem';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ClickOutside from '@app/shared/ClickOutside';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -18,12 +18,9 @@ const DomainSearchWrapper = styled.div`
 `;
 
 const ResultsWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
-    box-shadow:
-        0 3px 6px -4px rgb(0 0 0 / 12%),
-        0 6px 16px 0 rgb(0 0 0 / 8%),
-        0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     padding: 8px;
     position: absolute;
     max-height: 210px;
@@ -46,7 +43,7 @@ const InputWrapper = styled.div`
 `;
 
 const SearchIcon = styled(SearchOutlined)`
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+    color: ${(props) => props.theme.colors.text};
     padding: 16px;
     width: 100%;
     font-size: 20px;
@@ -58,6 +55,7 @@ type Props = {
 };
 
 function DomainSearch({ isCollapsed, unhideSidebar }: Props) {
+    const { t: tc } = useTranslation('common.actions');
     const [searchInput, setSearchInput] = useState('');
     const [query, setQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
@@ -84,7 +82,7 @@ function DomainSearch({ isCollapsed, unhideSidebar }: Props) {
                 <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
                     <InputWrapper>
                         <SearchBar
-                            placeholder="Search"
+                            placeholder={tc('search')}
                             value={searchInput}
                             onChange={setSearchInput}
                             onFocus={() => setIsSearchBarFocused(true)}

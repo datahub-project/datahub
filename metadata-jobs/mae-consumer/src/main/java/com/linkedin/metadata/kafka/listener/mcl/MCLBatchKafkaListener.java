@@ -19,7 +19,6 @@ import io.opentelemetry.api.trace.StatusCode;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -37,8 +36,6 @@ import org.slf4j.MDC;
 @Slf4j
 public class MCLBatchKafkaListener
     extends AbstractKafkaListener<MetadataChangeLog, MetadataChangeLogHook, GenericRecord> {
-
-  private static final String WILDCARD = "*";
 
   @Override
   @Nonnull
@@ -61,11 +58,7 @@ public class MCLBatchKafkaListener
 
   @Override
   protected boolean shouldSkipProcessing(MetadataChangeLog event) {
-    String entityType = event.hasEntityType() ? event.getEntityType() : null;
-    String aspectName = event.hasAspectName() ? event.getAspectName() : null;
-
-    return aspectsToDrop.getOrDefault(entityType, Collections.emptySet()).contains(aspectName)
-        || aspectsToDrop.getOrDefault(WILDCARD, Collections.emptySet()).contains(aspectName);
+    return MCLKafkaListener.shouldSkipMcl(event, aspectsToDrop);
   }
 
   @Override
@@ -133,10 +126,7 @@ public class MCLBatchKafkaListener
             });
   }
 
-  /**
-   * Process a batch of Kafka consumer records for better performance. This method overrides the
-   * individual processing to handle batches.
-   */
+  @Override
   public void consumeBatch(
       @Nonnull final List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
     List<MetadataChangeLog> allMCLs = new ArrayList<>(consumerRecords.size());
@@ -147,10 +137,15 @@ public class MCLBatchKafkaListener
       systemOperationContext
           .getMetricUtils()
           .ifPresent(
-              metricUtils -> {
-                long queueTimeMs = System.currentTimeMillis() - consumerRecord.timestamp();
-                metricUtils.histogram(this.getClass(), "kafkaLag", queueTimeMs);
-              });
+              metricUtils ->
+                  MetricUtils.recordInboundMessageQueueLag(
+                      metricUtils,
+                      this.getClass(),
+                      consumerRecord.topic(),
+                      consumerGroupId,
+                      consumerRecord.timestamp(),
+                      MetricUtils.MESSAGING_SYSTEM_KAFKA,
+                      null));
 
       final GenericRecord record = consumerRecord.value();
 
@@ -181,6 +176,8 @@ public class MCLBatchKafkaListener
   }
 
   /** Process a batch of MCLs with all registered hooks. */
+  // TODO(opcontext-batch-followup): Refactor to make each event use its own OperationContext for
+  // isolation
   private void processBatchWithHooks(List<MetadataChangeLog> mcls, String topicName) {
     systemOperationContext.withQueueSpan(
         "consume",
@@ -200,7 +197,7 @@ public class MCLBatchKafkaListener
                   try {
                     // Always call invokeBatch - hooks that don't support batch processing
                     // will fall back to individual processing via the default implementation
-                    hook.invokeBatch(mcls);
+                    hook.invokeBatch(systemOperationContext, mcls);
 
                     // Update metrics
                     systemOperationContext

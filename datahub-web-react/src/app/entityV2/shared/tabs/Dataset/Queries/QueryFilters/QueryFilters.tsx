@@ -1,7 +1,6 @@
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import useColumnsFilter from '@app/entityV2/shared/tabs/Dataset/Queries/QueryFilters/useColumnsFilter';
 import SearchFilter from '@app/searchV2/filters/SearchFilter';
 import SelectedSearchFilters from '@app/searchV2/filters/SelectedSearchFilters';
@@ -38,6 +37,7 @@ export default function QueryFilters({
     selectedUsersFilter,
     setPage,
 }: Props) {
+    const theme = useTheme();
     const onChangeFilters = (newFilters: FacetFilterInput[]) => {
         const columnsFilter = newFilters.find((f) => f.field === 'entities');
         if (columnsFilter) {
@@ -58,8 +58,8 @@ export default function QueryFilters({
     const selectedFilters: FacetFilterInput[] = selectedColumnsFilter.values?.length ? [selectedColumnsFilter] : [];
 
     const labelStyle = {
-        backgroundColor: ANTD_GRAY_V2[15],
-        border: `1px solid ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1}`,
+        backgroundColor: theme.colors.bgSurface,
+        border: `1px solid ${theme.colors.border}`,
     };
 
     return (

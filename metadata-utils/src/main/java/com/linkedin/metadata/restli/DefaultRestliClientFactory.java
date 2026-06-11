@@ -9,9 +9,10 @@ import com.linkedin.r2.transport.common.bridge.client.TransportClient;
 import com.linkedin.r2.transport.common.bridge.client.TransportClientAdapter;
 import com.linkedin.r2.transport.http.client.HttpClientFactory;
 import com.linkedin.restli.client.RestClient;
+import java.io.IOException;
 import java.net.URI;
+import java.security.GeneralSecurityException;
 import java.security.InvalidParameterException;
-import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -65,7 +66,26 @@ public class DefaultRestliClientFactory {
       boolean useSSL,
       @Nullable String sslProtocol,
       @Nullable Map<String, String> params) {
-    return getRestLiClient(restLiServerHost, restLiServerPort, null, useSSL, sslProtocol, params);
+    return getRestLiClient(
+        restLiServerHost,
+        restLiServerPort,
+        null,
+        useSSL,
+        sslProtocol,
+        params,
+        RestliClientSslConfig.empty());
+  }
+
+  @Nonnull
+  public static RestClient getRestLiClient(
+      @Nonnull String restLiServerHost,
+      int restLiServerPort,
+      boolean useSSL,
+      @Nullable String sslProtocol,
+      @Nullable Map<String, String> params,
+      @Nonnull RestliClientSslConfig sslConfig) {
+    return getRestLiClient(
+        restLiServerHost, restLiServerPort, null, useSSL, sslProtocol, params, sslConfig);
   }
 
   @Nonnull
@@ -76,6 +96,25 @@ public class DefaultRestliClientFactory {
       boolean useSSL,
       @Nullable String sslProtocol,
       @Nullable Map<String, String> params) {
+    return getRestLiClient(
+        restLiServerHost,
+        restLiServerPort,
+        basePath,
+        useSSL,
+        sslProtocol,
+        params,
+        RestliClientSslConfig.empty());
+  }
+
+  @Nonnull
+  public static RestClient getRestLiClient(
+      @Nonnull String restLiServerHost,
+      int restLiServerPort,
+      @Nullable String basePath,
+      boolean useSSL,
+      @Nullable String sslProtocol,
+      @Nullable Map<String, String> params,
+      @Nonnull RestliClientSslConfig sslConfig) {
     String basePathPart = "";
     if (basePath != null && !basePath.isEmpty()) {
       basePathPart = basePath.startsWith("/") ? basePath : "/" + basePath;
@@ -86,12 +125,20 @@ public class DefaultRestliClientFactory {
                 "%s://%s:%s%s",
                 useSSL ? "https" : "http", restLiServerHost, restLiServerPort, basePathPart)),
         sslProtocol,
-        params);
+        params,
+        sslConfig);
   }
 
   @Nonnull
   public static RestClient getRestLiClient(@Nonnull URI gmsUri, @Nullable String sslProtocol) {
-    return getRestLiClient(gmsUri, sslProtocol, null);
+    return getRestLiClient(
+        gmsUri, sslProtocol, (Map<String, String>) null, RestliClientSslConfig.empty());
+  }
+
+  @Nonnull
+  public static RestClient getRestLiClient(
+      @Nonnull URI gmsUri, @Nullable String sslProtocol, @Nonnull RestliClientSslConfig sslConfig) {
+    return getRestLiClient(gmsUri, sslProtocol, (Map<String, String>) null, sslConfig);
   }
 
   @Nonnull
@@ -99,6 +146,15 @@ public class DefaultRestliClientFactory {
       @Nonnull URI gmsUri,
       @Nullable String sslProtocol,
       @Nullable Map<String, String> inputParams) {
+    return getRestLiClient(gmsUri, sslProtocol, inputParams, RestliClientSslConfig.empty());
+  }
+
+  @Nonnull
+  public static RestClient getRestLiClient(
+      @Nonnull URI gmsUri,
+      @Nullable String sslProtocol,
+      @Nullable Map<String, String> inputParams,
+      @Nonnull RestliClientSslConfig sslConfig) {
     if (StringUtils.isBlank(gmsUri.getHost()) || gmsUri.getPort() <= 0) {
       throw new InvalidParameterException("Invalid restli server host name or port!");
     }
@@ -110,9 +166,13 @@ public class DefaultRestliClientFactory {
 
     if ("https".equals(gmsUri.getScheme())) {
       try {
-        params.put(HttpClientFactory.HTTP_SSL_CONTEXT, SSLContext.getDefault());
-      } catch (NoSuchAlgorithmException ex) {
-        throw new RuntimeException(ex);
+        SSLContext sslContext =
+            sslConfig.hasCustomSslMaterial()
+                ? SslContextUtil.buildClientSslContext(sslConfig)
+                : SSLContext.getDefault();
+        params.put(HttpClientFactory.HTTP_SSL_CONTEXT, sslContext);
+      } catch (GeneralSecurityException | IOException ex) {
+        throw new RuntimeException("Failed to initialize SSL for Rest.li client", ex);
       }
 
       SSLParameters sslParameters = new SSLParameters();

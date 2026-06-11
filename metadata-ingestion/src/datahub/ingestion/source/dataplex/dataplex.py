@@ -4,20 +4,24 @@ This source extracts metadata from Google Dataplex Universal Catalog, including:
 - Entries (Universal Catalog) as Datasets with source platform URNs (bigquery, gcs, etc.)
 - BigQuery Projects as Containers (project-level containers)
 - BigQuery Datasets as Containers (dataset-level containers, nested under project containers)
+- Business Glossary entities (GlossaryNode, GlossaryTerm) from Dataplex Business Glossary API
+- Term-to-asset associations via Dataplex lookupEntryLinks API (opt-in)
 
 Reference implementation based on VertexAI and BigQuery V2 sources.
 """
 
 import logging
-from threading import Lock
-from typing import Iterable, Optional
+from functools import cached_property
+from itertools import product
+from typing import Dict, Iterable, List, Optional
 
+import google.auth
+import google.auth.transport.requests
 from google.api_core import exceptions
-from google.cloud import dataplex_v1
+from google.cloud import dataplex_v1, resourcemanager_v3
 from google.cloud.datacatalog_lineage import LineageClient
 from google.oauth2 import service_account
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -35,12 +39,15 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.gcp_project_filter import resolve_gcp_projects
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
-from datahub.ingestion.source.dataplex.dataplex_containers import (
-    gen_bigquery_containers,
+from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
+from datahub.ingestion.source.dataplex.dataplex_entries import (
+    DataplexEntriesProcessor,
 )
-from datahub.ingestion.source.dataplex.dataplex_entries import process_entry
-from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
+from datahub.ingestion.source.dataplex.dataplex_glossary import (
+    DataplexGlossaryProcessor,
+)
 from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageExtractor
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -56,7 +63,24 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger = logging.getLogger(__name__)
 
 
-@platform_name("Dataplex", id="dataplex")
+def _resolve_project_numbers(
+    project_ids: List[str],
+    credentials: Optional[service_account.Credentials],
+) -> Dict[str, str]:
+    """Resolve GCP project IDs to project numbers via the Resource Manager API.
+
+    The Dataplex lookupEntryLinks REST API requires project NUMBER (not project ID)
+    inside glossary term entry paths. Called once at startup when
+    include_glossaries=True.
+    """
+    rm_client = resourcemanager_v3.ProjectsClient(credentials=credentials)
+    return {
+        pid: rm_client.get_project(name=f"projects/{pid}").name.split("/")[-1]
+        for pid in project_ids
+    }
+
+
+@platform_name("Google Cloud Knowledge Catalog (Dataplex)", id="dataplex")
 @config_class(DataplexConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(
@@ -68,6 +92,10 @@ logger = logging.getLogger(__name__)
     "Enabled by default, can be disabled via configuration `include_schema`",
 )
 @capability(
+    SourceCapability.DESCRIPTIONS,
+    "Enabled by default",
+)
+@capability(
     SourceCapability.LINEAGE_COARSE,
     "Optionally enabled via configuration `include_lineage`",
 )
@@ -76,22 +104,130 @@ logger = logging.getLogger(__name__)
     "Enabled by default via stateful ingestion",
 )
 @capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "Project containers are generated instead",
+    supported=False,
+)
+@capability(
     SourceCapability.TEST_CONNECTION,
     "Enabled by default",
 )
+@capability(
+    SourceCapability.GLOSSARY_TERMS,
+    "Optionally enabled via configuration `include_glossaries`",
+)
 class DataplexSource(StatefulIngestionSourceBase, TestableSource):
-    """Source to ingest metadata from Google Dataplex Universal Catalog."""
+    """Source to ingest metadata from Google Dataplex Universal Catalog.
+
+    To add support for a new Dataplex entry type, first define its identity model
+    in ``dataplex_ids.py`` by adding a SchemaKey class at the correct level in the
+    existing hierarchy (for example project -> instance -> database -> table). Then
+    register the entry type in ``DATAPLEX_ENTRY_TYPE_MAPPINGS`` with required fields:
+    DataHub platform, DataHub entity type (Container or Dataset), subtype constant
+    from ``subtypes.py``, FQN regex, parent-entry regex (if applicable), and key classes.
+    FQN formats and parent hierarchy must be derived from:
+    https://cloud.google.com/dataplex/docs/fully-qualified-names
+
+    Decide whether the entry maps to a Container or Dataset based on whether it is
+    a logical grouping level (instance/database/dataset) versus a concrete asset
+    (table/topic). Use subtype constants from ``datahub.ingestion.source.common.subtypes``.
+    Top-level containers may not have ``parent_entry`` and should rely on key hierarchy
+    for parent traversal. Also note that Spanner entries are currently fetched through
+    a search workaround, which bypasses entry-group filtering and must be controlled
+    with entry-level filters.
+
+    Lineage extraction strategy:
+    - The source first traverses all entries, then performs lineage lookups for each
+      entry across the full configured ``(project_id, location)`` scan matrix.
+    - This is required because the Dataplex Lineage API does not provide a bulk
+      lineage retrieval endpoint that can return all lineage for a project in one call.
+    - For graph construction, upstream lookup is sufficient: we query links with
+      ``target=<entry_fqn>`` and build DataHub upstream edges from returned sources.
+    - The tradeoff is API call volume: every entry is queried separately against every
+      configured project-location pair.
+
+    Parallelization strategy:
+    - The entries stage runs in three sequential phases inside
+      ``DataplexEntriesProcessor.process_entries``:
+
+      * Phase 1a (sequential): ``list_entry_groups`` + ``list_entries`` across all
+        configured project × location pairs.  These listing calls are fast (paginated,
+        no detail payload) and accumulate a flat list of entry-name stubs.
+
+      * Phase 1b (parallel): ``get_entry(view=ALL)`` calls are submitted to a
+        ``ThreadPoolExecutor`` with ``max_workers_entries`` workers.  This is the
+        main bottleneck — one blocking RPC per entry.  Distributing across a single
+        flat pool avoids skew when entries are unevenly spread across projects.
+
+      * Phase 1c (sequential): Spanner entries are fetched via the
+        ``search_entries`` workaround.  They arrive already fully-fetched so
+        there is no detail-fetch RPC to parallelise.
+
+    - The lineage stage submits one task per entry to a ``ThreadPoolExecutor``
+      with ``max_workers_lineage`` workers via
+      ``DataplexLineageExtractor.get_lineage_workunits``.  Each worker
+      queries the Dataplex Lineage API across all configured project/location
+      pairs with the configured retry logic.
+
+    - The glossary stage lists all glossaries across configured glossary_locations,
+      then fetches categories and terms per glossary in parallel using
+      ``max_workers_glossary`` workers.
+
+    - Thread safety: ``DataplexEntriesReport`` and ``DataplexLineageReport``
+      protect all mutable fields with an internal ``threading.Lock`` initialised
+      in ``__post_init__``.  ``DataplexEntriesProcessor`` uses ``_container_lock``
+      for atomic check+add on ``_emitted_project_containers`` and
+      ``_entry_data_lock`` for appends to the shared ``DataplexContext.entry_data`` list.
+      The GCP gRPC clients (``CatalogServiceClient``, ``LineageClient``) are
+      thread-safe and shared across all workers.
+    """
 
     platform: str = "dataplex"
+
+    @cached_property
+    def _project_ids(self) -> List[str]:
+        """Effective list of GCP project ids, resolved lazily on first access.
+
+        Honors `project_ids` (explicit override), then `project_labels`, then
+        `project_id_pattern` via the shared GCP project filter helper. When
+        `project_ids` is empty, projects are discovered via the Cloud Resource
+        Manager API on first use.
+        """
+        projects_client = (
+            resourcemanager_v3.ProjectsClient(credentials=self._credentials)
+            if not self.config.project_ids
+            else None
+        )
+        resolved = resolve_gcp_projects(
+            self.config, self.report, projects_client=projects_client
+        )
+        return [p.id for p in resolved]
+
+    def _resolve_lineage_project_location_pairs(self) -> list[tuple[str, str]]:
+        """Resolve and report lineage scan pairs from configured project/location product."""
+        lineage_project_location_pairs = list(
+            product(self._project_ids, self.config.lineage_locations)
+        )
+        self.report.info(
+            title="Lineage extraction project/location pairs",
+            message=(
+                "Extracting lineage for configured project/location pairs. "
+                "Lineage scan scope is derived from the Cartesian product of "
+                "project_ids and lineage_locations."
+            ),
+            context=str(
+                dict(
+                    lineage_locations=self.config.lineage_locations,
+                    lineage_project_location_pairs=lineage_project_location_pairs,
+                )
+            ),
+        )
+        return lineage_project_location_pairs
 
     def __init__(self, ctx: PipelineContext, config: DataplexConfig):
         super().__init__(config, ctx)
         self.config = config
         self.report: DataplexReport = DataplexReport()
-
-        # Track entry data for lineage extraction
-        # Key: project_id, Value: set of EntryDataTuple
-        self.entry_data_by_project: dict[str, set[EntryDataTuple]] = {}
 
         creds = self.config.get_credentials()
         credentials = (
@@ -99,11 +235,18 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             if creds
             else None
         )
+        # Stored for the lazy `_project_ids` cached_property to use on first access.
+        self._credentials: Optional[service_account.Credentials] = credentials
+
+        # Shared context — all processors read/write to this single object.
+        self.ctx_data = DataplexContext(config=self.config, credentials=credentials)
 
         # Catalog client for Entry Groups and Entries extraction
         self.catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
 
-        # Initialize redundant lineage run skip handler for stateful lineage ingestion
+        # Initialize redundant lineage run skip handler for stateful lineage ingestion.
+        # TODO: Wire this into DataplexLineageExtractor execution flow so lineage API calls
+        # can be short-circuited for redundant runs.
         redundant_lineage_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = (
             None
         )
@@ -122,7 +265,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             self.lineage_extractor: Optional[DataplexLineageExtractor] = (
                 DataplexLineageExtractor(
                     config=self.config,
-                    report=self.report,
+                    report=self.report.lineage_report,
+                    source_report=self.report,
                     lineage_client=self.lineage_client,
                     redundant_run_skip_handler=redundant_lineage_run_skip_handler,
                 )
@@ -131,17 +275,70 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             self.lineage_client = None
             self.lineage_extractor = None
 
-        # Track BigQuery containers to create (project_id -> set of dataset_ids)
-        self.bq_containers: dict[str, set[str]] = {}
+        self.entries_processor = DataplexEntriesProcessor(
+            config=self.config,
+            catalog_client=self.catalog_client,
+            report=self.report.entries_report,
+            source_report=self.report,
+            ctx=self.ctx_data,
+        )
 
-        # Thread safety locks for parallel processing
-        self._report_lock = Lock()
-        self._entry_data_lock = Lock()
-        self._bq_containers_lock = Lock()
+        # Glossary processor — only instantiated when glossary ingestion is enabled.
+        self.glossary_processor: Optional[DataplexGlossaryProcessor] = None
+        if self.config.include_glossaries:
+            glossary_client = dataplex_v1.BusinessGlossaryServiceClient(
+                credentials=credentials
+            )
+
+            if self.config.include_glossary_term_associations:
+                # Project numbers are required for the lookupEntryLinks term entry path.
+                # Requires a role granting resourcemanager.projects.get (e.g. roles/browser)
+                # on all configured projects.
+                try:
+                    self.ctx_data.project_numbers = _resolve_project_numbers(
+                        self._project_ids, credentials
+                    )
+                except exceptions.GoogleAPICallError as exc:
+                    self.report.failure(
+                        title="Failed to resolve GCP project numbers",
+                        message=(
+                            "Could not resolve project numbers via the Resource Manager API. "
+                            "Ensure the service account has a role granting "
+                            "resourcemanager.projects.get (e.g. roles/browser) "
+                            "on all configured projects."
+                        ),
+                        context=str(self._project_ids),
+                        exc=exc,
+                    )
+                    raise
+                raw_creds = (
+                    credentials
+                    if credentials is not None
+                    else google.auth.default(
+                        scopes=["https://www.googleapis.com/auth/cloud-platform"]
+                    )[0]
+                )
+                self.ctx_data.authed_session = (
+                    google.auth.transport.requests.AuthorizedSession(raw_creds)
+                )
+
+            self.glossary_processor = DataplexGlossaryProcessor(
+                ctx=self.ctx_data,
+                glossary_client=glossary_client,
+                report=self.report.glossary_report,
+                source_report=self.report,
+            )
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        """Test connection to Dataplex API."""
+        """Test connection to Dataplex API.
+
+        When `project_ids` is set explicitly we list entry groups on the first
+        configured project. When the user relies on `project_id_pattern` or
+        `project_labels`, we first resolve at least one project via the Cloud
+        Resource Manager API (which validates those credentials/permissions)
+        and then list entry groups on the first resolved project.
+        """
         test_report = TestConnectionReport()
         try:
             config = DataplexConfig.model_validate(config_dict)
@@ -152,15 +349,36 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 else None
             )
 
-            # Test connection by attempting to list entry groups
-            catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
             if config.project_ids:
-                project_id = config.project_ids[0]
-                parent = f"projects/{project_id}/locations/{config.entries_location}"
-                entry_groups_request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
-                # Just iterate once to verify access
-                for _ in catalog_client.list_entry_groups(request=entry_groups_request):
-                    break
+                project_id: Optional[str] = config.project_ids[0]
+            else:
+                # Auto-discovery mode — exercise the Resource Manager API to
+                # verify credentials and roles.
+                projects_client = resourcemanager_v3.ProjectsClient(
+                    credentials=credentials
+                )
+                probe_report = DataplexReport()
+                resolved = resolve_gcp_projects(
+                    config, probe_report, projects_client=projects_client
+                )
+                if not resolved:
+                    failure_reason = (
+                        "No GCP projects matched the configured "
+                        "project_id_pattern / project_labels, or the service "
+                        "account lacks Cloud Resource Manager access."
+                    )
+                    test_report.basic_connectivity = CapabilityReport(
+                        capable=False, failure_reason=failure_reason
+                    )
+                    return test_report
+                project_id = resolved[0].id
+
+            catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
+            parent = f"projects/{project_id}/locations/{config.entries_locations[0]}"
+            entry_groups_request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
+            # Iterate once to verify Dataplex API access.
+            for _ in catalog_client.list_entry_groups(request=entry_groups_request):
+                break
 
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except exceptions.GoogleAPICallError as e:
@@ -194,237 +412,90 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main function to fetch and yield workunits for various Dataplex resources."""
-        # Iterate over all configured projects
-        for project_id in self.config.project_ids:
-            logger.info(f"Processing Dataplex resources for project: {project_id}")
-            yield from self._process_project(project_id)
-
-    def _emit_final_batch(
-        self,
-        cached_mcps: list[MetadataChangeProposalWrapper],
-        total_emitted: int,
-        project_id: str,
-    ) -> Iterable[MetadataWorkUnit]:
-        """Emit the final batch of entry MCPs.
-
-        Args:
-            cached_mcps: List of cached MCPs to emit
-            total_emitted: Total count of MCPs emitted so far
-            project_id: GCP project ID
-
-        Yields:
-            MetadataWorkUnit objects
-        """
-        if cached_mcps:
-            yield from auto_workunit(cached_mcps)
-            total_emitted += len(cached_mcps)
-            logger.info(
-                f"Emitted final batch of {len(cached_mcps)} entries ({total_emitted} total) for project {project_id}"
-            )
-
-    def _process_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
-        """Process all Dataplex resources for a single project.
-
-        This uses a single-pass approach with batched emission:
-        1. Collect entries MCPs in batches and track containers simultaneously
-        2. Emit batches as they fill up to keep memory bounded
-        3. Emit BigQuery containers (so entries can reference them)
-        4. Extract lineage
-
-        Memory optimization: Batched emission prevents memory issues in large deployments.
-        """
-        # Determine batch size (None means no batching)
-        batch_size = self.config.batch_size
-        should_batch = batch_size is not None
-
-        # Cache MCPs during the first pass
-        cached_entries_mcps: list[MetadataChangeProposalWrapper] = []
-        entries_emitted = 0
-
-        # Process Entries API - collect MCPs and track containers
-        logger.info(
-            f"Processing entries from Universal Catalog for project {project_id}"
-        )
-        for mcp in self._get_entries_mcps(project_id):
-            cached_entries_mcps.append(mcp)
-
-            # Emit batch if we've reached the batch size
-            if should_batch and batch_size and len(cached_entries_mcps) >= batch_size:
-                yield from auto_workunit(cached_entries_mcps)
-                entries_emitted += len(cached_entries_mcps)
-                logger.info(
-                    f"Emitted batch of {len(cached_entries_mcps)} entries ({entries_emitted} total) for project {project_id}"
+        with self.report.new_stage(
+            "Processing entries from Universal Catalog (parallel)"
+        ):
+            try:
+                yield from auto_workunit(
+                    self.entries_processor.process_entries(
+                        project_ids=self._project_ids,
+                        max_workers=self.config.max_workers_entries,
+                    )
                 )
-                cached_entries_mcps.clear()
-
-        # Emit remaining cached entries MCPs
-        yield from self._emit_final_batch(
-            cached_entries_mcps, entries_emitted, project_id
-        )
-
-        # Emit BigQuery containers (so entries can reference them)
-        yield from gen_bigquery_containers(project_id, self.bq_containers, self.config)
-
-        # Extract lineage for entries (after entries and containers have been processed)
-        if self.config.include_lineage and self.lineage_extractor:
-            yield from self._get_lineage_workunits(project_id)
-
-    def _construct_mcps(
-        self, dataset_urn: str, aspects: list
-    ) -> Iterable[MetadataChangeProposalWrapper]:
-        """Construct MCPs for the given dataset.
-
-        Args:
-            dataset_urn: Dataset URN
-            aspects: List of aspect objects
-
-        Yields:
-            MetadataChangeProposalWrapper objects
-        """
-        return MetadataChangeProposalWrapper.construct_many(
-            entityUrn=dataset_urn,
-            aspects=aspects,
-        )
-
-    def _get_entries_mcps(
-        self, project_id: str
-    ) -> Iterable[MetadataChangeProposalWrapper]:
-        """Fetch entries from Universal Catalog and generate MCPs.
-
-        This method uses the Entries API to extract metadata from Universal Catalog.
-        It processes entry groups and their entries, extracting aspects as custom properties.
-
-        For system entry groups (@bigquery, @pubsub), use multi-region locations (us, eu, asia).
-        """
-        entries_location = self.config.entries_location
-        parent = f"projects/{project_id}/locations/{entries_location}"
-
-        try:
-            with self.report.catalog_api_timer as _:
-                entry_groups_request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
-                entry_groups = self.catalog_client.list_entry_groups(
-                    request=entry_groups_request
+            except exceptions.GoogleAPICallError as exc:
+                self.report.warning(
+                    title="Failed to process Dataplex entries",
+                    message="Error while extracting entries from Universal Catalog.",
+                    context=str(self._project_ids),
+                    exc=exc,
                 )
 
-            for entry_group in entry_groups:
-                entry_group_id = entry_group.name.split("/")[-1]
-                logger.debug(f"Processing entry group: {entry_group_id}")
-                with self._report_lock:
-                    self.report.report_entry_group_scanned()
-                entries_request = dataplex_v1.ListEntriesRequest(
-                    parent=entry_group.name
-                )
-                entries = self.catalog_client.list_entries(request=entries_request)
+        if self.config.include_glossaries and self.glossary_processor:
+            with self.report.new_stage(
+                "Processing Dataplex Business Glossaries (parallel)"
+            ):
+                try:
+                    yield from self.glossary_processor.process_glossaries(
+                        project_ids=self._project_ids,
+                        max_workers=self.config.max_workers_glossary,
+                    )
+                except exceptions.GoogleAPICallError as exc:
+                    self.report.warning(
+                        title="Failed to process Dataplex glossaries",
+                        message="Error while extracting Business Glossary entities.",
+                        context=str(self._project_ids),
+                        exc=exc,
+                    )
 
-                for entry in entries:
-                    entry_id = entry.name.split("/")[-1]
-                    logger.debug(f"Processing entry: {entry_id}")
-
-                    # Apply dataset_pattern filter to entries
-                    if not self.config.filter_config.entries.dataset_pattern.allowed(
-                        entry_id
-                    ):
-                        logger.debug(
-                            f"Entry {entry_id} filtered out by entries.dataset_pattern"
-                        )
-                        with self._report_lock:
-                            self.report.report_entry_scanned(entry_id, filtered=True)
-                        continue
-
+            if self.config.include_glossary_term_associations:
+                with self.report.new_stage(
+                    "Extracting Dataplex term-asset associations (parallel)"
+                ):
                     try:
-                        entry_details_request = dataplex_v1.GetEntryRequest(
-                            name=entry.name, view=dataplex_v1.EntryView.ALL
+                        yield from self.glossary_processor.process_term_associations(
+                            project_ids=self.config.project_ids,
+                            max_workers=self.config.max_workers_glossary,
                         )
-                        entry_details = self.catalog_client.get_entry(
-                            request=entry_details_request
+                    except Exception as exc:
+                        self.report.warning(
+                            title="Failed to extract term-asset associations",
+                            message="Error while calling lookupEntryLinks.",
+                            context=str(self.config.project_ids),
+                            exc=exc,
                         )
 
-                        with self._report_lock:
-                            self.report.report_entry_scanned(entry_id)
-                        yield from self._process_entry(
-                            project_id, entry_details, entry_group_id
-                        )
-                    except Exception as e:
-                        self.report.report_failure(
-                            title="Failed to process entry",
-                            message="Error processing entry in entry group",
-                            context=f"{entry_group_id}/{entry_id}",
-                            exc=e,
-                        )
-                        continue
+        if self.config.include_lineage and self.lineage_extractor:
+            with self.report.new_stage(
+                "Extracting Dataplex lineage across configured projects (parallel)"
+            ):
+                if len(self.ctx_data.entry_data) == 0:
+                    logger.info(
+                        "No entries found for lineage extraction across configured projects"
+                    )
+                    return
 
-        except exceptions.GoogleAPICallError as e:
-            self.report.report_failure(
-                title="Failed to list entry groups",
-                message="Error listing entry groups in project",
-                context=project_id,
-                exc=e,
-            )
+                logger.info(
+                    "Extracting lineage for %s entries across %s configured projects",
+                    len(self.ctx_data.entry_data),
+                    len(self.config.project_ids),
+                )
+                lineage_project_location_pairs = (
+                    self._resolve_lineage_project_location_pairs()
+                )
 
-    def _process_entry(
-        self,
-        project_id: str,
-        entry: dataplex_v1.Entry,
-        entry_group_id: str,
-    ) -> Iterable[MetadataChangeProposalWrapper]:
-        """Process a single entry from Universal Catalog.
-
-        Args:
-            project_id: GCP project ID
-            entry: Entry object from Catalog API
-            entry_group_id: Entry group ID
-
-        Yields:
-            MetadataChangeProposalWrapper objects for the entry
-        """
-        yield from process_entry(
-            project_id=project_id,
-            entry=entry,
-            entry_group_id=entry_group_id,
-            config=self.config,
-            entry_data_by_project=self.entry_data_by_project,
-            entry_data_lock=self._entry_data_lock,
-            bq_containers=self.bq_containers,
-            bq_containers_lock=self._bq_containers_lock,
-            construct_mcps_fn=self._construct_mcps,
-        )
-
-    def _get_lineage_workunits(self, project_id: str) -> Iterable[MetadataWorkUnit]:
-        """
-        Extract lineage for entries in a project.
-
-        Args:
-            project_id: GCP project ID
-
-        Yields:
-            MetadataWorkUnit objects containing lineage information
-        """
-        if not self.lineage_extractor:
-            return
-
-        # Get entry data that was processed for this project
-        entry_data = self.entry_data_by_project.get(project_id, set())
-        if not entry_data:
-            logger.info(
-                f"No entries found for lineage extraction in project {project_id}"
-            )
-            return
-
-        logger.info(
-            f"Extracting lineage for {len(entry_data)} entries in project {project_id}"
-        )
-
-        try:
-            yield from self.lineage_extractor.get_lineage_workunits(
-                project_id, entry_data
-            )
-        except Exception as e:
-            self.report.report_failure(
-                title="Lineage extraction failed",
-                message="Failed to extract lineage for project",
-                context=project_id,
-                exc=e,
-            )
+                try:
+                    yield from self.lineage_extractor.get_lineage_workunits(
+                        self.ctx_data.entry_data,
+                        active_lineage_project_location_pairs=lineage_project_location_pairs,
+                        max_workers=self.config.max_workers_lineage,
+                    )
+                except Exception as e:
+                    self.report.warning(
+                        title="Lineage extraction failed",
+                        message="Failed to extract lineage across configured projects",
+                        context="all-configured-projects",
+                        exc=e,
+                    )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DataplexSource":

@@ -1,16 +1,14 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { useApolloClient } from '@apollo/client';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { message } from 'antd';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
 import { createDefaultDocumentInput, extractRelatedAssetUrns, mergeUrns } from '@app/document/utils/documentUtils';
 import { DocumentPopoverBase } from '@app/homeV2/layout/sidebar/documents/shared/DocumentPopoverBase';
 import { Button } from '@src/alchemy-components';
-// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
-import { colors } from '@src/alchemy-components/theme';
 
 import { GetDocumentDocument, useCreateDocumentMutation } from '@graphql/document.generated';
 import { DocumentSourceType } from '@types';
@@ -18,15 +16,10 @@ import { DocumentSourceType } from '@types';
 const NewDocumentButton = styled(Button)`
     width: 100%;
     justify-content: start;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     &:hover {
-        background: linear-gradient(
-            180deg,
-            rgba(243, 244, 246, 0.5) -3.99%,
-            rgba(235, 236, 240, 0.5) 53.04%,
-            rgba(235, 236, 240, 0.5) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
+        background: ${(props) => props.theme.colors.bgHover};
+        box-shadow: ${(props) => props.theme.colors.shadowFocus};
     }
     padding: 12px 8px;
 `;
@@ -52,6 +45,7 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
     onDocumentSelected,
     onClose,
 }) => {
+    const { t } = useTranslation('entity.profile.documentation');
     const [isCreating, setIsCreating] = useState(false);
     const apolloClient = useApolloClient();
     const [createDocumentMutation] = useCreateDocumentMutation();
@@ -91,18 +85,18 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
                     onDocumentSelected(documentUrn);
                     onClose();
                 } else {
-                    message.error('Failed to link document. Please try again.');
+                    message.error(t('failedToLinkDocument'));
                     // Keep popover open on error
                 }
             } catch (error) {
                 console.error('Failed to update document related assets:', error);
-                message.error('Failed to link document. Please try again.');
+                message.error(t('failedToLinkDocument'));
                 // Keep popover open on error
             } finally {
                 setIsCreating(false);
             }
         },
-        [entityUrn, apolloClient, updateRelatedEntities, onDocumentSelected, onClose],
+        [entityUrn, apolloClient, updateRelatedEntities, onDocumentSelected, onClose, t],
     );
 
     /**
@@ -132,13 +126,13 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
                 onClose();
             } catch (error) {
                 console.error('Failed to create document:', error);
-                message.error('Failed to create document. Please try again.');
+                message.error(t('failedToCreateDocument'));
                 // Keep popover open on error
             } finally {
                 setIsCreating(false);
             }
         },
-        [entityUrn, createDocumentMutation, onDocumentSelected, onClose],
+        [entityUrn, createDocumentMutation, onDocumentSelected, onClose, t],
     );
 
     const headerContent = (
@@ -149,7 +143,7 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
             disabled={isCreating}
             data-testid="new-document-root-button"
         >
-            New document
+            {t('newDocument')}
         </NewDocumentButton>
     );
 

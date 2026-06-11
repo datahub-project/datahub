@@ -8,10 +8,10 @@ import {
 } from '@ant-design/icons';
 import { Button, Divider } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Panel, useReactFlow } from 'reactflow';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageNodesContext, TRANSITION_DURATION_MS } from '@app/lineageV3/common';
 import DownloadLineageScreenshotButton from '@app/lineageV3/controls/DownloadLineageScreenshotButton';
@@ -44,6 +44,14 @@ const StyledExpandContractButton = styled(Button)`
     justify-content: center;
     align-items: center;
     display: flex;
+    background-color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.icon};
+    border-color: ${(props) => props.theme.colors.border};
+
+    &:hover {
+        color: ${(props) => props.theme.colors.iconHover};
+        border-color: ${(props) => props.theme.colors.borderHover};
+    }
 `;
 
 const StyledDivider = styled(Divider)`
@@ -56,6 +64,8 @@ const ControlsColumn = styled.div``;
 type PanelType = 'filters' | 'timeRange';
 
 export default function LineageControls() {
+    const { t } = useTranslation('lineage');
+    const theme = useTheme();
     const { rootUrn, hideTransformations, showDataProcessInstances, showGhostEntities } =
         useContext(LineageNodesContext);
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
@@ -84,7 +94,7 @@ export default function LineageControls() {
                 <StyledControlsPanel isExpanded={isExpanded}>
                     <StyledPanelButton type="text" onClick={() => setIsExpanded(!isExpanded)}>
                         <VerticalLeftOutlined rotate={isExpanded ? 180 : 0} />
-                        {showExpandedText ? 'Hide Menu' : null}
+                        {showExpandedText ? t('controls.hideMenu.label') : null}
                     </StyledPanelButton>
                     <StyledDivider />
                     <StyledPanelButton
@@ -94,7 +104,7 @@ export default function LineageControls() {
                         }}
                     >
                         <HomeOutlined />
-                        {showExpandedText ? 'Focus on Home' : null}
+                        {showExpandedText ? t('controls.focusOnHome.label') : null}
                     </StyledPanelButton>
                     <StyledDivider />
                     <StyledPanelButton
@@ -107,11 +117,11 @@ export default function LineageControls() {
                             style={{
                                 color:
                                     hideTransformations || !showDataProcessInstances || showGhostEntities
-                                        ? REDESIGN_COLORS.BLUE
+                                        ? theme.colors.iconSelected
                                         : undefined,
                             }}
                         />
-                        {showExpandedText ? 'Filter' : null}
+                        {showExpandedText ? t('controls.filter.label') : null}
                     </StyledPanelButton>
                     <StyledPanelButton
                         type="text"
@@ -120,9 +130,9 @@ export default function LineageControls() {
                         }
                     >
                         <CalendarOutlined
-                            style={{ color: isLineageTimeUnchanged ? undefined : REDESIGN_COLORS.BLUE }}
+                            style={{ color: isLineageTimeUnchanged ? undefined : theme.colors.textInformation }}
                         />
-                        {showExpandedText ? 'Time Range' : null}
+                        {showExpandedText ? t('controls.timeRangeLabel') : null}
                     </StyledPanelButton>
                     <StyledDivider />
                     <DownloadLineageScreenshotButton showExpandedText={showExpandedText} />

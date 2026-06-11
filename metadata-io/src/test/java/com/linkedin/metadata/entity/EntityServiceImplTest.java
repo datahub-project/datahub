@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -26,6 +27,7 @@ import com.codahale.metrics.Counter;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplateUtil;
@@ -35,6 +37,7 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -57,6 +60,9 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.structured.StructuredPropertyKey;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -65,6 +71,7 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Tracer;
 import jakarta.persistence.EntityNotFoundException;
+import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -433,7 +440,8 @@ public class EntityServiceImplTest {
 
     // Assert
     assertFalse(result.isEmitted(), "Should not produce MCL when system metadata is no-op");
-    verify(mockEventProducer, never()).produceMetadataChangeLog(any(), any(), any());
+    verify(mockEventProducer, never())
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }
 
   @Test
@@ -465,7 +473,8 @@ public class EntityServiceImplTest {
 
     // Assert
     assertFalse(result.isEmitted(), "Should not produce MCL when aspects are equal");
-    verify(mockEventProducer, never()).produceMetadataChangeLog(any(), any(), any());
+    verify(mockEventProducer, never())
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }
 
   @Test
@@ -720,7 +729,7 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -801,7 +810,7 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -913,7 +922,7 @@ public class EntityServiceImplTest {
                 // Third batch with another success aspect
                 Stream.of(anotherSuccessAspect)));
 
-    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -996,8 +1005,10 @@ public class EntityServiceImplTest {
     // the function that's passed to it, so the getLatestAspect call inside it will throw
     doAnswer(
             invocation -> {
+              // New signature: runInTransactionWithRetry(OperationContext, Function, int).
+              // Function is at index 1, not 0.
               Function<TransactionContext, TransactionResult<RollbackResult>> function =
-                  invocation.getArgument(0);
+                  invocation.getArgument(1);
               TransactionContext txContext = TransactionContext.empty(3);
 
               // Before calling the function, set up the mock that will throw inside it
@@ -1020,7 +1031,7 @@ public class EntityServiceImplTest {
               }
             })
         .when(mockAspectDao)
-        .runInTransactionWithRetry(any(), anyInt());
+        .runInTransactionWithRetry(any(), any(), anyInt());
 
     // Create a counter mock
     Counter mockCounter = mock(Counter.class);
@@ -1078,7 +1089,7 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -1392,5 +1403,137 @@ public class EntityServiceImplTest {
             eq("status"),
             any(java.util.Map.class),
             eq(false));
+  }
+
+  @Test
+  public void testHardDeleteStructuredPropertyKeyCapturesDefinitionBeforeDeleteUrn()
+      throws URISyntaxException {
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    EntityServiceImpl service =
+        spy(
+            new EntityServiceImpl(
+                mockAspectDao,
+                mock(EventProducer.class),
+                false,
+                false,
+                mock(PreProcessHooks.class),
+                0,
+                true,
+                null));
+    doReturn(Stream.empty())
+        .when(service)
+        .ingestProposalAsync(any(OperationContext.class), any(AspectsBatch.class));
+
+    Urn propertyUrn = Urn.createFromString("urn:li:structuredProperty:io.acryl.test.prop");
+    StructuredPropertyKey key = new StructuredPropertyKey().setId("io.acryl.test.prop");
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("io.acryl.test.prop")
+            .setValueType(UrnUtils.getUrn("urn:li:type:datahub.string"))
+            .setEntityTypes(
+                new UrnArray(List.of(UrnUtils.getUrn("urn:li:entityType:datahub.dataset"))));
+    SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+
+    EbeanAspectV2 keyRow =
+        new EbeanAspectV2(
+            propertyUrn.toString(),
+            STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+            0L,
+            RecordUtils.toJsonString(key),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(systemMetadata));
+    SystemAspect latestKey = EbeanSystemAspect.builder().forUpdate(keyRow, testEntityRegistry);
+
+    EbeanAspectV2 definitionRow =
+        new EbeanAspectV2(
+            propertyUrn.toString(),
+            STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+            0L,
+            RecordUtils.toJsonString(definition),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(systemMetadata));
+    SystemAspect latestDefinition =
+        EbeanSystemAspect.builder().forUpdate(definitionRow, testEntityRegistry);
+
+    EntityAspect keyAspectAtVersionOne =
+        EntityAspect.builder()
+            .urn(propertyUrn.toString())
+            .aspect(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)
+            .metadata(RecordUtils.toJsonString(key))
+            .version(1L)
+            .createdOn(new Timestamp(System.currentTimeMillis()))
+            .createdBy(TEST_AUDIT_STAMP.getActor().toString())
+            .systemMetadata(RecordUtils.toJsonString(systemMetadata))
+            .build();
+
+    when(mockAspectDao.getLatestAspect(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_KEY_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(latestKey);
+    when(mockAspectDao.getLatestAspect(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(latestDefinition);
+    when(mockAspectDao.getVersionRange(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)))
+        .thenReturn(Pair.of(0L, 1L));
+    when(mockAspectDao.getAspect(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_KEY_ASPECT_NAME),
+            eq(1L)))
+        .thenReturn(keyAspectAtVersionOne);
+    when(mockAspectDao.deleteUrn(any(OperationContext.class), any(), eq(propertyUrn.toString())))
+        .thenReturn(2);
+
+    doAnswer(
+            invocation -> {
+              // runInTransactionWithRetry(OperationContext, Function, int) — Function at index 1.
+              Function<TransactionContext, TransactionResult<RollbackResult>> function =
+                  invocation.getArgument(1);
+              return function.apply(TransactionContext.empty(3)).getResults();
+            })
+        .when(mockAspectDao)
+        .runInTransactionWithRetry(any(), any(), anyInt());
+
+    RollbackResult result =
+        service.deleteAspectWithoutMCL(
+            opContext,
+            propertyUrn.toString(),
+            STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+            Collections.emptyMap(),
+            true);
+
+    assertNotNull(result);
+    assertEquals(result.getAspectName(), STRUCTURED_PROPERTY_KEY_ASPECT_NAME);
+
+    var inOrder = inOrder(mockAspectDao);
+    inOrder
+        .verify(mockAspectDao)
+        .getLatestAspect(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_KEY_ASPECT_NAME),
+            eq(false));
+    inOrder
+        .verify(mockAspectDao)
+        .getLatestAspect(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
+            eq(false));
+    inOrder
+        .verify(mockAspectDao)
+        .deleteUrn(any(OperationContext.class), any(), eq(propertyUrn.toString()));
   }
 }

@@ -50,9 +50,7 @@ and their configuration please see the table at the end of each section.
 Quickstart profiles are primarily a way to test drive DataHub features before committing to a production ready deployment.
 A couple of these profiles are also used in our continuous integration (CI) tests.
 
-Note: Quickstart profiles use docker images with the `head` tag. These images up updated when changes are committed
-to the DataHub github repository. This can be overridden to use a stable release tag by prefixing the commands with
-`DATAHUB_VERSION=v0.12.1` for example.
+Note: Quickstart profiles use docker images with the coordinated `quickstart` tag (updated together after smoke tests on `master`). This can be overridden to use a stable release tag by prefixing commands with `DATAHUB_VERSION=v0.12.1`, or to pin a specific build with `DATAHUB_VERSION=sha-<short_sha>`.
 
 ### `quickstart`
 
@@ -64,7 +62,7 @@ This configuration is identical to `quickstart` how it runs standalone consumers
 
 ### `quickstart-postgres`
 
-Identical to `quickstart` with Postgres instead of MySQL.
+Like `quickstart` with Postgres instead of MySQL. Uses pgQueue instead of Kafka for messaging (`DATAHUB_MESSAGING_TRANSPORT=pgqueue`). OpenSearch is still used for search/graph/timeseries.
 
 ### `quickstart-cassandra`
 
@@ -82,7 +80,7 @@ of docker.
 | quickstart           | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |
 | quickstart-frontend  | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |
 | quickstart-backend   | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |
-| quickstart-postgres  |       | X        |           |       | X        | X   | X       | X            |     |     | X     | X          |
+| quickstart-postgres  |       | X        |           |       | X        | X   | X       | X            |     |     |       | X          |
 | quickstart-cassandra |       |          | X         | X     | X        | X   | X       | X            |     |     | X     | X          |
 | quickstart-consumers | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |
 | quickstart-storage   | X     |          |           |       |          |     |         |              |     |     | X     | X          |
@@ -93,6 +91,7 @@ of docker.
 - JVM Debug Mode Enabled
 - Exposes local jars and scripts to the containers
 - Can run non-default one-off configurations (neo4j, cassandra, elasticsearch)
+- Micrometer Actuator (Prometheus scrape and health) listens on container port **4319** by default (`MANAGEMENT_SERVER_PORT` in `start.sh`), separate from the main HTTP port. Compose **`expose`s 4319** for on-network scraping; **GMS** also publishes **`${DATAHUB_MAPPED_GMS_MANAGEMENT_PORT:-4319}:4319`** on the host, parallel to **`${DATAHUB_MAPPED_GMS_PORT:-8080}:8080`**. `./gradlew quickstartDebug` uses compose in **this directory**, not `docker/quickstart/` alone.
 
 The docker images used are the `debug` images which are created by building locally. These images are
 created by running the gradle command.
@@ -125,17 +124,18 @@ This will populate the running DataHub instance with sample data suitable for Cy
 
 ### Development Profiles Table
 
-| Profile Name        | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch | Elasticsearch | Localstack (AWS) |
-| ------------------- | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- | ------------- | ---------------- |
-| debug               | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-frontend      | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |               |                  |
-| debug-backend       | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-postgres      |       | X        |           |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-cassandra     |       |          | X         |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-consumers     | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |               |                  |
-| debug-neo4j         | X     |          |           | X     | X        | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-elasticsearch | X     |          |           |       | X        | X   | X       | X            |     |     | X     |            | X             |                  |
-| debug-backend-aws   | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               | X                |
+| Profile Name             | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch | Elasticsearch | Localstack (AWS) |
+| ------------------------ | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- | ------------- | ---------------- |
+| debug                    | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-frontend           | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |               |                  |
+| debug-backend            | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-postgres           |       | X        |           |       | X        | X   | X       | X            |     |     |       | X          |               |                  |
+| debug-postgres-consumers |       | X        |           |       | X        | X   | X       | X            | X   | X   |       | X          |               |                  |
+| debug-cassandra          |       |          | X         |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-consumers          | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |               |                  |
+| debug-neo4j              | X     |          |           | X     | X        | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-elasticsearch      | X     |          |           |       | X        | X   | X       | X            |     |     | X     |            | X             |                  |
+| debug-backend-aws        | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               | X                |
 
 ## Advanced Setups
 

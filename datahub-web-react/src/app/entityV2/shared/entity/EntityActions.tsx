@@ -2,6 +2,7 @@ import { LinkOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -73,6 +74,9 @@ interface Props {
 
 function EntityActions(props: Props) {
     // eslint ignore react/no-unused-prop-types
+    const { t } = useTranslation('entity.shared.actions');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tcf } = useTranslation('common.feedback');
     const entityRegistry = useEntityRegistry();
     const { urn, actionItems, refetchForEntity, refetchForTerms, refetchForNodes } = props;
     const { setShouldRefetchEmbeddedListSearch, entityState } = useEntityContext();
@@ -103,10 +107,10 @@ function EntityActions(props: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchAddGlossaryTermModalVisible(false);
-                    message.loading({ content: 'Updating...', duration: 3 });
+                    message.loading({ content: tcf('updating'), duration: 3 });
                     setTimeout(() => {
                         message.success({
-                            content: `Added Glossary Term to entities!`,
+                            content: t('addedTermSuccess'),
                             duration: 2,
                         });
                         refetchForEntity?.();
@@ -123,7 +127,7 @@ function EntityActions(props: Props) {
                 message.destroy();
                 message.error(
                     handleBatchError(entityUrns, e, {
-                        content: `Failed to add glossary term: \n ${e.message || ''}`,
+                        content: t('addTermError', { error: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -145,10 +149,10 @@ function EntityActions(props: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetDomainModalVisible(false);
-                    message.loading({ content: 'Updating...', duration: 3 });
+                    message.loading({ content: tcf('updating'), duration: 3 });
                     setTimeout(() => {
                         message.success({
-                            content: `Added assets to Domain!`,
+                            content: t('addedDomainSuccess'),
                             duration: 3,
                         });
                         refetchForEntity?.();
@@ -173,7 +177,7 @@ function EntityActions(props: Props) {
                 message.destroy();
                 message.error(
                     handleBatchError(entityUrns, e, {
-                        content: `Failed to add assets to Domain: \n ${e.message || ''}`,
+                        content: t('addDomainError', { error: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -193,10 +197,10 @@ function EntityActions(props: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetDataProductModalVisible(false);
-                    message.loading({ content: 'Updating...', duration: 3 });
+                    message.loading({ content: tcf('updating'), duration: 3 });
                     setTimeout(() => {
                         message.success({
-                            content: `Added assets to Data Product!`,
+                            content: t('addedDataProductSuccess'),
                             duration: 3,
                         });
                         refetchForEntity?.();
@@ -218,7 +222,7 @@ function EntityActions(props: Props) {
                 message.destroy();
                 message.error(
                     handleBatchError(entityUrns, e, {
-                        content: `Failed to add assets to Data Product. An unknown error occurred.`,
+                        content: t('addDataProductError'),
                         duration: 3,
                     }),
                 );
@@ -237,10 +241,10 @@ function EntityActions(props: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetApplicationModalVisible(false);
-                    message.loading({ content: 'Updating...', duration: 3 });
+                    message.loading({ content: tcf('updating'), duration: 3 });
                     setTimeout(() => {
                         message.success({
-                            content: `Added assets to Application!`,
+                            content: t('addedApplicationSuccess'),
                             duration: 3,
                         });
                         refetchForEntity?.();
@@ -252,7 +256,7 @@ function EntityActions(props: Props) {
                 message.destroy();
                 message.error(
                     handleBatchError(entityUrns, e, {
-                        content: `Failed to add assets to Application. An unknown error occurred.`,
+                        content: t('addApplicationError'),
                         duration: 3,
                     }),
                 );
@@ -266,32 +270,32 @@ function EntityActions(props: Props) {
         <>
             <ButtonWrapper>
                 {actionItems.has(EntityActionItem.BATCH_ADD_GLOSSARY_TERM) && (
-                    <Tooltip title="Add Glossary Term to Assets" showArrow={false} placement="bottom">
+                    <Tooltip title={t('addTermTooltip')} showArrow={false} placement="bottom">
                         <Button
                             variant="outline"
                             onClick={() => setIsBatchAddGlossaryTermModalVisible(true)}
                             data-testid="glossary-batch-add"
                             size="sm"
                         >
-                            <LinkOutlined /> Add to Assets
+                            <LinkOutlined /> {t('addToAssets')}
                         </Button>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DOMAIN) && (
-                    <Tooltip title="Add Assets to Domain" showArrow={false} placement="bottom">
+                    <Tooltip title={t('addDomainTooltip')} showArrow={false} placement="bottom">
                         <Button
                             variant="outline"
                             onClick={() => setIsBatchSetDomainModalVisible(true)}
                             data-testid="domain-batch-add"
                             size="sm"
                         >
-                            <LinkOutlined /> Add to Assets
+                            <LinkOutlined /> {t('addToAssets')}
                         </Button>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DATA_PRODUCT) && (
                     <Tooltip
-                        title="Add Assets to Data Product"
+                        title={t('addDataProductTooltip')}
                         showArrow={false}
                         placement="bottom"
                         data-testid="data-product-batch-add"
@@ -303,40 +307,40 @@ function EntityActions(props: Props) {
                             data-testid="data-product-batch-add"
                         >
                             <LinkOutlined />
-                            Add Assets
+                            {t('addAssets')}
                         </Button>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_NODE) && (
-                    <Tooltip title="Create New Term Group" showArrow={false} placement="bottom">
+                    <Tooltip title={t('createTermGroupTooltip')} showArrow={false} placement="bottom">
                         <Button
                             data-testid="add-term-group-button-v2"
                             variant="outline"
                             onClick={() => setIsCreateNodeModalVisible(true)}
                         >
-                            <StyledPlusOutlined /> Add Term Group
+                            <StyledPlusOutlined /> {t('addTermGroup')}
                         </Button>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_TERM) && (
-                    <Tooltip title="Create New Glossary Term" showArrow={false} placement="bottom">
+                    <Tooltip title={t('createTermTooltip')} showArrow={false} placement="bottom">
                         <Button data-testid="add-term-button" onClick={() => setIsCreateTermModalVisible(true)}>
-                            <StyledPlusOutlined /> Add Term
+                            <StyledPlusOutlined /> {t('addTerm')}
                         </Button>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_APPLICATION) && (
-                    <Tooltip title="Add Assets to Application" showArrow={false} placement="bottom">
+                    <Tooltip title={t('addApplicationTooltip')} showArrow={false} placement="bottom">
                         <Button variant="outline" onClick={() => setIsBatchSetApplicationModalVisible(true)}>
-                            <LinkOutlined /> Add to Assets
+                            <LinkOutlined /> {t('addToAssets')}
                         </Button>
                     </Tooltip>
                 )}
             </ButtonWrapper>
             {isBatchAddGlossaryTermModalVisible && (
                 <SearchSelectModal
-                    titleText="Add Glossary Term to assets"
-                    continueText="Add"
+                    titleText={t('addTermModalTitle')}
+                    continueText={tc('add')}
                     onContinue={batchAddGlossaryTerms}
                     onCancel={() => setIsBatchAddGlossaryTermModalVisible(false)}
                     fixedEntityTypes={Array.from(
@@ -346,8 +350,8 @@ function EntityActions(props: Props) {
             )}
             {isBatchSetDomainModalVisible && (
                 <SearchSelectModal
-                    titleText="Add assets to Domain"
-                    continueText="Add"
+                    titleText={t('addDomainModalTitle')}
+                    continueText={tc('add')}
                     onContinue={batchSetDomain}
                     onCancel={() => setIsBatchSetDomainModalVisible(false)}
                     fixedEntityTypes={Array.from(
@@ -357,8 +361,8 @@ function EntityActions(props: Props) {
             )}
             {isBatchSetApplicationModalVisible && (
                 <SearchSelectModal
-                    titleText="Add assets to Application"
-                    continueText="Add"
+                    titleText={t('addApplicationModalTitle')}
+                    continueText={tc('add')}
                     onContinue={batchSetApplication}
                     onCancel={() => setIsBatchSetApplicationModalVisible(false)}
                     fixedEntityTypes={Array.from(
@@ -368,8 +372,8 @@ function EntityActions(props: Props) {
             )}
             {isBatchSetDataProductModalVisible && (
                 <SearchSelectModal
-                    titleText="Add assets to Data Product"
-                    continueText="Add"
+                    titleText={t('addDataProductModalTitle')}
+                    continueText={tc('add')}
                     onContinue={batchSetDataProduct}
                     onCancel={() => setIsBatchSetDataProductModalVisible(false)}
                     fixedEntityTypes={Array.from(

@@ -1,9 +1,10 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { AcrylDatasetAssertionsList } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsList';
 import { DataContractCategoryType } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
+import { getDataContractCategoryLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
 
 import { Assertion } from '@types';
 
@@ -11,14 +12,14 @@ const Category = styled.div`
     padding: 20px;
     font-weight: bold;
     font-size: 14px;
-    background-color: ${ANTD_GRAY[3]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 4px;
 `;
 
 const Hint = styled.span`
     font-weight: normal;
     font-size: 14px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type Props = {
@@ -39,10 +40,11 @@ export const DataContractAssertionGroupSelect = ({
     selectedUrns,
     onSelect,
 }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     return (
         <>
             <Category>
-                {category} <Hint> {!multiple && `(Choose 1)`}</Hint>
+                {getDataContractCategoryLabel(category)} <Hint> {!multiple && t('contractBuilder.chooseOne')}</Hint>
             </Category>
             <AcrylDatasetAssertionsList
                 assertions={assertions}

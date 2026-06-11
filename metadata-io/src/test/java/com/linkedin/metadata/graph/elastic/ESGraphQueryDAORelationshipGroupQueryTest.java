@@ -88,6 +88,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             .enableMultiPathSearch(true)
             .boostViaNodes(true)
             .maxThreads(1) // Ensure valid thread count for GraphQueryPITDAO
+            .sliceFutureDrainTimeoutSeconds(2)
             .build();
 
     LimitConfig limitConfig =
@@ -614,6 +615,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             .enableMultiPathSearch(true) // Enable multiple paths
             .queryOptimization(true)
             .maxThreads(1) // Ensure valid thread count for GraphQueryPITDAO
+            .sliceFutureDrainTimeoutSeconds(2)
             .build();
 
     ElasticSearchConfiguration testESConfig =
@@ -644,6 +646,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             .batchSize(25)
             .enableMultiPathSearch(false) // Disable multiple paths
             .maxThreads(1) // Ensure valid thread count for GraphQueryPITDAO
+            .sliceFutureDrainTimeoutSeconds(2)
             .build();
 
     ElasticSearchConfiguration testSinglePathConfig =
@@ -1120,6 +1123,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             .enableMultiPathSearch(true)
             .pointInTimeCreationEnabled(true)
             .maxThreads(1) // Ensure valid thread count for GraphQueryPITDAO
+            .sliceFutureDrainTimeoutSeconds(2)
             .impact(
                 ImpactConfiguration.builder()
                     .maxRelations(1000)
@@ -1191,6 +1195,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             .enableMultiPathSearch(true)
             .pointInTimeCreationEnabled(true)
             .maxThreads(1) // Ensure valid thread count for GraphQueryPITDAO
+            .sliceFutureDrainTimeoutSeconds(2)
             .impact(
                 ImpactConfiguration.builder()
                     .maxRelations(1000)

@@ -2,15 +2,16 @@ package io.datahubproject.metadata.jobs.common.health.kafka;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
+import com.linkedin.metadata.config.messaging.KafkaMessagingEnabled;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.TopicPartition;
-import org.springframework.boot.actuate.health.AbstractHealthIndicator;
-import org.springframework.boot.actuate.health.Health;
-import org.springframework.boot.actuate.health.Status;
+import org.springframework.boot.health.contributor.AbstractHealthIndicator;
+import org.springframework.boot.health.contributor.Health;
+import org.springframework.boot.health.contributor.Status;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 import org.springframework.kafka.listener.MessageListenerContainer;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
+@KafkaMessagingEnabled
 public class KafkaHealthIndicator extends AbstractHealthIndicator {
 
   private final KafkaListenerEndpointRegistry listenerRegistry;

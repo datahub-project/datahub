@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.context.OperationFingerprint;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,7 +51,7 @@ import lombok.extern.slf4j.Slf4j;
 @Builder(toBuilder = true)
 @Getter
 @Slf4j
-public class OperationContext implements AuthorizationSession {
+public class OperationContext implements AuthorizationSession, OperationFingerprint {
 
   /**
    * This should be the primary entry point when a request is made to Rest.li, OpenAPI, Graphql or
@@ -147,6 +148,18 @@ public class OperationContext implements AuthorizationSession {
     }
   }
 
+  public static OperationContext withReadPreference(
+      @Nonnull OperationContext opContext, @Nonnull ReadPreference readPreference) {
+    try {
+      return opContext.toBuilder()
+          .primaryStorageContext(
+              opContext.getPrimaryStorageContext().withReadPreference(readPreference))
+          .build(opContext.getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   /**
    * Set the system authentication object AND allow escalation of privilege for the session. This
    * OperationContext typically serves the default.
@@ -176,8 +189,33 @@ public class OperationContext implements AuthorizationSession {
         searchContext,
         retrieverContext,
         validationContext,
+        systemTelemetryContext,
+        PrimaryStorageContext.EMPTY,
+        enforceExistenceEnabled);
+  }
+
+  public static OperationContext asSystem(
+      @Nonnull OperationContextConfig config,
+      @Nonnull Authentication systemAuthentication,
+      @Nonnull EntityRegistry entityRegistry,
+      @Nullable ServicesRegistryContext servicesRegistryContext,
+      @Nullable SearchContext searchContext,
+      @Nullable RetrieverContext retrieverContext,
+      @Nonnull ValidationContext validationContext,
+      @Nullable SystemTelemetryContext systemTelemetryContext,
+      @Nullable PrimaryStorageContext primaryStorageContext,
+      boolean enforceExistenceEnabled) {
+    return OperationContext.asSystem(
+        config,
+        systemAuthentication,
+        entityRegistry,
+        servicesRegistryContext,
+        searchContext,
+        retrieverContext,
+        validationContext,
         ObjectMapperContext.DEFAULT,
         systemTelemetryContext,
+        primaryStorageContext,
         enforceExistenceEnabled);
   }
 
@@ -191,6 +229,7 @@ public class OperationContext implements AuthorizationSession {
       @Nonnull ValidationContext validationContext,
       @Nonnull ObjectMapperContext objectMapperContext,
       @Nullable SystemTelemetryContext systemTelemetryContext,
+      @Nullable PrimaryStorageContext primaryStorageContext,
       boolean enforceExistenceEnabled) {
     ActorContext systemActorContext =
         ActorContext.builder()
@@ -215,6 +254,8 @@ public class OperationContext implements AuthorizationSession {
           .validationContext(validationContext)
           .objectMapperContext(objectMapperContext)
           .systemTelemetryContext(systemTelemetryContext)
+          .primaryStorageContext(
+              primaryStorageContext != null ? primaryStorageContext : PrimaryStorageContext.EMPTY)
           .build(systemAuthentication, enforceExistenceEnabled);
     } catch (Exception e) {
       throw new RuntimeException("Failed to build OperationContext", e);
@@ -233,6 +274,7 @@ public class OperationContext implements AuthorizationSession {
   @Nonnull private final ObjectMapperContext objectMapperContext;
   @Nonnull private final ValidationContext validationContext;
   @Nullable private final SystemTelemetryContext systemTelemetryContext;
+  @Nonnull private final PrimaryStorageContext primaryStorageContext;
 
   // Mutable collection for pending aspect deletions during validation
   // This is per-operation and not shared across threads, so ArrayList is safe
@@ -247,6 +289,10 @@ public class OperationContext implements AuthorizationSession {
   public OperationContext withLineageFlags(
       @Nonnull Function<LineageFlags, LineageFlags> flagDefaults) {
     return OperationContext.withLineageFlags(this, flagDefaults);
+  }
+
+  public OperationContext withReadPreference(@Nonnull ReadPreference readPreference) {
+    return OperationContext.withReadPreference(this, readPreference);
   }
 
   public OperationContext asSession(
@@ -286,6 +332,16 @@ public class OperationContext implements AuthorizationSession {
   @Nonnull
   public String getKeyAspectName(@Nonnull final Urn urn) {
     return getEntityRegistryContext().getKeyAspectName(urn);
+  }
+
+  /**
+   * {@link OperationFingerprint#getActor()} — effective actor URN (system when escalation allowed,
+   * otherwise session actor).
+   */
+  @Override
+  @Nonnull
+  public Urn getActor() {
+    return getActorContext().getActorUrn();
   }
 
   /**
@@ -540,6 +596,7 @@ public class OperationContext implements AuthorizationSession {
                 getServicesRegistryContext() == null
                     ? EmptyContext.EMPTY
                     : getServicesRegistryContext())
+            .add(getPrimaryStorageContext())
             .build()
             .stream()
             .map(ContextInterface::getCacheKeyComponent)
@@ -611,6 +668,14 @@ public class OperationContext implements AuthorizationSession {
 
   public static class OperationContextBuilder {
 
+    @Nullable private PrimaryStorageContext primaryStorageContext;
+
+    public OperationContextBuilder primaryStorageContext(
+        @Nullable PrimaryStorageContext primaryStorageContext) {
+      this.primaryStorageContext = primaryStorageContext;
+      return this;
+    }
+
     @Nonnull
     public OperationContext build(
         @Nonnull Authentication sessionAuthentication, boolean enforceExistenceEnabled) {
@@ -646,24 +711,32 @@ public class OperationContext implements AuthorizationSession {
               ? this.retrieverContext.getAspectRetriever()
               : this.retrieverContext.getCachingAspectRetriever();
 
-      if (!sessionActor.isActive(retriever)) {
+      OperationContext authContext =
+          new OperationContext(
+              this.operationContextConfig,
+              sessionActor,
+              this.systemActorContext,
+              Objects.requireNonNull(this.searchContext),
+              Objects.requireNonNull(this.authorizationContext),
+              this.entityRegistryContext,
+              this.servicesRegistryContext,
+              this.requestContext,
+              this.retrieverContext,
+              this.objectMapperContext != null
+                  ? this.objectMapperContext
+                  : ObjectMapperContext.DEFAULT,
+              this.validationContext,
+              this.systemTelemetryContext,
+              this.primaryStorageContext != null
+                  ? this.primaryStorageContext
+                  : PrimaryStorageContext.EMPTY,
+              new java.util.ArrayList<>());
+
+      if (!sessionActor.isActive(authContext, retriever)) {
         throw new ActorAccessException("Actor is not active");
       }
 
-      return new OperationContext(
-          this.operationContextConfig,
-          sessionActor,
-          this.systemActorContext,
-          Objects.requireNonNull(this.searchContext),
-          Objects.requireNonNull(this.authorizationContext),
-          this.entityRegistryContext,
-          this.servicesRegistryContext,
-          this.requestContext,
-          this.retrieverContext,
-          this.objectMapperContext != null ? this.objectMapperContext : ObjectMapperContext.DEFAULT,
-          this.validationContext,
-          this.systemTelemetryContext,
-          new java.util.ArrayList<>());
+      return authContext;
     }
 
     private OperationContext build() {

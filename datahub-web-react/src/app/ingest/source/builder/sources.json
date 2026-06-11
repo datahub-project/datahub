@@ -1,5 +1,12 @@
 [
     {
+        "urn": "urn:li:dataPlatform:aerospike",
+        "name": "aerospike",
+        "displayName": "Aerospike",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/aerospike/",
+        "recipe": "source:\n    type: aerospike\n    config:\n        hosts:\n            - - localhost\n              - 3000\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:bigquery",
         "name": "bigquery",
         "displayName": "BigQuery",
@@ -16,6 +23,14 @@
         "recipe": "source: \n    type: redshift\n    config:\n        # Coordinates\n        host_port: # Your Redshift host and post, e.g. example.something.us-west-2.redshift.amazonaws.com:5439\n        database: # Your Redshift database, e.g. SampleDatabase\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Redshift username, e.g. admin\n\n        table_lineage_mode: stl_scan_based\n        include_table_lineage: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:omni",
+        "name": "omni",
+        "displayName": "Omni",
+        "description": "Import Dashboards, Charts, and lineage from Omni.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/omni",
+        "recipe": "source:\n  type: omni\n  config:\n    base_url: https://your-org.omniapp.co/api\n    api_key: ${OMNI_API_KEY}\n    connection_to_platform:\n      conn_abc123: snowflake\n    stateful_ingestion:\n      enabled: true\n      remove_stale_metadata: true\n"
+    },
+    {
         "urn": "urn:li:dataPlatform:snaplogic",
         "name": "snaplogic",
         "displayName": "SnapLogic",
@@ -29,7 +44,15 @@
         "displayName": "Snowflake",
         "description": "Import Tables, Views, Databases, Schemas, lineage, queries, and statistics from Snowflake.",
         "docsUrl": "https://docs.datahub.com/docs/quick-ingestion-guides/snowflake/overview",
-        "recipe": "source: \n    type: snowflake\n    config:\n        account_id: null\n        include_table_lineage: true\n        include_view_lineage: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+        "recipe": "source: \n    type: snowflake\n    config:\n        account_id: null\n        authentication_type: KEY_PAIR_AUTHENTICATOR\n        include_table_lineage: true\n        include_view_lineage: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:starrocks",
+        "name": "starrocks",
+        "displayName": "StarRocks",
+        "description": "Import Tables, Views, Databases, Schemas, and statistics from StarRocks.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/starrocks/",
+        "recipe": "source: \n    type: starrocks\n    config: \n        # Coordinates\n        host_port: # Your StarRocks host and port, e.g. starrocks:9030\n        database: # Your StarRocks database name, e.g. datahub\n    \n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your StarRocks username, e.g. root\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:databricks",
@@ -62,6 +85,14 @@
         "description": "Import Data Sources, Workbooks, Worksheets, Tags, Dashboards, and lineage from Tableau.",
         "docsUrl": "https://docs.datahub.com/docs/quick-ingestion-guides/tableau/overview",
         "recipe": "source:\n    type: tableau\n    config:\n        # Coordinates\n        connect_uri: null\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:thoughtspot",
+        "name": "thoughtspot",
+        "displayName": "ThoughtSpot",
+        "description": "Import Liveboards, Answers, Visualizations, Worksheets, Tags, and column-level lineage from ThoughtSpot.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/thoughtspot/",
+        "recipe": "source:\n  type: thoughtspot\n  config:\n    connection:\n      base_url: \"https://your-cluster.thoughtspot.cloud\"\n      # Trusted authentication (recommended for production).\n      # Add credentials in the Secrets tab and reference them by name.\n      auth:\n        type: trusted\n        username: \"${THOUGHTSPOT_USERNAME}\"\n        secret_key: \"${THOUGHTSPOT_SECRET_KEY}\"\n      # (Optional) Scope to a specific org in multi-org tenants.\n      # org_identifier: \"production\"\n\n    include_ownership: true\n    # Per-entity view counts via metadata_search include_stats (same counter\n    # as the TS UI \"Views\" column).\n    include_usage_stats: false\n\n    stateful_ingestion:\n      enabled: true\n      remove_stale_metadata: true"
     },
     {
         "urn": "urn:li:dataPlatform:powerbi",
@@ -102,6 +133,14 @@
         "description": "Import Tables, Views, Databases, Schemas, and statistics from Postgres.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/postgres/",
         "recipe": "source: \n    type: postgres\n    config:\n        # Coordinates\n        host_port: # Your Postgres host and port, e.g. postgres:5432\n        database: # Your Postgres Database, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Postgres username, e.g. admin\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:timescaledb",
+        "name": "timescaledb",
+        "displayName": "TimescaleDB",
+        "description": "Import Tables, Views, Hypertables, Continuous Aggregates, and Background Jobs from TimescaleDB.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/timescaledb/",
+        "recipe": "source: \n    type: timescaledb\n    config:\n        # Coordinates\n        host_port: # Your TimescaleDB host and port, e.g. timescaledb:5432\n        database: # Your TimescaleDB Database, e.g. tsdb\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your TimescaleDB username, e.g. datahub_user\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # (Optional) Emit TimescaleDB background jobs as DataJob entities\n        # include_background_jobs: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:kafka",
@@ -157,7 +196,7 @@
         "displayName": "Microsoft SQL Server",
         "description": "Import Tables, Views, Databases, Schemas, and statistics from SQL Server.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/mssql/",
-        "recipe": "source:\n    type: mssql\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+        "recipe": "source:\n    type: mssql\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        convert_urns_to_lowercase: true\n        convert_column_urns_to_lowercase: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:mariadb",
@@ -395,7 +434,8 @@
         "name": "hex",
         "displayName": "Hex",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/hex/",
-        "recipe": "source:\n  type: hex\n  config:\n    workspace_name: # Your Hex Workspace name\n     token: # Your PAT or Workspace token"
+        "recipe": "source:\n  type: hex\n  config:\n    workspace_name: # Your Hex workspace name\n    token: # Your Workspace Token or PAT",
+        "description": "Import Projects, Components, lineage, run history, and AI context documents from Hex."
     },
     {
         "urn": "urn:li:dataPlatform:grafana",
@@ -411,5 +451,16 @@
         "description": "Import Charts and Dashboards from Preset",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/preset/",
         "recipe": "source:\n  type: preset\n  config:\n    # Coordinates\n    connect_uri: Preset workspace URL\n    manager_uri: https://api.app.preset.io\n\n    # Credentials\n    api_key: Preset API Key\n    api_secret: Preset API Secret"
+    },
+    {
+        "urn": "urn:li:dataPlatform:snowplow",
+        "name": "snowplow",
+        "displayName": "Snowplow",
+        "description": "Import Schemas, Event Specifications, Tracking Plans, Pipelines, and Enrichments from Snowplow BDP.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/snowplow",
+        "recipe": "source:\n  type: snowplow\n  config:\n    # BDP Console API connection\n    bdp_connection:\n      organization_id: \"YOUR_ORG_UUID\"\n      api_key_id: \"${SNOWPLOW_API_KEY_ID}\"\n      api_key: \"${SNOWPLOW_API_KEY}\"\n\n    # Optional: Filter schemas by Snowplow deployment environment (PROD, DEV)\n    # deployment_environment: PROD\n\n    # Optional: Filter pipelines by Snowplow pipeline label (commonly the env, e.g. prod)\n    # pipeline_label: prod\n\n    # Optional: Filter event specifications by status\n    # event_spec_statuses:\n    #   - published\n\n    # Optional: Filter schemas by vendor/name pattern\n    # schema_pattern:\n    #   allow:\n    #     - \"com\\\\.mycompany\\\\..*\"\n\n    stateful_ingestion:\n      enabled: true",
+        "category": "Data Collector",
+        "isPopular": false,
+        "isNew": true
     }
 ]

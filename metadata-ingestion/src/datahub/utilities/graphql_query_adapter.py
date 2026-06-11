@@ -13,7 +13,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, cast
 
 from graphql import (
     DocumentNode,
@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 SCHEMA_TTL_SECONDS: float = 600.0  # 10 min backstop TTL
 SCHEMA_FAILURE_TTL_SECONDS: float = 60.0  # 1 min negative cache
 QUERY_CACHE_MAX_SIZE: int = 128
-INLINE_CACHE_MAX_SIZE: int = 128
+PARSE_CACHE_MAX_SIZE: int = 128
 DISK_CACHE_DIR: str = os.path.join(os.path.expanduser("~"), ".datahub", "schema_cache")
 _MAX_INLINE_DEPTH: int = 10  # guard against pathological fragment nesting
 
@@ -101,6 +101,120 @@ def _inline_fragments(document: DocumentNode) -> DocumentNode:
     return document
 
 
+def _minify_printed_graphql(printed: str) -> str:
+    """Collapse insignificant whitespace in already-serialised GraphQL text.
+
+    Treats ``"..."`` and ``\"\"\"...\"\"\"`` string literals as opaque so
+    whitespace inside them is preserved. Caller is responsible for passing
+    valid GraphQL — typically ``print_ast(ast)``.
+    """
+    out: List[str] = []
+    i = 0
+    n = len(printed)
+    while i < n:
+        # Block string: """ ... """ — pass through verbatim.
+        if printed.startswith('"""', i):
+            j = printed.find('"""', i + 3)
+            if j == -1:
+                out.append(printed[i:])
+                break
+            out.append(printed[i : j + 3])
+            i = j + 3
+            continue
+        # Regular string: " ... " with backslash escapes.
+        if printed[i] == '"':
+            j = i + 1
+            while j < n:
+                c = printed[j]
+                if c == "\\":
+                    j += 2
+                    continue
+                if c == '"':
+                    j += 1
+                    break
+                j += 1
+            out.append(printed[i:j])
+            i = j
+            continue
+        # Outside a string: collapse runs of whitespace to a single space.
+        if printed[i].isspace():
+            out.append(" ")
+            while i < n and printed[i].isspace():
+                i += 1
+            continue
+        out.append(printed[i])
+        i += 1
+
+    return "".join(out).strip()
+
+
+def minify_graphql_query(query: str) -> str:
+    """Collapse insignificant whitespace in a GraphQL query string.
+
+    Reduces wire size — ``entity_details.gql`` shrinks from ~43KB to ~17KB —
+    by removing the indentation that ``print_ast`` (and most hand-authored
+    .gql files) emit. Cheap and lossless: identical AST before/after.
+
+    Both ``"..."`` and ``\"\"\"...\"\"\"`` string literals are passed through
+    untouched, so whitespace inside a literal — e.g. a multi-word search
+    term — is never altered. The naive ``" ".join(query.split())`` trick
+    does not have that property and silently corrupts queries containing
+    strings with interior whitespace.
+
+    Returns the query unchanged if it cannot be parsed; callers do not have
+    to worry about minification breaking malformed input.
+    """
+    try:
+        printed = print_ast(parse(query))
+    except Exception:
+        return query
+    return _minify_printed_graphql(printed)
+
+
+class _SpreadCollector(Visitor):
+    """AST visitor that records every fragment-spread name it encounters."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.names: Set[str] = set()
+
+    def enter_fragment_spread(self, node: FragmentSpreadNode, *_args: object) -> None:
+        self.names.add(node.name.value)
+
+
+def _prune_orphan_fragments(document: DocumentNode) -> Tuple[DocumentNode, List[str]]:
+    """Drop FragmentDefinitionNodes that no FragmentSpreadNode references.
+
+    Projection can leave behind orphan fragment defs when the only spread sites
+    were inside an inline fragment that was removed for referencing an
+    unsupported type. graphql-java's ``NoUnusedFragments`` validation rule
+    rejects such queries, so the pass repeats until a fixed point — chains of
+    fragments that only reference each other get fully cleaned up.
+
+    Returns the (possibly rewritten) document and the names of pruned fragments.
+    """
+    removed: List[str] = []
+    while True:
+        collector = _SpreadCollector()
+        visit(document, collector)
+
+        new_defs = tuple(
+            defn
+            for defn in document.definitions
+            if not isinstance(defn, FragmentDefinitionNode)
+            or defn.name.value in collector.names
+        )
+        if len(new_defs) == len(document.definitions):
+            return document, removed
+        removed.extend(
+            cast(FragmentDefinitionNode, defn).name.value
+            for defn in document.definitions
+            if isinstance(defn, FragmentDefinitionNode)
+            and defn.name.value not in collector.names
+        )
+        document = DocumentNode(definitions=new_defs)
+
+
 class RequiredFieldUnsupportedError(Exception):
     """Raised when required fields are not supported by the server schema.
 
@@ -122,23 +236,63 @@ class UnsupportedFieldRemover(Visitor):
     This visitor walks the GraphQL query AST and removes:
     - Inline fragments for types that don't exist in the schema
     - Fields that don't exist on their parent type
-    - Fragment spreads referencing undefined fragments
+    - Fragment definitions whose type_condition references an unsupported type
+    - Fragment spreads referencing such removed fragments
 
-    Uses TypeInfo to track the current type context during traversal.
+    Uses TypeInfo to track the current type context during traversal, which works
+    correctly inside fragment definitions — the type_condition anchors the parent
+    type so we do not need to inline fragments to project them.
     """
 
-    def __init__(self, schema: GraphQLSchema, type_info: TypeInfo) -> None:
+    def __init__(
+        self,
+        schema: GraphQLSchema,
+        type_info: TypeInfo,
+        unsupported_fragments: Optional[Set[str]] = None,
+    ) -> None:
         """Initialize the visitor.
 
         Args:
             schema: The server's GraphQL schema
             type_info: Type information tracker for AST traversal
+            unsupported_fragments: Names of fragment definitions to remove (pre-computed
+                because spreads may be visited before their definitions in document order)
         """
         super().__init__()
         self.schema = schema
         self.type_info = type_info
+        self.unsupported_fragments: Set[str] = unsupported_fragments or set()
         self.removed_fields: List[str] = []
         self.removed_structural_paths: List[str] = []
+
+    def enter_fragment_definition(
+        self,
+        node: FragmentDefinitionNode,
+        *_args: object,
+    ) -> Optional[object]:
+        """Remove fragment definitions whose type_condition references an unsupported type."""
+        if node.name.value in self.unsupported_fragments:
+            type_name = node.type_condition.name.value
+            self.removed_fields.append(
+                f"FragmentDefinition({node.name.value} on {type_name})"
+            )
+            self.removed_structural_paths.append(type_name)
+            logger.debug(
+                f"Removing fragment definition {node.name.value} on unsupported type {type_name}"
+            )
+            return REMOVE
+        return None
+
+    def enter_fragment_spread(
+        self,
+        node: FragmentSpreadNode,
+        *_args: object,
+    ) -> Optional[object]:
+        """Remove fragment spreads that reference a fragment we removed above."""
+        if node.name.value in self.unsupported_fragments:
+            self.removed_fields.append(f"FragmentSpread(...{node.name.value})")
+            return REMOVE
+        return None
 
     def enter_inline_fragment(
         self,
@@ -314,9 +468,12 @@ class QueryProjector:
         self._schema_generation: int = 0
         self._fetching_schema_thread: Optional[int] = None
 
-        # Tier 1 — inline cache: query_string -> inlined DocumentNode
+        # Tier 1 — parse cache: query_string -> parsed DocumentNode
         # Pure function of query text, no schema dependency. Never invalidated.
-        self._inline_cache: Dict[str, DocumentNode] = {}
+        # Fragments are NOT inlined here — preserving them keeps the projected
+        # request body small (entity_details.gql expands ~4× when inlined),
+        # which matters for cloud GMS deployments with low edge body-size limits.
+        self._parse_cache: Dict[str, DocumentNode] = {}
 
         # Tier 2 — projection cache: (query_string, generation) ->
         #   (adapted_query, removed_fields, removed_structural_paths)
@@ -368,22 +525,33 @@ class QueryProjector:
                 _check_required_fields(required_fields, removed_paths)
             return adapted_query, removed_fields
 
-        # Tier 1: inline cache (schema-independent)
-        document = self._inline_cache.get(query)
+        # Tier 1: parse cache (schema-independent). Fragments are preserved —
+        # projection operates on fragment definitions directly via TypeInfo.
+        document = self._parse_cache.get(query)
         if document is None:
             try:
-                document = _inline_fragments(parse(query))
+                document = parse(query)
             except Exception as e:
                 logger.error(f"Failed to parse GraphQL query: {e}")
                 raise
-            if len(self._inline_cache) >= INLINE_CACHE_MAX_SIZE:
-                oldest_key = next(iter(self._inline_cache))
-                del self._inline_cache[oldest_key]
-            self._inline_cache[query] = document
+            if len(self._parse_cache) >= PARSE_CACHE_MAX_SIZE:
+                oldest_key = next(iter(self._parse_cache))
+                del self._parse_cache[oldest_key]
+            self._parse_cache[query] = document
+
+        # Pre-pass: identify fragment definitions whose type_condition references
+        # an unsupported type. Done up-front because spreads can appear before
+        # their definitions in document order.
+        unsupported_fragments: Set[str] = set()
+        for defn in document.definitions:
+            if isinstance(defn, FragmentDefinitionNode):
+                type_name = defn.type_condition.name.value
+                if schema.type_map.get(type_name) is None:
+                    unsupported_fragments.add(defn.name.value)
 
         # Visit the AST with type-aware field removal
         type_info = TypeInfo(schema)
-        visitor = UnsupportedFieldRemover(schema, type_info)
+        visitor = UnsupportedFieldRemover(schema, type_info, unsupported_fragments)
 
         try:
             modified_ast = visit(document, TypeInfoVisitor(type_info, visitor))
@@ -391,8 +559,21 @@ class QueryProjector:
             logger.error(f"Failed to visit GraphQL AST: {e}")
             raise
 
-        # Convert the modified AST back to a query string
-        adapted_query = print_ast(modified_ast)
+        # Post-pass: drop fragment definitions whose spreads were all pruned
+        # away. Without this, queries that originally spread a fragment only
+        # inside an `... on UnsupportedType { ...Frag }` block end up with an
+        # orphan FragmentDefinition that graphql-java's NoUnusedFragments rule
+        # rejects.
+        modified_ast, orphaned = _prune_orphan_fragments(modified_ast)
+        if orphaned:
+            visitor.removed_fields.extend(
+                f"FragmentDefinition({name}, orphan)" for name in orphaned
+            )
+
+        # Serialise the modified AST and minify. The central minifier
+        # preserves string-literal whitespace, so this is safe for any
+        # query, not just ones with no interior whitespace.
+        adapted_query = _minify_printed_graphql(print_ast(modified_ast))
 
         removed_paths = visitor.removed_structural_paths
         result = (adapted_query, visitor.removed_fields, removed_paths)

@@ -22,8 +22,7 @@ public class CustomOidcClient extends OidcClient {
     // Validate configuration
     CommonHelper.assertNotNull("configuration", getConfiguration());
 
-    // Initialize configuration
-    getConfiguration().init(forceReinit);
+    getConfiguration().init(this.getClass().getSimpleName(), forceReinit);
 
     // Initialize client components
     setRedirectionActionBuilderIfUndefined(

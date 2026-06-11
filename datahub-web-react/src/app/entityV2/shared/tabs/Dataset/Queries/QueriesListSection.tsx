@@ -3,9 +3,9 @@ import { Popover } from '@components';
 import { Table, TablePaginationConfig, Typography } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import AddButton from '@app/entityV2/shared/tabs/Dataset/Queries/AddButton';
 import QueryFilters from '@app/entityV2/shared/tabs/Dataset/Queries/QueryFilters/QueryFilters';
 import { QueriesTabSection, Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
@@ -17,9 +17,9 @@ import { Sorting } from '@app/sharedV2/sorting/useSorting';
 import { FacetFilterInput } from '@src/types.generated';
 
 const SectionWrapper = styled.div<{ $borderRadiusBottom?: boolean }>`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     padding: 24px;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     ${(props) => (props.$borderRadiusBottom ? `border-radius: 0 0 10px 10px;` : `border-radius: 10px;`)}
     height: fit-content;
 `;
@@ -41,14 +41,14 @@ const QueriesTitle = styled(Typography.Text)`
         margin: 0px;
         font-size: 16px;
         font-weight: 700;
-        color: ${REDESIGN_COLORS.TEXT_HEADING};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
 const StyledInfoOutlined = styled(InfoCircleOutlined)`
     margin-left: 8px;
     font-size: 12px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const StyledTable = styled(Table)`
@@ -56,7 +56,7 @@ const StyledTable = styled(Table)`
         font-weight: 700;
         font-size: 14px;
         line-height: 16px;
-        color: ${ANTD_GRAY_V2[12]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 
     .lastRun {
@@ -126,6 +126,7 @@ export default function QueriesListSection({
     onAddQuery,
     isTopSection,
 }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
     /**
      * Table state
      */
@@ -234,7 +235,7 @@ export default function QueriesListSection({
                 {section === QueriesTabSection.Highlighted && (
                     <AddButton
                         dataTestId="add-query-button"
-                        buttonLabel="Add Highlighted Query"
+                        buttonLabel={t('queriesTab.addHighlightedQueryButton')}
                         isButtonDisabled={addQueryDisabled}
                         onButtonClick={onAddQuery}
                     />

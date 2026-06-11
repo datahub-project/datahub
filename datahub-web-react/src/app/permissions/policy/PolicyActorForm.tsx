@@ -2,6 +2,7 @@ import { Avatar, Text } from '@components';
 import { Form, Radio, Select, Switch, Tag, Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
@@ -73,6 +74,7 @@ const SelectRow = styled.div`
  * access Policy by populating an ActorFilter object.
  */
 export default function PolicyActorForm({ policyType, actors, setActors }: Props) {
+    const { t } = useTranslation('settings.permissions');
     const entityRegistry = useEntityRegistry();
 
     const [userCondition, setUserCondition] = useState<Condition>(() =>
@@ -338,16 +340,15 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     return (
         <ActorForm layout="vertical">
             <ActorFormHeader>
-                <Typography.Title level={4}>Applies to</Typography.Title>
-                <Typography.Paragraph>Select the users & groups that this policy should apply to.</Typography.Paragraph>
+                <Typography.Title level={4}>{t('actorForm.title')}</Typography.Title>
+                <Typography.Paragraph>{t('actorForm.description')}</Typography.Paragraph>
             </ActorFormHeader>
             {showAppliesToOwners && (
-                <Form.Item label={<Typography.Text strong>Owners</Typography.Text>} labelAlign="right">
-                    <Typography.Paragraph>
-                        Whether this policy should be apply to owners of the Metadata asset. If true, those who are
-                        marked as owners of a Metadata Asset, either directly or indirectly via a Group, will have the
-                        selected privileges.
-                    </Typography.Paragraph>
+                <Form.Item
+                    label={<Typography.Text strong>{t('actorForm.ownersLabel')}</Typography.Text>}
+                    labelAlign="right"
+                >
+                    <Typography.Paragraph>{t('actorForm.ownersDescription')}</Typography.Paragraph>
                     <Switch size="small" checked={actors.resourceOwners} onChange={onToggleAppliesToOwners} />
                     {actors.resourceOwners && (
                         <OwnershipWrapper>

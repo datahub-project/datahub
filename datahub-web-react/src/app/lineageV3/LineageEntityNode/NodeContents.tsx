@@ -1,15 +1,15 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Pill, Tooltip, colors } from '@components';
+import { Pill, Tooltip } from '@components';
 import { Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
 import { LastRunIcon } from '@app/entityV2/dataJob/tabs/RunsTab';
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import Columns from '@app/lineageV3/LineageEntityNode/Columns';
@@ -43,7 +43,7 @@ import { DataProcessRunStatus, EntityType, LineageDirection } from '@types';
 import LinkOut from '@images/link-out.svg?react';
 
 export const LoadingWrapper = styled.div`
-    color: ${LINEAGE_COLORS.PURPLE_3};
+    color: ${({ theme }) => theme.colors.iconBrand};
     font-size: 32px;
     line-height: 0;
     pointer-events: none;
@@ -108,7 +108,7 @@ const LinkOutWrapper = styled(Link)`
     color: inherit;
 
     :hover {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 
@@ -117,7 +117,7 @@ const ExtraDetailsWrapper = styled.div`
     align-items: center;
     gap: 4px;
 
-    color: ${colors.gray[1700]};
+    color: ${({ theme }) => theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 400;
     line-height: normal;
@@ -205,6 +205,9 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         numDownstreams,
     } = props;
 
+    const { t } = useTranslation('lineage');
+    const { t: tcLabel } = useTranslation('common.labels');
+    const theme = useTheme();
     const history = useHistory();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
@@ -223,8 +226,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
 
     useAvoidIntersections(urn, columnsHeight + LINEAGE_NODE_HEIGHT, rootType, isVertical);
 
-    const highlightColor = isSearchedEntity ? colors.yellow[400] : colors.yellow[200];
-
+    const highlightColor = isSearchedEntity ? theme.colors.bgHighlight : theme.colors.tagsTrueYellowBg;
     const hasUpstreamChildren = !!(numUpstreams ?? !!entity?.numUpstreamChildren);
     const hasDownstreamChildren = !!(numDownstreams ?? !!entity?.numDownstreamChildren);
     const isExpandedDownstream = isExpanded[LineageDirection.Downstream];
@@ -283,7 +285,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            <Tooltip title="Explore parent lineage" mouseEnterDelay={0.5}>
+                            <Tooltip title={t('node.exploreParentLineage.tooltip')} mouseEnterDelay={0.5}>
                                 <LinkOut />
                             </Tooltip>
                         </LinkOutWrapper>
@@ -302,15 +304,16 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
             extraDetails = (
                 <DataJobLastRunWrapper>
                     {lastRunEvent?.status === DataProcessRunStatus.Started ? (
-                        <>Running</>
+                        <>{t('node.dataJob.running')}</>
                     ) : (
-                        <>Last run {toRelativeTimeString(time)}</>
+                        <>{t('node.dataJob.lastRun', { time: toRelativeTimeString(time) })}</>
                     )}
                     {!!lastRunEvent?.status && (
                         <LastRunIcon
                             status={lastRunEvent.status}
                             resultType={lastRunEvent.result?.resultType ?? undefined}
                             showTooltip
+                            theme={theme}
                         />
                     )}
                 </DataJobLastRunWrapper>
@@ -363,7 +366,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                     childrenText={
                         !!numColumnsTotal && (
                             <ChildrenTextWrapper>
-                                Columns
+                                {tcLabel('columns')}
                                 <Pill label={`${numColumnsTotal}`} size="xs" />
                             </ChildrenTextWrapper>
                         )
@@ -486,10 +489,13 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     );
 
     if (isGhost) {
-        const message = entity?.status?.removed ? 'has been deleted' : 'does not exist in DataHub';
         // Put below context path popover
         return (
-            <Tooltip title={`This entity ${message}`} mouseEnterDelay={0.3} overlayStyle={{ zIndex: 10 }}>
+            <Tooltip
+                title={entity?.status?.removed ? t('node.ghost.deleted') : t('node.ghost.notFound')}
+                mouseEnterDelay={0.3}
+                overlayStyle={{ zIndex: 10 }}
+            >
                 {contents}
             </Tooltip>
         );

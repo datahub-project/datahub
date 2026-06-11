@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
@@ -15,6 +16,7 @@ import { EntityType, GlossaryTerm } from '@types';
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
 export const GlossaryNodesYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectionProps) => {
+    const { t } = useTranslation('home.v2');
     const userContext = useUserContext();
     const { user } = userContext;
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
@@ -30,8 +32,8 @@ export const GlossaryNodesYouOwn = ({ hideIfEmpty, trackClickInSection }: Refere
             <EntityLinkList
                 loading={loading || !user}
                 entities={entities.slice(0, entityCount)}
-                title="Your glossary terms"
-                tip="Glossary Terms that you own"
+                title={t('yourGlossary.title')}
+                tip={t('yourGlossary.tip')}
                 showMore={entities.length > entityCount}
                 showMoreCount={
                     entityCount + DEFAULT_MAX_ENTITIES_TO_SHOW > entities.length
@@ -46,7 +48,7 @@ export const GlossaryNodesYouOwn = ({ hideIfEmpty, trackClickInSection }: Refere
             />
             {showModal && (
                 <EmbeddedListSearchModal
-                    title="Your glossary"
+                    title={t('yourGlossary.modalTitle')}
                     fixedFilters={{
                         unionType: UnionType.AND,
                         filters: [
@@ -55,7 +57,7 @@ export const GlossaryNodesYouOwn = ({ hideIfEmpty, trackClickInSection }: Refere
                         ],
                     }}
                     onClose={() => setShowModal(false)}
-                    placeholderText="Filter glossary terms and groups..."
+                    placeholderText={t('yourGlossary.filterPlaceholder')}
                 />
             )}
         </ReferenceSection>

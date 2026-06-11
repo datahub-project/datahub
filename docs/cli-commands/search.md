@@ -1,4 +1,4 @@
-# DataHub Search Command
+# datahub search
 
 The `datahub search` command provides a powerful interface to search across all DataHub entities directly from the command line. It supports both keyword search (default) and semantic search with flexible filtering, multiple output formats, and comprehensive discovery features.
 

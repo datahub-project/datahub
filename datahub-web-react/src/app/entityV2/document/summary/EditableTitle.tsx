@@ -3,7 +3,6 @@ import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useUpdateDocumentTitleMutation } from '@app/document/hooks/useDocumentTreeMutations';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const TitleContainer = styled.div`
     width: 100%;
@@ -14,7 +13,7 @@ const TitleInput = styled.textarea<{ $editable: boolean }>`
     font-size: 32px;
     font-weight: 700;
     line-height: 1.4;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     border: none;
     outline: none;
     background: transparent;
@@ -43,7 +42,7 @@ const TitleInput = styled.textarea<{ $editable: boolean }>`
     }
 
     &::placeholder {
-        color: ${colors.gray[400]};
+        color: ${(props) => props.theme.colors.textTertiary};
         opacity: 0.4;
     }
 `;
@@ -68,6 +67,7 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
     // For freshly created docs, clear the default title and focus the field so the placeholder shows and typing starts immediately.
     useEffect(() => {
         const trimmed = (initialTitle || '').trim().toLowerCase();
+        /* untranslated-text -- internal default-title sentinel for fresh-doc detection; compared, not rendered */
         const isDefaultTitle = trimmed === 'new document' || trimmed === '';
 
         if (canEditTitle && isDefaultTitle && !hasAutoFocused.current) {
@@ -100,6 +100,7 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
     const handleBlur = async () => {
         // If the user leaves the field empty, fall back to the default placeholder title.
         const trimmed = title.trim();
+        /* untranslated-text -- default persisted document title; saved as data, not UI chrome */
         const fallbackTitle = initialTitle || 'New Document';
         const finalTitle = trimmed === '' ? fallbackTitle : title;
 
@@ -135,6 +136,7 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
                 onKeyDown={handleKeyDown}
                 $editable={canEditTitle}
                 disabled={!canEditTitle}
+                /* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) placeholder must match the persisted default-title sentinel used for fresh-doc detection (see line 70) */
                 placeholder="New Document"
                 rows={1}
             />

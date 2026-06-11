@@ -1,5 +1,6 @@
 import { Checkbox, Empty, List } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useInitializeColumnLineageCards } from '@app/entityV2/shared/components/styled/search/useInitializeColumnLineageCards';
@@ -41,7 +42,7 @@ const ListItem = styled.div<{ isSelectMode: boolean; areMatchesExpanded; compact
     padding: 20px;
     display: flex;
     align-items: center;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 10px;
     overflow: hidden;
     margin-bottom: ${({ areMatchesExpanded, compactUserSearchCardStyle }) => {
@@ -50,13 +51,13 @@ const ListItem = styled.div<{ isSelectMode: boolean; areMatchesExpanded; compact
         return MATCHES_CONTAINER_HEIGHT + 20;
     }}px;
     transition: margin-bottom 0.3s ease;
-    border: 1px solid #ebecf0;
+    border: 1px solid ${(props) => props.theme.colors.border};
     ${(props) =>
         props.areMatchesExpanded &&
         `
-        -webkit-box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.15);
-        -moz-box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.15);
-         box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.15);
+        -webkit-box-shadow: ${props.theme.colors.shadowLg};
+        -moz-box-shadow: ${props.theme.colors.shadowLg};
+         box-shadow: ${props.theme.colors.shadowLg};
     `}
 `;
 
@@ -104,6 +105,7 @@ export const EntitySearchResults = ({
     noResultsMessage,
     selectLimit,
 }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities?.map((entity) => entity.urn) || [];
 
@@ -143,10 +145,7 @@ export const EntitySearchResults = ({
             locale={{
                 emptyText: (
                     <>
-                        <Empty
-                            description={noResultsMessage || 'No results found'}
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        />
+                        <Empty description={noResultsMessage || tc('noResults')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
                     </>
                 ),
             }}

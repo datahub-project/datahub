@@ -24,9 +24,11 @@ public class ChangeTransactionMapper {
     result.setTimestampMillis(incomingChangeTransaction.getTimestamp());
     result.setVersionStamp("none");
     result.setChangeType(ChangeOperationType.MODIFY);
+    result.setActor(incomingChangeTransaction.getActor());
 
     result.setChanges(
         incomingChangeTransaction.getChangeEvents().stream()
+            .filter(event -> event.getCategory() != null && event.getOperation() != null)
             .map(ChangeEventMapper::map)
             .collect(Collectors.toList()));
 

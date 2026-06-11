@@ -1,11 +1,11 @@
 import { Tag, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
 import NoMarkdownViewer from '@app/entityV2/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -51,7 +51,7 @@ const PlatformText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     font-weight: 700;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const DescriptionContainer = styled.div`
@@ -74,6 +74,7 @@ export const Preview = ({
     description?: string | null;
     membersCount?: number;
 }): JSX.Element => {
+    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
     const url = entityRegistry.getEntityUrl(EntityType.CorpGroup, urn);
 
@@ -91,7 +92,7 @@ export const Preview = ({
                         <Link to={url}>
                             <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
                             <MemberCountContainer>
-                                <Tag>{membersCount} members</Tag>
+                                <Tag>{t('shared.membersCount', { count: membersCount || 0 })}</Tag>
                             </MemberCountContainer>
                         </Link>
                     </TitleContainer>

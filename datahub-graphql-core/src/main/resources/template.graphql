@@ -159,6 +159,7 @@ Different types of elements in asset summaries
 enum SummaryElementType {
   CREATED
   LAST_MODIFIED
+  LAST_INGESTED
   TAGS
   GLOSSARY_TERMS
   OWNERS

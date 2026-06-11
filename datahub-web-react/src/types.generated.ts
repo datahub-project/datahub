@@ -567,6 +567,8 @@ export type Assertion = Entity & EntityWithRelationships & {
   info?: Maybe<AssertionInfo>;
   /** Edges extending from this entity grouped by direction in the lineage graph */
   lineage?: Maybe<EntityLineageResult>;
+  /** Ownership metadata of the Assertion */
+  ownership?: Maybe<Ownership>;
   /** Standardized platform urn where the assertion is evaluated */
   platform: DataPlatform;
   /** Edges extending from this entity */
@@ -696,6 +698,11 @@ export type AssertionResult = {
   nativeResults?: Maybe<Array<StringMapEntry>>;
   /** Number of rows for evaluated batch */
   rowCount?: Maybe<Scalars['Long']>;
+  /**
+   * The severity of a failure result. Only meaningful when type is FAILURE.
+   * Indicates how far the observed value deviated from the expected bounds.
+   */
+  severity?: Maybe<AssertionResultSeverity>;
   /** The final result, e.g. either SUCCESS or FAILURE. */
   type: AssertionResultType;
   /** Number of rows with unexpected value for evaluated batch */
@@ -754,6 +761,12 @@ export type AssertionResultInput = {
    */
   properties?: Maybe<Array<StringMapEntryInput>>;
   /**
+   * The severity of a failure result. Only meaningful when type is FAILURE.
+   * Indicates how far the observed value deviated from the expected bounds.
+   * Ignored for SUCCESS and ERROR result types.
+   */
+  severity?: Maybe<AssertionResultSeverity>;
+  /**
    * Optional: Provide a timestamp associated with the run event. If not provided, one will be generated for you based
    * on the current time.
    */
@@ -761,6 +774,16 @@ export type AssertionResultInput = {
   /** The final result of assertion, e.g. either SUCCESS or FAILURE. */
   type: AssertionResultType;
 };
+
+/** The severity of an assertion failure. Only meaningful when the result type is FAILURE. */
+export enum AssertionResultSeverity {
+  /** High severity - significant deviation from expected bounds. */
+  High = 'HIGH',
+  /** Low severity - minor deviation from expected bounds. */
+  Low = 'LOW',
+  /** Medium severity - moderate deviation from expected bounds. This is the default. */
+  Medium = 'MEDIUM'
+}
 
 /** The result type of an assertion, success or failure. */
 export enum AssertionResultType {
@@ -1638,8 +1661,14 @@ export type ChangeAuditStamps = {
 
 /** Enum of CategoryTypes */
 export enum ChangeCategoryType {
+  /** When application associations have been added or removed */
+  Application = 'APPLICATION',
+  /** When assets have been added to or removed from a Data Product */
+  AssetMembership = 'ASSET_MEMBERSHIP',
   /** When documentation has been edited */
   Documentation = 'DOCUMENTATION',
+  /** When domain has been added or removed */
+  Domain = 'DOMAIN',
   /** When glossary terms have been added or removed */
   GlossaryTerm = 'GLOSSARY_TERM',
   /** When ownership has been modified */
@@ -1648,6 +1677,8 @@ export enum ChangeCategoryType {
   Parent = 'PARENT',
   /** When related entities have been added or removed */
   RelatedEntities = 'RELATED_ENTITIES',
+  /** When structured properties have been added, removed, or modified */
+  StructuredProperty = 'STRUCTURED_PROPERTY',
   /** When tags have been added or removed */
   Tag = 'TAG',
   /** When technical schemas have been added or removed */
@@ -1686,6 +1717,8 @@ export enum ChangeOperationType {
 /** A change transaction is a set of changes that were committed together. */
 export type ChangeTransaction = {
   __typename?: 'ChangeTransaction';
+  /** The URN of the actor who made this change */
+  actor?: Maybe<Scalars['String']>;
   /** The type of the change */
   changeType: ChangeOperationType;
   /** The list of changes in this transaction */
@@ -2438,6 +2471,13 @@ export type CorpUserInfo = {
   title?: Maybe<Scalars['String']>;
 };
 
+/** Locale and language preferences for a user. */
+export type CorpUserLocaleSettings = {
+  __typename?: 'CorpUserLocaleSettings';
+  /** BCP 47 language tag representing the user's preferred UI language (e.g. "en", "de"). */
+  language?: Maybe<Scalars['String']>;
+};
+
 /** Additional read only properties about a user */
 export type CorpUserProperties = {
   __typename?: 'CorpUserProperties';
@@ -2474,6 +2514,8 @@ export type CorpUserSettings = {
   appearance?: Maybe<CorpUserAppearanceSettings>;
   /** Settings related to the home page for a user */
   homePage?: Maybe<CorpUserHomePageSettings>;
+  /** Locale and language preferences for a user */
+  locale?: Maybe<CorpUserLocaleSettings>;
   /** Settings related to the DataHub Views feature */
   views?: Maybe<CorpUserViewsSettings>;
 };
@@ -2561,6 +2603,8 @@ export type CreateApplicationInput = {
   id?: Maybe<Scalars['String']>;
   /** Properties about the Application */
   properties: CreateApplicationPropertiesInput;
+  /** Whether to add the creator as an owner of the application. Defaults to true if not specified. */
+  shouldAddCreatorAsOwner?: Maybe<Scalars['Boolean']>;
 };
 
 /** Input properties required for creating a Application */
@@ -5292,12 +5336,20 @@ export type Document = Entity & {
   domain?: Maybe<DomainAssociation>;
   /** Whether or not this entity exists on DataHub */
   exists?: Maybe<Scalars['Boolean']>;
+  /**
+   * Deprecated, use tags field instead.
+   * The structured tags associated with the Document.
+   * @deprecated Use tags field instead
+   */
+  globalTags?: Maybe<GlobalTags>;
   /** Glossary terms associated with the Document */
   glossaryTerms?: Maybe<GlossaryTerms>;
   /** Information about the Document */
   info?: Maybe<DocumentInfo>;
   /** References to internal resources related to the Document (links) */
   institutionalMemory?: Maybe<InstitutionalMemory>;
+  /** The timestamp of the last time this Document was ingested */
+  lastIngested?: Maybe<Scalars['Long']>;
   /** Ownership metadata of the Document */
   ownership?: Maybe<Ownership>;
   /**
@@ -5821,6 +5873,8 @@ export type EmbeddingConfig = {
   modelId: Scalars['String'];
   /** Embedding provider type (e.g., "aws-bedrock") */
   provider: Scalars['String'];
+  /** Google Vertex AI-specific configuration (only populated when provider is "vertex_ai") */
+  vertexProviderConfig?: Maybe<VertexProviderConfig>;
 };
 
 /** A top level Metadata Entity */
@@ -5908,6 +5962,12 @@ export type EntityPath = {
 /** Shared privileges object across entities. Not all privileges apply to every entity. */
 export type EntityPrivileges = {
   __typename?: 'EntityPrivileges';
+  /**
+   * Whether or not a user can update owners on assertions belonging to this entity.
+   * Mirrors the assertee-delegation logic used by EDIT_ENTITY_ASSERTIONS: true when the
+   * actor has Edit Owners or Edit Assertions on this entity (the assertee).
+   */
+  canEditAssertionOwners?: Maybe<Scalars['Boolean']>;
   /** Whether or not a user can update assertions for an asset */
   canEditAssertions?: Maybe<Scalars['Boolean']>;
   /** Whether or not a user can update the data product(s) that the entity belongs to */
@@ -6343,6 +6403,10 @@ export enum FabricType {
   Rvw = 'RVW',
   /** Designates sandbox fabrics */
   Sandbox = 'SANDBOX',
+  /** Alternative spelling for sandbox */
+  Sbx = 'SBX',
+  /** System Integration Testing */
+  Sit = 'SIT',
   /** Designates staging fabrics */
   Stg = 'STG',
   /** Designates testing fabrics */
@@ -6374,11 +6438,6 @@ export type FacetFilterInput = {
   field: Scalars['String'];
   /** If the filter should or should not be matched */
   negated?: Maybe<Scalars['Boolean']>;
-  /**
-   * Value of the field to filter by. Deprecated in favor of `values`, which should accept a single element array for a
-   * value
-   */
-  value?: Maybe<Scalars['String']>;
   /** Values, one of which the intended field should match. */
   values?: Maybe<Array<Scalars['String']>>;
 };
@@ -6428,6 +6487,8 @@ export type FeatureFlagsConfig = {
   hideDbtSourceInLineage: Scalars['Boolean'];
   /** If enabled, hides lineage information in search result cards */
   hideLineageInSearchCards: Scalars['Boolean'];
+  /** If enabled, internationalization (i18n) features are active. */
+  i18nEnabled: Scalars['Boolean'];
   /** Enables displaying the ingestion onboarding redesign */
   ingestionOnboardingRedesignV1: Scalars['Boolean'];
   /** Whether to show the new lineage visualization. */
@@ -6492,6 +6553,8 @@ export type FeatureFlagsConfig = {
   showSeparateSiblings: Scalars['Boolean'];
   /** If turned on, show the re-designed Stats tab on the entity page */
   showStatsTabRedesign: Scalars['Boolean'];
+  /** If enabled, shows tests in the health icon on entity pages. */
+  showTestsInHealthIcon: Scalars['Boolean'];
   /**
    * Sets the default theme to V2.
    * If `themeV2Toggleable` is set, then users can toggle between V1 and V2.
@@ -7336,6 +7399,8 @@ export type GlossaryTerm = Entity & {
   schemaMetadata?: Maybe<SchemaMetadata>;
   /** Settings associated with this asset */
   settings?: Maybe<AssetSettings>;
+  /** The lifecycle status of the Glossary Term (removed flag and lifecycle stage). */
+  status?: Maybe<Status>;
   /** Structured properties about this asset */
   structuredProperties?: Maybe<StructuredProperties>;
   /** A standard Entity Type */
@@ -7536,7 +7601,9 @@ export enum HealthStatusType {
   /** Assertions status */
   Assertions = 'ASSERTIONS',
   /** Incidents status */
-  Incidents = 'INCIDENTS'
+  Incidents = 'INCIDENTS',
+  /** Tests status */
+  Tests = 'TESTS'
 }
 
 /** The params required if the module is type HIERARCHY_VIEW */
@@ -8118,6 +8185,31 @@ export type KeyValueSchema = {
   keySchema: Scalars['String'];
   /** Raw value schema */
   valueSchema: Scalars['String'];
+};
+
+/** A registered lifecycle stage type. */
+export type LifecycleStageType = {
+  __typename?: 'LifecycleStageType';
+  /**
+   * Allowed previous stage URNs that may transition into this stage.
+   * Null means any prior stage is allowed (no enforcement).
+   * Empty list means the stage is unreachable.
+   * Use "urn:li:lifecycleStageType:__NONE__" as the sentinel for the default active state.
+   */
+  allowedPreviousStages?: Maybe<Array<Scalars['String']>>;
+  /** Optional description of what this stage represents. */
+  description?: Maybe<Scalars['String']>;
+  /**
+   * Entity type names this stage applies to (e.g. ["glossaryTerm", "document"]).
+   * Null / absent means the stage applies to all entity types.
+   */
+  entityTypes?: Maybe<Array<Scalars['String']>>;
+  /** When true, entities in this stage are excluded from default search results. */
+  hideInSearch: Scalars['Boolean'];
+  /** Display name (e.g. "Draft", "In Review", "Deprecated"). */
+  name: Scalars['String'];
+  /** Full URN of the lifecycle stage type entity. */
+  urn: Scalars['String'];
 };
 
 /** Configurations related to Lineage */
@@ -9724,6 +9816,12 @@ export type Mutation = {
   rollbackIngestion?: Maybe<Scalars['String']>;
   /** Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully added, or already exists. Requires the Edit Domains privilege for the Entity. */
   setDomain?: Maybe<Scalars['Boolean']>;
+  /**
+   * Set or clear the lifecycle stage on any entity that has a Status aspect.
+   * Pass null for lifecycleStageUrn to clear the stage (publish/activate the entity).
+   * Transition rules defined on the destination stage are enforced server-side.
+   */
+  setLifecycleStage: Scalars['Boolean'];
   /** Set or unset an entity's logical parent */
   setLogicalParent?: Maybe<Scalars['Boolean']>;
   /** Set the hex color associated with an existing Tag */
@@ -9749,6 +9847,8 @@ export type Mutation = {
   updateChart?: Maybe<Chart>;
   /** Update a particular Corp Group's editable properties */
   updateCorpGroupProperties?: Maybe<CorpGroup>;
+  /** Update the locale settings for a user. */
+  updateCorpUserLocaleSettings?: Maybe<Scalars['Boolean']>;
   /** Update a particular Corp User's editable properties */
   updateCorpUserProperties?: Maybe<CorpUser>;
   /** Update the View-related settings for a user. */
@@ -9838,6 +9938,12 @@ export type Mutation = {
   updateQuery?: Maybe<QueryEntity>;
   /** Update a Secret */
   updateSecret?: Maybe<Scalars['String']>;
+  /**
+   * Sets or clears the default view for a service account.
+   * Requires the MANAGE_SERVICE_ACCOUNTS platform privilege.
+   * Pass null for defaultView to clear the current default.
+   */
+  updateServiceAccountDefaultView: Scalars['Boolean'];
   /** Update an existing structured property */
   updateStructuredProperty: StructuredPropertyEntity;
   /** Update the information about a particular Entity Tag */
@@ -10797,6 +10903,16 @@ export type MutationSetDomainArgs = {
  * Root type used for updating DataHub Metadata
  * Coming soon createEntity, addOwner, removeOwner mutations
  */
+export type MutationSetLifecycleStageArgs = {
+  lifecycleStageUrn?: Maybe<Scalars['String']>;
+  urn: Scalars['String'];
+};
+
+
+/**
+ * Root type used for updating DataHub Metadata
+ * Coming soon createEntity, addOwner, removeOwner mutations
+ */
 export type MutationSetLogicalParentArgs = {
   input: SetLogicalParentInput;
 };
@@ -10895,6 +11011,15 @@ export type MutationUpdateChartArgs = {
 export type MutationUpdateCorpGroupPropertiesArgs = {
   input: CorpGroupUpdateInput;
   urn: Scalars['String'];
+};
+
+
+/**
+ * Root type used for updating DataHub Metadata
+ * Coming soon createEntity, addOwner, removeOwner mutations
+ */
+export type MutationUpdateCorpUserLocaleSettingsArgs = {
+  input: UpdateCorpUserLocaleSettingsInput;
 };
 
 
@@ -11216,6 +11341,15 @@ export type MutationUpdateQueryArgs = {
  */
 export type MutationUpdateSecretArgs = {
   input: UpdateSecretInput;
+};
+
+
+/**
+ * Root type used for updating DataHub Metadata
+ * Coming soon createEntity, addOwner, removeOwner mutations
+ */
+export type MutationUpdateServiceAccountDefaultViewArgs = {
+  input: UpdateServiceAccountDefaultViewInput;
 };
 
 
@@ -12034,6 +12168,8 @@ export type PlatformPrivileges = {
   manageFeatures: Scalars['Boolean'];
   /** Whether the user can create and delete posts pinned to the home page. */
   manageGlobalAnnouncements: Scalars['Boolean'];
+  /** Whether the user should be able to view and change platform-level settings (e.g. integrations). */
+  manageGlobalSettings: Scalars['Boolean'];
   /** Whether the user should be able to create, update, and delete global views. */
   manageGlobalViews: Scalars['Boolean'];
   /** Whether the user should be able to manage Glossaries */
@@ -12612,6 +12748,11 @@ export type Query = {
   listGroups?: Maybe<ListGroupsResult>;
   /** List all ingestion sources */
   listIngestionSources?: Maybe<ListIngestionSourcesResult>;
+  /**
+   * Return all registered lifecycle stage types.
+   * Useful for agents and UIs to discover available stages before calling setLifecycleStage.
+   */
+  listLifecycleStages: Array<LifecycleStageType>;
   /** List DataHub Views owned by the current user */
   listMyViews?: Maybe<ListViewsResult>;
   /** List Custom Ownership Types */
@@ -14759,6 +14900,11 @@ export type SearchFlags = {
    * Note: This is an experimental feature and is subject to change.
    */
   groupingSpec?: Maybe<GroupingSpec>;
+  /**
+   * When true, entities explicitly part of hidden lifecycle stages (e.g. DRAFT, IN_REVIEW) are included
+   * in search results.
+   */
+  includeHiddenLifecycleStages?: Maybe<Scalars['Boolean']>;
   /** Whether to include restricted entities */
   includeRestricted?: Maybe<Scalars['Boolean']>;
   /** Whether to include soft deleted entities */
@@ -14949,6 +15095,11 @@ export type ServiceAccount = Entity & {
   createdAt?: Maybe<Scalars['Long']>;
   /** The actor URN that created this service account. */
   createdBy?: Maybe<Scalars['String']>;
+  /**
+   * The default DataHub View applied when this service account performs searches
+   * via the MCP server. Null when no default is configured.
+   */
+  defaultView?: Maybe<DataHubView>;
   /** An optional description of the service account. */
   description?: Maybe<Scalars['String']>;
   /** The display name of the service account. */
@@ -15058,6 +15209,18 @@ export enum SqlAssertionType {
 /** The status of a particular Metadata Entity */
 export type Status = {
   __typename?: 'Status';
+  /**
+   * Attribution for the lifecycle stage transition — who moved the entity
+   * into its current stage and when.
+   */
+  lifecycleLastUpdated?: Maybe<AuditStamp>;
+  /**
+   * The resolved lifecycle stage of this entity.
+   * When null, the entity is in its default active state (visible in search).
+   * When set, provides the full stage definition (name, description, settings)
+   * without an additional client round-trip.
+   */
+  lifecycleStage?: Maybe<LifecycleStageType>;
   /** Whether the entity is removed or not */
   removed: Scalars['Boolean'];
 };
@@ -15326,6 +15489,7 @@ export enum SummaryElementType {
   DocumentType = 'DOCUMENT_TYPE',
   Domain = 'DOMAIN',
   GlossaryTerms = 'GLOSSARY_TERMS',
+  LastIngested = 'LAST_INGESTED',
   LastModified = 'LAST_MODIFIED',
   Owners = 'OWNERS',
   StructuredProperty = 'STRUCTURED_PROPERTY',
@@ -15721,6 +15885,15 @@ export type UpdateBusinessAttributeInput = {
   type?: Maybe<SchemaFieldDataType>;
 };
 
+/** Input required to update locale settings for a user. */
+export type UpdateCorpUserLocaleSettingsInput = {
+  /**
+   * BCP 47 language tag for the user's preferred UI language (e.g. "en", "de").
+   * If not provided, the language preference will be cleared.
+   */
+  language?: Maybe<Scalars['String']>;
+};
+
 /** Input required to update a users settings. */
 export type UpdateCorpUserViewsSettingsInput = {
   /**
@@ -16028,6 +16201,17 @@ export type UpdateSecretInput = {
   urn: Scalars['String'];
   /** The value of the secret, to be encrypted and stored */
   value: Scalars['String'];
+};
+
+/** Input required to update a service account's default view. */
+export type UpdateServiceAccountDefaultViewInput = {
+  /**
+   * The URN of the DataHub View to set as the default.
+   * If null, the current default view will be removed.
+   */
+  defaultView?: Maybe<Scalars['String']>;
+  /** The URN of the service account to update. */
+  urn: Scalars['String'];
 };
 
 /** Result returned when fetching step state */
@@ -16452,6 +16636,15 @@ export type VersionedDataset = Entity & {
 /** A Dataset entity, which encompasses Relational Tables, Document store collections, streaming topics, and other sets of data having an independent lifecycle */
 export type VersionedDatasetRelationshipsArgs = {
   input: RelationshipsInput;
+};
+
+/** Google Vertex AI provider-specific configuration */
+export type VertexProviderConfig = {
+  __typename?: 'VertexProviderConfig';
+  /** GCP region for the Vertex AI endpoint (e.g., "us-east1", "us-central1") */
+  location: Scalars['String'];
+  /** GCP project ID where Vertex AI is enabled */
+  projectId: Scalars['String'];
 };
 
 /** Properties about a Dataset of type view */

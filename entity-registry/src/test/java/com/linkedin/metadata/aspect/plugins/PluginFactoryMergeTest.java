@@ -2,6 +2,7 @@ package com.linkedin.metadata.aspect.plugins;
 
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -10,6 +11,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -307,13 +309,15 @@ public class PluginFactoryMergeTest {
             configs, // aspectPayloadValidators
             Collections.emptyList(), // mutationHooks
             Collections.emptyList(), // mclSideEffects
-            Collections.emptyList() // mcpSideEffects
+            Collections.emptyList(), // mcpSideEffects
+            Collections.emptyList() // mcpObservers
             );
 
     return new PluginFactory(
         pluginConfiguration,
         Collections.emptyList(),
         validators,
+        Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList());
@@ -337,7 +341,8 @@ public class PluginFactoryMergeTest {
             List.of(config), // aspectPayloadValidators
             List.of(config), // mutationHooks
             List.of(config), // mclSideEffects
-            List.of(config) // mcpSideEffects
+            List.of(config), // mcpSideEffects
+            List.of(config) // mcpObservers
             );
 
     return new PluginFactory(
@@ -346,7 +351,8 @@ public class PluginFactoryMergeTest {
         List.of((AspectPayloadValidator) new MockAspectPayloadValidator().setConfig(config)),
         List.of((MutationHook) new MockMutationHook().setConfig(config)),
         List.of((MCLSideEffect) new MockMCLSideEffect().setConfig(config)),
-        List.of((MCPSideEffect) new MockMCPSideEffect().setConfig(config)));
+        List.of((MCPSideEffect) new MockMCPSideEffect().setConfig(config)),
+        List.of((MCPObserver) new MockMCPObserver().setConfig(config)));
   }
 
   // Mock plugin implementations for testing
@@ -367,6 +373,7 @@ public class PluginFactoryMergeTest {
 
     @Override
     protected Stream<AspectValidationException> validateProposedAspects(
+        @Nonnull OperationFingerprint operationContext,
         @Nonnull Collection<? extends BatchItem> mcpItems,
         @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
@@ -374,7 +381,9 @@ public class PluginFactoryMergeTest {
 
     @Override
     protected Stream<AspectValidationException> validatePreCommitAspects(
-        @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        @Nonnull Collection<ChangeMCP> changeMCPs,
+        @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
     }
   }
@@ -431,14 +440,39 @@ public class PluginFactoryMergeTest {
 
     @Override
     protected Stream<ChangeMCP> applyMCPSideEffect(
-        @Nonnull Collection<ChangeMCP> mcpItems, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        @Nonnull Collection<ChangeMCP> mcpItems,
+        @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
     }
 
     @Override
     protected Stream<MCPItem> postMCPSideEffect(
-        @Nonnull Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        @Nonnull Collection<MCLItem> mclItems,
+        @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
+    }
+  }
+
+  private static class MockMCPObserver extends MCPObserver {
+    private AspectPluginConfig config;
+
+    @Override
+    public AspectPluginConfig getConfig() {
+      return config;
+    }
+
+    @Override
+    public PluginSpec setConfig(AspectPluginConfig config) {
+      this.config = config;
+      return this;
+    }
+
+    @Override
+    protected void observeMCPs(
+        Collection<? extends BatchItem> items, @Nonnull RetrieverContext retrieverContext) {
+      // no-op for testing
     }
   }
 }

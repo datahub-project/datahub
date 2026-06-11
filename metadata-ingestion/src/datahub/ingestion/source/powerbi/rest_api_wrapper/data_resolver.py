@@ -21,12 +21,15 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Page,
     PowerBIDataset,
     Report,
-    ReportType,
+    ReportDatasource,
     Table,
     Tile,
     User,
     Workspace,
-    new_powerbi_dataset,
+    new_powerbi_dashboards,
+    new_powerbi_reports,
+    new_powerbi_tiles,
+    new_powerbi_user,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.profiling_utils import (
     process_column_result,
@@ -154,7 +157,13 @@ class DataResolverBase(ABC):
         pass
 
     @abstractmethod
-    def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+    def get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+        pass
+
+    @abstractmethod
+    def get_report_datasources(
+        self, workspace: Workspace, report_id: str
+    ) -> List[ReportDatasource]:
         pass
 
     @abstractmethod
@@ -165,12 +174,6 @@ class DataResolverBase(ABC):
         workspace_name: str,
         profile_pattern: Optional[AllowDenyPattern],
     ) -> None:
-        pass
-
-    @abstractmethod
-    def get_dataset(
-        self, workspace: Workspace, dataset_id: str
-    ) -> Optional[PowerBIDataset]:
         pass
 
     @abstractmethod
@@ -250,34 +253,7 @@ class DataResolverBase(ABC):
 
         response.raise_for_status()
 
-        dashboards_dict: List[Any] = response.json()[Constant.VALUE]
-
-        # Iterate through response and create a list of PowerBiAPI.Dashboard
-        dashboards: List[Dashboard] = [
-            Dashboard(
-                id=instance.get(Constant.ID),
-                isReadOnly=instance.get(Constant.IS_READ_ONLY),
-                displayName=instance.get(Constant.DISPLAY_NAME),
-                description=instance.get(Constant.DESCRIPTION, ""),
-                embedUrl=instance.get(Constant.EMBED_URL),
-                webUrl=instance.get(Constant.WEB_URL),
-                workspace_id=workspace.id,
-                workspace_name=workspace.name,
-                tiles=[],
-                users=[],
-                tags=[],
-            )
-            for instance in dashboards_dict
-            if (
-                instance is not None
-                and Constant.APP_ID
-                not in instance  # As we add dashboards to the App, Power BI starts
-                # providing duplicate dashboard information,
-                # where the duplicate includes an AppId, while the original dashboard does not.
-            )
-        ]
-
-        return dashboards
+        return new_powerbi_dashboards(workspace, response.json()[Constant.VALUE])
 
     def get_groups(self, filter_: Dict) -> List[dict]:
         group_endpoint = self.get_groups_endpoint()
@@ -292,62 +268,20 @@ class DataResolverBase(ABC):
 
         return output
 
-    def get_reports(
-        self, workspace: Workspace, _filter: Optional[str] = None
-    ) -> List[Report]:
+    def get_reports(self, workspace: Workspace) -> List[Report]:
         reports_endpoint = self.get_reports_endpoint(workspace)
-        # Hit PowerBi
         logger.debug(f"Request to report URL={reports_endpoint}")
-        params: Optional[dict] = None
-        if _filter is not None:
-            params = {"$filter": _filter}
 
-        def fetch_reports():
-            response = self._request_session.get(
-                reports_endpoint,
-                headers=self.get_authorization_header(),
-                params=params,
-            )
-            response.raise_for_status()
-            response_dict = response.json()
-            logger.debug(f"Report Request response = {response_dict}")
-            return response_dict.get(Constant.VALUE, [])
-
-        reports: List[Report] = [
-            Report(
-                id=raw_instance.get(Constant.ID),
-                name=raw_instance.get(Constant.NAME),
-                type=ReportType[raw_instance.get(Constant.REPORT_TYPE)],
-                webUrl=raw_instance.get(Constant.WEB_URL),
-                embedUrl=raw_instance.get(Constant.EMBED_URL),
-                description=raw_instance.get(Constant.DESCRIPTION, ""),
-                pages=self._get_pages_by_report(
-                    workspace=workspace, report_id=raw_instance[Constant.ID]
-                ),
-                dataset_id=raw_instance.get(Constant.DATASET_ID),
-                users=[],  # It will be fetched using Admin Fetcher based on condition
-                tags=[],  # It will be fetched using Admin Fetcher based on condition
-                dataset=None,  # It will come from dataset_registry defined in powerbi_api.py
-            )
-            for raw_instance in fetch_reports()
-            if Constant.APP_ID
-            not in raw_instance  # As we add reports to the App, Power BI starts providing
-            # duplicate report information,
-            # where the duplicate includes an AppId,
-            # while the original report does not.
-        ]
-
-        return reports
-
-    def get_report(self, workspace: Workspace, report_id: str) -> Optional[Report]:
-        reports: List[Report] = self.get_reports(
-            workspace, _filter=f"id eq '{report_id}'"
+        response = self._request_session.get(
+            reports_endpoint,
+            headers=self.get_authorization_header(),
         )
+        response.raise_for_status()
+        response_dict = response.json()
+        logger.debug(f"Report Request response = {response_dict}")
 
-        if len(reports) == 0:
-            return None
-
-        return reports[0]
+        # The /reports endpoint omits users; ownership is populated separately.
+        return new_powerbi_reports(workspace, response_dict.get(Constant.VALUE, []))
 
     def get_tiles(self, workspace: Workspace, dashboard: Dashboard) -> List[Tile]:
         """
@@ -372,30 +306,7 @@ class DataResolverBase(ABC):
         # Iterate through response and create a list of PowerBiAPI.Dashboard
         tile_dict: List[Any] = response.json().get(Constant.VALUE, [])
         logger.debug(f"Tile Dict = {tile_dict}")
-        tiles: List[Tile] = [
-            Tile(
-                id=instance.get(Constant.ID),
-                title=instance.get(Constant.TITLE),
-                embedUrl=instance.get(Constant.EMBED_URL),
-                dataset_id=instance.get(Constant.DATASET_ID),
-                report_id=instance.get(Constant.REPORT_ID),
-                dataset=None,
-                report=None,
-                createdFrom=(
-                    # In the past we considered that only one of the two report_id or dataset_id would be present
-                    # but we have seen cases where both are present. If both are present, we prioritize the report.
-                    Tile.CreatedFrom.REPORT
-                    if instance.get(Constant.REPORT_ID)
-                    else Tile.CreatedFrom.DATASET
-                    if instance.get(Constant.DATASET_ID)
-                    else Tile.CreatedFrom.VISUALIZATION
-                ),
-            )
-            for instance in tile_dict
-            if instance is not None
-        ]
-
-        return tiles
+        return new_powerbi_tiles(tile_dict)
 
     def itr_pages(
         self,
@@ -468,63 +379,27 @@ class RegularAPIResolver(DataResolverBase):
     API_ENDPOINTS = {
         Constant.DASHBOARD_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/dashboards",
         Constant.TILE_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/dashboards/{DASHBOARD_ID}/tiles",
-        Constant.DATASET_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}",
-        Constant.DATASOURCE_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/datasources",
+        Constant.DATASET_PARAMS_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/parameters",
         Constant.REPORT_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}",
         Constant.REPORT_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports",
         Constant.PAGE_BY_REPORT: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}/pages",
+        Constant.REPORT_DATASOURCES: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}/datasources",
         Constant.DATASET_EXECUTE_QUERIES: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/executeQueries",
         Constant.GET_WORKSPACE_APP: "{MY_ORG_URL}/apps/{APP_ID}",
     }
 
-    def get_dataset(
-        self, workspace: Workspace, dataset_id: str
-    ) -> Optional[PowerBIDataset]:
-        """
-        Fetch the dataset from PowerBi for the given dataset identifier
-        """
-        if workspace.id is None or dataset_id is None:
-            logger.debug("Input values are None")
-            logger.debug(f"{Constant.WorkspaceId}={workspace.id}")
-            logger.debug(f"{Constant.DatasetId}={dataset_id}")
-            return None
-
-        dataset_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
-            Constant.DATASET_GET
-        ]
-        # Replace place holders
-        dataset_get_endpoint = dataset_get_endpoint.format(
-            POWERBI_BASE_URL=self._base_url,
-            WORKSPACE_ID=workspace.id,
-            DATASET_ID=dataset_id,
-        )
-        # Hit PowerBi
-        logger.debug(f"Request to dataset URL={dataset_get_endpoint}")
-        response = self._request_session.get(
-            dataset_get_endpoint,
-            headers=self.get_authorization_header(),
-        )
-        # Check if we got a response from PowerBi
-        response.raise_for_status()
-        response_dict = response.json()
-        logger.debug(f"datasets = {response_dict}")
-        # PowerBi Always return the webURL, in-case if it is None, then setting complete webURL to None instead of
-        # None/details
-        return new_powerbi_dataset(workspace, response_dict)
-
     def get_dataset_parameters(
         self, workspace_id: str, dataset_id: str
     ) -> Dict[str, str]:
-        dataset_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
-            Constant.DATASET_GET
+        params_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
+            Constant.DATASET_PARAMS_GET
         ]
-        dataset_get_endpoint = dataset_get_endpoint.format(
+        params_get_endpoint = params_get_endpoint.format(
             POWERBI_BASE_URL=self._base_url,
             WORKSPACE_ID=workspace_id,
             DATASET_ID=dataset_id,
         )
-        logger.debug(f"Request to dataset URL={dataset_get_endpoint}")
-        params_get_endpoint = dataset_get_endpoint + "/parameters"
+        logger.debug(f"Request to dataset URL={params_get_endpoint}")
 
         params_response = self._request_session.get(
             params_get_endpoint,
@@ -569,7 +444,7 @@ class RegularAPIResolver(DataResolverBase):
             DASHBOARD_ID=dashboard_id,
         )
 
-    def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+    def get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         pages_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.PAGE_BY_REPORT]
         # Replace place holders
         pages_endpoint = pages_endpoint.format(
@@ -598,6 +473,31 @@ class RegularAPIResolver(DataResolverBase):
                 order=raw_instance.get(Constant.ORDER),
             )
             for raw_instance in response_dict.get(Constant.VALUE, [])
+        ]
+
+    def get_report_datasources(
+        self, workspace: Workspace, report_id: str
+    ) -> List[ReportDatasource]:
+        endpoint: str = RegularAPIResolver.API_ENDPOINTS[
+            Constant.REPORT_DATASOURCES
+        ].format(
+            POWERBI_BASE_URL=self._base_url,
+            WORKSPACE_ID=workspace.id,
+            REPORT_ID=report_id,
+        )
+        logger.debug(f"Request to paginated-report datasources URL={endpoint}")
+        response = self._request_session.get(
+            endpoint,
+            headers=self.get_authorization_header(),
+        )
+        # Let HTTP errors propagate so the caller can emit a structured
+        # reporter.warning instead of the INFO-level log from is_http_failure.
+        response.raise_for_status()
+
+        return [
+            ds
+            for raw in response.json().get(Constant.VALUE, [])
+            if (ds := ReportDatasource.from_raw(raw)) is not None
         ]
 
     def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
@@ -891,20 +791,10 @@ class AdminAPIResolver(DataResolverBase):
 
         # Iterate through response and create a list of PowerBiAPI.Dashboard
         users: List[User] = [
-            User(
-                id=instance.get(Constant.IDENTIFIER),
-                displayName=instance.get(Constant.DISPLAY_NAME),
-                emailAddress=instance.get(Constant.EMAIL_ADDRESS),
-                graphId=instance.get(Constant.GRAPH_ID),
-                principalType=instance.get(Constant.PRINCIPAL_TYPE),
-                datasetUserAccessRight=instance.get(Constant.DATASET_USER_ACCESS_RIGHT),
-                reportUserAccessRight=instance.get(Constant.REPORT_USER_ACCESS_RIGHT),
-                dashboardUserAccessRight=instance.get(
-                    Constant.DASHBOARD_USER_ACCESS_RIGHT
-                ),
-                groupUserAccessRight=instance.get(Constant.GROUP_USER_ACCESS_RIGHT),
-            )
+            user
             for instance in users_dict
+            for user in [new_powerbi_user(instance)]
+            if user is not None
         ]
 
         return users
@@ -966,37 +856,19 @@ class AdminAPIResolver(DataResolverBase):
             DASHBOARD_ID=dashboard_id,
         )
 
-    def get_dataset(
-        self, workspace: Workspace, dataset_id: str
-    ) -> Optional[PowerBIDataset]:
-        datasets_endpoint = self.API_ENDPOINTS[Constant.DATASET_LIST].format(
-            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
-            WORKSPACE_ID=workspace.id,
-        )
-        # Hit PowerBi
-        logger.debug(f"Request to datasets URL={datasets_endpoint}")
-        params: dict = {"$filter": f"id eq '{dataset_id}'"}
-        logger.debug("params = %s", params)
-        response = self._request_session.get(
-            datasets_endpoint,
-            headers=self.get_authorization_header(),
-            params=params,
-        )
-        response.raise_for_status()
-        response_dict = response.json()
-        if len(response_dict.get(Constant.VALUE, [])) == 0:
-            logger.warning(
-                "Dataset not found. workspace_id = %s, dataset_id = %s",
-                workspace.id,
-                dataset_id,
-            )
-            return None
-
-        raw_instance: dict = response_dict[Constant.VALUE][0]
-        return new_powerbi_dataset(workspace, raw_instance)
-
-    def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+    def get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         return []  # Report pages are not available in Admin API
+
+    def get_report_datasources(
+        self, workspace: Workspace, report_id: str
+    ) -> List[ReportDatasource]:
+        # No admin-API variant exists for /reports/{id}/datasources;
+        # callers in admin_apis_only mode will get empty lineage.
+        logger.debug(
+            "get_report_datasources is a no-op in admin_apis_only mode (report_id=%s)",
+            report_id,
+        )
+        return []
 
     def get_modified_workspaces(self, modified_since: str) -> List[str]:
         """

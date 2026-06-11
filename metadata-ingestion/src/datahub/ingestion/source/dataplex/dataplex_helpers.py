@@ -5,44 +5,24 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from datahub.emitter.mcp_builder import BigQueryDatasetKey
-
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class EntryDataTuple:
-    """Immutable data structure for tracking entry metadata.
+    """Immutable Dataplex/DataHub identity tuple for lineage tracking.
 
     Used in sets for lineage extraction, so must be hashable (frozen=True).
     """
 
-    entry_id: str
-    source_platform: str
-    dataset_id: str
-
-
-def make_bigquery_dataset_container_key(
-    project_id: str, dataset_id: str, platform: str, env: str
-) -> BigQueryDatasetKey:
-    """Create container key for a BigQuery dataset.
-
-    Args:
-        project_id: GCP project ID
-        dataset_id: BigQuery dataset ID
-        platform: Platform name (should be "bigquery")
-        env: Environment (PROD, DEV, etc.)
-
-    Returns:
-        BigQueryDatasetKey for the dataset container
-    """
-    return BigQueryDatasetKey(
-        project_id=project_id,
-        dataset_id=dataset_id,
-        platform=platform,
-        env=env,
-        backcompat_env_as_instance=True,
-    )
+    dataplex_entry_short_name: str
+    dataplex_entry_name: str
+    dataplex_location: str
+    dataplex_entry_type_short_name: str
+    dataplex_entry_fqn: str
+    datahub_platform: str
+    datahub_dataset_name: str
+    datahub_dataset_urn: str
 
 
 def make_audit_stamp(timestamp: Any) -> Optional[Dict[str, Any]]:
@@ -156,46 +136,3 @@ def serialize_field_value(field_value: Any) -> str:
         return json.dumps(field_value)
     except (TypeError, ValueError):
         return str(field_value)
-
-
-def parse_entry_fqn(fqn: str) -> tuple[str, str]:
-    """Parse fully qualified name to extract platform and dataset_id.
-
-    Args:
-        fqn: Fully qualified name (e.g., 'bigquery:project.dataset.table')
-
-    Returns:
-        Tuple of (platform, dataset_id)
-        - For BigQuery: dataset_id is 'project.dataset.table'
-        - For GCS: dataset_id is 'bucket/path'
-    """
-    if ":" not in fqn:
-        return "", ""
-
-    platform, resource_path = fqn.split(":", 1)
-
-    if platform == "bigquery":
-        # BigQuery FQN format: bigquery:project.dataset.table
-        # Return the full project.dataset.table as dataset_id
-        parts = resource_path.split(".")
-        if len(parts) >= 3:
-            # Full table reference: project.dataset.table
-            return platform, resource_path
-        elif len(parts) == 2:
-            # Dataset reference (legacy): project.dataset
-            logger.warning(
-                f"BigQuery FQN '{fqn}' only has 2 parts (project.dataset), expected 3 (project.dataset.table)"
-            )
-            return platform, resource_path
-        else:
-            logger.warning(
-                f"BigQuery FQN '{fqn}' has unexpected format, expected 'bigquery:project.dataset.table'"
-            )
-            return platform, resource_path
-    elif platform == "gcs":
-        # GCS FQN format: gcs:bucket/path
-        # Return the full bucket/path as dataset_id
-        return platform, resource_path
-
-    # For other platforms, return the full resource_path
-    return platform, resource_path

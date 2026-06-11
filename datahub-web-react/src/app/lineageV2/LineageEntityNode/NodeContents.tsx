@@ -3,12 +3,12 @@ import { Tooltip } from '@components';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { Skeleton, Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Handle, Position } from 'reactflow';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import { ANTD_GRAY, LINEAGE_COLORS, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import Columns from '@app/lineageV2/LineageEntityNode/Columns';
 import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
@@ -47,15 +47,15 @@ const NodeWrapper = styled.div<{
     isSearchedEntity: boolean;
 }>`
     align-items: center;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border: 1px solid
-        ${({ color, selected, isGhost }) => {
+        ${({ color, selected, isGhost, theme }) => {
             if (selected) return color;
-            if (isGhost) return `${LINEAGE_COLORS.NODE_BORDER}50`;
-            return LINEAGE_COLORS.NODE_BORDER;
+            if (isGhost) return `${theme.colors.border}50`;
+            return theme.colors.border;
         }};
     box-shadow: ${({ isSearchedEntity, theme }) =>
-        isSearchedEntity ? `0 0 4px 4px ${theme.styles['primary-color']}95` : 'none'};
+        isSearchedEntity ? `0 0 4px 4px ${theme.colors.borderBrand}95` : 'none'};
     outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
     border-left: none;
     border-radius: 6px;
@@ -108,7 +108,7 @@ const EntityTypeShadow = styled.div<{ color: string; isGhost: boolean }>`
 `;
 
 export const LoadingWrapper = styled.div`
-    color: ${LINEAGE_COLORS.PURPLE_3};
+    color: ${(props) => props.theme.colors.iconBrand};
     font-size: 32px;
     line-height: 0;
     pointer-events: none;
@@ -126,7 +126,7 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
 
 const IconsWrapper = styled.div`
     align-items: center;
-    color: ${ANTD_GRAY[10]};
+    color: ${(props) => props.theme.colors.icon};
     display: flex;
     flex-direction: column;
     font-size: 24px;
@@ -202,9 +202,9 @@ const TitleLine = styled.span`
 
 const ExpandColumnsWrapper = styled(MatchTextSizeWrapper)`
     align-items: center;
-    border: 0.5px solid ${LINEAGE_COLORS.BLUE_1}50;
+    border: ${(props) => `0.5px solid ${props.theme.colors.borderBrand}50`};
     border-radius: 10px;
-    color: ${LINEAGE_COLORS.BLUE_1};
+    color: ${(props) => props.theme.colors.textBrand};
     display: flex;
     justify-content: center;
     width: 100%;
@@ -214,7 +214,7 @@ const ExpandColumnsWrapper = styled(MatchTextSizeWrapper)`
     max-height: 16px;
 
     :hover {
-        background-color: ${LINEAGE_COLORS.BLUE_1}20;
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
         cursor: pointer;
     }
 `;
@@ -292,7 +292,9 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         ignoreSchemaFieldStatus,
     } = props;
 
+    const { t } = useTranslation('lineage');
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
 
     const isGhost = isGhostEntity(entity, ignoreSchemaFieldStatus);
 
@@ -309,7 +311,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
 
     const platformName = entityRegistry.getDisplayName(EntityType.DataPlatform, entity?.platform);
     const [nodeColor] = getNodeColor(type);
-    const highlightColor = isSearchedEntity ? REDESIGN_COLORS.YELLOW_500 : REDESIGN_COLORS.YELLOW_200;
+    const highlightColor = isSearchedEntity ? theme.colors.textWarning : theme.colors.bgSurfaceWarning;
     const hasUpstreamChildren = !!entity?.numUpstreamChildren;
     const hasDownstreamChildren = !!entity?.numDownstreamChildren;
     const isExpandedDownstream = isExpanded[LineageDirection.Downstream];
@@ -435,7 +437,11 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         </>
                     )}
                     {entity?.icon && !entity.lineageSiblingIcon && (
-                        <PlatformIcon src={entity.icon} alt={platformName || 'platform'} title={platformName} />
+                        <PlatformIcon
+                            src={entity.icon}
+                            alt={platformName || t('node.platformAlt')}
+                            title={platformName}
+                        />
                     )}
                     {!entity && <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />}
                     {entity ? (
@@ -487,7 +493,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                 defaultHeight={10}
                                 data-testid="expand-contract-columns"
                             >
-                                {numColumnsTotal} columns
+                                {t('node.columnsCount', { count: numColumnsTotal })}
                                 {showColumns && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
                                 {!showColumns && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}
                             </ExpandColumnsWrapper>
@@ -530,9 +536,9 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     );
 
     if (isGhost) {
-        const message = entity?.status?.removed ? 'has been deleted' : 'does not exist in DataHub';
+        const ghostTitle = entity?.status?.removed ? t('node.ghost.deleted') : t('node.ghost.notFound');
         return (
-            <Tooltip title={`This entity ${message}`} mouseEnterDelay={0.3}>
+            <Tooltip title={ghostTitle} mouseEnterDelay={0.3}>
                 {contents}
             </Tooltip>
         );

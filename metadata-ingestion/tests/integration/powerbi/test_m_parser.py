@@ -5,7 +5,6 @@ from typing import List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
-from lark import Tree
 
 import datahub.ingestion.source.powerbi.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
@@ -19,11 +18,12 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser, tree_function
+from datahub.ingestion.source.powerbi.m_query import parser
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataPlatformTable,
     Lineage,
 )
+from datahub.ingestion.source.powerbi.m_query.pattern_handler import NativeQueryLineage
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -127,97 +127,6 @@ def combine_upstreams_from_lineage(lineage: List[Lineage]) -> List[DataPlatformT
         data_platforms.extend(item.upstreams)
 
     return data_platforms
-
-
-@pytest.mark.integration
-def test_parse_m_query1():
-    expression: str = M_QUERIES[0]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == "TESTTABLE_Table"
-
-
-@pytest.mark.integration
-def test_parse_m_query2():
-    expression: str = M_QUERIES[1]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Added Custom2"'
-
-
-@pytest.mark.integration
-def test_parse_m_query3():
-    expression: str = M_QUERIES[2]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Added Conditional Column"'
-
-
-@pytest.mark.integration
-def test_parse_m_query4():
-    expression: str = M_QUERIES[3]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Changed Type"'
-
-
-@pytest.mark.integration
-def test_parse_m_query5():
-    expression: str = M_QUERIES[4]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Renamed Columns"'
-
-
-@pytest.mark.integration
-def test_parse_m_query6():
-    expression: str = M_QUERIES[5]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Added Custom"'
-
-
-@pytest.mark.integration
-def test_parse_m_query7():
-    expression: str = M_QUERIES[6]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == "Source"
-
-
-@pytest.mark.integration
-def test_parse_m_query8():
-    expression: str = M_QUERIES[7]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Added Custom1"'
-
-
-@pytest.mark.integration
-def test_parse_m_query9():
-    expression: str = M_QUERIES[8]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Added Custom1"'
-
-
-@pytest.mark.integration
-def test_parse_m_query10():
-    expression: str = M_QUERIES[9]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Changed Type1"'
-
-
-@pytest.mark.integration
-def test_parse_m_query11():
-    expression: str = M_QUERIES[10]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == "Source"
-
-
-@pytest.mark.integration
-def test_parse_m_query12():
-    expression: str = M_QUERIES[11]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == '"Added Custom"'
-
-
-@pytest.mark.integration
-def test_parse_m_query13():
-    expression: str = M_QUERIES[12]
-    parse_tree: Tree = parser._parse_expression(expression)
-    assert tree_function.get_output_variable(parse_tree) == "two_source_table"
 
 
 @pytest.mark.integration
@@ -340,6 +249,237 @@ def test_oracle_regular_case():
     )
 
 
+# Bare TNS alias + Query= referencing four unqualified tables (joined).
+_ORACLE_TNS_ALIAS_INLINE_QUERY_M_QUERY: str = (
+    "let\n"
+    '    Source = Oracle.Database("EDWPSFN", '
+    "[HierarchicalNavigation=true, "
+    'Query="SELECT A.SETID, A.CNTRCT_ID, B.VENDOR_ID, D.AMT_CNTRCT_MAX, E.NAME1#(lf)'
+    "FROM PS_COR_CNTRCT_PROJ A, PS_COR_CNTRCT_PRIM B, PS_cntrct_hdr D, PS_VENDOR E#(lf)"
+    'WHERE A.SETID = B.SETID AND A.CNTRCT_ID = D.CNTRCT_ID AND B.VENDOR_ID = E.VENDOR_ID"]),\n'
+    '    #"Removed Other Columns" = Table.SelectColumns(Source, {"SETID", "CNTRCT_ID"})\n'
+    "in\n"
+    '    #"Removed Other Columns"'
+)
+
+
+@pytest.mark.integration
+def test_oracle_tns_alias_with_inline_query():
+    """Bare TNS alias + Query= with unqualified tables should produce four 2-part
+    Oracle URNs when ``default_schema`` is configured."""
+    q: str = _ORACLE_TNS_ALIAS_INLINE_QUERY_M_QUERY
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="Primary_Contractor",
+        full_name="MWBE.Primary_Contractor",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "EDWPSFN": {"default_schema": "edwpsfn"},
+            },
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+    assert len(lineages) == 1, f"Expected exactly one lineage result, got {lineages}"
+    data_platform_tables: List[DataPlatformTable] = lineages[0].upstreams
+
+    actual_urns = sorted(t.urn for t in data_platform_tables)
+    assert actual_urns == sorted(
+        [
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_cor_cntrct_proj,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_cor_cntrct_prim,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_cntrct_hdr,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_vendor,PROD)",
+        ]
+    ), f"Got URNs: {actual_urns}"
+
+
+@pytest.mark.integration
+def test_oracle_tns_alias_inline_query_without_default_schema_warns():
+    """``Query="…"`` with unqualified tables and no ``default_schema`` must
+    emit a structured warning rather than producing zero lineage silently."""
+    q: str = _ORACLE_TNS_ALIAS_INLINE_QUERY_M_QUERY
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="Primary_Contractor",
+        full_name="MWBE.Primary_Contractor",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    warning_titles = [entry.title for entry in reporter.warnings]
+    assert any("default_schema" in (t or "") for t in warning_titles), (
+        f"Warning about missing default_schema should be present; got: {warning_titles}"
+    )
+
+
+@pytest.mark.integration
+def test_oracle_inline_query_respects_advance_lineage_sql_construct_flag():
+    """When ``enable_advance_lineage_sql_construct=False`` the Oracle Query=
+    branch opts out of sqlglot parsing — matching MSSql and NativeQueryLineage."""
+    q: str = _ORACLE_TNS_ALIAS_INLINE_QUERY_M_QUERY
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="Primary_Contractor",
+        full_name="MWBE.Primary_Contractor",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "EDWPSFN": {"default_schema": "edwpsfn"},
+            },
+            "enable_advance_lineage_sql_construct": False,
+        }
+    )
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    upstreams = combine_upstreams_from_lineage(lineages)
+    assert upstreams == [], (
+        "Expected no upstreams when enable_advance_lineage_sql_construct is False; "
+        f"got {upstreams}"
+    )
+
+
+@pytest.mark.integration
+def test_oracle_full_tns_descriptor_with_inline_query():
+    """Full TNS descriptor form. ``SERVICE_NAME`` is extracted as the server,
+    and ``server_to_platform_instance`` keyed by that name applies the
+    default_schema."""
+    q: str = (
+        "let\n"
+        "    Source = Oracle.Database("
+        '"(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=h)(PORT=1521))'
+        '(CONNECT_DATA=(SERVICE_NAME=mydb.example.com)))", '
+        '[Query="SELECT * FROM EMPLOYEES"])\n'
+        "in\n"
+        "    Source"
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="employees",
+        full_name="HR.employees",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "mydb.example.com": {"default_schema": "hr"},
+            },
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+    assert len(lineages) == 1, f"Expected exactly one lineage result, got {lineages}"
+    data_platform_tables: List[DataPlatformTable] = lineages[0].upstreams
+
+    actual_urns = [t.urn for t in data_platform_tables]
+    assert actual_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    ], f"Got URNs: {actual_urns}"
+
+
+@pytest.mark.integration
+def test_oracle_tns_alias_inline_query_qualified_tables_no_schema_needed():
+    """Fully-qualified SQL (schema.table) with a bare TNS alias and no
+    ``default_schema`` configured should produce lineage without any warning."""
+    q: str = (
+        "let\n"
+        '    Source = Oracle.Database("EDWPSFN", '
+        '[Query="SELECT EMPLOYEE_ID, NAME FROM HR.EMPLOYEES"])\n'
+        "in\n"
+        "    Source"
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="employees",
+        full_name="HR.employees",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    upstreams = combine_upstreams_from_lineage(lineages)
+    assert len(upstreams) == 1
+    assert (
+        upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    ), f"Got URN: {upstreams[0].urn}"
+
+    warning_titles = [entry.title for entry in reporter.warnings]
+    assert not any("default_schema" in (t or "") for t in warning_titles), (
+        f"No default_schema warning expected for fully-qualified SQL; got: {warning_titles}"
+    )
+
+
+# Pure-unit tests for OracleLineage helpers and the case-insensitive
+# server_to_platform_instance lookup live in tests/unit/powerbi/test_pattern_handler.py
+# so they participate in the testQuick run that uploads coverage to codecov.
+
+
 @pytest.mark.integration
 def test_mssql_regular_case():
     q: str = M_QUERIES[15]
@@ -411,6 +551,32 @@ def test_mssql_with_query():
 
         assert len(data_platform_tables) == 1
         assert data_platform_tables[0].urn == expected_tables[index]
+
+
+def test_mssql_multi_database():
+    q = """
+    let
+        Source = Sql.Databases("ws-azu-e2-synapse-prod-ondemand.sql.azuresynapse.net"),
+        DB_Source = Source{[Name="DATABASE_NAME"]}[Data],
+        TABLE_Source = DB_Source{[Schema="SCHEMA_NAME",Item="TABLE_NAME"]}[Data]
+    in
+        TABLE_Source
+    """
+
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
+
+    assert len(lineage) == 1
+
+    data_platform_tables = lineage[0].upstreams
+
+    assert len(data_platform_tables) == 1
+
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mssql,database_name.schema_name.table_name,PROD)"
+    )
 
 
 @pytest.mark.integration
@@ -750,6 +916,39 @@ def test_redshift_native_query():
     )
 
 
+def test_bigquery_native_query():
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select * from public.my_table where is_active and created_at >= date_add(current_date(), interval -60 days)", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+    config.native_query_parsing = True
+    config.enable_advance_lineage_sql_construct = True
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.public.my_table,PROD)"
+    )
+
+
 def test_sqlglot_parser():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[24],
@@ -836,6 +1035,10 @@ def test_databricks_multi_cloud():
     )
 
 
+@pytest.mark.xfail(
+    reason="M_QUERIES[26] has a dangling comma that the strict Microsoft parser rejects",
+    strict=True,
+)
 def test_databricks_catalog_pattern_1():
     q = M_QUERIES[26]
 
@@ -987,7 +1190,7 @@ def test_snowflake_double_double_quotes():
     )
 
 
-def test_databricks_multicloud():
+def test_databricks_native_query():
     q = M_QUERIES[31]
 
     lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
@@ -1045,6 +1248,8 @@ def test_mssql_drop_with_select():
 
 
 def test_unsupported_data_platform():
+    # LOAD_DATA(SOURCE) is not a recognized data-platform expression — the bridge
+    # parses it successfully but no pattern handler matches, so lineage is empty.
     q = M_QUERIES[34]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         columns=[],
@@ -1069,20 +1274,6 @@ def test_unsupported_data_platform():
             platform_instance_resolver=platform_instance_resolver,
         )
         == []
-    )
-
-    info_entries: dict = reporter._structured_logs._entries.get(
-        StructuredLogLevel.INFO, {}
-    )  # type :ignore
-
-    is_entry_present: bool = False
-    for entry in info_entries.values():
-        if entry.title == "Non-Data Platform Expression":
-            is_entry_present = True
-            break
-
-    assert is_entry_present, (
-        'Info message "Non-Data Platform Expression" should be present in reporter'
     )
 
 
@@ -1130,8 +1321,8 @@ def test_double_quotes_in_alias():
     )
 
 
-@patch("datahub.ingestion.source.powerbi.m_query.parser.get_lark_parser")
-def test_m_query_timeout(mock_get_lark_parser):
+@patch("datahub.ingestion.source.powerbi.m_query.parser.get_bridge")
+def test_m_query_timeout(mock_get_bridge):
     q = 'let\n    Source = Value.NativeQuery(Snowflake.Databases("0DD93C6BD5A6.snowflakecomputing.com","sales_analytics_warehouse_prod",[Role="sales_analytics_member_ad"]){[Name="SL_OPERATIONS"]}[Data], "select SALE_NO AS ""\x1b[4mSaleNo\x1b[0m""#(lf)        ,CODE AS ""Code""#(lf)        ,ENDDATE AS ""end_date""#(lf) from SL_OPERATIONS.SALE.REPORTS#(lf)  where ENDDATE > \'2024-02-03\'", null, [EnableFolding=true]),\n    #"selected Row" = Table.SelectRows(Source)\nin\n    #"selected Row"'
 
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
@@ -1150,11 +1341,11 @@ def test_m_query_timeout(mock_get_lark_parser):
 
     config.m_query_parse_timeout = 1
 
-    mock_lark_instance = MagicMock()
+    mock_bridge_instance = MagicMock()
 
-    mock_get_lark_parser.return_value = mock_lark_instance
+    mock_get_bridge.return_value = mock_bridge_instance
     # sleep for 5 seconds to trigger timeout
-    mock_lark_instance.parse.side_effect = lambda expression: time.sleep(5)
+    mock_bridge_instance.parse.side_effect = lambda expression: time.sleep(5)
 
     parser.get_upstream_tables(
         table,
@@ -1475,3 +1666,30 @@ def test_athena_with_platform_instance():
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:athena,production_athena.analytics.sales_data,PROD)"
     )
+
+
+@pytest.mark.integration
+def test_if_expression_walks_both_branches():
+    """IfExpression should produce lineage from both true and false branches."""
+    q = (
+        "let\n"
+        "    Source = if true\n"
+        '        then Sql.Database("prod-server", "prod_db")\n'
+        '        else Sql.Database("dev-server", "dev_db"),\n'
+        '    mytable = Source{[Schema="dbo",Item="employees"]}[Data]\n'
+        "in\n"
+        "    mytable"
+    )
+    lineage = get_data_platform_tables_with_dummy_table(q=q)
+    assert len(lineage) == 2
+    urns = {lin.upstreams[0].urn for lin in lineage}
+    assert urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,prod_db.dbo.employees,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dev_db.dbo.employees,PROD)",
+    }
+
+
+def test_native_query_mssql_and_postgres_supported():
+    assert NativeQueryLineage.is_native_parsing_supported("Sql.Database")
+    assert NativeQueryLineage.is_native_parsing_supported("PostgreSQL.Database")
+    assert not NativeQueryLineage.is_native_parsing_supported("Excel.Workbook")

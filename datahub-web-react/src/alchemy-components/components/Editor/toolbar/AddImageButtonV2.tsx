@@ -3,6 +3,7 @@ import { useCommands } from '@remirror/react';
 import { Form } from 'antd';
 import { FormInstance } from 'antd/es/form/Form';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { Button } from '@components/components/Button';
@@ -16,10 +17,13 @@ import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';
 const UPLOAD_FILE_KEY = 'uploadFile';
 const URL_KEY = 'url';
 
+// Sample URL shown as input placeholder — illustrative, not user-facing copy.
+const EXAMPLE_IMAGE_URL = 'http://www.example.com/image.jpg';
+
 const ContentWrapper = styled.div`
     width: 300px;
-    background-color: ${(props) => props.theme.colors.bg};
-    box-shadow: ${(props) => props.theme.colors.shadowLg};
+    background-color: ${({ theme }) => theme.colors.bg};
+    box-shadow: ${({ theme }) => theme.colors.shadowMd};
     display: flex;
     flex-direction: column;
     padding: 8px;
@@ -38,6 +42,7 @@ const FormItem = styled(Form.Item)`
 `;
 
 function ImageUrlInput({ form, hideDropdown }: { form: FormInstance<any>; hideDropdown: () => void }) {
+    const { t } = useTranslation('alchemy');
     const { insertImage } = useCommands();
 
     const handleOk = () => {
@@ -55,30 +60,32 @@ function ImageUrlInput({ form, hideDropdown }: { form: FormInstance<any>; hideDr
     return (
         <Form form={form} layout="vertical" colon={false} requiredMark={false}>
             <FormItem name="src" rules={[{ required: true }]}>
-                <Input label="Image URL" placeholder="http://www.example.com/image.jpg" autoFocus />
+                <Input label={t('editor.addImage.urlLabel')} placeholder={EXAMPLE_IMAGE_URL} autoFocus />
             </FormItem>
             <FormItem name="alt">
-                <Input label="Alt Text" />
+                <Input label={t('editor.addImage.altLabel')} />
             </FormItem>
-            <StyledButton onClick={handleOk}>Embed Image</StyledButton>
+            <StyledButton onClick={handleOk}>{t('editor.addImage.embed')}</StyledButton>
         </Form>
     );
 }
 
 export const AddImageButtonV2 = () => {
-    const theme = useTheme();
+    const { t } = useTranslation('alchemy');
     const [showDropdown, setShowDropdown] = useState(false);
     const [form] = Form.useForm();
+    const styledTheme = useTheme();
+    const iconColor = styledTheme.colors.icon;
 
     const tabs = [
         {
             key: UPLOAD_FILE_KEY,
-            label: 'Upload File',
+            label: t('editor.upload.uploadFile'),
             content: <FileUploadContent hideDropdown={() => setShowDropdown(false)} />,
         },
         {
             key: URL_KEY,
-            label: 'URL',
+            label: t('editor.upload.tabUrl'),
             content: <ImageUrlInput form={form} hideDropdown={() => setShowDropdown(false)} />,
         },
     ];
@@ -102,7 +109,7 @@ export const AddImageButtonV2 = () => {
             >
                 <CommandButton
                     active={false}
-                    icon={<Image size={20} color={theme.colors.text} />}
+                    icon={<Image size={20} color={iconColor} />}
                     commandName="insertImage"
                     onClick={handleButtonClick}
                 />

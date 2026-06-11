@@ -1,3 +1,7 @@
+---
+description: "Monitor DataHub services with Prometheus, OpenTelemetry, and JMX metrics for production observability and alerting."
+---
+
 # Monitoring DataHub
 
 ## Overview
@@ -33,6 +37,12 @@ DataHub's observability strategy consists of two complementary approaches:
    - Resource Metrics: CPU, memory utilization
    - Application Metrics: Cache hit rates, queue depths, processing times
    - Business Metrics: Entity counts, ingestion rates, search performance
+
+### GMS HTTP service rate limiting metrics
+
+When [GMS HTTP service rate limiting](../deploy/gms-rate-limiting.md) is active (`capacity.enabled` and/or `endpoint.enabled`), scrape `gms.rate_limit.requests`, `gms.rate_limit.adaptive.limit`, and `gms.rate_limit.endpoint.remaining` to alert on sustained denials or exhausted auth-path buckets. Adaptive capacity metrics are tagged by `rule_id` — each tag is an independent in-flight pool; sum inflight across rules to estimate total pod load. Use `GET /openapi/v1/rate-limits/status` for live per-pod state (`capacityEnabled`, `endpointEnabled`, per-rule adaptive/endpoint maps) during incidents.
+
+These metrics are **not** MCP ingestion throttle or Kafka lag backpressure — for pipeline-side 429s and consumer lag, use MCP throttle settings (`MCP_*` env vars) and `/openapi/operations/throttle/*` instead.
 
 2. Distributed Tracing
 
@@ -460,14 +470,16 @@ Each consumer automatically records queue time metrics using the message's embed
 
 #### Core Metric
 
-Metric: `kafka.message.queue.time`
+Metric: `messaging.queue.time`
 
 - Type: Timer with configurable percentiles and SLO buckets
 - Unit: Milliseconds
 - Tags:
-  - topic: Kafka topic name (e.g., "MetadataChangeProposal_v1")
-  - consumer.group: Consumer group ID (e.g., "generic-mce-consumer")
-- Use Case: Monitor end-to-end latency from message production to SQL transaction
+  - `messaging.system`: `kafka` or `pgqueue`
+  - `topic`: Logical topic name (e.g., `MetadataChangeProposal_v1`)
+  - `consumer.group`: Consumer group ID (e.g., `generic-mce-consumer`)
+  - `messaging.priority`: pgQueue WFQ band index only (omitted for Kafka)
+- Use Case: Monitor end-to-end latency from message production to consumer processing
 
 #### Statistical Distribution
 
@@ -502,18 +514,28 @@ kafka:
 SLA Compliance Monitoring:
 
 ```promql
-# Percentage of messages processed within 5-minute SLA
-sum(rate(kafka_message_queue_time_seconds_bucket{le="300"}[5m])) by (topic)
-/ sum(rate(kafka_message_queue_time_seconds_count[5m])) by (topic) * 100
+# Percentage of Kafka messages processed within 5-minute SLA
+sum(rate(messaging_queue_time_seconds_bucket{le="300", messaging_system="kafka"}[5m])) by (topic)
+/ sum(rate(messaging_queue_time_seconds_count{messaging_system="kafka"}[5m])) by (topic) * 100
 ```
 
 Consumer Group Comparison:
 
 ```promql
-# P99 queue time by consumer group
+# P99 queue time by consumer group (Kafka)
 histogram_quantile(0.99,
   sum by (consumer_group, le) (
-    rate(kafka_message_queue_time_seconds_bucket[5m])
+    rate(messaging_queue_time_seconds_bucket{messaging_system="kafka"}[5m])
+  )
+)
+```
+
+pgQueue priority bands:
+
+```promql
+histogram_quantile(0.99,
+  sum by (topic, messaging_priority, le) (
+    rate(messaging_queue_time_seconds_bucket{messaging_system="pgqueue"}[5m])
   )
 )
 ```
@@ -524,7 +546,8 @@ Metric Cardinality:
 
 The instrumentation is designed for low cardinality:
 
-- Only two tags: `topic` and `consumer.group`
+- Kafka: `messaging.system`, `topic`, `consumer.group`
+- pgQueue: adds `messaging.priority` (bounded WFQ band count)
 - No partition-level tags (avoiding explosion with high partition counts)
 - No message-specific tags
 
@@ -536,12 +559,11 @@ Overhead Assessment:
 
 #### Migration from Legacy Metrics
 
-The new Micrometer-based queue time metrics coexist with the legacy DropWizard `kafkaLag` histogram:
+Micrometer queue time metrics coexist with the legacy DropWizard `kafkaLag` histogram (name unchanged for JMX/Grafana compatibility):
 
-- Legacy: `kafkaLag` histogram via JMX
-- New: `kafka.message.queue.time` timer via Micrometer
-- Migration: Both metrics collected during transition period
-- Future: Legacy metrics will be deprecated in favor of Micrometer
+- Legacy (JMX): class-scoped `kafkaLag` histogram — still emitted for Kafka and pgQueue consumers
+- Micrometer: `messaging.queue.time` timer with `messaging.system` and related tags
+- The deprecated Micrometer name `kafka.message.queue.time` is no longer emitted
 
 The new metrics provide:
 
@@ -662,7 +684,7 @@ The hook latency metric leverages the trace ID embedded in the system metadata o
 
 #### Relationship to Kafka Queue Time Metrics
 
-While Kafka queue time metrics (`kafka.message.queue.time`) measure the time messages spend in Kafka topics, request hook
+While messaging queue time metrics (`messaging.queue.time`) measure the time messages spend in the queue before consumption, request hook
 latency metrics provide the complete picture:
 
 - Kafka Queue Time: Time from message production to consumption
@@ -700,6 +722,28 @@ datahub:
 ```
 
 Default buckets (1MB, 5MB, 10MB, 15MB) create ranges: 0-1MB, 1MB-5MB, 5MB-10MB, 10MB-15MB, 15MB+
+
+## Primary storage read pool metrics
+
+When [primary storage read pools](../deploy/primary-storage-read-pool.md) are enabled on GMS,
+Micrometer counters track which pool served each resolution:
+
+| Metric                                     | Tags                                                                          | Meaning                                                              |
+| ------------------------------------------ | ----------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `primary_storage_target_used`              | `target` (`PRIMARY` \| `READ`), `store` (`ebean` \| `cassandra`), `forUpdate` | Pool chosen for a resolver call                                      |
+| `primary_storage_read_fallback_to_primary` | `store`                                                                       | READ preference requested but no read pool registered — used PRIMARY |
+
+Example PromQL:
+
+```promql
+# Share of aspect reads using the read pool (non-locking only)
+sum(rate(primary_storage_target_used_total{target="READ",forUpdate="false"}[5m]))
+  /
+sum(rate(primary_storage_target_used_total{forUpdate="false"}[5m]))
+
+# Fallbacks — should stay near zero when read pool is enabled
+rate(primary_storage_read_fallback_to_primary_total[5m])
+```
 
 ## Cache Monitoring (Micrometer)
 
@@ -1088,6 +1132,14 @@ scrape from 4318 ports of each container used by the JMX exporter to export metr
 listen to prometheus and create useful dashboards. By default, we provide two
 dashboards: [JVM dashboard](https://grafana.com/grafana/dashboards/14845) and DataHub dashboard.
 
+**Micrometer (Spring Actuator / Play):** Docker images for GMS, MAE consumer, MCE consumer, and the Play frontend set
+`MANAGEMENT_SERVER_PORT` to **4319** by default (see container `start.sh`). Micrometer Prometheus text is served at
+`http://<container>:4319/actuator/prometheus` on a separate HTTP listener (reachable on the Docker network; quickstart compose **`expose`s** this port rather than publishing it to the host). JVM/JMX metrics remain on **4318** when
+`ENABLE_PROMETHEUS=true`. The example [prometheus.yaml](../../docker/monitoring/prometheus.yaml) includes a `micrometer`
+scrape job for port **4319**. Outside Docker, leave `MANAGEMENT_SERVER_PORT` unset so Actuator stays on the main
+application port; set it when you want a separate management listener (Spring maps the env var to
+`management.server.port`).
+
 In the JVM dashboard, you can find detailed charts based on JVM metrics like CPU/memory/disk usage. In the DataHub
 dashboard, you can find charts to monitor each endpoint and the kafka topics. Using the example implementation, go
 to http://localhost:3001 to find the grafana dashboards! (Username: admin, PW: admin)
@@ -1119,19 +1171,22 @@ You can add in the above docker-compose using the `-f <<path-to-compose-file>>` 
 For instance,
 
 ```shell
-docker-compose \
-  -f quickstart/docker-compose.quickstart.yml \
-  -f monitoring/docker-compose.monitoring.yml \
+docker compose --project-directory docker/profiles --profile quickstart \
+  -f docker/monitoring/docker-compose.monitoring.yml \
   pull && \
-docker-compose -p datahub \
-  -f quickstart/docker-compose.quickstart.yml \
-  -f monitoring/docker-compose.monitoring.yml \
+docker compose --project-directory docker/profiles --profile quickstart -p datahub \
+  -f docker/monitoring/docker-compose.monitoring.yml \
   up
 ```
 
-We set up quickstart.sh, dev.sh, and dev-without-neo4j.sh to add the above docker-compose when MONITORING=true. For
-instance `MONITORING=true ./docker/quickstart.sh` will add the correct env variables to start collecting traces and
-metrics, and also deploy Jaeger, Prometheus, and Grafana. We will soon support this as a flag during quickstart.
+For local development with debug images, use the `debug` profile instead of `quickstart`:
+
+```shell
+docker compose --project-directory docker/profiles --profile debug \
+  -f docker/monitoring/docker-compose.monitoring.yml up
+```
+
+Or start the base stack with `./gradlew quickstartDebug` and add monitoring compose files as needed.
 
 ## Health check endpoint
 

@@ -2,10 +2,10 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Empty, Select, message } from 'antd';
 import { debounce } from 'lodash';
 import React, { useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ContextPath from '@app/previewV2/ContextPath';
@@ -37,7 +37,6 @@ interface Props {
     titleOverride?: string;
     onOkOverride?: (result: string) => void;
     setDataProducts?: (dataProducts: DataProduct[]) => void;
-    refetch?: () => void;
 }
 
 export default function SetDataProductModal({
@@ -47,11 +46,11 @@ export default function SetDataProductModal({
     titleOverride,
     onOkOverride,
     setDataProducts,
-    refetch,
 }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
-    const { reloadByKeyType } = useReloadableContext();
-    const { refetch: refetchEntity } = useEntityContext();
+    const { reloadByKeyType, bypassCacheForUrn } = useReloadableContext();
     const isMultipleDataProductsEnabled = useIsMultipleDataProductsEnabled();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [batchAddToDataProductsMutation] = useBatchAddToDataProductsMutation();
@@ -113,11 +112,10 @@ export default function SetDataProductModal({
         sendAnalytics();
         onModalClose();
         setSelectedDataProducts([]);
-        setTimeout(() => {
-            refetch?.();
-            refetchEntity?.();
-            reloadByKeyType([getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)]);
-        }, 3000);
+        urns.forEach((urn) => {
+            bypassCacheForUrn(urn);
+        });
+        reloadByKeyType([getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)], 3000);
     };
 
     const handleMutationError = (e: any, errorMessage: string) => {
@@ -148,8 +146,10 @@ export default function SetDataProductModal({
                     },
                 },
             })
-                .then(() => handleMutationSuccess('Updated Data Products!'))
-                .catch((e) => handleMutationError(e, 'Failed to add assets to Data Products:'));
+                .then(() =>
+                    handleMutationSuccess(t('sidebar.dataProduct.updatedSuccess', { context: 'multiProducts' })),
+                )
+                .catch((e) => handleMutationError(e, t('sidebar.dataProduct.addToProductsFailedPrefix')));
         } else {
             batchSetDataProductMutation({
                 variables: {
@@ -159,8 +159,8 @@ export default function SetDataProductModal({
                     },
                 },
             })
-                .then(() => handleMutationSuccess('Updated Data Product!'))
-                .catch((e) => handleMutationError(e, 'Failed to add assets to Data Product:'));
+                .then(() => handleMutationSuccess(t('sidebar.dataProduct.updatedSuccess')))
+                .catch((e) => handleMutationError(e, t('sidebar.dataProduct.addToProductFailedPrefix')));
         }
     }
 
@@ -205,7 +205,7 @@ export default function SetDataProductModal({
                     <Text size="md">{entityRegistry.getDisplayName(EntityType.DataProduct, result)}</Text>
                     <ContextPath
                         entityType={EntityType.DataProduct}
-                        displayedEntityType="Data product"
+                        displayedEntityType={t('sidebar.dataProduct.entityTypeName')}
                         parentEntities={getParentEntities(result as DataProduct, EntityType.DataProduct)}
                         entityTitleWidth={200}
                         numVisible={3}
@@ -218,18 +218,23 @@ export default function SetDataProductModal({
 
     return (
         <Modal
-            title={titleOverride || (isMultipleDataProductsEnabled ? 'Set Data Products' : 'Set Data Product')}
+            title={
+                titleOverride ||
+                t('sidebar.dataProduct.setModalTitle', {
+                    context: isMultipleDataProductsEnabled ? 'multiProducts' : undefined,
+                })
+            }
             open
             onCancel={onModalClose}
             getContainer={getModalDomContainer}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onModalClose,
                 },
                 {
-                    text: 'Save',
+                    text: tc('save'),
                     variant: 'filled',
                     disabled: selectedDataProducts.length === 0,
                     onClick: onOk,
@@ -244,7 +249,7 @@ export default function SetDataProductModal({
                 filterOption={false}
                 mode={isMultipleDataProductsEnabled ? 'multiple' : undefined}
                 defaultActiveFirstOption={false}
-                placeholder="Search for Data Products..."
+                placeholder={t('sidebar.dataProduct.searchPlaceholder')}
                 onSelect={(urn: string) => onSelectDataProduct(urn)}
                 onDeselect={(urn: string) => onDeselect(urn)}
                 onSearch={handleSearch}
@@ -255,7 +260,7 @@ export default function SetDataProductModal({
                 notFoundContent={
                     !loading ? (
                         <Empty
-                            description="No Data Products Found"
+                            description={t('sidebar.dataProduct.emptyText')}
                             image={Empty.PRESENTED_IMAGE_SIMPLE}
                             style={{ color: ANTD_GRAY[7] }}
                         />

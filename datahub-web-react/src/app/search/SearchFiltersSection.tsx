@@ -1,5 +1,6 @@
 import { Button } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -61,12 +62,12 @@ const SearchFiltersWrapper = styled.div`
     &::-webkit-scrollbar {
         height: 12px;
         width: 1px;
-        background: #f2f2f2;
+        background: ${(props) => props.theme.colors.scrollbarTrack};
     }
     &::-webkit-scrollbar-thumb {
-        background: #cccccc;
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+        -webkit-box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
 `;
 
@@ -86,6 +87,8 @@ export const SearchFiltersSection = ({
     onChangeFilters,
     onChangeUnionType,
 }: Props) => {
+    const { t } = useTranslation('search');
+    const { t: tc } = useTranslation('common.actions');
     const userContext = useUserContext();
     const onlyShowAdvancedFilters = hasAdvancedFilters(selectedFilters, unionType);
     const [showViewBuilder, setShowViewBuilder] = useState(false);
@@ -103,15 +106,16 @@ export const SearchFiltersSection = ({
     return (
         <FiltersContainer>
             <FiltersHeader>
-                <span>Filter</span>
+                <span>{tc('filter')}</span>
                 <span>
                     <Button
                         disabled={onlyShowAdvancedFilters}
                         type="link"
                         onClick={() => setSeeAdvancedFilters(!seeAdvancedFilters)}
                         id={SEARCH_RESULTS_ADVANCED_SEARCH_ID}
+                        data-testid={SEARCH_RESULTS_ADVANCED_SEARCH_ID}
                     >
-                        {seeAdvancedFilters ? 'Basic' : 'Advanced'}
+                        {seeAdvancedFilters ? t('filtersSection.basic') : t('filtersSection.advanced')}
                     </Button>
                 </span>
             </FiltersHeader>

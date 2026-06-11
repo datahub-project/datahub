@@ -67,6 +67,22 @@ enum ChangeCategoryType {
   When related entities have been added or removed
   """
   RELATED_ENTITIES
+  """
+  When domain has been added or removed
+  """
+  DOMAIN
+  """
+  When structured properties have been added, removed, or modified
+  """
+  STRUCTURED_PROPERTY
+  """
+  When application associations have been added or removed
+  """
+  APPLICATION
+  """
+  When assets have been added to or removed from a Data Product
+  """
+  ASSET_MEMBERSHIP
 }
 
 """
@@ -226,6 +242,10 @@ type ChangeTransaction {
   The type of the change
   """
   changeType: ChangeOperationType!
+  """
+  The URN of the actor who made this change
+  """
+  actor: String
   """
   The list of changes in this transaction
   """

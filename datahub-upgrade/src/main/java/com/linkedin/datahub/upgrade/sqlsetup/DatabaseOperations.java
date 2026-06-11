@@ -1,7 +1,10 @@
 package com.linkedin.datahub.upgrade.sqlsetup;
 
+import com.linkedin.datahub.upgrade.sqlsetup.postgres.PostgresDatabaseOperations;
+import com.linkedin.metadata.config.postgres.DatabaseType;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 
 /**
  * Interface for database-specific operations in SqlSetup. This allows for clean separation of
@@ -93,17 +96,51 @@ public interface DatabaseOperations {
    *
    * @param cdcUser the CDC username
    * @param databaseName the database name
+   * @param postgresMetadataSchema PostgreSQL schema containing {@code metadata_aspect_v2}; ignored
+   *     for MySQL. When null or blank, PostgreSQL uses {@code public}.
    * @return list of SQL statements for granting CDC privileges
    */
-  java.util.List<String> grantCdcPrivilegesSql(String cdcUser, String databaseName);
+  List<String> grantCdcPrivilegesSql(
+      String cdcUser, String databaseName, String postgresMetadataSchema);
 
   /**
    * Generate SQL statements for creating the metadata_aspect_v2 table and its indexes. Returns a
    * list of individual SQL statements that can be executed separately.
    *
+   * @param createSchemaVersionIndex whether to include the schemaVersionIndex (controlled by
+   *     featureFlags.createSchemaVersionIndex)
    * @return list of SQL statements to create the table and indexes
    */
-  java.util.List<String> createTableSqlStatements();
+  List<String> createTableSqlStatements(boolean createSchemaVersionIndex);
+
+  /**
+   * Drops legacy secondary indexes on {@code metadata_aspect_v2} that SqlSetup no longer creates
+   * (e.g. single-column {@code urn}/{@code aspect}/{@code version} indexes from older DDL).
+   * Defaults to a no-op.
+   *
+   * @param connection open JDBC connection to the target database
+   */
+  default void dropLegacyAspectTableIndexes(Connection connection) throws SQLException {}
+
+  /**
+   * Creates current {@code metadata_aspect_v2} secondary indexes when they are missing. On
+   * PostgreSQL these use {@code CREATE INDEX CONCURRENTLY} so builds on populated tables avoid long
+   * exclusive locks. On MySQL, indexes that are normally inlined in {@link
+   * #createTableSqlStatements} are added with {@code ALTER TABLE ... ADD INDEX} only when absent
+   * (so existing databases that predate those indexes still get them). Defaults to a no-op when
+   * there is nothing to ensure beyond inline DDL.
+   *
+   * @param connection open JDBC connection to the target database
+   */
+  default void ensureAspectIndexes(Connection connection) throws SQLException {}
+
+  /**
+   * Called after table creation to create any indexes that must run outside a transaction (e.g.
+   * CONCURRENTLY). Defaults to a no-op.
+   *
+   * @param connection open JDBC connection to the target database
+   */
+  default void postSetup(Connection connection) throws SQLException {}
 
   /**
    * Create a database if it doesn't exist.

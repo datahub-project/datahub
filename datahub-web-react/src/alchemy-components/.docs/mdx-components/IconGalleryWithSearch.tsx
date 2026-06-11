@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Button, ButtonProps, Icon } from '@components';
 import React, { useState } from 'react';
 

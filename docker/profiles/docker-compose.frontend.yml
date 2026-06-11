@@ -1,9 +1,11 @@
 
 x-datahub-frontend-service: &datahub-frontend-service
   hostname: datahub-frontend-react
-  image: ${DATAHUB_FRONTEND_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-frontend-react}:${DATAHUB_VERSION:-head}
+  image: ${DATAHUB_FRONTEND_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-frontend-react}:${DATAHUB_VERSION:-quickstart}
   ports:
     - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
+  expose:
+    - 4319
   env_file:
     - datahub-frontend/env/docker.env
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
@@ -11,6 +13,9 @@ x-datahub-frontend-service: &datahub-frontend-service
   environment: &datahub-frontend-service-env
     KAFKA_BOOTSTRAP_SERVER: broker:29092
     DATAHUB_GMS_HOST: ${DATAHUB_GMS_HOST:-datahub-gms}
+    # Play 3 maps this to play.http.secret.key; HS256 requires >=256 bits (see ApplicationSecret).
+    # Overrides env_file when unset on host; use a long random value in production.
+    DATAHUB_SECRET: ${DATAHUB_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
     THEME_V2_DEFAULT: ${THEME_V2_DEFAULT:-true}
     PLAY_HTTP_CONTEXT: ${DATAHUB_BASE_PATH:-/}
     DATAHUB_BASE_PATH: ${DATAHUB_BASE_PATH:-/}
@@ -57,6 +62,13 @@ services:
       - quickstart-postgres
     depends_on:
       system-update-quickstart-postgres:
+        condition: service_completed_successfully
+  frontend-quickstart-postgres-consumers:
+    <<: *datahub-frontend-service
+    profiles:
+      - quickstart-postgres-consumers
+    depends_on:
+      system-update-quickstart-postgres-consumers:
         condition: service_completed_successfully
   frontend-quickstart-consumers:
     <<: *datahub-frontend-service
@@ -113,6 +125,13 @@ services:
       - debug-postgres
     depends_on:
       system-update-debug-postgres:
+        condition: service_completed_successfully
+  frontend-debug-postgres-consumers:
+    <<: *datahub-frontend-service-dev
+    profiles:
+      - debug-postgres-consumers
+    depends_on:
+      system-update-debug-postgres-consumers:
         condition: service_completed_successfully
   frontend-debug-cassandra:
     <<: *datahub-frontend-service-dev

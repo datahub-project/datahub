@@ -1,10 +1,11 @@
-import { Button, Tooltip, colors } from '@components';
+import { Button, Tooltip } from '@components';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const StyledButton = styled(Button)`
-    border: 1px solid ${colors.gray[100]};
+    border: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 type Props = {
@@ -13,8 +14,9 @@ type Props = {
 };
 
 export default function EditButton({ setShowSelectMode, disabled }: Props) {
+    const { t } = useTranslation('shared.search');
     return (
-        <Tooltip title="Edit..." showArrow={false} placement="top">
+        <Tooltip title={t('edit.tooltip')} showArrow={false} placement="top">
             <StyledButton
                 onClick={() => setShowSelectMode(true)}
                 disabled={disabled}

@@ -1,14 +1,13 @@
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { List } from 'antd';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { getActorDisplayName, isActor } from '@app/entityV2/shared/utils/actorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { Document } from '@types';
 
@@ -18,7 +17,7 @@ const DocumentListItem = styled(List.Item)`
     transition: background-color 0.2s ease;
 
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -57,7 +56,7 @@ const TitleLink = styled.a`
 
 const Description = styled.div`
     font-size: 12px;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     line-height: 20px;
 `;
 
@@ -67,7 +66,9 @@ interface RelatedDocumentItemProps {
 }
 
 export const RelatedDocumentItem: React.FC<RelatedDocumentItemProps> = ({ document, onClick }) => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.profile.documentation');
     const lastModified = document.info?.lastModified;
     const actor = lastModified?.actor;
 
@@ -83,32 +84,35 @@ export const RelatedDocumentItem: React.FC<RelatedDocumentItemProps> = ({ docume
         >
             <MetaContainer>
                 <IconContainer>
-                    <FileText size={16} weight="duotone" color={colors.primary[500]} />
+                    <FileText size={16} weight="duotone" color={theme.colors.iconBrand} />
                 </IconContainer>
                 <ContentContainer>
                     <TitleLink href="#" onClick={handleClick}>
-                        {document.info?.title || 'Untitled Document'}
+                        {document.info?.title || t('untitledDocument')}
                     </TitleLink>
                     {lastModified?.time && (
                         <Description>
-                            Edited {formatDateString(lastModified.time)}
-                            {actor && (
-                                <>
-                                    {' by '}
-                                    {(() => {
-                                        // New type where actor is a full Entity (CorpUser)
-                                        const actorEntity = actor;
-                                        return isActor(actorEntity) ? (
+                            {actor && isActor(actor) ? (
+                                <Trans
+                                    i18nKey="editedByUser"
+                                    ns="entity.profile.documentation"
+                                    values={{
+                                        date: formatDateString(lastModified.time),
+                                        name:
+                                            getActorDisplayName(actor) ||
+                                            entityRegistry.getDisplayName(actor.type, actor),
+                                    }}
+                                    components={{
+                                        actorLink: (
                                             <Link
-                                                to={`${entityRegistry.getEntityUrl(actorEntity.type, actorEntity.urn)}`}
+                                                to={`${entityRegistry.getEntityUrl(actor.type, actor.urn)}`}
                                                 onClick={(e) => e.stopPropagation()}
-                                            >
-                                                {getActorDisplayName(actorEntity) ||
-                                                    entityRegistry.getDisplayName(actorEntity.type, actorEntity)}
-                                            </Link>
-                                        ) : null;
-                                    })()}
-                                </>
+                                            />
+                                        ),
+                                    }}
+                                />
+                            ) : (
+                                formatDateString(lastModified.time)
                             )}
                         </Description>
                     )}

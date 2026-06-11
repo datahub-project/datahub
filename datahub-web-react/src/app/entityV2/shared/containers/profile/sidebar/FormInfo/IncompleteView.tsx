@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
 import RequiredPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/RequiredPromptsRemaining';
@@ -37,10 +38,15 @@ export default function IncompleteView({
     isUserAssigned,
     openFormModal,
 }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
+    const themeConfig = useTheme();
     const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <CTAWrapper backgroundColor="#FEF9ED" borderColor="#F4C449">
+        <CTAWrapper
+            backgroundColor={themeConfig.colors.bgSurfaceWarning}
+            borderColor={themeConfig.colors.borderWarning}
+        >
             <FlexWrapper>
                 <Content>
                     <TitleWrapper
@@ -57,18 +63,20 @@ export default function IncompleteView({
                                     {showVerificationStyles ? (
                                         <StyledImgIcon src={ShieldExclamation} />
                                     ) : (
-                                        <StyledReadOutlined color="#F4C449" addLineHeight />
+                                        <StyledReadOutlined color={themeConfig.colors.iconWarning} addLineHeight />
                                     )}
                                 </>
                             )}
                             {!isUserAssigned && <StyledImgIcon src={ShieldExclamation} disable />}
-                            Awaiting {showVerificationStyles ? 'Verification' : 'Documentation'}
+                            {showVerificationStyles
+                                ? t('sidebar.formInfo.awaitingVerificationTitle')
+                                : t('sidebar.formInfo.awaitingDocumentationTitle')}
                         </Title>
                         {isUserAssigned && <StyledArrow isOpen={isOpen} />}
                     </TitleWrapper>
                     {isUserAssigned && isOpen && (
                         <>
-                            <Text>You are being asked to complete a set of requirements for this entity.</Text>
+                            <Text>{t('sidebar.formInfo.assignedBodyText')}</Text>
                             <RequiredPromptsRemaining numRemaining={numRequiredPromptsRemaining} />
                             <OptionalPromptsRemaining numRemaining={numOptionalPromptsRemaining} />
                         </>
@@ -84,7 +92,9 @@ export default function IncompleteView({
                             showVerificationStyles ? 'complete-verification-button' : 'complete-documentation-button'
                         }
                     >
-                        {showVerificationStyles ? 'Complete Verification' : 'Complete Documentation'}
+                        {showVerificationStyles
+                            ? t('sidebar.formInfo.completeVerificationButton')
+                            : t('sidebar.formInfo.completeDocumentationButton')}
                     </Button>
                 </StyledButtonWrapper>
             )}

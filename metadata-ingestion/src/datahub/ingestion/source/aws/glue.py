@@ -1,12 +1,12 @@
 import datetime
+import functools
 import json
 import logging
-from collections import defaultdict
+import re
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from typing import (
     Any,
-    DefaultDict,
     Dict,
     Iterable,
     Iterator,
@@ -16,20 +16,19 @@ from typing import (
     Optional,
     Set,
     Tuple,
-    Union,
 )
 from urllib.parse import urlparse
 
 import botocore.exceptions
 import yaml
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter import mce_builder
@@ -49,6 +48,7 @@ from datahub.emitter.mcp_builder import (
     add_domain_to_entity_wu,
     gen_containers,
 )
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -57,6 +57,10 @@ from datahub.ingestion.api.decorators import (
     config_class,
     platform_name,
     support_status,
+)
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+    auto_incremental_properties,
 )
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -77,6 +81,7 @@ from datahub.ingestion.source.aws.tag_entities import (
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    FlowContainerSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
@@ -109,22 +114,33 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
+    DataTransformClass,
+    DataTransformLogicClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    MetadataAttributionClass,
     MetadataChangeEventClass,
+    OperationClass,
+    OperationTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     PartitionSpecClass,
     PartitionTypeClass,
+    QueryLanguageClass,
+    QueryStatementClass,
     SchemaMetadataClass,
+    StructuredPropertiesClass,
+    StructuredPropertyDefinitionClass,
+    StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
     TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.lossy_collections import LossyList
@@ -136,10 +152,62 @@ DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 GLUE_TABLE_TYPE_ICEBERG = "ICEBERG"
+JDBC_PLATFORM_MAP: Dict[str, str] = {
+    "postgresql": "postgres",
+    "mysql": "mysql",
+    "mariadb": "mysql",
+    "redshift": "redshift",
+    "oracle": "oracle",
+    "sqlserver": "mssql",
+}
+
+JDBC_DEFAULT_SCHEMA: Dict[str, str] = {
+    "postgres": "public",
+    "redshift": "public",
+    "mssql": "dbo",
+}
+
+GLUE_NATIVE_CONNECTION_TYPE_MAP: Dict[str, str] = {
+    "POSTGRESQL": "postgres",
+    "MYSQL": "mysql",
+    "REDSHIFT": "redshift",
+    "ORACLE": "oracle",
+    "SQLSERVER": "mssql",
+}
+
+JDBC_PREFIX = "jdbc:"
+
+
+def _sanitize_jdbc_url(jdbc_url: str) -> str:
+    """Strip credentials and query parameters from a JDBC URL for safe logging."""
+    inner = (
+        jdbc_url[len(JDBC_PREFIX) :] if jdbc_url.startswith(JDBC_PREFIX) else jdbc_url
+    )
+    parsed = urlparse(inner)
+    safe_netloc = parsed.hostname or ""
+    if parsed.port:
+        safe_netloc = f"{safe_netloc}:{parsed.port}"
+    return f"{JDBC_PREFIX}{parsed.scheme}://{safe_netloc}{parsed.path}"
+
+
+class TargetPlatformConfig(ConfigModel):
+    """Config for aligning dataset URNs with a separately ingested platform."""
+
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance used by the separate ingestion of this platform.",
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="Environment used by the separate ingestion of this platform. Defaults to the Glue source env.",
+    )
 
 
 class GlueSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    AwsSourceConfig,
+    IncrementalPropertiesConfigMixin,
 ):
     platform: str = Field(
         default=DEFAULT_PLATFORM,
@@ -197,7 +265,17 @@ class GlueSourceConfig(
 
     extract_lakeformation_tags: Optional[bool] = Field(
         default=False,
-        description="When True, extracts Lake Formation tags directly assigned to Glue tables/databases. Note: Tags inherited from databases or other parent resources are excluded.",
+        description="When True, extracts Lake Formation tags directly assigned to Glue tables/databases. Tags inherited from databases are excluded by AWS from the per-table response; enable `propagate_lakeformation_tags` to apply database tags to their tables as well.",
+    )
+
+    propagate_lakeformation_tags: bool = Field(
+        default=False,
+        description="When True (requires `extract_lakeformation_tags`), Lake Formation tags assigned to a Glue database are inherited by every table in that database, and (when `extract_lakeformation_column_tags` is also enabled) by every column as well — matching Lake Formation's own inheritance. AWS returns the database's tags alongside each table's own tags, so no extra API calls are made. A more-specific assignment overrides an inherited value for the same key (table over database, column over table/database).",
+    )
+
+    extract_lakeformation_column_tags: bool = Field(
+        default=True,
+        description="When True (requires `extract_lakeformation_tags`), Lake Formation tags assigned directly to columns are applied to the corresponding schema fields. If `propagate_lakeformation_tags` is also enabled, the table's and database's tags are inherited by every column as well (matching Lake Formation's inheritance), with a column's own tag taking precedence for the same key.",
     )
 
     profiling: GlueProfilingConfig = Field(
@@ -217,6 +295,26 @@ class GlueSourceConfig(
     include_column_lineage: bool = Field(
         default=True,
         description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields.",
+    )
+
+    extract_column_parameters: bool = Field(
+        default=False,
+        description=(
+            "When enabled, column-level Parameters from Glue are ingested as structured properties "
+            "on each schemaField entity. A StructuredPropertyDefinition is upserted once per unique "
+            "parameter key per recipe run; subsequent columns reuse the cached definition."
+        ),
+    )
+
+    target_platform_configs: Dict[str, TargetPlatformConfig] = Field(
+        default_factory=dict,
+        description=(
+            "Optional per-platform config for aligning dataset URNs with separately ingested platforms. "
+            "Keys are DataHub platform names (e.g. 'postgres', 'mysql', 'redshift'). "
+            "When provided, the platform_instance and env are applied to dataset URNs so they match "
+            "the URNs produced by the platform's own connector. "
+            "Only needed when the target platform's connector uses a platform_instance or a different env."
+        ),
     )
 
     def is_profiling_enabled(self) -> bool:
@@ -255,6 +353,15 @@ class GlueSourceConfig(
                 f"'platform' can only take following values: {VALID_PLATFORMS}"
             )
 
+    @model_validator(mode="after")
+    def warn_lakeformation_subflags_without_parent(self) -> "GlueSourceConfig":
+        if self.propagate_lakeformation_tags and not self.extract_lakeformation_tags:
+            logger.warning(
+                "propagate_lakeformation_tags has no effect "
+                "unless extract_lakeformation_tags is enabled."
+            )
+        return self
+
 
 @dataclass
 class GlueSourceReport(StaleEntityRemovalSourceReport):
@@ -279,6 +386,34 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
         self.filtered.append(table)
 
 
+@dataclass
+class TableLakeFormationTags:
+    """Lake Formation tags returned for a Glue table in a single GetResourceLFTags call.
+
+    AWS returns all three layers in one response (with ``ShowAssignedLFTags=True``):
+    the database's tags, the table's directly-assigned tags, and each column's
+    directly-assigned tags. This lets us propagate database tags to tables and
+    apply column tags without any extra API calls.
+    """
+
+    database_tags: List[LakeFormationTag]
+    table_tags: List[LakeFormationTag]
+    column_tags: Dict[str, List[LakeFormationTag]]
+
+
+@dataclass
+class ResolvedLakeFormationTags:
+    """LF tags resolved for an entity, split by provenance.
+
+    ``direct`` tags are assigned directly to the entity; ``propagated`` tags are
+    inherited from a parent (database for tables, table/database for columns) and
+    are marked with propagation attribution when emitted.
+    """
+
+    direct: List[LakeFormationTag]
+    propagated: List[LakeFormationTag]
+
+
 @platform_name("Glue")
 @config_class(GlueSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -291,6 +426,10 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_FINE, "Support via the `emit_storage_lineage` config field"
+)
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default from Glue table created and last modified timestamps",
 )
 @capability(
     SourceCapability.CONTAINERS,
@@ -328,6 +467,10 @@ class GlueSource(StatefulIngestionSourceBase):
         self.lf_client = config.lakeformation_client
         self.extract_transforms = config.extract_transforms
         self.env = config.env
+        self._glue_connection_cache: Dict[str, Optional[Tuple[str, str]]] = {}
+        # Tracks which structured property definitions have been emitted this run
+        # so each key's definition is only upserted once.
+        self._seen_column_param_urns: Set[str] = set()
 
         self.platform_resource_repository: Optional[
             "GluePlatformResourceRepository"
@@ -344,9 +487,8 @@ class GlueSource(StatefulIngestionSourceBase):
         catalog_id: str,
         database_name: str,
     ) -> List[LakeFormationTag]:
-        """Get all LF tags for a specific table."""
+        """Get the Lake Formation tags directly assigned to a database."""
         try:
-            # Get LF tags for the specified table
             response = self.lf_client.get_resource_lf_tags(
                 CatalogId=catalog_id,
                 Resource={
@@ -357,40 +499,48 @@ class GlueSource(StatefulIngestionSourceBase):
                 },
                 ShowAssignedLFTags=True,
             )
-
-            if response:
-                logger.info(f"LF tags for database {database_name}: {response}")
-            # Extract and return the LF tags
-            lf_tags = response.get("LFTagOnDatabase", [])
-
-            tags = []
-            for lf_tag in lf_tags:
-                catalog_id = lf_tag.get("CatalogId")
-                tag_key = lf_tag.get("TagKey")
-                for tag_value in lf_tag.get("TagValues", []):
-                    t = LakeFormationTag(
-                        key=tag_key,
-                        value=tag_value,
-                        catalog=catalog_id,
-                    )
-                    tags.append(t)
-            return tags
-
+            return self._parse_lf_tag_dicts(response.get("LFTagOnDatabase", []))
         except Exception as e:
-            print(
-                f"Error getting LF tags for table {catalog_id}.{database_name}: {str(e)}"
+            self.report.warning(
+                title="Failed to extract Lake Formation tags for database",
+                message="Lake Formation tags will be missing for this database "
+                "(and its tables if propagation is enabled). Check that the "
+                "ingestion role has lakeformation:GetResourceLFTags.",
+                context=f"{catalog_id}.{database_name}",
+                exc=e,
             )
             return []
+
+    @staticmethod
+    def _parse_lf_tag_dicts(lf_tags: List[Dict]) -> List[LakeFormationTag]:
+        """Convert AWS LF-tag dicts ({CatalogId, TagKey, TagValues}) to LakeFormationTag."""
+        tags = []
+        for lf_tag in lf_tags:
+            tag_key = lf_tag.get("TagKey")
+            if not tag_key:
+                # Malformed response entry; nothing meaningful to emit.
+                continue
+            catalog_id = lf_tag.get("CatalogId")
+            for tag_value in lf_tag.get("TagValues", []):
+                tags.append(
+                    LakeFormationTag(key=tag_key, value=tag_value, catalog=catalog_id)
+                )
+        return tags
 
     def get_table_lf_tags(
         self,
         catalog_id: str,
         database_name: str,
         table_name: str,
-    ) -> List[LakeFormationTag]:
-        """Get all LF tags for a specific table."""
+    ) -> TableLakeFormationTags:
+        """Get the LF tags for a table, its database, and its columns in one call.
+
+        A single GetResourceLFTags call on the Table resource returns the
+        database's tags (``LFTagOnDatabase``), the table's directly-assigned tags
+        (``LFTagsOnTable``), and each column's directly-assigned tags
+        (``LFTagsOnColumns``) — so no per-column or per-database calls are needed.
+        """
         try:
-            # Get LF tags for the specified table
             response = self.lf_client.get_resource_lf_tags(
                 CatalogId=catalog_id,
                 Resource={
@@ -402,25 +552,50 @@ class GlueSource(StatefulIngestionSourceBase):
                 },
                 ShowAssignedLFTags=True,
             )
+            column_tags: Dict[str, List[LakeFormationTag]] = {}
+            for column in response.get("LFTagsOnColumns", []):
+                parsed = self._parse_lf_tag_dicts(column.get("LFTags", []))
+                if parsed:
+                    column_tags[column["Name"]] = parsed
+            return TableLakeFormationTags(
+                database_tags=self._parse_lf_tag_dicts(
+                    response.get("LFTagOnDatabase", [])
+                ),
+                table_tags=self._parse_lf_tag_dicts(response.get("LFTagsOnTable", [])),
+                column_tags=column_tags,
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to extract Lake Formation tags for table",
+                message="Lake Formation tags will be missing for this table. "
+                "Check that the ingestion role has lakeformation:GetResourceLFTags.",
+                context=f"{catalog_id}.{database_name}.{table_name}",
+                exc=e,
+            )
+            return TableLakeFormationTags(
+                database_tags=[], table_tags=[], column_tags={}
+            )
 
-            # Extract and return the LF tags
-            lf_tags = response.get("LFTagsOnTable", [])
+    def _resolve_table_lf_tags(
+        self, lf: TableLakeFormationTags
+    ) -> ResolvedLakeFormationTags:
+        """Resolve the LF tags to apply to a table, split into direct and propagated.
 
-            tags = []
-            for lf_tag in lf_tags:
-                catalog_id = lf_tag.get("CatalogId")
-                tag_key = lf_tag.get("TagKey")
-                for tag_value in lf_tag.get("TagValues", []):
-                    t = LakeFormationTag(
-                        key=tag_key,
-                        value=tag_value,
-                        catalog=catalog_id,
-                    )
-                    tags.append(t)
-            return tags
-
-        except Exception:
-            return []
+        The table's own tags are direct. When
+        `propagate_lakeformation_tags` is enabled, database
+        tags are inherited (propagated) for keys the table does not already
+        assign — a value assigned directly to the table overrides the inherited
+        database value, matching Lake Formation's inheritance/override semantics.
+        """
+        direct = list(lf.table_tags)
+        propagated: List[LakeFormationTag] = []
+        if self.source_config.propagate_lakeformation_tags:
+            table_keys = {str(tag.key) for tag in direct}
+            for db_tag in lf.database_tags:
+                if str(db_tag.key) not in table_keys:
+                    propagated.append(db_tag)
+                    table_keys.add(str(db_tag.key))
+        return ResolvedLakeFormationTags(direct=direct, propagated=propagated)
 
     def get_all_lf_tags(self) -> List:
         # 1. Get all LF-Tags in your account (metadata only)
@@ -467,18 +642,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return jobs
 
-    def get_dataflow_graph(
-        self, script_path: str, flow_urn: str
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Get the DAG of transforms and data sources/sinks for a job.
-
-        Parameters
-        ----------
-            script_path:
-                S3 path to the job's Python script.
-        """
-
+    def get_dataflow_script(self, script_path: str, flow_urn: str) -> Optional[str]:
         # handle a bug in AWS where script path has duplicate prefixes
         if script_path.lower().startswith("s3://s3://"):
             script_path = script_path[5:]
@@ -525,7 +689,19 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.num_job_script_location_invalid += 1
             return None
 
-        script = obj["Body"].read().decode("utf-8")
+        return obj["Body"].read().decode("utf-8")
+
+    def get_dataflow_graph(
+        self, script: str, script_path: str, flow_urn: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get the DAG of transforms and data sources/sinks for a job.
+
+        Parameters
+        ----------
+            script_path:
+                S3 path to the job's Python script.
+        """
 
         try:
             # extract the job DAG from the script
@@ -551,6 +727,118 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return s3_uri
 
+    def _parse_jdbc_url(self, jdbc_url: str) -> Tuple[str, str]:
+        """Parse a JDBC URL and return (platform, database).
+
+        Strips the "jdbc:" prefix then uses urlparse to extract the protocol
+        (mapped to a DataHub platform name) and the database from the path.
+        """
+        if not jdbc_url.startswith(JDBC_PREFIX):
+            raise ValueError(f"Not a valid JDBC URL: {_sanitize_jdbc_url(jdbc_url)}")
+        url = urlparse(jdbc_url[len(JDBC_PREFIX) :])
+        protocol = url.scheme.lower()
+        platform = JDBC_PLATFORM_MAP.get(protocol, protocol)
+        database = url.path.lstrip("/").split("?")[0]
+        if not database:
+            props = dict(
+                part.split("=", 1) for part in url.netloc.split(";")[1:] if "=" in part
+            )
+            database = props.get("databaseName", "")
+        return platform, database
+
+    def _extract_urns_from_query(
+        self, query: str, platform: str, database: str, flow_urn: str, node_label: str
+    ) -> Optional[List[str]]:
+        """Parse a SQL query and return DataHub URNs for all referenced input tables.
+
+        Uses dialect-aware parsing via sqlglot_lineage with default schema resolution.
+        Returns None on parse failure or when no tables are found.
+        """
+        result = create_lineage_sql_parsed_result(
+            query=query,
+            default_db=database,
+            platform=platform,
+            platform_instance=None,
+            env=self.env,
+            default_schema=JDBC_DEFAULT_SCHEMA.get(platform),
+            schema_aware=False,
+            generate_column_lineage=False,
+        )
+        if result.debug_info.error:
+            self.report_warning(
+                flow_urn,
+                f"Failed to parse SQL query for node {node_label}: {result.debug_info.error}. Skipping",
+            )
+            return None
+        if not result.in_tables:
+            self.report_warning(
+                flow_urn,
+                f"No tables found in SQL query for node {node_label}. Skipping",
+            )
+            return None
+        return result.in_tables
+
+    def _resolve_glue_connection(
+        self, connection_name: str, flow_urn: str
+    ) -> Optional[Tuple[str, str]]:
+        """Resolve a named Glue connection to (platform, database)."""
+        if connection_name in self._glue_connection_cache:
+            return self._glue_connection_cache[connection_name]
+
+        result: Optional[Tuple[str, str]] = None
+        try:
+            kwargs: Dict[str, Any] = {"Name": connection_name, "HidePassword": True}
+            if self.source_config.catalog_id:
+                kwargs["CatalogId"] = self.source_config.catalog_id
+            response = self.glue_client.get_connection(**kwargs)
+            connection = response["Connection"]
+            conn_type = connection.get("ConnectionType", "")
+            props = connection.get("ConnectionProperties", {})
+            spark_props = connection.get("SparkProperties", {})
+
+            if conn_type == "JDBC":
+                jdbc_url = props.get("JDBC_CONNECTION_URL") or spark_props.get(
+                    "JDBC_CONNECTION_URL"
+                )
+                if not jdbc_url:
+                    self.report_warning(
+                        flow_urn,
+                        f"Glue connection {connection_name!r} has no JDBC_CONNECTION_URL. Skipping",
+                    )
+                else:
+                    try:
+                        result = self._parse_jdbc_url(jdbc_url)
+                    except Exception as e:
+                        self.report_warning(
+                            flow_urn,
+                            f"Failed to parse JDBC URL for connection {connection_name!r}: {e}. Skipping",
+                        )
+                        result = None
+            elif conn_type in GLUE_NATIVE_CONNECTION_TYPE_MAP:
+                platform = GLUE_NATIVE_CONNECTION_TYPE_MAP[conn_type]
+                database = props.get("DATABASE")
+                if not database:
+                    self.report_warning(
+                        flow_urn,
+                        f"Glue connection {connection_name!r} has no DATABASE property. Skipping",
+                    )
+                else:
+                    result = (platform, database)
+            else:
+                self.report_warning(
+                    flow_urn,
+                    f"Unsupported Glue connection type {conn_type!r} for connection {connection_name!r}. Skipping",
+                )
+        except Exception as e:
+            self.report_warning(
+                flow_urn,
+                f"Failed to fetch Glue connection {connection_name!r}: {e}. Skipping",
+            )
+            return None
+
+        self._glue_connection_cache[connection_name] = result
+        return result
+
     def get_dataflow_s3_names(
         self, dataflow_graph: Dict[str, Any]
     ) -> Iterator[Tuple[str, Optional[str]]]:
@@ -575,15 +863,117 @@ class GlueSource(StatefulIngestionSourceBase):
 
                     yield s3_uri, extension
 
+    def _make_dataset_urn_for_platform(self, platform: str, dataset_name: str) -> str:
+        """Build a dataset URN using target_platform_configs if available.
+
+        If target_platform_configs has an entry for this platform, applies its
+        platform_instance and env so the URN matches what the platform's own
+        connector produces.
+        """
+        target_config = self.source_config.target_platform_configs.get(platform)
+        return make_dataset_urn_with_platform_instance(
+            platform=platform,
+            name=dataset_name,
+            env=target_config.env if target_config and target_config.env else self.env,
+            platform_instance=(
+                target_config.platform_instance if target_config else None
+            ),
+        )
+
+    def _build_jdbc_dataset_name(
+        self, platform: str, database: str, dbtable: str
+    ) -> str:
+        if "." in dbtable:
+            schema, table = dbtable.rsplit(".", 1)
+            return f"{database}.{schema}.{table}"
+        default_schema = JDBC_DEFAULT_SCHEMA.get(platform)
+        if default_schema:
+            return f"{database}.{default_schema}.{dbtable}"
+        return f"{database}.{dbtable}"
+
+    def _process_glue_connection_node(
+        self, node: Dict[str, Any], node_args: Dict[str, Any], flow_urn: str
+    ) -> Optional[List[str]]:
+        connection_options = node_args.get("connection_options", {})
+        connection_name = connection_options.get("connectionName")
+        if not connection_name:
+            return None
+        node_label = f"{node['NodeType']}-{node['Id']}"
+
+        resolved = self._resolve_glue_connection(connection_name, flow_urn)
+        if resolved is None:
+            return None
+        platform, database = resolved
+
+        dbtable = connection_options.get("dbtable")
+        if dbtable:
+            return [
+                self._make_dataset_urn_for_platform(
+                    platform,
+                    self._build_jdbc_dataset_name(platform, database, dbtable),
+                )
+            ]
+
+        query = connection_options.get("query")
+        if query:
+            return self._extract_urns_from_query(
+                query, platform, database, flow_urn, node_label
+            )
+
+        self.report_warning(
+            flow_urn, f"Missing dbtable or query for node {node_label}. Skipping"
+        )
+        return None
+
+    def _process_jdbc_node(
+        self, node: Dict[str, Any], node_args: Dict[str, Any], flow_urn: str
+    ) -> Optional[List[str]]:
+        connection_options = node_args.get("connection_options", {})
+        jdbc_url = connection_options.get("url")
+        node_label = f"{node['NodeType']}-{node['Id']}"
+
+        if not jdbc_url:
+            self.report_warning(
+                flow_urn, f"Missing JDBC URL for node {node_label}. Skipping"
+            )
+            return None
+
+        try:
+            platform, database = self._parse_jdbc_url(jdbc_url)
+        except ValueError as e:
+            self.report_warning(
+                flow_urn,
+                f"Failed to parse JDBC URL for node {node_label}: {e}. Skipping",
+            )
+            return None
+
+        dbtable = connection_options.get("dbtable")
+        if dbtable:
+            return [
+                self._make_dataset_urn_for_platform(
+                    platform,
+                    self._build_jdbc_dataset_name(platform, database, dbtable),
+                )
+            ]
+
+        query = connection_options.get("query")
+        if query:
+            return self._extract_urns_from_query(
+                query, platform, database, flow_urn, node_label
+            )
+
+        self.report_warning(
+            flow_urn, f"Missing dbtable or query for node {node_label}. Skipping"
+        )
+        return None
+
     def process_dataflow_node(
         self,
         node: Dict[str, Any],
         flow_urn: str,
-        new_dataset_ids: List[str],
-        new_dataset_mces: List[MetadataChangeEvent],
-        s3_formats: DefaultDict[str, Set[Union[str, None]]],
     ) -> Optional[Dict[str, Any]]:
         node_type = node["NodeType"]
+        dataset_urns: Optional[List[str]] = None
 
         # for nodes representing datasets, we construct a dataset URN accordingly
         if node_type in ["DataSource", "DataSink"]:
@@ -608,37 +998,29 @@ class GlueSource(StatefulIngestionSourceBase):
                 if s3_uri is None:
                     self.report_warning(
                         flow_urn,
-                        f"Could not find script path for job {node['NodeType']}-{node['Id']} in flow {flow_urn}. Skipping",
+                        f"Could not find S3 path for job {node['NodeType']}-{node['Id']} in flow {flow_urn}. Skipping",
                     )
                     return None
 
-                # append S3 format if different ones exist
-                if len(s3_formats[s3_uri]) > 1:
-                    node_urn = make_s3_urn(
-                        f"{s3_uri}.{node_args.get('format')}",
-                        self.env,
-                    )
+                node_urn = make_s3_urn(s3_uri, self.env)
 
-                else:
-                    node_urn = make_s3_urn(s3_uri, self.env)
+            # if data object references a named Glue connection (visual editor style)
+            elif (node_args.get("connection_options") or {}).get("connectionName"):
+                _urns = self._process_glue_connection_node(node, node_args, flow_urn)
+                if not _urns:
+                    return None
+                node_urn = _urns[0]
+                if len(_urns) > 1:
+                    dataset_urns = _urns
 
-                dataset_snapshot = DatasetSnapshot(
-                    urn=node_urn,
-                    aspects=[],
-                )
-
-                dataset_snapshot.aspects.append(Status(removed=False))
-                dataset_snapshot.aspects.append(
-                    DatasetPropertiesClass(
-                        customProperties={k: str(v) for k, v in node_args.items()},
-                        tags=[],
-                    )
-                )
-
-                new_dataset_mces.append(
-                    MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                )
-                new_dataset_ids.append(f"{node['NodeType']}-{node['Id']}")
+            # if data object is a JDBC source (e.g. Postgres, MySQL, Redshift)
+            elif node_args.get("connection_type") in JDBC_PLATFORM_MAP:
+                _urns = self._process_jdbc_node(node, node_args, flow_urn)
+                if not _urns:
+                    return None
+                node_urn = _urns[0]
+                if len(_urns) > 1:
+                    dataset_urns = _urns
 
             else:
                 if self.source_config.ignore_unsupported_connectors:
@@ -656,7 +1038,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 flow_urn, job_id=f"{node['NodeType']}-{node['Id']}"
             )
 
-        return {
+        result: Dict[str, Any] = {
             **node,
             "urn": node_urn,
             # to be filled in after traversing edges
@@ -664,13 +1046,15 @@ class GlueSource(StatefulIngestionSourceBase):
             "inputDatasets": [],
             "outputDatasets": [],
         }
+        if dataset_urns is not None:
+            result["dataset_urns"] = dataset_urns
+        return result
 
     def process_dataflow_graph(
         self,
         dataflow_graph: Dict[str, Any],
         flow_urn: str,
-        s3_formats: DefaultDict[str, Set[Union[str, None]]],
-    ) -> Tuple[Dict[str, Dict[str, Any]], List[str], List[MetadataChangeEvent]]:
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Prepare a job's DAG for ingestion.
         Parameters
@@ -679,20 +1063,13 @@ class GlueSource(StatefulIngestionSourceBase):
                 Job DAG returned from get_dataflow_graph()
             flow_urn:
                 URN of the flow (i.e. the AWS Glue job itself).
-            s3_formats:
-                Map from s3 URIs to formats used (for deduplication purposes)
         """
-
-        new_dataset_ids: List[str] = []
-        new_dataset_mces: List[MetadataChangeEvent] = []
 
         nodes: dict = {}
 
         # iterate through each node to populate processed nodes
         for node in dataflow_graph["DagNodes"]:
-            processed_node = self.process_dataflow_node(
-                node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
-            )
+            processed_node = self.process_dataflow_node(node, flow_urn)
 
             if processed_node is not None:
                 nodes[node["Id"]] = processed_node
@@ -718,7 +1095,9 @@ class GlueSource(StatefulIngestionSourceBase):
 
             # note that source nodes can't be data sinks
             if source_node_type == "DataSource":
-                target_node["inputDatasets"].append(source_node["urn"])
+                target_node["inputDatasets"].extend(
+                    source_node.get("dataset_urns", [source_node["urn"]])
+                )
             # keep track of input data jobs (as defined in schemas)
             else:
                 target_node["inputDatajobs"].append(source_node["urn"])
@@ -726,9 +1105,11 @@ class GlueSource(StatefulIngestionSourceBase):
             if target_node_type == "DataSink":
                 source_node["outputDatasets"].append(target_node["urn"])
 
-        return nodes, new_dataset_ids, new_dataset_mces
+        return nodes
 
-    def get_dataflow_wu(self, flow_urn: str, job: Dict[str, Any]) -> MetadataWorkUnit:
+    def get_dataflow_wus(
+        self, flow_urn: str, job: Dict[str, Any]
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Generate a DataFlow workunit for a Glue job.
 
@@ -770,8 +1151,54 @@ class GlueSource(StatefulIngestionSourceBase):
                 ],
             )
         )
+        yield MetadataWorkUnit(id=job["Name"], mce=mce)
 
-        return MetadataWorkUnit(id=job["Name"], mce=mce)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=SubTypes(typeNames=[FlowContainerSubTypes.GLUE_JOB]),
+        ).as_workunit()
+
+    def get_datajob_wus_for_dataflow(
+        self, flow_urn: str, job_name: str, script: Optional[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate a DataJob workunit for a Glue job with no nodes.
+        """
+
+        job_urn = mce_builder.make_data_job_urn_with_flow(flow_urn, job_id=job_name)
+
+        region = self.source_config.aws_region
+        yield MetadataChangeProposalWrapper(
+            entityUrn=job_urn,
+            aspect=DataJobInfoClass(
+                name=job_name,
+                type="GLUE",
+                externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job_name}/graph",
+                customProperties={},
+            ),
+        ).as_workunit()
+
+        if script:
+            redacted_script = _redact_secret_fields_in_dataflow_script(script)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=job_urn,
+                aspect=DataTransformLogicClass(
+                    transforms=[
+                        DataTransformClass(
+                            queryStatement=QueryStatementClass(
+                                value=redacted_script,
+                                # The language field uses a pretty limited enum.
+                                # The "UNKNOWN" enum value is pretty new, so we don't want to
+                                # emit it until it has broader server-side support. As a
+                                # short-term solution, we map all languages to "SQL".
+                                # TODO: Once we've released server 1.1.0, we should change
+                                # this to be "UNKNOWN" for all languages except "SQL".
+                                language=QueryLanguageClass.SQL,
+                            )
+                        )
+                    ]
+                ),
+            ).as_workunit()
 
     def get_datajob_wu(self, node: Dict[str, Any], job_name: str) -> MetadataWorkUnit:
         """
@@ -855,10 +1282,20 @@ class GlueSource(StatefulIngestionSourceBase):
             paginator_response = paginator.paginate(DatabaseName=database_name)
 
         for table in paginator_response.search("TableList"):
-            # if resource links are detected, re-use database names from the current catalog
-            # otherwise, external names are picked up instead of aliased ones when creating full table names later
-            # This will cause an incoherent situation when creating full table names later
-            # Note: use an explicit source_config check but it is useless actually (filtering has already been done)
+            # Lake Formation can share individual tables across accounts as table-level
+            # resource links (table has a TargetTable pointing at the shared table).
+            # Database-level filtering in get_all_databases() does not catch these,
+            # since they live inside non-resource-link databases.
+            if self.source_config.ignore_resource_links and "TargetTable" in table:
+                logger.debug(
+                    f"Skipping resource link table {database_name}.{table.get('Name')} "
+                    f"(TargetTable: {table.get('TargetTable')})"
+                )
+                continue
+
+            # When ingesting resource-link databases (ignore_resource_links=False),
+            # rewrite DatabaseName to the local alias so downstream URN construction
+            # uses the catalog-local name instead of the target catalog's name.
             if (
                 not self.source_config.ignore_resource_links
                 and "TargetDatabase" in database
@@ -1277,6 +1714,10 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            functools.partial(
+                auto_incremental_properties,
+                self.source_config.incremental_properties,
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.source_config, self.ctx
             ).workunit_processor,
@@ -1337,60 +1778,45 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
     def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
-        dags: Dict[str, Optional[Dict[str, Any]]] = {}
-        flow_names: Dict[str, str] = {}
         for job in self.get_all_jobs():
             flow_urn = mce_builder.make_data_flow_urn(
                 self.platform, job["Name"], self.env
             )
 
-            yield self.get_dataflow_wu(flow_urn, job)
+            yield from self.get_dataflow_wus(flow_urn, job)
 
             job_script_location = job.get("Command", {}).get("ScriptLocation")
 
-            dag: Optional[Dict[str, Any]] = None
-
+            job_script: Optional[str] = None
             if job_script_location is not None:
-                dag = self.get_dataflow_graph(job_script_location, flow_urn)
+                job_script = self.get_dataflow_script(job_script_location, flow_urn)
             else:
                 self.report.num_job_script_location_missing += 1
 
-            dags[flow_urn] = dag
-            flow_names[flow_urn] = job["Name"]
-        # run a first pass to pick up s3 bucket names and formats
-        # in Glue, it's possible for two buckets to have files of different extensions
-        # if this happens, we append the extension in the URN so the sources can be distinguished
-        # see process_dataflow_node() for details
-        s3_formats: DefaultDict[str, Set[Optional[str]]] = defaultdict(set)
-        for dag in dags.values():
-            if dag is not None:
-                for s3_name, extension in self.get_dataflow_s3_names(dag):
-                    s3_formats[s3_name].add(extension)
-        # run second pass to generate node workunits
-        for flow_urn, dag in dags.items():
-            if dag is None:
-                continue
+            dag: Optional[Dict[str, Any]] = None
+            if job_script:
+                dag = self.get_dataflow_graph(job_script, job_script_location, flow_urn)
 
-            nodes, new_dataset_ids, new_dataset_mces = self.process_dataflow_graph(
-                dag, flow_urn, s3_formats
-            )
+            nodes: Optional[dict] = None
+            if dag is not None:
+                nodes = self.process_dataflow_graph(dag, flow_urn)
+                if not nodes:
+                    self.report.num_job_without_nodes += 1
 
             if not nodes:
-                self.report.num_job_without_nodes += 1
+                yield from self.get_datajob_wus_for_dataflow(
+                    flow_urn, job["Name"], job_script
+                )
+                continue
 
             for node in nodes.values():
                 if node["NodeType"] not in ["DataSource", "DataSink"]:
-                    yield self.get_datajob_wu(node, flow_names[flow_urn])
+                    yield self.get_datajob_wu(node, job["Name"])
                 elif (node["NodeType"] == "DataSource" and node["outputDatasets"]) or (
                     node["NodeType"] == "DataSink" and node["inputDatasets"]
                 ):
                     # Not common, but capturing counts here for reporting
                     self.report.num_dataset_to_dataset_edges_in_job += 1
-
-            for dataset_id, dataset_mce in zip(
-                new_dataset_ids, new_dataset_mces, strict=False
-            ):
-                yield MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
 
     def _extract_record(
         self, dataset_urn: str, table: Dict, table_name: str
@@ -1401,16 +1827,75 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
         # Create the main dataset snapshot
+        dataset_properties = self._get_dataset_properties(table)
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
             aspects=[
                 Status(removed=False),
-                self._get_dataset_properties(table),
+                dataset_properties,
             ],
         )
 
-        # Add schema metadata if available
-        schema_metadata = self._get_schema_metadata(table, table_name, dataset_urn)
+        # Add operations if available
+        if dataset_properties.created:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=OperationClass(
+                    operationType=OperationTypeClass.CREATE,
+                    lastUpdatedTimestamp=dataset_properties.created.time,
+                    timestampMillis=dataset_properties.created.time,
+                ),
+            ).as_workunit()
+        if (
+            dataset_properties.lastModified
+            and dataset_properties.lastModified != dataset_properties.created
+        ):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=OperationClass(
+                    operationType=OperationTypeClass.UPDATE,
+                    lastUpdatedTimestamp=dataset_properties.lastModified.time,
+                    timestampMillis=dataset_properties.lastModified.time,
+                ),
+            ).as_workunit()
+
+        # Fetch Lake Formation tags once: a single call returns the database's
+        # tags, the table's tags, and the columns' tags (see get_table_lf_tags).
+        table_lf_tags: Optional[TableLakeFormationTags] = None
+        resolved_table_tags = ResolvedLakeFormationTags(direct=[], propagated=[])
+        if self.source_config.extract_lakeformation_tags:
+            table_lf_tags = self.get_table_lf_tags(
+                catalog_id=table["CatalogId"],
+                database_name=table["DatabaseName"],
+                table_name=table["Name"],
+            )
+            resolved_table_tags = self._resolve_table_lf_tags(table_lf_tags)
+
+        # Add schema metadata if available. When propagation is enabled, the
+        # table's effective tags (its own + inherited database tags) are
+        # inherited by every column (matching Lake Formation's inheritance),
+        # marked as propagated, with a column's direct tags taking precedence
+        # for the same key.
+        column_lf_tags = (
+            table_lf_tags.column_tags
+            if table_lf_tags and self.source_config.extract_lakeformation_column_tags
+            else None
+        )
+        column_parent_tags = (
+            [*resolved_table_tags.direct, *resolved_table_tags.propagated]
+            if table_lf_tags
+            and self.source_config.extract_lakeformation_column_tags
+            and self.source_config.propagate_lakeformation_tags
+            else None
+        )
+        schema_metadata = self._get_schema_metadata(
+            table,
+            table_name,
+            dataset_urn,
+            column_lf_tags,
+            column_parent_tags,
+            dataset_urn,
+        )
         if schema_metadata:
             dataset_snapshot.aspects.append(schema_metadata)
 
@@ -1429,23 +1914,36 @@ class GlueSource(StatefulIngestionSourceBase):
             dataset_snapshot.aspects.append(s3_tags)
 
         # Add Lake Formation tags if enabled
-        if self.source_config.extract_lakeformation_tags:
-            tags = self.get_table_lf_tags(
-                catalog_id=table["CatalogId"],
-                database_name=table["DatabaseName"],
-                table_name=table["Name"],
+        if table_lf_tags is not None:
+            # Tags inherited from the database are marked as propagated, with the
+            # database container as their origin.
+            db_container_urn = self.gen_database_key(table["DatabaseName"]).as_urn()
+            global_tags = self._build_lf_global_tags(
+                resolved_table_tags.direct,
+                resolved_table_tags.propagated,
+                propagated_origin=db_container_urn,
             )
-
-            global_tags = self._get_lake_formation_tags(tags)
             if global_tags:
                 dataset_snapshot.aspects.append(global_tags)
-                # Generate platform resources for LF tags
-                for tag in tags:
+                # Generate platform resources for table-level LF tags
+                for tag in [
+                    *resolved_table_tags.direct,
+                    *resolved_table_tags.propagated,
+                ]:
                     yield from self.gen_platform_resource(tag)
+            # Generate platform resources for column-level LF tags
+            if column_lf_tags:
+                for column_tag in {
+                    tag for tags in column_lf_tags.values() for tag in tags
+                }:
+                    yield from self.gen_platform_resource(column_tag)
 
         # Create and yield the main metadata work unit
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         yield MetadataWorkUnit(table_name, mce=metadata_record)
+
+        if self.source_config.extract_column_parameters:
+            yield from self._get_column_param_workunits(table, dataset_urn)
 
         # Add lineage if enabled
         lineage_wu = self.get_lineage_if_enabled(metadata_record)
@@ -1476,6 +1974,14 @@ class GlueSource(StatefulIngestionSourceBase):
             },
         }
 
+        created = None
+        if table.get("CreateTime"):
+            created_ts = make_ts_millis(
+                table["CreateTime"].replace(tzinfo=datetime.timezone.utc)
+            )
+            if created_ts is not None:
+                created = TimeStampClass(created_ts)
+
         last_modified = None
         if table.get("UpdateTime"):
             updated_ts = make_ts_millis(
@@ -1495,11 +2001,18 @@ class GlueSource(StatefulIngestionSourceBase):
                 database=table["DatabaseName"],
                 table=table["Name"],
             ),
+            created=created,
             lastModified=last_modified,
         )
 
     def _get_schema_metadata(
-        self, table: Dict, table_name: str, dataset_urn: str
+        self,
+        table: Dict,
+        table_name: str,
+        dataset_urn: str,
+        column_tags: Optional[Dict[str, List[LakeFormationTag]]] = None,
+        column_parent_tags: Optional[List[LakeFormationTag]] = None,
+        column_parent_origin: Optional[str] = None,
     ) -> Optional[SchemaMetadata]:
         """Extract schema metadata from Glue table."""
         if not table.get("StorageDescriptor"):
@@ -1507,9 +2020,57 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # Check if this is a delta table with schema in parameters
         if self._is_delta_schema(table):
-            return self._get_delta_schema_metadata(table, table_name, dataset_urn)
+            return self._get_delta_schema_metadata(
+                table,
+                table_name,
+                dataset_urn,
+                column_tags,
+                column_parent_tags,
+                column_parent_origin,
+            )
         else:
-            return self._get_glue_schema_metadata(table, table_name)
+            return self._get_glue_schema_metadata(
+                table,
+                table_name,
+                column_tags,
+                column_parent_tags,
+                column_parent_origin,
+            )
+
+    def _apply_column_lf_tags(
+        self,
+        schema_fields: List[SchemaField],
+        column_name: str,
+        column_tags: Optional[Dict[str, List[LakeFormationTag]]],
+        parent_tags: Optional[List[LakeFormationTag]] = None,
+        parent_origin: Optional[str] = None,
+    ) -> None:
+        """Attach a column's LF tags to its root schema field (in place).
+
+        ``get_schema_fields_for_hive_column`` returns the column's own field
+        first, followed by any nested struct/array children, so the tag is
+        applied to ``schema_fields[0]``.
+
+        ``parent_tags`` are the table/database tags inherited by every column
+        when database-tag propagation is enabled (matching Lake Formation's
+        inheritance); they are marked as propagated. A tag the column assigns
+        directly overrides an inherited value for the same key.
+        """
+        if not schema_fields:
+            return
+        direct = list((column_tags or {}).get(column_name, []))
+        propagated: List[LakeFormationTag] = []
+        if parent_tags:
+            column_keys = {str(tag.key) for tag in direct}
+            for parent_tag in parent_tags:
+                if str(parent_tag.key) not in column_keys:
+                    propagated.append(parent_tag)
+                    column_keys.add(str(parent_tag.key))
+        global_tags = self._build_lf_global_tags(
+            direct, propagated, propagated_origin=parent_origin
+        )
+        if global_tags:
+            schema_fields[0].globalTags = global_tags
 
     def _is_delta_schema(self, table: Dict) -> bool:
         """Check if table uses delta format with schema in parameters."""
@@ -1532,7 +2093,12 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
     def _get_glue_schema_metadata(
-        self, table: Dict, table_name: str
+        self,
+        table: Dict,
+        table_name: str,
+        column_tags: Optional[Dict[str, List[LakeFormationTag]]] = None,
+        column_parent_tags: Optional[List[LakeFormationTag]] = None,
+        column_parent_origin: Optional[str] = None,
     ) -> Optional[SchemaMetadata]:
         """Extract schema metadata from Glue table columns."""
         schema = table["StorageDescriptor"]["Columns"]
@@ -1547,6 +2113,13 @@ class GlueSource(StatefulIngestionSourceBase):
                 default_nullable=True,
             )
             if schema_fields:
+                self._apply_column_lf_tags(
+                    schema_fields,
+                    field["Name"],
+                    column_tags,
+                    column_parent_tags,
+                    column_parent_origin,
+                )
                 fields.extend(schema_fields)
 
         # Process partition keys
@@ -1559,6 +2132,13 @@ class GlueSource(StatefulIngestionSourceBase):
                 default_nullable=False,
             )
             if schema_fields:
+                self._apply_column_lf_tags(
+                    schema_fields,
+                    partition_key["Name"],
+                    column_tags,
+                    column_parent_tags,
+                    column_parent_origin,
+                )
                 fields.extend(schema_fields)
 
         return SchemaMetadata(
@@ -1571,7 +2151,13 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
     def _get_delta_schema_metadata(
-        self, table: Dict, table_name: str, dataset_urn: str
+        self,
+        table: Dict,
+        table_name: str,
+        dataset_urn: str,
+        column_tags: Optional[Dict[str, List[LakeFormationTag]]] = None,
+        column_parent_tags: Optional[List[LakeFormationTag]] = None,
+        column_parent_origin: Optional[str] = None,
     ) -> Optional[SchemaMetadata]:
         """Extract schema metadata from Delta table parameters."""
         try:
@@ -1593,6 +2179,13 @@ class GlueSource(StatefulIngestionSourceBase):
                     default_nullable=bool(field.get("nullable", True)),
                 )
                 if schema_fields:
+                    self._apply_column_lf_tags(
+                        schema_fields,
+                        field["name"],
+                        column_tags,
+                        column_parent_tags,
+                        column_parent_origin,
+                    )
                     fields.extend(schema_fields)
 
             self.report.num_dataset_valid_delta_schema += 1
@@ -1640,6 +2233,78 @@ class GlueSource(StatefulIngestionSourceBase):
             )
         ]
         return OwnershipClass(owners=owners)
+
+    @staticmethod
+    def _column_param_property_urn(key: str) -> str:
+        qualified_name = (
+            f"io.datahubproject.glue.column.{re.sub(r'[^a-zA-Z0-9._]', '_', key)}"
+        )
+        return f"urn:li:structuredProperty:{qualified_name}"
+
+    def _get_column_param_workunits(
+        self, table: Dict, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        columns = table.get("StorageDescriptor", {}).get("Columns", [])
+        columns = columns + table.get("PartitionKeys", [])
+        for column in columns:
+            try:
+                params = column.get("Parameters")
+                if not params:
+                    continue
+                schema_fields = get_schema_fields_for_hive_column(
+                    hive_column_name=column["Name"],
+                    hive_column_type=column.get("Type", "string"),
+                    description=column.get("Comment"),
+                    default_nullable=True,
+                )
+                if not schema_fields:
+                    continue
+                field_urn = mce_builder.make_schema_field_urn(
+                    dataset_urn, schema_fields[0].fieldPath
+                )
+                assignments = []
+                for key, value in params.items():
+                    property_urn = self._column_param_property_urn(key)
+                    qualified_name = property_urn.removeprefix(
+                        "urn:li:structuredProperty:"
+                    )
+                    if property_urn not in self._seen_column_param_urns:
+                        definition_mcp = MetadataChangeProposalWrapper(
+                            entityUrn=property_urn,
+                            aspect=StructuredPropertyDefinitionClass(
+                                qualifiedName=qualified_name,
+                                displayName=key,
+                                valueType="urn:li:dataType:datahub.string",
+                                entityTypes=["urn:li:entityType:datahub.schemaField"],
+                            ),
+                        )
+                        if self.ctx.graph is not None:
+                            # Emit synchronously so GMS persists the definition
+                            # before the structuredProperties MCP below is
+                            # validated — GMS rejects assignments that reference
+                            # a definition not yet in the database.
+                            self.ctx.graph.emit_mcp(
+                                definition_mcp, emit_mode=EmitMode.SYNC_PRIMARY
+                            )
+                        else:
+                            yield definition_mcp.as_workunit()
+                        self._seen_column_param_urns.add(property_urn)
+                    assignments.append(
+                        StructuredPropertyValueAssignmentClass(
+                            propertyUrn=property_urn,
+                            values=[value],
+                        )
+                    )
+                if assignments:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=field_urn,
+                        aspect=StructuredPropertiesClass(properties=assignments),
+                    ).as_workunit()
+            except Exception as e:
+                self.report.report_warning(
+                    message="Failed to emit column parameters for column",
+                    context=f"dataset={dataset_urn} column={column.get('Name', '?')!r}: {e}",
+                )
 
     def _get_s3_tags(self, table: Dict, dataset_urn: str) -> Optional[GlobalTagsClass]:
         """Extract S3 tags if enabled."""
@@ -1707,26 +2372,66 @@ class GlueSource(StatefulIngestionSourceBase):
         unique_tags = sorted(set(tags_to_add))
         return GlobalTagsClass(tags=[TagAssociationClass(tag) for tag in unique_tags])
 
-    def _get_lake_formation_tags(
-        self, tags: List[LakeFormationTag]
-    ) -> Optional[GlobalTagsClass]:
-        """Extract Lake Formation tags if enabled."""
-        tag_urns: List[str] = []
+    @staticmethod
+    def _to_tag_urns(tags: List[LakeFormationTag]) -> List[str]:
+        urns: List[str] = []
         for tag in tags:
             try:
-                tag_urns.append(tag.to_datahub_tag_urn().urn())
+                urns.append(tag.to_datahub_tag_urn().urn())
             except InvalidUrnError as e:
                 logger.warning(
                     f"Invalid Lake Formation tag URN for {tag}: {e}", exc_info=True
                 )
                 continue  # Skip invalid tags
+        return urns
 
-        tag_urns.sort()  # Sort to maintain consistent order
-        return (
-            GlobalTagsClass(tags=[TagAssociationClass(tag_urn) for tag_urn in tag_urns])
-            if tag_urns
-            else None
+    def _propagated_tag_attribution(
+        self, origin: Optional[str]
+    ) -> Tuple[MetadataAttributionClass, str]:
+        """Build the attribution + legacy context marking a tag as propagated.
+
+        Mirrors the DataHub tag-propagation action: ``sourceDetail.propagated``
+        drives the "Propagated" indicator in the UI, and ``context`` carries the
+        same information for older readers.
+        """
+        source_detail: Dict[str, str] = {"propagated": "true"}
+        if origin:
+            source_detail["origin"] = origin
+        attribution = MetadataAttributionClass(
+            time=get_sys_time(),
+            actor="urn:li:corpuser:__datahub_system",
+            source=origin,
+            sourceDetail=source_detail,
         )
+        return attribution, json.dumps(source_detail)
+
+    def _build_lf_global_tags(
+        self,
+        direct_tags: List[LakeFormationTag],
+        propagated_tags: Optional[List[LakeFormationTag]] = None,
+        propagated_origin: Optional[str] = None,
+    ) -> Optional[GlobalTagsClass]:
+        """Build a GlobalTags aspect, marking propagated tags with attribution.
+
+        Direct tags take precedence: a propagated tag is skipped if the same tag
+        URN is already assigned directly.
+        """
+        associations: Dict[str, TagAssociationClass] = {}
+        for urn in self._to_tag_urns(direct_tags):
+            associations.setdefault(urn, TagAssociationClass(tag=urn))
+
+        if propagated_tags:
+            attribution, context = self._propagated_tag_attribution(propagated_origin)
+            for urn in self._to_tag_urns(propagated_tags):
+                if urn not in associations:
+                    associations[urn] = TagAssociationClass(
+                        tag=urn, context=context, attribution=attribution
+                    )
+
+        if not associations:
+            return None
+        # Sort for stable, deterministic output.
+        return GlobalTagsClass(tags=[associations[urn] for urn in sorted(associations)])
 
     def get_report(self):
         return self.report
@@ -1734,3 +2439,14 @@ class GlueSource(StatefulIngestionSourceBase):
     def report_warning(self, key: str, reason: str) -> None:
         logger.warning(f"{key}: {reason}")
         self.report.report_warning(key, reason)
+
+
+def _redact_secret_fields_in_dataflow_script(script: str) -> str:
+    # It's possible for Glue Job nodes to contain sensitive values in their connection_info
+    # arguments. Redact all string values that are preceded by a key containing "password" or
+    # "secret".
+    return re.sub(
+        r'(?i)("(\\"|[^"])*(?:password|secret)(\\"|[^"])*"\s*:\s*)"(\\"|[^"])*"',
+        r'\1"*****"',
+        script,
+    )

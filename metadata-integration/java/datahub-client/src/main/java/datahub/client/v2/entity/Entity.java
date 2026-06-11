@@ -2,6 +2,7 @@ package datahub.client.v2.entity;
 
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.aspect.patch.builder.AbstractMultiFieldPatchBuilder;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.client.v2.config.DataHubClientConfigV2;
@@ -58,10 +59,7 @@ public abstract class Entity {
   @Nonnull protected final List<MetadataChangeProposalWrapper> pendingMCPs;
 
   /** Accumulated patch builders by aspect name (for combining operations). */
-  @Nonnull
-  protected final Map<
-          String, com.linkedin.metadata.aspect.patch.builder.AbstractMultiFieldPatchBuilder<?>>
-      patchBuilders;
+  @Nonnull protected final Map<String, AbstractMultiFieldPatchBuilder<?>> patchBuilders;
 
   /** Reference to entity client for lazy loading (null if not bound). */
   @Nullable protected EntityClient client;
@@ -177,9 +175,7 @@ public abstract class Entity {
       @Nullable DataHubClientConfigV2.OperationMode mode,
       @Nonnull Map<String, List<MetadataChangeProposal>> pendingPatches,
       @Nonnull List<MetadataChangeProposalWrapper> pendingMCPs,
-      @Nonnull
-          Map<String, com.linkedin.metadata.aspect.patch.builder.AbstractMultiFieldPatchBuilder<?>>
-              patchBuilders,
+      @Nonnull Map<String, AbstractMultiFieldPatchBuilder<?>> patchBuilders,
       boolean dirty,
       boolean readOnly) {
     this.urn = urn;
@@ -686,9 +682,7 @@ public abstract class Entity {
    * @param builder the patch builder
    */
   protected void registerPatchBuilder(
-      @Nonnull String aspectName,
-      @Nonnull
-          com.linkedin.metadata.aspect.patch.builder.AbstractMultiFieldPatchBuilder<?> builder) {
+      @Nonnull String aspectName, @Nonnull AbstractMultiFieldPatchBuilder<?> builder) {
     patchBuilders.put(aspectName, builder);
     markDirty();
   }
@@ -702,10 +696,9 @@ public abstract class Entity {
    * @return the builder, or null if not registered
    */
   @Nullable
-  protected <T extends com.linkedin.metadata.aspect.patch.builder.AbstractMultiFieldPatchBuilder<T>>
-      T getPatchBuilder(@Nonnull String aspectName, @Nonnull Class<T> builderClass) {
-    com.linkedin.metadata.aspect.patch.builder.AbstractMultiFieldPatchBuilder<?> builder =
-        patchBuilders.get(aspectName);
+  protected <T extends AbstractMultiFieldPatchBuilder<T>> T getPatchBuilder(
+      @Nonnull String aspectName, @Nonnull Class<T> builderClass) {
+    AbstractMultiFieldPatchBuilder<?> builder = patchBuilders.get(aspectName);
     if (builder != null && builderClass.isInstance(builder)) {
       @SuppressWarnings("unchecked")
       T typedBuilder = (T) builder;
@@ -733,11 +726,11 @@ public abstract class Entity {
     List<MetadataChangeProposal> patches = new ArrayList<>();
     for (com.linkedin.metadata.aspect.patch.builder.AbstractMultiFieldPatchBuilder<?> builder :
         patchBuilders.values()) {
-      // Check if builder has operations (pathValues is protected, so we check by trying to build)
       try {
-        MetadataChangeProposal mcp = builder.build();
-        patches.add(mcp);
-        log.debug("Built accumulated patch for aspect: {}", mcp.getAspectName());
+        List<MetadataChangeProposal> mcps = builder.buildAll();
+        patches.addAll(mcps);
+        mcps.forEach(
+            mcp -> log.debug("Built accumulated patch for aspect: {}", mcp.getAspectName()));
       } catch (IllegalArgumentException e) {
         // Builder has no operations, skip
         log.debug("Skipping empty patch builder");

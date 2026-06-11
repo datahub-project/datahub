@@ -9,6 +9,8 @@ import static utils.FrontendConstants.SSO_LOGIN;
 import auth.CookieConfigs;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
+import client.SessionTokenDeniedException;
+import com.datahub.authentication.LoginDenialReason;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
@@ -34,9 +36,11 @@ import com.linkedin.metadata.aspect.CorpGroupAspect;
 import com.linkedin.metadata.aspect.CorpGroupAspectArray;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
+import com.linkedin.metadata.auth.LoginIdentityMask;
 import com.linkedin.metadata.snapshot.CorpGroupSnapshot;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -51,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -82,6 +87,7 @@ import org.pac4j.core.util.Pac4jConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import play.mvc.Result;
+import play.mvc.Results;
 import utils.SerializationUtils;
 
 /**
@@ -103,18 +109,24 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
   private final OperationContext systemOperationContext;
   private final AuthServiceClient authClient;
   private final CookieConfigs cookieConfigs;
+  private final String basePath;
+  private final boolean authVerboseLogging;
 
   public OidcCallbackLogic(
       final SsoManager ssoManager,
       final OperationContext systemOperationContext,
       final SystemEntityClient entityClient,
       final AuthServiceClient authClient,
-      final CookieConfigs cookieConfigs) {
+      final CookieConfigs cookieConfigs,
+      final String basePath,
+      final boolean authVerboseLogging) {
     this.ssoManager = ssoManager;
     this.systemOperationContext = systemOperationContext;
     systemEntityClient = entityClient;
     this.authClient = authClient;
     this.cookieConfigs = cookieConfigs;
+    this.basePath = basePath;
+    this.authVerboseLogging = authVerboseLogging;
   }
 
   @Override
@@ -245,6 +257,10 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
       final String userName = extractUserNameOrThrow(oidcConfigs, profile);
       final CorpuserUrn corpUserUrn = new CorpuserUrn(userName);
 
+      // If RequiredGroups has groups, ensure that the user belongs to at least one of the required
+      // groups.
+      checkRequiredGroups(profile, userName, oidcConfigs);
+
       try {
         // If just-in-time User Provisioning is enabled, try to create the DataHub user if it does
         // not exist.
@@ -283,11 +299,23 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
                 "Failed to perform post authentication steps. Error message: %s", e.getMessage()));
       }
 
-      log.info("OIDC callback authentication successful for user: {}", userName);
+      log.info(
+          "OIDC callback authentication successful for userRef: {}",
+          LoginIdentityMask.mask(userName));
 
       // Successfully logged in - Generate GMS login token
-      final String accessToken =
-          authClient.generateSessionTokenForUser(corpUserUrn.getId(), SSO_LOGIN);
+      final String accessToken;
+      try {
+        accessToken = authClient.generateSessionTokenForUser(corpUserUrn.getId(), SSO_LOGIN);
+      } catch (SessionTokenDeniedException e) {
+        // loginDenied already logged in AuthServiceClient before this exception is thrown.
+        return Results.redirect(
+            BasePathUtils.addBasePath(LOGIN_ROUTE, basePath)
+                + "?error_msg="
+                + URLEncoder.encode(
+                    "You cannot sign in with this account. Contact your DataHub administrator.",
+                    StandardCharsets.UTF_8));
+      }
       return result
           .withSession(createSessionMap(corpUserUrn.toString(), accessToken))
           .withCookies(
@@ -299,6 +327,42 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
     }
     return internalServerError(
         "Failed to authenticate current user. Cannot find valid identity provider profile in session.");
+  }
+
+  public static void checkRequiredGroups(
+      CommonProfile profile, String userName, OidcConfigs oidcConfigs) {
+    if (!oidcConfigs.getRequiredGroups().isEmpty()) {
+      final Set<String> required = oidcConfigs.getRequiredGroups();
+      final String claimName = oidcConfigs.getGroupsClaimName();
+
+      final Set<String> userGroups = new HashSet<>();
+      if (profile.containsAttribute(claimName)) {
+        Collection<String> groupNames =
+            getGroupNames(profile, profile.getAttribute(claimName), claimName);
+        userGroups.addAll(groupNames);
+      }
+
+      Set<String> matchingGroups = new HashSet<>(userGroups);
+      matchingGroups.retainAll(required);
+
+      if (matchingGroups.isEmpty()) {
+        log.warn(
+            "User {} has none of the required groups. Required (any)={}, User has={}",
+            userName,
+            required,
+            userGroups);
+        throw new RequiredGroupsException(
+            String.format(
+                "Access denied: User %s does not have any of the required groups. Required (any): %s",
+                userName, required));
+      }
+
+      log.debug(
+          "User {} passed IAM group check. Matching groups={}, User groups={}",
+          userName,
+          matchingGroups,
+          userGroups);
+    }
   }
 
   private String extractUserNameOrThrow(
@@ -602,19 +666,19 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
     }
   }
 
-  private void verifyPreProvisionedUser(@Nonnull OperationContext opContext, CorpuserUrn urn) {
-    // Validate that the user exists in the system (there is more than just a key aspect for them,
-    // as of today).
+  void verifyPreProvisionedUser(@Nonnull OperationContext opContext, CorpuserUrn urn) {
+    // GMS returned an entity, but a key-only (or single-aspect) corp user is treated as not
+    // provisioned for login — the URN is known to metadata, unlike a missing corpUserKey row.
     try {
       final Entity corpUser = systemEntityClient.get(opContext, urn);
 
       log.debug(String.format("Fetched GMS user with urn %s", urn));
 
-      // If we find more than the key aspect, then the entity "exists".
       if (corpUser.getValue().getCorpUserSnapshot().getAspects().size() <= 1) {
         log.debug(
             String.format(
-                "Found user that does not yet exist %s. Invalid login attempt. Throwing...", urn));
+                "Found corp user stub (at most key aspect) for %s. Invalid login attempt.", urn));
+        emitOidcLoginDeniedLog(urn.getId(), LoginDenialReason.NOT_PROVISIONED);
         throw new RuntimeException(
             String.format(
                 "User with urn %s has not yet been provisioned in DataHub. "
@@ -639,6 +703,29 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
     proposal.setAspect(GenericRecordUtils.serializeAspect(newStatus));
     proposal.setChangeType(ChangeType.UPSERT);
     systemEntityClient.ingestProposal(opContext, proposal);
+  }
+
+  void emitOidcLoginDeniedLog(final String rawUserRef, final LoginDenialReason loginDenialReason) {
+    final String masked = LoginIdentityMask.mask(rawUserRef);
+    if (loginDenialReason.logsAtWarn()) {
+      log.warn("loginDenied userRef={} loginDenialReason={}", masked, loginDenialReason.name());
+      if (authVerboseLogging) {
+        log.warn(
+            "loginDenied userRef={} loginDenialReason={} operation={}",
+            rawUserRef,
+            loginDenialReason.name(),
+            "oidcCallback");
+      }
+    } else {
+      log.info("loginDenied userRef={} loginDenialReason={}", masked, loginDenialReason.name());
+      if (authVerboseLogging) {
+        log.info(
+            "loginDenied userRef={} loginDenialReason={} operation={}",
+            rawUserRef,
+            loginDenialReason.name(),
+            "oidcCallback");
+      }
+    }
   }
 
   private Optional<String> extractRegexGroup(final String patternStr, final String target) {

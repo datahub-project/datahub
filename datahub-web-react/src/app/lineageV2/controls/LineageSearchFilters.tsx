@@ -1,9 +1,9 @@
 import { Tooltip } from '@components';
 import { Switch } from 'antd';
 import React, { useContext, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { LineageNodesContext, isTransformational } from '@app/lineageV2/common';
 import { ControlPanel, ControlPanelSubtext, ControlPanelTitle } from '@app/lineageV2/controls/common';
 import InfoPopover from '@app/sharedV2/icons/InfoPopover';
@@ -21,12 +21,12 @@ const ToggleLabel = styled.span`
     display: flex;
     align-items: center;
     gap: 4px;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const StyledInfoPopover = styled(InfoPopover)`
     position: relative;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const PopoverWrapper = styled.div`
@@ -36,6 +36,7 @@ const PopoverWrapper = styled.div`
 const StyledSwitch = styled(Switch)``;
 
 export default function LineageSearchFilters() {
+    const { t } = useTranslation('lineage');
     const {
         nodes,
         rootUrn,
@@ -54,22 +55,20 @@ export default function LineageSearchFilters() {
     );
     return (
         <ControlPanel>
-            <ControlPanelTitle>Filters</ControlPanelTitle>
-            <ControlPanelSubtext>Hide or show assets on the graph.</ControlPanelSubtext>
+            <ControlPanelTitle>{t('controls.filters.title')}</ControlPanelTitle>
+            <ControlPanelSubtext>{t('controls.filters.description')}</ControlPanelSubtext>
             <ToggleWrapper>
                 <span>
                     <ToggleLabel>
-                        Hide Transformations
+                        {t('controls.filters.hideTransformations.label')}
                         <StyledInfoPopover
                             content={
-                                <PopoverWrapper>
-                                    Hide queries and transforms (circular nodes). Will not hide home node.
-                                </PopoverWrapper>
+                                <PopoverWrapper>{t('controls.filters.hideTransformations.tooltip')}</PopoverWrapper>
                             }
                         />
                     </ToggleLabel>
                 </span>
-                <Tooltip title={hasTransformations ? undefined : 'No transformations to hide'}>
+                <Tooltip title={hasTransformations ? undefined : t('controls.filters.noTransformationsToHide.tooltip')}>
                     <StyledSwitch
                         disabled={!hasTransformations}
                         size="small"
@@ -81,9 +80,11 @@ export default function LineageSearchFilters() {
             <ToggleWrapper>
                 <span>
                     <ToggleLabel>
-                        Hide Process Instances
+                        {t('controls.filters.hideProcessInstances.label')}
                         <StyledInfoPopover
-                            content={<PopoverWrapper>Hide task runs. Will not hide home node.</PopoverWrapper>}
+                            content={
+                                <PopoverWrapper>{t('controls.filters.hideProcessInstances.tooltip')}</PopoverWrapper>
+                            }
                         />
                     </ToggleLabel>
                 </span>
@@ -96,13 +97,9 @@ export default function LineageSearchFilters() {
             <ToggleWrapper>
                 <span>
                     <ToggleLabel>
-                        Show Hidden Edges
+                        {t('controls.filters.showHiddenEdges.label')}
                         <StyledInfoPopover
-                            content={
-                                <PopoverWrapper>
-                                    Show assets that have been deleted or do not exist in DataHub
-                                </PopoverWrapper>
-                            }
+                            content={<PopoverWrapper>{t('controls.filters.showHiddenEdges.tooltip')}</PopoverWrapper>}
                         />
                     </ToggleLabel>
                 </span>

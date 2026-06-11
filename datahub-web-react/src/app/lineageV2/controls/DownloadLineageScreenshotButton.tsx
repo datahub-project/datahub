@@ -1,7 +1,9 @@
 import { CameraOutlined } from '@ant-design/icons';
 import { toPng } from 'html-to-image';
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getRectOfNodes, getTransformForBounds, useReactFlow } from 'reactflow';
+import { useTheme } from 'styled-components';
 
 import { LineageNodesContext } from '@app/lineageV2/common';
 import { StyledPanelButton } from '@app/lineageV2/controls/StyledPanelButton';
@@ -30,6 +32,8 @@ function downloadImage(dataUrl: string, name?: string) {
 }
 
 export default function DownloadLineageScreenshotButton({ showExpandedText }: Props) {
+    const { t } = useTranslation('lineage');
+    const themeConfig = useTheme();
     const { getNodes } = useReactFlow();
     const { rootUrn, nodes } = useContext(LineageNodesContext);
 
@@ -46,7 +50,7 @@ export default function DownloadLineageScreenshotButton({ showExpandedText }: Pr
         const cleanEntityName = entityName.replace(/[^a-zA-Z0-9_-]/g, '_');
 
         toPng(document.querySelector('.react-flow__viewport') as HTMLElement, {
-            backgroundColor: '#f8f8f8',
+            backgroundColor: themeConfig.colors.bgSurface,
             width: imageWidth,
             height: imageHeight,
             style: {
@@ -67,7 +71,7 @@ export default function DownloadLineageScreenshotButton({ showExpandedText }: Pr
             }}
         >
             <CameraOutlined />
-            {showExpandedText ? 'Screenshot' : null}
+            {showExpandedText ? t('controls.screenshotButton.label') : null}
         </StyledPanelButton>
     );
 }

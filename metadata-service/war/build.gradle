@@ -15,6 +15,7 @@ ext.apiProject = project(':metadata-service:restli-api')
 
 dependencies {
   implementation project(':metadata-service:factories')
+  implementation project(':metadata-service:rate-limit')
   implementation project(':metadata-service:auth-filter')
   implementation project(':metadata-service:servlet')
   implementation project(':metadata-service:auth-servlet-impl')
@@ -38,6 +39,12 @@ dependencies {
 
   implementation(externalDependency.springBootStarterWeb)
   implementation(externalDependency.springBootStarterJetty)
+  // Jackson 2 bridge: keeps com.fasterxml.jackson on classpath until we migrate to Jackson 3
+  implementation(externalDependency.springBootJackson2)
+  // Spring Boot 4.0: Jetty/Cassandra/Elasticsearch auto-configs moved to separate modules
+  implementation externalDependency.springBootJetty
+  implementation externalDependency.springBootCassandra
+  implementation externalDependency.springBootElasticsearch
   implementation(externalDependency.springBootStarterValidation)
 
   implementation externalDependency.jettyJmx
@@ -91,6 +98,14 @@ bootJar {
 bootRun {
   environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
   environment "KAFKA_SCHEMAREGISTRY_URL", "http://localhost:8080/schema-registry/api"
+  jvmArgs(
+      '--add-modules', 'java.se',
+      '--add-exports', 'java.base/jdk.internal.ref=ALL-UNNAMED',
+      '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+      '--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED',
+      '--add-opens', 'java.management/sun.management=ALL-UNNAMED',
+      '--add-opens', 'jdk.management/com.sun.management.internal=ALL-UNNAMED',
+  )
 }
 
 docker {
@@ -101,6 +116,7 @@ docker {
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
     include 'docker/monitoring/*'
+    include 'docker/snippets/*'
     include "docker/${docker_repo}/*"
     include 'metadata-models/src/main/resources/*'
   }.exclude {
@@ -110,15 +126,12 @@ docker {
 
   // Add build args if they are defined (needed for some CI or enterprise environments)
   def dockerBuildArgs = [:]
-  if (project.hasProperty('alpineApkRepositoryUrl')) {
-    dockerBuildArgs.ALPINE_REPO_URL = project.getProperty('alpineApkRepositoryUrl')
+  if (project.hasProperty('dockerBaseImage')) {
+    dockerBuildArgs.BASE_IMAGE = project.getProperty('dockerBaseImage')
   }
-  if (project.hasProperty('githubMirrorUrl')) {
-    dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')
-  }
-  if (project.hasProperty('mavenCentralRepositoryUrl')) {
-    dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = project.getProperty('mavenCentralRepositoryUrl')
-  }
+  dockerBuildArgs.APK_REPOSITORY_URL = gradle.ext['datahub.dependencies.apkrepo.url']
+  dockerBuildArgs.GITHUB_REPO_URL = gradle.ext['datahub.dependencies.github.baseURL']
+  dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = gradle.ext['datahub.dependencies.maven.central']
 
   if (dockerBuildArgs.size() > 0) {
     buildArgs(dockerBuildArgs)
@@ -130,8 +143,7 @@ docker {
 test {
   jacoco {
     // This contains quickstart tested code for jetty startup
-    excludes = ["com.linkedin.gms.CommonApplicationConfig",
-                "com.linkedin.gms.ServletConfig",
+    excludes = ["com.linkedin.gms.ServletConfig",
                 "com.linkedin.gms.GMSApplication"]
   }
 }

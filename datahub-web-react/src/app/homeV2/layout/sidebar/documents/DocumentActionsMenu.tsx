@@ -1,5 +1,6 @@
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -14,11 +15,10 @@ import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Menu, Popover } from '@src/alchemy-components';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
-import { colors } from '@src/alchemy-components/theme';
 
 const MenuButton = styled(Button)`
     &:hover {
-        background-color: ${colors.gray[100]};
+        colors: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 
@@ -43,6 +43,8 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
     onMove,
     onMenuVisibilityChange,
 }) => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
     const [showMoveDialog, setShowMoveDialog] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const { deleteDocument } = useDeleteDocumentTreeMutation();
@@ -92,7 +94,7 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
                   {
                       type: 'item' as const,
                       key: 'move',
-                      title: 'Move',
+                      title: tc('move'),
                       onClick: () => {
                           setShowMoveDialog(true);
                           onMenuVisibilityChange?.(true);
@@ -105,7 +107,7 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
                   {
                       type: 'item' as const,
                       key: 'delete',
-                      title: 'Delete',
+                      title: tc('delete'),
                       danger: true,
                       onClick: () => setShowDeleteConfirm(true),
                   },
@@ -175,9 +177,9 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
                 isOpen={showDeleteConfirm}
                 handleClose={() => setShowDeleteConfirm(false)}
                 handleConfirm={handleDelete}
-                modalTitle="Delete Document(s)"
-                modalText="Are you sure you want to delete this document? This will also delete all child documents."
-                confirmButtonText="Delete"
+                modalTitle={t('documents.deleteTitle')}
+                modalText={t('documents.deleteText')}
+                confirmButtonText={tc('delete')}
                 isDeleteModal
             />
         </>

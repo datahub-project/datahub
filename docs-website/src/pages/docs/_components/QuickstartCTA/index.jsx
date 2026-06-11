@@ -21,7 +21,7 @@ const QuickstartCTA = () => {
           Quickstart With Open Source
         </Link>
         <Link className="button button--secondary button--md" to="https://datahub.com/get-datahub-cloud/">
-          Get DataHub Cloud
+          Try DataHub Cloud
         </Link>
     </div>  
   </div>

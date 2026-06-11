@@ -89,6 +89,21 @@ export default defineConfig(async ({ mode }) => {
 
     const isHttps = process.env.REACT_APP_HTTPS === 'true';
     const devPlugins: PluginOption[] = mode === 'development' ? [injectMeticulous()] : [];
+
+    if (mode === 'development') {
+        const localesDir = path.resolve(__dirname, 'src/i18n/locales');
+        const { i18nextHMRPlugin } = await import('i18next-hmr/vite');
+        devPlugins.push(i18nextHMRPlugin({ localesDir }));
+        // i18nextHMRPlugin sends the WS event but returns undefined, letting Vite fall through
+        // to a full-page reload for files not in the module graph. Return [] to suppress it.
+        devPlugins.push({
+            name: 'i18next-hmr-suppress-reload',
+            handleHotUpdate({ file }) {
+                return file.startsWith(localesDir) && file.endsWith('.json') ? [] : undefined;
+            },
+        });
+    }
+
     if (isHttps) {
         devPlugins.push(
             basicSsl({
@@ -119,25 +134,35 @@ export default defineConfig(async ({ mode }) => {
                     { src: path.resolve(__dirname, 'src/images/*'), dest: 'assets/platforms' },
                     // Also keep the theme json files in the build directory
                     { src: path.resolve(__dirname, 'src/conf/theme/*.json'), dest: 'assets/conf/theme' },
+                    // i18n locale files — served at /assets/locales/{{lng}}/{{ns}}.json
+                    { src: path.resolve(__dirname, 'src/i18n/locales'), dest: 'assets' },
                 ],
             }),
             viteStaticCopy({
                 targets: [
-                    // Copy monaco-editor files to the build directory
-                    // Because of the structured option, specifying dest .
-                    // means that it will mirror the node_modules/... structure
-                    // in the build directory.
+                    // Selective Monaco Editor files — only what DataHub actually uses (YAML + SQL).
+                    // structured: true mirrors the node_modules/... path into the build directory,
+                    // so Monaco's AMD loader can find files at /node_modules/monaco-editor/min/vs/*.
+                    // The language/ directory (TS/CSS/HTML/JSON IntelliSense, ~7 MB) and min-maps/
+                    // (~11 MB) are intentionally excluded — they are never requested at runtime.
+                    { src: 'node_modules/monaco-editor/min/vs/loader.js', dest: '.' },
                     {
-                        src: 'node_modules/monaco-editor/min/vs/',
+                        src: [
+                            'node_modules/monaco-editor/min/vs/editor/editor.main.js',
+                            'node_modules/monaco-editor/min/vs/editor/editor.main.css',
+                            'node_modules/monaco-editor/min/vs/editor/editor.main.nls.js',
+                        ],
                         dest: '.',
                     },
+                    // base/ contains workerMain.js and the codicon font — required by the editor core.
+                    { src: 'node_modules/monaco-editor/min/vs/base/', dest: '.' },
+                    // Only the two language tokenizers DataHub uses.
                     {
-                        src: 'node_modules/monaco-editor/min-maps/vs/',
+                        src: [
+                            'node_modules/monaco-editor/min/vs/basic-languages/yaml/',
+                            'node_modules/monaco-editor/min/vs/basic-languages/sql/',
+                        ],
                         dest: '.',
-                        rename: (name, ext, fullPath) => {
-                            console.log(name, ext, fullPath);
-                            return name;
-                        },
                     },
                 ],
                 structured: true,
@@ -161,6 +186,15 @@ export default defineConfig(async ({ mode }) => {
             reportCompressedSize: false,
             // Limit number of worker threads to reduce CPU pressure
             workers: 3, // default is number of CPU cores
+            rollupOptions: {
+                output: {
+                    // Split locale JSON files into per-language chunks
+                    manualChunks(id: string) {
+                        const match = id.match(/\/locales\/([^/]+)\/[^/]+\.json$/);
+                        return match ? match[1] : undefined;
+                    },
+                },
+            },
         },
         server: {
             open: false,
@@ -185,6 +219,22 @@ export default defineConfig(async ({ mode }) => {
             setupFiles: './src/setupTests.ts',
             css: true,
             // reporters: ['verbose'],
+            onConsoleLog(log) {
+                // Suppress noisy Apollo Client / GraphQL mock warnings that produce
+                // thousands of lines of output and make CI logs unreadable.
+                if (
+                    log.includes('No more mocked responses') ||
+                    log.includes('Missing field') ||
+                    log.includes('[GraphQL error]') ||
+                    log.includes('networkError') ||
+                    log.includes('Mocked provider') ||
+                    log.includes('query-manager') ||
+                    log.includes('ObservableQuery')
+                ) {
+                    return false;
+                }
+                return undefined;
+            },
             coverage: {
                 enabled: true,
                 provider: 'v8',

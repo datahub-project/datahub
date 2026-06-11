@@ -496,4 +496,40 @@ public class LinkUtilsTest {
     // Execute - should not throw exception
     LinkUtils.validateUpdateInput(mockOpContext, TEST_URL, NEW_URL, resourceUrn, mockEntityService);
   }
+
+  @Test
+  public void testValidateUrlRejectsDangerousSchemes() {
+    String[] dangerousUrls = {
+      "javascript:alert(1)",
+      "javascript:void(0)",
+      "JAVASCRIPT:alert(document.cookie)",
+      "data:text/html,<script>alert(1)</script>",
+      "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==",
+      "vbscript:MsgBox(1)",
+    };
+
+    for (String url : dangerousUrls) {
+      final String finalUrl = url;
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              LinkUtils.validateAddRemoveInput(
+                  mockOpContext, finalUrl, resourceUrn, mockEntityService));
+    }
+  }
+
+  @Test
+  public void testValidateUrlAllowsSafeSchemes() throws Exception {
+    String[] safeUrls = {
+      "https://example.com/path?query=value",
+      "http://example.com",
+      "ftp://files.example.com/file.txt",
+      "mailto:user@example.com",
+    };
+
+    for (String url : safeUrls) {
+      // Should not throw
+      LinkUtils.validateAddRemoveInput(mockOpContext, url, resourceUrn, mockEntityService);
+    }
+  }
 }

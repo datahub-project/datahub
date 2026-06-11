@@ -416,7 +416,6 @@ public class DeleteEntityUtilsTest extends TestCase {
             .setField("structuredPropertyPromptUrns")
             .setValues(new StringArray(deletedPropertyUrn.toString()))
             .setNegated(false)
-            .setValue("")
             .setCondition(Condition.EQUAL));
     Filter expectedFilter =
         new Filter()
