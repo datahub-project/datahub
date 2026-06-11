@@ -1,6 +1,7 @@
 """Tests for DuckDBProfiler — local-file (no-network) path."""
 
 import os
+import shutil
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
@@ -259,17 +260,42 @@ def test_profiles_local_avro(tmp_path):
     assert profile.columnCount == 2
 
 
-def test_reader_expr_escapes_single_quotes():
-    """_reader_expr must double-escape single quotes in paths."""
+def test_reader_sql_uses_bound_parameter():
+    """The reader SQL must reference a bound :path param, never the raw path."""
     profiler = DuckDBProfiler(
         aws_config=None,
         report=DataLakeSourceReport(),
         profiling_config=_profiling_config(),
     )
-    expr = profiler._reader_expr("s3://b/it's/f.parquet", "parquet")
+    sql = profiler._reader_sql("parquet")
     profiler.close()
-    assert "it''s" in expr
-    assert "it's" not in expr
+    assert ":path" in sql
+
+
+def test_path_with_single_quote_is_handled_via_binding(tmp_path):
+    """A file path containing a single quote profiles correctly — the path is a
+    bound parameter, so no SQL injection / escaping concern."""
+    # Write to a clean path first (the helper inlines the path), then move the
+    # file under a directory whose name contains a single quote.
+    clean = _make_parquet(str(tmp_path))
+    weird_dir = os.path.join(str(tmp_path), "o'brien")
+    os.makedirs(weird_dir, exist_ok=True)
+    parquet = os.path.join(weird_dir, "data.parquet")
+    shutil.move(clean, parquet)
+    profiler = DuckDBProfiler(
+        aws_config=None,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+    )
+    profile = _extract_profile(
+        profiler.get_table_profile(
+            _table_data(parquet),
+            "urn:li:dataset:(urn:li:dataPlatform:s3,quote,PROD)",
+        )
+    )
+    profiler.close()
+    assert profile is not None
+    assert profile.rowCount == 3
 
 
 def test_non_s3_platform_does_not_create_s3_secret():

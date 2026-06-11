@@ -35,17 +35,19 @@ _REMOTE_SCHEMES = (
     "abfss://",
 )
 
-# Extension (lowercased, no dot) -> DuckDB reader template with a {path} placeholder.
+# Extension (lowercased, no dot) -> DuckDB reader template. ``{path}`` is replaced
+# with a bound ``:path`` parameter (never the raw path), so the file path is never
+# concatenated into SQL.
 _READERS = {
-    "parquet": "read_parquet('{path}', union_by_name=true)",
+    "parquet": "read_parquet({path}, union_by_name=true)",
     # strict_mode=false tolerates messy real-world CSVs (multi-line quoted
     # headers, ragged rows, unicode) that DuckDB's strict sniffer rejects but
     # Spark/Deequ used to read.
-    "csv": "read_csv_auto('{path}', strict_mode=false)",
-    "tsv": "read_csv_auto('{path}', delim='\\t', strict_mode=false)",
-    "json": "read_json_auto('{path}')",
-    "jsonl": "read_json_auto('{path}')",
-    "avro": "read_avro('{path}')",
+    "csv": "read_csv_auto({path}, strict_mode=false)",
+    "tsv": "read_csv_auto({path}, delim='\\t', strict_mode=false)",
+    "json": "read_json_auto({path})",
+    "jsonl": "read_json_auto({path})",
+    "avro": "read_avro({path})",
 }
 
 # Map a file extension to the DuckDB core extension required to read it.
@@ -140,15 +142,21 @@ class DuckDBProfiler:
             path = table_data.full_path
         return path, ext
 
-    def _reader_expr(self, path: str, ext: str) -> str:
+    def _reader_sql(self, ext: str) -> str:
+        """DuckDB table-function for ``ext`` with the file path as a bound
+        ``:path`` parameter, so the path is never concatenated into SQL."""
         template = _READERS.get(ext)
         if template is None:
             raise ValueError(f"Unsupported format for DuckDB profiling: {ext!r}")
-        # Escape single quotes so the path is safe inside a DuckDB SQL string.
-        return template.format(path=path.replace("'", "''"))
+        return template.format(path=":path")
 
-    def _estimate_row_count(self, conn: sa.engine.Connection, reader: str) -> int:
-        result = conn.execute(sa.text(f"SELECT COUNT(*) FROM {reader}")).scalar()
+    def _estimate_row_count(
+        self, conn: sa.engine.Connection, ext: str, path: str
+    ) -> int:
+        result = conn.execute(
+            sa.text(f"SELECT COUNT(*) FROM {self._reader_sql(ext)}"),
+            {"path": path},
+        ).scalar()
         return int(result) if result is not None else 0
 
     @staticmethod
@@ -162,14 +170,20 @@ class DuckDBProfiler:
         t = column_type.upper()
         return "[]" in t or t.startswith(("STRUCT", "MAP", "UNION")) or t == "JSON"
 
-    def _build_select_list(self, conn: sa.engine.Connection, reader: str) -> str:
-        """Build the view's SELECT list, casting nested columns to JSON text.
+    def _build_select_list(
+        self, conn: sa.engine.Connection, ext: str, path: str
+    ) -> str:
+        """Build the SELECT list, casting nested columns to JSON text.
 
         Scalar columns pass through unchanged; nested columns are rendered as
         clean JSON strings via ``CAST(CAST(col AS JSON) AS VARCHAR)`` so the
-        SQLAlchemy profiler can compute statistics on them.
+        SQLAlchemy profiler can compute statistics on them. Column names are
+        identifier-quoted; the file path is a bound parameter.
         """
-        rows = conn.execute(sa.text(f"DESCRIBE SELECT * FROM {reader}")).fetchall()
+        rows = conn.execute(
+            sa.text(f"DESCRIBE SELECT * FROM {self._reader_sql(ext)}"),
+            {"path": path},
+        ).fetchall()
         if not rows:
             return "*"
         parts = []
@@ -182,20 +196,32 @@ class DuckDBProfiler:
                 parts.append(quoted)
         return ", ".join(parts)
 
-    def _create_profile_view(
+    def _create_profile_table(
         self,
         conn: sa.engine.Connection,
-        view: str,
-        reader: str,
+        table: str,
+        ext: str,
+        path: str,
         select_list: str,
         sample_rows: Optional[int] = None,
     ) -> None:
+        """Materialize the source rows into a temp DuckDB table.
+
+        The file path is bound as a ``:path`` parameter — DuckDB rejects
+        parameters in ``CREATE VIEW`` DDL but accepts them in
+        ``CREATE TABLE AS SELECT``, so the path is never concatenated into SQL.
+        Materializing also reads the source once instead of re-reading it on
+        every per-column profiler scan (a notable win for remote object stores).
+        ``table`` is a fixed internal constant and ``select_list`` is built from
+        identifier-quoted column names.
+        """
         suffix = f" USING SAMPLE {sample_rows} ROWS" if sample_rows is not None else ""
         conn.execute(
             sa.text(
-                f"CREATE OR REPLACE VIEW {view} AS "
-                f"SELECT {select_list} FROM {reader}{suffix}"
-            )
+                f"CREATE OR REPLACE TABLE {table} AS "
+                f"SELECT {select_list} FROM {self._reader_sql(ext)}{suffix}"
+            ),
+            {"path": path},
         )
 
     def get_table_profile(
@@ -213,23 +239,22 @@ class DuckDBProfiler:
             )
             return
 
-        view = "profile_target"
+        table_name = "profile_target"
         engine = self._engine_lazy()
         # Fresh report per call so warnings from a previous table don't
         # get re-forwarded on subsequent calls.
         profiler_report = SQLSourceReport()
         row_estimate: Optional[int] = None
         try:
-            reader = self._reader_expr(path, ext)
             with engine.begin() as conn:
                 if self._is_remote(path):
                     self._ensure_remote_setup(conn)
                 self._ensure_format_extension(conn, ext)
-                select_list = self._build_select_list(conn, reader)
+                select_list = self._build_select_list(conn, ext, path)
                 limit = self.profiling_config.profile_table_row_limit
                 sample_rows: Optional[int] = None
                 if self.profiling_config.use_sampling and limit:
-                    count = self._estimate_row_count(conn, reader)
+                    count = self._estimate_row_count(conn, ext, path)
                     if count > limit:
                         row_estimate = count
                         sample_rows = int(self.profiling_config.sample_size)
@@ -237,18 +262,20 @@ class DuckDBProfiler:
                             f"Table exceeds profile_table_row_limit ({limit}); profiled a sample of {sample_rows} rows.",
                             context=dataset_urn,
                         )
-                self._create_profile_view(conn, view, reader, select_list, sample_rows)
-            # engine.begin() auto-commits on __exit__; the view is now persisted
+                self._create_profile_table(
+                    conn, table_name, ext, path, select_list, sample_rows
+                )
+            # engine.begin() auto-commits on __exit__; the table is now persisted
             # in the on-disk database and visible to any subsequent connection.
 
-            # Reflect the view to check if max_number_of_fields_to_profile will
+            # Reflect the table to check if max_number_of_fields_to_profile will
             # silently drop columns.  Report via the DataLake report so operators
             # can see the drop in the run summary even when report_dropped_profiles
             # is False (the default).
             max_fields = self.profiling_config.max_number_of_fields_to_profile
             if max_fields is not None:
                 reflected = sa.Table(
-                    view, sa.MetaData(), autoload_with=engine, schema=None
+                    table_name, sa.MetaData(), autoload_with=engine, schema=None
                 )
                 if len(reflected.columns) > max_fields:
                     self.report.report_file_dropped(dataset_urn)
@@ -261,7 +288,7 @@ class DuckDBProfiler:
             )
             request = ProfilerRequest(
                 pretty_name=display_name,
-                batch_kwargs={"schema": None, "table": view},
+                batch_kwargs={"schema": None, "table": table_name},
             )
             for _req, profile in profiler.generate_profiles(
                 [request], max_workers=1, platform="duckdb"
