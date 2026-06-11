@@ -1,3 +1,5 @@
+import pytest
+
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.s3.duckdb_secrets import build_s3_secret_sql
 
@@ -65,3 +67,13 @@ def test_s3_secret_with_schemeless_endpoint():
     assert "ENDPOINT 'minio.example.com:9000'" in sql
     assert "USE_SSL false" in sql
     assert "USE_SSL true" not in sql
+
+
+def test_s3_secret_rejects_endpoint_without_host():
+    aws = AwsConnectionConfig(
+        aws_access_key_id="AKIA_EXAMPLE",
+        aws_secret_access_key="secret_example",
+        aws_endpoint_url="https://",
+    )
+    with pytest.raises(ValueError, match="no host"):
+        build_s3_secret_sql(aws)

@@ -46,6 +46,12 @@ def build_s3_secret_sql(aws: AwsConnectionConfig) -> str:
             parsed = urlparse(url)
             use_ssl = parsed.scheme == "https"
         host = parsed.netloc or parsed.path
+        if not host:
+            raise ValueError(
+                f"aws_endpoint_url {aws.aws_endpoint_url!r} has no host. "
+                "Provide a value like 'https://minio.example.com:9000' or a bare "
+                "'minio.example.com:9000'."
+            )
         parts.append(f"ENDPOINT '{_esc(host)}'")
         parts.append("USE_SSL true" if use_ssl else "USE_SSL false")
     body = ", ".join(parts)

@@ -198,7 +198,9 @@ class DuckDBAdapter(PlatformAdapter):
                 f"Failed to compute quantiles for {column}: {type(e).__name__}: {e}"
             )
             return [None] * len(quantiles)
-        if result is None:
+        # quantile_cont(col, [..]) yields a list; guard against an unexpected
+        # non-iterable scalar so we degrade gracefully instead of raising.
+        if not isinstance(result, (list, tuple)):
             return [None] * len(quantiles)
         return [float(v) if v is not None else None for v in result]
 
