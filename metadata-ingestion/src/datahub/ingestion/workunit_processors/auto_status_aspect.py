@@ -1,10 +1,14 @@
 import logging
+from dataclasses import dataclass
 from typing import Iterable, Set
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import entity_supports_aspect
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.api.workunit_processor import WorkunitProcessor
+from datahub.ingestion.api.workunit_processor import (
+    WorkunitProcessor,
+    WorkunitProcessorReport,
+)
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
@@ -15,7 +19,14 @@ from datahub.utilities.urns.urn import guess_entity_type
 logger = logging.getLogger(__name__)
 
 
-class AutoStatusAspectProcessor(WorkunitProcessor):
+@dataclass
+class AutoStatusAspectProcessorReport(WorkunitProcessorReport):
+    """Report for AutoStatusAspectProcessor metrics."""
+
+    pass
+
+
+class AutoStatusAspectProcessor(WorkunitProcessor[AutoStatusAspectProcessorReport]):
     """Add status aspect (removed=False) to entities that don't have one."""
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:

@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Iterable, List, Type
+from typing import Iterable, List
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import (
@@ -23,17 +23,10 @@ class ValidateInputFieldsProcessorReport(WorkunitProcessorReport):
 ValidateInputFieldsReport = ValidateInputFieldsProcessorReport
 
 
-class ValidateInputFieldsProcessor(WorkunitProcessor):
+class ValidateInputFieldsProcessor(
+    WorkunitProcessor[ValidateInputFieldsProcessorReport]
+):
     """Validate input fields, filtering out entries with empty fieldPath values."""
-
-    @classmethod
-    def get_report_class(cls) -> Type[ValidateInputFieldsProcessorReport]:
-        return ValidateInputFieldsProcessorReport
-
-    @property
-    def _report(self) -> ValidateInputFieldsProcessorReport:
-        assert isinstance(self.report, ValidateInputFieldsProcessorReport)
-        return self.report
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         for wu in stream:
@@ -56,8 +49,8 @@ class ValidateInputFieldsProcessor(WorkunitProcessor):
                     logger.debug(
                         f"Filtered {invalid_count} invalid input field(s) with empty fieldPath for {wu.get_urn()}"
                     )
-                    self._report.num_input_fields_filtered += invalid_count
-                    self._report.num_workunits_with_invalid_fields += 1
+                    self.report.num_input_fields_filtered += invalid_count
+                    self.report.num_workunits_with_invalid_fields += 1
                     self.ctx.source_report.warning(
                         title="Invalid input fields filtered",
                         message="Input fields with empty fieldPath values were filtered out to prevent ingestion errors",
@@ -70,7 +63,7 @@ class ValidateInputFieldsProcessor(WorkunitProcessor):
                         logger.debug(
                             f"All input fields were invalid for {wu.get_urn()}, skipping InputFieldsClass workunit"
                         )
-                        self._report.num_workunits_skipped_entirely += 1
+                        self.report.num_workunits_skipped_entirely += 1
                         continue
 
             yield wu

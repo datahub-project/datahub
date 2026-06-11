@@ -1,9 +1,11 @@
+from dataclasses import dataclass
 from typing import Iterable
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessor,
     WorkunitProcessorContext,
+    WorkunitProcessorReport,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -12,7 +14,16 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 
 
-class AutoStaleEntityRemovalProcessor(WorkunitProcessor):
+@dataclass
+class AutoStaleEntityRemovalProcessorReport(WorkunitProcessorReport):
+    """Report for AutoStaleEntityRemovalProcessor metrics."""
+
+    pass
+
+
+class AutoStaleEntityRemovalProcessor(
+    WorkunitProcessor[AutoStaleEntityRemovalProcessorReport]
+):
     """Soft-delete stale entities that appeared in the previous run but not in the current run."""
 
     @classmethod

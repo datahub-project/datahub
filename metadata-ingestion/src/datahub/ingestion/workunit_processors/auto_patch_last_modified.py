@@ -3,7 +3,10 @@ import json
 from typing import Dict, Iterable, Optional
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.api.workunit_processor import WorkunitProcessor
+from datahub.ingestion.api.workunit_processor import (
+    WorkunitProcessor,
+    WorkunitProcessorReport,
+)
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
@@ -24,6 +27,13 @@ class TimestampPair:
     last_updated_timestamp_dataset_props: Optional[
         int
     ]  # lastUpdatedTimestamp of the operation aspect
+
+
+@dataclasses.dataclass
+class AutoPatchLastModifiedProcessorReport(WorkunitProcessorReport):
+    """Report for AutoPatchLastModifiedProcessor metrics."""
+
+    pass
 
 
 def try_aspect_from_metadata_change_proposal_class(
@@ -47,7 +57,9 @@ def try_aspect_from_metadata_change_proposal_class(
     return None
 
 
-class AutoPatchLastModifiedProcessor(WorkunitProcessor):
+class AutoPatchLastModifiedProcessor(
+    WorkunitProcessor[AutoPatchLastModifiedProcessorReport]
+):
     """Patch datasetProperties.lastModified from operation aspects when not set."""
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:

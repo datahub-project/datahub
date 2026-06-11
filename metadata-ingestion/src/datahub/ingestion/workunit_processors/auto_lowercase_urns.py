@@ -1,17 +1,26 @@
 import logging
+from dataclasses import dataclass
 from typing import Iterable
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessor,
     WorkunitProcessorContext,
+    WorkunitProcessorReport,
 )
 from datahub.utilities.urns.urn_iter import lowercase_dataset_urns
 
 logger = logging.getLogger(__name__)
 
 
-class AutoLowercaseUrnsProcessor(WorkunitProcessor):
+@dataclass
+class AutoLowercaseUrnsProcessorReport(WorkunitProcessorReport):
+    """Report for AutoLowercaseUrnsProcessor metrics."""
+
+    pass
+
+
+class AutoLowercaseUrnsProcessor(WorkunitProcessor[AutoLowercaseUrnsProcessorReport]):
     """Lowercase all dataset URNs in the stream."""
 
     @classmethod

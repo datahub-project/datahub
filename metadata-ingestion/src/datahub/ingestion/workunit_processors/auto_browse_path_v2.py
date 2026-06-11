@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
@@ -9,6 +10,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessor,
     WorkunitProcessorContext,
+    WorkunitProcessorReport,
 )
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -22,7 +24,14 @@ from datahub.utilities.urns.urn import guess_entity_type
 logger = logging.getLogger(__name__)
 
 
-class AutoBrowsePathV2Processor(WorkunitProcessor):
+@dataclass
+class AutoBrowsePathV2ProcessorReport(WorkunitProcessorReport):
+    """Report for AutoBrowsePathV2Processor metrics."""
+
+    pass
+
+
+class AutoBrowsePathV2Processor(WorkunitProcessor[AutoBrowsePathV2ProcessorReport]):
     """Generate BrowsePathsV2 from Container and BrowsePaths aspects."""
 
     def __init__(self, ctx: WorkunitProcessorContext) -> None:

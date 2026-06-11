@@ -1,13 +1,24 @@
+from dataclasses import dataclass
 from typing import Iterable
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessor,
     WorkunitProcessorContext,
+    WorkunitProcessorReport,
 )
 
 
-class AutoWorkunitsReporterProcessor(WorkunitProcessor):
+@dataclass
+class AutoWorkunitsReporterProcessorReport(WorkunitProcessorReport):
+    """Report for AutoWorkunitsReporterProcessor metrics."""
+
+    pass
+
+
+class AutoWorkunitsReporterProcessor(
+    WorkunitProcessor[AutoWorkunitsReporterProcessorReport]
+):
     """Report each workunit to the source report for metrics tracking."""
 
     def __init__(self, ctx: WorkunitProcessorContext) -> None:

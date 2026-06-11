@@ -1,10 +1,12 @@
 import logging
+from dataclasses import dataclass
 from typing import Iterable, List
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessor,
     WorkunitProcessorContext,
+    WorkunitProcessorReport,
 )
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.telemetry import telemetry
@@ -12,7 +14,16 @@ from datahub.telemetry import telemetry
 logger = logging.getLogger(__name__)
 
 
-class ValidateEmptySchemaFieldPathsProcessor(WorkunitProcessor):
+@dataclass
+class ValidateEmptySchemaFieldPathsProcessorReport(WorkunitProcessorReport):
+    """Report for ValidateEmptySchemaFieldPathsProcessor metrics."""
+
+    pass
+
+
+class ValidateEmptySchemaFieldPathsProcessor(
+    WorkunitProcessor[ValidateEmptySchemaFieldPathsProcessorReport]
+):
     """Remove empty field paths from schema metadata aspects."""
 
     def __init__(self, ctx: WorkunitProcessorContext) -> None:

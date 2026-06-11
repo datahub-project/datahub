@@ -1,9 +1,10 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Iterable, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Dict, Generic, Iterable, Optional, Type, TypeVar, cast
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.utilities.type_annotations import get_class_from_annotation
 
 if TYPE_CHECKING:
     from datahub.configuration.common import ConfigModel
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _WorkunitProcessorT = TypeVar("_WorkunitProcessorT", bound="WorkunitProcessor")
+_ReportT = TypeVar("_ReportT", bound="WorkunitProcessorReport")
 
 
 @dataclass
@@ -59,7 +61,7 @@ class WorkunitProcessorContext:
         return self.platform or getattr(self.source_config, "platform", None)
 
 
-class WorkunitProcessor(ABC):
+class WorkunitProcessor(ABC, Generic[_ReportT]):
     """Base class for all workunit processors.
 
     Workunit processors are stream transformers that apply common logic to
@@ -72,11 +74,26 @@ class WorkunitProcessor(ABC):
       (e.g., ValidateInputFieldsProcessor, ValidateDuplicateSchemaFieldPathsProcessor)
     - Ensure*Processor: Processors that enforce constraints by modifying data to fit limits
       (e.g., EnsureAspectSizeProcessor)
+
+    Type Parameters:
+    - _ReportT: The report type for this processor (subclass of WorkunitProcessorReport).
+      The report class is automatically extracted from the generic parameter at runtime.
+
+    Example:
+        @dataclass
+        class MyProcessorReport(WorkunitProcessorReport):
+            num_processed: int = 0
+
+        class MyProcessor(WorkunitProcessor[MyProcessorReport]):
+            def process(self, stream):
+                for wu in stream:
+                    self.report.num_processed += 1  # Properly typed!
+                    yield wu
     """
 
     def __init__(self, ctx: WorkunitProcessorContext) -> None:
         self.ctx = ctx
-        self.report: WorkunitProcessorReport
+        self.report: _ReportT
 
     @classmethod
     def create(
@@ -84,14 +101,13 @@ class WorkunitProcessor(ABC):
     ) -> _WorkunitProcessorT:
         """Instantiate processor and register its report with the source report."""
         processor = cls(ctx)
-        report_class = cls.get_report_class()
-        processor.report = report_class()
+        report_class = get_class_from_annotation(
+            cls, WorkunitProcessor, WorkunitProcessorReport
+        )
+        assert report_class, f"{cls.__name__} must specify a report type parameter"
+        processor.report = cast(_ReportT, report_class())
         ctx.source_report.workunit_processor_reports[cls.__name__] = processor.report
         return processor
-
-    @classmethod
-    def get_report_class(cls) -> Type[WorkunitProcessorReport]:
-        return WorkunitProcessorReport
 
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Iterable
 
 from datahub.emitter.mce_builder import set_aspect
@@ -9,6 +10,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessor,
     WorkunitProcessorContext,
+    WorkunitProcessorReport,
 )
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
@@ -16,7 +18,16 @@ from datahub.metadata.schema_classes import (
 )
 
 
-class AutoIncrementalLineageProcessor(WorkunitProcessor):
+@dataclass
+class AutoIncrementalLineageProcessorReport(WorkunitProcessorReport):
+    """Report for AutoIncrementalLineageProcessor metrics."""
+
+    pass
+
+
+class AutoIncrementalLineageProcessor(
+    WorkunitProcessor[AutoIncrementalLineageProcessorReport]
+):
     """Convert lineage aspects to incremental patches when incremental_lineage is enabled."""
 
     @classmethod

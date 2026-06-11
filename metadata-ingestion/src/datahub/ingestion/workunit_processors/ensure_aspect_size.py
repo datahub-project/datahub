@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Type
+from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -48,26 +48,17 @@ class EnsureAspectSizeProcessorReport(WorkunitProcessorReport):
     num_truncations_by_aspect: Dict[str, int] = field(default_factory=dict)
 
 
-class EnsureAspectSizeProcessor(WorkunitProcessor):
+class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorReport]):
     """Ensure aspects don't exceed the 16MB payload limit by truncating in priority order."""
-
-    @classmethod
-    def get_report_class(cls) -> Type[EnsureAspectSizeProcessorReport]:
-        return EnsureAspectSizeProcessorReport
 
     def __init__(self, ctx: WorkunitProcessorContext) -> None:
         super().__init__(ctx)
         self.payload_constraint = INGEST_MAX_PAYLOAD_BYTES
         self.schema_size_constraint = int(self.payload_constraint * 0.985)
 
-    @property
-    def _report(self) -> EnsureAspectSizeProcessorReport:
-        assert isinstance(self.report, EnsureAspectSizeProcessorReport)
-        return self.report
-
     def _record_truncation(self, aspect_name: str) -> None:
-        self._report.num_truncations_by_aspect[aspect_name] = (
-            self._report.num_truncations_by_aspect.get(aspect_name, 0) + 1
+        self.report.num_truncations_by_aspect[aspect_name] = (
+            self.report.num_truncations_by_aspect.get(aspect_name, 0) + 1
         )
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:

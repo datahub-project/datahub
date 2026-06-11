@@ -1,9 +1,13 @@
 import logging
+from dataclasses import dataclass
 from typing import Iterable
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.api.workunit_processor import WorkunitProcessor
+from datahub.ingestion.api.workunit_processor import (
+    WorkunitProcessor,
+    WorkunitProcessorReport,
+)
 from datahub.metadata.urns import GlossaryTermUrn, TagUrn, Urn
 from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import guess_entity_type
@@ -12,7 +16,16 @@ from datahub.utilities.urns.urn_iter import list_urns
 logger = logging.getLogger(__name__)
 
 
-class AutoMaterializeReferencedTagsTermsProcessor(WorkunitProcessor):
+@dataclass
+class AutoMaterializeReferencedTagsTermsProcessorReport(WorkunitProcessorReport):
+    """Report for AutoMaterializeReferencedTagsTermsProcessor metrics."""
+
+    pass
+
+
+class AutoMaterializeReferencedTagsTermsProcessor(
+    WorkunitProcessor[AutoMaterializeReferencedTagsTermsProcessorReport]
+):
     """Emit tag/term key aspects for all referenced tags and terms."""
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
