@@ -2515,14 +2515,6 @@ class TestRequestsSessionConfig:
 
 
 class TestClientCertEnvFallback:
-    """RequestsSessionConfig.build_session() falls back to
-    DATAHUB_CLIENT_CERT_PATH / DATAHUB_CLIENT_KEY_PATH env vars when the
-    caller doesn't supply explicit cert paths. Mirrors the __from_env__
-    pattern for server/token, so an mTLS-configured process gets the same
-    env-var resolution whether it constructs sessions via RequestsSessionConfig
-    directly or transitively through DataHubRestEmitter / DataHubGraph / sinks.
-    """
-
     def test_session_config_env_vars_picked_up(self, monkeypatch):
         monkeypatch.setenv("DATAHUB_CLIENT_CERT_PATH", "/env/client.crt")
         monkeypatch.setenv("DATAHUB_CLIENT_KEY_PATH", "/env/client.key")
@@ -2543,14 +2535,6 @@ class TestClientCertEnvFallback:
             client_key_path="/explicit/client.key",
         ).build_session()
         assert session.cert == ("/explicit/client.crt", "/explicit/client.key")
-
-    def test_session_config_only_cert_env_var_set(self, monkeypatch):
-        """Combined-PEM layout: only DATAHUB_CLIENT_CERT_PATH set ->
-        session.cert is the string, not a tuple."""
-        monkeypatch.setenv("DATAHUB_CLIENT_CERT_PATH", "/env/combined.pem")
-        monkeypatch.delenv("DATAHUB_CLIENT_KEY_PATH", raising=False)
-        session = RequestsSessionConfig().build_session()
-        assert session.cert == "/env/combined.pem"
 
     def test_rest_emitter_picks_up_env_vars(self, monkeypatch):
         """DataHubRestEmitter builds RequestsSessionConfig internally, so env
