@@ -18,6 +18,37 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 
 logger = logging.getLogger(__name__)
 
+_INTEGER_TYPE_PREFIXES = (
+    "TINYINT",
+    "SMALLINT",
+    "INTEGER",
+    "BIGINT",
+    "HUGEINT",
+    "UTINYINT",
+    "USMALLINT",
+    "UINTEGER",
+    "UBIGINT",
+    "UHUGEINT",
+)
+_FLOAT_TYPE_PREFIXES = ("DECIMAL", "NUMERIC", "DOUBLE", "FLOAT", "REAL")
+
+
+def _convert_bound(value: Any, column_type: Optional[str]) -> Any:
+    """Convert a SUMMARIZE min/max (always VARCHAR) to a numeric Python type for
+    numeric columns, so downstream arithmetic (e.g. histogram bucketing) works.
+    Non-numeric columns (VARCHAR, DATE, TIMESTAMP, BOOLEAN) are left as-is."""
+    if value is None:
+        return None
+    t = (column_type or "").upper()
+    try:
+        if t.startswith(_INTEGER_TYPE_PREFIXES):
+            return int(value)
+        if t.startswith(_FLOAT_TYPE_PREFIXES):
+            return float(value)
+    except (TypeError, ValueError):
+        return value
+    return value
+
 
 class DuckDBAdapter(PlatformAdapter):
     """
@@ -67,9 +98,10 @@ class DuckDBAdapter(PlatformAdapter):
                 float(m["null_percentage"]) if m["null_percentage"] is not None else 0.0
             )
             count = int(m["count"]) if m["count"] is not None else 0
+            col_type = m["column_type"]
             summary[name] = {
-                "min": m["min"],
-                "max": m["max"],
+                "min": _convert_bound(m["min"], col_type),
+                "max": _convert_bound(m["max"], col_type),
                 "avg": self._to_float(m["avg"]),
                 "std": self._to_float(m["std"]),
                 "q50": self._to_float(m["q50"]),
