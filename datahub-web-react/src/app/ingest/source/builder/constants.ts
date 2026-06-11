@@ -57,6 +57,7 @@ import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.svg';
 import thoughtspotLogo from '@images/thoughtspotlogo.svg';
+import tidbLogo from '@images/tidblogo.svg';
 import timescaledbLogo from '@images/timescalelogo.png';
 import trinoLogo from '@images/trinologo.png';
 import vertexAI from '@images/vertexai.png';
@@ -154,6 +155,8 @@ const TABLEAU = 'tableau';
 export const TABLEAU_URN = `urn:li:dataPlatform:${TABLEAU}`;
 export const THOUGHTSPOT = 'thoughtspot';
 export const THOUGHTSPOT_URN = `urn:li:dataPlatform:${THOUGHTSPOT}`;
+const TIDB = 'tidb';
+const TIDB_URN = `urn:li:dataPlatform:${TIDB}`;
 const TIMESCALEDB = 'timescaledb';
 const TIMESCALEDB_URN = `urn:li:dataPlatform:${TIMESCALEDB}`;
 const TRINO = 'trino';
@@ -249,6 +252,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [STARROCKS_URN]: starrocksLogo,
     [TABLEAU_URN]: tableauLogo,
     [THOUGHTSPOT_URN]: thoughtspotLogo,
+    [TIDB_URN]: tidbLogo,
     [TIMESCALEDB_URN]: timescaledbLogo,
     [TRINO_URN]: trinoLogo,
     [SUPERSET_URN]: supersetLogo,
