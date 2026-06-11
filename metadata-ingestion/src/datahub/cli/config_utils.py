@@ -2,12 +2,16 @@
 For helper methods to contain manipulation of the config file in local system.
 """
 
+import base64
+import json
 import logging
 import os
 import sys
+from datetime import datetime, timezone
 from typing import Optional, Tuple
 
 import click
+import requests
 import yaml
 from pydantic import BaseModel, ValidationError
 
@@ -38,6 +42,17 @@ ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
 ENV_METADATA_HOST = "DATAHUB_GMS_HOST"
 ENV_METADATA_PORT = "DATAHUB_GMS_PORT"
 ENV_METADATA_PROTOCOL = "DATAHUB_GMS_PROTOCOL"
+
+
+def _decode_jwt_exp(token: str) -> Optional[datetime]:
+    """Decode the exp claim from a JWT without verifying the signature."""
+    try:
+        payload_b64 = token.split(".")[1]
+        payload_b64 += "=" * (4 - len(payload_b64) % 4)
+        exp = json.loads(base64.urlsafe_b64decode(payload_b64)).get("exp")
+        return datetime.fromtimestamp(int(exp), tz=timezone.utc) if exp else None
+    except Exception:
+        return None
 
 
 class MissingConfigError(Exception):
@@ -71,8 +86,16 @@ def get_raw_client_config() -> Optional[dict]:
             return None
 
 
+class OAuthSessionConfig(BaseModel):
+    """OAuth2 session tokens stored alongside GMS credentials in ~/.datahubenv."""
+
+    client_id: str
+    refresh_token: Optional[str] = None
+
+
 class DatahubConfig(BaseModel):
     gms: DatahubClientConfig
+    oauth: Optional[OAuthSessionConfig] = None
 
 
 def _get_config_from_env() -> Tuple[Optional[str], Optional[str]]:
@@ -117,11 +140,16 @@ def load_client_config() -> DatahubClientConfig:
         datahub_config: DatahubClientConfig = DatahubConfig.model_validate(
             client_config_dict
         ).gms
-        return datahub_config
     except ValidationError as e:
         click.echo(f"Error loading your {CONDENSED_DATAHUB_CONFIG_PATH}")
         click.echo(e, err=True)
         sys.exit(1)
+
+    refreshed_token = refresh_oauth_token_if_needed()
+    if refreshed_token is not None:
+        datahub_config = datahub_config.model_copy(update={"token": refreshed_token})
+
+    return datahub_config
 
 
 def _ensure_datahub_config() -> None:
@@ -150,3 +178,104 @@ def write_gms_config(
     else:
         config_dict = config.model_dump()
     persist_raw_datahub_config(config_dict)
+
+
+def write_oauth_config(
+    host: str,
+    access_token: str,
+    client_id: str,
+    refresh_token: Optional[str],
+) -> None:
+    """Write GMS config together with OAuth2 session tokens to ~/.datahubenv."""
+    config = DatahubConfig(gms=DatahubClientConfig(server=host, token=access_token))
+    config_dict = config.model_dump()
+
+    oauth_section: dict = {"client_id": client_id}
+    if refresh_token is not None:
+        oauth_section["refresh_token"] = refresh_token
+    config_dict["oauth"] = oauth_section
+
+    persist_raw_datahub_config(config_dict)
+
+
+def refresh_oauth_token_if_needed() -> Optional[str]:
+    """
+    If OAuth2 session tokens are stored and the access token is within 5 minutes of
+    expiry, refresh it using the stored refresh token.
+
+    Returns the new access token if refreshed, None if no refresh was needed or if
+    the refresh fails (failures are non-fatal — the existing token is left in place).
+    """
+    if not os.path.isfile(DATAHUB_CONFIG_PATH):
+        return None
+
+    try:
+        raw = get_raw_client_config()
+        if not isinstance(raw, dict):
+            return None
+
+        oauth_section = raw.get("oauth")
+        if not isinstance(oauth_section, dict):
+            return None
+
+        refresh_token = oauth_section.get("refresh_token")
+        client_id = oauth_section.get("client_id")
+
+        if not refresh_token or not client_id:
+            return None
+
+        # Decode expiry from the JWT — no exp claim means no refresh needed
+        gms_token = (
+            raw.get("gms", {}).get("token")
+            if isinstance(raw.get("gms"), dict)
+            else None
+        )
+        token_expiry = _decode_jwt_exp(gms_token) if gms_token else None
+        if token_expiry is None:
+            return None
+        if (token_expiry - datetime.now(tz=timezone.utc)).total_seconds() > 300:
+            return None
+
+        gms_config = raw.get("gms", {})
+        gms_server = gms_config.get("server") if isinstance(gms_config, dict) else None
+        if not gms_server:
+            return None
+
+        token_endpoint = f"{gms_server.rstrip('/')}/auth/oauth2/token"
+        logger.debug("Refreshing OAuth2 access token...")
+
+        resp = requests.post(
+            token_endpoint,
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+                "client_id": client_id,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=5,
+        )
+
+        if resp.status_code != 200:
+            logger.debug("Token refresh failed: HTTP %s", resp.status_code)
+            return None
+
+        token_data = resp.json()
+        new_access_token: Optional[str] = token_data.get("access_token")
+        if not new_access_token:
+            logger.debug("Token refresh returned empty access token")
+            return None
+
+        # Rotate refresh token if server issues a new one (RFC 6749 §10.4)
+        new_refresh_token: str = token_data.get("refresh_token") or refresh_token
+
+        raw["gms"]["token"] = new_access_token
+        raw["oauth"]["refresh_token"] = new_refresh_token
+        raw["oauth"].pop("token_expiry", None)  # clean up legacy field if present
+
+        persist_raw_datahub_config(raw)
+        logger.debug("OAuth2 access token refreshed successfully")
+        return new_access_token
+
+    except Exception as e:
+        logger.debug("OAuth2 token refresh failed (non-fatal): %s", e, exc_info=True)
+        return None
