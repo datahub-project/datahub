@@ -302,3 +302,43 @@ def test_non_s3_platform_does_not_create_s3_secret():
     # _secrets_done must remain False (the guard was never tripped).
     assert profiler._secrets_done is False
     profiler.close()
+
+
+def _make_nested_parquet(tmp: str) -> str:
+    path = os.path.join(tmp, "nested.parquet")
+    con = duckdb.connect()
+    # A LIST(STRUCT(...)) column — duckdb-engine cannot reflect this type, so
+    # the profiler would skip it without the cast-nested-to-JSON handling.
+    con.execute(
+        "COPY (SELECT * FROM (VALUES "
+        "(1, [{'a': 1, 'b': 'x'}]), (2, [{'a': 2, 'b': 'y'}]), (3, [{'a': 1, 'b': 'x'}])"
+        ") AS v(num, nested)) "
+        f"TO '{path}' (FORMAT PARQUET)"
+    )
+    con.close()
+    return path
+
+
+def test_nested_column_is_profiled_as_json(tmp_path):
+    parquet = _make_nested_parquet(str(tmp_path))
+    profiler = DuckDBProfiler(
+        aws_config=None,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+    )
+    profile = _extract_profile(
+        profiler.get_table_profile(
+            _table_data(parquet, display_name="nested.parquet"),
+            "urn:li:dataset:(urn:li:dataPlatform:s3,nested,PROD)",
+        )
+    )
+    profiler.close()
+    assert profile is not None
+    fields = {f.fieldPath: f for f in profile.fieldProfiles}
+    nested = fields["nested"]
+    # The nested column now gets real metrics instead of an empty profile.
+    assert nested.nullCount == 0
+    assert nested.uniqueCount == 2  # two distinct list-of-struct values
+    # Sample values are emitted as clean JSON strings (double-quoted keys).
+    assert nested.sampleValues is not None
+    assert any('"a"' in v and '"b"' in v for v in nested.sampleValues)
