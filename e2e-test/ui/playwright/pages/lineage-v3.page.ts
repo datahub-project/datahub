@@ -14,16 +14,30 @@
  * Extends LineageV2Page for backward compatibility with V2 selectors.
  */
 
-import { Page, Locator, expect } from '@playwright/test';
+import { Page, Locator, BrowserContext, expect } from '@playwright/test';
 import { LineageV2Page } from './lineage-v2.page';
 import type { DataHubLogger } from '../utils/logger';
+import { TIMEOUTS, LOAD_STATES } from '../utils/constants';
 
 export class LineageV3Page extends LineageV2Page {
   readonly impactAnalysisViewButton: Locator;
   readonly explorerViewButton: Locator;
   readonly advSearchAddFilterButton: Locator;
   readonly lineageEmptyState: Locator;
-  readonly graphNodeLocator: Locator;
+  readonly impactAnalysisOption: Locator;
+  readonly columnLineageOption: Locator;
+  readonly downstreamsOption: Locator;
+  readonly upstreamsOption: Locator;
+  readonly lineageTab: Locator;
+  readonly columnShipmentInfo: Locator;
+  readonly columnFieldBar: Locator;
+  readonly columnLineageSelect: Locator;
+  readonly columnLineageCombobox: Locator;
+  readonly columnOptionShipmentInfo: Locator;
+  readonly columnOptionFieldBar: Locator;
+  readonly displayedColumnFieldBar: Locator;
+  readonly displayedColumnShipmentInfo: Locator;
+  readonly kafkaDatasetText: Locator;
   readonly page: Page;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
@@ -31,9 +45,22 @@ export class LineageV3Page extends LineageV2Page {
     this.page = page;
     this.impactAnalysisViewButton = page.getByTestId('lineage-view-impact-analysis-btn');
     this.explorerViewButton = page.getByTestId('lineage-view-explorer-btn');
-    this.advSearchAddFilterButton = page.getByTestId('adv-search-add-filter');
+    this.advSearchAddFilterButton = page.getByTestId('search-results-advanced-search');
     this.lineageEmptyState = page.getByTestId('lineage-empty-state');
-    this.graphNodeLocator = page.locator('[data-testid*="rf__node-"]');
+    this.impactAnalysisOption = page.getByText('Impact Analysis');
+    this.columnLineageOption = page.getByText('Column Lineage');
+    this.downstreamsOption = page.getByText('Downstreams');
+    this.upstreamsOption = page.getByText('Upstreams');
+    this.lineageTab = page.getByTestId('Lineage-entity-tab-header');
+    this.columnShipmentInfo = page.getByTestId('column-shipment_info');
+    this.columnFieldBar = page.getByTestId('column-field_bar');
+    this.columnLineageSelect = page.getByTestId('column-selector-virtual-list');
+    this.columnLineageCombobox = this.columnLineageSelect.getByRole('combobox');
+    this.columnOptionShipmentInfo = page.getByTestId('column-option-shipment_info');
+    this.columnOptionFieldBar = page.getByTestId('column-option-field_bar');
+    this.displayedColumnFieldBar = page.getByTestId('displayed-column-field_bar');
+    this.displayedColumnShipmentInfo = page.getByTestId('displayed-column-shipment_info');
+    this.kafkaDatasetText = page.getByText('SamplePlaywrightKafkaDataset');
   }
 
   // ── View Switching ──────────────────────────────────────────────────────────
@@ -48,10 +75,8 @@ export class LineageV3Page extends LineageV2Page {
     if (buttonExists) {
       await this.impactAnalysisViewButton.click();
     }
-    // Wait for page to load - the Lineage tab content should be visible
-    // In fullsize/compact mode, wait for the first visible element in the results area
     await this.page.waitForLoadState('domcontentloaded');
-    await this.page.waitForTimeout(500);
+    await this.page.waitForTimeout(TIMEOUTS.SHORT);
   }
 
   /**
@@ -64,10 +89,7 @@ export class LineageV3Page extends LineageV2Page {
     if (buttonExists) {
       await this.explorerViewButton.click();
     }
-    // Wait for ReactFlow graph to render
-    await expect(this.page.locator('[data-testid*="rf__node-"]').first()).toBeVisible({
-      timeout: 15000,
-    });
+    await this.waitForGraphToRender();
   }
 
   /**
@@ -86,8 +108,7 @@ export class LineageV3Page extends LineageV2Page {
    */
   async switchToUpstream(): Promise<void> {
     await this.upstreamDirectionOption.click();
-    // Wait for results to update
-    await this.page.waitForTimeout(500);
+    await this.page.waitForTimeout(TIMEOUTS.SHORT);
   }
 
   /**
@@ -95,8 +116,7 @@ export class LineageV3Page extends LineageV2Page {
    */
   async switchToDownstream(): Promise<void> {
     await this.downstreamDirectionOption.click();
-    // Wait for results to update
-    await this.page.waitForTimeout(500);
+    await this.page.waitForTimeout(TIMEOUTS.SHORT);
   }
 
   /**
@@ -105,9 +125,8 @@ export class LineageV3Page extends LineageV2Page {
   async selectDirectionInWideView(direction: 'upstream' | 'downstream'): Promise<void> {
     await this.lineageTabDirectionSelect.click();
     const option = direction === 'upstream' ? this.lineageTabUpstreamOption : this.lineageTabDownstreamOption;
-    await option.last().click();
-    // Wait for results to update
-    await this.page.waitForTimeout(500);
+    await option.click();
+    await this.page.waitForTimeout(TIMEOUTS.SHORT);
   }
 
   // ── Degree / Level Filtering ────────────────────────────────────────────────
@@ -118,8 +137,7 @@ export class LineageV3Page extends LineageV2Page {
   async toggleDirectFilter(): Promise<void> {
     const filter = this.page.getByTestId('facet-degree-1');
     await filter.click();
-    // Wait for results to update
-    await this.page.waitForTimeout(500);
+    await this.page.waitForTimeout(TIMEOUTS.SHORT);
   }
 
   /**
@@ -128,8 +146,7 @@ export class LineageV3Page extends LineageV2Page {
   async toggleIndirectFilter(): Promise<void> {
     const filter = this.page.getByTestId('facet-degree-2');
     await filter.click();
-    // Wait for results to update
-    await this.page.waitForTimeout(500);
+    await this.page.waitForTimeout(TIMEOUTS.SHORT);
   }
 
   /**
@@ -147,19 +164,11 @@ export class LineageV3Page extends LineageV2Page {
    * Open the advanced filter panel.
    */
   async openAdvancedFilter(): Promise<void> {
-    const button = this.page.getByTestId('adv-search-toggle');
-    const isVisible = await button.isVisible().catch(() => false);
-    if (isVisible) {
-      const isExpanded = await button.evaluate((el: Element) => el.getAttribute('data-expanded'));
-      if (isExpanded !== 'true') {
-        await button.click();
-        // Wait for filter panel to expand
-        await this.page.getByTestId('adv-search-add-filter').waitFor({
-          state: 'visible',
-          timeout: 5000,
-        });
-      }
-    }
+    await this.advSearchAddFilterButton.waitFor({
+      state: 'visible',
+      timeout: TIMEOUTS.MEDIUM,
+    });
+    await this.advSearchAddFilterButton.click();
   }
 
   /**
@@ -172,8 +181,7 @@ export class LineageV3Page extends LineageV2Page {
       const isExpanded = await button.evaluate((el: Element) => el.getAttribute('data-expanded'));
       if (isExpanded === 'true') {
         await button.click();
-        // Wait for filter panel to collapse
-        await this.page.waitForTimeout(300);
+        await this.page.waitForTimeout(TIMEOUTS.QUICK);
       }
     }
   }
@@ -182,10 +190,9 @@ export class LineageV3Page extends LineageV2Page {
    * Click the Add Filter button to show filter options.
    */
   async clickAddFilter(): Promise<void> {
-    const button = this.page.getByTestId('adv-search-add-filter');
+    const button = this.page.getByTestId('adv-search-add-filter-select');
     await button.click();
-    // Wait for filter options to appear
-    await this.filterByDescriptionOption.waitFor({ state: 'visible', timeout: 5000 });
+    await this.filterByDescriptionOption.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
   }
 
   /**
@@ -197,8 +204,7 @@ export class LineageV3Page extends LineageV2Page {
     await this.clickFilterByDescription();
     await this.typeFilterText(text);
     await this.confirmFilterText();
-    // Wait for results to filter
-    await this.page.waitForTimeout(500);
+    await this.page.waitForTimeout(TIMEOUTS.SHORT);
   }
 
   /**
@@ -209,8 +215,7 @@ export class LineageV3Page extends LineageV2Page {
     const searchInput = this.page.getByTestId('lineage-search-input');
     await searchInput.clear();
     await searchInput.fill(query);
-    // Wait for debounce and results to filter
-    await this.page.waitForTimeout(500);
+    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 
   // ── Column-Level Lineage ────────────────────────────────────────────────────
@@ -222,15 +227,14 @@ export class LineageV3Page extends LineageV2Page {
     const encodedColumn = encodeURIComponent(columnPath);
     await this.navigate(`/${entityType}/${urn}/Lineage?column=${encodedColumn}`);
     await this.page.waitForLoadState('domcontentloaded');
-    // Wait for column lineage to render
-    await expect(this.columnLineageToggle).toBeVisible({ timeout: 10000 });
+    await expect(this.columnLineageToggle).toBeVisible({ timeout: TIMEOUTS.LONG });
   }
 
   /**
    * Verify column-level lineage is active.
    */
   async expectColumnLineageActive(): Promise<void> {
-    await expect(this.columnLineageToggle).toHaveAttribute('aria-pressed', 'true', { timeout: 5000 });
+    await expect(this.columnLineageToggle).toHaveAttribute('aria-pressed', 'true', { timeout: TIMEOUTS.MEDIUM });
   }
 
   /**
@@ -238,20 +242,16 @@ export class LineageV3Page extends LineageV2Page {
    */
   async toggleToTableLevelLineage(): Promise<void> {
     await this.columnLineageToggle.click({ force: true });
-    // Wait for results to update
-    await this.page.waitForTimeout(1000);
+    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS * 2);
   }
 
   /**
    * Select a different column from the column dropdown.
    */
   async selectColumnFromSelector(columnName: string): Promise<void> {
-    // Open column dropdown
     await this.page.getByTestId('column-selector').click();
-    // Select column from virtual list
     await this.columnDropdownVirtualList.getByText(columnName, { exact: true }).click();
-    // Wait for new column's lineage to load
-    await this.page.waitForTimeout(1000);
+    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS * 2);
   }
 
   // ── Time-Range Filtering ────────────────────────────────────────────────────
@@ -277,27 +277,22 @@ export class LineageV3Page extends LineageV2Page {
   async openTimeRangeSelector(): Promise<void> {
     const timeSelector = this.page.getByTestId('lineage-time-range-selector');
     await timeSelector.click();
-    // Wait for date picker to open
-    await this.page.waitForTimeout(500);
+    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 
   /**
    * Select a date range in the time selector.
    */
   async selectTimeRange(startDate: string, endDate: string): Promise<void> {
-    // Select start date
     const startInput = this.page.getByTestId('time-range-start-date');
     await startInput.fill(startDate);
 
-    // Select end date
     const endInput = this.page.getByTestId('time-range-end-date');
     await endInput.fill(endDate);
 
-    // Apply
     const applyButton = this.page.getByTestId('time-range-apply');
     await applyButton.click();
-    // Wait for results to filter
-    await this.page.waitForTimeout(1000);
+    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS * 2);
   }
 
   /**
@@ -311,13 +306,12 @@ export class LineageV3Page extends LineageV2Page {
     endTimeMillis: number,
   ): Promise<void> {
     await this.goToLineageWithTimeRange(entityType, urn, startTimeMillis, endTimeMillis);
-    // Switch to explorer/graph view if needed
-    try {
-      await this.switchToExplorer();
-    } catch {
-      // Already in graph view or graph view not available
+    // Switch to explorer/graph view if available (handles both compact and full-width modes)
+    const explorerButtonExists = await this.explorerViewButton.isVisible().catch(() => false);
+    if (explorerButtonExists) {
+      await this.explorerViewButton.click();
     }
-    // Wait for graph to render
+    // Wait for graph to render - this ensures ReactFlow nodes are ready
     await this.waitForGraphToRender();
   }
 
@@ -328,13 +322,11 @@ export class LineageV3Page extends LineageV2Page {
    */
   async openEditLineageModal(direction: 'upstream' | 'downstream'): Promise<void> {
     await this.clickLineageEditMenuButton();
-    // Wait for menu to appear
-    await this.page.waitForTimeout(300);
+    await this.page.waitForTimeout(TIMEOUTS.QUICK);
 
     const option = direction === 'upstream' ? this.editUpstreamLineageButton : this.editDownstreamLineageButton;
     await option.click();
-    // Wait for modal to open
-    await expect(this.page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
+    await expect(this.page.getByRole('dialog')).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
   /**
@@ -342,12 +334,10 @@ export class LineageV3Page extends LineageV2Page {
    */
   async searchAndSelectInEditModal(entityName: string): Promise<void> {
     await this.searchInLineageEditModal(entityName);
-    // Wait for search results
-    await this.page.waitForTimeout(500);
+    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
-    // Select first result
-    const firstResult = this.page.getByTestId('search-result').first();
-    await firstResult.click();
+    // Click the search result button - uses semantic selector instead of nth() methods
+    await this.page.getByRole('button', { name: entityName }).click();
   }
 
   /**
@@ -356,8 +346,7 @@ export class LineageV3Page extends LineageV2Page {
   async saveLineageChanges(): Promise<void> {
     const saveButton = this.page.getByTestId('lineage-modal-save');
     await saveButton.click();
-    // Wait for modal to close and changes to apply
-    await expect(this.page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
+    await expect(this.page.getByRole('dialog')).not.toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
   // ── Cache and Data Refresh ──────────────────────────────────────────────────
@@ -368,9 +357,8 @@ export class LineageV3Page extends LineageV2Page {
   async refreshCache(): Promise<void> {
     const refreshButton = this.page.getByTestId('lineage-refresh-cache');
     await refreshButton.click();
-    // Wait for refresh to complete (shown by loading state disappearing)
     await expect(this.page.getByTestId('lineage-loading')).not.toBeVisible({
-      timeout: 15000,
+      timeout: TIMEOUTS.EXTRA_LONG,
     });
   }
 
@@ -380,48 +368,72 @@ export class LineageV3Page extends LineageV2Page {
    * Wait for the graph to fully render with at least one node.
    */
   async waitForGraphToRender(): Promise<void> {
-    // Wait for at least the central entity node to appear
-    // Use .first() to avoid strict mode violation when multiple nodes exist
-    await expect(this.page.locator('[data-testid*="rf__node-"]').first()).toBeVisible({ timeout: 15000 });
+    await this.page.waitForFunction(
+      () => {
+        const nodes = document.querySelectorAll('[data-testid^="rf__node-"]');
+        return nodes.length > 0;
+      },
+      { timeout: TIMEOUTS.EXTRA_LONG },
+    );
   }
 
   /**
    * Check if nodes are visible in the graph.
    */
   async areGraphNodesVisible(): Promise<boolean> {
-    const nodes = this.page.locator('[data-testid*="rf__node-"]');
-    const count = await nodes.count();
-    return count > 0;
+    return await this.page.evaluate(() => {
+      const nodes = document.querySelectorAll('[data-testid^="rf__node-"]');
+      return nodes.length > 0;
+    });
   }
 
   /**
    * Check if edges are visible in the graph.
    */
   async areGraphEdgesVisible(): Promise<boolean> {
-    const edges = this.page.locator('[data-testid*="rf__edge-"]');
-    const count = await edges.count();
-    return count > 0;
+    return await this.page.evaluate(() => {
+      const edges = document.querySelectorAll('[data-testid^="rf__edge-"]');
+      return edges.length > 0;
+    });
+  }
+
+  /**
+   * Get Locator for a specific ReactFlow node by URN (for assertion in tests).
+   */
+  getReactFlowNodeByUrn(urn: string) {
+    return this.page.getByTestId(new RegExp(`^rf__node-${urn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+  }
+
+  /**
+   * Get locator for a specific column within a node.
+   * Used for verifying column visibility in column-level lineage tests.
+   */
+  getColumnLocatorInNode(nodeLocator: Locator, columnName: string): Locator {
+    return nodeLocator.getByText(columnName, { exact: true });
   }
 
   /**
    * Get the count of graph nodes visible in the lineage visualization.
    */
   async getGraphNodeCount(): Promise<number> {
-    return await this.graphNodeLocator.count();
+    return await this.page.evaluate(() => {
+      const nodes = document.querySelectorAll('[data-testid^="rf__node-"]');
+      return nodes.length;
+    });
   }
 
   /**
    * Test graph interactivity: pan and zoom.
    */
   async testGraphInteractivity(): Promise<void> {
-    const graphContainer = this.page.locator('[class*="react-flow"]');
-    // Attempt a zoom gesture (pinch)
-    await graphContainer.evaluate((el: Element) => {
-      const wheelEvent = new WheelEvent('wheel', { deltaY: 100 });
-      el.dispatchEvent(wheelEvent);
+    await this.page.evaluate(() => {
+      const graphContainer = document.querySelector('[class*="react-flow"]');
+      if (graphContainer) {
+        const wheelEvent = new WheelEvent('wheel', { deltaY: 100 });
+        graphContainer.dispatchEvent(wheelEvent);
+      }
     });
-    // Brief wait to ensure interaction was processed
-    await this.page.waitForTimeout(200);
+    await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
   // ── Assertions for Empty States and Error Handling ────────────────────────
@@ -431,8 +443,8 @@ export class LineageV3Page extends LineageV2Page {
    */
   async expectEmptyState(message: string): Promise<void> {
     const emptyState = this.page.getByTestId('lineage-empty-state');
-    await expect(emptyState).toBeVisible({ timeout: 5000 });
-    await expect(emptyState.getByText(message)).toBeVisible({ timeout: 5000 });
+    await expect(emptyState).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await expect(emptyState.getByText(message)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
   /**
@@ -440,10 +452,12 @@ export class LineageV3Page extends LineageV2Page {
    */
   async expectResultsDisplayed(): Promise<void> {
     const resultsContainer = this.page.getByTestId('lineage-results-container');
-    await expect(resultsContainer).toBeVisible({ timeout: 10000 });
-    // Check that at least one result item exists
-    const resultItems = this.page.getByTestId('lineage-result-item');
-    await expect(resultItems.first()).toBeVisible({ timeout: 5000 });
+    await expect(resultsContainer).toBeVisible({ timeout: TIMEOUTS.LONG });
+    const hasResults = await this.page.evaluate(() => {
+      const items = document.querySelectorAll('[data-testid="lineage-result-item"]');
+      return items.length > 0;
+    });
+    expect(hasResults).toBe(true);
   }
 
   /**
@@ -451,8 +465,7 @@ export class LineageV3Page extends LineageV2Page {
    */
   async expectLoadingState(): Promise<void> {
     const loadingSpinner = this.page.getByTestId('lineage-loading');
-    // Loading may appear and disappear quickly
-    await expect(loadingSpinner).not.toBeVisible({ timeout: 10000 });
+    await expect(loadingSpinner).not.toBeVisible({ timeout: TIMEOUTS.LONG });
   }
 
   /**
@@ -461,5 +474,167 @@ export class LineageV3Page extends LineageV2Page {
   async getResultsCount(): Promise<number> {
     const resultItems = this.page.getByTestId('lineage-result-item');
     return await resultItems.count();
+  }
+
+  // ── Graph Node Selection (V3-specific) ──────────────────────────────────────
+
+  /**
+   * Check that a dataset node is visible in the graph by matching its text content.
+   * Uses auto-retry via expect() (like Cypress .should("be.visible")).
+   * Scopes to graph nodes which display the dataset path.
+   */
+  async checkDatasetNodeVisible(datasetPath: string, timeout: number = TIMEOUTS.LONG): Promise<void> {
+    const escapedPath = datasetPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const textLocator = this.page.getByText(new RegExp(`^${escapedPath}$`, 'i'));
+
+    const nodeLocator = this.page.getByRole('button', { pressed: false }).filter({ has: textLocator });
+
+    await expect(nodeLocator).toBeVisible({ timeout });
+  }
+
+  /**
+   * Check that a dataset node is hidden in the graph by its text content.
+   * Uses auto-retry via expect() (like Cypress .should("not.be.visible")).
+   */
+  async checkDatasetNodeHidden(datasetPath: string, timeout: number = TIMEOUTS.MEDIUM): Promise<void> {
+    const escapedPath = datasetPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const textLocator = this.page.getByText(new RegExp(`^${escapedPath}$`, 'i'));
+
+    const nodeLocator = this.page.getByRole('button', { pressed: false }).filter({ has: textLocator });
+
+    await expect(nodeLocator).not.toBeVisible({ timeout });
+  }
+
+  /**
+   * Download CSV file with given filename.
+   * Returns the path to the downloaded file for further processing.
+   */
+  async downloadCSV(context: BrowserContext, filename: string): Promise<string> {
+    const downloadPromise = context.waitForEvent('download');
+    await expect(this.downloadCsvButton).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await this.downloadCsvButton.click();
+
+    await expect(this.downloadCsvInput).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await this.downloadCsvInput.fill(filename);
+    await this.csvModalDownloadButton.click();
+
+    await expect(this.page.getByText('Creating CSV')).not.toBeVisible({ timeout: TIMEOUTS.LONG });
+
+    const download = await downloadPromise;
+    const downloadPath = await download.path();
+    return downloadPath!;
+  }
+
+  // ── Impact Analysis and Column Lineage Navigation ────────────────────────
+
+  /**
+   * Navigate to impact analysis view and enable column lineage.
+   */
+  async navigateToImpactAnalysis(): Promise<void> {
+    await this.impactAnalysisOption.click();
+    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+  }
+
+  /**
+   * Enable column lineage view in impact analysis.
+   */
+  async enableColumnLineage(): Promise<void> {
+    await this.columnLineageOption.click();
+  }
+
+  /**
+   * Switch to downstreams direction in impact analysis.
+   */
+  async selectDownstreamsDirection(): Promise<void> {
+    await this.downstreamsOption.click();
+  }
+
+  /**
+   * Switch to upstreams direction in impact analysis.
+   */
+  async selectUpstreamsDirection(): Promise<void> {
+    await this.upstreamsOption.click();
+  }
+
+  /**
+   * Click the lineage tab in the entity page.
+   */
+  async clickLineageTab(): Promise<void> {
+    await this.lineageTab.click();
+    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+  }
+
+  /**
+   * Get search result row by dataset URN.
+   */
+  getSearchResultRow(urn: string): Locator {
+    return this.page.getByTestId(`search-result-row-${urn}`);
+  }
+
+  /**
+   * Get displayed column element from a search result row.
+   */
+  getDisplayedColumnInResultRow(resultRow: Locator, columnName: string): Locator {
+    return resultRow.getByTestId(`displayed-column-${columnName}`);
+  }
+
+  /**
+   * Select a column from the column lineage selector dropdown.
+   */
+  async selectColumnFromLineageSelector(columnName: string): Promise<void> {
+    await this.columnLineageCombobox.click({ timeout: TIMEOUTS.MEDIUM });
+    const columnOption = this.page.getByTestId(`column-option-${columnName}`);
+    await columnOption.click();
+  }
+
+  /**
+   * Get displayed column by name from a search result row.
+   */
+  getDisplayedColumnByName(resultRow: Locator, columnName: string): Locator {
+    return this.getDisplayedColumnInResultRow(resultRow, columnName);
+  }
+
+  /**
+   * Navigate to dataset and open lineage tab.
+   */
+  async navigateToDatasetLineage(urn: string): Promise<void> {
+    await this.navigate(`/dataset/${urn}`);
+    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    await this.clickLineageTab();
+  }
+
+  /**
+   * Verify column SVG color state (fill or stroke attribute).
+   * Used to verify that a column has a visual indicator when selected.
+   */
+  async verifyColumnSvgColorState(
+    nodeLocator: Locator,
+    columnName: string,
+    attribute: 'fill' | 'stroke',
+    shouldNotBeDefault: boolean,
+  ): Promise<void> {
+    const defaultValue = attribute === 'fill' ? 'white' : 'transparent';
+    const columnLocator = nodeLocator.getByText(columnName, { exact: true });
+    // eslint-disable-next-line playwright/no-raw-locators -- XPath parent (..) and multi-element CSS selector; no semantic API for parent traversal or SVG elements
+    const svgElement = columnLocator.locator('..').locator('svg, circle, path').first();
+
+    if (shouldNotBeDefault) {
+      await expect(svgElement).not.toHaveAttribute(attribute, defaultValue);
+    } else {
+      await expect(svgElement).toHaveAttribute(attribute, defaultValue);
+    }
+  }
+
+  /**
+   * Select column from dropdown in impact analysis view.
+   * Overrides v2 to add exact text matching for nested columns.
+   */
+  async selectColumnFromDropdown(columnName: string): Promise<void> {
+    const selectDropdown = this.page.getByText('Select column');
+    await selectDropdown.click({ force: true, timeout: TIMEOUTS.MEDIUM });
+    await this.page.waitForTimeout(TIMEOUTS.SHORT);
+    // eslint-disable-next-line playwright/no-raw-locators -- RC virtual list uses class-based selector
+    const virtualList = this.page.locator('.rc-virtual-list');
+    await virtualList.getByText(columnName, { exact: true }).click({ timeout: TIMEOUTS.MEDIUM });
   }
 }

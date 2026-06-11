@@ -1,15 +1,27 @@
 /**
- * Lineage V3 test utilities - fixture seeding via ingestProposal endpoint
+ * Dynamic time-relative data seeding for lineage V3 tests.
+ *
+ * DATA CREATED HERE:
+ * - Datasets and jobs with runtime-computed timestamps
+ * - Lineage edges with specific created/modified times relative to "now"
+ * - Used to test time-range filtering
+ *
+ * DATA CREATED IN fixtures/data.json:
+ * - Static reference datasets (auto-seeded via Playwright fixture)
+ *
+ * Why not static JSON? Timestamps must be relative to "now" to test time-range filtering.
  */
 
 import type { APIRequestContext } from '@playwright/test';
 import { gmsUrl } from '../../utils/constants';
 import type { DataHubLogger } from '../../utils/logger';
 
+/** Compute a timestamp N days in the past (for time-range filter tests). */
 function daysAgoMs(days: number): number {
   return Date.now() - days * 24 * 60 * 60 * 1000;
 }
 
+/** Emit a single MCP via REST API. Low-level operation used by all seeding functions. */
 async function ingestProposal(
   request: APIRequestContext,
   gmsToken: string,
@@ -49,6 +61,7 @@ async function ingestProposal(
   }
 }
 
+/** Create a dataset stub. Simple entities without schema (use fixtures/data.json for full schema). */
 async function seedDatasetStub(
   request: APIRequestContext,
   gmsToken: string,
@@ -59,6 +72,7 @@ async function seedDatasetStub(
   await ingestProposal(request, gmsToken, 'dataset', urn, 'datasetProperties', { name }, logger);
 }
 
+/** Create a data job for job→dataset lineage. */
 async function seedDataJobStub(
   request: APIRequestContext,
   gmsToken: string,
@@ -85,15 +99,25 @@ async function seedDataFlowStub(
   name: string,
   logger?: DataHubLogger,
 ): Promise<void> {
-  await ingestProposal(request, gmsToken, 'dataFlow', urn, 'dataFlowInfo', { name, description: name, customProperties: {} }, logger);
+  await ingestProposal(
+    request,
+    gmsToken,
+    'dataFlow',
+    urn,
+    'dataFlowInfo',
+    { name, description: name, customProperties: {} },
+    logger,
+  );
 }
 
+/** Lineage edge with timestamps that control visibility during time-range filtering. */
 interface Edge {
   destinationUrn: string;
   created: { time: number; actor: string };
   lastModified: { time: number; actor: string };
 }
 
+/** Create lineage edge with specific creation/update timestamps. */
 function makeEdge(destinationUrn: string, createdMs: number, updatedMs: number): Edge {
   return {
     destinationUrn,
@@ -102,6 +126,7 @@ function makeEdge(destinationUrn: string, createdMs: number, updatedMs: number):
   };
 }
 
+/** Create job→dataset edges with time-relative visibility for lineage changes. */
 async function seedDataJobInputOutput(
   request: APIRequestContext,
   gmsToken: string,
@@ -126,6 +151,7 @@ async function seedDataJobInputOutput(
   );
 }
 
+/** Create dataset→dataset edges with time-relative visibility. */
 async function seedUpstreamLineage(
   request: APIRequestContext,
   gmsToken: string,
@@ -143,4 +169,13 @@ async function seedUpstreamLineage(
   await ingestProposal(request, gmsToken, 'dataset', datasetUrn, 'upstreamLineage', { upstreams }, logger);
 }
 
-export { ingestProposal, seedDatasetStub, seedDataJobStub, seedDataFlowStub, seedDataJobInputOutput, seedUpstreamLineage, makeEdge, daysAgoMs };
+export {
+  ingestProposal,
+  seedDatasetStub,
+  seedDataJobStub,
+  seedDataFlowStub,
+  seedDataJobInputOutput,
+  seedUpstreamLineage,
+  makeEdge,
+  daysAgoMs,
+};

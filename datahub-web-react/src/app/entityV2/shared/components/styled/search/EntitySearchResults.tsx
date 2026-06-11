@@ -155,7 +155,7 @@ export const EntitySearchResults = ({
                 const { entity } = searchResult;
                 const expandedSection = isFullViewCard ? urnToExpandedSection[entity.urn] : undefined;
                 return (
-                    <MatchContextAndEntityContainer>
+                    <MatchContextAndEntityContainer data-testid={`search-result-row-${entity.urn}`}>
                         <MatchContextContainer
                             selected={false}
                             item={searchResult}

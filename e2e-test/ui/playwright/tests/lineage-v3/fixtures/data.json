@@ -75,22 +75,6 @@
   },
   {
     "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,bq_etl,prod),transaction_etl)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-              "name": "transaction_etl",
-              "description": "Transaction ETL data job",
-              "type": "COMMAND"
-            }
-          }
-        ]
-      }
-    }
-  },
-  {
-    "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sources.aggregated,PROD)",
         "aspects": [
@@ -128,38 +112,6 @@
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "name": "User Profile",
               "description": "User profile data"
-            }
-          }
-        ]
-      }
-    }
-  },
-  {
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,temperature_pipeline,PROD),temperature_etl_1)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-              "name": "temperature_etl_1",
-              "description": "Temperature ETL job version 1",
-              "type": "COMMAND"
-            }
-          }
-        ]
-      }
-    }
-  },
-  {
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,temperature_pipeline,PROD),temperature_etl_2)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-              "name": "temperature_etl_2",
-              "description": "Temperature ETL job version 2",
-              "type": "COMMAND"
             }
           }
         ]
@@ -243,22 +195,6 @@
   },
   {
     "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,playwright_lineage_pipeline,PROD),playwright_lineage.node7_datajob)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-              "name": "playwright_lineage.node7_datajob",
-              "description": "Data job at node 7",
-              "type": "COMMAND"
-            }
-          }
-        ]
-      }
-    }
-  },
-  {
-    "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node8_dataset,PROD)",
         "aspects": [
@@ -266,38 +202,6 @@
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "name": "Node 8 Dataset",
               "description": "Eighth node in lineage graph"
-            }
-          }
-        ]
-      }
-    }
-  },
-  {
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-        "urn": "urn:li:chart:(looker,playwright_lineage.node9_chart)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.chart.ChartInfo": {
-              "title": "Node 9 Chart",
-              "description": "Chart at node 9",
-              "chartUrl": "https://looker.example.com/charts/node9"
-            }
-          }
-        ]
-      }
-    }
-  },
-  {
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-        "urn": "urn:li:dashboard:(looker,playwright_lineage.node10_dashboard)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-              "title": "Node 10 Dashboard",
-              "description": "Dashboard at node 10",
-              "dashboardUrl": "https://looker.example.com/dashboards/node10"
             }
           }
         ]
@@ -538,6 +442,231 @@
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "name": "Filtering Node 20",
               "description": "Downstream node 20"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,playwright_column_level_hdfs,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "HDFS Sample Dataset",
+              "description": "Sample HDFS dataset for column-level lineage testing"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHdfsSchema",
+              "platform": "urn:li:dataPlatform:hdfs",
+              "version": 0,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                  "rawSchema": "{}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "shipment_info",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.RecordType": {}
+                    }
+                  },
+                  "nativeDataType": "record",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.date",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.target",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.destination",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.geo_info",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.RecordType": {}
+                    }
+                  },
+                  "nativeDataType": "record",
+                  "recursive": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,playwright_column_level_hive,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "Hive Sample Dataset",
+              "description": "Sample Hive dataset for column-level lineage testing"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hdfs,playwright_column_level_hdfs,PROD)",
+                  "type": "TRANSFORMED"
+                },
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,playwright_column_level_logging,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                  "rawSchema": "{}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "field_foo",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "field_bar",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,playwright_column_level_logging,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "Logging Events Dataset",
+              "description": "Logging events dataset for column-level lineage testing"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleLoggingSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                  "rawSchema": "{}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "event_name",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "event_data",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "timestamp",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "bigint",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "browser",
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                }
+              ]
             }
           }
         ]

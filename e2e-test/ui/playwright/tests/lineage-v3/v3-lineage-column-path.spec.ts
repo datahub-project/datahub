@@ -1,14 +1,36 @@
-import { test, expect } from '../../fixtures/base-test';
-import { LineageV2Page } from '../../pages/lineage-v2.page';
+/**
+ * Column-level lineage path tests V3 — migrated from Cypress v3_lineage_column_path.js
+ *
+ * Tests column-level lineage in the V3 graph view and in the impact analysis view,
+ * including the column path modal that shows the lineage path between two columns.
+ *
+ * Verifies:
+ * - Column visibility in graph nodes
+ * - SVG color state (fill/stroke) when columns are selected
+ * - Column path modal content
+ * - Upstream and downstream direction toggling
+ */
 
+import { test, expect } from '../../fixtures/base-test';
+import { LineageV3Page } from '../../pages/lineage-v3.page';
+import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
+
+test.use({ featureName: 'lineage-v3' });
+
+const DATASET_ENTITY_TYPE = 'dataset';
 const HDFS_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHdfsDataset,PROD)';
 const KAFKA_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:kafka,SamplePlaywrightKafkaDataset,PROD)';
 
+const COLUMN_NAMES = {
+  SHIPMENT_INFO: 'shipment_info',
+  FIELD_BAR: 'field_bar',
+} as const;
+
 test.describe('column-level lineage and impact analysis path V3', () => {
-  let lineagePage: LineageV2Page;
+  let lineagePage: LineageV3Page;
 
   test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
-    lineagePage = new LineageV2Page(page, logger, logDir);
+    lineagePage = new LineageV3Page(page, logger, logDir);
 
     await apiMock.setFeatureFlags({
       lineageGraphV3: true,
@@ -18,42 +40,80 @@ test.describe('column-level lineage and impact analysis path V3', () => {
     });
   });
 
-  test('should select columns and verify visibility in lineage graph', async ({ page }) => {
-    await lineagePage.goToLineageGraph('dataset', HDFS_DATASET_URN);
+  test('verify column-level lineage path at lineage graph and impact analysis', async ({ page }) => {
+    test.setTimeout(120000);
 
-    const hdfsNodeId = `lineage-node-${HDFS_DATASET_URN}`;
-    await expect(page.getByTestId(hdfsNodeId)).toBeVisible({ timeout: 10000 });
+    // ── Graph View: Verify column selection and SVG color states ──────────────
 
-    // Check for column elements if they exist
-    const columnElements = await page.getByTestId('column-selector').count();
-    expect(columnElements).toBeGreaterThanOrEqual(0);
-  });
+    await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, HDFS_DATASET_URN);
+    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    await expect(lineagePage.getReactFlowNodeByUrn(HDFS_DATASET_URN)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
 
-  test('should toggle column visibility with expand/contract button', async ({ page }) => {
-    await lineagePage.goToLineageGraph('dataset', KAFKA_DATASET_URN);
+    // Expand columns on HDFS dataset (downstream node)
+    await lineagePage.expandContractColumns(HDFS_DATASET_URN);
+    await expect(lineagePage.columnShipmentInfo).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
 
-    const kafkaNodeId = `lineage-node-${KAFKA_DATASET_URN}`;
-    await expect(page.getByTestId(kafkaNodeId)).toBeVisible({ timeout: 10000 });
-  });
+    // Expand columns on Kafka dataset (upstream node)
+    await lineagePage.expandContractColumns(KAFKA_DATASET_URN);
+    await expect(lineagePage.columnFieldBar).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
 
-  test('should verify column lineage path modal', async ({ page }) => {
-    await lineagePage.goToLineageGraph('dataset', HDFS_DATASET_URN);
+    // Click field_bar in upstream Kafka node and verify SVG color state
+    const kafkaNode = lineagePage.getReactFlowNodeByUrn(KAFKA_DATASET_URN);
+    await kafkaNode.getByText(COLUMN_NAMES.FIELD_BAR).click();
+    await lineagePage.verifyColumnSvgColorState(kafkaNode, COLUMN_NAMES.FIELD_BAR, 'fill', true);
 
-    const hdfsNodeId = `lineage-node-${HDFS_DATASET_URN}`;
-    await expect(page.getByTestId(hdfsNodeId)).toBeVisible({ timeout: 10000 });
-  });
+    // Verify shipment_info shows connection indicator (stroke not transparent)
+    const hdfsNode = lineagePage.getReactFlowNodeByUrn(HDFS_DATASET_URN);
+    await lineagePage.verifyColumnSvgColorState(hdfsNode, COLUMN_NAMES.SHIPMENT_INFO, 'stroke', true);
 
-  test('should display column lineage in impact analysis view', async ({ page }) => {
-    await lineagePage.goToLineageGraph('dataset', KAFKA_DATASET_URN);
+    // Click shipment_info in downstream HDFS node and verify SVG color state
+    await hdfsNode.getByText(COLUMN_NAMES.SHIPMENT_INFO, { exact: true }).click();
+    await lineagePage.verifyColumnSvgColorState(hdfsNode, COLUMN_NAMES.SHIPMENT_INFO, 'fill', true);
+    await lineagePage.verifyColumnSvgColorState(kafkaNode, COLUMN_NAMES.FIELD_BAR, 'stroke', true);
 
-    const kafkaNodeId = `lineage-node-${KAFKA_DATASET_URN}`;
-    await expect(page.getByTestId(kafkaNodeId)).toBeVisible({ timeout: 10000 });
-  });
+    // ── Impact Analysis Upstream: Column path modal verification ───────────────
 
-  test('should handle column selection in downstream lineage', async ({ page }) => {
-    await lineagePage.goToLineageGraph('dataset', HDFS_DATASET_URN);
+    await lineagePage.navigateToDatasetLineage(HDFS_DATASET_URN);
+    await lineagePage.clickLineageTab();
+    await lineagePage.clickImpactAnalysis();
+    await lineagePage.clickColumnLineageToggle();
+    await lineagePage.clickDownstreamOption();
 
-    const hdfsNodeId = `lineage-node-${HDFS_DATASET_URN}`;
-    await expect(page.getByTestId(hdfsNodeId)).toBeVisible({ timeout: 10000 });
+    // Switch to upstream
+    await lineagePage.clickUpstreamOption();
+    await expect(page.getByText('SamplePlaywrightKafkaDataset')).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await expect(page.getByText(COLUMN_NAMES.FIELD_BAR)).not.toBeVisible({ timeout: TIMEOUTS.SHORT });
+
+    // Select shipment_info and verify field_bar appears
+    await lineagePage.selectColumnFromDropdown(COLUMN_NAMES.SHIPMENT_INFO);
+    await expect(page.getByText(COLUMN_NAMES.FIELD_BAR)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+
+    // Open and verify column path modal
+    await lineagePage.clickResultTextAndOpenModal();
+    await lineagePage.verifyColumnPathModal(COLUMN_NAMES.SHIPMENT_INFO, COLUMN_NAMES.FIELD_BAR);
+    await lineagePage.closeEntityPathsModal();
+
+    // ── Impact Analysis Downstream: Column path modal verification ─────────────
+
+    await lineagePage.navigateToDatasetLineage(KAFKA_DATASET_URN);
+    await lineagePage.clickLineageTab();
+    await lineagePage.clickImpactAnalysis();
+    await lineagePage.clickColumnLineageToggle();
+
+    // Verify shipment_info is not visible before selection
+    await expect(page.getByText(COLUMN_NAMES.SHIPMENT_INFO, { exact: true })).not.toBeVisible({
+      timeout: TIMEOUTS.SHORT,
+    });
+
+    // Select field_bar and verify shipment_info appears in results
+    await lineagePage.selectColumnFromDropdown(COLUMN_NAMES.FIELD_BAR);
+    const hdfsResultRow = lineagePage.getSearchResultRow(HDFS_DATASET_URN);
+    const displayedColumn = lineagePage.getDisplayedColumnByName(hdfsResultRow, COLUMN_NAMES.SHIPMENT_INFO);
+    await expect(displayedColumn).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+
+    // Open and verify column path modal
+    await lineagePage.clickResultTextAndOpenModal();
+    await lineagePage.verifyColumnPathModal(COLUMN_NAMES.SHIPMENT_INFO, COLUMN_NAMES.FIELD_BAR);
+    await lineagePage.closeEntityPathsModal();
   });
 });
