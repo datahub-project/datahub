@@ -1,13 +1,14 @@
 import { Empty, Form, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
 import { useEntityContext } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
@@ -37,6 +38,9 @@ type SelectedDomain = {
 };
 
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
+    const themeConfig = useTheme();
     const { reloadByKeyType } = useReloadableContext();
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityContext();
@@ -148,7 +152,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Updated Domain!', duration: 2 });
+                    message.success({ content: t('sidebar.domain.updatedSuccess'), duration: 2 });
                     refetch?.();
                     sendAnalytics();
                     onModalClose();
@@ -177,7 +181,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to add assets to Domain: \n ${e.message || ''}`,
+                        content: t('sidebar.domain.addFailed', { message: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -202,18 +206,18 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
 
     return (
         <Modal
-            title={titleOverride || 'Set Domain'}
+            title={titleOverride || t('sidebar.domain.setModalTitle')}
             open
             onCancel={onModalClose}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onModalClose,
                     buttonDataTestId: 'cancel-button',
                 },
                 {
-                    text: 'Save',
+                    text: tc('save'),
                     variant: 'filled',
                     disabled: selectedDomain === undefined,
                     onClick: onOk,
@@ -232,7 +236,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             showSearch
                             filterOption={false}
                             defaultActiveFirstOption={false}
-                            placeholder="Search for Domains..."
+                            placeholder={t('sidebar.domain.searchPlaceholder')}
                             onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
                             onDeselect={onDeselectDomain}
                             onSearch={(value: string) => {
@@ -246,9 +250,9 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
                             notFoundContent={
                                 <Empty
-                                    description="No Domains Found"
+                                    description={t('sidebar.domain.emptyText')}
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                    style={{ color: ANTD_GRAY[7] }}
+                                    style={{ color: themeConfig.colors.textTertiary }}
                                 />
                             }
                             options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}

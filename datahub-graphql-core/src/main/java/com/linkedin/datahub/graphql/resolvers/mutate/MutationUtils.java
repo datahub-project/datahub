@@ -84,13 +84,28 @@ public class MutationUtils {
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    // Assumes proposal is generated first from the builder methods above so SystemMetadata is empty
+    proposal.setSystemMetadata(newUiSourceSystemMetadata());
+    return proposal;
+  }
+
+  /**
+   * Applies the same system metadata as {@link #buildMetadataChangeProposalWithUrn} to a proposal
+   * built elsewhere (for example {@code PatchBuilder.build()}).
+   */
+  @Nonnull
+  public static MetadataChangeProposal applyProposalUiSource(
+      @Nonnull MetadataChangeProposal proposal) {
+    proposal.setSystemMetadata(newUiSourceSystemMetadata());
+    return proposal;
+  }
+
+  @Nonnull
+  private static SystemMetadata newUiSourceSystemMetadata() {
     SystemMetadata systemMetadata = createDefaultSystemMetadata();
     StringMap properties = new StringMap();
     properties.put(APP_SOURCE, UI_SOURCE);
     systemMetadata.setProperties(properties);
-    proposal.setSystemMetadata(systemMetadata);
-    return proposal;
+    return systemMetadata;
   }
 
   public static EditableSchemaFieldInfo getFieldInfoFromSchema(

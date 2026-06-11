@@ -16,15 +16,16 @@ export const CheckboxContainer = styled.div<{ justifyContent?: 'center' | 'flex-
     }),
 );
 
-export const Label = styled.div<{ clickable?: boolean }>(({ clickable }) => ({
+export const Label = styled.div<{ clickable?: boolean }>(({ clickable, theme }) => ({
     ...formLabelTextStyles,
+    color: theme.colors.text,
     ...(clickable ? { cursor: 'pointer' } : {}),
 }));
 
-export const Required = styled.span`
-    color: ${(props) => props.theme?.colors?.textError};
-    margin-left: ${spacing.xxsm};
-`;
+export const Required = styled.span(({ theme }) => ({
+    color: theme.colors.textError,
+    marginLeft: spacing.xxsm,
+}));
 
 export const CheckboxBase = styled.div<{ $size: SizeOptions }>`
     display: inline-flex;

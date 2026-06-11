@@ -3,6 +3,7 @@ import { Avatar, Button, Modal, Pagination, Pill, SearchBar, Table, Text, Toolti
 import { Dropdown } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
@@ -87,13 +88,15 @@ const MenuIcon = styled(MoreOutlined)`
     border-radius: 50%;
     cursor: pointer;
     &:hover {
-        background-color: ${({ theme }) => theme.colors.gray[100]};
+        background-color: ${({ theme }) => theme.colors.bgHover};
     }
 `;
 
 const DEFAULT_PAGE_SIZE = 10;
 
 export const ManageRoles = () => {
+    const { t } = useTranslation('settings.permissions');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const theme = useTheme();
     const location = useLocation();
@@ -182,7 +185,7 @@ export const ManageRoles = () => {
                         roleUrn: focusRole?.urn,
                         userUrns: actorUrns,
                     });
-                    showToastMessage(ToastType.SUCCESS, 'Assigned Role to users!', 2);
+                    showToastMessage(ToastType.SUCCESS, t('roles.assignSuccess'), 2);
                     setTimeout(() => {
                         rolesRefetch();
                         clearUserListCache(client);
@@ -190,7 +193,7 @@ export const ManageRoles = () => {
                 }
             })
             .catch((e) => {
-                showToastMessage(ToastType.ERROR, `Failed to assign Role to users: \n ${e.message || ''}`, 3);
+                showToastMessage(ToastType.ERROR, t('roles.assignError', { error: e.message || '' }), 3);
             })
             .finally(() => {
                 resetRoleState();
@@ -203,7 +206,7 @@ export const ManageRoles = () => {
 
     const tableColumns = [
         {
-            title: 'Name',
+            title: t('column.name'),
             key: 'name',
             width: '15%',
             render: (record: any) => (
@@ -213,13 +216,13 @@ export const ManageRoles = () => {
             ),
         },
         {
-            title: 'Description',
+            title: t('column.description'),
             key: 'description',
             width: '25%',
             render: (record: any) => record?.description || '',
         },
         {
-            title: 'Users',
+            title: t('usersLabel'),
             key: 'users',
             width: '15%',
             render: (record: any) => {
@@ -261,13 +264,13 @@ export const ManageRoles = () => {
                         showRemainingNumber
                         totalCount={totalUsers}
                         entityRegistry={entityRegistry as any}
-                        title="Users"
+                        title={t('usersLabel')}
                     />
                 );
             },
         },
         {
-            title: 'Policies',
+            title: t('roleColumnPolicies'),
             key: 'policies',
             width: '35%',
             render: (record: any) => {
@@ -358,10 +361,10 @@ export const ManageRoles = () => {
     return (
         <PageContainer>
             <OnboardingTour stepIds={[ROLES_INTRO_ID]} />
-            {rolesError && showToastMessage(ToastType.ERROR, 'Failed to load roles! An unexpected error occurred.', 3)}
+            {rolesError && showToastMessage(ToastType.ERROR, t('roles.loadError'), 3)}
             <PageHeader>
                 <SearchBar
-                    placeholder="Search roles..."
+                    placeholder={t('searchRolesPlaceholder')}
                     value={query || ''}
                     onChange={(value) => {
                         setPage(1);
@@ -382,12 +385,12 @@ export const ManageRoles = () => {
             </PageHeader>
             {isBatchAddRolesModalVisible && (
                 <Modal
-                    title={`Assign ${focusRole?.name} Role to Users`}
+                    title={t('roles.assignTitle', { roleName: focusRole?.name })}
                     onCancel={resetRoleState}
                     buttons={[
-                        { text: 'Cancel', variant: 'text', onClick: resetRoleState },
+                        { text: tc('cancel'), variant: 'text', onClick: resetRoleState },
                         {
-                            text: 'Assign',
+                            text: tc('assign'),
                             variant: 'filled',
                             disabled: selectedUserUrns.length === 0,
                             onClick: () => batchAssignRole(selectedUserUrns),
@@ -397,7 +400,7 @@ export const ManageRoles = () => {
                     <ActorsSearchSelect
                         selectedActorUrns={selectedUserUrns}
                         onUpdate={(actors) => setSelectedUserUrns(actors.map((a) => a.urn))}
-                        placeholder="Search for users or groups..."
+                        placeholder={t('roles.searchUsersPlaceholder')}
                     />
                 </Modal>
             )}
@@ -405,7 +408,7 @@ export const ManageRoles = () => {
                 {!rolesLoading && tableData?.length === 0 ? (
                     <EmptyContainer>
                         <Text size="md" color="gray">
-                            No Roles!
+                            {t('roles.empty')}
                         </Text>
                     </EmptyContainer>
                 ) : (

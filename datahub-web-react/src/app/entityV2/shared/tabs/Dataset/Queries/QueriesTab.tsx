@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import EmptyQueriesSection from '@app/entityV2/shared/tabs/Dataset/Queries/EmptyQueriesSection';
 import QueriesListSection from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesListSection';
 import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
@@ -32,6 +33,8 @@ const Content = styled.div<{ $backgroundColor: string }>`
 `;
 
 export default function QueriesTab() {
+    const { t } = useTranslation('entity.profile.queries');
+    const theme = useTheme();
     const isSeparateSiblings = useIsSeparateSiblingsMode();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const entityUrn = baseEntity?.dataset?.urn;
@@ -115,15 +118,15 @@ export default function QueriesTab() {
 
     return (
         <>
-            <Content $backgroundColor={showLoading || showEmptyView ? 'white' : REDESIGN_COLORS.BACKGROUND}>
+            <Content $backgroundColor={showLoading || showEmptyView ? theme.colors.bg : theme.colors.bgSurface}>
                 {showLoading && <Loading />}
                 {!showLoading && (
                     <>
                         {(highlightedQueries.length > 0 || highlightedQueriesLoading) && (
                             <QueriesListSection
-                                title="Highlighted Queries"
+                                title={t('queriesTab.highlightedQueriesTitle')}
                                 section={QueriesTabSection.Highlighted}
-                                tooltip="Curated queries relevant to this dataset"
+                                tooltip={t('queriesTab.highlightedQueriesTooltip')}
                                 tooltipPosition="bottom"
                                 queries={highlightedQueries}
                                 loading={highlightedQueriesLoading}
@@ -138,20 +141,20 @@ export default function QueriesTab() {
                         )}
                         {highlightedQueries.length === 0 && !highlightedQueriesLoading && (
                             <EmptyQueriesSection
-                                sectionName="Highlighted Queries"
-                                tooltip="Curated queries relevant to this dataset"
+                                sectionName={t('queriesTab.highlightedQueriesTitle')}
+                                tooltip={t('queriesTab.highlightedQueriesTooltip')}
                                 tooltipPosition="bottom"
                                 showButton
-                                buttonLabel="Add Highlighted Query"
+                                buttonLabel={t('queriesTab.addHighlightedQueryButton')}
                                 isButtonDisabled={!canEditQueries}
                                 onButtonClick={() => setShowQueryBuilder(true)}
                             />
                         )}
                         {downstreamQueries.length > 0 && (
                             <QueriesListSection
-                                title="Downstream Queries"
+                                title={t('queriesTab.downstreamQueriesTitle')}
                                 section={QueriesTabSection.Downstream}
-                                tooltip="Queries that power downstream assets"
+                                tooltip={t('queriesTab.downstreamQueriesTooltip')}
                                 queries={downstreamQueries}
                                 totalQueries={downstreamQueries.length}
                                 {...props}
@@ -159,9 +162,9 @@ export default function QueriesTab() {
                         )}
                         {recentQueries.length > 0 && (
                             <QueriesListSection
-                                title="Recent Queries"
+                                title={t('queriesTab.recentQueriesTitle')}
                                 section={QueriesTabSection.Recent}
-                                tooltip="Recently executed queries against this dataset"
+                                tooltip={t('queriesTab.recentQueriesTooltip')}
                                 queries={recentQueries}
                                 totalQueries={recentQueries.length}
                                 {...props}

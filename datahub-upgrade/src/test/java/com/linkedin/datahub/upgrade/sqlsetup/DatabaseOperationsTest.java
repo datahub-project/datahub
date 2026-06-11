@@ -1,14 +1,26 @@
 package com.linkedin.datahub.upgrade.sqlsetup;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.datahub.upgrade.sqlsetup.postgres.PostgresDatabaseOperations;
+import com.linkedin.metadata.config.postgres.DatabaseType;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import javax.sql.DataSource;
+import java.sql.Statement;
+import java.util.List;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -17,10 +29,10 @@ import org.testng.annotations.Test;
 /** Unit tests for DatabaseOperations implementations. */
 public class DatabaseOperationsTest {
 
-  @Mock private DataSource mockDataSource;
   @Mock private Connection mockConnection;
   @Mock private PreparedStatement mockPreparedStatement;
   @Mock private ResultSet mockResultSet;
+  @Mock private Statement mockStatement;
 
   private PostgresDatabaseOperations postgresOps;
   private MySqlDatabaseOperations mysqlOps;
@@ -114,7 +126,7 @@ public class DatabaseOperationsTest {
 
   @Test
   public void testPostgresGrantCdcPrivilegesSql() {
-    java.util.List<String> statements = postgresOps.grantCdcPrivilegesSql("cdcuser", "testdb");
+    List<String> statements = postgresOps.grantCdcPrivilegesSql("cdcuser", "testdb", "public");
     assertNotNull(statements);
     assertTrue(statements.size() > 0);
     String allStatements = String.join(" ", statements);
@@ -122,11 +134,13 @@ public class DatabaseOperationsTest {
     assertTrue(allStatements.contains("ALTER USER \"cdcuser\" WITH REPLICATION"));
     assertTrue(allStatements.contains("GRANT CONNECT ON DATABASE \"testdb\" TO \"cdcuser\""));
     assertTrue(allStatements.contains("CREATE PUBLICATION dbz_publication"));
+    assertTrue(allStatements.contains("GRANT USAGE ON SCHEMA \"public\" TO \"cdcuser\""));
+    assertTrue(allStatements.contains("\"public\".\"metadata_aspect_v2\""));
   }
 
   @Test
   public void testMysqlGrantCdcPrivilegesSql() {
-    java.util.List<String> statements = mysqlOps.grantCdcPrivilegesSql("cdcuser", "testdb");
+    List<String> statements = mysqlOps.grantCdcPrivilegesSql("cdcuser", "testdb", null);
     assertNotNull(statements);
     assertTrue(statements.size() > 0);
     String allStatements = String.join(" ", statements);
@@ -136,25 +150,178 @@ public class DatabaseOperationsTest {
 
   @Test
   public void testPostgresCreateTableSqlStatements() {
-    java.util.List<String> statements = postgresOps.createTableSqlStatements();
+    List<String> statements = postgresOps.createTableSqlStatements(false);
     assertNotNull(statements);
-    assertTrue(statements.size() >= 2); // At least table creation + one index
+    assertEquals(statements.size(), 1);
     assertTrue(statements.get(0).contains("CREATE TABLE IF NOT EXISTS metadata_aspect_v2"));
-    assertTrue(statements.get(1).contains("CREATE INDEX IF NOT EXISTS timeIndex"));
+    assertTrue(statements.stream().noneMatch(s -> s.contains("CREATE INDEX")));
+    assertTrue(statements.stream().noneMatch(s -> s.contains("schemaVersionIndex")));
+  }
+
+  @Test
+  public void testPostgresCreateTableSqlStatementsWithSchemaVersionIndex() {
+    // schemaVersionIndex is created via postSetup, not in the statement list
+    List<String> statements = postgresOps.createTableSqlStatements(true);
+    assertTrue(statements.stream().noneMatch(s -> s.contains("schemaVersionIndex")));
+  }
+
+  @Test
+  public void testPostgresDropLegacyAspectTableIndexes() throws SQLException {
+    when(mockConnection.createStatement()).thenReturn(mockStatement);
+    postgresOps.dropLegacyAspectTableIndexes(mockConnection);
+    verify(mockStatement).execute("DROP INDEX CONCURRENTLY IF EXISTS urnindex");
+    verify(mockStatement).execute("DROP INDEX CONCURRENTLY IF EXISTS aspectindex");
+    verify(mockStatement).execute("DROP INDEX CONCURRENTLY IF EXISTS versionindex");
+  }
+
+  @Test
+  public void testPostgresDropLegacyRestoresAutoCommitWhenInitiallyOff() throws SQLException {
+    when(mockConnection.getAutoCommit()).thenReturn(false);
+    when(mockConnection.createStatement()).thenReturn(mockStatement);
+    postgresOps.dropLegacyAspectTableIndexes(mockConnection);
+    InOrder order = inOrder(mockConnection);
+    order.verify(mockConnection).getAutoCommit();
+    order.verify(mockConnection).setAutoCommit(true);
+    order.verify(mockConnection).setAutoCommit(false);
+  }
+
+  @Test
+  public void testPostgresEnsureAspectIndexes() throws SQLException {
+    when(mockConnection.createStatement()).thenReturn(mockStatement);
+    postgresOps.ensureAspectIndexes(mockConnection);
+    verify(mockStatement, atLeastOnce())
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS timeIndex ON metadata_aspect_v2 (createdon);");
+    verify(mockStatement)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_v0_urn_aspect ON metadata_aspect_v2 (urn, aspect) WHERE version = 0;");
+    verify(mockStatement)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_corpuser_aspect_v0 ON metadata_aspect_v2 (urn, aspect) WHERE urn LIKE 'urn:li:corpuser:%' AND version = 0;");
+    verify(mockStatement)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_corpgroup_aspect_v0 ON metadata_aspect_v2 (urn, aspect) WHERE urn LIKE 'urn:li:corpGroup:%' AND version = 0;");
+  }
+
+  @Test
+  public void testPostgresEnsureAspectIndexesRestoresAutoCommitWhenInitiallyOff()
+      throws SQLException {
+    when(mockConnection.getAutoCommit()).thenReturn(false);
+    when(mockConnection.createStatement()).thenReturn(mockStatement);
+    postgresOps.ensureAspectIndexes(mockConnection);
+    InOrder order = inOrder(mockConnection);
+    order.verify(mockConnection).getAutoCommit();
+    order.verify(mockConnection).setAutoCommit(true);
+    order.verify(mockConnection).setAutoCommit(false);
+  }
+
+  @Test
+  public void testMysqlEnsureAspectIndexesAddsWhenAbsent() throws SQLException {
+    when(mockConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true);
+    when(mockResultSet.getInt(1)).thenReturn(0);
+    when(mockConnection.createStatement()).thenReturn(mockStatement);
+
+    mysqlOps.ensureAspectIndexes(mockConnection);
+
+    verify(mockStatement)
+        .execute("ALTER TABLE metadata_aspect_v2 ADD INDEX `timeIndex` (createdon)");
+    verify(mockStatement)
+        .execute(
+            "ALTER TABLE metadata_aspect_v2 ADD INDEX `idx_version_urn_aspect` (version, urn, aspect)");
+  }
+
+  @Test
+  public void testMysqlEnsureAspectIndexesSkipsWhenPresent() throws SQLException {
+    when(mockConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true);
+    when(mockResultSet.getInt(1)).thenReturn(1);
+
+    mysqlOps.ensureAspectIndexes(mockConnection);
+
+    verify(mockConnection, never()).createStatement();
+  }
+
+  @Test
+  public void testPostgresPostSetupDropsInvalidIndexThenCreates() throws SQLException {
+    // Simulate pg_index returning a row (invalid index exists)
+    when(mockConnection.prepareStatement(org.mockito.ArgumentMatchers.anyString()))
+        .thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true);
+    when(mockConnection.createStatement()).thenReturn(mockPreparedStatement);
+
+    postgresOps.postSetup(mockConnection);
+
+    verify(mockPreparedStatement).execute("DROP INDEX CONCURRENTLY schemaversionindex");
+    verify(mockPreparedStatement)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS schemaVersionIndex ON metadata_aspect_v2 ((systemmetadata::jsonb ->> 'schemaVersion'));");
+  }
+
+  @Test
+  public void testPostgresPostSetupCreatesIndexWhenNoneInvalid() throws SQLException {
+    // Simulate pg_index returning no rows (no invalid index)
+    when(mockConnection.prepareStatement(org.mockito.ArgumentMatchers.anyString()))
+        .thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(false);
+    when(mockConnection.createStatement()).thenReturn(mockPreparedStatement);
+
+    postgresOps.postSetup(mockConnection);
+
+    verify(mockPreparedStatement, never()).execute("DROP INDEX CONCURRENTLY schemaversionindex");
+    verify(mockPreparedStatement)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS schemaVersionIndex ON metadata_aspect_v2 ((systemmetadata::jsonb ->> 'schemaVersion'));");
   }
 
   @Test
   public void testMysqlCreateTableSqlStatements() {
-    java.util.List<String> statements = mysqlOps.createTableSqlStatements();
+    List<String> statements = mysqlOps.createTableSqlStatements(false);
     assertNotNull(statements);
     assertEquals(statements.size(), 1); // MySQL creates table with indexes in one statement
     assertTrue(statements.get(0).contains("CREATE TABLE IF NOT EXISTS metadata_aspect_v2"));
     assertTrue(statements.get(0).contains("INDEX timeIndex (createdon)"));
+    assertTrue(statements.get(0).contains("INDEX idx_version_urn_aspect (version, urn, aspect)"));
+    String ddl = statements.get(0);
+    assertFalse(ddl.contains("idx_corpuser_aspect_v0"));
+    assertFalse(ddl.contains("idx_corpgroup_aspect_v0"));
+  }
+
+  @Test
+  public void testMysqlDropLegacyAspectTableIndexesSkipsWhenAbsent() throws SQLException {
+    when(mockConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true);
+    when(mockResultSet.getInt(1)).thenReturn(0);
+
+    mysqlOps.dropLegacyAspectTableIndexes(mockConnection);
+
+    verify(mockConnection, never()).createStatement();
+  }
+
+  @Test
+  public void testMysqlDropLegacyAspectTableIndexesDropsWhenPresent() throws SQLException {
+    when(mockConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true);
+    when(mockResultSet.getInt(1)).thenReturn(1);
+    when(mockConnection.createStatement()).thenReturn(mockStatement);
+
+    mysqlOps.dropLegacyAspectTableIndexes(mockConnection);
+
+    verify(mockStatement, times(3)).execute(anyString());
+    verify(mockStatement).execute("ALTER TABLE metadata_aspect_v2 DROP INDEX `urnIndex`");
+    verify(mockStatement).execute("ALTER TABLE metadata_aspect_v2 DROP INDEX `aspectIndex`");
+    verify(mockStatement).execute("ALTER TABLE metadata_aspect_v2 DROP INDEX `versionIndex`");
   }
 
   @Test
   public void testMysqlCreateTableSqlStatementsMatchesMysqlSetupCharsetAndCollation() {
-    java.util.List<String> statements = mysqlOps.createTableSqlStatements();
+    List<String> statements = mysqlOps.createTableSqlStatements(false);
     assertNotNull(statements);
     String ddl = statements.get(0);
     assertTrue(

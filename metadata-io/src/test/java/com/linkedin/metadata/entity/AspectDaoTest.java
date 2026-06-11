@@ -417,24 +417,32 @@ public class AspectDaoTest {
   private class TestAspectDao implements AspectDao {
 
     @Override
-    public EntityAspect getAspect(String urn, String aspectName, long version) {
+    public EntityAspect getAspect(
+        @Nonnull OperationContext opContext, String urn, String aspectName, long version) {
       return null;
     }
 
     @Override
-    public EntityAspect getAspect(EntityAspectIdentifier key) {
+    public EntityAspect getAspect(
+        @Nonnull OperationContext opContext, @Nonnull EntityAspectIdentifier key) {
       return null;
     }
 
     @Override
     public Map<EntityAspectIdentifier, EntityAspect> batchGet(
-        Set<EntityAspectIdentifier> keys, boolean forUpdate) {
+        @Nonnull OperationContext opContext,
+        @Nonnull Set<EntityAspectIdentifier> keys,
+        boolean forUpdate) {
       return null;
     }
 
     @Override
     public List<EntityAspect> getAspectsInRange(
-        Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis) {
+        @Nonnull OperationContext opContext,
+        @Nonnull Urn urn,
+        Set<String> aspectNames,
+        long startTimeMillis,
+        long endTimeMillis) {
       return null;
     }
 
@@ -446,39 +454,56 @@ public class AspectDaoTest {
 
     @Nonnull
     @Override
-    public Optional<EntityAspect> updateAspect(TransactionContext txContext, SystemAspect aspect) {
+    public Optional<EntityAspect> updateAspect(
+        OperationContext operationContext, TransactionContext txContext, SystemAspect aspect) {
       return Optional.of(aspect.withVersion(0));
     }
 
     @Nonnull
     @Override
     public Optional<EntityAspect> insertAspect(
-        TransactionContext txContext, SystemAspect aspect, long version) {
+        OperationContext operationContext,
+        TransactionContext txContext,
+        SystemAspect aspect,
+        long version) {
       return Optional.of(aspect.withVersion(version));
     }
 
     // Implementing remaining interface methods
     @Override
-    public void deleteAspect(Urn urn, String aspect, Long version) {}
+    public void deleteAspect(
+        OperationContext operationContext, Urn urn, String aspect, Long version) {}
 
     @Override
     public ListResult<String> listUrns(
-        String entityName, String aspectName, int start, int pageSize) {
+        OperationContext operationContext,
+        String entityName,
+        String aspectName,
+        int start,
+        int pageSize) {
       return null;
     }
 
     @Override
-    public Integer countAspect(String aspectName, String urnLike) {
+    public Integer countAspect(
+        OperationContext operationContext, String aspectName, String urnLike) {
       return null;
     }
 
     @Override
-    public Integer countAspect(RestoreIndicesArgs args) {
+    public Integer countAspect(OperationContext operationContext, RestoreIndicesArgs args) {
       return null;
     }
 
     @Override
-    public PartitionedStream<EbeanAspectV2> streamAspectBatches(RestoreIndicesArgs args) {
+    public PartitionedStream<EbeanAspectV2> streamAspectBatches(
+        OperationContext opContext, RestoreIndicesArgs args) {
+      return null;
+    }
+
+    @Override
+    public PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
+        Map<String, Long> aspectTargetVersions, long afterCreatedOnMs, int batchSize, int limit) {
       return null;
     }
 
@@ -497,28 +522,41 @@ public class AspectDaoTest {
 
     @Override
     public ListResult<String> listLatestAspectMetadata(
-        String entityName, String aspectName, int start, int pageSize) {
+        OperationContext operationContext,
+        String entityName,
+        String aspectName,
+        int start,
+        int pageSize) {
       return null;
     }
 
     @Override
     public ListResult<String> listAspectMetadata(
-        String entityName, String aspectName, long version, int start, int pageSize) {
+        OperationContext operationContext,
+        String entityName,
+        String aspectName,
+        long version,
+        int start,
+        int pageSize) {
       return null;
     }
 
     @Override
-    public Map<String, Map<String, Long>> getNextVersions(Map<String, Set<String>> urnAspectMap) {
+    public Map<String, Map<String, Long>> getNextVersions(
+        @Nonnull OperationContext opContext,
+        @Nonnull Map<String, Set<String>> urnAspectMap,
+        boolean lockLatestForWrite) {
       return null;
     }
 
     @Override
-    public long getMaxVersion(String urn, String aspectName) {
+    public long getMaxVersion(OperationContext operationContext, String urn, String aspectName) {
       return 0;
     }
 
     @Override
-    public Pair<Long, Long> getVersionRange(String urn, String aspectName) {
+    public Pair<Long, Long> getVersionRange(
+        OperationContext operationContext, String urn, String aspectName) {
       return null;
     }
 
@@ -527,7 +565,9 @@ public class AspectDaoTest {
 
     @Override
     public <T> Optional<T> runInTransactionWithRetry(
-        Function<TransactionContext, TransactionResult<T>> block, int maxTransactionRetry) {
+        OperationContext operationContext,
+        Function<TransactionContext, TransactionResult<T>> block,
+        int maxTransactionRetry) {
       return Optional.empty();
     }
 

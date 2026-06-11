@@ -1,6 +1,7 @@
-import { Editor, Modal, colors } from '@components';
+import { Editor, Modal } from '@components';
 import { Form, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { EditorProps } from '@components/components/Editor/types';
@@ -24,7 +25,7 @@ const OriginalDocumentation = styled(Form.Item)`
 const EditorContainer = styled.div`
     height: 200px;
     overflow: auto;
-    border: 1px solid ${colors.gray[100]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
 `;
 
@@ -49,16 +50,18 @@ export default function UpdateDescriptionModal({
     isAddDesc,
     editorProps,
 }: Props) {
+    const { t } = useTranslation('entity.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const [updatedDesc, setDesc] = useState(description || original || '');
 
     const buttons: ModalButton[] = [
         {
-            text: 'Cancel',
+            text: tc('cancel'),
             variant: 'text',
             onClick: onClose,
         },
         {
-            text: 'Publish',
+            text: tc('publish'),
             onClick: () => onSubmit(updatedDesc),
             variant: 'filled',
             disabled: updatedDesc === description,
@@ -72,17 +75,17 @@ export default function UpdateDescriptionModal({
             open
             width={900}
             onCancel={onClose}
-            okText={isAddDesc ? 'Submit' : 'Update'}
+            okText={isAddDesc ? tc('submit') : tc('update')}
             buttons={buttons}
         >
             <Form layout="vertical">
                 {!isAddDesc && description && original && (
-                    <OriginalDocumentation label={<FormLabel>Original:</FormLabel>}>
+                    <OriginalDocumentation label={<FormLabel>{t('legacy.original')}</FormLabel>}>
                         <StyledViewer content={original || ''} readOnly />
                     </OriginalDocumentation>
                 )}
                 {!isAddDesc && description && propagatedDescription && (
-                    <OriginalDocumentation label={<FormLabel>Propagated:</FormLabel>}>
+                    <OriginalDocumentation label={<FormLabel>{t('legacy.propagated')}</FormLabel>}>
                         <StyledViewer content={propagatedDescription || ''} readOnly />
                     </OriginalDocumentation>
                 )}

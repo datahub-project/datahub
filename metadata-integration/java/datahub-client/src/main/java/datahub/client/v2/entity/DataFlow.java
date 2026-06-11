@@ -54,7 +54,8 @@ public class DataFlow extends Entity
         HasOwners<DataFlow>,
         HasDomains<DataFlow>,
         HasSubTypes<DataFlow>,
-        HasStructuredProperties<DataFlow> {
+        HasStructuredProperties<DataFlow>,
+        HasDocumentation<DataFlow> {
 
   private static final String ENTITY_TYPE = "dataFlow";
 

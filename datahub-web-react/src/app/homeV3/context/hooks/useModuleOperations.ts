@@ -1,5 +1,6 @@
 import { message } from 'antd';
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import {
@@ -115,6 +116,7 @@ export function useModuleOperations(
     originalModuleData: PageModuleFragment | null,
     templateType: PageTemplateSurfaceType,
 ) {
+    const { t } = useTranslation('modules');
     const [upsertPageModuleMutation] = useUpsertPageModuleMutation();
     const [deletePageModule] = useDeletePageModuleMutation();
 
@@ -192,7 +194,8 @@ export function useModuleOperations(
 
             const { module, position } = input;
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
-            if (!validateTemplateAvailability(templateToUpdate) || !templateToUpdate) return;
+            if (!validateTemplateAvailability(templateToUpdate, t('error.noTemplateAvailable')) || !templateToUpdate)
+                return;
 
             // Handle module addition with size mismatch detection
             const updatedTemplate = handleModuleAdditionWithSizeMismatch(
@@ -208,7 +211,7 @@ export function useModuleOperations(
             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
 
             // Persist changes
-            persistTemplateChanges(context, updatedTemplate, isPersonal, 'add module');
+            persistTemplateChanges(context, updatedTemplate, isPersonal, 'addModule');
 
             analytics.event({
                 type: EventType.HomePageTemplateModuleAdd,
@@ -218,7 +221,7 @@ export function useModuleOperations(
                 location: templateType,
             });
         },
-        [context, isEditingModule, updateTemplateWithModule, templateType],
+        [context, isEditingModule, updateTemplateWithModule, templateType, t],
     );
 
     // Removes a module from the template state and updates the appropriate template on the backend
@@ -230,7 +233,8 @@ export function useModuleOperations(
 
             const { module, position } = input;
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
-            if (!validateTemplateAvailability(templateToUpdate) || !templateToUpdate) return;
+            if (!validateTemplateAvailability(templateToUpdate, t('error.noTemplateAvailable')) || !templateToUpdate)
+                return;
 
             // Update template state
             const updatedTemplate = removeModuleFromTemplate(templateToUpdate, module.urn, position, true);
@@ -239,7 +243,7 @@ export function useModuleOperations(
             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
 
             // Persist changes
-            persistTemplateChanges(context, updatedTemplate, isPersonal, 'remove module');
+            persistTemplateChanges(context, updatedTemplate, isPersonal, 'removeModule');
 
             // Delete module if necessary
             // Only do not delete a module when removing a global module from personal template OR module is a default
@@ -257,7 +261,7 @@ export function useModuleOperations(
                 location: templateType,
             });
         },
-        [context, removeModuleFromTemplate, templateType, deletePageModule],
+        [context, removeModuleFromTemplate, templateType, deletePageModule, t],
     );
 
     // Takes input and makes a call to create a module then add that module to the template
@@ -301,7 +305,7 @@ export function useModuleOperations(
                     const moduleUrn = moduleResult.data?.upsertPageModule?.urn;
                     if (!moduleUrn) {
                         console.error(`Failed to ${isEditingModule ? 'update' : 'create'} module - no URN returned`);
-                        message.error(`Failed to ${isEditingModule ? 'update' : 'create'} module`);
+                        message.error(t(isEditingModule ? 'error.failedToUpdateModule' : 'error.failedToCreateModule'));
                         return;
                     }
 
@@ -333,7 +337,7 @@ export function useModuleOperations(
                     if (shouldCreateNewModule && originalModuleData) {
                         if (!templateToUpdate) {
                             console.error('No template provided to update');
-                            message.error('No template available to update');
+                            message.error(t('error.noTemplateAvailable'));
                             return;
                         }
 
@@ -360,7 +364,7 @@ export function useModuleOperations(
                             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
 
                             // Persist changes
-                            persistTemplateChanges(context, updatedTemplate, isPersonal, 'replace global module');
+                            persistTemplateChanges(context, updatedTemplate, isPersonal, 'replaceGlobalModule');
                         }
                     } else {
                         // Normal flow: add the module to the template
@@ -372,7 +376,7 @@ export function useModuleOperations(
                 })
                 .catch((error) => {
                     console.error(`Failed to ${isEditingModule ? 'update' : 'create'} module:`, error);
-                    message.error(`Failed to ${isEditingModule ? 'update' : 'create'} module`);
+                    message.error(t(isEditingModule ? 'error.failedToUpdateModule' : 'error.failedToCreateModule'));
                 });
         },
         [
@@ -385,6 +389,7 @@ export function useModuleOperations(
             removeModuleFromTemplate,
             updateTemplateWithModule,
             templateType,
+            t,
         ],
     );
 
@@ -397,7 +402,8 @@ export function useModuleOperations(
 
             const { module, fromPosition, toPosition, insertNewRow } = input;
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
-            if (!validateTemplateAvailability(templateToUpdate) || !templateToUpdate) return;
+            if (!validateTemplateAvailability(templateToUpdate, t('error.noTemplateAvailable')) || !templateToUpdate)
+                return;
 
             // Validate move constraints
             const constraintError = validateModuleMoveConstraints(templateToUpdate, fromPosition, toPosition);
@@ -418,7 +424,7 @@ export function useModuleOperations(
 
             if (!updatedTemplate) {
                 console.error('Failed to update template during move operation');
-                message.error('Failed to move module');
+                message.error(t('error.failedToMoveModule'));
                 return;
             }
 
@@ -426,7 +432,7 @@ export function useModuleOperations(
             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
 
             // Persist changes
-            persistTemplateChanges(context, updatedTemplate, isPersonal, 'move module');
+            persistTemplateChanges(context, updatedTemplate, isPersonal, 'moveModule');
 
             analytics.event({
                 type: EventType.HomePageTemplateModuleMove,
@@ -435,7 +441,7 @@ export function useModuleOperations(
                 location: templateType,
             });
         },
-        [context, moveModuleInTemplate, templateType],
+        [context, moveModuleInTemplate, templateType, t],
     );
 
     return {

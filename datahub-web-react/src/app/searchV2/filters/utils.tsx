@@ -1,5 +1,5 @@
 import { FolderFilled } from '@ant-design/icons';
-import moment from 'moment-timezone';
+import i18next from 'i18next';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -46,12 +46,13 @@ import {
     TYPE_NAMES_FILTER_NAME,
     UNIT_SEPARATOR,
 } from '@app/searchV2/utils/constants';
-import { capitalizeFirstLetterOnly, forcePluralize, pluralizeIfIrregular } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import { DATE_TYPE_URN, URN_TYPE_URN } from '@src/app/shared/constants';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
+import dayjs from '@utils/dayjs';
 
 import { GetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
 import {
@@ -158,7 +159,7 @@ function getEntitySubtypeFilterIconAndLabel(filterValue: string, entityRegistry:
     // If this includes a delimiter, it is a subType
     if (filterValue.includes(FILTER_DELIMITER)) {
         const [type, subType] = filterValue.split(FILTER_DELIMITER);
-        label = capitalizeFirstLetterOnly(pluralizeIfIrregular(subType));
+        label = capitalizeFirstLetterOnly(i18next.t('search:filters.pluralizedTypeLabel', { type: subType }));
         icon = <SubTypeIcon>{getTypeIcon(entityRegistry, type as EntityType, subType, false, size || 12)}</SubTypeIcon>;
     } else {
         icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT);
@@ -219,7 +220,7 @@ export function getFilterIconAndLabel(
         label = newLabel;
     } else if (filterField === TYPE_NAMES_FILTER_NAME) {
         icon = getSubTypeIcon(filterValue);
-        label = capitalizeFirstLetterOnly(forcePluralize(filterValue));
+        label = capitalizeFirstLetterOnly(i18next.t('search:filters.pluralizedTypeLabel', { type: filterValue }));
     } else if (filterField === PLATFORM_FILTER_NAME) {
         const logoUrl = (filterEntity as DataPlatform)?.properties?.logoUrl;
         icon = logoUrl ? (
@@ -474,13 +475,33 @@ function getDynamicFilterField(field: string, availableFilters: FacetMetadata[])
     const filterAggregations = availableFilters?.find(
         (availableFilter) => availableFilter.field === field,
     )?.aggregations;
+    const entity = associatedAvailableFilter?.entity || undefined;
+
+    let type = getFilterFieldType(field, filterAggregations || []);
+    let entityTypes = getFilterEntityTypes(field, filterAggregations);
+
+    // For structured property fields, use the property's valueType definition to determine the
+    // correct filter UI — prevents URN-type properties from falling back to a plain text dropdown.
+    if (field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME) && entity) {
+        const structuredPropEntity = entity as StructuredPropertyEntity;
+        const valueTypeUrn = structuredPropEntity.definition?.valueType?.urn;
+        if (valueTypeUrn === URN_TYPE_URN) {
+            type = FieldType.ENTITY;
+            // Prefer the explicit typeQualifier allowedTypes; fall back to inference from aggregations.
+            const qualifierTypes = structuredPropEntity.definition?.typeQualifier?.allowedTypes;
+            if (qualifierTypes?.length) {
+                entityTypes = qualifierTypes.map((t) => t.type).filter(Boolean) as EntityType[];
+            }
+        }
+    }
+
     return {
         field,
         displayName: filterDisplayName || field,
-        type: getFilterFieldType(field, filterAggregations || []),
-        entityTypes: getFilterEntityTypes(field, filterAggregations),
+        type,
+        entityTypes,
         icon: getFilterDropdownIcon(field),
-        entity: associatedAvailableFilter?.entity || undefined,
+        entity,
     };
 }
 
@@ -531,7 +552,7 @@ export function getStructuredPropFilterDisplayName(field: string, value: string,
 
     // check for structured prop date values
     if (entity && (entity as StructuredPropertyEntity).definition?.valueType?.urn === DATE_TYPE_URN) {
-        return moment(parseInt(value, 10)).tz('GMT').format('MM/DD/YYYY').toString();
+        return dayjs(parseInt(value, 10)).tz('GMT').format('MM/DD/YYYY').toString();
     }
 
     // check for structured prop number values

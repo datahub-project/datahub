@@ -1,6 +1,6 @@
 import { Button, SearchBar, SimpleSelect } from '@components';
+import { ArrowClockwise } from '@phosphor-icons/react/dist/csr/ArrowClockwise';
 import { Modal, Pagination, message } from 'antd';
-import { ArrowClockwise } from 'phosphor-react';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';

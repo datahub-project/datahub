@@ -99,6 +99,7 @@ public class SearchTestUtils {
                           .maxThreads(1)
                           .queryOptimization(true)
                           .pointInTimeCreationEnabled(true) // Enable PIT for graph queries
+                          .sliceFutureDrainTimeoutSeconds(2)
                           .build())
                   .build())
           .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(1).build())
@@ -535,7 +536,11 @@ public class SearchTestUtils {
     List<MappingsBuilder> builders = new ArrayList<>();
 
     if (entityIndexConfiguration.getV2().isEnabled()) {
-      builders.add(new V2MappingsBuilder(entityIndexConfiguration));
+      builders.add(
+          new V2MappingsBuilder(
+              entityIndexConfiguration,
+              com.linkedin.metadata.search.elasticsearch.client.shim.impl
+                  .OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {

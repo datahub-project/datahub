@@ -81,7 +81,8 @@ public class CreateCdcUserStep implements UpgradeStep {
         }
 
         java.util.List<String> grantCdcPrivilegesStmts =
-            dbOps.grantCdcPrivilegesSql(args.getCdcUser(), args.getDatabaseName());
+            dbOps.grantCdcPrivilegesSql(
+                args.getCdcUser(), args.getDatabaseName(), args.getPostgresMetadataSchema());
         for (String grantSql : grantCdcPrivilegesStmts) {
           try (PreparedStatement grantStmt = connection.prepareStatement(grantSql)) {
             grantStmt.executeUpdate();

@@ -1,8 +1,10 @@
 import json
 import logging
+import socket
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse, urlunparse
 
 import click
 import click.testing
@@ -15,6 +17,7 @@ from requests.structures import CaseInsensitiveDict
 from datahub.cli import cli_utils, env_utils
 from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utilities import env_vars
 
@@ -66,6 +69,24 @@ def get_gms_url():
     return env_vars.get_gms_url() or f"http://localhost:8080{get_gms_base_path()}"
 
 
+def get_gms_prometheus_base_url():
+    """Base URL for /actuator/prometheus.
+
+    Docker images default to management on :4319 while GMS HTTP stays on :8080; when the GMS URL
+    uses port 8080, assume Micrometer is on the same host at 4319 unless DATAHUB_GMS_MANAGEMENT_URL
+    is set. For a local GMS with Actuator on the main port only, set DATAHUB_GMS_MANAGEMENT_URL
+    to your GMS base URL.
+    """
+    mgmt = env_vars.get_gms_management_url()
+    if mgmt:
+        return mgmt.rstrip("/")
+    base = get_gms_url().rstrip("/")
+    parsed = urlparse(base)
+    if parsed.port == 8080 and parsed.hostname is not None:
+        return urlunparse((parsed.scheme, f"{parsed.hostname}:4319", "", "", "", ""))
+    return base
+
+
 def get_frontend_url():
     return env_vars.get_frontend_url() or f"http://localhost:9002{get_base_path()}"
 
@@ -82,17 +103,51 @@ def get_kafka_schema_registry():
     )
 
 
+def _metadata_db_tcp_reachable(host_port: str, default_port: int) -> bool:
+    """Return True if ``host[:port]`` accepts a TCP connection (short timeout)."""
+    host, port = parse_host_port(host_port, default_port)
+    if port is None:
+        port = default_port
+    try:
+        with socket.create_connection((host, int(port)), timeout=0.75):
+            return True
+    except OSError:
+        return False
+
+
 def get_db_type():
     db_type = env_vars.get_db_type()
     if db_type:
         return db_type
-    else:
-        # infer from profile
-        profile_name = env_vars.get_profile_name()
-        if profile_name and "postgres" in profile_name:
-            return "postgres"
-        else:
-            return "mysql"
+    profile_name = env_vars.get_profile_name()
+    if profile_name and "postgres" in profile_name:
+        return "postgres"
+
+    pg_url = env_vars.get_postgres_url()
+    mysql_url = env_vars.get_mysql_url()
+    pg_ok = _metadata_db_tcp_reachable(pg_url, 5432)
+    mysql_ok = _metadata_db_tcp_reachable(mysql_url, 3306)
+
+    if pg_ok and not mysql_ok:
+        return "postgres"
+    if mysql_ok and not pg_ok:
+        return "mysql"
+    if pg_ok and mysql_ok:
+        logger.warning(
+            "Both postgres (%s) and mysql (%s) ports accept connections; "
+            "using postgres. Set DB_TYPE=mysql or DB_TYPE=postgres to override.",
+            pg_url,
+            mysql_url,
+        )
+        return "postgres"
+
+    logger.warning(
+        "Neither postgres (%s) nor mysql (%s) responded to a TCP probe; "
+        "defaulting to mysql. Set DB_TYPE=postgres for PostgreSQL-only quickstart.",
+        pg_url,
+        mysql_url,
+    )
+    return "mysql"
 
 
 def get_db_url():
@@ -365,13 +420,32 @@ class TestSessionWrapper:
     Many of the tests do not consider async writes. This
     class intercepts mutations using the requests library
     to simulate sync requests.
+
+    Two construction modes:
+
+    1. Login-based (default): provide a ``requests_session`` obtained via
+       ``get_frontend_session()``.  A short-lived GMS token is minted via GraphQL
+       and revoked on ``destroy()``.
+
+    2. Token-based: pass ``prebuilt_token`` directly (e.g. a PAT).  No login or
+       token-generation round-trip is performed.  ``frontend_url()`` returns the
+       GMS URL so GraphQL calls go to ``{gms_url}/api/graphql``.  ``destroy()``
+       is a no-op — the externally-provided token is never revoked.
     """
 
-    def __init__(self, requests_session):
+    def __init__(self, requests_session, *, prebuilt_token: str | None = None):
         self._upstream = requests_session
-        self._frontend_url = get_frontend_url()
         self._gms_url = get_gms_url()
-        self._gms_token_id, self._gms_token = self._generate_gms_token()
+
+        if prebuilt_token is not None:
+            # Token-based auth: skip login and token generation entirely.
+            # Route GraphQL calls through the GMS endpoint directly.
+            self._gms_token = prebuilt_token
+            self._gms_token_id = None  # externally-owned — never revoke
+            self._frontend_url = self._gms_url  # /api/graphql works on GMS too
+        else:
+            self._frontend_url = get_frontend_url()
+            self._gms_token_id, self._gms_token = self._generate_gms_token()
 
     def __getattr__(self, name):
         # Intercept method calls

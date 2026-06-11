@@ -1,8 +1,8 @@
+// Disabling no hardcoded colors rule in stories files
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Meta, StoryObj } from '@storybook/react';
 
 import { Bar } from '@components/components/Bar/Bar';
-
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const meta: Meta<typeof Bar> = {
     title: 'Components / Bar',
@@ -22,7 +22,7 @@ const meta: Meta<typeof Bar> = {
             description: 'Color of the filled bars.',
             control: 'color',
             table: {
-                defaultValue: { summary: colors.violet[500] },
+                defaultValue: { summary: '#533FD1' },
             },
         },
         coloredBars: {
@@ -44,7 +44,7 @@ const meta: Meta<typeof Bar> = {
 
     // Default props
     args: {
-        color: colors.violet[500],
+        color: '#533FD1',
         coloredBars: 2,
         size: 'default',
     },
@@ -77,7 +77,7 @@ export const defaultBars: Story = {
     args: {
         size: 'default',
         coloredBars: 2,
-        color: colors.violet[500],
+        color: '#533FD1',
     },
 };
 

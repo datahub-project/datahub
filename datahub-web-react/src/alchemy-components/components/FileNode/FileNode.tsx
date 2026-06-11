@@ -1,7 +1,8 @@
-import { Button, colors } from '@components';
+import { Button } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Typography } from 'antd';
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { getExtensionFromFileName } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
@@ -19,7 +20,7 @@ const Container = styled.div<{ $border?: boolean; $fontSize?: string }>`
         props.$border &&
         `
         border-radius: 8px;
-        border: 1px solid ${colors.gray[100]};
+        border: 1px solid ${props.theme.colors.border};
     `}
 
     ${(props) => props.$fontSize && `font-size: ${props.$fontSize};`}
@@ -43,7 +44,7 @@ const CloseButton = styled(Button)`
 `;
 
 const FileName = styled(Typography.Text)`
-    color: ${({ theme }) => theme?.styles?.['primary-color'] ?? colors.violet[500]};
+    color: ${({ theme }) => theme.colors.textBrand};
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -59,6 +60,7 @@ export function FileNode({
     onClick,
     onClose,
 }: FileNodeProps) {
+    const { t } = useTranslation('alchemy');
     const extension = useMemo(() => getExtensionFromFileName(fileName || ''), [fileName]);
 
     const closeHandler = useCallback(
@@ -92,7 +94,7 @@ export function FileNode({
             <Container $border={border} className={className} $fontSize={fontSize}>
                 <FileDetails>
                     <Loading height={18} width={20} marginTop={0} />
-                    <FileName ellipsis={{ tooltip: fileName }}>Uploading {fileName}...</FileName>
+                    <FileName ellipsis={{ tooltip: fileName }}>{t('fileNode.uploading', { fileName })}</FileName>
                 </FileDetails>
             </Container>
         );

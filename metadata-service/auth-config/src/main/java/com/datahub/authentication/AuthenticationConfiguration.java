@@ -12,6 +12,13 @@ public class AuthenticationConfiguration {
   /** Whether user existence is enforced */
   private boolean enforceExistenceEnabled;
 
+  /**
+   * When true, login-denial handling emits an additional INFO line using the same {@code
+   * loginDenied} message shape as the default line, with the raw (unmasked) {@code userRef}
+   * (sensitive). Binds to {@code AUTH_VERBOSE_LOGGING}.
+   */
+  private boolean verboseAuthFailureLogging;
+
   /** Paths to be excluded from filtering * */
   private String excludedPaths;
 

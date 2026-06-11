@@ -137,6 +137,12 @@ def _is_file_path(value: str) -> bool:
     if not value or len(value) < 2:
         return False
 
+    # macOS/Linux impose a 255-byte limit on filename components. Strings longer
+    # than this cannot be valid file paths — and os.stat() raises [Errno 63]
+    # File name too long if we let Path.exists() try anyway.
+    if len(value.encode("utf-8")) > 255:
+        return False
+
     resolved_path = Path(value).resolve()
     return resolved_path.exists()
 

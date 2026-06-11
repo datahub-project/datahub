@@ -1,8 +1,7 @@
 import ColorThief from 'colorthief';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
 
 type Props = {
@@ -37,8 +36,26 @@ const DEFAULT_BORDER_RADIUS = 4;
 
 // TODO: Make this the default component for platform icons
 const ImageWithColoredBackground = ({ src, alt, imgSize, backgroundSize, borderRadius }: Props) => {
+    const theme = useTheme();
     const imgRef = React.useRef<HTMLImageElement>(null);
     const [platformBackground, setPlatformBackground] = React.useState<string | undefined>(undefined);
+
+    const onLoad = () => {
+        const img = imgRef.current;
+        if (img && img.width > 0 && img.height > 0) {
+            const colorThief = new ColorThief();
+            const [r, g, b] = colorThief.getColor(img, 25);
+            setPlatformBackground(`rgb(${getLighterRGBColor(r, g, b).join(', ')})`);
+        }
+    };
+
+    const onError = () => {
+        const img = imgRef.current;
+        if (img) {
+            img.removeAttribute('crossOrigin');
+            setPlatformBackground(theme.colors.bgSurface);
+        }
+    };
 
     const logo = (
         <PreviewImage
@@ -47,21 +64,8 @@ const ImageWithColoredBackground = ({ src, alt, imgSize, backgroundSize, borderR
             src={src}
             alt={alt}
             ref={imgRef}
-            onLoad={() => {
-                const img = imgRef.current;
-                if (img && img.width > 0 && img.height > 0) {
-                    const colorThief = new ColorThief();
-                    const [r, g, b] = colorThief.getColor(img, 25);
-                    setPlatformBackground(`rgb(${getLighterRGBColor(r, g, b).join(', ')})`);
-                }
-            }}
-            onError={() => {
-                const img = imgRef.current;
-                if (img) {
-                    img.removeAttribute('crossOrigin');
-                    setPlatformBackground(REDESIGN_COLORS.BACKGROUND_GREY);
-                }
-            }}
+            onLoad={onLoad}
+            onError={onError}
         />
     );
     return (

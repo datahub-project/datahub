@@ -1,9 +1,8 @@
 import { Typography, message } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
-
-import colors from '@components/theme/foundations/colors';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useDomainsContext } from '@app/domainV2/DomainsContext';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
@@ -16,7 +15,6 @@ import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useR
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { getColor } from '@src/alchemy-components/theme/utils';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 
 import { useUpdateNameMutation } from '@graphql/mutations.generated';
@@ -24,14 +22,14 @@ import { DataHubPageModuleType, EntityType } from '@types';
 
 const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
     font-weight: 700;
-    color: ${(p) => p.theme.styles['primary-color']};
+    color: ${(p) => p.theme.colors.textBrand};
     line-height: normal;
 
     ${(props) =>
         props.$showEntityLink &&
         `
     :hover {
-        color: ${(p) => getColor('primary', 600, p.theme)};
+        color: ${(p) => p.theme.colors.textHover};
     }
     `}
     &&& {
@@ -46,7 +44,7 @@ const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
         margin-left: 2px;
 
         & svg {
-            fill: ${(p) => p.theme.styles['primary-color']};
+            fill: ${(p) => p.theme.colors.iconBrand};
         }
     }
 `;
@@ -56,6 +54,8 @@ interface Props {
 }
 
 function EntityName(props: Props) {
+    const { t } = useTranslation('entity.shared.containers');
+    const theme = useTheme();
     const { isNameEditable } = props;
     const { isClosed: isSidebarClosed } = useContext(EntitySidebarContext);
     const refetch = useRefetch();
@@ -90,7 +90,7 @@ function EntityName(props: Props) {
         updateName({ variables: { input: { name, urn } } })
             .then(() => {
                 setIsEditing(false);
-                message.success({ content: 'Name Updated', duration: 2 });
+                message.success({ content: t('entityName.updateSuccess'), duration: 2 });
                 refetch();
                 if (isInGlossaryContext) {
                     const parentNodeToUpdate = getParentNodeToUpdate(entityData, entityType);
@@ -134,7 +134,7 @@ function EntityName(props: Props) {
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to update name: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: t('entityName.updateFailed', { message: e.message || '' }), duration: 3 });
                 }
             });
     };
@@ -162,9 +162,10 @@ function EntityName(props: Props) {
             }}
             $showEntityLink={showEntityLink}
             ellipsis={{
-                tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: colors.gray[1700] } },
+                tooltip: { showArrow: false, overlayInnerStyle: { color: theme.colors.textSecondary } },
             }}
             key={`${updatedName}-${key}`}
+            data-testid="entity-name-editable"
         >
             {updatedName}
         </EntityTitle>
@@ -172,7 +173,7 @@ function EntityName(props: Props) {
         <EntityTitle
             $showEntityLink={showEntityLink}
             ellipsis={{
-                tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: colors.gray[1700] } },
+                tooltip: { showArrow: false, overlayInnerStyle: { color: theme.colors.textSecondary } },
             }}
             key={`${entityName}-${key}`}
         >

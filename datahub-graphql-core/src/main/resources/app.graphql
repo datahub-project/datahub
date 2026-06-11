@@ -170,6 +170,11 @@ type PlatformPrivileges {
   manageGlobalViews: Boolean!
 
   """
+  Whether the user should be able to view and change platform-level settings (e.g. integrations).
+  """
+  manageGlobalSettings: Boolean!
+
+  """
   Whether the user should be able to create, update, and delete ownership types.
   """
   manageOwnershipTypes: Boolean!
@@ -873,6 +878,16 @@ type FeatureFlagsConfig {
   If enabled, hides lineage information in search result cards
   """
   hideLineageInSearchCards: Boolean!
+
+  """
+  If enabled, shows tests in the health icon on entity pages.
+  """
+  showTestsInHealthIcon: Boolean!
+
+  """
+  If enabled, internationalization (i18n) features are active.
+  """
+  i18nEnabled: Boolean!
 }
 
 """

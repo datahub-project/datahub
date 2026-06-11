@@ -2,11 +2,13 @@ import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { FormInstance } from 'antd/es/form/Form';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 
 import { SelectFormItem, SelectWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { INCIDENT_OPTION_LABEL_MAPPING } from '@app/entityV2/shared/tabs/Incident/constant';
 import { IncidentConstant } from '@app/entityV2/shared/tabs/Incident/types';
-import { SimpleSelect, colors } from '@src/alchemy-components';
+import { SimpleSelect } from '@src/alchemy-components';
 import { IconLabel } from '@src/alchemy-components/components/IconLabel';
 import { IconType } from '@src/alchemy-components/components/IconLabel/types';
 import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel';
@@ -15,19 +17,9 @@ import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentSt
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { IncidentState } from '@src/types.generated';
 
-const IncidentStates = {
-    [IncidentState.Active]: {
-        label: IncidentState.Active,
-        icon: <Warning color={colors.red[1200]} width={17} height={15} />,
-    },
-    [IncidentState.Resolved]: {
-        label: IncidentState.Resolved,
-        icon: <Check color={colors.green[1200]} width={17} height={15} />,
-    },
-};
-
 interface IncidentSelectFieldProps {
     incidentLabelMap: {
+        key: string;
         label: string;
         name: string;
         fieldName: string;
@@ -55,14 +47,40 @@ export const IncidentSelectField = ({
     isDisabled,
     value,
 }: IncidentSelectFieldProps) => {
-    const { label, name } = incidentLabelMap;
-    const placeholder = label.toLowerCase() === IncidentConstant.PRIORITY ? 'priority level' : label.toLowerCase();
-    const isRequiredField = label.toLowerCase() === IncidentConstant.CATEGORY;
+    const theme = useTheme();
+    const { t } = useTranslation('entity.profile.incident');
+
+    const IncidentStates = {
+        [IncidentState.Active]: {
+            label: IncidentState.Active,
+            icon: <Warning color={theme.colors.iconError} width={17} height={15} />,
+        },
+        [IncidentState.Resolved]: {
+            label: IncidentState.Resolved,
+            icon: <Check color={theme.colors.iconSuccess} width={17} height={15} />,
+        },
+    };
+    const { label, name, key } = incidentLabelMap;
+    const placeholderByKey: Record<string, string> = {
+        [INCIDENT_OPTION_LABEL_MAPPING.category.key]: t('field.categoryPlaceholder'),
+        [INCIDENT_OPTION_LABEL_MAPPING.priority.key]: t('field.priorityPlaceholder'),
+        [INCIDENT_OPTION_LABEL_MAPPING.stage.key]: t('field.stagePlaceholder'),
+        [INCIDENT_OPTION_LABEL_MAPPING.state.key]: t('field.statePlaceholder'),
+    };
+    const requiredMessageByKey: Record<string, string> = {
+        [INCIDENT_OPTION_LABEL_MAPPING.category.key]: t('field.categoryRequired'),
+        [INCIDENT_OPTION_LABEL_MAPPING.priority.key]: t('field.priorityRequired'),
+        [INCIDENT_OPTION_LABEL_MAPPING.stage.key]: t('field.stageRequired'),
+        [INCIDENT_OPTION_LABEL_MAPPING.state.key]: t('field.stateRequired'),
+    };
+    const placeholder = placeholderByKey[key];
+    const requiredMessage = requiredMessageByKey[key];
+    const isRequiredField = key === IncidentConstant.CATEGORY;
     const renderOption = (option: NestedSelectOption) => {
-        switch (label) {
-            case INCIDENT_OPTION_LABEL_MAPPING.category.label:
+        switch (key) {
+            case INCIDENT_OPTION_LABEL_MAPPING.category.key:
                 return option.label;
-            case INCIDENT_OPTION_LABEL_MAPPING.state.label:
+            case INCIDENT_OPTION_LABEL_MAPPING.state.key:
                 return (
                     <IconLabel
                         name={getCapitalizeWord(IncidentStates[option.value]?.label)}
@@ -70,7 +88,7 @@ export const IncidentSelectField = ({
                         type={IconType.ICON}
                     />
                 );
-            case INCIDENT_OPTION_LABEL_MAPPING.priority.label:
+            case INCIDENT_OPTION_LABEL_MAPPING.priority.key:
                 return (
                     <IncidentPriorityLabel
                         style={{
@@ -81,7 +99,7 @@ export const IncidentSelectField = ({
                         title={option.label}
                     />
                 );
-            case INCIDENT_OPTION_LABEL_MAPPING.stage.label:
+            case INCIDENT_OPTION_LABEL_MAPPING.stage.key:
                 return <IncidentStagePill stage={option.value} />;
             default:
                 return null;
@@ -92,10 +110,10 @@ export const IncidentSelectField = ({
         if (!selectedOption) {
             return null;
         }
-        switch (label) {
-            case INCIDENT_OPTION_LABEL_MAPPING.category.label:
+        switch (key) {
+            case INCIDENT_OPTION_LABEL_MAPPING.category.key:
                 return selectedOption?.label;
-            case INCIDENT_OPTION_LABEL_MAPPING.state.label:
+            case INCIDENT_OPTION_LABEL_MAPPING.state.key:
                 return (
                     <IconLabel
                         name={getCapitalizeWord(IncidentStates[selectedOption?.value]?.label)}
@@ -103,7 +121,7 @@ export const IncidentSelectField = ({
                         type={IconType.ICON}
                     />
                 );
-            case INCIDENT_OPTION_LABEL_MAPPING.priority.label:
+            case INCIDENT_OPTION_LABEL_MAPPING.priority.key:
                 return (
                     <IncidentPriorityLabel
                         style={{
@@ -113,7 +131,7 @@ export const IncidentSelectField = ({
                         title={selectedOption?.label}
                     />
                 );
-            case INCIDENT_OPTION_LABEL_MAPPING.stage.label:
+            case INCIDENT_OPTION_LABEL_MAPPING.stage.key:
                 return <IncidentStagePill stage={selectedOption?.value} />;
             default:
                 return null;
@@ -124,7 +142,7 @@ export const IncidentSelectField = ({
         <SelectFormItem
             label={label}
             name={name}
-            rules={[{ required: isRequiredField, message: `Please select ${label.toLowerCase()}!` }]}
+            rules={[{ required: isRequiredField, message: requiredMessage }]}
             initialValue={value}
             customStyle={customStyle}
         >
@@ -137,7 +155,7 @@ export const IncidentSelectField = ({
                         form.setFieldsValue({ ...form.getFieldsValue(), [name]: selectedValues[0] });
                         handleValuesChange(form.getFieldsValue());
                     }}
-                    placeholder={`Select ${placeholder}`}
+                    placeholder={placeholder}
                     size="md"
                     showClear={showClear}
                     width={10}
@@ -145,8 +163,8 @@ export const IncidentSelectField = ({
                     renderCustomSelectedValue={renderSelectedValue}
                     selectLabelProps={{ variant: 'custom' }}
                     position="start"
-                    optionListTestId={`${label?.toLocaleLowerCase()}-options-list`}
-                    data-testid={`${label?.toLocaleLowerCase()}-select-input-type`}
+                    optionListTestId={`${key?.toLocaleLowerCase()}-options-list`}
+                    data-testid={`${key?.toLocaleLowerCase()}-select-input-type`}
                     isDisabled={isDisabled}
                 />
             </SelectWrapper>

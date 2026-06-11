@@ -1,8 +1,22 @@
 import { Tooltip } from '@components';
 import React from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { DefaultTheme } from 'styled-components';
 
-import { pluralize } from '@app/shared/textUtil';
+export const PILL_TERM_COUNT = 'common.counts:termCount';
+export const PILL_TAG_COUNT = 'common.counts:tagCount';
+export const PILL_OWNER_COUNT = 'common.counts:ownerCount';
+export const PILL_MATCH_COUNT = 'common.counts:matchCount';
+export const PILL_UPSTREAM_COLUMN_COUNT = 'pill.upstreamColumnCount';
+export const PILL_DOWNSTREAM_COLUMN_COUNT = 'pill.downstreamColumnCount';
+
+type PillCountKey =
+    | typeof PILL_TERM_COUNT
+    | typeof PILL_TAG_COUNT
+    | typeof PILL_OWNER_COUNT
+    | typeof PILL_MATCH_COUNT
+    | typeof PILL_UPSTREAM_COLUMN_COUNT
+    | typeof PILL_DOWNSTREAM_COLUMN_COUNT;
 
 type Props = {
     icon: any;
@@ -10,18 +24,18 @@ type Props = {
     label: string;
     onClick?: (e: React.MouseEvent) => void;
     enabled?: boolean;
-    countLabel: string;
+    countLabelKey: PillCountKey;
     active?: boolean;
     highlightedText?: string;
 };
 
-const computeColor = (enabled?: boolean, active?: boolean) => {
-    let color = '#b0a2c2';
+const computeColor = (theme: DefaultTheme, enabled?: boolean, active?: boolean) => {
+    let color = theme.colors.textDisabled;
     if (enabled) {
         if (active) {
-            color = 'white';
+            color = theme.colors.textOnFillDefault;
         } else {
-            color = '#81879F';
+            color = theme.colors.textTertiary;
         }
     }
     return color;
@@ -31,7 +45,7 @@ const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; isHighli
     height: 24px;
     padding-left: 8px;
     padding-right: ${({ isHighlightedTextPresent }) => (isHighlightedTextPresent ? '0px' : '8px')};
-    background-color: ${({ active, theme }) => (active ? `${theme.styles['primary-color']}` : '#f7f7f7')};
+    background-color: ${({ active, theme }) => (active ? `${theme.colors.buttonFillBrand}` : theme.colors.bgSurface)};
     cursor: pointer;
     border-radius: 20px;
     text-align: center;
@@ -40,28 +54,29 @@ const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; isHighli
     justify-content: center;
     align-items: center;
     gap: 6px;
-    color: ${(props) => computeColor(props.enabled, props.active)};
+    color: ${(props) => computeColor(props.theme, props.enabled, props.active)};
     font-size: 10px;
     font-weight: 400;
 
     & svg {
         font-size: 12px;
-        color: ${(props) => computeColor(props.enabled, props.active)};
-        fill: ${(props) => computeColor(props.enabled, props.active)};
+        color: ${(props) => computeColor(props.theme, props.enabled, props.active)};
+        fill: ${(props) => computeColor(props.theme, props.enabled, props.active)};
     }
 
     :hover {
-        color: ${({ enabled }) => (enabled ? 'white' : '#b0a2c2')};
-        background-color: ${({ enabled, theme }) => (enabled ? `${theme.styles['primary-color']}` : '#f7f7f7')};
+        color: ${({ enabled, theme }) => (enabled ? theme.colors.iconOnFillBrand : theme.colors.iconDisabled)};
+        background-color: ${({ enabled, theme }) =>
+            enabled ? `${theme.colors.buttonFillBrand}` : theme.colors.bgSurface};
 
         svg {
-            color: ${({ enabled }) => (enabled ? 'white' : '#b0a2c2')};
-            fill: ${({ enabled }) => (enabled ? 'white' : '#b0a2c2')};
+            color: ${({ enabled, theme }) => (enabled ? theme.colors.iconOnFillBrand : theme.colors.iconDisabled)};
+            fill: ${({ enabled, theme }) => (enabled ? theme.colors.iconOnFillBrand : theme.colors.iconDisabled)};
         }
 
         >div: last-child {
-            color: white;
-            background-color: rgba(255, 255, 255, 0.2);
+            color: ${({ theme }) => theme.colors.textOnFillBrand};
+            background-color: ${({ theme }) => theme.colors.overlayOnBrand};
         }
     }
 `;
@@ -73,7 +88,7 @@ const Container = styled.div`
 `;
 
 const CountContainer = styled.div<{ active?: boolean }>`
-    background-color: ${({ active }) => (active ? 'rgba(255, 255, 255, 0.2)' : '#eee')};
+    background-color: ${({ active, theme }) => (active ? theme.colors.overlayOnBrand : theme.colors.bgSurface)};
     border-radius: 20px;
     height: 24px;
     min-width: 35px;
@@ -90,15 +105,11 @@ const HighlightedText = styled.div`
     text-overflow: ellipsis;
 `;
 
-// pluralize
-
-const SearchPill = ({ icon, onClick, enabled, label, count, countLabel, active, highlightedText }: Props) => {
+const SearchPill = ({ icon, onClick, enabled, label, count, countLabelKey, active, highlightedText }: Props) => {
+    const { t } = useTranslation('entity.preview');
     const isHighlightedTextPresent = !!highlightedText;
     return (
-        <Tooltip
-            title={`${count} ${pluralize(count, countLabel, countLabel === 'match' ? 'es' : 's')}`}
-            showArrow={false}
-        >
+        <Tooltip title={t(countLabelKey, { count })} showArrow={false}>
             <PillContainer
                 active={active}
                 enabled={enabled}

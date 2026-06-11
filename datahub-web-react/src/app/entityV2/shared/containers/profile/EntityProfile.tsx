@@ -1,6 +1,7 @@
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import { Alert } from 'antd';
 import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import { matchPath } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -129,13 +130,10 @@ const Header = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const HeaderContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign
-            ? props.theme.styles['box-shadow-navbar-redesign']
-            : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     flex: 1;
     flex-shrink: 0;
     padding: 0;
@@ -153,16 +151,13 @@ const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 
 const BodyContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 12px;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;
     flex-direction: column;
     flex: 1;
-    box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign
-            ? props.theme.styles['box-shadow-navbar-redesign']
-            : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     height: 100%;
     overflow: hidden;
 `;
@@ -203,6 +198,7 @@ export const EntityProfile = <T, U>({
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizeContext);
     const isLineageMode = useIsLineageMode();
     const isLineageV2 = useLineageV2();
+    const { t } = useTranslation('entity.shared.containers');
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
@@ -246,14 +242,21 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry, isHideSiblingMode],
     );
 
-    const { data: formsData } = useGetFormsForEntityQuery({
+    const { data: formsData, refetch: refetchForms } = useGetFormsForEntityQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
         skip: !entityRegistry.getSupportedEntityCapabilities(entityType).has(EntityCapabilityType.FORMS),
     });
 
-    const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, error, refetch } =
-        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties, formsData });
+    const {
+        entityData,
+        rootEntityData,
+        dataPossiblyCombinedWithSiblings,
+        dataNotCombinedWithSiblings,
+        loading,
+        error,
+        refetch,
+    } = useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties, formsData });
 
     useUpdateGlossaryEntityDataOnChange(entityData, entityType);
     useUpdateDomainEntityDataOnChangeV2(entityData, entityType);
@@ -323,12 +326,14 @@ export const EntityProfile = <T, U>({
                     urn,
                     entityType,
                     entityData,
+                    rootEntityData,
                     loading,
                     baseEntity: dataPossiblyCombinedWithSiblings,
                     dataNotCombinedWithSiblings,
                     updateEntity,
                     routeToTab,
                     refetch,
+                    refetchForms,
                     lineage,
                     shouldRefetchEmbeddedListSearch,
                     setShouldRefetchEmbeddedListSearch,
@@ -361,6 +366,7 @@ export const EntityProfile = <T, U>({
                 urn,
                 entityType,
                 entityData,
+                rootEntityData,
                 loading,
                 baseEntity: dataPossiblyCombinedWithSiblings,
                 dataNotCombinedWithSiblings,
@@ -376,7 +382,7 @@ export const EntityProfile = <T, U>({
         >
             {entityData?.status?.removed && (
                 <StyledAlert
-                    message="This entity is not discoverable via search or lineage graph. Contact your DataHub admin for more information."
+                    message={t('profile.notDiscoverableAlert')}
                     banner
                     closable
                     onClose={() => setShowAlert(false)}

@@ -92,14 +92,18 @@ export function FilterPage(
     mainEntity: {
       "@type": "ItemList",
       numberOfItems: metadata.length,
+      // Each item is a documentation page describing a DataHub integration.
+      // Using @type "WebPage" (not "SoftwareApplication") because Google's rich
+      // result requirements for SoftwareApplication mandate offers and
+      // aggregateRating, which don't apply to documentation entries.
       itemListElement: metadata.map((source, i) => ({
         "@type": "ListItem",
         position: i + 1,
         item: {
-          "@type": "SoftwareApplication",
+          "@type": "WebPage",
           name: source.Title,
           description: source.Description,
-          applicationCategory: source.tags?.["Platform Type"] || undefined,
+          about: source.tags?.["Platform Type"] || undefined,
           url: source.Path
             ? `https://docs.datahub.com/${source.Path}`
             : undefined,

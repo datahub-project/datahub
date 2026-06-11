@@ -71,15 +71,16 @@ Reference Links:
 
 ## DataHub Core Configuration
 
-| Environment Variable                   | Default     | Description                                                       | Components |
-| -------------------------------------- | ----------- | ----------------------------------------------------------------- | ---------- |
-| `DATAHUB_SERVER_TYPE`                  | `prod`      | DataHub server type                                               | GMS        |
-| `DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS` | `55000`     | Async request timeout for GMS                                     | GMS        |
-| `DATAHUB_GMS_HOST`                     | `localhost` | GMS host                                                          | Frontend   |
-| `DATAHUB_GMS_PORT`                     | `8080`      | GMS port                                                          | Frontend   |
-| `DATAHUB_GMS_USE_SSL`                  | `false`     | Use SSL for GMS connections                                       | Frontend   |
-| `DATAHUB_GMS_URI`                      | `null`      | URI instead of separate host/port/ssl parameters (takes priority) | Frontend   |
-| `DATAHUB_GMS_SSL_PROTOCOL`             | `null`      | SSL protocol for GMS                                              | Frontend   |
+| Environment Variable                   | Default     | Description                                                                                                               | Components |
+| -------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `DATAHUB_SERVER_TYPE`                  | `prod`      | DataHub server type                                                                                                       | GMS        |
+| `DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS` | `55000`     | Async request timeout for GMS                                                                                             | GMS        |
+| `DATAHUB_GMS_HOST`                     | `localhost` | GMS host                                                                                                                  | Frontend   |
+| `DATAHUB_GMS_PORT`                     | `8080`      | GMS port                                                                                                                  | Frontend   |
+| `DATAHUB_GMS_USE_SSL`                  | `false`     | Use SSL for GMS connections                                                                                               | Frontend   |
+| `DATAHUB_GMS_URI`                      | `null`      | URI instead of separate host/port/ssl parameters (takes priority)                                                         | Frontend   |
+| `DATAHUB_GMS_SSL_PROTOCOL`             | `null`      | SSL protocol for GMS                                                                                                      | Frontend   |
+| `DATAHUB_READ_ONLY`                    | `false`     | Disable metadata writes on GMS (does not enable read pool; see [Primary storage read pool](primary-storage-read-pool.md)) | GMS        |
 
 ### Plugin Configuration
 
@@ -250,6 +251,28 @@ See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size
 | `EBEAN_URL`                       | _same as EBEAN_DATASOURCE_URL_        | Alternative property for database URL           | System Update                    |
 | `EBEAN_MAX_TRANSACTION_RETRY`     | `null`                                | Maximum transaction retries for Ebean           | System Update                    |
 
+#### EBean read pool (optional)
+
+See [Primary storage read pool](primary-storage-read-pool.md) for architecture, routing rules, and examples.
+
+GMS can route **non-locking** entity-aspect reads (`forUpdate=false`) to a separate connection pool. Writes, transactions, and `FOR UPDATE` reads always use the primary pool. The read pool uses **JDBC read-only** connections (`readOnly=true`).
+
+| Environment Variable                        | Default                           | Description                                                                 | Components |
+| ------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------- | ---------- |
+| `EBEAN_READ_POOL_ENABLED`                   | `false`                           | Enable a dedicated read pool for aspect DAO reads                           | GMS        |
+| `EBEAN_READ_POOL_URL`                       | _same as primary `EBEAN_URL`_     | JDBC URL for the read pool; omit for **split-pool** mode (same DB, 2 pools) | GMS        |
+| `EBEAN_READ_REPLICA_URL`                    | _(deprecated alias)_              | Legacy alias for `EBEAN_READ_POOL_URL`                                      | GMS        |
+| `EBEAN_READ_POOL_MIN_CONNECTIONS`           | _same as `EBEAN_MIN_CONNECTIONS`_ | Minimum connections for the read pool                                       | GMS        |
+| `EBEAN_READ_POOL_MAX_CONNECTIONS`           | _same as `EBEAN_MAX_CONNECTIONS`_ | Maximum connections for the read pool                                       | GMS        |
+| `EBEAN_READ_POOL_MAX_INACTIVE_TIME_IN_SECS` | _same as primary_                 | Max inactive time (seconds) for the read pool                               | GMS        |
+| `EBEAN_READ_POOL_MAX_AGE_MINUTES`           | _same as primary_                 | Max connection age (minutes) for the read pool                              | GMS        |
+| `EBEAN_READ_POOL_LEAK_TIME_MINUTES`         | _same as primary_                 | Leak detection time (minutes) for the read pool                             | GMS        |
+| `EBEAN_READ_POOL_WAIT_TIMEOUT_MILLIS`       | _same as primary_                 | Pool wait timeout (ms) for the read pool                                    | GMS        |
+
+**Modes:** If `EBEAN_READ_POOL_URL` matches the primary URL, GMS uses **split-pool** mode (isolated connections, no replica lag benefit). If the URL points at a read replica host, GMS uses **replica** mode and isolates entity-cache keys by read preference.
+
+**Read-only deployments:** When `DATAHUB_READ_ONLY=true`, the read pool is **not** registered even if `EBEAN_READ_POOL_ENABLED=true` (writes remain disabled on DAOs; a second pool would not help).
+
 #### Cross-Cloud IAM Authentication
 
 DataHub supports cross-cloud IAM authentication for both AWS and GCP cloud providers. This enables secure, passwordless database connections using cloud identity services.
@@ -368,6 +391,24 @@ When using traditional username/password authentication, both `CREATE_USER_USERN
 | `CASSANDRA_KEYSPACE`            | `datahub`     | Cassandra keyspace    | GMS, MCE Consumer, System Update |
 | `CASSANDRA_USE_SSL`             | `false`       | Use SSL for Cassandra | GMS, MCE Consumer, System Update |
 
+#### Cassandra read pool (optional)
+
+See [Primary storage read pool](primary-storage-read-pool.md) for architecture, routing rules, and examples.
+
+When `entityService.impl=cassandra`, GMS can route non-locking aspect reads to a separate Cassandra session. Same routing semantics as the EBean read pool above (see the guide for replica credentials).
+
+| Environment Variable                  | Default                          | Description                                                          | Components |
+| ------------------------------------- | -------------------------------- | -------------------------------------------------------------------- | ---------- |
+| `CASSANDRA_READ_POOL_ENABLED`         | `false`                          | Enable a dedicated read session for aspect DAO reads                 | GMS        |
+| `CASSANDRA_READ_POOL_HOSTS`           | _same as `CASSANDRA_HOSTS`_      | Contact points for the read pool; omit for split-pool (same cluster) | GMS        |
+| `CASSANDRA_READ_REPLICA_HOSTS`        | _(deprecated alias)_             | Legacy alias for `CASSANDRA_READ_POOL_HOSTS`                         | GMS        |
+| `CASSANDRA_READ_POOL_PORT`            | _same as `CASSANDRA_PORT`_       | Port for the read pool                                               | GMS        |
+| `CASSANDRA_READ_POOL_DATACENTER`      | _same as `CASSANDRA_DATACENTER`_ | Datacenter for the read pool                                         | GMS        |
+| `CASSANDRA_READ_POOL_MIN_CONNECTIONS` | `2`                              | Minimum connections for the read pool                                | GMS        |
+| `CASSANDRA_READ_POOL_MAX_CONNECTIONS` | `8`                              | Maximum connections for the read pool                                | GMS        |
+
+**Read-only deployments:** When `DATAHUB_READ_ONLY=true`, the Cassandra read pool is not registered even if `CASSANDRA_READ_POOL_ENABLED=true`.
+
 ### Elasticsearch Configuration
 
 | Environment Variable                       | Default         | Description                                                  | Components                                     |
@@ -387,6 +428,10 @@ When using traditional username/password authentication, both `CREATE_USER_USERN
 | `ELASTIC_ID_HASH_ALGO`                     | `MD5`           | ID hash algorithm                                            | GMS, MAE Consumer, MCE Consumer, System Update |
 | `ELASTICSEARCH_DATA_NODE_COUNT`            | `1`             | Number of Elasticsearch data nodes                           | GMS, MAE Consumer, MCE Consumer, System Update |
 
+#### MAE consumer (`metadata-jobs/mae-consumer-job`)
+
+The MAE consumer runs in **its own** process and shares the same `ESBulkProcessor` / `searchClientShim` wiring as GMS. **By-query** `RequestOptions` use **`ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS`** for both GMS and MAE (not separate MAE overrides). **MAE-only** tuning is RestClient-oriented: **`MAE_ELASTICSEARCH_SOCKET_TIMEOUT`**, **`MAE_ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT`**, etc. **`ELASTICSEARCH_BUILD_INDICES_SLOW_OPERATION_TIMEOUT_SECONDS`** applies only to **system-update / build-indices** (`elasticsearch.buildIndices`). [`docker/datahub-mae-consumer/env/docker.env`](../../docker/datahub-mae-consumer/env/docker.env) sets longer values than generic quickstart defaults where appropriate.
+
 #### SSL Context Configuration
 
 | Environment Variable                    | Default | Description                      | Components                                     |
@@ -403,22 +448,23 @@ When using traditional username/password authentication, both `CREATE_USER_USERN
 
 #### Bulk Operations Configuration
 
-| Environment Variable           | Default   | Description                   | Components        |
-| ------------------------------ | --------- | ----------------------------- | ----------------- |
-| `ES_BULK_DELETE_BATCH_SIZE`    | `5000`    | Bulk delete batch size        | GMS, MAE Consumer |
-| `ES_BULK_DELETE_SLICES`        | `auto`    | Bulk delete slices            | GMS, MAE Consumer |
-| `ES_BULK_DELETE_POLL_INTERVAL` | `30`      | Bulk delete poll interval     | GMS, MAE Consumer |
-| `ES_BULK_DELETE_POLL_UNIT`     | `SECONDS` | Bulk delete poll unit         | GMS, MAE Consumer |
-| `ES_BULK_DELETE_TIMEOUT`       | `30`      | Bulk delete timeout           | GMS, MAE Consumer |
-| `ES_BULK_DELETE_TIMEOUT_UNIT`  | `MINUTES` | Bulk delete timeout unit      | GMS, MAE Consumer |
-| `ES_BULK_DELETE_NUM_RETRIES`   | `3`       | Bulk delete number of retries | GMS, MAE Consumer |
-| `ES_BULK_ASYNC`                | `true`    | Enable async bulk operations  | GMS, MAE Consumer |
-| `ES_BULK_REQUESTS_LIMIT`       | `1000`    | Bulk requests limit           | GMS, MAE Consumer |
-| `ES_BULK_FLUSH_PERIOD`         | `1`       | Bulk flush period             | GMS, MAE Consumer |
-| `ES_BULK_NUM_RETRIES`          | `3`       | Bulk number of retries        | GMS, MAE Consumer |
-| `ES_BULK_RETRY_INTERVAL`       | `1`       | Bulk retry interval           | GMS, MAE Consumer |
-| `ES_BULK_REFRESH_POLICY`       | `NONE`    | Bulk refresh policy           | GMS, MAE Consumer |
-| `ES_BULK_ENABLE_BATCH_DELETE`  | `false`   | Enable batch delete           | GMS, MAE Consumer |
+| Environment Variable                                         | Default   | Description                                                                                                                                                                           | Components        |
+| ------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `ES_BULK_DELETE_BATCH_SIZE`                                  | `5000`    | Bulk delete batch size                                                                                                                                                                | GMS, MAE Consumer |
+| `ES_BULK_DELETE_SLICES`                                      | `auto`    | Bulk delete slices                                                                                                                                                                    | GMS, MAE Consumer |
+| `ES_BULK_DELETE_POLL_INTERVAL`                               | `30`      | Bulk delete poll interval                                                                                                                                                             | GMS, MAE Consumer |
+| `ES_BULK_DELETE_POLL_UNIT`                                   | `SECONDS` | Bulk delete poll unit                                                                                                                                                                 | GMS, MAE Consumer |
+| `ES_BULK_DELETE_TIMEOUT`                                     | `30`      | Bulk delete timeout                                                                                                                                                                   | GMS, MAE Consumer |
+| `ES_BULK_DELETE_TIMEOUT_UNIT`                                | `MINUTES` | Bulk delete timeout unit                                                                                                                                                              | GMS, MAE Consumer |
+| `ES_BULK_DELETE_NUM_RETRIES`                                 | `3`       | Bulk delete number of retries                                                                                                                                                         | GMS, MAE Consumer |
+| `ES_BULK_ASYNC`                                              | `true`    | Enable async bulk operations                                                                                                                                                          | GMS, MAE Consumer |
+| `ES_BULK_REQUESTS_LIMIT`                                     | `1000`    | Bulk requests limit                                                                                                                                                                   | GMS, MAE Consumer |
+| `ES_BULK_FLUSH_PERIOD`                                       | `1`       | Bulk flush period                                                                                                                                                                     | GMS, MAE Consumer |
+| `ES_BULK_NUM_RETRIES`                                        | `3`       | Bulk number of retries                                                                                                                                                                | GMS, MAE Consumer |
+| `ES_BULK_RETRY_INTERVAL`                                     | `1`       | Bulk retry interval                                                                                                                                                                   | GMS, MAE Consumer |
+| `ES_BULK_REFRESH_POLICY`                                     | `NONE`    | Bulk refresh policy                                                                                                                                                                   | GMS, MAE Consumer |
+| `ES_BULK_ENABLE_BATCH_DELETE`                                | `false`   | Enable batch delete                                                                                                                                                                   | GMS, MAE Consumer |
+| `ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS` | `180`     | Seconds; shared by-query `RequestOptions` on `ESBulkProcessor` (delete/update-by-query) for **GMS and MAE**; maps to `elasticsearch.bulkProcessor.slowByQueryOperationTimeoutSeconds` | GMS, MAE Consumer |
 
 #### Index Configuration
 
@@ -429,30 +475,31 @@ When using traditional username/password authentication, both `CREATE_USER_USERN
 
 #### Build Indices Configuration
 
-| Environment Variable                                            | Default                          | Description                                                          | Components    |
-| --------------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------- | ------------- |
-| `ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH`          | `false`                          | Allow document count mismatch when clone indices is enabled          | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES`                     | `true`                           | Clone indices                                                        | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`                    | `DAYS`                           | Retention unit for indices                                           | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`                   | `60`                             | Retention value for indices                                          | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED`      | `true`                           | Enable reindex optimization                                          | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE`                | `5000`                           | Documents per scroll batch during reindex                            | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES`                | `256`                            | Maximum parallel reindex slices (capped from target shards)          | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES` | `5`                              | Minutes without document-count progress before re-triggering reindex | System Update |
-| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                            | `${elasticsearch.dataNodeCount}` | Number of shards per index, defaults to dataNodeCount                | System Update |
-| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`                          | `1`                              | Number of replicas per index                                         | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES`                       | `3`                              | Index builder number of retries                                      | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS`          | `3`                              | Index builder refresh interval                                       | System Update |
-| `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`                              | `1000`                           | Maximum array length in search documents                             | System Update |
-| `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`                               | `1000`                           | Maximum object keys in search documents                              | System Update |
-| `SEARCH_DOCUMENT_MAX_VALUE_LENGTH`                              | `4096`                           | Maximum value length in search documents                             | System Update |
-| `ELASTICSEARCH_MAIN_TOKENIZER`                                  | `null`                           | Main tokenizer                                                       | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`                  | `false`                          | Enable mappings reindex                                              | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX`                  | `false`                          | Enable settings reindex                                              | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`                 | `0`                              | Maximum reindex hours (0 = no timeout)                               | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`                | `null`                           | Index builder settings overrides                                     | System Update |
-| `ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH`                        | `3`                              | Minimum search filter length                                         | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`         | `null`                           | Entity settings overrides                                            | System Update |
+| Environment Variable                                            | Default                          | Description                                                                                                                                                          | Components         |
+| --------------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH`          | `false`                          | Allow document count mismatch when clone indices is enabled                                                                                                          | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES`                     | `true`                           | Clone indices                                                                                                                                                        | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`                    | `DAYS`                           | Retention unit for indices                                                                                                                                           | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`                   | `60`                             | Retention value for indices                                                                                                                                          | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED`      | `true`                           | Enable reindex optimization                                                                                                                                          | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE`                | `5000`                           | Documents per scroll batch during reindex                                                                                                                            | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES`                | `256`                            | Maximum parallel reindex slices (capped from target shards)                                                                                                          | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES` | `5`                              | Minutes without document-count progress before re-triggering reindex                                                                                                 | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_SLOW_OPERATION_TIMEOUT_SECONDS`    | `180`                            | Seconds; HTTP socket timeout for slow **build-indices** / system-update operations (`ESIndexBuilder`, reindex, count, tasks—not `ESBulkProcessor` by-query defaults) | GMS, System Update |
+| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                            | `${elasticsearch.dataNodeCount}` | Number of shards per index, defaults to dataNodeCount                                                                                                                | System Update      |
+| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`                          | `1`                              | Number of replicas per index                                                                                                                                         | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES`                       | `3`                              | Index builder number of retries                                                                                                                                      | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS`          | `3`                              | Index builder refresh interval                                                                                                                                       | System Update      |
+| `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`                              | `1000`                           | Maximum array length in search documents                                                                                                                             | System Update      |
+| `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`                               | `1000`                           | Maximum object keys in search documents                                                                                                                              | System Update      |
+| `SEARCH_DOCUMENT_MAX_VALUE_LENGTH`                              | `4096`                           | Maximum value length in search documents                                                                                                                             | System Update      |
+| `ELASTICSEARCH_MAIN_TOKENIZER`                                  | `null`                           | Main tokenizer                                                                                                                                                       | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`                  | `false`                          | Enable mappings reindex                                                                                                                                              | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX`                  | `false`                          | Enable settings reindex                                                                                                                                              | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`                 | `0`                              | Maximum reindex hours (0 = no timeout)                                                                                                                               | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`                | `null`                           | Index builder settings overrides                                                                                                                                     | System Update      |
+| `ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH`                        | `3`                              | Minimum search filter length                                                                                                                                         | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`         | `null`                           | Entity settings overrides                                                                                                                                            | System Update      |
 
 #### Search Configuration
 
@@ -613,64 +660,101 @@ Reference Links:
 | ---------------------- | ------- | ------------- | ---------- |
 | `server.server-header` | `false` | Server header | GMS        |
 
+## GMS Rate Limiting
+
+**GMS HTTP service rate limits only** — caps incoming API traffic to GMS (GraphQL, OpenAPI, Rest.li, `/auth/*`). Configured under **`datahub.gms.rateLimits`** in `application.yaml`. This is **not** MCP ingestion throttling, MCE/MCL consumer backpressure, or Kafka lag throttle (`MCP_*` / `metadataChangeProposal.throttle`).
+
+Full operations guide: [GMS Rate Limiting](./gms-rate-limiting.md).
+
+Rate limiting is **off by default**. Enable one or both limiter types — there is no single master switch.
+
+| Environment Variable                                   | Default                             | YAML path / effect                                                                                             | Components |
+| ------------------------------------------------------ | ----------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------- |
+| `RATE_LIMITS_FAIL_OPEN`                                | `true`                              | `rateLimits.failOpen` — allow requests when limiter errors occur                                               | GMS        |
+| `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                                | `rateLimits.minRetryAfterSeconds` — minimum `Retry-After` on 429 (capacity uses as-is; endpoint uses as floor) | GMS        |
+| `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                                | `rateLimits.retryAfterJitterPercent` — random jitter added to endpoint `Retry-After` (`0` disables)            | GMS        |
+| `RATE_LIMITS_EXCLUDED_PATHS`                           | health, prometheus, rate-limits API | `rateLimits.excludedPaths` — Ant patterns never limited                                                        | GMS        |
+| `RATE_LIMITS_CONFIG_FILE_ENABLED`                      | `false`                             | `rateLimits.configFile.enabled`                                                                                | GMS        |
+| `RATE_LIMITS_CONFIG_FILE`                              | `/etc/datahub/rate-limits.yaml`     | `rateLimits.configFile.path`                                                                                   | GMS        |
+| `RATE_LIMITS_CONFIG_JSON`                              | —                                   | JSON overlay merged at startup (partial `rateLimits` object)                                                   | GMS        |
+| `RATE_LIMITS_CAPACITY_ENABLED`                         | `false`                             | `rateLimits.capacity.enabled` — Gradient2 in-flight limits                                                     | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                              | `rateLimits.capacity.default.enabled` (requires `capacity.enabled=true`)                                       | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                               | `rateLimits.capacity.default.initialLimit`                                                                     | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.default.minLimit`                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT`               | `5000`                              | `rateLimits.capacity.default.maxLimit`                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED`                 | `true`                              | `rateLimits.capacity.graphql.enabled` (requires `capacity.enabled=true`)                                       | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN`            | `/api/graphql`                      | `rateLimits.capacity.graphql.pathPattern`                                                                      | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED` | `true`                              | `rateLimits.capacity.graphql.operationRulesEnabled`                                                            | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT`           | `100`                               | `rateLimits.capacity.graphql.initialLimit`                                                                     | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.graphql.minLimit`                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT`               | `2000`                              | `rateLimits.capacity.graphql.maxLimit`                                                                         | GMS        |
+| `RATE_LIMITS_ENDPOINT_ENABLED`                         | `false`                             | `rateLimits.endpoint.enabled` — Bucket4j token buckets (cluster-wide; provisions Hazelcast)                    | GMS        |
+| `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets`       | `rateLimits.endpoint.hazelcastMapName`                                                                         | GMS        |
+| `RATE_LIMITS_METRICS_DETAILED`                         | `false`                             | Sample detailed rate-limit metrics on hot path                                                                 | GMS        |
+
 ## Feature Flags
 
 Reference Links:
 
 - **Access Management**: [Access Management Feature](../features/feature-guides/access-roles.md)
+- **Asset Summaries**: [Asset Summaries](../features/feature-guides/custom-asset-summaries.md)
+- **Data Products**: [Data Products](../dataproducts.md)
 - **Structured Properties**: [Structured Properties Overview](../features/feature-guides/properties/overview.md)
 - **Lineage Features**: [Data Lineage](../features/feature-guides/lineage.md), [UI Lineage Management](../features/feature-guides/ui-lineage.md)
 - **Compliance Forms**: [Compliance Forms Overview](../features/feature-guides/compliance-forms/overview.md)
 - **Dataset Usage**: [Dataset Usage & Query History](../features/dataset-usage-and-query-history.md)
 - **MCP Server**: [DataHub MCP Server](../features/feature-guides/mcp.md)
 
-| Environment Variable                    | Default | Description                                                        | Components |
-| --------------------------------------- | ------- | ------------------------------------------------------------------ | ---------- |
-| `SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT`   | `false` | Show simplified homepage with just datasets, charts and dashboards | GMS        |
-| `LINEAGE_SEARCH_CACHE_ENABLED`          | `true`  | Enable in-memory cache for searchAcrossLineage query               | GMS        |
-| `GRAPH_SERVICE_DIFF_MODE_ENABLED`       | `true`  | Enable diff mode for graph writes                                  | GMS        |
-| `POINT_IN_TIME_CREATION_ENABLED`        | `false` | Enable creation of point in time snapshots for scroll API          | GMS        |
-| `ALWAYS_EMIT_CHANGE_LOG`                | `false` | Always emit MCL even when no changes detected                      | GMS        |
-| `SEARCH_SERVICE_DIFF_MODE_ENABLED`      | `true`  | Enable diff mode for search document writes                        | GMS        |
-| `READ_ONLY_MODE_ENABLED`                | `false` | Enable read only mode for instance                                 | GMS        |
-| `SHOW_ACCESS_MANAGEMENT`                | `false` | Show AccessManagement tab in UI                                    | GMS        |
-| `SHOW_SEARCH_FILTERS_V2`                | `true`  | Show search filters V2 experience                                  | GMS        |
-| `SHOW_BROWSE_V2`                        | `true`  | Show browse v2 sidebar experience                                  | GMS        |
-| `PLATFORM_BROWSE_V2`                    | `true`  | Enable platform browse experience                                  | GMS        |
-| `LINEAGE_GRAPH_V2`                      | `true`  | Enable new lineage visualization                                   | GMS        |
-| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `true`  | Circumvent Kafka for UI changes                                    | GMS        |
-| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `false` | Reprocess UI sourced events asynchronously                         | GMS        |
-| `SHOW_ACRYL_INFO`                       | `false` | Show CTAs around moving to DataHub Cloud                           | GMS        |
-| `ER_MODEL_RELATIONSHIP_FEATURE_ENABLED` | `false` | Enable Join Tables Feature                                         | GMS        |
-| `NESTED_DOMAINS_ENABLED`                | `true`  | Enable nested Domains feature                                      | GMS        |
-| `SCHEMA_FIELD_ENTITY_FETCH_ENABLED`     | `true`  | Enable fetching schema field entities                              | GMS        |
-| `BUSINESS_ATTRIBUTE_ENTITY_ENABLED`     | `false` | Enable business attribute entity                                   | GMS        |
-| `DATA_CONTRACTS_ENABLED`                | `true`  | Enable Data Contracts feature                                      | GMS        |
-| `ALTERNATE_MCP_VALIDATION`              | `false` | Enable alternate MCP validation flow                               | GMS        |
-| `THEME_V2_ENABLED`                      | `true`  | Allow theme v2 to be turned on                                     | GMS        |
-| `THEME_V2_DEFAULT`                      | `true`  | Set default theme for users                                        | GMS        |
-| `THEME_V2_TOGGLEABLE`                   | `false` | Allow theme v2 to be toggled (Acryl only)                          | GMS        |
-| `SCHEMA_FIELD_CLL_ENABLED`              | `false` | Enable schema field-level lineage links                            | GMS        |
-| `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`    | `true`  | Ignore schema field status in lineage                              | GMS        |
-| `SHOW_SEPARATE_SIBLINGS`                | `false` | Separate siblings with no combined view                            | GMS        |
-| `EDITABLE_DATASET_NAME_ENABLED`         | `false` | Enable editing dataset name in UI                                  | GMS        |
-| `SHOW_MANAGE_STRUCTURED_PROPERTIES`     | `true`  | Show manage structured properties button                           | GMS        |
-| `HIDE_DBT_SOURCE_IN_LINEAGE`            | `false` | Hide dbt sources in lineage                                        | GMS        |
-| `SHOW_NAV_BAR_REDESIGN`                 | `true`  | Show newly designed nav bar                                        | GMS        |
-| `SHOW_AUTO_COMPLETE_RESULTS`            | `true`  | Show auto complete results in search bar                           | GMS        |
-| `ENTITY_VERSIONING_ENABLED`             | `false` | Enable entity versioning APIs                                      | GMS        |
-| `SHOW_HAS_SIBLINGS_FILTER`              | `false` | Show "has siblings" filter in search                               | GMS        |
-| `SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN` | `false` | Show redesigned search bar autocomplete                            | GMS        |
-| `SHOW_MANAGE_TAGS`                      | `true`  | Allow users to manage tags in UI                                   | GMS        |
-| `SHOW_INTRODUCE_PAGE`                   | `true`  | Show introduce page in V2 UI                                       | GMS        |
-| `SHOW_INGESTION_PAGE_REDESIGN`          | `true`  | Show re-designed Ingestion page                                    | GMS        |
-| `SHOW_LINEAGE_EXPAND_MORE`              | `true`  | Show expand more button in lineage graph                           | GMS        |
-| `SHOW_HOME_PAGE_REDESIGN`               | `true`  | Show re-designed home page                                         | GMS        |
-| `LINEAGE_GRAPH_V3`                      | `true`  | Enable redesign of lineage v2 graph                                | GMS        |
-| `SHOW_PRODUCT_UPDATES`                  | `true`  | Show in-product update popover                                     | GMS        |
-| `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                      | GMS        |
-| `SHOW_HOMEPAGE_USER_ROLE`               | `false` | Display homepage user role underneath name                         | GMS        |
-| `VIEWS_ENABLED`                         | `true`  | Enable views feature                                               | GMS        |
+| Environment Variable                    | Default | Description                                                                                     | Components |
+| --------------------------------------- | ------- | ----------------------------------------------------------------------------------------------- | ---------- |
+| `SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT`   | `false` | Show simplified homepage with just datasets, charts and dashboards                              | GMS        |
+| `LINEAGE_SEARCH_CACHE_ENABLED`          | `true`  | Enable in-memory cache for searchAcrossLineage query                                            | GMS        |
+| `GRAPH_SERVICE_DIFF_MODE_ENABLED`       | `true`  | Enable diff mode for graph writes                                                               | GMS        |
+| `POINT_IN_TIME_CREATION_ENABLED`        | `false` | Enable creation of point in time snapshots for scroll API                                       | GMS        |
+| `ALWAYS_EMIT_CHANGE_LOG`                | `false` | Always emit MCL even when no changes detected                                                   | GMS        |
+| `SEARCH_SERVICE_DIFF_MODE_ENABLED`      | `true`  | Enable diff mode for search document writes                                                     | GMS        |
+| `READ_ONLY_MODE_ENABLED`                | `false` | Enable read only mode for instance                                                              | GMS        |
+| `ASSET_SUMMARY_PAGE_V1`                 | `false` | Enable Asset Summary pages for Domains, Data Products, Glossary Terms, and Glossary Term Groups | GMS        |
+| `SHOW_ACCESS_MANAGEMENT`                | `false` | Show AccessManagement tab in UI                                                                 | GMS        |
+| `SHOW_SEARCH_FILTERS_V2`                | `true`  | Show search filters V2 experience                                                               | GMS        |
+| `SHOW_BROWSE_V2`                        | `true`  | Show browse v2 sidebar experience                                                               | GMS        |
+| `PLATFORM_BROWSE_V2`                    | `true`  | Enable platform browse experience                                                               | GMS        |
+| `LINEAGE_GRAPH_V2`                      | `true`  | Enable new lineage visualization                                                                | GMS        |
+| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `true`  | Circumvent Kafka for UI changes                                                                 | GMS        |
+| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `false` | Reprocess UI sourced events asynchronously                                                      | GMS        |
+| `SHOW_ACRYL_INFO`                       | `false` | Show CTAs around moving to DataHub Cloud                                                        | GMS        |
+| `ER_MODEL_RELATIONSHIP_FEATURE_ENABLED` | `false` | Enable Join Tables Feature                                                                      | GMS        |
+| `NESTED_DOMAINS_ENABLED`                | `true`  | Enable nested Domains feature                                                                   | GMS        |
+| `SCHEMA_FIELD_ENTITY_FETCH_ENABLED`     | `true`  | Enable fetching schema field entities                                                           | GMS        |
+| `BUSINESS_ATTRIBUTE_ENTITY_ENABLED`     | `false` | Enable business attribute entity                                                                | GMS        |
+| `DATA_CONTRACTS_ENABLED`                | `true`  | Enable Data Contracts feature                                                                   | GMS        |
+| `DATASET_SUMMARY_PAGE_V1`               | `false` | Enable Asset Summary pages for Datasets                                                         | GMS        |
+| `ALTERNATE_MCP_VALIDATION`              | `false` | Enable alternate MCP validation flow                                                            | GMS        |
+| `THEME_V2_ENABLED`                      | `true`  | Allow theme v2 to be turned on                                                                  | GMS        |
+| `THEME_V2_DEFAULT`                      | `true`  | Set default theme for users                                                                     | GMS        |
+| `THEME_V2_TOGGLEABLE`                   | `false` | Allow theme v2 to be toggled (Acryl only)                                                       | GMS        |
+| `SCHEMA_FIELD_CLL_ENABLED`              | `false` | Enable schema field-level lineage links                                                         | GMS        |
+| `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`    | `true`  | Ignore schema field status in lineage                                                           | GMS        |
+| `SHOW_SEPARATE_SIBLINGS`                | `false` | Separate siblings with no combined view                                                         | GMS        |
+| `EDITABLE_DATASET_NAME_ENABLED`         | `false` | Enable editing dataset name in UI                                                               | GMS        |
+| `SHOW_MANAGE_STRUCTURED_PROPERTIES`     | `true`  | Show manage structured properties button                                                        | GMS        |
+| `HIDE_DBT_SOURCE_IN_LINEAGE`            | `false` | Hide dbt sources in lineage                                                                     | GMS        |
+| `SHOW_NAV_BAR_REDESIGN`                 | `true`  | Show newly designed nav bar                                                                     | GMS        |
+| `SHOW_AUTO_COMPLETE_RESULTS`            | `true`  | Show auto complete results in search bar                                                        | GMS        |
+| `ENTITY_VERSIONING_ENABLED`             | `false` | Enable entity versioning APIs                                                                   | GMS        |
+| `SHOW_HAS_SIBLINGS_FILTER`              | `false` | Show "has siblings" filter in search                                                            | GMS        |
+| `SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN` | `false` | Show redesigned search bar autocomplete                                                         | GMS        |
+| `SHOW_MANAGE_TAGS`                      | `true`  | Allow users to manage tags in UI                                                                | GMS        |
+| `SHOW_INTRODUCE_PAGE`                   | `true`  | Show introduce page in V2 UI                                                                    | GMS        |
+| `SHOW_INGESTION_PAGE_REDESIGN`          | `true`  | Show re-designed Ingestion page                                                                 | GMS        |
+| `SHOW_LINEAGE_EXPAND_MORE`              | `true`  | Show expand more button in lineage graph                                                        | GMS        |
+| `SHOW_HOME_PAGE_REDESIGN`               | `true`  | Show re-designed home page                                                                      | GMS        |
+| `LINEAGE_GRAPH_V3`                      | `true`  | Enable redesign of lineage v2 graph                                                             | GMS        |
+| `SHOW_PRODUCT_UPDATES`                  | `true`  | Show in-product update popover                                                                  | GMS        |
+| `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                                                   | GMS        |
+| `MULTIPLE_DATA_PRODUCTS_PER_ASSET`      | `true`  | Allow assets to belong to multiple Data Products simultaneously                                 | GMS        |
+| `SHOW_HOMEPAGE_USER_ROLE`               | `false` | Display homepage user role underneath name                                                      | GMS        |
+| `VIEWS_ENABLED`                         | `true`  | Enable views feature                                                                            | GMS        |
 
 ## System Updates
 
@@ -874,25 +958,26 @@ The following environment variables are used in the codebase but may not be expl
 
 ### Hooks Configuration
 
-| Environment Variable                             | Default       | Description                                          | Components        |
-| ------------------------------------------------ | ------------- | ---------------------------------------------------- | ----------------- |
-| `ENABLE_SIBLING_HOOK`                            | `true`        | Enable automatic sibling associations                | GMS, MAE Consumer |
-| `SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX`            | ``            | Siblings hook consumer group suffix                  | GMS, MAE Consumer |
-| `ENABLE_UPDATE_INDICES_HOOK`                     | `true`        | Enable update indices hook                           | GMS, MAE Consumer |
-| `UPDATE_INDICES_CONSUMER_GROUP_SUFFIX`           | ``            | Update indices consumer group suffix                 | GMS, MAE Consumer |
-| `ENABLE_INGESTION_SCHEDULER_HOOK`                | `true`        | Enable ingestion scheduling                          | GMS, MAE Consumer |
-| `INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX` | ``            | Ingestion scheduler hook consumer group suffix       | GMS, MAE Consumer |
-| `ENABLE_INCIDENTS_HOOK`                          | `true`        | Enable incidents hook                                | GMS, MAE Consumer |
-| `MAX_INCIDENT_HISTORY`                           | `100`         | Maximum incident history                             | GMS, MAE Consumer |
-| `INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX`           | ``            | Incidents hook consumer group suffix                 | GMS, MAE Consumer |
-| `ENABLE_STRUCTURED_PROPERTIES_HOOK`              | `true`        | Enable structured properties mappings                | GMS, MAE Consumer |
-| `ENABLE_STRUCTURED_PROPERTIES_WRITE`             | `true`        | Enable writing structured property values            | GMS, MAE Consumer |
-| `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE`     | `false`       | Enable structured property mappings in system update | GMS, MAE Consumer |
-| `ENABLE_ENTITY_CHANGE_EVENTS_HOOK`               | `true`        | Enable entity change events hook                     | GMS, MAE Consumer |
-| `ECE_CONSUMER_GROUP_SUFFIX`                      | ``            | Entity change events consumer group suffix           | GMS, MAE Consumer |
-| `ECE_ENTITY_EXCLUSIONS`                          | `schemaField` | Entities to exclude from ECE hook                    | GMS, MAE Consumer |
-| `FORMS_HOOK_ENABLED`                             | `true`        | Enable forms hook                                    | GMS, MAE Consumer |
-| `FORMS_HOOK_CONSUMER_GROUP_SUFFIX`               | ``            | Forms hook consumer group suffix                     | GMS, MAE Consumer |
+| Environment Variable                                              | Default       | Description                                                                                                                                                                                                               | Components        |
+| ----------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `ENABLE_SIBLING_HOOK`                                             | `true`        | Enable automatic sibling associations                                                                                                                                                                                     | GMS, MAE Consumer |
+| `SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX`                             | ``            | Siblings hook consumer group suffix                                                                                                                                                                                       | GMS, MAE Consumer |
+| `ENABLE_UPDATE_INDICES_HOOK`                                      | `true`        | Enable update indices hook                                                                                                                                                                                                | GMS, MAE Consumer |
+| `UPDATE_INDICES_CONSUMER_GROUP_SUFFIX`                            | ``            | Update indices consumer group suffix                                                                                                                                                                                      | GMS, MAE Consumer |
+| `ENABLE_INGESTION_SCHEDULER_HOOK`                                 | `true`        | Enable ingestion scheduling                                                                                                                                                                                               | GMS, MAE Consumer |
+| `INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX`                  | ``            | Ingestion scheduler hook consumer group suffix                                                                                                                                                                            | GMS, MAE Consumer |
+| `ENABLE_INCIDENTS_HOOK`                                           | `true`        | Enable incidents hook                                                                                                                                                                                                     | GMS, MAE Consumer |
+| `MAX_INCIDENT_HISTORY`                                            | `100`         | Maximum incident history                                                                                                                                                                                                  | GMS, MAE Consumer |
+| `INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX`                            | ``            | Incidents hook consumer group suffix                                                                                                                                                                                      | GMS, MAE Consumer |
+| `ENABLE_STRUCTURED_PROPERTIES_HOOK`                               | `true`        | Enable structured properties mappings                                                                                                                                                                                     | GMS, MAE Consumer |
+| `ENABLE_STRUCTURED_PROPERTIES_WRITE`                              | `true`        | Enable writing structured property values                                                                                                                                                                                 | GMS, MAE Consumer |
+| `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE`                      | `false`       | Enable structured property mappings in system update                                                                                                                                                                      | GMS, MAE Consumer |
+| `STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING` | `true`        | On write, drop structured property assignments whose definition is missing; fail if none remain (see [Structured Properties tutorial](../api/tutorials/structured-properties.md#orphaned-assignments-and-write-behavior)) | GMS               |
+| `ENABLE_ENTITY_CHANGE_EVENTS_HOOK`                                | `true`        | Enable entity change events hook                                                                                                                                                                                          | GMS, MAE Consumer |
+| `ECE_CONSUMER_GROUP_SUFFIX`                                       | ``            | Entity change events consumer group suffix                                                                                                                                                                                | GMS, MAE Consumer |
+| `ECE_ENTITY_EXCLUSIONS`                                           | `schemaField` | Entities to exclude from ECE hook                                                                                                                                                                                         | GMS, MAE Consumer |
+| `FORMS_HOOK_ENABLED`                                              | `true`        | Enable forms hook                                                                                                                                                                                                         | GMS, MAE Consumer |
+| `FORMS_HOOK_CONSUMER_GROUP_SUFFIX`                                | ``            | Forms hook consumer group suffix                                                                                                                                                                                          | GMS, MAE Consumer |
 
 ### Search and API Configuration
 
@@ -1003,6 +1088,24 @@ The following environment variables are used in the codebase but may not be expl
 | `MCP_TIMESERIES_INITIAL_INTERVAL_MS`          | `100`      | Timeseries initial interval                    | GMS, MCE Consumer |
 | `MCP_TIMESERIES_MULTIPLIER`                   | `10`       | Timeseries multiplier                          | GMS, MCE Consumer |
 | `MCP_TIMESERIES_MAX_INTERVAL_MS`              | `30000`    | Timeseries max interval                        | GMS, MCE Consumer |
+
+### MCL Timeseries Write Throttle
+
+Controls how frequently timeseries aspect MCL events update the entity search index and/or
+timeseries index in Elasticsearch. When enabled, repeated writes for the same (URN, aspect) pair
+are dropped if they arrive within the configured refresh period. This reduces ES write pressure
+for high-rate timeseries producers (e.g. usage statistics, dataset profiles) at the cost of
+slightly stale search-index values. The in-memory cache TTL is automatically aligned with the
+refresh period.
+
+| Environment Variable                               | Default | Description                                                                                                    | Components        |
+| -------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `MCL_TIMESERIES_THROTTLE_ENTITY_INDEX_ENABLED`     | `false` | Suppress entity search index updates from timeseries aspects                                                   | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_TIMESERIES_INDEX_ENABLED` | `false` | Suppress timeseries index writes                                                                               | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_OBSERVE_ENABLED`          | `false` | Log-only mode: logs what would be throttled without suppressing writes (shadow mode)                           | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_REFRESH_SECONDS`          | `3600`  | Default minimum seconds between writes per (URN, aspect); also the cache TTL                                   | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_REFRESH_OVERRIDES`        | `{}`    | JSON per-entity, per-aspect refresh overrides, e.g. `{"dataset": {"operation": 300, "datasetProfile": 86400}}` | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_MAX_URNS`                 | `10000` | Maximum URNs tracked in the throttle cache before eviction                                                     | GMS, MAE Consumer |
 
 ### Events API Configuration
 
@@ -1128,6 +1231,8 @@ Reference Links:
 | `AUTH_OIDC_JIT_PROVISIONING_ENABLED`        | `true`                | Whether DataHub users should be provisioned on login if they don't exist | Frontend   |
 | `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`       | `false`               | Whether the user should already exist in DataHub on login                | Frontend   |
 | `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`          | `true`                | Whether groups should be extracted from a claim in the OIDC profile      | Frontend   |
+| `AUTH_OIDC_REQUIRED_GROUPS`                 | `null`                | Comma-separated list of required groups, from the OIDC groups claim.     | Frontend   |
+| `AUTH_OIDC_ACCESS_DENIED_MESSAGE`           | `null`                | Message shown to users when denied access for missing required groups.   | Frontend   |
 | `AUTH_OIDC_GROUPS_CLAIM`                    | `groups`              | The OIDC claim to extract groups information from                        | Frontend   |
 | `AUTH_OIDC_RESPONSE_TYPE`                   | `null`                | OIDC response type                                                       | Frontend   |
 | `AUTH_OIDC_RESPONSE_MODE`                   | `null`                | OIDC response mode                                                       | Frontend   |
@@ -1153,9 +1258,9 @@ Reference Links:
 
 ### Authentication Logging
 
-| Environment Variable   | Default | Description                           | Components |
-| ---------------------- | ------- | ------------------------------------- | ---------- |
-| `AUTH_VERBOSE_LOGGING` | `false` | Enable verbose authentication logging | Frontend   |
+| Environment Variable   | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Components    |
+| ---------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `AUTH_VERBOSE_LOGGING` | `false` | Binds to frontend `auth.verbose.logging` and GMS `authentication.verboseAuthFailureLogging`. Routine login denials (e.g. wrong password, suspended account) log at **INFO** with masked `userRef` and `loginDenialReason`; **WARN** is used for ambiguous cases (`UNKNOWN`, `SESSION_TOKEN_DENIED`), or when GMS returns 403 without a `loginDenialReason` field. When `true`, also logs a second line at the same level with **raw** `userRef` (sensitive). On the frontend, `true` also enables richer SSO redirect and JAAS debug. | Frontend, GMS |
 
 ### Session Configuration
 

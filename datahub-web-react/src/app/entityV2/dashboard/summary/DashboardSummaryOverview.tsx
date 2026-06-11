@@ -1,11 +1,11 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { MainSection, StyledTitle, SummaryHeader, VerticalDivider } from '@app/entityV2/chart/summary/styledComponents';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SummaryColumns } from '@app/entityV2/shared/summary/ListComponents';
 import SummaryCreatedBySection from '@app/entityV2/shared/summary/SummaryCreatedBySection';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
@@ -22,7 +22,7 @@ const Count = styled.div`
     display: flex;
     justify-content: center;
     border-radius: 10px;
-    background-color: #e5ece9;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     font-size: 10px;
     font-weight: 400;
     margin-left: 8px;
@@ -35,7 +35,7 @@ const EntityItem = styled.div`
     gap: 8px;
     font-size: 14px;
     font-weight: 500;
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const AssetSections = styled.div`
@@ -50,6 +50,7 @@ const EntitiesList = styled.div`
 `;
 
 export default function DashboardSummaryOverview() {
+    const { t } = useTranslation('entity.types');
     const { loading } = useEntityData();
     const dashboard = useBaseEntity<GetDashboardQuery>()?.dashboard;
     const entityRegistry = useEntityRegistryV2();
@@ -88,18 +89,18 @@ export default function DashboardSummaryOverview() {
     return (
         <SummaryColumns>
             <MainSection>
-                <SummaryHeader>General Info</SummaryHeader>
+                <SummaryHeader>{t('shared.generalInfo')}</SummaryHeader>
 
                 {!!owner && <SummaryCreatedBySection owner={owner} />}
             </MainSection>
 
             <MainSection>
-                <SummaryHeader>Related Assets</SummaryHeader>
+                <SummaryHeader>{t('shared.relatedAssets')}</SummaryHeader>
                 <AssetSections>
                     {!!dataSources?.length && (
                         <MainSection>
                             <StyledTitle>
-                                Data Sources
+                                {t('shared.dataSources')}
                                 <Count>{dataSources.length} </Count>
                             </StyledTitle>
                             <EntitiesList>
@@ -129,7 +130,7 @@ export default function DashboardSummaryOverview() {
                     {!!charts?.length && (
                         <MainSection>
                             <StyledTitle>
-                                Contents
+                                {t('tab.contents')}
                                 <Count>{charts.length} </Count>
                             </StyledTitle>
                             <EntitiesList>

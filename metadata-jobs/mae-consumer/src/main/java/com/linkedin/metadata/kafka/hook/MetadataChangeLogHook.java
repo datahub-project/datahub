@@ -20,24 +20,31 @@ public interface MetadataChangeLogHook extends EventHook<MetadataChangeLog> {
     return this;
   }
 
-  /** Invoke the hook when a MetadataChangeLog is received */
-  void invoke(@Nonnull MetadataChangeLog event) throws Exception;
+  /**
+   * Invoke the hook when a MetadataChangeLog is received.
+   *
+   * @param operationContext per-event operation context. In OSS this is currently the system
+   *     context; downstream callers may swap it for a tenant-scoped per-event context later.
+   * @param event the MCL payload
+   */
+  void invoke(@Nonnull OperationContext operationContext, @Nonnull MetadataChangeLog event)
+      throws Exception;
 
   /**
-   * Invoke the hook when a batch of MetadataChangeLog events are received. This method provides
-   * better performance by allowing hooks to batch process multiple MetadataChangeLog events
-   * together.
+   * Invoke the hook on a batch of MCL events under the batch-level / system context. Default
+   * implementation falls back to individual {@link #invoke} calls for backward compatibility. Hooks
+   * that benefit from true batch processing should override.
    *
-   * <p>Default implementation falls back to individual invoke() calls for backward compatibility.
-   * Hooks that support batch processing should override this method.
-   *
-   * @param events Collection of MetadataChangeLog events to process
+   * @param systemOperationContext batch-level operation context
+   * @param events the MCL events to process
    * @throws Exception if processing fails
    */
-  default void invokeBatch(@Nonnull Collection<MetadataChangeLog> events) throws Exception {
-    // Default implementation: process each event individually
+  default void invokeBatch(
+      @Nonnull OperationContext systemOperationContext,
+      @Nonnull Collection<MetadataChangeLog> events)
+      throws Exception {
     for (MetadataChangeLog event : events) {
-      invoke(event);
+      invoke(systemOperationContext, event);
     }
   }
 }

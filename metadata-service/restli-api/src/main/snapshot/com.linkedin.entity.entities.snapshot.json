@@ -173,7 +173,13 @@
           "optional" : true
         } ]
       },
-      "doc" : "Captures information about who created/last modified/deleted this chart and when"
+      "doc" : "Captures information about who created/last modified/deleted this chart and when",
+      "Searchable" : {
+        "/lastModified/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME"
+        }
+      }
     }, {
       "name" : "chartUrl",
       "type" : "com.linkedin.common.Url",
@@ -349,7 +355,8 @@
       "optional" : true,
       "Searchable" : {
         "fieldName" : "editedDescription",
-        "fieldType" : "TEXT"
+        "fieldType" : "TEXT",
+        "sanitizeRichText" : true
       }
     } ],
     "Aspect" : {
@@ -1432,11 +1439,25 @@
     "fields" : [ {
       "name" : "removed",
       "type" : "boolean",
-      "doc" : "Whether the entity has been removed (soft-deleted).",
+      "doc" : "Whether the entity has been removed (soft-deleted).\nKept for backward compatibility. When lifecycleStage is set to a stage\nwith hideInSearch=true, this field is NOT automatically synced — the\nsearch layer uses lifecycleStage settings directly.",
       "default" : false,
       "Searchable" : {
         "fieldType" : "BOOLEAN"
       }
+    }, {
+      "name" : "lifecycleStage",
+      "type" : "Urn",
+      "doc" : "The lifecycle stage of the entity, referencing a lifecycleStageType entity.\nWhen null, the entity is in its default active state (visible in search).\nWhen set, the referenced lifecycle stage's settings determine behavior\n(e.g., hideInSearch=true excludes the entity from default search results).\n\nUsers can override default filtering by explicitly filtering on this field.",
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "KEYWORD",
+        "queryByDefault" : false
+      }
+    }, {
+      "name" : "lifecycleLastUpdated",
+      "type" : "AuditStamp",
+      "doc" : "Attribution for the lifecycle stage transition — who moved the entity\ninto its current stage and when. Populated automatically by the\nsetLifecycleStage mutation; should be set by any code path that\nwrites the lifecycleStage field.",
+      "optional" : true
     } ],
     "Aspect" : {
       "name" : "status"
@@ -1503,6 +1524,7 @@
       "Searchable" : {
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
+        "sanitizeRichText" : true,
         "searchTier" : 2
       }
     }, {
@@ -1651,6 +1673,7 @@
       "Searchable" : {
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT",
+        "sanitizeRichText" : true,
         "searchTier" : 2
       }
     } ],
@@ -1683,6 +1706,7 @@
       "Searchable" : {
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
+        "sanitizeRichText" : true,
         "searchTier" : 2
       }
     }, {
@@ -1760,6 +1784,7 @@
       "Searchable" : {
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
+        "sanitizeRichText" : true,
         "searchTier" : 2
       }
     }, {
@@ -2133,6 +2158,7 @@
       "Searchable" : {
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT",
+        "sanitizeRichText" : true,
         "searchTier" : 2
       }
     } ],
@@ -2153,6 +2179,7 @@
       "Searchable" : {
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT",
+        "sanitizeRichText" : true,
         "searchTier" : 2
       }
     } ],
@@ -2389,6 +2416,7 @@
       "Searchable" : {
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
+        "sanitizeRichText" : true,
         "searchTier" : 2
       }
     }, {
@@ -2465,6 +2493,7 @@
       "Searchable" : {
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT",
+        "sanitizeRichText" : true,
         "searchTier" : 2
       }
     }, {
@@ -2484,7 +2513,7 @@
     "type" : "typeref",
     "name" : "SchemaFieldPath",
     "namespace" : "com.linkedin.dataset",
-    "doc" : "Schema field path. TODO: Add formal documentation on normalization rules.",
+    "doc" : "Schema field path.\n\nFor formal documentation on normalization rules, see docs/advanced/field-path-spec-v2.md\nor https://github.com/datahub-project/datahub/blob/master/docs/advanced/field-path-spec-v2.md",
     "ref" : "string"
   }, {
     "type" : "record",
@@ -3534,7 +3563,8 @@
                           "Searchable" : {
                             "boostScore" : 0.1,
                             "fieldName" : "fieldDescriptions",
-                            "fieldType" : "TEXT"
+                            "fieldType" : "TEXT",
+                            "sanitizeRichText" : true
                           }
                         }, {
                           "name" : "label",
@@ -3886,6 +3916,7 @@
                             "boostScore" : 0.1,
                             "fieldName" : "editedFieldDescriptions",
                             "fieldType" : "TEXT",
+                            "sanitizeRichText" : true,
                             "searchTier" : 2
                           }
                         }, {
@@ -4105,6 +4136,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldName" : "id",
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "WORD_GRAM",
                       "searchLabel" : "entityName",
@@ -4186,6 +4218,7 @@
                     "Searchable" : {
                       "fieldType" : "TEXT",
                       "hasValuesFieldName" : "hasDescription",
+                      "sanitizeRichText" : true,
                       "searchTier" : 2
                     }
                   }, {
@@ -5146,6 +5179,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldName" : "id",
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "WORD_GRAM",
                       "searchLabel" : "entityName",
@@ -5366,7 +5400,10 @@
                     "name" : "definition",
                     "type" : "string",
                     "doc" : "Definition of business term.",
-                    "Searchable" : { }
+                    "Searchable" : {
+                      "fieldType" : "TEXT",
+                      "searchTier" : 2
+                    }
                   }, {
                     "name" : "parentNode",
                     "type" : "com.linkedin.common.GlossaryNodeUrn",
@@ -5554,7 +5591,10 @@
                     "name" : "definition",
                     "type" : "string",
                     "doc" : "Definition of business node",
-                    "Searchable" : { }
+                    "Searchable" : {
+                      "fieldType" : "TEXT",
+                      "searchTier" : 2
+                    }
                   }, {
                     "name" : "parentNode",
                     "type" : "com.linkedin.common.GlossaryNodeUrn",
@@ -6011,6 +6051,24 @@
         } ]
       }
     } ]
+  }, {
+    "type" : "record",
+    "name" : "FilterExistingUrnsRequest",
+    "namespace" : "com.linkedin.entity",
+    "doc" : "Request body for the entities filterExistingUrns action.",
+    "fields" : [ {
+      "name" : "urns",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : " Entity URNs to check for existence. "
+    }, {
+      "name" : "includeSoftDelete",
+      "type" : "boolean",
+      "doc" : "When true (default), entities with status.removed are still considered to exist.",
+      "optional" : true
+    } ]
   }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryRelatedTerms", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.CorpUserStatus", "com.linkedin.identity.GroupMembership", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataHubPolicyAspect", "com.linkedin.metadata.aspect.DataHubRetentionAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLModelDeploymentAspect", "com.linkedin.metadata.aspect.MLModelGroupAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.SchemaFieldAspect", "com.linkedin.metadata.aspect.TagAspect", {
     "type" : "record",
     "name" : "BrowseResult",
@@ -6285,6 +6343,12 @@
       "default" : false,
       "optional" : true
     }, {
+      "name" : "includeHiddenLifecycleStages",
+      "type" : "boolean",
+      "doc" : "Include entities in lifecycle stages that have hideInSearch=true.\nBy default, entities in hidden lifecycle stages are excluded from search results.\nSet to true for eval queries or admin tooling that needs to discover all entities\nregardless of lifecycle stage settings.",
+      "default" : false,
+      "optional" : true
+    }, {
       "name" : "includeRestricted",
       "type" : "boolean",
       "doc" : "include restricted entities in results (default is to filter)",
@@ -6372,22 +6436,18 @@
         "items" : {
           "type" : "record",
           "name" : "Criterion",
-          "doc" : "A criterion for matching a field with given value",
+          "doc" : "A criterion for matching a field with given values",
           "fields" : [ {
             "name" : "field",
             "type" : "string",
             "doc" : "The name of the field that the criterion refers to"
-          }, {
-            "name" : "value",
-            "type" : "string",
-            "doc" : "The value of the intended field"
           }, {
             "name" : "values",
             "type" : {
               "type" : "array",
               "items" : "string"
             },
-            "doc" : "Values. one of which the intended field should match\nNote, if values is set, the above \"value\" field will be ignored",
+            "doc" : "Values to match against the field (one match suffices unless otherwise documented).",
             "default" : [ ]
           }, {
             "name" : "condition",
@@ -6968,6 +7028,11 @@
       "doc" : "Aspect version\n   Initial implementation will use the aspect version's number, however stored as\n   a string in the case where a different aspect versioning scheme is later adopted.",
       "optional" : true
     }, {
+      "name" : "schemaVersion",
+      "type" : "long",
+      "doc" : "Schema version of the aspect data model. Used to determine aspects that need migrations.\nDefaults to 1 when not present as a baseline. Incremented when an aspect is modified.",
+      "optional" : true
+    }, {
       "name" : "aspectCreated",
       "type" : "com.linkedin.common.AuditStamp",
       "doc" : "When the aspect was initially created and who created it, detected by version 0 -> 1 change",
@@ -7195,6 +7260,14 @@
           "type" : "int"
         } ],
         "returns" : "com.linkedin.metadata.search.SearchResult"
+      }, {
+        "name" : "filterExistingUrns",
+        "javaMethodName" : "filterExistingUrns",
+        "parameters" : [ {
+          "name" : "request",
+          "type" : "com.linkedin.entity.FilterExistingUrnsRequest"
+        } ],
+        "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
       }, {
         "name" : "getBrowsePaths",
         "javaMethodName" : "getBrowsePaths",

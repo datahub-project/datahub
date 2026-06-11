@@ -7,9 +7,11 @@ services:
       - OTEL_TRACES_EXPORTER=jaeger
       - OTEL_EXPORTER_JAEGER_ENDPOINT=http://jaeger-all-in-one:14250
       - OTEL_METRICS_EXPORTER=none
-      - OTEL_SERVICE_NAME=datahub-gms
+      - OTEL_SERVICE_NAME=datahub-frontend-react
     ports:
       - '4318'
+    expose:
+      - 4319
   datahub-gms:
     environment:
       - ENABLE_PROMETHEUS=true
@@ -20,6 +22,8 @@ services:
       - OTEL_SERVICE_NAME=datahub-gms
     ports:
       - '4318'
+    expose:
+      - 4319
   grafana:
     image: grafana/grafana:9.1.4
     ports:
@@ -32,6 +36,8 @@ services:
       - prometheus
   jaeger-all-in-one:
     image: jaegertracing/all-in-one:latest
+    environment:
+      - MEMORY_MAX_TRACES=100000
     ports:
       - 16686:16686
       - '14268'

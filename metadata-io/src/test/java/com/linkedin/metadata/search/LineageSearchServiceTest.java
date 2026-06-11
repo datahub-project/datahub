@@ -104,6 +104,7 @@ public class LineageSearchServiceTest {
     searchConfig.setGraph(graphConfig);
     graphConfig.setLineageMaxHops(10); // Default max hops
     graphConfig.setPointInTimeCreationEnabled(true); // Enable PIT for graph queries
+    graphConfig.setSliceFutureDrainTimeoutSeconds(2);
     graphConfig.setImpact(impactConfig);
     impactConfig.setMaxHops(10); // Default max hops
 

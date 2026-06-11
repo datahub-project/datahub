@@ -1,8 +1,4 @@
-import dayjs from 'dayjs';
-import advancedFormat from 'dayjs/plugin/advancedFormat';
-import localizedFormat from 'dayjs/plugin/localizedFormat';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
+import i18next from 'i18next';
 import YAML from 'yamljs';
 
 import { SortingState } from '@components/components/Table/types';
@@ -22,7 +18,8 @@ import {
 } from '@app/ingestV2/executions/constants';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
-import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import dayjs from '@utils/dayjs';
 
 import {
     Entity,
@@ -37,13 +34,10 @@ import {
     StringMapEntryInput,
 } from '@types';
 
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.extend(advancedFormat);
-dayjs.extend(localizedFormat);
-
 const CUSTOM_SOURCE_NAME = 'custom';
-export const CUSTOM_SOURCE_DISPLAY_NAME = 'Custom';
+/* untranslated-text -- used programmatically as a source-type discriminator, not rendered as UI copy.
+   Must match the displayName of the custom source in sources.json. */
+export const CUSTOM_SOURCE_DISPLAY_NAME = 'Other';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
@@ -84,7 +78,7 @@ export const validateURL = (fieldName: string) => {
             if (!value || isURLValid) {
                 return Promise.resolve();
             }
-            return Promise.reject(new Error(`A valid ${fieldName} is required.`));
+            return Promise.reject(new Error(i18next.t('ingestion:source.validUrlRequired', { fieldName })));
         },
     };
 };
@@ -113,7 +107,7 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
     ): StructuredReportLogEntry[] => {
         return Object.entries(items).map(([rawMessage, context]) => ({
             level,
-            title: 'An unexpected issue occurred',
+            title: i18next.t('ingestion:report.unexpectedIssue'),
             message: rawMessage,
             context,
         }));
@@ -130,7 +124,7 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
 
                 return {
                     level,
-                    title: item.title || 'An unexpected issue occurred',
+                    title: item.title || i18next.t('ingestion:report.unexpectedIssue'),
                     message: item.message,
                     context: item.context,
                 };
@@ -383,6 +377,7 @@ export const getOtherIngestionContents = (
     if (totalDatasetProfileCount > 0) {
         const datasetProfilePercent = `${((totalDatasetProfileCount / totalStatusCount) * 100).toFixed(0)}%`;
         result.push({
+            /* untranslated-text -- value doubles as the React key via getKey; changing it would alter grouping */
             type: 'Profiling',
             count: totalDatasetProfileCount,
             percent: datasetProfilePercent,
@@ -392,12 +387,14 @@ export const getOtherIngestionContents = (
     if (totalDatasetUsageStatisticsCount > 0) {
         const datasetUsageStatisticsPercent = `${((totalDatasetUsageStatisticsCount / totalStatusCount) * 100).toFixed(0)}%`;
         result.push({
+            /* untranslated-text -- value doubles as the React key via getKey; changing it would alter grouping */
             type: 'Usage',
             count: totalDatasetUsageStatisticsCount,
             percent: datasetUsageStatisticsPercent,
         });
     } else {
         result.push({
+            /* untranslated-text -- value doubles as the React key via getKey; changing it would alter grouping */
             type: 'Usage',
             count: 0,
             percent: '0%',
@@ -506,7 +503,10 @@ export const extractEntityTypeCountsFromFacets = (
             .forEach((agg) =>
                 finalCounts.push({
                     count: agg.count,
-                    displayName: pluralize(agg.count, capitalizeFirstLetterOnly(agg.value) || ''),
+                    displayName: i18next.t('ingestion:source.entityTypeNameCount', {
+                        count: agg.count,
+                        type: capitalizeFirstLetterOnly(agg.value) || '',
+                    }),
                 }),
             );
         entityTypeFacets.aggregations

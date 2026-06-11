@@ -1,6 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import EntityContext from '@app/entity/shared/EntityContext';
@@ -9,6 +10,7 @@ import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarRelatedAssetsSection } from '@app/entityV2/shared/containers/profile/sidebar/RelatedAssets/SidebarRelatedAssetsSection';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 import { useFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/utils';
@@ -111,6 +113,12 @@ const sidebarSections = [
             visible: () => true,
         },
     },
+    {
+        component: SidebarRelatedAssetsSection,
+        display: {
+            visible: () => true,
+        },
+    },
 ];
 
 /**
@@ -118,12 +126,13 @@ const sidebarSections = [
  * Uses a custom single-page editor with editable title and content
  */
 export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading = false, refetch }) => {
+    const { t } = useTranslation('entity.types');
     const [sidebarClosed, setSidebarClosed] = useState(true); // Start closed by default
     const isCompact = useContext(CompactContext);
 
     const sidebarTabs = [
         {
-            name: 'Properties',
+            name: t('tab.properties'),
             component: PropertiesTab,
             icon: ListBullets,
             display: {

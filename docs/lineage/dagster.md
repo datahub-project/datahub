@@ -1,3 +1,7 @@
+---
+description: "Capture and emit dataset lineage, run status, and asset materialization metadata from Dagster pipelines into DataHub."
+---
+
 # Dagster Integration
 
 This connector supports extracting:

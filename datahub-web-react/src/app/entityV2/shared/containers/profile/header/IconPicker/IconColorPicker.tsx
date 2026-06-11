@@ -1,6 +1,8 @@
 import { Modal } from '@components';
 import { Input } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { ChatIconPicker } from '@app/entityV2/shared/containers/profile/header/IconPicker/IconPicker';
@@ -38,21 +40,24 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
     onChangeColor,
     onChangeIcon,
 }) => {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
     const refetch = useRefetch();
     const { urn } = useEntityData();
     const [updateDisplayProperties] = useUpdateDisplayPropertiesMutation();
+    const theme = useTheme();
 
-    const [stagedColor, setStagedColor] = React.useState<string>(color || '#000000');
+    const [stagedColor, setStagedColor] = React.useState<string>(color || theme.colors.colorPickerDefault);
     const [stagedIcon, setStagedIcon] = React.useState<string>(icon || 'account_circle');
 
     return (
         <Modal
             open={open}
-            title={`Choose an icon for ${name || 'Domain'}`}
+            title={t('iconPicker.chooseIconForTitle', { name: name || t('iconPicker.defaultDomainName') })}
             onCancel={() => onClose()}
             buttons={[
                 {
-                    text: 'Apply',
+                    text: tc('apply'),
                     onClick: () => {
                         updateDisplayProperties({
                             variables: {

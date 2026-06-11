@@ -1,12 +1,12 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { SearchBar } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
 import { IconStyleType } from '@app/entityV2/Entity';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ClickOutside from '@app/shared/ClickOutside';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -15,16 +15,13 @@ import { EntityType } from '@types';
 
 const GlossarySearchWrapper = styled.div`
     position: relative;
-    border-bottom: 1px solid ${REDESIGN_COLORS.BORDER_3};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const ResultsWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
-    box-shadow:
-        0 3px 6px -4px rgb(0 0 0 / 12%),
-        0 6px 16px 0 rgb(0 0 0 / 8%),
-        0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     padding: 8px;
     position: absolute;
     max-height: 210px;
@@ -43,15 +40,15 @@ const LoadingWrapper = styled.div`
 `;
 
 const SearchResult = styled(Link)`
-    color: ${ANTD_GRAY[11]};
+    color: ${(props) => props.theme.colors.text};
     display: inline-block;
     height: 100%;
     padding: 6px 8px;
     width: 100%;
 
     &:hover {
-        background-color: ${ANTD_GRAY[3]};
-        color: ${ANTD_GRAY[11]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
@@ -64,6 +61,7 @@ const IconWrapper = styled.span`
 `;
 
 function GlossarySearch() {
+    const { t: tc } = useTranslation('common.actions');
     const [searchInput, setSearchInput] = useState('');
     const [query, setQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
@@ -88,7 +86,7 @@ function GlossarySearch() {
             <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
                 <InputWrapper>
                     <SearchBar
-                        placeholder="Search"
+                        placeholder={tc('search')}
                         value={searchInput}
                         onChange={setSearchInput}
                         onFocus={() => setIsSearchBarFocused(true)}

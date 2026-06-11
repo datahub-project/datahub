@@ -3427,6 +3427,7 @@ export const mocks = [
                         manageIngestion: true,
                         generatePersonalAccessTokens: true,
                         manageGlobalViews: true,
+                        manageGlobalSettings: true,
                         manageOwnershipTypes: true,
                         manageGlobalAnnouncements: true,
                         createBusinessAttributes: true,
@@ -3700,6 +3701,7 @@ export const mocksWithSearchFlagsOff = [
 export const platformPrivileges: PlatformPrivileges = {
     viewAnalytics: true,
     managePolicies: true,
+    manageRoles: true,
     manageIdentities: true,
     manageServiceAccounts: true,
     generatePersonalAccessTokens: true,
@@ -3716,6 +3718,7 @@ export const platformPrivileges: PlatformPrivileges = {
     createTags: true,
     createDomains: true,
     manageGlobalViews: true,
+    manageGlobalSettings: true,
     manageOwnershipTypes: true,
     manageGlobalAnnouncements: true,
     createBusinessAttributes: true,

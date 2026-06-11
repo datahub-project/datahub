@@ -11,7 +11,7 @@ public enum ChangeCategory {
   // (field or top level) add term, remove term, etc.
   GLOSSARY_TERM,
   // add new owner, remove owner, change ownership type etc.
-  OWNER,
+  OWNERSHIP,
   // new field, remove field, field type change,
   TECHNICAL_SCHEMA,
   // (field or top level) add tag, remove tag,
@@ -25,13 +25,17 @@ public enum ChangeCategory {
   // Run event
   RUN,
 
-  STRUCTURED_PROPERTY,
-
   BUSINESS_ATTRIBUTE,
+  // Structured property assignment changes
+  STRUCTURED_PROPERTY,
+  // Application association changes
+  APPLICATION,
   // Parent relationship changes (for hierarchical entities like documents)
   PARENT,
   // Related entities changes (Currently used for document related assets, related documents, etc.)
-  RELATED_ENTITIES;
+  RELATED_ENTITIES,
+  // Asset membership changes (e.g. assets added/removed from a Data Product)
+  ASSET_MEMBERSHIP;
 
   public static final Map<List<String>, ChangeCategory> COMPOUND_CATEGORIES;
 
@@ -40,5 +44,8 @@ public enum ChangeCategory {
     COMPOUND_CATEGORIES = new HashMap<>();
     COMPOUND_CATEGORIES.put(Arrays.asList(GLOSSARY_TERM.name().split("_")), GLOSSARY_TERM);
     COMPOUND_CATEGORIES.put(Arrays.asList(TECHNICAL_SCHEMA.name().split("_")), TECHNICAL_SCHEMA);
+    COMPOUND_CATEGORIES.put(
+        Arrays.asList(STRUCTURED_PROPERTY.name().split("_")), STRUCTURED_PROPERTY);
+    COMPOUND_CATEGORIES.put(Arrays.asList(ASSET_MEMBERSHIP.name().split("_")), ASSET_MEMBERSHIP);
   }
 }

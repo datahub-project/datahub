@@ -224,6 +224,18 @@ class Pipeline:
                     )
             logger.info(f"Sink configured successfully. {self.sink.configured()}")
 
+            # Apply recipe-level sample sizes to the sink report.
+            flags = self.config.flags
+            sink_report = self.sink.get_report()
+            sink_report.failures.max_elements = max(
+                flags.report_failure_sample_size,
+                flags.progress_report_max_failures,
+            )
+            sink_report.warnings.max_elements = max(
+                flags.report_warning_sample_size,
+                flags.progress_report_max_warnings,
+            )
+
             if self.graph is None and isinstance(self.sink, DatahubRestSink):
                 with _add_init_error_context("setup default datahub client"):
                     self.graph = self.sink.emitter.to_graph()
@@ -252,6 +264,24 @@ class Pipeline:
                         f"Source type {self.source_type} ({source_class}) configured"
                     )
                     logger.info("Source configured successfully.")
+
+                    # Retain enough entries for whichever is larger: the
+                    # final report size or the interim display cap.
+                    flags = self.config.flags
+                    self.source.get_report().set_sample_sizes(
+                        failure_size=max(
+                            flags.report_failure_sample_size,
+                            flags.progress_report_max_failures,
+                        ),
+                        warning_size=max(
+                            flags.report_warning_sample_size,
+                            flags.progress_report_max_warnings,
+                        ),
+                        info_size=max(
+                            flags.report_info_sample_size,
+                            flags.progress_report_max_infos,
+                        ),
+                    )
 
                 extractor_type = self.config.source.extractor
                 with _add_init_error_context(
@@ -707,13 +737,25 @@ class Pipeline:
             # out the report would just be annoying.
             pass
         else:
+            if currently_running:
+                sample_caps = {
+                    "failures": self.config.flags.progress_report_max_failures,
+                    "warnings": self.config.flags.progress_report_max_warnings,
+                    "infos": self.config.flags.progress_report_max_infos,
+                }
+            else:
+                sample_caps = {
+                    "failures": self.config.flags.report_failure_sample_size,
+                    "warnings": self.config.flags.report_warning_sample_size,
+                    "infos": self.config.flags.report_info_sample_size,
+                }
             click.echo()
             click.secho("Cli report:", bold=True)
-            click.echo(self.cli_report.as_string())
+            click.echo(self.cli_report.as_string(sample_caps))
             click.secho(f"Source ({self.source_type}) report:", bold=True)
-            click.echo(self.source.get_report().as_string())
+            click.echo(self.source.get_report().as_string(sample_caps))
             click.secho(f"Sink ({self.sink_type}) report:", bold=True)
-            click.echo(self.sink.get_report().as_string())
+            click.echo(self.sink.get_report().as_string(sample_caps))
             global_warnings = get_global_warnings()
             if len(global_warnings) > 0:
                 click.secho("Global Warnings:", bold=True)

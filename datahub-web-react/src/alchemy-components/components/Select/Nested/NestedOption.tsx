@@ -149,27 +149,24 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                         />
                     )}
                     {!(hideParentCheckbox && option.isParent) && (
-                        <CheckboxWrapper
-                            onClick={(e) => {
-                                e.preventDefault();
-                                if (isImplicitlySelected) {
-                                    return;
-                                }
-                                e.stopPropagation();
-                                if (isParentMissingChildren) {
-                                    loadData?.(option);
-                                    if (!areParentsSelectable) {
-                                        setAutoSelectChildren(true);
-                                    }
-                                }
-                                selectOption();
-                            }}
-                        >
+                        <CheckboxWrapper>
                             <Checkbox
                                 isChecked={isImplicitlySelected || isSelected}
                                 isIntermediate={isPartialSelected}
                                 isDisabled={isImplicitlySelected}
                                 size="sm"
+                                onCheckboxChange={() => {
+                                    if (isImplicitlySelected) {
+                                        return;
+                                    }
+                                    if (isParentMissingChildren) {
+                                        loadData?.(option);
+                                        if (!areParentsSelectable) {
+                                            setAutoSelectChildren(true);
+                                        }
+                                    }
+                                    selectOption();
+                                }}
                             />
                         </CheckboxWrapper>
                     )}

@@ -823,6 +823,13 @@ type Mutation {
   updateUserHomePageSettings(input: UpdateUserHomePageSettingsInput!): Boolean
 
   """
+  Update the locale settings for a user.
+  """
+  updateCorpUserLocaleSettings(
+    input: UpdateCorpUserLocaleSettingsInput!
+  ): Boolean
+
+  """
   Update a user setting
   """
   updateUserSetting(input: UpdateUserSettingInput!): Boolean
@@ -2563,6 +2570,11 @@ type GlossaryTerm implements Entity {
   glossaryTermInfo: GlossaryTermInfo
 
   """
+  The lifecycle status of the Glossary Term (removed flag and lifecycle stage).
+  """
+  status: Status
+
+  """
   The deprecation status of the Glossary Term
   """
   deprecation: Deprecation
@@ -3134,6 +3146,16 @@ enum FabricType {
   Designates alternative spelling TEST
   """
   TST
+
+  """
+  System Integration Testing
+  """
+  SIT
+
+  """
+  Alternative spelling for sandbox
+  """
+  SBX
 }
 
 """
@@ -4108,6 +4130,20 @@ type Status {
   Whether the entity is removed or not
   """
   removed: Boolean!
+
+  """
+  The resolved lifecycle stage of this entity.
+  When null, the entity is in its default active state (visible in search).
+  When set, provides the full stage definition (name, description, settings)
+  without an additional client round-trip.
+  """
+  lifecycleStage: LifecycleStageType
+
+  """
+  Attribution for the lifecycle stage transition — who moved the entity
+  into its current stage and when.
+  """
+  lifecycleLastUpdated: AuditStamp
 }
 
 """
@@ -4453,6 +4489,11 @@ type CorpUserSettings {
   Settings related to the home page for a user
   """
   homePage: CorpUserHomePageSettings
+
+  """
+  Locale and language preferences for a user
+  """
+  locale: CorpUserLocaleSettings
 }
 
 """
@@ -4469,6 +4510,16 @@ type CorpUserAppearanceSettings {
   Flag controlling whether the V2 UI for DataHub is shown.
   """
   showThemeV2: Boolean
+}
+
+"""
+Locale and language preferences for a user.
+"""
+type CorpUserLocaleSettings {
+  """
+  BCP 47 language tag representing the user's preferred UI language (e.g. "en", "de").
+  """
+  language: String
 }
 
 """
@@ -8123,6 +8174,11 @@ type Assertion implements EntityWithRelationships & Entity {
   tags: GlobalTags
 
   """
+  Ownership metadata of the Assertion
+  """
+  ownership: Ownership
+
+  """
   Experimental API.
   For fetching extra aspects that do not have custom UI code yet
   """
@@ -8317,6 +8373,32 @@ type AssertionResult {
   Error details, if type is ERROR
   """
   error: AssertionResultError
+
+  """
+  The severity of a failure result. Only meaningful when type is FAILURE.
+  Indicates how far the observed value deviated from the expected bounds.
+  """
+  severity: AssertionResultSeverity
+}
+
+"""
+The severity of an assertion failure. Only meaningful when the result type is FAILURE.
+"""
+enum AssertionResultSeverity {
+  """
+  Low severity - minor deviation from expected bounds.
+  """
+  LOW
+
+  """
+  Medium severity - moderate deviation from expected bounds. This is the default.
+  """
+  MEDIUM
+
+  """
+  High severity - significant deviation from expected bounds.
+  """
+  HIGH
 }
 
 """
@@ -12070,6 +12152,11 @@ enum HealthStatusType {
   Incidents status
   """
   INCIDENTS
+
+  """
+  Tests status
+  """
+  TESTS
 }
 
 """
@@ -13014,6 +13101,17 @@ input UpdateUserHomePageSettingsInput {
 }
 
 """
+Input required to update locale settings for a user.
+"""
+input UpdateCorpUserLocaleSettingsInput {
+  """
+  BCP 47 language tag for the user's preferred UI language (e.g. "en", "de").
+  If not provided, the language preference will be cleared.
+  """
+  language: String
+}
+
+"""
 Information required to render an embedded version of an asset
 """
 type Embed {
@@ -13734,6 +13832,11 @@ input CreateApplicationInput {
   An optional id for the new application
   """
   id: String
+
+  """
+  Whether to add the creator as an owner of the application. Defaults to true if not specified.
+  """
+  shouldAddCreatorAsOwner: Boolean
 }
 
 """

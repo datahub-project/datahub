@@ -1,3 +1,7 @@
+---
+description: "Configure AWS PrivateLink to establish a private network connection between your DataHub Cloud instance and your AWS account."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # AWS PrivateLink

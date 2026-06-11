@@ -102,10 +102,34 @@ pytest tests/path/to/file.py::TestClass::test_method  # Single test
 - **Security**: Use `SecretStr` for passwords, auth tokens, etc.
 - **Deprecation**: Use `pydantic_removed_field` helper for field deprecations
 
+## Dependencies and Entry Points
+
+`setup.py` is the **source of truth** for all dependencies, extras, and entry points. `pyproject.toml`, `uv.lock`, and `constraints.txt` are **generated from it** and must never be edited manually.
+
+**After any change to `setup.py`** (new dependency, new entry point, version bump), run:
+
+```bash
+../gradlew :metadata-ingestion:updateLockFile
+```
+
+This regenerates the full chain: `setup.py` → `pyproject.toml` → `uv.lock` → `constraints.txt`.
+
+CI runs `checkLockFile` which calls `scripts/verify_pyproject_equivalence.py` to verify these files are in sync. If you edit `setup.py` without running `updateLockFile`, CI will fail.
+
+**Adding a new ingestion source entry point:**
+
+1. Add the entry to `setup.py` under `entry_points["datahub.ingestion.source.plugins"]`
+2. Run `../gradlew :metadata-ingestion:updateLockFile`
+3. Verify with `../gradlew :metadata-ingestion:checkLockFile`
+
 ## Key Files
 
 - `src/datahub/emitter/mcp_builder.py`: Examples of defining various aspect types
-- `setup.py`, `pyproject.toml`, `setup.cfg`: Code style and dependency configuration
+- `setup.py`: Source of truth for dependencies, extras, and entry points
+- `pyproject.toml`: Generated from `setup.py` — do not edit manually
+- `setup.cfg`: Code style configuration
+- `scripts/generate_pyproject_deps.py`: Generates `pyproject.toml` from `setup.py`
+- `scripts/verify_pyproject_equivalence.py`: Validates `setup.py` and `pyproject.toml` are in sync
 - `.github/workflows/metadata-ingestion.yml`: CI workflow configuration
 
 ## Connector Documentation
