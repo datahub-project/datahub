@@ -23,6 +23,7 @@ import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.TransactionContext;
 import com.linkedin.metadata.entity.TransactionResult;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.storage.PrimaryStorageResolver;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
@@ -71,8 +72,10 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
-  /** -- GETTER -- Return the server instance used for customized queries. Only used in tests. */
+  /** Primary pool for writes, transactions, and {@code FOR UPDATE} reads. */
   @Getter private final Database server;
+
+  private final PrimaryStorageResolver primaryStorageResolver;
 
   @Setter private boolean connectionValidated = false;
 
@@ -94,12 +97,13 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Getter @Nullable private final AspectSizeValidationConfiguration validationConfig;
 
   public EbeanAspectDao(
-      @Nonnull final Database server,
+      @Nonnull final PrimaryStorageResolver primaryStorageResolver,
       EbeanConfiguration ebeanConfiguration,
       MetricUtils metricUtils,
       @Nonnull List<SystemAspectValidator> systemAspectValidators,
       @Nullable AspectSizeValidationConfiguration validationConfig) {
-    this.server = server;
+    this.primaryStorageResolver = primaryStorageResolver;
+    this.server = primaryStorageResolver.resolveEbeanPrimary();
     this.batchGetMethod =
         ebeanConfiguration.getBatchGetMethod() != null
             ? ebeanConfiguration.getBatchGetMethod()
@@ -215,7 +219,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // Use batchGet to chunk large IN clauses and avoid optimizer memory exhaustion
     // (range_optimizer_max_mem_size)
     final List<EbeanAspectV2> results =
-        batchGet(new HashSet<>(keys), queryKeysCount, forUpdate && canWrite);
+        batchGet(opContext, new HashSet<>(keys), queryKeysCount, forUpdate && canWrite);
     return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
   }
 
@@ -257,7 +261,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     validateConnection();
     EbeanAspectV2.PrimaryKey primaryKey =
         new EbeanAspectV2.PrimaryKey(key.getUrn(), key.getAspect(), key.getVersion());
-    EbeanAspectV2 ebeanAspect = server.find(EbeanAspectV2.class, primaryKey);
+    EbeanAspectV2 ebeanAspect =
+        primaryStorageResolver.resolveEbean(opContext, false).find(EbeanAspectV2.class, primaryKey);
     return ebeanAspect == null ? null : ebeanAspect.toEntityAspect();
   }
 
@@ -333,9 +338,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             .collect(Collectors.toSet());
     final List<EbeanAspectV2> records;
     if (queryKeysCount == 0) {
-      records = batchGet(ebeanKeys, ebeanKeys.size(), forUpdate);
+      records = batchGet(opContext, ebeanKeys, ebeanKeys.size(), forUpdate);
     } else {
-      records = batchGet(ebeanKeys, queryKeysCount, forUpdate);
+      records = batchGet(opContext, ebeanKeys, queryKeysCount, forUpdate);
     }
     return records.stream()
         .collect(
@@ -353,7 +358,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    */
   @Nonnull
   private List<EbeanAspectV2> batchGet(
-      @Nonnull final Set<EbeanAspectV2.PrimaryKey> keys, final int keysCount, boolean forUpdate) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Set<EbeanAspectV2.PrimaryKey> keys,
+      final int keysCount,
+      boolean forUpdate) {
     if (keys.isEmpty()) {
       return Collections.emptyList();
     }
@@ -364,12 +372,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     List<EbeanAspectV2.PrimaryKey> keyList = new ArrayList<>(keys);
     final int totalPageCount = QueryUtils.getTotalPageCount(keys.size(), keysCount);
     final List<EbeanAspectV2> finalResult =
-        batchGetSelectString(keyList, keysCount, position, forUpdate);
+        batchGetSelectString(opContext, keyList, keysCount, position, forUpdate);
 
     while (QueryUtils.hasMore(position, keysCount, totalPageCount)) {
       position += keysCount;
       final List<EbeanAspectV2> oneStatementResult =
-          batchGetSelectString(keyList, keysCount, position, forUpdate);
+          batchGetSelectString(opContext, keyList, keysCount, position, forUpdate);
       finalResult.addAll(oneStatementResult);
     }
 
@@ -406,16 +414,17 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Nonnull
   private List<EbeanAspectV2> batchGetSelectString(
+      @Nonnull OperationContext opContext,
       @Nonnull final List<EbeanAspectV2.PrimaryKey> keys,
       final int keysCount,
       final int position,
       boolean forUpdate) {
 
     if (batchGetMethod.equals("IN")) {
-      return batchGetIn(keys, keysCount, position, forUpdate);
+      return batchGetIn(opContext, keys, keysCount, position, forUpdate);
     }
 
-    return batchGetUnion(keys, keysCount, position, forUpdate);
+    return batchGetUnion(opContext, keys, keysCount, position, forUpdate);
   }
 
   /**
@@ -446,6 +455,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Nonnull
   private List<EbeanAspectV2> batchGetUnion(
+      @Nonnull OperationContext opContext,
       @Nonnull final List<EbeanAspectV2.PrimaryKey> keys,
       final int keysCount,
       final int position,
@@ -488,7 +498,11 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     final RawSql rawSql = parseBatchGetRawSql(sb.toString());
 
-    final Query<EbeanAspectV2> query = server.find(EbeanAspectV2.class).setRawSql(rawSql);
+    final Query<EbeanAspectV2> query =
+        primaryStorageResolver
+            .resolveEbean(opContext, forUpdate)
+            .find(EbeanAspectV2.class)
+            .setRawSql(rawSql);
 
     for (Map.Entry<String, Object> param : params.entrySet()) {
       query.setParameter(param.getKey(), param.getValue());
@@ -499,6 +513,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Nonnull
   private List<EbeanAspectV2> batchGetIn(
+      @Nonnull OperationContext opContext,
       @Nonnull final List<EbeanAspectV2.PrimaryKey> keys,
       final int keysCount,
       final int position,
@@ -542,7 +557,11 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     final RawSql rawSql = parseBatchGetRawSql(sb.toString());
 
-    final Query<EbeanAspectV2> query = server.find(EbeanAspectV2.class).setRawSql(rawSql);
+    final Query<EbeanAspectV2> query =
+        primaryStorageResolver
+            .resolveEbean(opContext, forUpdate)
+            .find(EbeanAspectV2.class)
+            .setRawSql(rawSql);
 
     for (Map.Entry<String, Object> param : params.entrySet()) {
       query.setParameter(param.getKey(), param.getValue());
@@ -1008,7 +1027,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * @return map of the aspect's next version
    */
   public Map<String, Map<String, Long>> getNextVersions(
-      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<String, Set<String>> urnAspects,
+      boolean lockLatestForWrite) {
     validateConnection();
 
     List<EbeanAspectV2.PrimaryKey> forUpdateKeys = new ArrayList<>();
@@ -1035,14 +1056,16 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     // forUpdate is required to avoid duplicate key violations (it is used as an indication that the
     // max(version) was invalidated
-    if (canWrite) {
+    if (canWrite && lockLatestForWrite) {
       // Sorting is required to ensure consistent lock ordering and avoid deadlocks
       Collections.sort(forUpdateKeys);
       server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).forUpdate().findList();
     }
 
+    // Write path must read max(version) from primary to avoid stale replica counts after forUpdate.
+    Database versionDatabase = primaryStorageResolver.resolveEbean(opContext, lockLatestForWrite);
     Junction<EbeanAspectV2> queryJunction =
-        server
+        versionDatabase
             .find(EbeanAspectV2.class)
             .select("urn, aspect, max(version)")
             .where()
@@ -1163,7 +1186,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       long endTimeMillis) {
     validateConnection();
     List<EbeanAspectV2> ebeanAspects =
-        server
+        primaryStorageResolver
+            .resolveEbean(opContext, false)
             .find(EbeanAspectV2.class)
             .select(EbeanAspectV2.ALL_COLUMNS)
             .where()

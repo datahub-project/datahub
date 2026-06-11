@@ -14,7 +14,7 @@ public interface TimelineService {
   int DEFAULT_MAX_CHANGE_TRANSACTIONS = 100;
 
   List<ChangeTransaction> getTimeline(
-      @Nonnull final OperationContext opContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull Set<ChangeCategory> elements,
       long startMillis,
@@ -25,7 +25,7 @@ public interface TimelineService {
       throws JsonProcessingException;
 
   List<ChangeTransaction> getTimeline(
-      @Nonnull final OperationContext opContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull Set<ChangeCategory> elements,
       int maxChangeTransactions,
