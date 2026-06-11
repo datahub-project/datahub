@@ -45,6 +45,7 @@ Requirements:
 ### Breaking Changes
 
 - #17852: **(Ingestion framework)** Several helper functions have been moved out of `datahub.ingestion.api.source_helpers` and related modules into dedicated processor modules. Update imports as follows:
+
   - `auto_status_aspect` → `datahub.ingestion.workunit_processors.auto_status_aspect`
   - `auto_workunit_reporter` → `datahub.ingestion.workunit_processors.auto_workunits_reporter`
   - `auto_lowercase_urns` → `datahub.ingestion.workunit_processors.auto_lowercase_urns`
