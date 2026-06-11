@@ -9,6 +9,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -47,7 +48,8 @@ public class EntityClientAspectRetrieverTest {
     when(entityClient.filterExistingUrns(systemOperationContext, Set.of(EXISTING_URN, MISSING_URN)))
         .thenReturn(Set.of(EXISTING_URN));
 
-    Map<Urn, Boolean> result = retriever.entityExists(Set.of(EXISTING_URN, MISSING_URN));
+    Map<Urn, Boolean> result =
+        retriever.entityExists(OperationFingerprint.EMPTY, Set.of(EXISTING_URN, MISSING_URN));
 
     assertTrue(result.get(EXISTING_URN));
     assertFalse(result.get(MISSING_URN));
@@ -57,7 +59,7 @@ public class EntityClientAspectRetrieverTest {
 
   @Test
   public void testEntityExistsEmptyInput() throws RemoteInvocationException {
-    assertEquals(retriever.entityExists(Set.of()), Map.of());
+    assertEquals(retriever.entityExists(OperationFingerprint.EMPTY, Set.of()), Map.of());
     verify(entityClient, times(0)).filterExistingUrns(eq(systemOperationContext), eq(Set.of()));
   }
 }

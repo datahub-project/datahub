@@ -103,7 +103,8 @@ public abstract class AbstractMCLStep implements UpgradeStep {
         args = args.urnLike(getUrnLike());
       }
 
-      try (PartitionedStream<EbeanAspectV2> stream = aspectDao.streamAspectBatches(args)) {
+      try (PartitionedStream<EbeanAspectV2> stream =
+          aspectDao.streamAspectBatches(context.opContext(), args)) {
         stream
             .partition(args.batchSize)
             .forEach(
@@ -113,7 +114,9 @@ public abstract class AbstractMCLStep implements UpgradeStep {
                   List<Pair<Future<?>, SystemAspect>> futures;
                   futures =
                       EntityUtils.toSystemAspectFromEbeanAspects(
-                              opContext.getRetrieverContext(), batch.collect(Collectors.toList()))
+                              opContext,
+                              opContext.getRetrieverContext(),
+                              batch.collect(Collectors.toList()))
                           .stream()
                           .map(
                               systemAspect -> {

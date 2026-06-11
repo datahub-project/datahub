@@ -636,6 +636,12 @@ hana = [
     "sqlparse<0.6.0",
 ]
 
+hex = [
+    "patchy==2.8.0",
+    "requests<3.0.0",
+    "sqlglot[c]==30.8.0",
+]
+
 hive = [
     "acryl-datahub-classify==0.0.11",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
@@ -1060,7 +1066,6 @@ s3-slim = [
 
 sac = [
     "Authlib>=1.6.11,<2.0.0",
-    "pyodata>=1.11.1,<2.0.0",
     "requests<3.0.0",
 ]
 
@@ -1425,7 +1430,6 @@ all = [
     "pymetastore>=0.4.2,<1.0.0",
     "pymongo[aws]>=4.8.0,<5.0.0",
     "pymysql>=1.0.2,<2.0.0",
-    "pyodata>=1.11.1,<2.0.0",
     "pyodbc>=4.0,<6.0.0",
     "pyOpenSSL>=26.0.0,<27.0.0",
     "pyspark~=3.5.6,<4.0.0",
@@ -1586,7 +1590,6 @@ dev = [
     "pymetastore>=0.4.2,<1.0.0",
     "pymongo[aws]>=4.8.0,<5.0.0",
     "pymysql>=1.0.2,<2.0.0",
-    "pyodata>=1.11.1,<2.0.0",
     "pyodbc<6.0.0",
     "pyOpenSSL>=26.0.0,<27.0.0",
     "pyspark~=3.5.6,<4.0.0",
@@ -1778,7 +1781,6 @@ docs = [
     "pymetastore>=0.4.2,<1.0.0",
     "pymongo[aws]>=4.8.0,<5.0.0",
     "pymysql>=1.0.2,<2.0.0",
-    "pyodata>=1.11.1,<2.0.0",
     "pyodbc<6.0.0",
     "pyOpenSSL>=26.0.0,<27.0.0",
     "pyspark~=3.5.6,<4.0.0",

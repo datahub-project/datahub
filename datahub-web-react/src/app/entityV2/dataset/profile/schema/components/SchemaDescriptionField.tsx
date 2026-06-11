@@ -2,6 +2,7 @@ import { EditOutlined } from '@ant-design/icons';
 import { FetchResult } from '@apollo/client';
 import { Button, Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -24,7 +25,7 @@ const EditIcon = styled(EditOutlined)`
 
 const AddNewDescription = styled(Button)`
     display: flex;
-    width: 140px;
+    min-width: 140px;
     background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 4px;
     align-items: center;
@@ -114,6 +115,7 @@ type Props = {
     isReadOnly?: boolean;
     isPropagated?: boolean;
     attribution?: MetadataAttribution | null;
+    dataTestId?: string;
 };
 
 export default function DescriptionField({
@@ -126,7 +128,11 @@ export default function DescriptionField({
     isReadOnly,
     isPropagated,
     attribution,
+    dataTestId,
 }: Props) {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
     const [showAddModal, setShowAddModal] = useState(false);
 
     const overLimit = removeMarkdown(description).length > 40;
@@ -146,15 +152,19 @@ export default function DescriptionField({
     };
 
     const onUpdateModal = async (desc: string | null) => {
-        message.loading({ content: 'Updating...' });
+        message.loading({ content: tf('updating') });
         try {
             await onUpdate(desc || '');
             message.destroy();
-            message.success({ content: 'Updated!', duration: 2 });
+            message.success({ content: tf('updated'), duration: 2 });
             sendAnalytics();
         } catch (e: unknown) {
             message.destroy();
-            if (e instanceof Error) message.error({ content: `Update Failed! \n ${e.message || ''}`, duration: 2 });
+            if (e instanceof Error)
+                message.error({
+                    content: t('dataset.updateDescriptionError', { error: e.message || '' }),
+                    duration: 2,
+                });
         }
         onCloseModal();
     };
@@ -165,7 +175,7 @@ export default function DescriptionField({
     const showAddButton = enableEdits && !description;
 
     return (
-        <DescriptionContainer>
+        <DescriptionContainer data-testid={dataTestId}>
             {/* {expanded || !overLimit ? ( */}
             {expanded ? (
                 <>
@@ -179,7 +189,7 @@ export default function DescriptionField({
                                         handleExpanded(false);
                                     }}
                                 >
-                                    Read Less
+                                    {tc('readLess')}
                                 </ReadLessText>
                             )}
                             {EditButton}
@@ -217,7 +227,7 @@ export default function DescriptionField({
                                     customStyle={{ fontSize: '12px' }}
                                     scrollableY={false}
                                 />
-                                {isSchemaEditable && isEdited && <EditedLabel>(edited)</EditedLabel>}
+                                {isSchemaEditable && isEdited && <EditedLabel>{t('dataset.editedLabel')}</EditedLabel>}
                             </DescriptionWrapper>
                         </Tooltip>
                         {/* </StripMarkdownText> */}
@@ -227,7 +237,7 @@ export default function DescriptionField({
             {showAddModal && (
                 <AddModalWrapper onClick={(e) => e.stopPropagation()}>
                     <UpdateDescriptionModal
-                        title={description ? 'Update description' : 'Add description'}
+                        title={description ? t('dataset.updateDescriptionTitle') : t('dataset.addDescriptionTitle')}
                         description={description}
                         original={original || ''}
                         onClose={onCloseModal}
@@ -244,7 +254,7 @@ export default function DescriptionField({
                         e.stopPropagation();
                     }}
                 >
-                    Add Description
+                    {t('dataset.addDescriptionButton')}
                 </AddNewDescription>
             )}
         </DescriptionContainer>

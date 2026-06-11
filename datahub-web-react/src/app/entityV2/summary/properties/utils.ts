@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { MenuItemType } from '@components/components/Menu/types';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
@@ -20,15 +22,34 @@ export function assetPropertyToMenuItem(
 }
 
 const SUMMARY_ELEMENT_TYPE_TO_NAME = {
-    [SummaryElementType.Created]: 'Created',
-    [SummaryElementType.LastModified]: 'Last Modified',
-    [SummaryElementType.LastIngested]: 'Last Synced', // intentional UX rename: "Last Synced" is clearer to end users than "Last Ingested"
-    [SummaryElementType.Domain]: 'Domain',
-    [SummaryElementType.GlossaryTerms]: 'Glossary Terms',
-    [SummaryElementType.Owners]: 'Owners',
-    [SummaryElementType.Tags]: 'Tags',
-    [SummaryElementType.DocumentStatus]: 'Status',
-    [SummaryElementType.DocumentType]: 'Type',
+    get [SummaryElementType.Created]() {
+        return i18next.t('common.labels:created');
+    },
+    get [SummaryElementType.LastModified]() {
+        return i18next.t('entity.profile.summary:properties.lastModified');
+    },
+    // intentional UX rename: "Last Synced" is clearer to end users than "Last Ingested"
+    get [SummaryElementType.LastIngested]() {
+        return i18next.t('entity.profile.summary:properties.lastSynced');
+    },
+    get [SummaryElementType.Domain]() {
+        return i18next.t('common.labels:domain');
+    },
+    get [SummaryElementType.GlossaryTerms]() {
+        return i18next.t('entity.profile.summary:properties.glossaryTerms');
+    },
+    get [SummaryElementType.Owners]() {
+        return i18next.t('common.labels:owners');
+    },
+    get [SummaryElementType.Tags]() {
+        return i18next.t('common.labels:tags');
+    },
+    get [SummaryElementType.DocumentStatus]() {
+        return i18next.t('common.labels:status');
+    },
+    get [SummaryElementType.DocumentType]() {
+        return i18next.t('common.labels:type');
+    },
 };
 
 export function mapSummaryElement(

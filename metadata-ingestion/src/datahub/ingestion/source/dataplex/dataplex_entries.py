@@ -260,20 +260,20 @@ class DataplexEntriesProcessor:
 
             request = dataplex_v1.ListEntriesRequest(parent=entry_group.name)
             with PerfTimer() as timer:
-                entries = list(self.catalog_client.list_entries(request=request))
-            self.report.report_catalog_api_call("list_entries", timer.elapsed_seconds())
-
-            for entry in entries:
-                logger.info(f"Listing entry {entry.name} from group {entry_group.name}")
-                logger.info(f"ListEntries payload: {entry}")
-                if self._report_and_should_process_entry(entry):
-                    entry_names.append(entry.name)
-                else:
-                    logger.debug(
-                        "Skipping entry stub for filtered entry %s from group %s",
-                        entry.name,
-                        entry_group.name,
+                for entry in self.catalog_client.list_entries(request=request):
+                    logger.info(
+                        f"Listing entry {entry.name} from group {entry_group.name}"
                     )
+                    logger.info(f"ListEntries payload: {entry}")
+                    if self._report_and_should_process_entry(entry):
+                        entry_names.append(entry.name)
+                    else:
+                        logger.debug(
+                            "Skipping entry stub for filtered entry %s from group %s",
+                            entry.name,
+                            entry_group.name,
+                        )
+            self.report.report_catalog_api_call("list_entries", timer.elapsed_seconds())
         return entry_names
 
     def _fetch_entry_detail(self, entry_name: str) -> dataplex_v1.Entry:
@@ -347,9 +347,25 @@ class DataplexEntriesProcessor:
         )
         try:
             with PerfTimer() as timer:
-                search_results = list(
-                    self.catalog_client.search_entries(request=request)
-                )
+                for result in self.catalog_client.search_entries(request=request):
+                    logger.info(f"SearchEntries result payload: {result}")
+                    dataplex_entry = getattr(result, "dataplex_entry", None)
+                    if dataplex_entry is None:
+                        continue
+                    if not self._report_and_should_process_entry(dataplex_entry):
+                        logger.debug(
+                            "Skipping filtered spanner entry %s from search_entries",
+                            dataplex_entry.name,
+                        )
+                        continue
+                    try:
+                        detailed_entry = self._fetch_entry_detail(dataplex_entry.name)
+                    except Exception as exc:
+                        logger.warning(
+                            f"Failed to fetch detail for Spanner entry {dataplex_entry.name}: {exc}"
+                        )
+                        continue
+                    yield from self._build_entities_for_entry(detailed_entry, location)
             self.report.report_catalog_api_call(
                 "search_entries", timer.elapsed_seconds()
             )
@@ -358,26 +374,6 @@ class DataplexEntriesProcessor:
                 f"Spanner workaround search failed for {project_id}/{location}: {exc}"
             )
             return
-
-        for result in search_results:
-            logger.info(f"SearchEntries result payload: {result}")
-            dataplex_entry = getattr(result, "dataplex_entry", None)
-            if dataplex_entry is None:
-                continue
-            if not self._report_and_should_process_entry(dataplex_entry):
-                logger.debug(
-                    "Skipping filtered spanner entry %s from search_entries",
-                    dataplex_entry.name,
-                )
-                continue
-            try:
-                detailed_entry = self._fetch_entry_detail(dataplex_entry.name)
-            except Exception as exc:
-                logger.warning(
-                    f"Failed to fetch detail for Spanner entry {dataplex_entry.name}: {exc}"
-                )
-                continue
-            yield from self._build_entities_for_entry(detailed_entry, location)
 
     def _track_entry_for_lineage(
         self, dataplex_location: str, entry: dataplex_v1.Entry

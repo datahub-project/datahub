@@ -1,5 +1,6 @@
 import { Spin } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
 import {
     ErrorContainer,
@@ -46,6 +47,7 @@ export const LoadedVideo: React.FC<LoadedVideoProps> = ({
     onVideoCanPlay,
     videoRef,
 }) => {
+    const { t } = useTranslation('alchemy');
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
     const internalVideoRef = useRef<HTMLVideoElement>(null);
@@ -96,7 +98,7 @@ export const LoadedVideo: React.FC<LoadedVideoProps> = ({
     }, [onVideoLoad, onVideoError, onVideoCanPlay, onVideoEnded, onVideoTimeUpdate, currentVideoRef]);
 
     if (hasError) {
-        return <ErrorContainer>Failed to load video</ErrorContainer>;
+        return <ErrorContainer>{t('loadedVideo.error')}</ErrorContainer>;
     }
 
     return (
@@ -136,8 +138,14 @@ export const LoadedVideo: React.FC<LoadedVideoProps> = ({
                     {webmSrc && <source src={webmSrc} type="video/webm" />}
                     <track kind="captions" />
                     <p>
-                        Your browser doesn&apos;t support HTML5 video. Here&apos;s a{' '}
-                        <a href={mp4Src}>link to the video</a> instead.
+                        <Trans
+                            t={t}
+                            i18nKey="loadedVideo.unsupportedFallback"
+                            components={{
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                anchor: <a href={mp4Src} />,
+                            }}
+                        />
                     </p>
                 </video>
             </VideoPlayerContainer>

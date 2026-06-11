@@ -15,6 +15,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub.sql_parsing.sqlglot_utils import (
     PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION,
     _sanitize_snowflake_ddl,
+    _sanitize_tsql_temp_tables,
     generalize_query,
     generalize_query_fast,
     get_dialect,
@@ -366,3 +367,55 @@ def test_snowflake_governance_ddl_lineage(sql: str, expected_in_tables: list) ->
     )
     assert result.debug_info.table_error is None, result.debug_info.table_error
     assert sorted(result.in_tables) == sorted(expected_in_tables)
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        # --- #<digit> temp names: must be bracketed so sqlglot stops lexing the
+        # leading digits as a NUMBER (otherwise the whole statement fails to parse) ---
+        (
+            "SELECT a INTO #63114Actual FROM real_src",
+            "SELECT a INTO [#63114Actual] FROM real_src",
+        ),
+        (
+            "SELECT a FROM #2025CourseCompletions",
+            "SELECT a FROM [#2025CourseCompletions]",
+        ),
+        # Global (##) temp table
+        ("SELECT a FROM ##2025Global", "SELECT a FROM [##2025Global]"),
+        # Bare #<digit>
+        ("DROP TABLE #1", "DROP TABLE [#1]"),
+        # --- Must NOT be modified ---
+        # Letter-leading temp names parse fine already
+        ("SELECT a FROM #temp", "SELECT a FROM #temp"),
+        # Already bracketed
+        ("SELECT a FROM [#63114Actual]", "SELECT a FROM [#63114Actual]"),
+        # #<digit> inside a string literal is data, not a table
+        ("SELECT '#123 order' AS c FROM t", "SELECT '#123 order' AS c FROM t"),
+        # #<digit> inside a line comment
+        ("SELECT a FROM t -- ticket #123\n", "SELECT a FROM t -- ticket #123\n"),
+        # #<digit> inside a block comment
+        ("SELECT a FROM t /* see #123 */", "SELECT a FROM t /* see #123 */"),
+        # No temp table at all
+        ("SELECT a FROM t WHERE id > 0", "SELECT a FROM t WHERE id > 0"),
+    ],
+)
+def test_sanitize_tsql_temp_tables(sql: str, expected: str) -> None:
+    assert _sanitize_tsql_temp_tables(sql) == expected
+
+
+def test_tsql_digit_leading_temp_table_lineage() -> None:
+    """A #<digit> temp-table target must not blow up parsing and lose the real source.
+
+    Without the sanitizer, sqlglot raises 'Expected table name but got NUMBER' and the
+    whole statement's lineage (including the real FROM source) is lost.
+    """
+    resolver = SchemaResolver(platform="mssql")
+    result = sqlglot_lineage(
+        "SELECT a, b INTO #63114Actual FROM mydb.dbo.real_src",
+        schema_resolver=resolver,
+        override_dialect="mssql",
+    )
+    assert result.debug_info.table_error is None, result.debug_info.table_error
+    assert any("real_src" in t for t in result.in_tables), result.in_tables

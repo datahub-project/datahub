@@ -496,7 +496,6 @@ mysql_common = sql_common | mysql | aws_common
 
 sac = {
     "requests<3.0.0",
-    "pyodata>=1.11.1,<2.0.0",
     # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
     "Authlib>=1.6.11,<2.0.0",
 }
@@ -705,6 +704,7 @@ plugins: Dict[str, Set[str]] = {
         "tenacity>=8.0.1,<9.0.0",
         "kerberos>=1.3.0,<2.0.0",
     },
+    "hex": {"requests<3.0.0"} | sqlglot_lib,
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
     "informatica": {

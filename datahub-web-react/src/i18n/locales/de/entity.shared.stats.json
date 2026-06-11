@@ -1,0 +1,13 @@
+{
+    "graph.empty": "Derzeit keine Statistiken für dieses Asset erfasst.",
+    "graph.rowCount_one": "{{formattedCount}} Zeile",
+    "graph.rowCount_other": "{{formattedCount}} Zeilen",
+    "graph.statName": "Zeilenanzahl",
+    "graph.title": "Zeilenanzahl",
+    "percentile.high": "Hoch",
+    "percentile.low": "Niedrig",
+    "percentile.med": "Mittel",
+    "upstream.directUpstreams": "Direkte Upstreams",
+    "upstream.indirectUpstreams": "Indirekte Upstreams",
+    "upstream.unhealthy": "Einige Upstreams sind nicht gesund"
+}

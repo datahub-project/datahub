@@ -6,6 +6,7 @@ import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import { X } from '@phosphor-icons/react/dist/csr/X';
+import i18next from 'i18next';
 import React from 'react';
 
 import {
@@ -64,19 +65,20 @@ export const getExecutionRequestStatusIcon = (status: string): React.ComponentTy
 
 export const getExecutionRequestStatusDisplayText = (status: string) => {
     return (
-        (status === EXECUTION_REQUEST_STATUS_RUNNING && 'Running') ||
-        (status === EXECUTION_REQUEST_STATUS_SUCCESS && 'Success') ||
-        (status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS && 'Success') ||
-        (status === EXECUTION_REQUEST_STATUS_FAILURE && 'Failed') ||
-        (status === EXECUTION_REQUEST_STATUS_CANCELLED && 'Cancelled') ||
-        (status === EXECUTION_REQUEST_STATUS_UP_FOR_RETRY && 'Up for Retry') ||
-        (status === EXECUTION_REQUEST_STATUS_ROLLED_BACK && 'Rolled Back') ||
-        (status === EXECUTION_REQUEST_STATUS_ROLLING_BACK && 'Rolling Back') ||
-        (status === EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED && 'Rollback Failed') ||
-        (status === EXECUTION_REQUEST_STATUS_ABORTED && 'Aborted') ||
-        (status === EXECUTION_REQUEST_STATUS_DUPLICATE && 'Duplicate') ||
-        (status === EXECUTION_REQUEST_STATUS_PENDING && 'Pending') ||
-        (status === EXECUTION_REQUEST_STATUS_LOADING && 'Loading') ||
+        (status === EXECUTION_REQUEST_STATUS_RUNNING && i18next.t('ingestion:status.running')) ||
+        (status === EXECUTION_REQUEST_STATUS_SUCCESS && i18next.t('ingestion:status.success')) ||
+        (status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS && i18next.t('ingestion:status.success')) ||
+        (status === EXECUTION_REQUEST_STATUS_FAILURE && i18next.t('ingestion:status.failed')) ||
+        (status === EXECUTION_REQUEST_STATUS_CANCELLED && i18next.t('ingestion:status.cancelled')) ||
+        (status === EXECUTION_REQUEST_STATUS_UP_FOR_RETRY && i18next.t('ingestion:status.upForRetry')) ||
+        (status === EXECUTION_REQUEST_STATUS_ROLLED_BACK && i18next.t('ingestion:status.rolledBack')) ||
+        (status === EXECUTION_REQUEST_STATUS_ROLLING_BACK && i18next.t('ingestion:status.rollingBack')) ||
+        (status === EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED && i18next.t('ingestion:status.rollbackFailed')) ||
+        (status === EXECUTION_REQUEST_STATUS_ABORTED && i18next.t('ingestion:status.aborted')) ||
+        (status === EXECUTION_REQUEST_STATUS_DUPLICATE && i18next.t('ingestion:status.duplicate')) ||
+        (status === EXECUTION_REQUEST_STATUS_PENDING && i18next.t('ingestion:status.pending')) ||
+        (status === EXECUTION_REQUEST_STATUS_LOADING && i18next.t('ingestion:status.loading')) ||
+        /* untranslated-text -- raw status enum fallback */
         status
     );
 };
@@ -102,24 +104,24 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
 export const getExecutionRequestSummaryText = (status: string) => {
     switch (status) {
         case EXECUTION_REQUEST_STATUS_RUNNING:
-            return 'Ingestion is running...';
+            return i18next.t('ingestion:executions.summaryRunning');
         case EXECUTION_REQUEST_STATUS_SUCCESS:
-            return 'Ingestion completed with no errors or warnings.';
+            return i18next.t('ingestion:executions.summarySuccess');
         case EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS:
-            return 'Ingestion completed with some warnings.';
+            return i18next.t('ingestion:executions.summarySucceededWithWarnings');
         case EXECUTION_REQUEST_STATUS_FAILURE:
-            return 'Ingestion failed to complete, or completed with errors.';
+            return i18next.t('ingestion:executions.summaryFailure');
         case EXECUTION_REQUEST_STATUS_CANCELLED:
-            return 'Ingestion was cancelled.';
+            return i18next.t('ingestion:executions.summaryCancelled');
         case EXECUTION_REQUEST_STATUS_ROLLED_BACK:
-            return 'Ingestion was rolled back.';
+            return i18next.t('ingestion:executions.summaryRolledBack');
         case EXECUTION_REQUEST_STATUS_ROLLING_BACK:
-            return 'Ingestion is in the process of rolling back.';
+            return i18next.t('ingestion:executions.summaryRollingBack');
         case EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED:
-            return 'Ingestion rollback failed.';
+            return i18next.t('ingestion:executions.summaryRollbackFailed');
         case EXECUTION_REQUEST_STATUS_ABORTED:
-            return 'Ingestion job got aborted due to worker restart.';
+            return i18next.t('ingestion:executions.summaryAborted');
         default:
-            return 'Ingestion status not recognized.';
+            return i18next.t('ingestion:executions.summaryUnknown');
     }
 };

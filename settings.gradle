@@ -5,6 +5,8 @@ pluginManagement {
   }
 }
 
+apply from: 'gradle/validation/url-validation.gradle'
+
 // Resolve Maven repository URLs: legacy single-word properties take precedence for backward
 // compatibility, then the new namespaced properties (whose defaults live in gradle.properties).
 // Stored in gradle.ext so they're available to buildSrc's buildscript phase, which runs before root
@@ -21,6 +23,19 @@ def apkRepoUrl      = getProperty('datahub.dependencies.apkrepo.url')
 def githubBaseUrl    = hasProperty('githubMirrorUrl')    ? getProperty('githubMirrorUrl')    : getProperty('datahub.dependencies.github.baseURL')
 def pipMirrorUrl     = hasProperty('pipMirrorUrl')       ? getProperty('pipMirrorUrl')       : getProperty('datahub.dependencies.python.pipMirrorUrl')
 def pipExtraIndexUrl = hasProperty('pipExtraIndexUrls')  ? getProperty('pipExtraIndexUrls')  : getProperty('datahub.dependencies.python.pipExtraIndexUrl')
+def uvProfile        = getProperty('datahub.dependencies.python.uvProfile')
+
+// Validate all URL overrides before storing — catches typos and blocks non-http(s) values.
+def validate  = gradle.ext.validateUrl
+def validateMultiple = gradle.ext.validateUrls
+validate(mavenCentralUrl)
+validate(confluentUrl)
+validate(linkedinUrl)
+validate(nodeDistUrl)
+validate(apkRepoUrl)
+validate(githubBaseUrl)
+validate(pipMirrorUrl)
+validateMultiple(pipExtraIndexUrl)
 
 gradle.ext['datahub.dependencies.maven.central']              = mavenCentralUrl
 gradle.ext['datahub.dependencies.maven.confluent']            = confluentUrl
@@ -30,6 +45,7 @@ gradle.ext['datahub.dependencies.apkrepo.url']                = apkRepoUrl
 gradle.ext['datahub.dependencies.github.baseURL']             = githubBaseUrl
 gradle.ext['datahub.dependencies.python.pipMirrorUrl']        = pipMirrorUrl
 gradle.ext['datahub.dependencies.python.pipExtraIndexUrl']    = pipExtraIndexUrl
+gradle.ext['datahub.dependencies.python.uvProfile']           = uvProfile
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
@@ -112,6 +128,7 @@ include 'metadata-integration:java:examples'
 include 'mock-entity-registry'
 include 'metadata-service:services'
 include 'metadata-service:configuration'
+include 'metadata-service:rate-limit'
 include ':metadata-jobs:common'
 include ':metadata-operation-context'
 include ':metadata-service:openapi-servlet:models'
@@ -144,7 +161,13 @@ buildCache {
 def installPreCommitHooks() {
     if (System.getenv("CI") == "true") {
         println("Skipping pre-commit hooks in CI")
-        return 
+        return
+    }
+    // In a git worktree, .git is a file (not a directory) pointing to the main repo's worktrees dir.
+    // Pre-commit hooks only need to be installed once in the main worktree.
+    if (new File(rootDir, ".git").isFile()) {
+        println("Skipping pre-commit hooks in git worktree")
+        return
     }
     def preCommitInstalled = false
     try {

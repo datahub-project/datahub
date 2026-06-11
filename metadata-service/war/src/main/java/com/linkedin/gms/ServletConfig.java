@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.linkedin.metadata.config.GMSConfiguration;
+import com.linkedin.metadata.ratelimit.RateLimitFilter;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.server.RestliHandlerServlet;
@@ -93,6 +94,17 @@ public class ServletConfig implements WebMvcConfigurer {
     // Register filter for all paths - exclusions are handled by shouldNotFilter()
     registration.addUrlPatterns("/*");
 
+    return registration;
+  }
+
+  @Bean
+  public FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(
+      RateLimitFilter filter) {
+    FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>();
+    registration.setFilter(filter);
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
+    registration.setAsyncSupported(true);
+    registration.addUrlPatterns("/*");
     return registration;
   }
 
