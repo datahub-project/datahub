@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.entity;
 
+import static com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesFields.*;
 import static com.linkedin.metadata.Constants.WILDCARD_URN;
 import static com.linkedin.metadata.authorization.ApiGroup.LINEAGE;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
@@ -115,7 +116,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     final EntityPrivileges result = new EntityPrivileges();
     computeIfSelected(
         selected,
-        "canManageEntity",
+        CAN_MANAGE_ENTITY,
         () -> BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context),
         result::setCanManageEntity);
     addCommonPrivileges(result, urn, context, selected);
@@ -126,7 +127,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
       Urn termUrn, QueryContext context, Set<String> selected) {
     final EntityPrivileges result = new EntityPrivileges();
     addCommonPrivileges(result, termUrn, context, selected);
-    if (selected.contains("canManageEntity")) {
+    if (selected.contains(CAN_MANAGE_ENTITY)) {
       result.setCanManageEntity(computeTermCanManageEntity(termUrn, context));
     }
     return result;
@@ -146,8 +147,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     final EntityPrivileges result = new EntityPrivileges();
     addCommonPrivileges(result, nodeUrn, context, selected);
 
-    final boolean needChildren = selected.contains("canManageChildren");
-    final boolean needEntity = selected.contains("canManageEntity");
+    final boolean needChildren = selected.contains(CAN_MANAGE_CHILDREN);
+    final boolean needEntity = selected.contains(CAN_MANAGE_ENTITY);
     if (!needChildren && !needEntity) {
       return result;
     }
@@ -185,45 +186,45 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     final EntityPrivileges result = new EntityPrivileges();
     computeIfSelected(
         selected,
-        "canEditEmbed",
+        CAN_EDIT_EMBED,
         () -> EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context),
         result::setCanEditEmbed);
     computeIfSelected(
         selected,
-        "canEditQueries",
+        CAN_EDIT_QUERIES,
         () -> AuthorizationUtils.canCreateQuery(ImmutableList.of(urn), context),
         result::setCanEditQueries);
     // Schema Field Edits are a bit of a hack.
     computeIfSelected(
         selected,
-        "canEditSchemaFieldTags",
+        CAN_EDIT_SCHEMA_FIELD_TAGS,
         () ->
             LabelUtils.isAuthorizedToUpdateTags(
                 context, urn, "ignored", Collections.singleton(WILDCARD_URN)),
         result::setCanEditSchemaFieldTags);
     computeIfSelected(
         selected,
-        "canEditSchemaFieldGlossaryTerms",
+        CAN_EDIT_SCHEMA_FIELD_GLOSSARY_TERMS,
         () -> LabelUtils.isAuthorizedToUpdateTerms(context, urn, "ignored"),
         result::setCanEditSchemaFieldGlossaryTerms);
     computeIfSelected(
         selected,
-        "canEditSchemaFieldDescription",
+        CAN_EDIT_SCHEMA_FIELD_DESCRIPTION,
         () -> DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, urn),
         result::setCanEditSchemaFieldDescription);
     computeIfSelected(
         selected,
-        "canViewDatasetUsage",
+        CAN_VIEW_DATASET_USAGE,
         () -> AuthorizationUtils.isViewDatasetUsageAuthorized(context, urn),
         result::setCanViewDatasetUsage);
     computeIfSelected(
         selected,
-        "canViewDatasetProfile",
+        CAN_VIEW_DATASET_PROFILE,
         () -> AuthorizationUtils.isViewDatasetProfileAuthorized(context, urn),
         result::setCanViewDatasetProfile);
     computeIfSelected(
         selected,
-        "canViewDatasetOperations",
+        CAN_VIEW_DATASET_OPERATIONS,
         () -> AuthorizationUtils.isViewDatasetOperationsAuthorized(context, urn),
         result::setCanViewDatasetOperations);
     addCommonPrivileges(result, urn, context, selected);
@@ -234,7 +235,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     final EntityPrivileges result = new EntityPrivileges();
     computeIfSelected(
         selected,
-        "canEditEmbed",
+        CAN_EDIT_EMBED,
         () -> EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context),
         result::setCanEditEmbed);
     addCommonPrivileges(result, urn, context, selected);
@@ -246,7 +247,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     final EntityPrivileges result = new EntityPrivileges();
     computeIfSelected(
         selected,
-        "canEditEmbed",
+        CAN_EDIT_EMBED,
         () -> EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context),
         result::setCanEditEmbed);
     addCommonPrivileges(result, urn, context, selected);
@@ -267,7 +268,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     // Document-specific: canManageEntity includes ability to delete/move documents
     computeIfSelected(
         selected,
-        "canManageEntity",
+        CAN_MANAGE_ENTITY,
         () -> AuthorizationUtils.canEditDocument(urn, context),
         result::setCanManageEntity);
     return result;
@@ -280,74 +281,74 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
       @Nonnull Set<String> selected) {
     computeIfSelected(
         selected,
-        "canEditLineage",
+        CAN_EDIT_LINEAGE,
         () -> canEditEntityLineage(urn, context),
         result::setCanEditLineage);
     computeIfSelected(
         selected,
-        "canEditProperties",
+        CAN_EDIT_PROPERTIES,
         () -> AuthorizationUtils.canEditProperties(urn, context),
         result::setCanEditProperties);
     computeIfSelected(
         selected,
-        "canEditAssertions",
+        CAN_EDIT_ASSERTIONS,
         () -> AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, urn),
         result::setCanEditAssertions);
     computeIfSelected(
         selected,
-        "canEditAssertionOwners",
+        CAN_EDIT_ASSERTION_OWNERS,
         () -> OwnerUtils.isAuthorizedToUpdateAssertionOwnersOnEntity(context, urn),
         result::setCanEditAssertionOwners);
     computeIfSelected(
         selected,
-        "canEditIncidents",
+        CAN_EDIT_INCIDENTS,
         () -> IncidentUtils.isAuthorizedToEditIncidentForResource(urn, context),
         result::setCanEditIncidents);
     computeIfSelected(
         selected,
-        "canEditDomains",
+        CAN_EDIT_DOMAINS,
         () -> DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, urn, _entityClient),
         result::setCanEditDomains);
     computeIfSelected(
         selected,
-        "canEditDataProducts",
+        CAN_EDIT_DATA_PRODUCTS,
         () -> DataProductAuthorizationUtils.isAuthorizedToUpdateDataProductsForEntity(context, urn),
         result::setCanEditDataProducts);
     computeIfSelected(
         selected,
-        "canEditDeprecation",
+        CAN_EDIT_DEPRECATION,
         () -> DeprecationUtils.isAuthorizedToUpdateDeprecationForEntity(context, urn),
         result::setCanEditDeprecation);
     computeIfSelected(
         selected,
-        "canEditGlossaryTerms",
+        CAN_EDIT_GLOSSARY_TERMS,
         () -> LabelUtils.isAuthorizedToUpdateTerms(context, urn, null),
         result::setCanEditGlossaryTerms);
     computeIfSelected(
         selected,
-        "canEditTags",
+        CAN_EDIT_TAGS,
         () ->
             LabelUtils.isAuthorizedToUpdateTags(
                 context, urn, null, Collections.singleton(WILDCARD_URN)),
         result::setCanEditTags);
     computeIfSelected(
         selected,
-        "canEditOwners",
+        CAN_EDIT_OWNERS,
         () -> OwnerUtils.isAuthorizedToUpdateOwners(context, urn),
         result::setCanEditOwners);
     computeIfSelected(
         selected,
-        "canEditDescription",
+        CAN_EDIT_DESCRIPTION,
         () -> DescriptionUtils.isAuthorizedToUpdateDescription(context, urn),
         result::setCanEditDescription);
     computeIfSelected(
         selected,
-        "canEditLinks",
+        CAN_EDIT_LINKS,
         () -> LinkUtils.isAuthorizedToUpdateLinks(context, urn),
         result::setCanEditLinks);
     computeIfSelected(
         selected,
-        "canManageAssetSummary",
+        CAN_MANAGE_ASSET_SUMMARY,
         () -> AuthorizationUtils.canManageAssetSummary(context, urn),
         result::setCanManageAssetSummary);
   }
