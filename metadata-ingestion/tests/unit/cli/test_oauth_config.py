@@ -92,6 +92,30 @@ class TestWriteOAuthConfig:
         assert "refresh_token" not in data["oauth"]
         assert "token_expiry" not in data["oauth"]
 
+    def test_stores_token_endpoint_when_provided(self, config_path: Path) -> None:
+        write_oauth_config(
+            host="https://example.datahub.io/gms",
+            access_token="at-123",
+            client_id="dcr-client-1",
+            refresh_token="rt-456",
+            token_endpoint="https://example.datahub.io/auth/oauth2/token",
+        )
+        data = yaml.safe_load(config_path.read_text())
+        assert (
+            data["oauth"]["token_endpoint"]
+            == "https://example.datahub.io/auth/oauth2/token"
+        )
+
+    def test_omits_token_endpoint_when_not_provided(self, config_path: Path) -> None:
+        write_oauth_config(
+            host="https://example.datahub.io/gms",
+            access_token="at-123",
+            client_id="dcr-client-1",
+            refresh_token="rt-456",
+        )
+        data = yaml.safe_load(config_path.read_text())
+        assert "token_endpoint" not in data["oauth"]
+
 
 # ---------------------------------------------------------------------------
 # OAuthSessionConfig
@@ -106,6 +130,22 @@ class TestOAuthSessionConfig:
     def test_optional_fields_default_to_none(self) -> None:
         cfg = OAuthSessionConfig(client_id="abc")
         assert cfg.refresh_token is None
+        assert cfg.token_endpoint is None
+
+    def test_token_endpoint_stored(self) -> None:
+        cfg = OAuthSessionConfig(
+            client_id="abc",
+            token_endpoint="https://example.datahub.io/auth/oauth2/token",
+        )
+        assert cfg.token_endpoint == "https://example.datahub.io/auth/oauth2/token"
+
+    def test_model_dump_excludes_none_fields(self) -> None:
+        cfg = OAuthSessionConfig(
+            client_id="abc", refresh_token=None, token_endpoint=None
+        )
+        dumped = cfg.model_dump(exclude_none=True)
+        assert "refresh_token" not in dumped
+        assert "token_endpoint" not in dumped
 
 
 # ---------------------------------------------------------------------------
@@ -246,6 +286,38 @@ class TestRefreshOAuthTokenIfNeeded:
             refresh_oauth_token_if_needed()
         data = yaml.safe_load(config_path.read_text())
         assert data["oauth"]["refresh_token"] == "rt-original"
+
+    def test_uses_stored_token_endpoint_for_refresh(self, config_path: Path) -> None:
+        """When token_endpoint is stored in the config, it should be used for refresh."""
+        jwt = _make_jwt(30)
+        data = {
+            "gms": {"server": "https://example.datahub.io/gms", "token": jwt},
+            "oauth": {
+                "client_id": "dcr-client",
+                "refresh_token": "rt-123",
+                "token_endpoint": "https://example.datahub.io/auth/oauth2/token",
+            },
+        }
+        with open(config_path, "w") as f:
+            yaml.dump(data, f)
+        with patch(
+            "requests.post", return_value=self._mock_token_refresh("at-new")
+        ) as mock_post:
+            refresh_oauth_token_if_needed()
+        called_url = mock_post.call_args[0][0]
+        assert called_url == "https://example.datahub.io/auth/oauth2/token"
+
+    def test_falls_back_to_conventional_endpoint_when_not_stored(
+        self, config_path: Path
+    ) -> None:
+        """When token_endpoint is absent, fall back to the /auth/oauth2/token convention."""
+        self._write_config(config_path, exp_seconds_from_now=30)
+        with patch(
+            "requests.post", return_value=self._mock_token_refresh("at-new")
+        ) as mock_post:
+            refresh_oauth_token_if_needed()
+        called_url = mock_post.call_args[0][0]
+        assert called_url == "https://example.datahub.io/gms/auth/oauth2/token"
 
     def test_cleans_up_legacy_token_expiry_field_on_refresh(
         self, config_path: Path

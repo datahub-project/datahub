@@ -459,3 +459,87 @@ class TestPkceLogin:
             with pytest.raises(click.ClickException) as exc_info:
                 pkce_login("https://example.datahub.io/gms", timeout_seconds=1)
         assert "timed out" in exc_info.value.format_message()
+
+    def test_state_mismatch_raises_csrf_error(self) -> None:
+        """If the callback returns a different state, pkce_login must raise."""
+        import urllib.request
+
+        import click
+
+        def _bad_state_callback(url: str) -> None:
+            from urllib.parse import parse_qs, urlparse
+
+            params = parse_qs(urlparse(url).query)
+            redirect_uri = params["redirect_uri"][0]
+            # Inject wrong state — simulates a CSRF attempt
+            bad_callback = redirect_uri + "?code=evil-code&state=WRONG"
+            import time
+
+            time.sleep(0.05)
+            try:
+                urllib.request.urlopen(bad_callback, timeout=5)
+            except Exception:
+                pass
+
+        with (
+            patch("requests.get", return_value=_mock_response(200, _DISCOVERY_DOC)),
+            patch(
+                "requests.post",
+                side_effect=[
+                    _mock_response(201, {"client_id": "c"}),
+                    self._token_response(),
+                ],
+            ),
+            patch("webbrowser.open", side_effect=_bad_state_callback),
+        ):
+            with pytest.raises(click.ClickException) as exc_info:
+                pkce_login("https://example.datahub.io/gms", timeout_seconds=5)
+        assert "state mismatch" in exc_info.value.format_message().lower()
+
+    def test_token_endpoint_stored_in_result(self) -> None:
+        result = self._run_pkce_login()
+        assert result.token_endpoint == _DISCOVERY_DOC["token_endpoint"]
+
+
+# ---------------------------------------------------------------------------
+# _validate_endpoint_origin
+# ---------------------------------------------------------------------------
+
+
+class TestValidateEndpointOrigin:
+    def test_same_origin_passes(self) -> None:
+        from datahub.cli.oauth_cli import _validate_endpoint_origin
+
+        # Should not raise
+        _validate_endpoint_origin(
+            "https://example.datahub.io/auth/oauth2/token",
+            "https://example.datahub.io/gms",
+            "token_endpoint",
+        )
+
+    def test_different_netloc_raises(self) -> None:
+        import click
+
+        from datahub.cli.oauth_cli import _validate_endpoint_origin
+
+        with pytest.raises(click.ClickException) as exc_info:
+            _validate_endpoint_origin(
+                "https://attacker.example.com/steal-token",
+                "https://example.datahub.io/gms",
+                "token_endpoint",
+            )
+        msg = exc_info.value.format_message()
+        assert "different origin" in msg
+        assert "attacker.example.com" in msg
+
+    def test_discovery_doc_with_foreign_endpoint_raises(self) -> None:
+        import click
+
+        bad_doc = {
+            **_DISCOVERY_DOC,
+            "token_endpoint": "https://attacker.example.com/token",
+        }
+        with patch("requests.get", return_value=_mock_response(200, bad_doc)):
+            with pytest.raises(click.ClickException) as exc_info:
+                _discover_oauth_server("https://example.datahub.io/gms")
+        assert "different origin" in exc_info.value.format_message()

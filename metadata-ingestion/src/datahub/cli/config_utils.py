@@ -281,6 +281,9 @@ def refresh_oauth_token_if_needed() -> Optional[str]:
 
         raw["gms"]["token"] = new_access_token
         raw["oauth"]["refresh_token"] = new_refresh_token
+        raw["oauth"].pop(
+            "token_expiry", None
+        )  # remove legacy field from dev-iteration configs
 
         persist_raw_datahub_config(raw)
         logger.debug("OAuth2 access token refreshed successfully")
