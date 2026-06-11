@@ -176,6 +176,8 @@ public class MCLBatchKafkaListener
   }
 
   /** Process a batch of MCLs with all registered hooks. */
+  // TODO(opcontext-batch-followup): Refactor to make each event use its own OperationContext for
+  // isolation
   private void processBatchWithHooks(List<MetadataChangeLog> mcls, String topicName) {
     systemOperationContext.withQueueSpan(
         "consume",
@@ -195,7 +197,7 @@ public class MCLBatchKafkaListener
                   try {
                     // Always call invokeBatch - hooks that don't support batch processing
                     // will fall back to individual processing via the default implementation
-                    hook.invokeBatch(mcls);
+                    hook.invokeBatch(systemOperationContext, mcls);
 
                     // Update metrics
                     systemOperationContext

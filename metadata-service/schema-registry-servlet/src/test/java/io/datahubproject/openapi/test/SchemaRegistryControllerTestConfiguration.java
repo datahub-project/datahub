@@ -10,7 +10,12 @@ import org.springframework.test.context.TestPropertySource;
 
 @TestConfiguration
 @TestPropertySource(value = "classpath:/application.properties")
-@ComponentScan(basePackages = {"com.linkedin.gms.factory.kafka", "com.linkedin.gms.factory.config"})
+@ComponentScan(
+    basePackages = {
+      "com.linkedin.gms.factory.kafka",
+      "com.linkedin.gms.factory.config",
+      "com.linkedin.metadata.dao.producer.context.outbound"
+    })
 public class SchemaRegistryControllerTestConfiguration {
 
   @Bean
