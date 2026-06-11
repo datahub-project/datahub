@@ -124,6 +124,10 @@ class DuckDBProfiler:
         # Escape single quotes so the path is safe inside a DuckDB SQL string.
         return template.format(path=path.replace("'", "''"))
 
+    def _estimate_row_count(self, conn: sa.engine.Connection, reader: str) -> int:
+        result = conn.execute(sa.text(f"SELECT COUNT(*) FROM {reader}")).scalar()
+        return int(result) if result is not None else 0
+
     def get_table_profile(
         self, table_data: object, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
@@ -144,14 +148,40 @@ class DuckDBProfiler:
         # Fresh report per call so warnings from a previous table don't
         # get re-forwarded on subsequent calls.
         profiler_report = SQLSourceReport()
+        row_estimate: Optional[int] = None
         try:
             reader = self._reader_expr(path, ext)
             with engine.begin() as conn:
                 if self._is_remote(path):
                     self._ensure_remote_setup(conn)
-                conn.execute(
-                    sa.text(f"CREATE OR REPLACE VIEW {view} AS SELECT * FROM {reader}")
-                )
+                limit = self.profiling_config.profile_table_row_limit
+                if self.profiling_config.use_sampling and limit:
+                    count = self._estimate_row_count(conn, reader)
+                    if count > limit:
+                        row_estimate = count
+                        sample = self.profiling_config.sample_size
+                        conn.execute(
+                            sa.text(
+                                f"CREATE OR REPLACE VIEW {view} AS "
+                                f"SELECT * FROM {reader} USING SAMPLE {int(sample)} ROWS"
+                            )
+                        )
+                        self.report.report_warning(
+                            f"Table exceeds profile_table_row_limit ({limit}); profiled a sample of {sample} rows.",
+                            context=dataset_urn,
+                        )
+                    else:
+                        conn.execute(
+                            sa.text(
+                                f"CREATE OR REPLACE VIEW {view} AS SELECT * FROM {reader}"
+                            )
+                        )
+                else:
+                    conn.execute(
+                        sa.text(
+                            f"CREATE OR REPLACE VIEW {view} AS SELECT * FROM {reader}"
+                        )
+                    )
             # engine.begin() auto-commits on __exit__; the view is now persisted
             # in the on-disk database and visible to any subsequent connection.
 
@@ -169,6 +199,8 @@ class DuckDBProfiler:
                 [request], max_workers=1, platform="duckdb"
             ):
                 if profile is not None:
+                    if row_estimate is not None:
+                        profile.rowCount = row_estimate
                     yield MetadataChangeProposalWrapper(
                         entityUrn=dataset_urn, aspect=profile
                     ).as_workunit()

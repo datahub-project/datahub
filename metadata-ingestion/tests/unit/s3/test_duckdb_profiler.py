@@ -147,6 +147,44 @@ def test_path_and_ext_non_partitioned_returns_full_path(tmp_path):
     assert path == full_path
 
 
+def _sampling_config(**kw) -> GEProfilingConfig:
+    return GEProfilingConfig(enabled=True, **kw)
+
+
+def test_large_table_is_sampled_but_reports_true_rowcount(tmp_path):
+    parquet = _make_parquet(str(tmp_path))  # 3-row parquet
+    cfg = _sampling_config(use_sampling=True, sample_size=2, profile_table_row_limit=2)
+    profiler = DuckDBProfiler(
+        aws_config=None, report=DataLakeSourceReport(), profiling_config=cfg
+    )
+    profile = _extract_profile(
+        profiler.get_table_profile(
+            _table_data(parquet), "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"
+        )
+    )
+    profiler.close()
+    assert profile is not None
+    # 3 rows > row limit 2 and use_sampling -> sampled, but rowCount reports the true 3.
+    assert profile.rowCount == 3
+
+
+def test_small_table_not_sampled(tmp_path):
+    parquet = _make_parquet(str(tmp_path))  # 3 rows
+    cfg = _sampling_config(
+        use_sampling=True, sample_size=2, profile_table_row_limit=1000
+    )
+    profiler = DuckDBProfiler(
+        aws_config=None, report=DataLakeSourceReport(), profiling_config=cfg
+    )
+    profile = _extract_profile(
+        profiler.get_table_profile(
+            _table_data(parquet), "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"
+        )
+    )
+    profiler.close()
+    assert profile.rowCount == 3  # full scan, all 3 rows
+
+
 def test_path_and_ext_empty_extension_falls_through(tmp_path):
     """For a file with no extension, _path_and_ext returns full_path (not a bad glob)."""
     full_path = str(tmp_path / "datafile")
