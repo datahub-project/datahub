@@ -50,8 +50,10 @@ def test_scope_circular_dependency() -> None:
 
 def test_lineage_node_subfield() -> None:
     expression = sqlglot.parse_one("SELECT 1 AS test")
-    node = sqlglot.lineage.Node("test", expression, expression, subfield="subfield")  # type: ignore
-    assert node.subfield == "subfield"  # type: ignore
+    node = sqlglot.lineage.Node(
+        "test", expression, expression, payload={"subfield": "subfield"}
+    )
+    assert node.payload["subfield"] == "subfield"
 
 
 def test_decorrelate_null_parent_predicate() -> None:
