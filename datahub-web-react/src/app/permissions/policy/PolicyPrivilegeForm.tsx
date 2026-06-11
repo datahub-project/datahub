@@ -179,8 +179,8 @@ export default function PolicyPrivilegeForm({
             buttonStyle="solid"
             onChange={(e) => onChangeCondition(field, e.target.value as PolicyMatchCondition)}
         >
-            <Radio.Button value={PolicyMatchCondition.Equals}>Include</Radio.Button>
-            <Radio.Button value={PolicyMatchCondition.NotEquals}>Exclude</Radio.Button>
+            <Radio.Button value={PolicyMatchCondition.Equals}>{t('includeOption')}</Radio.Button>
+            <Radio.Button value={PolicyMatchCondition.NotEquals}>{t('excludeOption')}</Radio.Button>
         </Radio.Group>
     );
 
@@ -576,7 +576,7 @@ export default function PolicyPrivilegeForm({
     return (
         <PrivilegesForm layout="vertical">
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Resource Type</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>{t('privilegeForm.resourceTypeLabel')}</Typography.Text>}>
                     <Typography.Paragraph>
                         <Trans t={t} i18nKey="privilegeForm.resourceTypeDescription" components={{ bold: <b /> }} />
                     </Typography.Paragraph>
@@ -586,7 +586,7 @@ export default function PolicyPrivilegeForm({
                             style={{ flex: 1 }}
                             value={resourceTypeSelectValue}
                             mode="multiple"
-                            placeholder="Apply to ALL resource types by default. Select types to apply to specific types of entities."
+                            placeholder={t('privilegeForm.resourceTypePlaceholder')}
                             onSelect={onSelectResourceType}
                             onDeselect={onDeselectResourceType}
                             tagRender={(tagProps) => (
@@ -617,11 +617,11 @@ export default function PolicyPrivilegeForm({
                         {conditionSelect(URN, resourceCondition)}
                         <Select
                             style={{ flex: 1 }}
-                            notFoundContent="No search results found"
+                            notFoundContent={t('privilegeForm.resourceNotFound')}
                             value={resourceSelectValue}
                             mode="multiple"
                             filterOption={false}
-                            placeholder="Apply to ALL resources by default. Select specific resources to apply to."
+                            placeholder={t('privilegeForm.resourcePlaceholder')}
                             onSelect={onSelectResource}
                             onDeselect={onDeselectResource}
                             onSearch={handleResourceSearch}
@@ -647,11 +647,8 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Select Tags</Typography.Text>}>
-                    <Typography.Paragraph>
-                        The policy will apply to all entities containing all of the chosen tags. If no tags are
-                        selected, the policy will not account for tags.
-                    </Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong>{t('privilegeForm.tagsLabel')}</Typography.Text>}>
+                    <Typography.Paragraph>{t('privilegeForm.tagsDescription')}</Typography.Paragraph>
                     <SelectRow>
                         {conditionSelect('TAG', tagCondition)}
                         <TagSelect
@@ -659,7 +656,9 @@ export default function PolicyPrivilegeForm({
                             mode="multiple"
                             ref={inputEl}
                             filterOption={false}
-                            placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
+                            placeholder={t('privilegeForm.tagSearchPlaceholder', {
+                                entityName: entityRegistry.getEntityName(type)?.toLowerCase(),
+                            })}
                             showSearch
                             defaultActiveFirstOption={false}
                             onSelect={(asset: any) => onSelectValue(asset)}
@@ -696,7 +695,7 @@ export default function PolicyPrivilegeForm({
                                     value={domainSelectValue}
                                     mode="multiple"
                                     filterOption={false}
-                                    placeholder="Apply to ALL domains by default. Select domains to apply to specific domains."
+                                    placeholder={t('privilegeForm.domainPlaceholder')}
                                     onSelect={(value) => onSelectDomain(value)}
                                     onDeselect={onDeselectDomain}
                                     onSearch={handleDomainSearch}
@@ -740,7 +739,7 @@ export default function PolicyPrivilegeForm({
                             value={containerSelectValue}
                             mode="multiple"
                             filterOption={false}
-                            placeholder="Apply to ALL containers by default. Select containers to apply to specific containers."
+                            placeholder={t('privilegeForm.containerPlaceholder')}
                             onSelect={(value) => onSelectContainer(value)}
                             onDeselect={onDeselectContainer}
                             onSearch={handleContainerSearch}

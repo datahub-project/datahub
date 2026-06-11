@@ -268,7 +268,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                     {policy?.actors?.excludedResourceOwnersTypes?.length ? (
                         <div style={{ marginTop: 8 }}>
                             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                                Excluded ownership types:{' '}
+                                {t('details.excludedOwnershipTypesLabel')}{' '}
                             </Typography.Text>
                             {policy.actors.excludedResourceOwnersTypes.map((urn) => (
                                 <Tag key={urn}>{ownershipTypesMap[urn] || urn}</Tag>
@@ -294,7 +294,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                 </div>
                 {policy?.actors?.excludedUsers?.length || policy?.actors?.excludedGroups?.length ? (
                     <div>
-                        <Typography.Title level={5}>Excluded Users & Groups</Typography.Title>
+                        <Typography.Title level={5}>{t('details.excludedUsersGroupsLabel')}</Typography.Title>
                         <ThinDivider />
                         <AvatarsGroup
                             users={policy?.actors?.resolvedExcludedUsers}

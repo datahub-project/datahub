@@ -69,6 +69,11 @@ const SelectRow = styled.div`
     align-items: center;
 `;
 
+const ALL_ACTORS_VALUE = 'All';
+
+const INCLUDE_CONDITION: Condition = 'include';
+const EXCLUDE_CONDITION: Condition = 'exclude';
+
 /**
  * Component used to construct the "actors" portion of a DataHub
  * access Policy by populating an ActorFilter object.
@@ -123,7 +128,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     };
 
     const onDeselectExcludedOwnershipType = (type: string) => {
-        const updated = actors.excludedResourceOwnersTypes?.filter((t) => t !== type);
+        const updated = actors.excludedResourceOwnersTypes?.filter((ot) => ot !== type);
         setActors({ ...actors, excludedResourceOwnersTypes: updated?.length ? updated : null });
     };
 
@@ -260,8 +265,8 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
             buttonStyle="solid"
             onChange={(e) => onChange(e.target.value as Condition)}
         >
-            <Radio.Button value="include">Include</Radio.Button>
-            <Radio.Button value="exclude">Exclude</Radio.Button>
+            <Radio.Button value={INCLUDE_CONDITION}>{t('includeOption')}</Radio.Button>
+            <Radio.Button value={EXCLUDE_CONDITION}>{t('excludeOption')}</Radio.Button>
         </Radio.Group>
     );
 
@@ -298,7 +303,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         if (value === 'All') {
             return (
                 <StyledTag closable={closable} onClose={handleClose} onMouseDown={onPreventMouseDown}>
-                    All Users
+                    {t('allUsers')}
                 </StyledTag>
             );
         }
@@ -322,7 +327,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         if (value === 'All') {
             return (
                 <StyledTag closable={closable} onClose={handleClose} onMouseDown={onPreventMouseDown}>
-                    All Groups
+                    {t('allGroups')}
                 </StyledTag>
             );
         }
@@ -353,13 +358,13 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     {actors.resourceOwners && (
                         <OwnershipWrapper>
                             <Form.Item
-                                label={<Typography.Text strong>Ownership Types</Typography.Text>}
+                                label={<Typography.Text strong>{t('actorForm.ownershipTypesLabel')}</Typography.Text>}
                                 style={{ marginBottom: 0 }}
                             >
                                 <Typography.Paragraph>
                                     {ownershipTypeCondition === 'include'
-                                        ? 'Ownership types that qualify for this policy. If empty, any ownership type matches.'
-                                        : 'Ownership types excluded from this policy. Owners whose type is listed here will not match.'}
+                                        ? t('actorForm.ownershipTypesDescription')
+                                        : t('actorForm.ownershipTypesExcludeDescription')}
                                 </Typography.Paragraph>
                                 <SelectRow>
                                     {conditionSelect(ownershipTypeCondition, setOwnershipTypeCondition)}
@@ -369,8 +374,8 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                                         mode="multiple"
                                         placeholder={
                                             ownershipTypeCondition === 'include'
-                                                ? 'Select ownership types...'
-                                                : 'Select ownership types to exclude...'
+                                                ? t('actorForm.ownershipTypesPlaceholder')
+                                                : t('actorForm.ownershipTypesExcludePlaceholder')
                                         }
                                         onSelect={(asset: any) =>
                                             ownershipTypeCondition === 'include'
@@ -404,11 +409,11 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     )}
                 </Form.Item>
             )}
-            <Form.Item label={<Typography.Text strong>Users & Service Accounts</Typography.Text>}>
+            <Form.Item label={<Typography.Text strong>{t('actorForm.usersLabel')}</Typography.Text>}>
                 <Typography.Paragraph>
                     {userCondition === 'include'
-                        ? 'Search for specific users or service accounts that this policy should apply to, or select `All Users` to apply it to all users.'
-                        : 'Search for users or service accounts that should be excluded from this policy, even if they match other criteria.'}
+                        ? t('actorForm.usersDescription')
+                        : t('actorForm.usersExcludeDescription')}
                 </Typography.Paragraph>
                 <SelectRow>
                     {conditionSelect(userCondition, setUserCondition)}
@@ -419,7 +424,9 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         mode="multiple"
                         filterOption={false}
                         placeholder={
-                            userCondition === 'include' ? 'Search for users...' : 'Search for users to exclude...'
+                            userCondition === 'include'
+                                ? t('actorForm.usersPlaceholder')
+                                : t('actorForm.usersExcludePlaceholder')
                         }
                         onSelect={(asset: any) =>
                             userCondition === 'include' ? onSelectUserActor(asset) : onSelectExcludedUserActor(asset)
@@ -435,15 +442,17 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         {userSearchResults?.map((result) => (
                             <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                         ))}
-                        {userCondition === 'include' && <Select.Option value="All">All Users</Select.Option>}
+                        {userCondition === 'include' && (
+                            <Select.Option value={ALL_ACTORS_VALUE}>{t('allUsers')}</Select.Option>
+                        )}
                     </Select>
                 </SelectRow>
             </Form.Item>
-            <Form.Item label={<Typography.Text strong>Groups</Typography.Text>}>
+            <Form.Item label={<Typography.Text strong>{t('groupsLabel')}</Typography.Text>}>
                 <Typography.Paragraph>
                     {groupCondition === 'include'
-                        ? 'Search for specific groups that this policy should apply to, or select `All Groups` to apply it to all groups.'
-                        : 'Search for groups that should be excluded from this policy, even if they match other criteria.'}
+                        ? t('actorForm.groupsDescription')
+                        : t('actorForm.groupsExcludeDescription')}
                 </Typography.Paragraph>
                 <SelectRow>
                     {conditionSelect(groupCondition, setGroupCondition)}
@@ -453,7 +462,9 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         value={groupsSelectUrns}
                         mode="multiple"
                         placeholder={
-                            groupCondition === 'include' ? 'Search for groups...' : 'Search for groups to exclude...'
+                            groupCondition === 'include'
+                                ? t('actorForm.groupsPlaceholder')
+                                : t('actorForm.groupsExcludePlaceholder')
                         }
                         onSelect={(asset: any) =>
                             groupCondition === 'include' ? onSelectGroupActor(asset) : onSelectExcludedGroupActor(asset)
@@ -470,7 +481,9 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         {groupSearchResults?.map((result) => (
                             <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                         ))}
-                        {groupCondition === 'include' && <Select.Option value="All">All Groups</Select.Option>}
+                        {groupCondition === 'include' && (
+                            <Select.Option value={ALL_ACTORS_VALUE}>{t('allGroups')}</Select.Option>
+                        )}
                     </Select>
                 </SelectRow>
             </Form.Item>
