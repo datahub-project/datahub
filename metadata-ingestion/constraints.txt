@@ -1158,8 +1158,6 @@ pure-sasl==0.6.2
     #   thrift-sasl
 py-partiql-parser==0.6.3
     # via moto
-py4j==0.10.9.9
-    # via pyspark
 pyarrow==18.0.0
     # via
     #   acryl-datahub
@@ -1264,8 +1262,6 @@ pyreadline3==3.5.4 ; sys_platform == 'win32'
     # via humanfriendly
 pyroaring==1.0.3
     # via pyiceberg
-pyspark==3.5.8
-    # via acryl-datahub
 pyspnego==0.12.1
     # via requests-ntlm
 pytest==9.0.3

@@ -1,12 +1,8 @@
-import json
 import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generic, Iterable, List, Optional, Set, TypeVar
-
-import pyspark
-from databricks.sdk.service.sql import QueryStatementType
+from typing import Callable, Dict, Generic, Iterable, List, Optional, Set, TypeVar
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
@@ -56,18 +52,6 @@ class UnityCatalogUsageExtractor:
 
     def __post_init__(self):
         self.usage_aggregator = UsageAggregator[TableReference](self.config)
-        self._spark_sql_parser: Optional[Any] = None
-
-    @property
-    def spark_sql_parser(self):
-        """Lazily initializes the Spark SQL parser."""
-        if self._spark_sql_parser is None:
-            spark_context = pyspark.SparkContext.getOrCreate()
-            spark_session = pyspark.sql.SparkSession(spark_context)
-            self._spark_sql_parser = (
-                spark_session._jsparkSession.sessionState().sqlParser()
-            )
-        return self._spark_sql_parser
 
     def get_usage_workunits(
         self, table_refs: Set[TableReference]
@@ -227,10 +211,6 @@ class UnityCatalogUsageExtractor:
     ) -> Optional[QueryTableInfo]:
         with self.report.usage_perf_report.sql_parsing_timer:
             table_info = self._parse_query_via_sqlglot(query.query_text)
-            if table_info is None and query.statement_type == QueryStatementType.SELECT:
-                with self.report.usage_perf_report.spark_sql_parsing_timer:
-                    table_info = self._parse_query_via_spark_sql_plan(query.query_text)
-
             if table_info is None:
                 self.report.num_queries_dropped_parse_failure += 1
                 return None
@@ -276,27 +256,6 @@ class UnityCatalogUsageExtractor:
             return full_table_name[len(default_schema) :]
         else:
             return full_table_name
-
-    def _parse_query_via_spark_sql_plan(self, query: str) -> Optional[StringTableInfo]:
-        """Parse query source tables via Spark SQL plan. This is a fallback option."""
-        # Would be more effective if we upgrade pyspark
-        # Does not work with CTEs or non-SELECT statements
-        try:
-            plan = json.loads(self.spark_sql_parser.parsePlan(query).toJSON())
-            tables = [self._parse_plan_item(item) for item in plan]
-            self.report.num_queries_parsed_by_spark_plan += 1
-            return GenericTableInfo(
-                source_tables=[t for t in tables if t], target_tables=[]
-            )
-        except Exception as e:
-            logger.info(f"Could not parse query via spark plan, {query}: {e!r}")
-            return None
-
-    @staticmethod
-    def _parse_plan_item(item: dict) -> Optional[str]:
-        if item["class"] == "org.apache.spark.sql.catalyst.analysis.UnresolvedRelation":
-            return ".".join(item["multipartIdentifier"].strip("[]").split(", "))
-        return None
 
     def _resolve_tables(
         self, tables: List[str], table_map: TableMap
