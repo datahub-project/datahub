@@ -73,3 +73,47 @@ def test_summarize_cache_miss_falls_back():
             ProfilingContext(pretty_name="t", table="t"), conn
         )
         assert adapter.get_column_min(ctx.sql_table, "num", conn) is not None
+
+
+def test_summarize_cache_is_populated_and_served():
+    """Proves setup_profiling populates _summary AND that the cache is served (not base SQL)."""
+    from unittest.mock import patch
+
+    from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+        PlatformAdapter,
+    )
+
+    eng = _engine()
+    with eng.begin() as conn:
+        conn.execute(
+            "CREATE TABLE t AS SELECT * FROM (VALUES (1,'a'),(2,'b'),(3,NULL),(4,'b'),(5,'a')) AS v(num, txt)"
+        )
+    with eng.connect() as conn:
+        adapter = DuckDBAdapter(ProfilingConfig(), SQLSourceReport(), eng)
+        ctx = adapter.setup_profiling(
+            ProfilingContext(pretty_name="t", table="t"), conn
+        )
+
+        # 1. Cache is populated with expected structure.
+        assert adapter._summary, "_summary must be non-empty after setup_profiling"
+        assert "num" in adapter._summary and "txt" in adapter._summary
+        assert adapter._row_count == 5
+        assert adapter._summary["num"]["approx_unique"] == 5
+        assert adapter._summary["txt"]["non_null"] == 4
+
+        # 2. Cache is served: if base SQL ran, the monkeypatched method would raise.
+        table = ctx.sql_table
+        with patch.object(
+            PlatformAdapter, "get_column_min", side_effect=RuntimeError("base called")
+        ):
+            assert adapter.get_column_min(table, "num", conn) is not None
+        with patch.object(
+            PlatformAdapter,
+            "get_column_non_null_count",
+            side_effect=RuntimeError("base called"),
+        ):
+            assert adapter.get_column_non_null_count(table, "txt", conn) == 4
+        with patch.object(
+            PlatformAdapter, "get_row_count", side_effect=RuntimeError("base called")
+        ):
+            assert adapter.get_row_count(table, conn) == 5
