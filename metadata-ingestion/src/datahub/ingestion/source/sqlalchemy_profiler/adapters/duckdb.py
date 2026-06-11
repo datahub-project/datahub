@@ -201,6 +201,10 @@ class DuckDBAdapter(PlatformAdapter):
         # quantile_cont(col, [..]) yields a list; guard against an unexpected
         # non-iterable scalar so we degrade gracefully instead of raising.
         if not isinstance(result, (list, tuple)):
+            logger.warning(
+                f"quantile_cont returned unexpected type {type(result).__name__} "
+                f"for column {column!r}; returning null quantiles."
+            )
             return [None] * len(quantiles)
         return [float(v) if v is not None else None for v in result]
 
