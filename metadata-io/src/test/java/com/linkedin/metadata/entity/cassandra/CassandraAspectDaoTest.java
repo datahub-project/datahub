@@ -23,6 +23,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.sql.Timestamp;
@@ -44,7 +45,9 @@ public class CassandraAspectDaoTest {
   @BeforeMethod
   public void setupTest() {
     mockSession = mock(CqlSession.class);
-    testDao = new CassandraAspectDao(mockSession, List.of(), null);
+    testDao =
+        new CassandraAspectDao(
+            PrimaryStorageTestUtils.cassandraResolver(mockSession), List.of(), null);
     testDao.setConnectionValidated(true); // Skip connection validation in tests
   }
 
@@ -260,7 +263,8 @@ public class CassandraAspectDaoTest {
     when(mockSession.execute(any(SimpleStatement.class))).thenReturn(mockResultSet);
 
     // Read operations should still work
-    EntityAspect aspect = testDao.getAspect(null, urnString, aspectName, ASPECT_LATEST_VERSION);
+    EntityAspect aspect =
+        testDao.getAspect(opContext, urnString, aspectName, ASPECT_LATEST_VERSION);
     assertNotNull(aspect, "Read operations should work when not writable");
     assertEquals(aspect.getMetadata(), "test-metadata", "Read should return correct data");
     verify(mockSession, times(1)).execute(any(SimpleStatement.class));
@@ -339,7 +343,8 @@ public class CassandraAspectDaoTest {
     // Create a new DAO without validating connection
     CqlSession mockSessionInvalid = mock(CqlSession.class);
     CassandraAspectDao daoWithInvalidConnection =
-        new CassandraAspectDao(mockSessionInvalid, List.of(), null);
+        new CassandraAspectDao(
+            PrimaryStorageTestUtils.cassandraResolver(mockSessionInvalid), List.of(), null);
 
     // Don't set connection as validated (simulates validation failure)
     // The DAO should still allow reads but block writes implicitly through validation

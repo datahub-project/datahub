@@ -71,15 +71,16 @@ Reference Links:
 
 ## DataHub Core Configuration
 
-| Environment Variable                   | Default     | Description                                                       | Components |
-| -------------------------------------- | ----------- | ----------------------------------------------------------------- | ---------- |
-| `DATAHUB_SERVER_TYPE`                  | `prod`      | DataHub server type                                               | GMS        |
-| `DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS` | `55000`     | Async request timeout for GMS                                     | GMS        |
-| `DATAHUB_GMS_HOST`                     | `localhost` | GMS host                                                          | Frontend   |
-| `DATAHUB_GMS_PORT`                     | `8080`      | GMS port                                                          | Frontend   |
-| `DATAHUB_GMS_USE_SSL`                  | `false`     | Use SSL for GMS connections                                       | Frontend   |
-| `DATAHUB_GMS_URI`                      | `null`      | URI instead of separate host/port/ssl parameters (takes priority) | Frontend   |
-| `DATAHUB_GMS_SSL_PROTOCOL`             | `null`      | SSL protocol for GMS                                              | Frontend   |
+| Environment Variable                   | Default     | Description                                                                                                               | Components |
+| -------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `DATAHUB_SERVER_TYPE`                  | `prod`      | DataHub server type                                                                                                       | GMS        |
+| `DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS` | `55000`     | Async request timeout for GMS                                                                                             | GMS        |
+| `DATAHUB_GMS_HOST`                     | `localhost` | GMS host                                                                                                                  | Frontend   |
+| `DATAHUB_GMS_PORT`                     | `8080`      | GMS port                                                                                                                  | Frontend   |
+| `DATAHUB_GMS_USE_SSL`                  | `false`     | Use SSL for GMS connections                                                                                               | Frontend   |
+| `DATAHUB_GMS_URI`                      | `null`      | URI instead of separate host/port/ssl parameters (takes priority)                                                         | Frontend   |
+| `DATAHUB_GMS_SSL_PROTOCOL`             | `null`      | SSL protocol for GMS                                                                                                      | Frontend   |
+| `DATAHUB_READ_ONLY`                    | `false`     | Disable metadata writes on GMS (does not enable read pool; see [Primary storage read pool](primary-storage-read-pool.md)) | GMS        |
 
 ### Plugin Configuration
 
@@ -250,6 +251,28 @@ See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size
 | `EBEAN_URL`                       | _same as EBEAN_DATASOURCE_URL_        | Alternative property for database URL           | System Update                    |
 | `EBEAN_MAX_TRANSACTION_RETRY`     | `null`                                | Maximum transaction retries for Ebean           | System Update                    |
 
+#### EBean read pool (optional)
+
+See [Primary storage read pool](primary-storage-read-pool.md) for architecture, routing rules, and examples.
+
+GMS can route **non-locking** entity-aspect reads (`forUpdate=false`) to a separate connection pool. Writes, transactions, and `FOR UPDATE` reads always use the primary pool. The read pool uses **JDBC read-only** connections (`readOnly=true`).
+
+| Environment Variable                        | Default                           | Description                                                                 | Components |
+| ------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------- | ---------- |
+| `EBEAN_READ_POOL_ENABLED`                   | `false`                           | Enable a dedicated read pool for aspect DAO reads                           | GMS        |
+| `EBEAN_READ_POOL_URL`                       | _same as primary `EBEAN_URL`_     | JDBC URL for the read pool; omit for **split-pool** mode (same DB, 2 pools) | GMS        |
+| `EBEAN_READ_REPLICA_URL`                    | _(deprecated alias)_              | Legacy alias for `EBEAN_READ_POOL_URL`                                      | GMS        |
+| `EBEAN_READ_POOL_MIN_CONNECTIONS`           | _same as `EBEAN_MIN_CONNECTIONS`_ | Minimum connections for the read pool                                       | GMS        |
+| `EBEAN_READ_POOL_MAX_CONNECTIONS`           | _same as `EBEAN_MAX_CONNECTIONS`_ | Maximum connections for the read pool                                       | GMS        |
+| `EBEAN_READ_POOL_MAX_INACTIVE_TIME_IN_SECS` | _same as primary_                 | Max inactive time (seconds) for the read pool                               | GMS        |
+| `EBEAN_READ_POOL_MAX_AGE_MINUTES`           | _same as primary_                 | Max connection age (minutes) for the read pool                              | GMS        |
+| `EBEAN_READ_POOL_LEAK_TIME_MINUTES`         | _same as primary_                 | Leak detection time (minutes) for the read pool                             | GMS        |
+| `EBEAN_READ_POOL_WAIT_TIMEOUT_MILLIS`       | _same as primary_                 | Pool wait timeout (ms) for the read pool                                    | GMS        |
+
+**Modes:** If `EBEAN_READ_POOL_URL` matches the primary URL, GMS uses **split-pool** mode (isolated connections, no replica lag benefit). If the URL points at a read replica host, GMS uses **replica** mode and isolates entity-cache keys by read preference.
+
+**Read-only deployments:** When `DATAHUB_READ_ONLY=true`, the read pool is **not** registered even if `EBEAN_READ_POOL_ENABLED=true` (writes remain disabled on DAOs; a second pool would not help).
+
 #### Cross-Cloud IAM Authentication
 
 DataHub supports cross-cloud IAM authentication for both AWS and GCP cloud providers. This enables secure, passwordless database connections using cloud identity services.
@@ -367,6 +390,24 @@ When using traditional username/password authentication, both `CREATE_USER_USERN
 | `CASSANDRA_DATACENTER`          | `datacenter1` | Cassandra datacenter  | GMS, MCE Consumer, System Update |
 | `CASSANDRA_KEYSPACE`            | `datahub`     | Cassandra keyspace    | GMS, MCE Consumer, System Update |
 | `CASSANDRA_USE_SSL`             | `false`       | Use SSL for Cassandra | GMS, MCE Consumer, System Update |
+
+#### Cassandra read pool (optional)
+
+See [Primary storage read pool](primary-storage-read-pool.md) for architecture, routing rules, and examples.
+
+When `entityService.impl=cassandra`, GMS can route non-locking aspect reads to a separate Cassandra session. Same routing semantics as the EBean read pool above (see the guide for replica credentials).
+
+| Environment Variable                  | Default                          | Description                                                          | Components |
+| ------------------------------------- | -------------------------------- | -------------------------------------------------------------------- | ---------- |
+| `CASSANDRA_READ_POOL_ENABLED`         | `false`                          | Enable a dedicated read session for aspect DAO reads                 | GMS        |
+| `CASSANDRA_READ_POOL_HOSTS`           | _same as `CASSANDRA_HOSTS`_      | Contact points for the read pool; omit for split-pool (same cluster) | GMS        |
+| `CASSANDRA_READ_REPLICA_HOSTS`        | _(deprecated alias)_             | Legacy alias for `CASSANDRA_READ_POOL_HOSTS`                         | GMS        |
+| `CASSANDRA_READ_POOL_PORT`            | _same as `CASSANDRA_PORT`_       | Port for the read pool                                               | GMS        |
+| `CASSANDRA_READ_POOL_DATACENTER`      | _same as `CASSANDRA_DATACENTER`_ | Datacenter for the read pool                                         | GMS        |
+| `CASSANDRA_READ_POOL_MIN_CONNECTIONS` | `2`                              | Minimum connections for the read pool                                | GMS        |
+| `CASSANDRA_READ_POOL_MAX_CONNECTIONS` | `8`                              | Maximum connections for the read pool                                | GMS        |
+
+**Read-only deployments:** When `DATAHUB_READ_ONLY=true`, the Cassandra read pool is not registered even if `CASSANDRA_READ_POOL_ENABLED=true`.
 
 ### Elasticsearch Configuration
 

@@ -868,7 +868,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable String key,
       @Nonnull PlatformEvent event)
       throws Exception {
-    eventProducer.producePlatformEvent(name, key, event);
+    eventProducer.producePlatformEvent(opContext, name, key, event);
   }
 
   @Override

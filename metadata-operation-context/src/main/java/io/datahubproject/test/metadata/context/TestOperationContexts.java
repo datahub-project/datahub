@@ -26,6 +26,7 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.PrimaryStorageContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -321,6 +322,7 @@ public class TestOperationContexts {
             validationContext,
             objectMapperContext,
             systemTelemetryContext,
+            PrimaryStorageContext.EMPTY,
             true);
 
     if (postConstruct != null) {
