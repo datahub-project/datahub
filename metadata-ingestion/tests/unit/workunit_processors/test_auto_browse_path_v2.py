@@ -1,8 +1,14 @@
 from itertools import zip_longest
 from typing import Any, Dict, Iterable, List, Optional
-from unittest.mock import patch
+from unittest import mock
 
 import datahub.metadata.schema_classes as models
+from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
+
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_data_flow_urn,
@@ -11,14 +17,49 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
-from datahub.ingestion.api.source_helpers import (
-    _prepend_platform_instance,
-    auto_browse_path_v2,
-    auto_status_aspect,
-)
+from datahub.ingestion.api.source_helpers import auto_status_aspect
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_utils import gen_schema_container
-from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
+from datahub.ingestion.workunit_processors.auto_browse_path_v2 import (
+    AutoBrowsePathV2Processor,
+    _prepend_platform_instance,
+)
+
+
+class _TestConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
+    """Minimal config for tests that need platform_instance or env."""
+
+
+def _make_processor(
+    platform: Optional[str] = None,
+    platform_instance: Optional[str] = None,
+    env: Optional[str] = None,
+    dry_run: bool = False,
+) -> AutoBrowsePathV2Processor:
+    flags = mock.MagicMock()
+    flags.generate_browse_path_v2 = True
+    flags.generate_browse_path_v2_dry_run = dry_run
+
+    pipeline_ctx = mock.MagicMock()
+    pipeline_ctx.flags = flags
+
+    if platform_instance is not None:
+        config: Any = _TestConfig(
+            platform_instance=platform_instance, env=env or "PROD"
+        )
+    elif env is not None:
+        config = _TestConfig(env=env)
+    else:
+        config = mock.MagicMock()
+        config.env = None
+
+    ctx = mock.MagicMock()
+    ctx.pipeline_context = pipeline_ctx
+    ctx.source_platform = platform
+    ctx.infer_platform.return_value = platform
+    ctx.source_config = config
+
+    return AutoBrowsePathV2Processor(ctx)
 
 
 def test_auto_browse_path_v2_gen_containers_threaded():
@@ -38,7 +79,7 @@ def test_auto_browse_path_v2_gen_containers_threaded():
         )
         for key in schema_keys
     ]
-    for wu in auto_browse_path_v2(_iterate_wus_round_robin(wus_per_schema)):
+    for wu in _make_processor().process(_iterate_wus_round_robin(wus_per_schema)):
         aspect = wu.get_aspect_of_type(BrowsePathsV2Class)
         if aspect:
             assert aspect.path == [
@@ -51,14 +92,15 @@ def test_auto_browse_path_v2_gen_containers_threaded():
 def _iterate_wus_round_robin(
     mcps_per_schema: List[Iterable[MetadataWorkUnit]],
 ) -> Iterable[MetadataWorkUnit]:
-    # Simulate a potential ordering of MCPs when using thread pool to generate MCPs
     for wus in zip_longest(*mcps_per_schema, fillvalue=None):
         for wu in wus:
             if wu is not None:
                 yield wu
 
 
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
 def test_auto_browse_path_v2_by_container_hierarchy(telemetry_ping_mock):
     structure = {
         "one": {
@@ -77,7 +119,7 @@ def test_auto_browse_path_v2_by_container_hierarchy(telemetry_ping_mock):
         sum(bool(wu.get_aspect_of_type(models.StatusClass)) for wu in wus) == 21
     )
 
-    new_wus = list(auto_browse_path_v2(wus))
+    new_wus = list(_make_processor().process(wus))
     assert not telemetry_ping_mock.call_count, telemetry_ping_mock.call_args_list
     assert (
         sum(bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
@@ -113,7 +155,9 @@ def test_auto_browse_path_v2_by_container_hierarchy(telemetry_ping_mock):
         ) or new_wus[idx + 2].get_aspect_of_type(models.BrowsePathsV2Class)
 
 
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
 def test_auto_browse_path_v2_ignores_urns_already_with(telemetry_ping_mock):
     structure = {"a": {"b": {"c": {"d": ["e"]}}}}
 
@@ -137,7 +181,7 @@ def test_auto_browse_path_v2_ignores_urns_already_with(telemetry_ping_mock):
             ),
         )
     ]
-    new_wus = list(auto_browse_path_v2(wus))
+    new_wus = list(_make_processor().process(wus))
     assert not telemetry_ping_mock.call_count, telemetry_ping_mock.call_args_list
     assert (
         sum(bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
@@ -154,7 +198,9 @@ def test_auto_browse_path_v2_ignores_urns_already_with(telemetry_ping_mock):
     )
 
 
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
 def test_auto_browse_path_v2_with_platform_instance_and_source_browse_path_v2(
     telemetry_ping_mock,
 ):
@@ -178,7 +224,7 @@ def test_auto_browse_path_v2_with_platform_instance_and_source_browse_path_v2(
         )
     ]
     new_wus = list(
-        auto_browse_path_v2(wus, platform=platform, platform_instance=instance)
+        _make_processor(platform=platform, platform_instance=instance).process(wus)
     )
     assert not telemetry_ping_mock.call_count, telemetry_ping_mock.call_args_list
     assert (
@@ -216,7 +262,9 @@ def test_auto_browse_path_v2_with_platform_instance_and_source_browse_path_v2(
     )
 
 
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
 def test_auto_browse_path_v2_legacy_browse_path(telemetry_ping_mock):
     platform = "platform"
     env = "PROD"
@@ -234,7 +282,8 @@ def test_auto_browse_path_v2_legacy_browse_path(telemetry_ping_mock):
             aspect=models.BrowsePathsClass([f"/{platform}/one/two"]),
         ).as_workunit(),
     ]
-    new_wus = list(auto_browse_path_v2(wus, drop_dirs=["platform", "PROD", "unused"]))
+    # platform="platform", env="PROD" → drop_dirs includes "platform" and "PROD"
+    new_wus = list(_make_processor(platform=platform, env=env).process(wus))
     assert not telemetry_ping_mock.call_count, telemetry_ping_mock.call_args_list
     assert len(new_wus) == 6
     paths = _get_browse_paths_from_wu(new_wus)
@@ -246,7 +295,9 @@ def test_auto_browse_path_v2_legacy_browse_path(telemetry_ping_mock):
     assert paths["platform,dataset-2,PROD)"] == _make_browse_path_entries(["something"])
 
 
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
 def test_auto_browse_path_v2_container_over_legacy_browse_path(telemetry_ping_mock):
     structure = {"a": {"b": ["c"]}}
     wus = list(
@@ -257,7 +308,7 @@ def test_auto_browse_path_v2_container_over_legacy_browse_path(telemetry_ping_mo
             ),
         )
     )
-    new_wus = list(auto_browse_path_v2(wus))
+    new_wus = list(_make_processor().process(wus))
     assert not telemetry_ping_mock.call_count, telemetry_ping_mock.call_args_list
     assert (
         sum(bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
@@ -270,7 +321,9 @@ def test_auto_browse_path_v2_container_over_legacy_browse_path(telemetry_ping_mo
     assert paths["c"] == _make_container_browse_path_entries(["a", "b"])
 
 
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
 def test_auto_browse_path_v2_with_platform_instance(telemetry_ping_mock):
     platform = "my_platform"
     platform_instance = "my_instance"
@@ -283,10 +336,8 @@ def test_auto_browse_path_v2_with_platform_instance(telemetry_ping_mock):
     wus = list(auto_status_aspect(_create_container_aspects(structure)))
 
     new_wus = list(
-        auto_browse_path_v2(
-            wus,
-            platform=platform,
-            platform_instance=platform_instance,
+        _make_processor(platform=platform, platform_instance=platform_instance).process(
+            wus
         )
     )
     assert telemetry_ping_mock.call_count == 0
@@ -307,7 +358,9 @@ def test_auto_browse_path_v2_with_platform_instance(telemetry_ping_mock):
     ]
 
 
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
 def test_auto_browse_path_v2_prevents_platform_instance_duplication(
     telemetry_ping_mock,
 ):
@@ -327,9 +380,8 @@ def test_auto_browse_path_v2_prevents_platform_instance_duplication(
     result = _prepend_platform_instance(
         entries_with_platform, platform, platform_instance
     )
-    # Should not duplicate - same list returned
     assert result == entries_with_platform
-    assert len(result) == 3  # platform instance + 2 containers
+    assert len(result) == 3
     assert result[0].urn == platform_instance_urn
 
     # Test case: platform instance not in the path
@@ -337,8 +389,7 @@ def test_auto_browse_path_v2_prevents_platform_instance_duplication(
     result = _prepend_platform_instance(
         entries_without_platform, platform, platform_instance
     )
-    # Should prepend platform instance
-    assert len(result) == 3  # platform instance + 2 containers
+    assert len(result) == 3
     assert result[0].urn == platform_instance_urn
     assert result[1:] == entries_without_platform
 
@@ -353,13 +404,15 @@ def test_auto_browse_path_v2_prevents_platform_instance_duplication(
     assert result == entries
 
 
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
 def test_auto_browse_path_v2_invalid_batch_telemetry(telemetry_ping_mock):
     structure = {"a": {"b": ["c"]}}
     b_urn = make_container_urn("b")
     wus = [
         *_create_container_aspects(structure),
-        MetadataChangeProposalWrapper(  # Browse path for b separate from its Container aspect
+        MetadataChangeProposalWrapper(
             entityUrn=b_urn,
             aspect=models.BrowsePathsClass(paths=["/one/two"]),
         ).as_workunit(),
@@ -367,14 +420,16 @@ def test_auto_browse_path_v2_invalid_batch_telemetry(telemetry_ping_mock):
     wus = list(auto_status_aspect(wus))
 
     assert telemetry_ping_mock.call_count == 0
-    _ = list(auto_browse_path_v2(wus))
+    _ = list(_make_processor().process(wus))
     assert telemetry_ping_mock.call_count == 1
     assert telemetry_ping_mock.call_args_list[0][0][0] == "incorrect_browse_path_v2"
     assert telemetry_ping_mock.call_args_list[0][0][1]["num_out_of_order"] == 0
     assert telemetry_ping_mock.call_args_list[0][0][1]["num_out_of_batch"] == 1
 
 
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
 def test_auto_browse_path_v2_no_invalid_batch_telemetry_for_unrelated_aspects(
     telemetry_ping_mock,
 ):
@@ -382,7 +437,7 @@ def test_auto_browse_path_v2_no_invalid_batch_telemetry_for_unrelated_aspects(
     b_urn = make_container_urn("b")
     wus = [
         *_create_container_aspects(structure),
-        MetadataChangeProposalWrapper(  # Browse path for b separate from its Container aspect
+        MetadataChangeProposalWrapper(
             entityUrn=b_urn,
             aspect=models.ContainerPropertiesClass("container name"),
         ).as_workunit(),
@@ -390,18 +445,20 @@ def test_auto_browse_path_v2_no_invalid_batch_telemetry_for_unrelated_aspects(
     wus = list(auto_status_aspect(wus))
 
     assert telemetry_ping_mock.call_count == 0
-    _ = list(auto_browse_path_v2(wus))
+    _ = list(_make_processor().process(wus))
     assert telemetry_ping_mock.call_count == 0
 
 
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
 def test_auto_browse_path_v2_invalid_order_telemetry(telemetry_ping_mock):
     structure = {"a": {"b": ["c"]}}
     wus = list(reversed(list(_create_container_aspects(structure))))
     wus = list(auto_status_aspect(wus))
 
     assert telemetry_ping_mock.call_count == 0
-    new_wus = list(auto_browse_path_v2(wus))
+    new_wus = list(_make_processor().process(wus))
     assert (
         sum(bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
         > 0
@@ -412,20 +469,152 @@ def test_auto_browse_path_v2_invalid_order_telemetry(telemetry_ping_mock):
     assert telemetry_ping_mock.call_args_list[0][0][1]["num_out_of_batch"] == 0
 
 
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
 def test_auto_browse_path_v2_dry_run(telemetry_ping_mock):
     structure = {"a": {"b": ["c"]}}
     wus = list(reversed(list(_create_container_aspects(structure))))
     wus = list(auto_status_aspect(wus))
 
     assert telemetry_ping_mock.call_count == 0
-    new_wus = list(auto_browse_path_v2(wus, dry_run=True))
+    new_wus = list(_make_processor(dry_run=True).process(wus))
     assert wus == new_wus
     assert (
         sum(bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
         == 0
     )
     assert telemetry_ping_mock.call_count == 1
+
+
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
+def test_auto_browse_path_v2_dataflow_with_platform_instance(telemetry_ping_mock):
+    """DataFlow with platform_instance but no container gets [pi] fallback."""
+    platform = "fivetran"
+    platform_instance = "my-fivetran"
+    pi_urn = make_dataplatform_instance_urn(platform, platform_instance)
+    pi_entry = models.BrowsePathEntryClass(pi_urn, pi_urn)
+
+    flow_urn = make_data_flow_urn(
+        platform, "my_flow", platform_instance=platform_instance
+    )
+    wus = [
+        MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=models.StatusClass(removed=False),
+        ).as_workunit(),
+    ]
+
+    new_wus = list(
+        _make_processor(platform=platform, platform_instance=platform_instance).process(
+            wus
+        )
+    )
+
+    paths = _get_browse_paths_from_wu(new_wus)
+    flow_key = flow_urn.split(":")[-1]
+    assert flow_key in paths
+    assert paths[flow_key] == [pi_entry]
+
+
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
+def test_auto_browse_path_v2_dataflow_without_platform_instance(telemetry_ping_mock):
+    """DataFlow without platform_instance does NOT get a fallback browse path."""
+    platform = "fivetran"
+
+    flow_urn = make_data_flow_urn(platform, "my_flow")
+    wus = [
+        MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=models.StatusClass(removed=False),
+        ).as_workunit(),
+    ]
+
+    new_wus = list(_make_processor(platform=platform).process(wus))
+
+    browse_path_count = sum(
+        bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus
+    )
+    assert browse_path_count == 0
+
+
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
+def test_auto_browse_path_v2_dataset_no_fallback_with_platform_instance(
+    telemetry_ping_mock,
+):
+    """Dataset with platform_instance but no container does NOT get a fallback.
+    Only DataFlow/DataJob get the platform_instance fallback."""
+    platform = "delta-lake"
+    platform_instance = "my-platform"
+
+    dataset_urn = make_dataset_urn(platform, "my_dataset", env="PROD")
+    wus = [
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=models.StatusClass(removed=False),
+        ).as_workunit(),
+    ]
+
+    new_wus = list(
+        _make_processor(platform=platform, platform_instance=platform_instance).process(
+            wus
+        )
+    )
+
+    browse_path_count = sum(
+        bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus
+    )
+    assert browse_path_count == 0
+
+
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
+def test_auto_browse_path_v2_mixed_entities_with_platform_instance(
+    telemetry_ping_mock,
+):
+    """Mix of containers (with hierarchy) and a standalone DataFlow."""
+    platform = "fivetran"
+    platform_instance = "my-fivetran"
+    pi_urn = make_dataplatform_instance_urn(platform, platform_instance)
+    pi_entry = models.BrowsePathEntryClass(pi_urn, pi_urn)
+
+    container_wus = list(
+        auto_status_aspect(_create_container_aspects({"a": {"b": []}}))
+    )
+
+    flow_urn = make_data_flow_urn(
+        platform, "my_flow", platform_instance=platform_instance
+    )
+    flow_wus = [
+        MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=models.StatusClass(removed=False),
+        ).as_workunit(),
+    ]
+
+    new_wus = list(
+        _make_processor(platform=platform, platform_instance=platform_instance).process(
+            container_wus + flow_wus
+        )
+    )
+
+    paths = _get_browse_paths_from_wu(new_wus)
+
+    assert paths["a"] == [pi_entry]
+    assert paths["b"] == [
+        pi_entry,
+        *_make_container_browse_path_entries(["a"]),
+    ]
+
+    flow_key = flow_urn.split(":")[-1]
+    assert paths[flow_key] == [pi_entry]
 
 
 def _with_platform_instance(
@@ -495,127 +684,3 @@ def _make_container_browse_path_entries(
 
 def _make_browse_path_entries(path: List[str]) -> List[models.BrowsePathEntryClass]:
     return [models.BrowsePathEntryClass(id=s, urn=None) for s in path]
-
-
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
-def test_auto_browse_path_v2_dataflow_with_platform_instance(telemetry_ping_mock):
-    """DataFlow with platform_instance but no container gets [pi] fallback."""
-    platform = "fivetran"
-    platform_instance = "my-fivetran"
-    pi_urn = make_dataplatform_instance_urn(platform, platform_instance)
-    pi_entry = models.BrowsePathEntryClass(pi_urn, pi_urn)
-
-    flow_urn = make_data_flow_urn(
-        platform, "my_flow", platform_instance=platform_instance
-    )
-    wus = [
-        MetadataChangeProposalWrapper(
-            entityUrn=flow_urn,
-            aspect=models.StatusClass(removed=False),
-        ).as_workunit(),
-    ]
-
-    new_wus = list(
-        auto_browse_path_v2(wus, platform=platform, platform_instance=platform_instance)
-    )
-
-    paths = _get_browse_paths_from_wu(new_wus)
-    flow_key = flow_urn.split(":")[-1]
-    assert flow_key in paths
-    assert paths[flow_key] == [pi_entry]
-
-
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
-def test_auto_browse_path_v2_dataflow_without_platform_instance(telemetry_ping_mock):
-    """DataFlow without platform_instance does NOT get a fallback browse path."""
-    platform = "fivetran"
-
-    flow_urn = make_data_flow_urn(platform, "my_flow")
-    wus = [
-        MetadataChangeProposalWrapper(
-            entityUrn=flow_urn,
-            aspect=models.StatusClass(removed=False),
-        ).as_workunit(),
-    ]
-
-    new_wus = list(auto_browse_path_v2(wus, platform=platform))
-
-    browse_path_count = sum(
-        bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus
-    )
-    assert browse_path_count == 0
-
-
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
-def test_auto_browse_path_v2_dataset_no_fallback_with_platform_instance(
-    telemetry_ping_mock,
-):
-    """Dataset with platform_instance but no container does NOT get a fallback.
-    Only DataFlow/DataJob get the platform_instance fallback."""
-    platform = "delta-lake"
-    platform_instance = "my-platform"
-
-    dataset_urn = make_dataset_urn(platform, "my_dataset", env="PROD")
-    wus = [
-        MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=models.StatusClass(removed=False),
-        ).as_workunit(),
-    ]
-
-    new_wus = list(
-        auto_browse_path_v2(wus, platform=platform, platform_instance=platform_instance)
-    )
-
-    browse_path_count = sum(
-        bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus
-    )
-    assert browse_path_count == 0
-
-
-@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
-def test_auto_browse_path_v2_mixed_entities_with_platform_instance(
-    telemetry_ping_mock,
-):
-    """Mix of containers (with hierarchy) and a standalone DataFlow.
-    Containers get container-based paths; the DataFlow gets the platform instance
-    fallback; datasets without containers get nothing."""
-    platform = "fivetran"
-    platform_instance = "my-fivetran"
-    pi_urn = make_dataplatform_instance_urn(platform, platform_instance)
-    pi_entry = models.BrowsePathEntryClass(pi_urn, pi_urn)
-
-    container_wus = list(
-        auto_status_aspect(_create_container_aspects({"a": {"b": []}}))
-    )
-
-    flow_urn = make_data_flow_urn(
-        platform, "my_flow", platform_instance=platform_instance
-    )
-    flow_wus = [
-        MetadataChangeProposalWrapper(
-            entityUrn=flow_urn,
-            aspect=models.StatusClass(removed=False),
-        ).as_workunit(),
-    ]
-
-    new_wus = list(
-        auto_browse_path_v2(
-            container_wus + flow_wus,
-            platform=platform,
-            platform_instance=platform_instance,
-        )
-    )
-
-    paths = _get_browse_paths_from_wu(new_wus)
-
-    # Containers get container-based paths with platform instance prepended
-    assert paths["a"] == [pi_entry]
-    assert paths["b"] == [
-        pi_entry,
-        *_make_container_browse_path_entries(["a"]),
-    ]
-
-    # DataFlow gets platform instance fallback
-    flow_key = flow_urn.split(":")[-1]
-    assert paths[flow_key] == [pi_entry]

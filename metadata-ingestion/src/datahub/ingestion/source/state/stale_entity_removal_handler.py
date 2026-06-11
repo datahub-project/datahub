@@ -54,6 +54,11 @@ class EntityTypeDeletionSummary:
     soft_deleted_count: int = 0
 
 
+# TODO: Move StaleEntityRemovalSourceReport fields (soft_deleted_stale_entities,
+# last_state_non_deletable_entities, entity_type_deletion_summary) into a
+# WorkunitProcessorReport subclass on StaleEntityRemovalProcessor and register
+# it via source_report.workunit_processor_reports["stale_entity_removal"], so
+# stale-removal metrics are captured alongside other workunit processor metrics.
 @dataclass
 class StaleEntityRemovalSourceReport(StatefulIngestionReport):
     soft_deleted_stale_entities: LossyList[str] = field(default_factory=LossyList)

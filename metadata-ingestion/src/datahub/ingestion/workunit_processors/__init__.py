@@ -41,7 +41,6 @@ from datahub.ingestion.workunit_processors.validate_input_fields import (
     ValidateInputFieldsProcessor,
 )
 
-# Order matches _ALL_PROCESSOR_CLASSES in source.py — do NOT reorder
 __all__ = [
     "AutoLowercaseUrnsProcessor",
     "AutoStatusAspectProcessor",
