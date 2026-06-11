@@ -1,4 +1,3 @@
-import logging
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Set
 
@@ -18,8 +17,6 @@ from datahub.ingestion.source.quicksight.quicksight_report import (
     QuickSightSourceReport,
 )
 from datahub.ingestion.source.quicksight.quicksight_urn import quicksight_user_id
-
-logger = logging.getLogger(__name__)
 
 # QuickSight identity APIs are Enterprise-edition only and need extra IAM
 # actions; degrade gracefully on these codes rather than failing the run.
@@ -93,7 +90,12 @@ class UsersGroupsProcessor:
         except Exception as e:
             if not _is_graceful(e):
                 raise
-            logger.info(f"Skipping QuickSight groups in namespace {namespace}: {e}")
+            self.report.warning(
+                title="Skipping groups",
+                message="QuickSight groups could not be listed for this namespace.",
+                context=namespace,
+                exc=e,
+            )
 
         for group in groups:
             yield from self._emit_group(group)
@@ -103,7 +105,12 @@ class UsersGroupsProcessor:
         except Exception as e:
             if not _is_graceful(e):
                 raise
-            logger.info(f"Skipping QuickSight users in namespace {namespace}: {e}")
+            self.report.warning(
+                title="Skipping users",
+                message="QuickSight users could not be listed for this namespace.",
+                context=namespace,
+                exc=e,
+            )
             users = []
         for user in users:
             yield from self._emit_user(
@@ -118,7 +125,12 @@ class UsersGroupsProcessor:
         except Exception as e:
             if not _is_graceful(e):
                 raise
-            logger.info(f"Could not list members of QuickSight group {group_name}: {e}")
+            self.report.warning(
+                title="Could not list group members",
+                message="Group memberships for this group will be omitted.",
+                context=group_name,
+                exc=e,
+            )
 
     def _emit_group(self, group: Dict[str, Any]) -> Iterable[MetadataWorkUnit]:
         group_name = group["GroupName"]
@@ -128,8 +140,12 @@ class UsersGroupsProcessor:
             description=group.get("Description") or None,
         )
         self.report.corp_groups.processed(group_name)
+        # is_primary_source=False keeps these global identities out of the
+        # stale-entity-removal checkpoint, so toggling extract_users_and_groups
+        # off (or a transient identity-API failure) can't soft-delete CorpGroups
+        # that other sources also populate. Matches the PowerBI connector.
         for mcp in corp_group.generate_mcp():
-            yield mcp.as_workunit()
+            yield mcp.as_workunit(is_primary_source=False)
 
     def _emit_user(
         self, user: Dict[str, Any], group_names: List[str]
@@ -153,8 +169,10 @@ class UsersGroupsProcessor:
         )
         self.report.corp_users.processed(user_id)
         # override_editable=False keeps us on the ingestion-owned CorpUserInfo
-        # aspect rather than the UI-editable one.
+        # aspect rather than the UI-editable one. is_primary_source=False keeps
+        # these global identities out of the stale-entity-removal checkpoint (see
+        # _emit_group). Matches the PowerBI connector.
         for mcp in corp_user.generate_mcp(
             generation_config=CorpUserGenerationConfig(override_editable=False)
         ):
-            yield mcp.as_workunit()
+            yield mcp.as_workunit(is_primary_source=False)

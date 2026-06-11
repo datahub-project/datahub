@@ -1,5 +1,5 @@
 import re
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict, Literal, Optional
 
 import pydantic
 from pydantic import Field
@@ -110,10 +110,6 @@ class QuickSightSourceConfig(
         description="Whether to fetch full analysis definitions (sheets/visuals). "
         "These payloads are large.",
     )
-    extract_usage_stats: bool = Field(
-        default=False,
-        description="Whether to extract usage statistics (opt-in).",
-    )
     extract_users_and_groups: bool = Field(
         default=False,
         description="Whether to extract QuickSight users and groups (opt-in; often "
@@ -189,8 +185,19 @@ class QuickSightSourceConfig(
         description="Stateful ingestion configuration (enables stale entity removal).",
     )
 
+    # Override AwsConnectionConfig's default ("standard"): QuickSight enforces
+    # low per-API TPS limits, so adaptive retries (client-side rate limiting with
+    # backoff) markedly reduce ThrottlingException failures on larger accounts.
+    aws_retry_mode: Literal["legacy", "standard", "adaptive"] = Field(
+        default="adaptive",
+        description="Retry mode for failed AWS requests. Defaults to `adaptive` for "
+        "QuickSight, whose per-API TPS throttling benefits from client-side rate "
+        "limiting. See the [botocore.retry](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/retries.html) docs.",
+    )
+
     def get_quicksight_client(self) -> "QuickSightClient":
-        # adaptive retry mode is recommended for QuickSight's per-API TPS throttling.
+        # Retries (adaptive by default, see aws_retry_mode) are applied via
+        # _aws_config() to absorb QuickSight's per-API TPS throttling.
         return self.get_session().client("quicksight", config=self._aws_config())
 
     def get_sts_client(self) -> "STSClient":

@@ -1,4 +1,3 @@
-import logging
 from typing import Callable, Dict, List, Optional
 
 from datahub.emitter.mce_builder import make_group_urn, make_tag_urn, make_user_urn
@@ -15,8 +14,6 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     TagAssociationClass,
 )
-
-logger = logging.getLogger(__name__)
 
 
 def _is_owner_principal(actions: List[str]) -> bool:
@@ -93,7 +90,13 @@ class AssetEnricher:
         try:
             permissions = self._permission_fns[kind](asset_id)
         except Exception as e:
-            logger.info(f"Could not fetch {kind} permissions for {asset_id}: {e}")
+            self.report.warning(
+                title="Could not fetch permissions",
+                message="Ownership for this asset will be omitted (the role may lack "
+                "the Describe*Permissions action).",
+                context=f"{kind}:{asset_id}",
+                exc=e,
+            )
             return None
 
         owners: List[OwnerClass] = []
@@ -120,7 +123,13 @@ class AssetEnricher:
         try:
             raw_tags = self.api.list_tags_for_resource(arn)
         except Exception as e:
-            logger.info(f"Could not fetch tags for {arn}: {e}")
+            self.report.warning(
+                title="Could not fetch tags",
+                message="Tags for this asset will be omitted (the role may lack the "
+                "ListTagsForResource action).",
+                context=arn,
+                exc=e,
+            )
             return None
 
         tags: List[TagAssociationClass] = []

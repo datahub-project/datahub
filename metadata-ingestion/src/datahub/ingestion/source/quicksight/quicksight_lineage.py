@@ -1,4 +1,3 @@
-import logging
 from typing import Dict, List, Optional, Tuple
 
 import datahub.emitter.mce_builder as builder
@@ -25,8 +24,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
-
-logger = logging.getLogger(__name__)
 
 S3_PLATFORM = "s3"
 
@@ -116,9 +113,11 @@ class QuickSightLineageExtractor:
     def _target_for(self, data_source_arn: str) -> Optional[_UpstreamTarget]:
         resolved = self.data_source_map.get(data_source_arn)
         if resolved is None:
-            logger.info(
-                f"QuickSight data source {data_source_arn} not found in the data "
-                "source map; skipping upstream lineage."
+            self.report.warning(
+                title="Data source not resolved for lineage",
+                message="A dataset references a data source that was not ingested "
+                "(e.g. filtered out or cross-account); skipping its upstream lineage.",
+                context=data_source_arn,
             )
             return None
         if resolved.platform is None:
@@ -187,9 +186,12 @@ class QuickSightLineageExtractor:
 
         if result.debug_info.table_error:
             self.report.num_sqlglot_parse_failures += 1
-            logger.info(
-                f"Failed to parse CustomSql for {dataset_urn}: "
-                f"{result.debug_info.table_error}"
+            self.report.warning(
+                title="Failed to parse CustomSql",
+                message="Could not extract upstream/column lineage from a CustomSql "
+                "dataset definition.",
+                context=dataset_urn,
+                exc=result.debug_info.table_error,
             )
             return [], []
 

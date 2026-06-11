@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Optional
 
@@ -17,11 +16,8 @@ from datahub.ingestion.source.quicksight.quicksight_constants import (
 from datahub.ingestion.source.quicksight.quicksight_report import (
     QuickSightSourceReport,
 )
+from datahub.ingestion.source.quicksight.quicksight_urn import PLATFORM
 from datahub.sdk.dataset import Dataset
-
-logger = logging.getLogger(__name__)
-
-PLATFORM = "quicksight"
 
 
 @dataclass(frozen=True)
@@ -84,10 +80,11 @@ class DataSourcesProcessor:
             dialect = DATA_SOURCE_TYPE_TO_DIALECT.get(quicksight_type)
             if platform is None:
                 self.report.num_unknown_data_source_types += 1
-                logger.info(
-                    f"QuickSight data source '{name}' has type '{quicksight_type}' "
-                    "with no upstream platform mapping; emitting the entity without "
-                    "upstream lineage."
+                self.report.warning(
+                    title="Unsupported data source type",
+                    message="QuickSight data source type has no upstream platform "
+                    "mapping; emitting the entity without upstream lineage.",
+                    context=f"{name} (type={quicksight_type})",
                 )
 
             data_source = self._describe(data_source_id)
@@ -153,8 +150,12 @@ class DataSourcesProcessor:
         try:
             return self.api.describe_data_source(data_source_id)
         except Exception as e:
-            logger.info(
-                f"Could not describe QuickSight data source {data_source_id}: {e}"
+            self.report.warning(
+                title="Failed to describe data source",
+                message="Could not fetch the data source's connection details; "
+                "emitting the entity without them.",
+                context=data_source_id,
+                exc=e,
             )
             return {}
 
