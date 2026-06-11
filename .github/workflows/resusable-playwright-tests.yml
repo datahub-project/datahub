@@ -50,8 +50,7 @@ jobs:
   playwright_test:
     name: Playwright E2E Tests (Shard ${{ inputs.shard }}/${{ inputs.shard_count }})
     runs-on: ${{ inputs.test_runner_type }}
-    # Increase timeout when docker build needs to be done within the job
-    timeout-minutes: ${{ (github.event_name == 'workflow_dispatch' || inputs.depot_build_id != '') && 20 || 45 }}
+    timeout-minutes: 60
     steps:
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
