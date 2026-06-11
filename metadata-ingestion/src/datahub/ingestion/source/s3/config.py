@@ -76,10 +76,10 @@ class DataLakeSourceConfig(
     )
 
     _spark_driver_memory_removed = pydantic_removed_field(
-        "spark_driver_memory", month="June", year=2025
+        "spark_driver_memory", month="June", year=2026
     )
     _spark_config_removed = pydantic_removed_field(
-        "spark_config", month="June", year=2025
+        "spark_config", month="June", year=2026
     )
 
     max_rows: int = Field(
