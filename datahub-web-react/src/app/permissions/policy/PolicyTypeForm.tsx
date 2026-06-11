@@ -3,6 +3,8 @@ import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { useIsDenyPoliciesEnabled } from '@app/shared/hooks/useIsDenyPoliciesEnabled';
+
 import { PolicyEffect, PolicyType } from '@types';
 
 type Props = {
@@ -39,6 +41,7 @@ export default function PolicyTypeForm({
     setPolicyDescription,
 }: Props) {
     const { t } = useTranslation('settings.permissions');
+    const denyPoliciesEnabled = useIsDenyPoliciesEnabled();
 
     const updatePolicyName = (name: string) => {
         setPolicyName(name);
@@ -80,27 +83,29 @@ export default function PolicyTypeForm({
                     <Trans t={t} i18nKey="typeForm.metadataDescription" components={{ bold: <b /> }} />
                 </TypeDescriptionParagraph>
             </Form.Item>
-            <Form.Item
-                name="policyEffect"
-                label={<Typography.Text strong>{t('typeForm.effectLabel')}</Typography.Text>}
-            >
-                <Typography.Paragraph>{t('typeForm.effectDescription')}</Typography.Paragraph>
-                <Select
-                    data-testid="policy-effect"
-                    value={policyEffect}
-                    onSelect={(value) => setPolicyEffect(value as PolicyEffect)}
+            {denyPoliciesEnabled && (
+                <Form.Item
+                    name="policyEffect"
+                    label={<Typography.Text strong>{t('typeForm.effectLabel')}</Typography.Text>}
                 >
-                    <Select.Option data-testid="allow" value={PolicyEffect.Allow}>
-                        {t('typeForm.effectAllowOption')}
-                    </Select.Option>
-                    <Select.Option data-testid="deny" value={PolicyEffect.Deny}>
-                        {t('typeForm.effectDenyOption')}
-                    </Select.Option>
-                </Select>
-                <TypeDescriptionParagraph type="secondary">
-                    <Trans t={t} i18nKey="typeForm.effectDescriptionDetail" components={{ bold: <b /> }} />
-                </TypeDescriptionParagraph>
-            </Form.Item>
+                    <Typography.Paragraph>{t('typeForm.effectDescription')}</Typography.Paragraph>
+                    <Select
+                        data-testid="policy-effect"
+                        value={policyEffect}
+                        onSelect={(value) => setPolicyEffect(value as PolicyEffect)}
+                    >
+                        <Select.Option data-testid="allow" value={PolicyEffect.Allow}>
+                            {t('typeForm.effectAllowOption')}
+                        </Select.Option>
+                        <Select.Option data-testid="deny" value={PolicyEffect.Deny}>
+                            {t('typeForm.effectDenyOption')}
+                        </Select.Option>
+                    </Select>
+                    <TypeDescriptionParagraph type="secondary">
+                        <Trans t={t} i18nKey="typeForm.effectDescriptionDetail" components={{ bold: <b /> }} />
+                    </TypeDescriptionParagraph>
+                </Form.Item>
+            )}
             <Form.Item
                 name="policyDescription"
                 labelAlign="right"

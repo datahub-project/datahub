@@ -123,6 +123,7 @@ query appConfig {
             contextDocumentsEnabled
             hideLineageInSearchCards
             glossaryBasedPoliciesEnabled
+            denyPoliciesEnabled
             multipleDataProductsPerAsset
             showTestsInHealthIcon
             i18nEnabled
