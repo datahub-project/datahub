@@ -27,8 +27,8 @@ from datahub.ingestion.source.informatica.source import (
     InformaticaSource,
     OrchestrateState,
 )
-from datahub.ingestion.workunit_processors.stale_entity_removal import (
-    StaleEntityRemovalProcessor,
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
@@ -1472,7 +1472,7 @@ class TestTaskflowStepEmission:
 
 class TestSourceLifecycle:
     def test_stale_entity_removal_handler_registered(self):
-        # Stateful ingestion hinges on StaleEntityRemovalProcessor being in the
+        # Stateful ingestion hinges on AutoStaleEntityRemovalProcessor being in the
         # workunit processor chain when remove_stale_metadata is enabled.
         config = InformaticaSourceConfig.model_validate(
             {
@@ -1489,11 +1489,11 @@ class TestSourceLifecycle:
         source = InformaticaSource(config, ctx)
         processors = source.get_workunit_processors()
         assert any(
-            isinstance(getattr(p, "__self__", None), StaleEntityRemovalProcessor)
+            isinstance(getattr(p, "__self__", None), AutoStaleEntityRemovalProcessor)
             for p in processors
             if p
         ), (
-            "StaleEntityRemovalProcessor must be in the "
+            "AutoStaleEntityRemovalProcessor must be in the "
             "processor chain returned by get_workunit_processors()"
         )
 

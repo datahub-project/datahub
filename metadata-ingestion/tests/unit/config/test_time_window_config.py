@@ -5,8 +5,8 @@ import time_machine
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 
-FROZEN_TIME = "2023-08-03 09:00:00"
-FROZEN_TIME2 = "2023-08-03 09:10:00"
+FROZEN_TIME = "2023-08-03 09:00:00+00:00"
+FROZEN_TIME2 = "2023-08-03 09:10:00+00:00"
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

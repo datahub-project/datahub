@@ -76,8 +76,8 @@ from datahub.ingestion.source.thoughtspot.source import (
     ThoughtSpotSource,
     _resolve_author_login,
 )
-from datahub.ingestion.workunit_processors.stale_entity_removal import (
-    StaleEntityRemovalProcessor,
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -5374,23 +5374,23 @@ class TestStatefulStaleRemovalIntegration:
 
         processors = source.get_workunit_processors()
 
-        # The processor comes through as a bound method of StaleEntityRemovalProcessor,
+        # The processor comes through as a bound method of AutoStaleEntityRemovalProcessor,
         # which wraps the StaleEntityRemovalHandler internally.
         def _references_stale_processor(p: object) -> bool:
             self_obj = getattr(p, "__self__", None)
             if isinstance(
-                self_obj, (StaleEntityRemovalHandler, StaleEntityRemovalProcessor)
+                self_obj, (StaleEntityRemovalHandler, AutoStaleEntityRemovalProcessor)
             ):
                 return True
             for arg in getattr(p, "args", ()):
                 if isinstance(
-                    arg, (StaleEntityRemovalHandler, StaleEntityRemovalProcessor)
+                    arg, (StaleEntityRemovalHandler, AutoStaleEntityRemovalProcessor)
                 ):
                     return True
             return False
 
         assert any(_references_stale_processor(p) for p in processors if p), (
-            "No StaleEntityRemovalProcessor workunit processor registered — "
+            "No AutoStaleEntityRemovalProcessor workunit processor registered — "
             "entities that disappear between runs will not be soft-deleted."
         )
 

@@ -29,11 +29,11 @@ from datahub.ingestion.source.datahub.state import StatefulDataHubIngestionHandl
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.workunit_processors.auto_fix_duplicate_schema_field_paths import (
-    AutoFixDuplicateSchemaFieldPathsProcessor,
-)
 from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
     AutoWorkunitsReporterProcessor,
+)
+from datahub.ingestion.workunit_processors.validate_duplicate_schema_field_paths import (
+    ValidateDuplicateSchemaFieldPathsProcessor,
 )
 from datahub.metadata.schema_classes import ChangeTypeClass
 from datahub.utilities.progress_timer import ProgressTimer
@@ -86,7 +86,7 @@ class DataHubSource(StatefulIngestionSourceBase):
         # Exactly replicate data from DataHub source — avoid processors that create/remove workunits
         processors = [AutoWorkunitsReporterProcessor.NAME]
         if self.config.drop_duplicate_schema_fields:
-            processors.insert(0, AutoFixDuplicateSchemaFieldPathsProcessor.NAME)
+            processors.insert(0, ValidateDuplicateSchemaFieldPathsProcessor.NAME)
         return processors
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

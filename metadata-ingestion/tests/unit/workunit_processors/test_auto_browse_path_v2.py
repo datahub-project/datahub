@@ -3,8 +3,6 @@ from typing import Any, Dict, Iterable, List, Optional
 from unittest import mock
 
 import datahub.metadata.schema_classes as models
-from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
-
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -17,13 +15,16 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
-from datahub.ingestion.workunit_processors.auto_status_aspect import auto_status_aspect
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_utils import gen_schema_container
 from datahub.ingestion.workunit_processors.auto_browse_path_v2 import (
     AutoBrowsePathV2Processor,
     _prepend_platform_instance,
 )
+from datahub.ingestion.workunit_processors.auto_status_aspect import (
+    AutoStatusAspectProcessor,
+)
+from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
 
 
 class _TestConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
@@ -60,6 +61,12 @@ def _make_processor(
     ctx.source_config = config
 
     return AutoBrowsePathV2Processor(ctx)
+
+
+def _auto_status_aspect(stream):
+    """Helper function to apply auto status aspect processor."""
+    processor = AutoStatusAspectProcessor(mock.MagicMock())
+    return processor.process(stream)
 
 
 def test_auto_browse_path_v2_gen_containers_threaded():
@@ -114,7 +121,7 @@ def test_auto_browse_path_v2_by_container_hierarchy(telemetry_ping_mock):
         "four": {},
     }
 
-    wus = list(auto_status_aspect(_create_container_aspects(structure)))
+    wus = list(_auto_status_aspect(_create_container_aspects(structure)))
     assert (  # Sanity check
         sum(bool(wu.get_aspect_of_type(models.StatusClass)) for wu in wus) == 21
     )
@@ -162,7 +169,7 @@ def test_auto_browse_path_v2_ignores_urns_already_with(telemetry_ping_mock):
     structure = {"a": {"b": {"c": {"d": ["e"]}}}}
 
     wus = [
-        *auto_status_aspect(
+        *_auto_status_aspect(
             _create_container_aspects(
                 structure,
                 other_aspects={
@@ -210,7 +217,7 @@ def test_auto_browse_path_v2_with_platform_instance_and_source_browse_path_v2(
     instance = "instance"
 
     wus = [
-        *auto_status_aspect(
+        *_auto_status_aspect(
             _create_container_aspects(
                 structure,
                 other_aspects={
@@ -301,7 +308,7 @@ def test_auto_browse_path_v2_legacy_browse_path(telemetry_ping_mock):
 def test_auto_browse_path_v2_container_over_legacy_browse_path(telemetry_ping_mock):
     structure = {"a": {"b": ["c"]}}
     wus = list(
-        auto_status_aspect(
+        _auto_status_aspect(
             _create_container_aspects(
                 structure,
                 other_aspects={"b": [models.BrowsePathsClass(paths=["/one/two"])]},
@@ -333,7 +340,7 @@ def test_auto_browse_path_v2_with_platform_instance(telemetry_ping_mock):
     )
 
     structure = {"a": {"b": ["c"]}}
-    wus = list(auto_status_aspect(_create_container_aspects(structure)))
+    wus = list(_auto_status_aspect(_create_container_aspects(structure)))
 
     new_wus = list(
         _make_processor(platform=platform, platform_instance=platform_instance).process(
@@ -417,7 +424,7 @@ def test_auto_browse_path_v2_invalid_batch_telemetry(telemetry_ping_mock):
             aspect=models.BrowsePathsClass(paths=["/one/two"]),
         ).as_workunit(),
     ]
-    wus = list(auto_status_aspect(wus))
+    wus = list(_auto_status_aspect(wus))
 
     assert telemetry_ping_mock.call_count == 0
     _ = list(_make_processor().process(wus))
@@ -442,7 +449,7 @@ def test_auto_browse_path_v2_no_invalid_batch_telemetry_for_unrelated_aspects(
             aspect=models.ContainerPropertiesClass("container name"),
         ).as_workunit(),
     ]
-    wus = list(auto_status_aspect(wus))
+    wus = list(_auto_status_aspect(wus))
 
     assert telemetry_ping_mock.call_count == 0
     _ = list(_make_processor().process(wus))
@@ -455,7 +462,7 @@ def test_auto_browse_path_v2_no_invalid_batch_telemetry_for_unrelated_aspects(
 def test_auto_browse_path_v2_invalid_order_telemetry(telemetry_ping_mock):
     structure = {"a": {"b": ["c"]}}
     wus = list(reversed(list(_create_container_aspects(structure))))
-    wus = list(auto_status_aspect(wus))
+    wus = list(_auto_status_aspect(wus))
 
     assert telemetry_ping_mock.call_count == 0
     new_wus = list(_make_processor().process(wus))
@@ -475,7 +482,7 @@ def test_auto_browse_path_v2_invalid_order_telemetry(telemetry_ping_mock):
 def test_auto_browse_path_v2_dry_run(telemetry_ping_mock):
     structure = {"a": {"b": ["c"]}}
     wus = list(reversed(list(_create_container_aspects(structure))))
-    wus = list(auto_status_aspect(wus))
+    wus = list(_auto_status_aspect(wus))
 
     assert telemetry_ping_mock.call_count == 0
     new_wus = list(_make_processor(dry_run=True).process(wus))
@@ -586,7 +593,7 @@ def test_auto_browse_path_v2_mixed_entities_with_platform_instance(
     pi_entry = models.BrowsePathEntryClass(pi_urn, pi_urn)
 
     container_wus = list(
-        auto_status_aspect(_create_container_aspects({"a": {"b": []}}))
+        _auto_status_aspect(_create_container_aspects({"a": {"b": []}}))
     )
 
     flow_urn = make_data_flow_urn(

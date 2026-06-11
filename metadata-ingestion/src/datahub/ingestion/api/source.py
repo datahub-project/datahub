@@ -588,18 +588,18 @@ class Source(Closeable, metaclass=ABCMeta):
         )
         from datahub.ingestion.workunit_processors import (
             AutoBrowsePathV2Processor,
-            AutoFixDuplicateSchemaFieldPathsProcessor,
-            AutoFixEmptyFieldPathsProcessor,
             AutoIncrementalLineageProcessor,
             AutoIncrementalOwnershipProcessor,
             AutoIncrementalPropertiesProcessor,
             AutoLowercaseUrnsProcessor,
             AutoMaterializeReferencedTagsTermsProcessor,
             AutoPatchLastModifiedProcessor,
+            AutoStaleEntityRemovalProcessor,
             AutoStatusAspectProcessor,
             AutoWorkunitsReporterProcessor,
             EnsureAspectSizeProcessor,
-            StaleEntityRemovalProcessor,
+            ValidateDuplicateSchemaFieldPathsProcessor,
+            ValidateEmptySchemaFieldPathsProcessor,
             ValidateInputFieldsProcessor,
         )
 
@@ -636,8 +636,8 @@ class Source(Closeable, metaclass=ABCMeta):
             AutoLowercaseUrnsProcessor,
             AutoStatusAspectProcessor,
             AutoMaterializeReferencedTagsTermsProcessor,
-            AutoFixDuplicateSchemaFieldPathsProcessor,
-            AutoFixEmptyFieldPathsProcessor,
+            ValidateDuplicateSchemaFieldPathsProcessor,
+            ValidateEmptySchemaFieldPathsProcessor,
             AutoBrowsePathV2Processor,
             AutoIncrementalLineageProcessor,
             AutoIncrementalPropertiesProcessor,
@@ -646,7 +646,7 @@ class Source(Closeable, metaclass=ABCMeta):
             AutoPatchLastModifiedProcessor,
             ValidateInputFieldsProcessor,
             EnsureAspectSizeProcessor,
-            StaleEntityRemovalProcessor,
+            AutoStaleEntityRemovalProcessor,
         ]
 
         excluded = set(self.get_excluded_workunit_processors())
@@ -666,10 +666,13 @@ class Source(Closeable, metaclass=ABCMeta):
                 logger.debug(f"Workunit processor '{name}' enabled")
                 try:
                     processors.append(processor_class.create(ctx))
-                except Exception:
-                    logger.warning(
+                except Exception as e:
+                    logger.error(
                         f"Failed to create workunit processor '{name}'", exc_info=True
                     )
+                    raise RuntimeError(
+                        f"Failed to initialize workunit processor '{name}': {e}"
+                    ) from e
             else:
                 logger.debug(f"Workunit processor '{name}' disabled by should_enable()")
 

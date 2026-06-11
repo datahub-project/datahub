@@ -15,55 +15,49 @@ from datahub.utilities.urns.urn import guess_entity_type
 logger = logging.getLogger(__name__)
 
 
-def auto_status_aspect(
-    stream: Iterable[MetadataWorkUnit],
-) -> Iterable[MetadataWorkUnit]:
-    """
-    For all entities that don't have a status aspect, add one with removed set to false.
-    """
-    all_urns: Set[str] = set()
-    status_urns: Set[str] = set()
-    for wu in stream:
-        urn = wu.get_urn()
-        all_urns.add(urn)
-        if not wu.is_primary_source:
-            # If this is a non-primary source, we pretend like we've seen the status
-            # aspect so that we don't try to emit a removal for it.
-            status_urns.add(urn)
-        elif isinstance(wu.metadata, MetadataChangeEventClass):
-            if any(
-                isinstance(aspect, StatusClass)
-                for aspect in wu.metadata.proposedSnapshot.aspects
-            ):
-                status_urns.add(urn)
-        elif isinstance(wu.metadata, MetadataChangeProposalWrapper):
-            if isinstance(wu.metadata.aspect, StatusClass):
-                status_urns.add(urn)
-        elif isinstance(wu.metadata, MetadataChangeProposalClass):
-            if wu.metadata.aspectName == StatusClass.ASPECT_NAME:
-                status_urns.add(urn)
-        else:
-            raise ValueError(f"Unexpected type {type(wu.metadata)}")
-
-        yield wu
-
-    for urn in sorted(all_urns - status_urns):
-        entity_type = guess_entity_type(urn)
-        if not entity_supports_aspect(entity_type, StatusClass):
-            # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
-            # Example like dataProcessInstance doesn't suppport status aspect.
-            # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance
-            continue
-        yield MetadataChangeProposalWrapper(
-            entityUrn=urn,
-            aspect=StatusClass(removed=False),
-        ).as_workunit()
-
-
 class AutoStatusAspectProcessor(WorkunitProcessor):
     """Add status aspect (removed=False) to entities that don't have one."""
 
     NAME = "auto_status_aspect"
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
-        return auto_status_aspect(stream)
+        """
+        For all entities that don't have a status aspect, add one with removed set to false.
+        """
+        all_urns: Set[str] = set()
+        status_urns: Set[str] = set()
+        for wu in stream:
+            urn = wu.get_urn()
+            all_urns.add(urn)
+            if not wu.is_primary_source:
+                # If this is a non-primary source, we pretend like we've seen the status
+                # aspect so that we don't try to emit a removal for it.
+                status_urns.add(urn)
+            elif isinstance(wu.metadata, MetadataChangeEventClass):
+                if any(
+                    isinstance(aspect, StatusClass)
+                    for aspect in wu.metadata.proposedSnapshot.aspects
+                ):
+                    status_urns.add(urn)
+            elif isinstance(wu.metadata, MetadataChangeProposalWrapper):
+                if isinstance(wu.metadata.aspect, StatusClass):
+                    status_urns.add(urn)
+            elif isinstance(wu.metadata, MetadataChangeProposalClass):
+                if wu.metadata.aspectName == StatusClass.ASPECT_NAME:
+                    status_urns.add(urn)
+            else:
+                raise ValueError(f"Unexpected type {type(wu.metadata)}")
+
+            yield wu
+
+        for urn in sorted(all_urns - status_urns):
+            entity_type = guess_entity_type(urn)
+            if not entity_supports_aspect(entity_type, StatusClass):
+                # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
+                # Example like dataProcessInstance doesn't suppport status aspect.
+                # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance
+                continue
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=StatusClass(removed=False),
+            ).as_workunit()

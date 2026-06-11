@@ -40,14 +40,14 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
 from datahub.ingestion.workunit_processors.auto_status_aspect import (
     AutoStatusAspectProcessor,
 )
 from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
     AutoWorkunitsReporterProcessor,
-)
-from datahub.ingestion.workunit_processors.stale_entity_removal import (
-    StaleEntityRemovalProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -226,7 +226,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
         # No helpers that create/remove workunits (replays existing metadata)
         processors: List[str] = [
             AutoWorkunitsReporterProcessor.NAME,
-            StaleEntityRemovalProcessor.NAME,
+            AutoStaleEntityRemovalProcessor.NAME,
         ]
         if self.config.stateful_ingestion:
             processors.insert(0, AutoStatusAspectProcessor.NAME)

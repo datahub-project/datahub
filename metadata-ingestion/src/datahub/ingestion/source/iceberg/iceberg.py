@@ -73,12 +73,6 @@ from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.workunit_processors.auto_fix_duplicate_schema_field_paths import (
-    AutoFixDuplicateSchemaFieldPathsProcessor,
-)
-from datahub.ingestion.workunit_processors.auto_fix_empty_field_paths import (
-    AutoFixEmptyFieldPathsProcessor,
-)
 from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
     AutoLowercaseUrnsProcessor,
 )
@@ -88,14 +82,20 @@ from datahub.ingestion.workunit_processors.auto_materialize_referenced_tags_term
 from datahub.ingestion.workunit_processors.auto_patch_last_modified import (
     AutoPatchLastModifiedProcessor,
 )
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
 from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
     AutoWorkunitsReporterProcessor,
 )
 from datahub.ingestion.workunit_processors.ensure_aspect_size import (
     EnsureAspectSizeProcessor,
 )
-from datahub.ingestion.workunit_processors.stale_entity_removal import (
-    StaleEntityRemovalProcessor,
+from datahub.ingestion.workunit_processors.validate_duplicate_schema_field_paths import (
+    ValidateDuplicateSchemaFieldPathsProcessor,
+)
+from datahub.ingestion.workunit_processors.validate_empty_schema_field_paths import (
+    ValidateEmptySchemaFieldPathsProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
@@ -181,12 +181,12 @@ class IcebergSource(StatefulIngestionSourceBase):
         return [
             AutoLowercaseUrnsProcessor.NAME,
             AutoMaterializeReferencedTagsTermsProcessor.NAME,
-            AutoFixDuplicateSchemaFieldPathsProcessor.NAME,
-            AutoFixEmptyFieldPathsProcessor.NAME,
+            ValidateDuplicateSchemaFieldPathsProcessor.NAME,
+            ValidateEmptySchemaFieldPathsProcessor.NAME,
             AutoWorkunitsReporterProcessor.NAME,
             AutoPatchLastModifiedProcessor.NAME,
             EnsureAspectSizeProcessor.NAME,
-            StaleEntityRemovalProcessor.NAME,
+            AutoStaleEntityRemovalProcessor.NAME,
         ]
 
     def _get_namespaces(self, catalog: Catalog) -> Iterable[Identifier]:

@@ -65,6 +65,14 @@ class WorkunitProcessor(ABC):
     Workunit processors are stream transformers that apply common logic to
     metadata workunits across all sources. Each processor has a unique NAME
     constant used to reference it in allowed/excluded lists.
+
+    Naming Convention:
+    - Auto*Processor: Processors that automatically enrich metadata by adding new data
+      (e.g., AutoStatusAspectProcessor, AutoBrowsePathV2Processor)
+    - Validate*Processor: Processors that validate and cleanup data by removing invalid entries
+      (e.g., ValidateInputFieldsProcessor, ValidateDuplicateSchemaFieldPathsProcessor)
+    - Ensure*Processor: Processors that enforce constraints by modifying data to fit limits
+      (e.g., EnsureAspectSizeProcessor)
     """
 
     NAME: str  # Must be defined as a class-level constant in each subclass

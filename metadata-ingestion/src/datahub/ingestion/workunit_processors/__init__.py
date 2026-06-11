@@ -1,12 +1,6 @@
 from datahub.ingestion.workunit_processors.auto_browse_path_v2 import (
     AutoBrowsePathV2Processor,
 )
-from datahub.ingestion.workunit_processors.auto_fix_duplicate_schema_field_paths import (
-    AutoFixDuplicateSchemaFieldPathsProcessor,
-)
-from datahub.ingestion.workunit_processors.auto_fix_empty_field_paths import (
-    AutoFixEmptyFieldPathsProcessor,
-)
 from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
     AutoIncrementalLineageProcessor,
 )
@@ -25,6 +19,9 @@ from datahub.ingestion.workunit_processors.auto_materialize_referenced_tags_term
 from datahub.ingestion.workunit_processors.auto_patch_last_modified import (
     AutoPatchLastModifiedProcessor,
 )
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
 from datahub.ingestion.workunit_processors.auto_status_aspect import (
     AutoStatusAspectProcessor,
 )
@@ -34,26 +31,29 @@ from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
 from datahub.ingestion.workunit_processors.ensure_aspect_size import (
     EnsureAspectSizeProcessor,
 )
-from datahub.ingestion.workunit_processors.stale_entity_removal import (
-    StaleEntityRemovalProcessor,
+from datahub.ingestion.workunit_processors.validate_duplicate_schema_field_paths import (
+    ValidateDuplicateSchemaFieldPathsProcessor,
+)
+from datahub.ingestion.workunit_processors.validate_empty_schema_field_paths import (
+    ValidateEmptySchemaFieldPathsProcessor,
 )
 from datahub.ingestion.workunit_processors.validate_input_fields import (
     ValidateInputFieldsProcessor,
 )
 
 __all__ = [
-    "AutoLowercaseUrnsProcessor",
-    "AutoStatusAspectProcessor",
-    "AutoMaterializeReferencedTagsTermsProcessor",
-    "AutoFixDuplicateSchemaFieldPathsProcessor",
-    "AutoFixEmptyFieldPathsProcessor",
     "AutoBrowsePathV2Processor",
     "AutoIncrementalLineageProcessor",
-    "AutoIncrementalPropertiesProcessor",
     "AutoIncrementalOwnershipProcessor",
-    "AutoWorkunitsReporterProcessor",
+    "AutoIncrementalPropertiesProcessor",
+    "AutoLowercaseUrnsProcessor",
+    "AutoMaterializeReferencedTagsTermsProcessor",
     "AutoPatchLastModifiedProcessor",
-    "ValidateInputFieldsProcessor",
+    "AutoStaleEntityRemovalProcessor",
+    "AutoStatusAspectProcessor",
+    "AutoWorkunitsReporterProcessor",
     "EnsureAspectSizeProcessor",
-    "StaleEntityRemovalProcessor",
+    "ValidateDuplicateSchemaFieldPathsProcessor",
+    "ValidateEmptySchemaFieldPathsProcessor",
+    "ValidateInputFieldsProcessor",
 ]

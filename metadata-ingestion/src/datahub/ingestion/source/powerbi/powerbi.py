@@ -64,8 +64,8 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.workunit_processors.stale_entity_removal import (
-    StaleEntityRemovalProcessor,
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -1727,7 +1727,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         # For modified_since, stale removal is handled per-workspace in get_workunits_internal().
-        # For the default path, StaleEntityRemovalProcessor handles it automatically via get_workunit_processors().
+        # For the default path, AutoStaleEntityRemovalProcessor handles it automatically via get_workunit_processors().
         if self.source_config.modified_since:
             from datahub.ingestion.source.state.entity_removal_state import (
                 GenericCheckpointState,
@@ -2003,7 +2003,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     def get_excluded_workunit_processors(self) -> List[str]:
         # For modified_since, stale removal is handled per-workspace in get_workunits_internal()
         if self.source_config.modified_since:
-            return [StaleEntityRemovalProcessor.NAME]
+            return [AutoStaleEntityRemovalProcessor.NAME]
         return []
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

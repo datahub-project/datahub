@@ -16,39 +16,6 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def auto_incremental_properties(
-    incremental_properties: bool,
-    stream: Iterable[MetadataWorkUnit],
-) -> Iterable[MetadataWorkUnit]:
-    if not incremental_properties:
-        yield from stream
-        return  # early exit
-
-    for wu in stream:
-        urn = wu.get_urn()
-
-        if isinstance(wu.metadata, MetadataChangeEventClass):
-            properties_aspect = wu.get_aspect_of_type(DatasetPropertiesClass)
-            set_aspect(wu.metadata, None, DatasetPropertiesClass)
-            if len(wu.metadata.proposedSnapshot.aspects) > 0:
-                yield wu
-
-            if properties_aspect:
-                yield convert_dataset_properties_to_patch(
-                    urn, properties_aspect, wu.metadata.systemMetadata
-                )
-        elif isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
-            wu.metadata.aspect, DatasetPropertiesClass
-        ):
-            properties_aspect = wu.metadata.aspect
-            if properties_aspect:
-                yield convert_dataset_properties_to_patch(
-                    urn, properties_aspect, wu.metadata.systemMetadata
-                )
-        else:
-            yield wu
-
-
 class AutoIncrementalPropertiesProcessor(WorkunitProcessor):
     """Convert dataset properties to incremental patches when incremental_properties is enabled."""
 
@@ -59,4 +26,26 @@ class AutoIncrementalPropertiesProcessor(WorkunitProcessor):
         return bool(getattr(ctx.source_config, "incremental_properties", False))
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
-        return auto_incremental_properties(incremental_properties=True, stream=stream)
+        for wu in stream:
+            urn = wu.get_urn()
+
+            if isinstance(wu.metadata, MetadataChangeEventClass):
+                properties_aspect = wu.get_aspect_of_type(DatasetPropertiesClass)
+                set_aspect(wu.metadata, None, DatasetPropertiesClass)
+                if len(wu.metadata.proposedSnapshot.aspects) > 0:
+                    yield wu
+
+                if properties_aspect:
+                    yield convert_dataset_properties_to_patch(
+                        urn, properties_aspect, wu.metadata.systemMetadata
+                    )
+            elif isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
+                wu.metadata.aspect, DatasetPropertiesClass
+            ):
+                properties_aspect = wu.metadata.aspect
+                if properties_aspect:
+                    yield convert_dataset_properties_to_patch(
+                        urn, properties_aspect, wu.metadata.systemMetadata
+                    )
+            else:
+                yield wu

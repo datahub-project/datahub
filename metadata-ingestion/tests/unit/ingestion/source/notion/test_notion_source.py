@@ -10,8 +10,8 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
 from datahub.ingestion.source.notion.notion_report import NotionSourceReport
 from datahub.ingestion.source.notion.notion_source import NotionSource
-from datahub.ingestion.workunit_processors.stale_entity_removal import (
-    StaleEntityRemovalProcessor,
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 
 
@@ -320,7 +320,7 @@ def test_should_skip_file_text_long_enough():
 
 
 def test_stateful_ingestion_processor_wired_up():
-    """Verify that StaleEntityRemovalProcessor is in the workunit processor chain."""
+    """Verify that AutoStaleEntityRemovalProcessor is in the workunit processor chain."""
     config = NotionSourceConfig(
         api_key=SecretStr("secret_test_key"),
         page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
@@ -338,10 +338,10 @@ def test_stateful_ingestion_processor_wired_up():
 
     processors = source.get_workunit_processors()
     assert any(
-        isinstance(getattr(p, "__self__", None), StaleEntityRemovalProcessor)
+        isinstance(getattr(p, "__self__", None), AutoStaleEntityRemovalProcessor)
         for p in processors
         if p
-    ), "StaleEntityRemovalProcessor must be in the workunit processor chain"
+    ), "AutoStaleEntityRemovalProcessor must be in the workunit processor chain"
 
 
 def test_report_is_notion_source_report(notion_source):
