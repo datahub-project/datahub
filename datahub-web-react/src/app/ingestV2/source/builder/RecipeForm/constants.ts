@@ -182,13 +182,6 @@ import {
     MARIADB_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/mariadb';
 import {
-    TIDB,
-    TIDB_DATABASE,
-    TIDB_HOST_PORT,
-    TIDB_PASSWORD,
-    TIDB_USERNAME,
-} from '@app/ingestV2/source/builder/RecipeForm/tidb';
-import {
     MATILLION_CLIENT_ID,
     MATILLION_CLIENT_SECRET,
     MATILLION_ENV,
@@ -321,6 +314,13 @@ import {
     TABLEAU_TOKEN_VALUE,
     TABLEAU_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/tableau';
+import {
+    TIDB,
+    TIDB_DATABASE,
+    TIDB_HOST_PORT,
+    TIDB_PASSWORD,
+    TIDB_USERNAME,
+} from '@app/ingestV2/source/builder/RecipeForm/tidb';
 import {
     TRINO,
     TRINO_DATABASE,

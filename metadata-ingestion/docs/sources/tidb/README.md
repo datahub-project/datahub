@@ -6,11 +6,11 @@ The DataHub integration for TiDB covers core relational metadata entities such a
 
 ## Concept Mapping
 
-| Source Concept               | DataHub Concept              | Notes                                         |
-| ---------------------------- | ---------------------------- | --------------------------------------------- |
-| TiDB cluster or deployment   | Platform Instance            | Configure using the `platform_instance` field |
-| Database                     | Container                    | Groups schemas and datasets                   |
-| Schema                       | Container                    | Groups tables and views                       |
-| Table or view                | Dataset                      | Primary ingested technical asset              |
-| Column                       | SchemaField                  | Included through schema extraction            |
-| View and table dependencies  | Lineage edges                | Available when lineage extraction is enabled  |
+| Source Concept              | DataHub Concept   | Notes                                         |
+| --------------------------- | ----------------- | --------------------------------------------- |
+| TiDB cluster or deployment  | Platform Instance | Configure using the `platform_instance` field |
+| Database                    | Container         | Groups schemas and datasets                   |
+| Schema                      | Container         | Groups tables and views                       |
+| Table or view               | Dataset           | Primary ingested technical asset              |
+| Column                      | SchemaField       | Included through schema extraction            |
+| View and table dependencies | Lineage edges     | Available when lineage extraction is enabled  |

@@ -1,6 +1,6 @@
-from typing import Any, Dict, Literal
+from typing import Any, Dict
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
@@ -24,7 +24,7 @@ class TiDBConfig(MySQLConfig):
         description=f"TiDB host and port. Default port is {TIDB_DEFAULT_PORT}.",
     )
 
-    auth_mode: HiddenFromDocs[Literal[MySQLAuthMode.PASSWORD]] = Field(
+    auth_mode: HiddenFromDocs[MySQLAuthMode] = Field(
         default=MySQLAuthMode.PASSWORD,
         description="TiDB uses standard username/password authentication.",
     )
@@ -42,6 +42,12 @@ class TiDBConfig(MySQLConfig):
         default=AllowDenyPattern.allow_all(),
         description="Not applicable for TiDB.",
     )
+
+    @model_validator(mode="after")
+    def validate_auth_mode(self) -> "TiDBConfig":
+        if self.auth_mode != MySQLAuthMode.PASSWORD:
+            raise ValueError("TiDB only supports password authentication.")
+        return self
 
 
 @platform_name("TiDB", id="tidb")
