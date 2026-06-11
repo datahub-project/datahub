@@ -35,8 +35,11 @@ _REMOTE_SCHEMES = (
 # Extension (lowercased, no dot) -> DuckDB reader template with a {path} placeholder.
 _READERS = {
     "parquet": "read_parquet('{path}', union_by_name=true)",
-    "csv": "read_csv_auto('{path}')",
-    "tsv": "read_csv_auto('{path}', delim='\\t')",
+    # strict_mode=false tolerates messy real-world CSVs (multi-line quoted
+    # headers, ragged rows, unicode) that DuckDB's strict sniffer rejects but
+    # Spark/Deequ used to read.
+    "csv": "read_csv_auto('{path}', strict_mode=false)",
+    "tsv": "read_csv_auto('{path}', delim='\\t', strict_mode=false)",
     "json": "read_json_auto('{path}')",
     "jsonl": "read_json_auto('{path}')",
     "avro": "read_avro('{path}')",
@@ -202,6 +205,18 @@ class DuckDBProfiler:
                     )
             # engine.begin() auto-commits on __exit__; the view is now persisted
             # in the on-disk database and visible to any subsequent connection.
+
+            # Reflect the view to check if max_number_of_fields_to_profile will
+            # silently drop columns.  Report via the DataLake report so operators
+            # can see the drop in the run summary even when report_dropped_profiles
+            # is False (the default).
+            max_fields = self.profiling_config.max_number_of_fields_to_profile
+            if max_fields is not None:
+                reflected = sa.Table(
+                    view, sa.MetaData(), autoload_with=engine, schema=None
+                )
+                if len(reflected.columns) > max_fields:
+                    self.report.report_file_dropped(dataset_urn)
 
             profiler = SQLAlchemyProfiler(
                 conn=engine,
