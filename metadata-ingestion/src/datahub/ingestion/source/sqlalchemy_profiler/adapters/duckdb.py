@@ -1,6 +1,7 @@
 """DuckDB-specific profiling adapter."""
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -61,6 +62,26 @@ def _convert_bound(value: Any, column_type: Optional[str]) -> Any:
     except (TypeError, ValueError):
         return value
     return value
+
+
+def _round_sig(value: float, sig: int = 12) -> float:
+    """Round a float to `sig` significant figures.
+
+    DuckDB's quantile_cont interpolation can differ by ~1 ULP across DuckDB
+    versions and thread counts; rounding to 12 significant figures suppresses
+    that noise so profiling output (and golden files) stay stable across
+    environments while keeping far more precision than is meaningful for a stat.
+    """
+    if value == 0 or not math.isfinite(value):
+        return value
+    return float(f"{value:.{sig}g}")
+
+
+def _round_if_float(value: Any) -> Any:
+    """Round floats to 12 significant figures, leaving non-floats (int/Decimal/
+    str/None) untouched. Applied to aggregate stats (mean/stdev/median/quantiles)
+    whose last bits can differ across DuckDB versions / thread counts."""
+    return _round_sig(value) if isinstance(value, float) else value
 
 
 class DuckDBAdapter(PlatformAdapter):
@@ -206,7 +227,10 @@ class DuckDBAdapter(PlatformAdapter):
                 f"for column {column!r}; returning null quantiles."
             )
             return [None] * len(quantiles)
-        return [float(v) if v is not None else None for v in result]
+        # Round to 12 significant figures: quantile_cont interpolation can differ
+        # by ~1 ULP across DuckDB versions / thread counts, which would otherwise
+        # make golden-file comparisons flaky (e.g. 0.162 vs 0.16199999999999998).
+        return [_round_sig(float(v)) if v is not None else None for v in result]
 
     def get_sample_clause(self, sample_size: int) -> Optional[str]:
         # DuckDB reservoir sampling by absolute row count.
@@ -265,7 +289,8 @@ class DuckDBAdapter(PlatformAdapter):
     ) -> Optional[Any]:
         """Return cached SUMMARIZE avg (float); falls back to SQL on cache miss."""
         s = self._summary.get(column)
-        return s.avg if s is not None else super().get_column_mean(table, column, conn)
+        val = s.avg if s is not None else super().get_column_mean(table, column, conn)
+        return _round_if_float(val)
 
     def get_column_stdev(
         self, table: sa.Table, column: str, conn: Connection
@@ -273,12 +298,12 @@ class DuckDBAdapter(PlatformAdapter):
         """Return cached SUMMARIZE std (float); falls back to SQL on cache miss or when std is None."""
         s = self._summary.get(column)
         if s is not None and s.std is not None:
-            return s.std
-        return super().get_column_stdev(table, column, conn)
+            return _round_if_float(s.std)
+        return _round_if_float(super().get_column_stdev(table, column, conn))
 
     def get_column_median(self, table: sa.Table, column: str, conn: Connection) -> Any:
         """Return cached SUMMARIZE q50 (p50 median); falls back to quantile_cont on cache miss or when q50 is None."""
         s = self._summary.get(column)
         if s is not None and s.q50 is not None:
-            return s.q50
-        return super().get_column_median(table, column, conn)
+            return _round_if_float(s.q50)
+        return _round_if_float(super().get_column_median(table, column, conn))

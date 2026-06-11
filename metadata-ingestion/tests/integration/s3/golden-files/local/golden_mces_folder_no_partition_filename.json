@@ -1115,7 +1115,7 @@
                     "max": "72",
                     "mean": "48.5",
                     "median": "50.0",
-                    "stdev": "20.041623354076552",
+                    "stdev": "20.0416233541",
                     "sampleValues": [
                         "50",
                         "23",
@@ -1483,7 +1483,7 @@
                     "max": "72",
                     "mean": "37.0",
                     "median": "40.0",
-                    "stdev": "20.159508850699943",
+                    "stdev": "20.1595088507",
                     "distinctValueFrequencies": [
                         {
                             "value": "2",
@@ -1557,9 +1557,9 @@
                     "nullProportion": 0.0,
                     "min": "4",
                     "max": "7",
-                    "mean": "5.214285714285714",
+                    "mean": "5.21428571429",
                     "median": "5.0",
-                    "stdev": "1.0480189336554038",
+                    "stdev": "1.04801893366",
                     "distinctValueFrequencies": [
                         {
                             "value": "4",
