@@ -56,6 +56,8 @@ Requirements:
   - `auto_incremental_ownership` → `datahub.ingestion.workunit_processors.auto_incremental_ownership` (was `datahub.ingestion.api.incremental_ownership_helper`)
   - `auto_incremental_properties` → `datahub.ingestion.workunit_processors.auto_incremental_properties` (was `datahub.ingestion.api.incremental_properties_helper`)
   - `auto_patch_last_modified`, `TimestampPair`, `try_aspect_from_metadata_change_proposal_class` → `datahub.ingestion.workunit_processors.auto_patch_last_modified` (was `datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect`)
+  - `EnsureAspectSizeProcessor` → `datahub.ingestion.workunit_processors.ensure_aspect_size` (was `datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size`)
+  - `ValidateInputFieldsProcessor`, `ValidateInputFieldsReport` → `datahub.ingestion.workunit_processors.validate_input_fields` (was `datahub.ingestion.api.auto_work_units.auto_validate_input_fields`)
 
 - **(GMS rate limiting)** Renamed `rateLimits.defaultRetryAfterSeconds` / `RATE_LIMITS_DEFAULT_RETRY_AFTER` to `minRetryAfterSeconds` / `RATE_LIMITS_MIN_RETRY_AFTER`. The value is now the **minimum** `Retry-After` floor; endpoint (token-bucket) denials may return a longer wait derived from Bucket4j refill timing. Added `retryAfterJitterPercent` / `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT` (default `10`) to spread endpoint retry timing. **Action:** update env vars and external rate-limit YAML if you set the old names; capacity denials still use the flat minimum.
 
