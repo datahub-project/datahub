@@ -36,6 +36,15 @@ class SoftDeletedEntitiesCleanupConfig(ConfigModel):
         description="The number of entities to get in a batch from GraphQL",
     )
 
+    delete_batch_size: int = Field(
+        1000,
+        description=(
+            "The number of entities to hard delete in a single batch request. "
+            "Eligible entities are buffered and removed via one bulk delete "
+            "round-trip per batch instead of one request per entity."
+        ),
+    )
+
     delay: Optional[float] = Field(
         0.25,
         description="Delay between each batch",
@@ -150,6 +159,10 @@ class SoftDeletedEntitiesCleanup:
         self.start_time = time.time()
         self._report_lock: Lock = Lock()
         self.last_print_time = 0.0
+        # Eligible urns are buffered and removed in bulk batches. The buffer is
+        # mutated from worker threads, so all access is guarded by this lock.
+        self._delete_buffer: List[Urn] = []
+        self._delete_buffer_lock: Lock = Lock()
 
     def _increment_retained_count(self) -> None:
         """Thread-safe method to update report fields"""
@@ -193,12 +206,31 @@ class SoftDeletedEntitiesCleanup:
         if self._deletion_limit_reached() or self._times_up():
             return
         self._increment_removal_started_count()
-        self.ctx.graph.delete_entity(urn=urn.urn(), hard=True)
-        self.ctx.graph.delete_references_to_urn(
-            urn=urn.urn(),
-            dry_run=False,
-        )
-        self._update_report(urn.urn(), urn.entity_type)
+        # Buffer the urn and only issue a network call once a full batch has
+        # accumulated. Swap the buffer out under the lock and flush the local
+        # copy afterwards so the bulk delete round-trip never holds the lock.
+        batch_to_flush: Optional[List[Urn]] = None
+        with self._delete_buffer_lock:
+            self._delete_buffer.append(urn)
+            if len(self._delete_buffer) >= self.config.delete_batch_size:
+                batch_to_flush = self._delete_buffer
+                self._delete_buffer = []
+        if batch_to_flush:
+            self._hard_delete_batch(batch_to_flush)
+
+    def _hard_delete_batch(self, batch: List[Urn]) -> None:
+        assert self.ctx.graph
+        if not batch:
+            return
+        self.ctx.graph.hard_delete_entities([urn.urn() for urn in batch])
+        for urn in batch:
+            self._update_report(urn.urn(), urn.entity_type)
+
+    def _flush_pending_deletes(self) -> None:
+        with self._delete_buffer_lock:
+            batch_to_flush = self._delete_buffer
+            self._delete_buffer = []
+        self._hard_delete_batch(batch_to_flush)
 
     def delete_soft_deleted_entity(self, urn: Urn) -> None:
         assert self.ctx.graph
@@ -348,3 +380,6 @@ class SoftDeletedEntitiesCleanup:
             while len(futures) > 0:
                 self._print_report()
                 futures = self._process_futures(futures)
+
+        # Flush any urns left in the buffer below the batch threshold.
+        self._flush_pending_deletes()
