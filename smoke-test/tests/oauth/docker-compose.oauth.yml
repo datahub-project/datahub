@@ -1,0 +1,47 @@
+# OAuth smoke-test overlay: adds an OSS OIDC IdP (Keycloak) and configures GMS as
+# an external-OAuth resource server that trusts the Keycloak realm. Apply this on
+# TOP of the standard DataHub quickstart compose (see README.md), e.g.:
+#
+#   docker compose -f <quickstart-compose> -f docker-compose.oauth.yml up -d
+#
+# The smoke test is run from the `tester` service so that both the token endpoint
+# and GMS are reached via internal hostnames — this keeps the token's `iss` claim
+# (http://keycloak:8080/realms/datahub) consistent with what GMS trusts and can
+# fetch JWKS from. Running the client from the host instead would issue a token
+# whose issuer/JWKS host GMS cannot reach.
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    command: ["start-dev", "--import-realm", "--hostname=keycloak", "--hostname-strict=false"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    volumes:
+      - ./keycloak/datahub-realm.json:/opt/keycloak/data/import/datahub-realm.json:ro
+    ports:
+      - "8083:8080"
+
+  datahub-gms:
+    environment:
+      EXTERNAL_OAUTH_ENABLED: "true"
+      EXTERNAL_OAUTH_TRUSTED_ISSUERS: "http://keycloak:8080/realms/datahub"
+      EXTERNAL_OAUTH_ALLOWED_AUDIENCES: "datahub-gms"
+      EXTERNAL_OAUTH_JWKS_URI: "http://keycloak:8080/realms/datahub/protocol/openid-connect/certs"
+      EXTERNAL_OAUTH_USER_ID_CLAIM: "sub"
+      EXTERNAL_OAUTH_ALGORITHM: "RS256"
+    depends_on:
+      - keycloak
+
+  # Runs the pytest smoke test inside the compose network (see header note).
+  tester:
+    image: python:3.10-slim
+    working_dir: /smoke
+    volumes:
+      - ../../..:/repo:ro
+      - ./:/smoke:ro
+    environment:
+      DATAHUB_GMS_URL: "http://datahub-gms:8080"
+      KEYCLOAK_TOKEN_ENDPOINT: "http://keycloak:8080/realms/datahub/protocol/openid-connect/token"
+    command: ["sleep", "infinity"]
+    depends_on:
+      - datahub-gms

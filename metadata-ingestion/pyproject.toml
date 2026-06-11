@@ -148,6 +148,10 @@ aws-secret-manager = [
 
 azure-ad = []
 
+azure-auth = [
+    "azure-identity>=1.21.0,<2.0.0",
+]
+
 azure-data-factory = [
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
@@ -1958,6 +1962,11 @@ debug = [
 
 [project.scripts]
 datahub = "datahub.entrypoints:main"
+
+[project.entry-points."datahub.token_provider.plugins"]
+k8s_oidc = "datahub.ingestion.auth.k8s_projected:K8sProjectedTokenProvider"
+azure_entra = "datahub.ingestion.auth.azure_entra:AzureEntraTokenProvider"
+oidc_client_credentials = "datahub.ingestion.auth.oidc_client_credentials:OidcClientCredentialsTokenProvider"
 
 [project.entry-points."sqlalchemy.dialects"]
 "doris.pymysql" = "datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect"
