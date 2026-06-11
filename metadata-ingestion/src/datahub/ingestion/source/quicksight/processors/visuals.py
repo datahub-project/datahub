@@ -1,4 +1,3 @@
-import logging
 import re
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -23,8 +22,6 @@ from datahub.ingestion.source.quicksight.quicksight_urn import (
 )
 from datahub.sdk.chart import Chart
 from datahub.sdk.container import Container
-
-logger = logging.getLogger(__name__)
 
 # QuickSight visual titles use a lightweight markup wrapper, e.g.
 # "<visual-title>\n  <b>Total Revenue</b>\n</visual-title>". Strip all tags to

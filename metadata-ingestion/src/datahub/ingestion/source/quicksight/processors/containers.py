@@ -1,4 +1,3 @@
-import logging
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from botocore.exceptions import ClientError
@@ -18,12 +17,9 @@ from datahub.ingestion.source.quicksight.quicksight_constants import (
 from datahub.ingestion.source.quicksight.quicksight_report import (
     QuickSightSourceReport,
 )
+from datahub.ingestion.source.quicksight.quicksight_urn import PLATFORM
 from datahub.metadata.schema_classes import OwnerClass, TagAssociationClass
 from datahub.sdk.container import Container
-
-logger = logging.getLogger(__name__)
-
-PLATFORM = "quicksight"
 
 # Resolves an asset id to its parent container as a fully-built ``Container``
 # (folder / namespace), or ``None`` for the platform root. Implemented by
@@ -128,6 +124,10 @@ class ContainersProcessor:
         # Synthetic "Shared folders" root (only when add_shared_folders_container
         # is enabled); top-level folders nest under it.
         self._shared_folders_container: Optional[Container] = None
+        # folder_id -> FolderPath ancestor ids, memoized so DescribeFolder is
+        # called at most once per folder (it is needed both for the emit ordering
+        # sort key and the parent lookup). QuickSight throttles per-API TPS.
+        self._parent_folder_ids_cache: Dict[str, List[str]] = {}
 
     @property
     def default_parent(self) -> Optional[Container]:
@@ -205,9 +205,11 @@ class ContainersProcessor:
             code = _graceful_code(e)
             if code is None:
                 raise
-            logger.info(
-                f"Could not list QuickSight namespaces ({code}); "
-                "falling back to the 'default' namespace."
+            self.report.warning(
+                title="Could not list namespaces",
+                message="Falling back to the 'default' namespace "
+                "(namespaces are an Enterprise-edition feature).",
+                context=code,
             )
 
         if not namespace_names:
@@ -256,7 +258,12 @@ class ContainersProcessor:
             if code is None:
                 raise
             self.report.folders_unsupported = True
-            logger.info(f"Skipping QuickSight folders ({code}).")
+            self.report.warning(
+                title="Skipping folders",
+                message="QuickSight folders could not be listed; folder containers "
+                "and folder-based browse paths will be omitted.",
+                context=code,
+            )
             return
 
         # Emit parents before children so each folder's parent Container (and its
@@ -313,7 +320,12 @@ class ContainersProcessor:
         except Exception as e:
             if _graceful_code(e) is None:
                 raise
-            logger.info(f"Could not list members of folder {folder_id}.")
+            self.report.warning(
+                title="Could not list folder members",
+                message="Assets in this folder will not be nested under it.",
+                context=folder_id,
+                exc=e,
+            )
             return
         for member in members:
             member_id = member.get("MemberId")
@@ -321,14 +333,24 @@ class ContainersProcessor:
                 self._asset_folder[member_id] = folder_id
 
     def _parent_folder_ids(self, folder_id: str) -> List[str]:
-        """Return the ``FolderPath`` ancestor folder ids (root-to-leaf), or []."""
+        """Return the ``FolderPath`` ancestor folder ids (root-to-leaf), or [].
+
+        Memoized: DescribeFolder is needed both for the emit-ordering sort key and
+        the per-folder parent lookup, so caching halves the call count.
+        """
+        cached = self._parent_folder_ids_cache.get(folder_id)
+        if cached is not None:
+            return cached
         try:
             folder = self.api.describe_folder(folder_id)
         except Exception as e:
             if _graceful_code(e) is None:
                 raise
+            self._parent_folder_ids_cache[folder_id] = []
             return []
-        return [arn.split("/")[-1] for arn in (folder.get("FolderPath") or [])]
+        ancestors = [arn.split("/")[-1] for arn in (folder.get("FolderPath") or [])]
+        self._parent_folder_ids_cache[folder_id] = ancestors
+        return ancestors
 
     def _parent_folder_id(self, folder_id: str) -> Optional[str]:
         """Resolve the immediate parent folder via ``FolderPath`` ancestry.

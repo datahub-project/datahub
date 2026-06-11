@@ -1,4 +1,3 @@
-import logging
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from botocore.exceptions import ClientError
@@ -23,8 +22,6 @@ from datahub.ingestion.source.quicksight.quicksight_urn import (
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dashboard import Dashboard
-
-logger = logging.getLogger(__name__)
 
 
 class DashboardsProcessor:
@@ -114,8 +111,11 @@ class DashboardsProcessor:
         try:
             definition = self.api.describe_dashboard_definition(dashboard_id)
         except ClientError as e:
-            logger.info(
-                f"Could not describe QuickSight dashboard definition {dashboard_id}: {e}"
+            self.report.warning(
+                title="Could not describe dashboard definition",
+                message="Charts/visuals for this dashboard will be omitted.",
+                context=dashboard_id,
+                exc=e,
             )
             return [], []
         return self.visuals.extract(dashboard_id, definition, parent)
@@ -138,5 +138,10 @@ class DashboardsProcessor:
         try:
             return self.api.describe_dashboard(dashboard_id)
         except ClientError as e:
-            logger.info(f"Could not describe QuickSight dashboard {dashboard_id}: {e}")
+            self.report.warning(
+                title="Could not describe dashboard",
+                message="Emitting the dashboard without input-dataset lineage.",
+                context=dashboard_id,
+                exc=e,
+            )
             return {}

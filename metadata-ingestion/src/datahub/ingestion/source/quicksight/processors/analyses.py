@@ -1,4 +1,3 @@
-import logging
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from botocore.exceptions import ClientError
@@ -22,8 +21,6 @@ from datahub.ingestion.source.quicksight.quicksight_urn import (
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dashboard import Dashboard
-
-logger = logging.getLogger(__name__)
 
 
 class AnalysesProcessor:
@@ -115,8 +112,11 @@ class AnalysesProcessor:
         try:
             definition = self.api.describe_analysis_definition(analysis_id)
         except ClientError as e:
-            logger.info(
-                f"Could not describe QuickSight analysis definition {analysis_id}: {e}"
+            self.report.warning(
+                title="Could not describe analysis definition",
+                message="Charts/visuals for this analysis will be omitted.",
+                context=analysis_id,
+                exc=e,
             )
             return [], []
         return self.visuals.extract(analysis_id, definition, parent)
@@ -125,5 +125,10 @@ class AnalysesProcessor:
         try:
             return self.api.describe_analysis(analysis_id)
         except ClientError as e:
-            logger.info(f"Could not describe QuickSight analysis {analysis_id}: {e}")
+            self.report.warning(
+                title="Could not describe analysis",
+                message="Emitting the analysis without input-dataset lineage.",
+                context=analysis_id,
+                exc=e,
+            )
             return {}

@@ -25,6 +25,7 @@ from datahub.ingestion.source.quicksight.quicksight_lineage import (
 from datahub.ingestion.source.quicksight.quicksight_report import (
     QuickSightSourceReport,
 )
+from datahub.ingestion.source.quicksight.quicksight_urn import PLATFORM
 from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -32,8 +33,6 @@ from datahub.metadata.schema_classes import (
 from datahub.sdk.dataset import Dataset
 
 logger = logging.getLogger(__name__)
-
-PLATFORM = "quicksight"
 
 # describe_data_set raises this for FILE-type (CSV upload) datasets, which have
 # no PhysicalTableMap to describe.
