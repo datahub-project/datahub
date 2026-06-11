@@ -368,3 +368,71 @@ def test_nested_column_is_profiled_as_json(tmp_path):
     # Sample values are emitted as clean JSON strings (double-quoted keys).
     assert nested.sampleValues is not None
     assert any('"a"' in v and '"b"' in v for v in nested.sampleValues)
+
+
+def test_load_extension_airgapped_error_is_actionable():
+    """When both LOAD and INSTALL fail (air-gapped, not pre-staged), the error
+    must mention pre-staging and the duckdb_extension_directory config."""
+    profiler = DuckDBProfiler(
+        aws_config=None,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+    )
+    conn = MagicMock()
+    conn.execute.side_effect = Exception("no network")
+    try:
+        try:
+            profiler._load_extension(conn, "httpfs")
+            raise AssertionError("expected ValueError")
+        except ValueError as e:
+            msg = str(e)
+            assert "duckdb_extension_directory" in msg
+            assert "air-gapped" in msg
+    finally:
+        profiler.close()
+
+
+def test_load_extension_prefers_offline_load():
+    """LOAD is tried first; when it succeeds, INSTALL (the download path) is never run."""
+    profiler = DuckDBProfiler(
+        aws_config=None,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+    )
+    conn = MagicMock()  # execute() succeeds for LOAD
+    profiler._load_extension(conn, "httpfs")
+    profiler.close()
+    assert conn.execute.call_count == 1
+    assert "LOAD httpfs" in str(conn.execute.call_args[0][0])
+    assert "httpfs" in profiler._loaded_extensions
+
+
+def test_apply_extension_directory_sets_when_configured():
+    from datahub.ingestion.source.s3.datalake_profiler_config import (
+        DataLakeProfilerConfig,
+    )
+
+    cfg = DataLakeProfilerConfig(
+        enabled=True, duckdb_extension_directory="/opt/ddb-ext"
+    )
+    profiler = DuckDBProfiler(
+        aws_config=None, report=DataLakeSourceReport(), profiling_config=cfg
+    )
+    conn = MagicMock()
+    profiler._apply_extension_directory(conn)
+    profiler.close()
+    sql = str(conn.execute.call_args[0][0])
+    assert "SET extension_directory" in sql
+    assert "/opt/ddb-ext" in sql
+
+
+def test_apply_extension_directory_noop_when_unset():
+    profiler = DuckDBProfiler(
+        aws_config=None,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+    )
+    conn = MagicMock()
+    profiler._apply_extension_directory(conn)
+    profiler.close()
+    conn.execute.assert_not_called()

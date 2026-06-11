@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic.fields import Field
 
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
@@ -24,4 +26,16 @@ class DataLakeProfilerConfig(GEProfilingConfig):
     include_field_histogram: bool = Field(
         default=True,
         description="Whether to profile for the histogram for numeric fields.",
+    )
+
+    duckdb_extension_directory: Optional[str] = Field(
+        default=None,
+        description=(
+            "Directory DuckDB loads extensions from. DuckDB profiling needs the "
+            "`httpfs` extension for remote (s3/gcs/abs) reads and `avro` for Avro "
+            "files; by default these are downloaded on first use, which fails in "
+            "air-gapped environments. Pre-stage the `.duckdb_extension` binaries "
+            "in this directory (matching your DuckDB version/platform) to load "
+            "them offline. Leave unset to download on demand."
+        ),
     )
