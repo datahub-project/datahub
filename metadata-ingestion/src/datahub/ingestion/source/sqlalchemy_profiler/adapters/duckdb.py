@@ -1,7 +1,7 @@
 """DuckDB-specific profiling adapter."""
 
 import logging
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
@@ -11,6 +11,9 @@ from sqlalchemy.sql.elements import ColumnElement
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    ProfilingContext,
 )
 
 logger = logging.getLogger(__name__)
@@ -23,9 +26,74 @@ class DuckDBAdapter(PlatformAdapter):
     DuckDB optimizations:
     1. approx_count_distinct for fast unique counts (HyperLogLog).
     2. quantile_cont for median and quantiles in a single call.
-    3. (later task) a SUMMARIZE fast-path computing the base numeric +
-       cardinality + null block for all columns in one table scan.
+    3. SUMMARIZE fast-path: computes min/max/avg/std/approx_unique/null_pct for
+       all columns in one table scan, cached per-table for subsequent metric reads.
     """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        # Per-table cache: column_name -> parsed SUMMARIZE stats. A fresh adapter is
+        # created per table in _generate_single_profile, so instance state is safe.
+        self._summary: Dict[str, Any] = {}
+        self._row_count: Optional[int] = None
+
+    def setup_profiling(
+        self, context: ProfilingContext, conn: Connection
+    ) -> ProfilingContext:
+        """
+        Run SUMMARIZE once and cache per-column stats before per-metric queries.
+
+        Falls back gracefully (empty cache) if SUMMARIZE is unavailable for the
+        relation (e.g., views, external tables in some DuckDB versions).
+        """
+        context = super().setup_profiling(context, conn)
+        try:
+            self._run_summarize(context, conn)
+        except Exception as e:
+            logger.debug(f"DuckDB SUMMARIZE failed for {context.pretty_name}: {e}")
+            self._summary = {}
+            self._row_count = None
+        return context
+
+    def _run_summarize(self, context: ProfilingContext, conn: Connection) -> None:
+        """Execute SUMMARIZE and populate the per-column stats cache."""
+        identifier = self.quote_identifier(context.get_table_identifier())
+        rows = conn.execute(f"SUMMARIZE {identifier}").fetchall()
+        summary: Dict[str, Any] = {}
+        for row in rows:
+            m = row._mapping
+            name = m["column_name"]
+            null_pct = (
+                float(m["null_percentage"]) if m["null_percentage"] is not None else 0.0
+            )
+            count = int(m["count"]) if m["count"] is not None else 0
+            summary[name] = {
+                "min": m["min"],
+                "max": m["max"],
+                "avg": self._to_float(m["avg"]),
+                "std": self._to_float(m["std"]),
+                "q50": self._to_float(m["q50"]),
+                "approx_unique": (
+                    int(m["approx_unique"]) if m["approx_unique"] is not None else 0
+                ),
+                "non_null": round(count * (1.0 - null_pct / 100.0)),
+            }
+            self._row_count = count
+        self._summary = summary
+
+    @staticmethod
+    def _to_float(value: Any) -> Optional[float]:
+        """Convert a SUMMARIZE VARCHAR stat to float, returning None on failure."""
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    # =========================================================================
+    # SQL Expression Builders
+    # =========================================================================
 
     def get_approx_unique_count_expr(self, column: str) -> ColumnElement[Any]:
         return sa.func.approx_count_distinct(sa.column(column))
@@ -92,3 +160,80 @@ class DuckDBAdapter(PlatformAdapter):
     def get_sample_clause(self, sample_size: int) -> Optional[str]:
         # DuckDB reservoir sampling by absolute row count.
         return f"USING SAMPLE {int(sample_size)} ROWS"
+
+    # =========================================================================
+    # Cache-backed execution overrides (SUMMARIZE fast-path)
+    # =========================================================================
+
+    def get_row_count(
+        self,
+        table: sa.Table,
+        conn: Connection,
+        sample_clause: Optional[str] = None,
+        use_estimation: bool = False,
+    ) -> int:
+        """Return cached SUMMARIZE row count when no sampling is requested."""
+        if sample_clause is None and self._row_count is not None:
+            return self._row_count
+        return super().get_row_count(table, conn, sample_clause, use_estimation)
+
+    def get_column_non_null_count(
+        self, table: sa.Table, column: str, conn: Connection
+    ) -> int:
+        """Return cached non-null count derived from SUMMARIZE null_percentage."""
+        s = self._summary.get(column)
+        if s is not None:
+            return int(s["non_null"])
+        return super().get_column_non_null_count(table, column, conn)
+
+    def get_column_unique_count(
+        self,
+        table: sa.Table,
+        column: str,
+        conn: Connection,
+        use_approx: bool = True,
+    ) -> int:
+        """Return cached approx_unique from SUMMARIZE (HyperLogLog)."""
+        s = self._summary.get(column)
+        if use_approx and s is not None:
+            return int(s["approx_unique"])
+        return super().get_column_unique_count(table, column, conn, use_approx)
+
+    def get_column_min(self, table: sa.Table, column: str, conn: Connection) -> Any:
+        """Return cached SUMMARIZE min (VARCHAR); falls back to SQL on cache miss."""
+        s = self._summary.get(column)
+        return (
+            s["min"] if s is not None else super().get_column_min(table, column, conn)
+        )
+
+    def get_column_max(self, table: sa.Table, column: str, conn: Connection) -> Any:
+        """Return cached SUMMARIZE max (VARCHAR); falls back to SQL on cache miss."""
+        s = self._summary.get(column)
+        return (
+            s["max"] if s is not None else super().get_column_max(table, column, conn)
+        )
+
+    def get_column_mean(
+        self, table: sa.Table, column: str, conn: Connection
+    ) -> Optional[Any]:
+        """Return cached SUMMARIZE avg (float); falls back to SQL on cache miss."""
+        s = self._summary.get(column)
+        return (
+            s["avg"] if s is not None else super().get_column_mean(table, column, conn)
+        )
+
+    def get_column_stdev(
+        self, table: sa.Table, column: str, conn: Connection
+    ) -> Optional[Any]:
+        """Return cached SUMMARIZE std (float); falls back to SQL on cache miss."""
+        s = self._summary.get(column)
+        if s is not None and s["std"] is not None:
+            return s["std"]
+        return super().get_column_stdev(table, column, conn)
+
+    def get_column_median(self, table: sa.Table, column: str, conn: Connection) -> Any:
+        """Return cached SUMMARIZE q50 (p50 median); falls back to quantile_cont."""
+        s = self._summary.get(column)
+        if s is not None and s["q50"] is not None:
+            return s["q50"]
+        return super().get_column_median(table, column, conn)
