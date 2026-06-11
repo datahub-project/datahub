@@ -71,15 +71,16 @@ Reference Links:
 
 ## DataHub Core Configuration
 
-| Environment Variable                   | Default     | Description                                                       | Components |
-| -------------------------------------- | ----------- | ----------------------------------------------------------------- | ---------- |
-| `DATAHUB_SERVER_TYPE`                  | `prod`      | DataHub server type                                               | GMS        |
-| `DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS` | `55000`     | Async request timeout for GMS                                     | GMS        |
-| `DATAHUB_GMS_HOST`                     | `localhost` | GMS host                                                          | Frontend   |
-| `DATAHUB_GMS_PORT`                     | `8080`      | GMS port                                                          | Frontend   |
-| `DATAHUB_GMS_USE_SSL`                  | `false`     | Use SSL for GMS connections                                       | Frontend   |
-| `DATAHUB_GMS_URI`                      | `null`      | URI instead of separate host/port/ssl parameters (takes priority) | Frontend   |
-| `DATAHUB_GMS_SSL_PROTOCOL`             | `null`      | SSL protocol for GMS                                              | Frontend   |
+| Environment Variable                   | Default     | Description                                                                                                               | Components |
+| -------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `DATAHUB_SERVER_TYPE`                  | `prod`      | DataHub server type                                                                                                       | GMS        |
+| `DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS` | `55000`     | Async request timeout for GMS                                                                                             | GMS        |
+| `DATAHUB_GMS_HOST`                     | `localhost` | GMS host                                                                                                                  | Frontend   |
+| `DATAHUB_GMS_PORT`                     | `8080`      | GMS port                                                                                                                  | Frontend   |
+| `DATAHUB_GMS_USE_SSL`                  | `false`     | Use SSL for GMS connections                                                                                               | Frontend   |
+| `DATAHUB_GMS_URI`                      | `null`      | URI instead of separate host/port/ssl parameters (takes priority)                                                         | Frontend   |
+| `DATAHUB_GMS_SSL_PROTOCOL`             | `null`      | SSL protocol for GMS                                                                                                      | Frontend   |
+| `DATAHUB_READ_ONLY`                    | `false`     | Disable metadata writes on GMS (does not enable read pool; see [Primary storage read pool](primary-storage-read-pool.md)) | GMS        |
 
 ### Plugin Configuration
 
@@ -250,6 +251,28 @@ See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size
 | `EBEAN_URL`                       | _same as EBEAN_DATASOURCE_URL_        | Alternative property for database URL           | System Update                    |
 | `EBEAN_MAX_TRANSACTION_RETRY`     | `null`                                | Maximum transaction retries for Ebean           | System Update                    |
 
+#### EBean read pool (optional)
+
+See [Primary storage read pool](primary-storage-read-pool.md) for architecture, routing rules, and examples.
+
+GMS can route **non-locking** entity-aspect reads (`forUpdate=false`) to a separate connection pool. Writes, transactions, and `FOR UPDATE` reads always use the primary pool. The read pool uses **JDBC read-only** connections (`readOnly=true`).
+
+| Environment Variable                        | Default                           | Description                                                                 | Components |
+| ------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------- | ---------- |
+| `EBEAN_READ_POOL_ENABLED`                   | `false`                           | Enable a dedicated read pool for aspect DAO reads                           | GMS        |
+| `EBEAN_READ_POOL_URL`                       | _same as primary `EBEAN_URL`_     | JDBC URL for the read pool; omit for **split-pool** mode (same DB, 2 pools) | GMS        |
+| `EBEAN_READ_REPLICA_URL`                    | _(deprecated alias)_              | Legacy alias for `EBEAN_READ_POOL_URL`                                      | GMS        |
+| `EBEAN_READ_POOL_MIN_CONNECTIONS`           | _same as `EBEAN_MIN_CONNECTIONS`_ | Minimum connections for the read pool                                       | GMS        |
+| `EBEAN_READ_POOL_MAX_CONNECTIONS`           | _same as `EBEAN_MAX_CONNECTIONS`_ | Maximum connections for the read pool                                       | GMS        |
+| `EBEAN_READ_POOL_MAX_INACTIVE_TIME_IN_SECS` | _same as primary_                 | Max inactive time (seconds) for the read pool                               | GMS        |
+| `EBEAN_READ_POOL_MAX_AGE_MINUTES`           | _same as primary_                 | Max connection age (minutes) for the read pool                              | GMS        |
+| `EBEAN_READ_POOL_LEAK_TIME_MINUTES`         | _same as primary_                 | Leak detection time (minutes) for the read pool                             | GMS        |
+| `EBEAN_READ_POOL_WAIT_TIMEOUT_MILLIS`       | _same as primary_                 | Pool wait timeout (ms) for the read pool                                    | GMS        |
+
+**Modes:** If `EBEAN_READ_POOL_URL` matches the primary URL, GMS uses **split-pool** mode (isolated connections, no replica lag benefit). If the URL points at a read replica host, GMS uses **replica** mode and isolates entity-cache keys by read preference.
+
+**Read-only deployments:** When `DATAHUB_READ_ONLY=true`, the read pool is **not** registered even if `EBEAN_READ_POOL_ENABLED=true` (writes remain disabled on DAOs; a second pool would not help).
+
 #### Cross-Cloud IAM Authentication
 
 DataHub supports cross-cloud IAM authentication for both AWS and GCP cloud providers. This enables secure, passwordless database connections using cloud identity services.
@@ -367,6 +390,24 @@ When using traditional username/password authentication, both `CREATE_USER_USERN
 | `CASSANDRA_DATACENTER`          | `datacenter1` | Cassandra datacenter  | GMS, MCE Consumer, System Update |
 | `CASSANDRA_KEYSPACE`            | `datahub`     | Cassandra keyspace    | GMS, MCE Consumer, System Update |
 | `CASSANDRA_USE_SSL`             | `false`       | Use SSL for Cassandra | GMS, MCE Consumer, System Update |
+
+#### Cassandra read pool (optional)
+
+See [Primary storage read pool](primary-storage-read-pool.md) for architecture, routing rules, and examples.
+
+When `entityService.impl=cassandra`, GMS can route non-locking aspect reads to a separate Cassandra session. Same routing semantics as the EBean read pool above (see the guide for replica credentials).
+
+| Environment Variable                  | Default                          | Description                                                          | Components |
+| ------------------------------------- | -------------------------------- | -------------------------------------------------------------------- | ---------- |
+| `CASSANDRA_READ_POOL_ENABLED`         | `false`                          | Enable a dedicated read session for aspect DAO reads                 | GMS        |
+| `CASSANDRA_READ_POOL_HOSTS`           | _same as `CASSANDRA_HOSTS`_      | Contact points for the read pool; omit for split-pool (same cluster) | GMS        |
+| `CASSANDRA_READ_REPLICA_HOSTS`        | _(deprecated alias)_             | Legacy alias for `CASSANDRA_READ_POOL_HOSTS`                         | GMS        |
+| `CASSANDRA_READ_POOL_PORT`            | _same as `CASSANDRA_PORT`_       | Port for the read pool                                               | GMS        |
+| `CASSANDRA_READ_POOL_DATACENTER`      | _same as `CASSANDRA_DATACENTER`_ | Datacenter for the read pool                                         | GMS        |
+| `CASSANDRA_READ_POOL_MIN_CONNECTIONS` | `2`                              | Minimum connections for the read pool                                | GMS        |
+| `CASSANDRA_READ_POOL_MAX_CONNECTIONS` | `8`                              | Maximum connections for the read pool                                | GMS        |
+
+**Read-only deployments:** When `DATAHUB_READ_ONLY=true`, the Cassandra read pool is not registered even if `CASSANDRA_READ_POOL_ENABLED=true`.
 
 ### Elasticsearch Configuration
 
@@ -618,6 +659,38 @@ Reference Links:
 | Environment Variable   | Default | Description   | Components |
 | ---------------------- | ------- | ------------- | ---------- |
 | `server.server-header` | `false` | Server header | GMS        |
+
+## GMS Rate Limiting
+
+**GMS HTTP service rate limits only** — caps incoming API traffic to GMS (GraphQL, OpenAPI, Rest.li, `/auth/*`). Configured under **`datahub.gms.rateLimits`** in `application.yaml`. This is **not** MCP ingestion throttling, MCE/MCL consumer backpressure, or Kafka lag throttle (`MCP_*` / `metadataChangeProposal.throttle`).
+
+Full operations guide: [GMS Rate Limiting](./gms-rate-limiting.md).
+
+Rate limiting is **off by default**. Enable one or both limiter types — there is no single master switch.
+
+| Environment Variable                                   | Default                             | YAML path / effect                                                                                             | Components |
+| ------------------------------------------------------ | ----------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------- |
+| `RATE_LIMITS_FAIL_OPEN`                                | `true`                              | `rateLimits.failOpen` — allow requests when limiter errors occur                                               | GMS        |
+| `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                                | `rateLimits.minRetryAfterSeconds` — minimum `Retry-After` on 429 (capacity uses as-is; endpoint uses as floor) | GMS        |
+| `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                                | `rateLimits.retryAfterJitterPercent` — random jitter added to endpoint `Retry-After` (`0` disables)            | GMS        |
+| `RATE_LIMITS_EXCLUDED_PATHS`                           | health, prometheus, rate-limits API | `rateLimits.excludedPaths` — Ant patterns never limited                                                        | GMS        |
+| `RATE_LIMITS_CONFIG_FILE_ENABLED`                      | `false`                             | `rateLimits.configFile.enabled`                                                                                | GMS        |
+| `RATE_LIMITS_CONFIG_FILE`                              | `/etc/datahub/rate-limits.yaml`     | `rateLimits.configFile.path`                                                                                   | GMS        |
+| `RATE_LIMITS_CONFIG_JSON`                              | —                                   | JSON overlay merged at startup (partial `rateLimits` object)                                                   | GMS        |
+| `RATE_LIMITS_CAPACITY_ENABLED`                         | `false`                             | `rateLimits.capacity.enabled` — Gradient2 in-flight limits                                                     | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                              | `rateLimits.capacity.default.enabled` (requires `capacity.enabled=true`)                                       | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                               | `rateLimits.capacity.default.initialLimit`                                                                     | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.default.minLimit`                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT`               | `5000`                              | `rateLimits.capacity.default.maxLimit`                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED`                 | `true`                              | `rateLimits.capacity.graphql.enabled` (requires `capacity.enabled=true`)                                       | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN`            | `/api/graphql`                      | `rateLimits.capacity.graphql.pathPattern`                                                                      | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED` | `true`                              | `rateLimits.capacity.graphql.operationRulesEnabled`                                                            | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT`           | `100`                               | `rateLimits.capacity.graphql.initialLimit`                                                                     | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.graphql.minLimit`                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT`               | `2000`                              | `rateLimits.capacity.graphql.maxLimit`                                                                         | GMS        |
+| `RATE_LIMITS_ENDPOINT_ENABLED`                         | `false`                             | `rateLimits.endpoint.enabled` — Bucket4j token buckets (cluster-wide; provisions Hazelcast)                    | GMS        |
+| `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets`       | `rateLimits.endpoint.hazelcastMapName`                                                                         | GMS        |
+| `RATE_LIMITS_METRICS_DETAILED`                         | `false`                             | Sample detailed rate-limit metrics on hot path                                                                 | GMS        |
 
 ## Feature Flags
 
@@ -1158,6 +1231,8 @@ Reference Links:
 | `AUTH_OIDC_JIT_PROVISIONING_ENABLED`        | `true`                | Whether DataHub users should be provisioned on login if they don't exist | Frontend   |
 | `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`       | `false`               | Whether the user should already exist in DataHub on login                | Frontend   |
 | `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`          | `true`                | Whether groups should be extracted from a claim in the OIDC profile      | Frontend   |
+| `AUTH_OIDC_REQUIRED_GROUPS`                 | `null`                | Comma-separated list of required groups, from the OIDC groups claim.     | Frontend   |
+| `AUTH_OIDC_ACCESS_DENIED_MESSAGE`           | `null`                | Message shown to users when denied access for missing required groups.   | Frontend   |
 | `AUTH_OIDC_GROUPS_CLAIM`                    | `groups`              | The OIDC claim to extract groups information from                        | Frontend   |
 | `AUTH_OIDC_RESPONSE_TYPE`                   | `null`                | OIDC response type                                                       | Frontend   |
 | `AUTH_OIDC_RESPONSE_MODE`                   | `null`                | OIDC response mode                                                       | Frontend   |

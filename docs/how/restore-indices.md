@@ -318,6 +318,8 @@ Remember to reset this after restoration completes!
 Consider using a read replica as the source of the job's data. If you configure a read-only replica
 you must also provide the parameter `createDefaultAspects=false`.
 
+For **GMS** serving live traffic, you can optionally enable the entity-aspect [read pool](../deploy/primary-storage-read-pool.md) (`EBEAN_READ_POOL_*` or `CASSANDRA_READ_POOL_*`) so non-locking reads use a replica or a dedicated read connection pool. Restore/load jobs and upgrade tooling still use the primary pool only.
+
 #### Kafka & Consumers
 
 ##### Partition Strategy:

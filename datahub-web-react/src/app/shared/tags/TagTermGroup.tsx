@@ -1,12 +1,17 @@
-import { PlusOutlined } from '@ant-design/icons';
+// TODO: Migrate the BusinessAttributes list page (`app/businessAttribute/BusinessAttributes.tsx`,
+// gated on `useBusinessAttributesFlag`) over to the V2 `app/sharedV2/tags/TagTermGroup` and delete
+// this V1 file. The V1 UI was removed in #16680, but this file was left behind because the
+// BusinessAttributes list page is behind a feature flag and was missed by that cleanup sweep.
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Button, Typography } from 'antd';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
-import EditTagTermsModal from '@app/shared/tags/AddTagsTermsModal';
+import AddTagsModal from '@app/shared/tags/AddTagsModal';
+import AddTermsModal from '@app/shared/tags/AddTermsModal';
 import { DomainLink } from '@app/shared/tags/DomainLink';
 import Tag from '@app/shared/tags/tag/Tag';
 import StyledTerm from '@app/shared/tags/term/StyledTerm';
@@ -43,7 +48,7 @@ const NoElementButton = styled(Button)`
 `;
 
 const TagText = styled.span`
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${(props) => props.theme.colors.text};
     margin: 0 7px 0 0;
 `;
 
@@ -70,12 +75,15 @@ export default function TagTermGroup({
 }: Props) {
     const { t } = useTranslation('shared.tags');
     const theme = useTheme();
-    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
     const tagsEmpty = !editableTags?.tags?.length && !uneditableTags?.tags?.length;
     const termsEmpty = !editableGlossaryTerms?.terms?.length && !uneditableGlossaryTerms?.terms?.length;
+    const highlightMatchStyle = useMemo(
+        () => ({ background: theme.colors.bgHighlight, padding: '0' }),
+        [theme.colors.bgHighlight],
+    );
 
     let renderedTags = 0;
 
@@ -188,7 +196,7 @@ export default function TagTermGroup({
                     }}
                     {...buttonProps}
                 >
-                    <PlusOutlined />
+                    <Plus size={14} weight="bold" />
                     <span>{t('addTagsButton')}</span>
                 </NoElementButton>
             )}
@@ -201,28 +209,32 @@ export default function TagTermGroup({
                     }}
                     {...buttonProps}
                 >
-                    <PlusOutlined />
+                    <Plus size={14} weight="bold" />
                     <span>{t('addTermsButton')}</span>
                 </NoElementButton>
             )}
-            {showAddModal && !!entityUrn && !!entityType && (
-                <EditTagTermsModal
-                    type={addModalType}
-                    open
-                    onCloseModal={() => {
+            {showAddModal &&
+                !!entityUrn &&
+                !!entityType &&
+                (() => {
+                    const onClose = () => {
                         onOpenModal?.();
                         setShowAddModal(false);
                         refetch?.();
-                    }}
-                    resources={[
+                    };
+                    const resources = [
                         {
                             resourceUrn: entityUrn,
                             subResource: entitySubresource,
                             subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
                         },
-                    ]}
-                />
-            )}
+                    ];
+                    return addModalType === EntityType.Tag ? (
+                        <AddTagsModal open onCloseModal={onClose} resources={resources} />
+                    ) : (
+                        <AddTermsModal open onCloseModal={onClose} resources={resources} />
+                    );
+                })()}
         </>
     );
 }

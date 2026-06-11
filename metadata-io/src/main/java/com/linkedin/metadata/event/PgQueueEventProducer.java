@@ -79,7 +79,8 @@ public class PgQueueEventProducer extends EventProducer {
   }
 
   @Override
-  public void produceDataHubUpgradeHistoryEvent(@Nonnull DataHubUpgradeHistoryEvent event) {
+  public void produceDataHubUpgradeHistoryEvent(
+      @Nonnull OperationContext opContext, @Nonnull DataHubUpgradeHistoryEvent event) {
     final String topicName = topicConvention.getDataHubUpgradeHistoryTopicName();
     final Optional<Integer> schemaIdOpt = schemaRegistryService.getSchemaIdForTopic(topicName);
     if (schemaIdOpt.isEmpty()) {
@@ -107,7 +108,8 @@ public class PgQueueEventProducer extends EventProducer {
   }
 
   @Override
-  public Future<?> produceMetadataChangeLog(
+  public Future<?> produceMCL(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull AspectSpec aspectSpec,
       @Nonnull MetadataChangeLog metadataChangeLog) {
@@ -131,7 +133,9 @@ public class PgQueueEventProducer extends EventProducer {
 
   @Override
   public Future<?> produceMetadataChangeProposal(
-      @Nonnull Urn urn, @Nonnull MetadataChangeProposal metadataChangeProposal) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull MetadataChangeProposal metadataChangeProposal) {
     final String topicName = topicConvention.getMetadataChangeProposalTopicName();
     try {
       GenericRecord record = EventUtils.pegasusToAvroMCP(metadataChangeProposal);
@@ -171,7 +175,10 @@ public class PgQueueEventProducer extends EventProducer {
 
   @Override
   public Future<?> producePlatformEvent(
-      @Nonnull String name, @Nullable String key, @Nonnull PlatformEvent payload) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String name,
+      @Nullable String key,
+      @Nonnull PlatformEvent payload) {
     final String topicName = topicConvention.getPlatformEventTopicName();
     final String routingKey = key == null ? name : key;
     try {

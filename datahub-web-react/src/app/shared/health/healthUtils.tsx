@@ -3,12 +3,13 @@ import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
 
-const UnhealthyIconFilled = styled(ExclamationCircleTwoTone)<{ fontSize: number }>`
+const UnhealthyIconFilled = styled(ExclamationCircleTwoTone).attrs((props) => ({
+    twoToneColor: props.theme.colors.iconError,
+}))<{ fontSize: number }>`
     && {
         font-size: ${(props) => props.fontSize}px;
     }
@@ -16,6 +17,13 @@ const UnhealthyIconFilled = styled(ExclamationCircleTwoTone)<{ fontSize: number 
 
 const UnhealthyIconOutlined = styled(ExclamationCircleOutlined)<{ fontSize: number }>`
     color: ${(props) => props.theme.colors.iconError};
+    && {
+        font-size: ${(props) => props.fontSize}px;
+    }
+`;
+
+const HealthyIconOutlined = styled(CheckCircleOutlined)<{ fontSize: number }>`
+    color: ${(props) => props.theme.colors.iconSuccess};
     && {
         font-size: ${(props) => props.fontSize}px;
     }
@@ -61,7 +69,7 @@ export const getHealthSummaryIcon = (
     if (unhealthy) {
         const iconComponent =
             type === HealthSummaryIconType.FILLED ? (
-                <UnhealthyIconFilled twoToneColor={FAILURE_COLOR_HEX} fontSize={fontSize} />
+                <UnhealthyIconFilled fontSize={fontSize} />
             ) : (
                 <UnhealthyIconOutlined fontSize={fontSize} />
             );
@@ -69,7 +77,7 @@ export const getHealthSummaryIcon = (
     }
 
     if (healthy) {
-        return <CheckCircleOutlined style={{ color: SUCCESS_COLOR_HEX, fontSize }} />;
+        return <HealthyIconOutlined fontSize={fontSize} />;
     }
 
     return undefined;

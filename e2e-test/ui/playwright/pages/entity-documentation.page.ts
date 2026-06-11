@@ -79,7 +79,7 @@ export class EntityDocumentationPage extends BasePage {
     // force: true bypasses the viewport/visibility check; Remirror auto-focuses on mount
     // but the element may have zero height until the flex layout resolves.
     await this.proseMirrorEditor.click({ force: true });
-    await this.page.keyboard.press('Control+a');
+    await this.page.keyboard.press('ControlOrMeta+a');
     await this.page.keyboard.type(text);
     await this.saveDescriptionButton.click();
     await expect(this.page.getByText('Description Updated')).toBeVisible({ timeout: 15000 });
@@ -91,7 +91,7 @@ export class EntityDocumentationPage extends BasePage {
     await this.saveDescriptionButton.waitFor({ state: 'attached', timeout: 30000 });
     await this.proseMirrorEditor.waitFor({ state: 'attached', timeout: 30000 });
     await this.proseMirrorEditor.click({ force: true });
-    await this.page.keyboard.press('Control+a');
+    await this.page.keyboard.press('ControlOrMeta+a');
     await this.page.keyboard.press('Delete');
     await this.saveDescriptionButton.click();
     await expect(this.page.getByText('Description Updated')).toBeVisible({ timeout: 15000 });
@@ -141,7 +141,7 @@ export class EntityDocumentationPage extends BasePage {
     // 'attached' rather than 'visible', and force-click to focus even if not laid out yet.
     await this.fieldDescriptionEditor.waitFor({ state: 'attached', timeout: 15000 });
     await this.fieldDescriptionEditor.click({ force: true });
-    await this.page.keyboard.press('Control+a');
+    await this.page.keyboard.press('ControlOrMeta+a');
     await this.page.keyboard.press('Delete');
     await this.page.waitForTimeout(500);
     await this.page.keyboard.type(description);
