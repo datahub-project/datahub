@@ -8,7 +8,7 @@ import duckdb
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.s3.duckdb_profiler import DuckDBProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
-from datahub.ingestion.source.s3.source import TableData
+from datahub.ingestion.source.s3.source import Folder, TableData
 from datahub.metadata.schema_classes import DatasetProfileClass
 
 
@@ -93,3 +93,87 @@ def test_close_removes_tempdir():
     assert os.path.isdir(tmpdir)
     profiler.close()
     assert not os.path.isdir(tmpdir)
+
+
+def test_path_and_ext_partitioned_appends_glob(tmp_path):
+    """For a partitioned table, _path_and_ext must return a /**/*.<ext> glob."""
+    folder = Folder(
+        creation_time=datetime.now(timezone.utc),
+        modification_time=datetime.now(timezone.utc),
+        size=0,
+        sample_file=str(tmp_path / "year=2024" / "data.parquet"),
+    )
+    table = TableData(
+        display_name="events",
+        is_s3=False,
+        full_path=str(tmp_path / "year=2024" / "data.parquet"),
+        timestamp=datetime.now(timezone.utc),
+        table_path=str(tmp_path),
+        size_in_bytes=0,
+        number_of_files=1,
+        partitions=[folder],
+    )
+    profiler = DuckDBProfiler(
+        aws_config=None,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+    )
+    path, ext = profiler._path_and_ext(table)
+    profiler.close()
+    assert ext == "parquet"
+    assert path == str(tmp_path) + "/**/*.parquet"
+
+
+def test_path_and_ext_non_partitioned_returns_full_path(tmp_path):
+    """For a non-partitioned table, _path_and_ext must return full_path unchanged."""
+    full_path = str(tmp_path / "data.parquet")
+    table = TableData(
+        display_name="events",
+        is_s3=False,
+        full_path=full_path,
+        timestamp=datetime.now(timezone.utc),
+        table_path=full_path,
+        size_in_bytes=0,
+        number_of_files=1,
+    )
+    profiler = DuckDBProfiler(
+        aws_config=None,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+    )
+    path, ext = profiler._path_and_ext(table)
+    profiler.close()
+    assert ext == "parquet"
+    assert path == full_path
+
+
+def test_path_and_ext_empty_extension_falls_through(tmp_path):
+    """For a file with no extension, _path_and_ext returns full_path (not a bad glob)."""
+    full_path = str(tmp_path / "datafile")
+    folder = Folder(
+        creation_time=datetime.now(timezone.utc),
+        modification_time=datetime.now(timezone.utc),
+        size=0,
+        sample_file=full_path,
+    )
+    table = TableData(
+        display_name="datafile",
+        is_s3=False,
+        full_path=full_path,
+        timestamp=datetime.now(timezone.utc),
+        table_path=str(tmp_path),
+        size_in_bytes=0,
+        number_of_files=1,
+        # Even with partitions, an empty extension must not produce a bad glob.
+        partitions=[folder],
+    )
+    profiler = DuckDBProfiler(
+        aws_config=None,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+    )
+    path, ext = profiler._path_and_ext(table)
+    profiler.close()
+    assert ext == ""
+    # Must be the concrete path, NOT something like "/tmp/.../**/*."
+    assert path == full_path
