@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.incremental_properties_helper import (
+from datahub.ingestion.workunit_processors.auto_incremental_properties import (
     auto_incremental_properties,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
