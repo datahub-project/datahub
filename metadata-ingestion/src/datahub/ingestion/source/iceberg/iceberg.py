@@ -73,14 +73,29 @@ from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.workunit_processors.auto_browse_path_v2 import (
-    AutoBrowsePathV2Processor,
+from datahub.ingestion.workunit_processors.auto_fix_duplicate_schema_field_paths import (
+    AutoFixDuplicateSchemaFieldPathsProcessor,
 )
-from datahub.ingestion.workunit_processors.auto_status_aspect import (
-    AutoStatusAspectProcessor,
+from datahub.ingestion.workunit_processors.auto_fix_empty_field_paths import (
+    AutoFixEmptyFieldPathsProcessor,
 )
-from datahub.ingestion.workunit_processors.validate_input_fields import (
-    ValidateInputFieldsProcessor,
+from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
+    AutoLowercaseUrnsProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_materialize_referenced_tags_terms import (
+    AutoMaterializeReferencedTagsTermsProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_patch_last_modified import (
+    AutoPatchLastModifiedProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
+from datahub.ingestion.workunit_processors.ensure_aspect_size import (
+    EnsureAspectSizeProcessor,
+)
+from datahub.ingestion.workunit_processors.stale_entity_removal import (
+    StaleEntityRemovalProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
@@ -159,16 +174,19 @@ class IcebergSource(StatefulIngestionSourceBase):
         config = IcebergSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_excluded_workunit_processors(self) -> List[str]:
-        # Excluded due to parallelism constraints — this source scrapes metadata
-        # across parallel threads, which makes these processors unsafe:
-        # - auto_status_aspect / auto_browse_path_v2: require aspects for a single
-        #   entity to arrive continuously, which is not guaranteed with parallel scraping
-        # - validate_input_fields: not required for Iceberg's output
+    def get_allowed_workunit_processors(self) -> Optional[List[str]]:
+        # Explicit whitelist: this source uses parallel threads for metadata scraping,
+        # so processors that assume sequential, per-entity ordering (auto_status_aspect,
+        # auto_browse_path_v2) are unsafe. New processors must be explicitly opted in here.
         return [
-            AutoStatusAspectProcessor.NAME,
-            AutoBrowsePathV2Processor.NAME,
-            ValidateInputFieldsProcessor.NAME,
+            AutoLowercaseUrnsProcessor.NAME,
+            AutoMaterializeReferencedTagsTermsProcessor.NAME,
+            AutoFixDuplicateSchemaFieldPathsProcessor.NAME,
+            AutoFixEmptyFieldPathsProcessor.NAME,
+            AutoWorkunitsReporterProcessor.NAME,
+            AutoPatchLastModifiedProcessor.NAME,
+            EnsureAspectSizeProcessor.NAME,
+            StaleEntityRemovalProcessor.NAME,
         ]
 
     def _get_namespaces(self, catalog: Catalog) -> Iterable[Identifier]:

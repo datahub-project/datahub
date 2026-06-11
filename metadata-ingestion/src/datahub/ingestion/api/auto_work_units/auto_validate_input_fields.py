@@ -25,6 +25,14 @@ class ValidateInputFieldsProcessor:
         URN generation to fail when sent to the server. This processor filters them out
         and reports them as warnings.
         """
+        from datahub.ingestion.workunit_processors.validate_input_fields import (
+            ValidateInputFieldsReport,
+        )
+
+        processor_report = self.report.workunit_processor_reports.get(
+            "validate_input_fields"
+        )
+
         for wu in stream:
             input_fields_aspect = wu.get_aspect_of_type(InputFieldsClass)
             if input_fields_aspect and input_fields_aspect.fields:
@@ -50,6 +58,8 @@ class ValidateInputFieldsProcessor:
                         message="Input fields with empty fieldPath values were filtered out to prevent ingestion errors",
                         context=f"Filtered {invalid_count} invalid input field(s) for {wu.get_urn()}",
                     )
+                    if isinstance(processor_report, ValidateInputFieldsReport):
+                        processor_report.num_input_fields_filtered += invalid_count
 
                     # Update the aspect with only valid fields
                     if valid_fields:
