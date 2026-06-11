@@ -273,7 +273,12 @@ Profiling is computed with **DuckDB** via the SQLAlchemy profiler — no Java or
 
 Supported formats for profiling: Parquet, CSV/TSV, JSON/JSONL, and Avro (Parquet, CSV, and JSON readers are statically bundled in the DuckDB wheel).
 
-DuckDB loads two extensions at runtime: `httpfs` (for reading remote `s3://` objects) and `avro` (only when profiling Avro files). By default these are downloaded from DuckDB's extension repository on first use and cached afterwards (one-time network access). **For air-gapped deployments**, pre-stage the `.duckdb_extension` binaries (matching your DuckDB version and platform) and point `profiling.duckdb_extension_directory` at that directory — DuckDB then loads them offline without any download. If an extension is unavailable and cannot be downloaded, the affected table is skipped with an actionable warning rather than failing the run.
+DuckDB loads two extensions at runtime: `httpfs` (for reading remote `s3://` objects) and `avro` (only when profiling Avro files). By default these are downloaded from DuckDB's extension repository on first use and cached afterwards (one-time network access).
+
+**Air-gapped deployments** have two options:
+
+- **Docker:** the official `datahub-ingestion` image (full variant) pre-installs `httpfs` and `avro` at build time for its platform, so profiling works offline with no extra configuration.
+- **pip / custom installs:** pre-stage the `.duckdb_extension` binaries (matching your DuckDB version and platform) and set `profiling.duckdb_extension_directory` to that directory. When that option is set, DuckDB loads extensions from there and never attempts a download (so it won't hang on a blocked network); if a required extension is missing the affected table is skipped with an actionable warning.
 
 :::note
 

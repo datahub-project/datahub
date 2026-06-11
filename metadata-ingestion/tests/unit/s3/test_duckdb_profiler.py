@@ -436,3 +436,31 @@ def test_apply_extension_directory_noop_when_unset():
     profiler._apply_extension_directory(conn)
     profiler.close()
     conn.execute.assert_not_called()
+
+
+def test_load_extension_offline_mode_never_installs():
+    """When duckdb_extension_directory is set (offline intent), a failed LOAD must
+    NOT trigger INSTALL (no network attempt) — it fails fast with guidance."""
+    from datahub.ingestion.source.s3.datalake_profiler_config import (
+        DataLakeProfilerConfig,
+    )
+
+    cfg = DataLakeProfilerConfig(
+        enabled=True, duckdb_extension_directory="/opt/ddb-ext"
+    )
+    profiler = DuckDBProfiler(
+        aws_config=None, report=DataLakeSourceReport(), profiling_config=cfg
+    )
+    conn = MagicMock()
+    conn.execute.side_effect = Exception("LOAD failed: not pre-staged")
+    try:
+        try:
+            profiler._load_extension(conn, "httpfs")
+            raise AssertionError("expected ValueError")
+        except ValueError as e:
+            assert "duckdb_extension_directory" in str(e)
+        # Only LOAD was attempted — no INSTALL (which would hit the network).
+        assert conn.execute.call_count == 1
+        assert "LOAD httpfs" in str(conn.execute.call_args[0][0])
+    finally:
+        profiler.close()
