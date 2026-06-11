@@ -378,16 +378,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self.views_failed_parsing: Set[str] = set()
 
         self.discovered_datasets: Set[str] = set()
-        self.aggregator = SqlParsingAggregator(
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            graph=self.ctx.graph,
-            generate_lineage=self.include_lineage,
-            generate_usage_statistics=False,
-            generate_operations=False,
-            eager_graph_load=False,
-        )
+        self.aggregator = self._create_aggregator()
         self.report.sql_aggregator = self.aggregator.report
 
     def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
@@ -644,10 +635,45 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     profile_requests, profiler, platform=self.platform
                 )
 
+    def _create_aggregator(self) -> SqlParsingAggregator:
+        """Construct the SqlParsingAggregator used for lineage extraction.
+
+        Subclasses may override to enable query-history processing or usage
+        stats. All upstreamLineage MCPs MUST flow through this single
+        aggregator; spinning up a second aggregator alongside it causes
+        duplicate emits that SET-overwrite v0 with a partial payload.
+
+        Called from ``__init__`` before the subclass ``__init__`` body runs, so
+        overrides may only read attributes set by this point: ``self.config``,
+        ``self.platform`` and ``self.ctx``.
+        """
+        return SqlParsingAggregator(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            graph=self.ctx.graph,
+            generate_lineage=self.include_lineage,
+            generate_usage_statistics=False,
+            generate_operations=False,
+            eager_graph_load=False,
+        )
+
     def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Generate work units from SQL parsing aggregator. Can be overridden by subclasses."""
-        for mcp in self.aggregator.gen_metadata():
-            yield mcp.as_workunit()
+        # gen_metadata() runs the deferred SQL parsing, schema resolution and
+        # (with eager_graph_load=False) lazy graph lookups, any of which can raise.
+        # This is the single funnel for all lineage/usage, so a failure here must
+        # be reported rather than aborting the run after tables/views were emitted.
+        try:
+            for mcp in self.aggregator.gen_metadata():
+                yield mcp.as_workunit()
+        except Exception as e:
+            self.report.failure(
+                title="Failed to generate lineage/usage from SQL parsing",
+                message="Could not emit aggregated SQL parsing results. "
+                "Other ingested metadata is unaffected.",
+                exc=e,
+            )
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any

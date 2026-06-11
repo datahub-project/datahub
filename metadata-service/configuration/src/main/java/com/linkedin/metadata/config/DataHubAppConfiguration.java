@@ -97,6 +97,9 @@ public class DataHubAppConfiguration {
   /** Ebean related configuration */
   private EbeanConfiguration ebean;
 
+  /** Cassandra related configuration (when entityService.impl is cassandra) */
+  private CassandraConfiguration cassandra;
+
   /** GraphQL Configurations */
   private GraphQLConfiguration graphQL;
 

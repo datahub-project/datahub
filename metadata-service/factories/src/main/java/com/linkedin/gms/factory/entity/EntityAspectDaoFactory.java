@@ -1,19 +1,17 @@
 package com.linkedin.gms.factory.entity;
 
-import com.datastax.oss.driver.api.core.CqlSession;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.aspect.SystemAspectValidator;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
+import com.linkedin.metadata.entity.storage.PrimaryStorageResolver;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import io.ebean.Database;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,7 +28,7 @@ public class EntityAspectDaoFactory {
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
   protected AspectDao createEbeanInstance(
-      @Qualifier("ebeanServer") final Database server,
+      final PrimaryStorageResolver primaryStorageResolver,
       final ConfigurationProvider configurationProvider,
       final MetricUtils metricUtils) {
     List<SystemAspectValidator> validators =
@@ -41,7 +39,7 @@ public class EntityAspectDaoFactory {
         validators.stream().map(v -> v.getClass().getSimpleName()).toList());
     EbeanAspectDao ebeanAspectDao =
         new EbeanAspectDao(
-            server,
+            primaryStorageResolver,
             configurationProvider.getEbean(),
             metricUtils,
             validators,
@@ -59,12 +57,13 @@ public class EntityAspectDaoFactory {
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "cassandra")
   @Nonnull
   protected AspectDao createCassandraInstance(
-      CqlSession session, final ConfigurationProvider configurationProvider) {
+      PrimaryStorageResolver primaryStorageResolver,
+      final ConfigurationProvider configurationProvider) {
     List<SystemAspectValidator> validators =
         Objects.requireNonNullElse(systemAspectValidators, List.of());
     CassandraAspectDao cassandraAspectDao =
         new CassandraAspectDao(
-            session,
+            primaryStorageResolver,
             validators,
             configurationProvider.getDatahub().getValidation() != null
                 ? configurationProvider.getDatahub().getValidation().getAspectSize()

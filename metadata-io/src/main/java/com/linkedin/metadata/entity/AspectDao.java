@@ -47,24 +47,24 @@ public interface AspectDao {
 
   @Nullable
   EntityAspect getAspect(
-      OperationContext operationContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final String urn,
       @Nonnull final String aspectName,
       final long version);
 
   @Nullable
   EntityAspect getAspect(
-      OperationContext operationContext, @Nonnull final EntityAspectIdentifier key);
+      @Nonnull OperationContext opContext, @Nonnull final EntityAspectIdentifier key);
 
   @Nonnull
   Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      OperationContext operationContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final Set<EntityAspectIdentifier> keys,
       boolean forUpdate);
 
   @Nonnull
   List<EntityAspect> getAspectsInRange(
-      OperationContext operationContext,
+      @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       Set<String> aspectNames,
       long startTimeMillis,
@@ -275,6 +275,9 @@ public interface AspectDao {
    * @return partitioned stream of matching rows
    */
   @Nonnull
+  @OperationContextExempt(
+      reason =
+          "TODO: Needs a bigger refactor, will be handled later. Streams need to follow a consumer pattern")
   PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
       @Nonnull Map<String, Long> aspectTargetVersions,
       long afterCreatedOnMs,
@@ -289,6 +292,9 @@ public interface AspectDao {
    * @return stream of aspects; caller is responsible for closing
    */
   @Nonnull
+  @OperationContextExempt(
+      reason =
+          "TODO: Needs a bigger refactor, will be handled later. Streams need to follow a consumer pattern")
   Stream<EntityAspect> streamAspects(@Nonnull String entityName, @Nonnull String aspectName);
 
   int deleteUrn(
@@ -314,20 +320,24 @@ public interface AspectDao {
       final int pageSize);
 
   Map<String, Map<String, Long>> getNextVersions(
-      OperationContext operationContext, @Nonnull Map<String, Set<String>> urnAspectMap);
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<String, Set<String>> urnAspectMap,
+      boolean lockLatestForWrite);
 
   default long getNextVersion(
-      OperationContext operationContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final String urn,
       @Nonnull final String aspectName) {
-    return getNextVersions(operationContext, urn, Set.of(aspectName)).get(aspectName);
+    return getNextVersions(opContext, Map.of(urn, Set.of(aspectName)), true)
+        .get(urn)
+        .get(aspectName);
   }
 
   default Map<String, Long> getNextVersions(
-      OperationContext operationContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final String urn,
       @Nonnull final Set<String> aspectNames) {
-    return getNextVersions(operationContext, Map.of(urn, aspectNames)).get(urn);
+    return getNextVersions(opContext, Map.of(urn, aspectNames), true).get(urn);
   }
 
   long getMaxVersion(
@@ -349,6 +359,7 @@ public interface AspectDao {
       @Nonnull final String urn,
       @Nonnull final String aspectName);
 
+  @OperationContextExempt(reason = "Lifecycle/admin toggle, no actor context needed")
   void setWritable(boolean canWrite);
 
   @Nonnull
@@ -389,8 +400,10 @@ public interface AspectDao {
   }
 
   @Nonnull
+  @OperationContextExempt(reason = "Returns static config, no request context needed")
   List<com.linkedin.metadata.aspect.SystemAspectValidator> getSystemAspectValidators();
 
   @Nullable
+  @OperationContextExempt(reason = "Returns static config, no request context needed")
   com.linkedin.metadata.config.AspectSizeValidationConfiguration getValidationConfig();
 }

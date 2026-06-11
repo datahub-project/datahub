@@ -103,6 +103,7 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     '.*[Dd]isplayName$',
     'form',
     'entityTypeName',
+    'commandName',
     'autoComplete',
     'preload',
     'placement',

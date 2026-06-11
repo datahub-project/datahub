@@ -20,10 +20,10 @@ You can authenticate with Databricks using OAuth, Azure authentication, a Person
 
 **Option 2: Azure Authentication (for Azure Databricks)**
 
-- Create an Azure Active Directory application:
-  - Follow the [Azure AD app registration guide](https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app)
+- Create a Microsoft Entra ID application:
+  - Follow the [Microsoft Entra ID app registration guide](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app)
   - Note down the `client_id` (Application ID), `tenant_id` (Directory ID), and create a `client_secret`
-- Grant the Azure AD application access to your Databricks workspace:
+- Grant the Microsoft Entra ID application access to your Databricks workspace:
   - Add the service principal to your Databricks workspace following [this guide](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#add-a-service-principal-to-your-azure-databricks-account-using-the-account-console)
 
 **Option 3: Personal Access Token (PAT) (legacy)**
