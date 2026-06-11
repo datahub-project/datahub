@@ -85,6 +85,7 @@ dependencies {
   testImplementation externalDependency.javatuples
   testImplementation externalDependency.testContainers
   testImplementation externalDependency.testContainersElasticsearch
+  testImplementation externalDependency.testContainersCassandra
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
   testCompileOnly externalDependency.lombok

@@ -16,6 +16,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.storage.PrimaryStorageResolver;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -178,7 +179,7 @@ public class LoadIndicesStep implements UpgradeStep {
       // Create EbeanAspectDao for streaming
       EbeanAspectDao aspectDao =
           new EbeanAspectDao(
-              server,
+              PrimaryStorageResolver.forSingleEbeanDatabase(server),
               EbeanConfiguration.testDefault,
               null,
               java.util.Collections.emptyList(),
