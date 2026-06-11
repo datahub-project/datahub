@@ -101,6 +101,8 @@
     "contractStatus.passingText.freshness": "Meeting freshness contract",
     "contractStatus.passingText.schema": "Meeting schema contract",
     "contractStatus.pending": "This contract is pending implementation",
+    "dataContractEmptyState.description": "A contract does not yet exist for this dataset",
+    "dataContractEmptyState.title": "No contract found",
     "datasetDescription.fallback.noDescription": "No description found",
     "datasetDescription.label.createdByTemplate": "Created by {{creator}}",
     "datasetDescription.label.lastUpdatedByTemplate": "Last updated by {{updater}}",

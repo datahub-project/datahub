@@ -14,6 +14,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
@@ -71,7 +72,8 @@ public class ESUtilsTest {
     structPropAbFghTenDefinition.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropAbFghTenDefinition.setQualifiedName("ab.fgh.ten");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(abFghTenUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(abFghTenUrn)), anySet()))
         .thenReturn(
             Map.of(
                 abFghTenUrn,
@@ -83,7 +85,8 @@ public class ESUtilsTest {
     dateWithDotsDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
     dateWithDotsDefinition.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "date"));
     dateWithDotsDefinition.setQualifiedName("date_here.with_dot");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(dateWithDotsUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(dateWithDotsUrn)), anySet()))
         .thenReturn(
             Map.of(
                 dateWithDotsUrn,
@@ -97,7 +100,8 @@ public class ESUtilsTest {
     structPropUnderscoresAndDotsDefinition.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropUnderscoresAndDotsDefinition.setQualifiedName("under.scores.and.dots_make_a_mess");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(underscoresAndDotsUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(underscoresAndDotsUrn)), anySet()))
         .thenReturn(
             Map.of(
                 underscoresAndDotsUrn,
@@ -116,7 +120,8 @@ public class ESUtilsTest {
     structPropAbFghTenDefinitionV1.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropAbFghTenDefinitionV1.setQualifiedName("ab.fgh.ten");
-    when(aspectRetrieverV1.getLatestAspectObjects(eq(Set.of(abFghTenUrn)), anySet()))
+    when(aspectRetrieverV1.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(abFghTenUrn)), anySet()))
         .thenReturn(
             Map.of(
                 abFghTenUrn,
@@ -130,7 +135,8 @@ public class ESUtilsTest {
     structPropUnderscoresAndDotsDefinitionV1.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropUnderscoresAndDotsDefinitionV1.setQualifiedName("under.scores.and.dots_make_a_mess");
-    when(aspectRetrieverV1.getLatestAspectObjects(eq(Set.of(underscoresAndDotsUrn)), anySet()))
+    when(aspectRetrieverV1.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(underscoresAndDotsUrn)), anySet()))
         .thenReturn(
             Map.of(
                 underscoresAndDotsUrn,

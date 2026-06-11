@@ -1,5 +1,6 @@
 import { AppstoreOutlined, FileOutlined, LayoutOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -72,9 +73,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getPathName = () => 'glossaryTerm';
 
-    getCollectionName = () => 'Glossary Terms';
+    getCollectionName = () => i18next.t('entity.types:glossaryTerm.namePlural');
 
-    getEntityName = () => 'Glossary Term';
+    getEntityName = () => i18next.t('entity.types:glossaryTerm.name');
 
     useEntityQuery = useGetGlossaryTermQuery;
 
@@ -132,7 +133,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             ...(showSummaryTab
                 ? [
                       {
-                          name: 'Summary',
+                          name: i18next.t('entity.types:tab.summary'),
                           component: SummaryTab,
                           id: 'asset-summary-tab',
                       },
@@ -141,20 +142,20 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             ...(!showSummaryTab
                 ? [
                       {
-                          name: 'Documentation',
+                          name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
                           icon: FileOutlined,
                       },
                   ]
                 : []),
             {
-                name: 'Related Assets',
+                name: i18next.t('entity.types:shared.relatedAssets'),
                 getCount: useGlossaryRelatedAssetsTabCount,
                 component: GlossaryRelatedEntity,
                 icon: AppstoreOutlined,
             },
             {
-                name: 'Schema',
+                name: i18next.t('entity.types:glossaryTerm.schemaTab'),
                 component: SchemaTab,
                 icon: LayoutOutlined,
                 properties: {
@@ -168,7 +169,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 },
             },
             {
-                name: 'Related Terms',
+                name: i18next.t('entity.types:glossaryTerm.relatedTermsTab'),
                 getCount: (entityData, _, loading) => {
                     const totalRelatedTerms = Object.keys(RelatedTermTypes).reduce((acc, curr) => {
                         return acc + (entityData?.[curr]?.total || 0);
@@ -179,7 +180,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 icon: () => <BookmarkSimple style={{ marginRight: 6 }} />,
             },
             {
-                name: 'Properties',
+                name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
                 icon: UnorderedListOutlined,
             },
@@ -188,9 +189,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: UnorderedListOutlined,
         },
     ];

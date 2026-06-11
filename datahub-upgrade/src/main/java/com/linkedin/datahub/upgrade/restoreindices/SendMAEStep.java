@@ -153,7 +153,7 @@ public class SendMAEStep implements UpgradeStep {
 
   @VisibleForTesting
   int getRowCount(UpgradeContext context, RestoreIndicesArgs args) {
-    return _entityService.countAspect(args, context.report()::addLine);
+    return _entityService.countAspect(context.opContext(), args, context.report()::addLine);
   }
 
   @Override

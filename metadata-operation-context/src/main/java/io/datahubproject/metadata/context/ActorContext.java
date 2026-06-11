@@ -12,7 +12,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.identity.CorpUserStatus;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubPolicyInfo;
 import java.util.Collection;
@@ -74,7 +73,8 @@ public class ActorContext implements ContextInterface {
    * @param aspectRetriever aspect retriever - ideally the SystemEntityClient backed one for caching
    * @return active status
    */
-  public boolean isActive(AspectRetriever aspectRetriever) {
+  public boolean isActive(
+      OperationContext context, com.linkedin.metadata.aspect.AspectRetriever aspectRetriever) {
     // system cannot be disabled
     if (SYSTEM_ACTOR.equals(authentication.getActor().toUrnStr())) {
       return true;
@@ -83,6 +83,7 @@ public class ActorContext implements ContextInterface {
     Urn selfUrn = UrnUtils.getUrn(authentication.getActor().toUrnStr());
     Map<Urn, Map<String, Aspect>> urnAspectMap =
         aspectRetriever.getLatestAspectObjects(
+            context,
             Set.of(selfUrn),
             Set.of(STATUS_ASPECT_NAME, CORP_USER_STATUS_ASPECT_NAME, CORP_USER_KEY_ASPECT_NAME));
 

@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AdvancedFilterSelectValueModal } from '@app/search/AdvancedFilterSelectValueModal';
@@ -53,6 +54,7 @@ export const AdvancedSearchFilters = ({
     direction = LayoutDirection.Vertical,
     disabled = false,
 }: Props) => {
+    const { t } = useTranslation('search');
     const { filterField, setFilterField, onFilterFieldSelect, onSelectValueFromModal } = useAdvancedSearchSelectFilters(
         { selectedFilters, onFilterSelect },
     );
@@ -99,16 +101,23 @@ export const AdvancedSearchFilters = ({
             )}
             {selectedFilters?.length >= 2 && (
                 <AnyAllSection>
-                    Show results that match{' '}
-                    <AdvancedSearchFilterOverallUnionTypeSelect
-                        unionType={unionType}
-                        onUpdate={(newValue) => onChangeUnionType(newValue)}
-                        disabled={disabled}
+                    <Trans
+                        t={t}
+                        i18nKey="advancedSearch.showResultsThatMatch"
+                        components={{
+                            select: (
+                                <AdvancedSearchFilterOverallUnionTypeSelect
+                                    unionType={unionType}
+                                    onUpdate={(newValue) => onChangeUnionType(newValue)}
+                                    disabled={disabled}
+                                />
+                            ),
+                        }}
                     />
                 </AnyAllSection>
             )}
             {selectedFilters?.length === 0 && direction === LayoutDirection.Vertical && (
-                <EmptyStateSection>No filters applied.</EmptyStateSection>
+                <EmptyStateSection>{t('advancedSearch.noFiltersApplied')}</EmptyStateSection>
             )}
         </>
     );

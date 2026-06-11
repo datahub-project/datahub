@@ -1,6 +1,7 @@
 import { Button, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import CreateDomainModal from '@app/domainV2/CreateDomainModal';
@@ -29,12 +30,13 @@ const StyledButton = styled(Button)`
 `;
 
 export default function DomainsSidebarHeader() {
+    const { t } = useTranslation('governance.domain');
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
 
     return (
         <Wrapper>
-            <DomainTitle>Domains</DomainTitle>
-            <Tooltip showArrow={false} title="Create new Domain" placement="right">
+            <DomainTitle>{t('page.title')}</DomainTitle>
+            <Tooltip showArrow={false} title={t('sidebar.createTooltip')} placement="right">
                 <StyledButton
                     variant="filled"
                     color="violet"

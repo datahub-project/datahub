@@ -1,10 +1,13 @@
 {
+    "changesSaved": "Changes saved.",
     "clickToCopy": "Click to copy",
     "copied": "Copied",
     "copiedSuccess": "Copied!",
     "creating": "Creating...",
     "loading": "Loading...",
     "saving": "Saving...",
+    "somethingWentWrong": "Something went wrong",
+    "unknownError": "Unknown error",
     "updated": "Updated!",
     "updating": "Updating..."
 }
