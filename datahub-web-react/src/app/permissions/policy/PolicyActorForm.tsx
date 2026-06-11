@@ -108,7 +108,6 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         });
     };
 
-    // Ownership type handlers — include list
     const onSelectOwnershipTypeActor = (newType: string) => {
         const newResourceOwnersTypes: Maybe<string[]> = [...(actors.resourceOwnersTypes || []), newType];
         setActors({ ...actors, resourceOwnersTypes: newResourceOwnersTypes });
@@ -122,7 +121,6 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         });
     };
 
-    // Ownership type handlers — exclude list
     const onSelectExcludedOwnershipType = (type: string) => {
         setActors({ ...actors, excludedResourceOwnersTypes: [...(actors.excludedResourceOwnersTypes || []), type] });
     };
@@ -135,7 +133,6 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     const userSearchResults = userSearchData?.searchAcrossEntities?.searchResults;
     const groupSearchResults = groupSearchData?.searchAcrossEntities?.searchResults;
 
-    // User handlers — include list
     const onSelectUserActor = (newUser: string) => {
         if (newUser === 'All') {
             setActors({ ...actors, allUsers: true });
@@ -157,7 +154,6 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         }
     };
 
-    // User handlers — exclude list
     const onSelectExcludedUserActor = (user: string) => {
         const selectedUserEntity = userSearchResults?.find((result) => result.entity.urn === user)?.entity as CorpUser;
         const newResolvedExcludedUsers = selectedUserEntity
@@ -179,7 +175,6 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         });
     };
 
-    // Group handlers — include list
     const onSelectGroupActor = (newGroup: string) => {
         if (newGroup === 'All') {
             setActors({ ...actors, allGroups: true });
@@ -205,7 +200,6 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         }
     };
 
-    // Group handlers — exclude list
     const onSelectExcludedGroupActor = (group: string) => {
         const selectedGroupEntity = groupSearchResults?.find((result) => result.entity.urn === group)
             ?.entity as CorpGroup;
@@ -272,7 +266,6 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
 
     const showAppliesToOwners = policyType === PolicyType.Metadata;
 
-    // Derived select values
     const includedUsersUrns = actors.allUsers ? ['All'] : actors.users || [];
     const usersSelectUrns = userCondition === 'include' ? includedUsersUrns : actors.excludedUsers || [];
     const includedGroupsUrns = actors.allGroups ? ['All'] : actors.groups || [];
