@@ -209,7 +209,6 @@ def test_frontend_deny_policy_operations(auth_session):
 
     _ensure_deny_policy_present(auth_session, deny_urn)
 
-    # Clean up
     delete_policy_query = """mutation deletePolicy($urn: String!) {
             deletePolicy(urn: $urn) }"""
     execute_graphql(auth_session, delete_policy_query, {"urn": deny_urn})

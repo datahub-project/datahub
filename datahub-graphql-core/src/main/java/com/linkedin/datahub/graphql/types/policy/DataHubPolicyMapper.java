@@ -59,7 +59,6 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
     // Careful - we assume no other Policy types or states have been ingested using a backdoor.
     policy.setPolicyType(PolicyType.valueOf(policyInfo.getType()));
     policy.setState(PolicyState.valueOf(policyInfo.getState()));
-    // Set effect with default value of ALLOW if not set
     String effect = policyInfo.hasEffect() ? policyInfo.getEffect() : "ALLOW";
     policy.setEffect(PolicyEffect.valueOf(effect));
     policy.setName(policyInfo.getDisplayName()); // Rebrand to 'name'
