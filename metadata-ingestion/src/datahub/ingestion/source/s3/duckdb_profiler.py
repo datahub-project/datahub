@@ -91,14 +91,25 @@ class DuckDBProfiler:
             self._secrets_done = True
 
     def _path_and_ext(self, table_data: object) -> tuple[str, str]:
-        """Return (resolved_path, lowercase_extension_without_dot)."""
+        """Return (resolved_path, lowercase_extension_without_dot).
+
+        For partitioned tables the table_path is a directory prefix (e.g.
+        ``s3://bucket/data/my_table`` or ``/local/data/my_table``). DuckDB
+        accepts bare local directories natively for parquet, but remote paths
+        need an explicit glob so httpfs can enumerate the objects.  We append
+        ``/**/*.<ext>`` for remote partitioned paths to handle both cases
+        uniformly.
+        """
         partitions = getattr(table_data, "partitions", None)
-        path = (
-            table_data.table_path  # type: ignore[attr-defined]
-            if partitions
-            else table_data.full_path  # type: ignore[attr-defined]
-        )
         ext = os.path.splitext(table_data.full_path)[1].lstrip(".").lower()  # type: ignore[attr-defined]
+        if partitions:
+            path: str = table_data.table_path  # type: ignore[attr-defined]
+            # Remote paths need a glob; local directories work without one but
+            # a glob is also valid and avoids relying on DuckDB's auto-detect.
+            if not path.endswith(f".{ext}") and not path.endswith("*"):
+                path = f"{path.rstrip('/')}/**/*.{ext}"
+        else:
+            path = table_data.full_path  # type: ignore[attr-defined]
         return path, ext
 
     def _reader_expr(self, path: str, ext: str) -> str:
