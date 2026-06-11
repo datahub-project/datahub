@@ -153,7 +153,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                     <Tag color={isActive ? 'green' : 'red'}>{policy?.state}</Tag>
                 </div>
                 <div>
-                    <Typography.Title level={5}>Effect</Typography.Title>
+                    <Typography.Title level={5}>{t('column.effect')}</Typography.Title>
                     <ThinDivider />
                     <Tag color={isDenyPolicy ? 'red' : 'blue'}>{policy?.effect}</Tag>
                 </div>
@@ -213,7 +213,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                             </div>
                         )}
                         <div>
-                            <Typography.Title level={5}>Tags</Typography.Title>
+                            <Typography.Title level={5}>{t('details.tagsLabel')}</Typography.Title>
                             <ThinDivider />
                             {(tags?.length &&
                                 tags.map((value, key) => {
@@ -223,7 +223,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                             {getEntityTag(value)}
                                         </PoliciesTag>
                                     );
-                                })) || <PoliciesTag>All</PoliciesTag>}
+                                })) || <PoliciesTag>{t('details.tagAll')}</PoliciesTag>}
                         </div>
                         <div>
                             <Typography.Title level={5}>{t('details.domainsLabel')}</Typography.Title>

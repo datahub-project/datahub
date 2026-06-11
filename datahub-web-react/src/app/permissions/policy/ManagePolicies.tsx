@@ -359,14 +359,14 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
             },
         },
         {
-            title: 'Effect',
+            title: t('column.effect'),
             key: 'effect',
             width: '10%',
             render: (record: any) => {
                 const isDeny = record?.effect === PolicyEffect.Deny;
                 return (
                     <Pill
-                        label={isDeny ? 'Deny' : 'Allow'}
+                        label={isDeny ? t('typeForm.effectDenyOption') : t('typeForm.effectAllowOption')}
                         color={isDeny ? 'red' : 'blue'}
                         size="sm"
                         clickable={false}
