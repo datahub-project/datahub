@@ -151,16 +151,51 @@ class DuckDBProfiler:
         result = conn.execute(sa.text(f"SELECT COUNT(*) FROM {reader}")).scalar()
         return int(result) if result is not None else 0
 
+    @staticmethod
+    def _is_nested_duckdb_type(column_type: str) -> bool:
+        """True for DuckDB nested types (list/struct/map/union/json).
+
+        duckdb-engine cannot reflect these to a SQLAlchemy type (they come back
+        as NullType), so the profiler skips them. We cast them to JSON text so
+        they reflect as VARCHAR and get null/unique-count + sample-value profiling.
+        """
+        t = column_type.upper()
+        return "[]" in t or t.startswith(("STRUCT", "MAP", "UNION")) or t == "JSON"
+
+    def _build_select_list(self, conn: sa.engine.Connection, reader: str) -> str:
+        """Build the view's SELECT list, casting nested columns to JSON text.
+
+        Scalar columns pass through unchanged; nested columns are rendered as
+        clean JSON strings via ``CAST(CAST(col AS JSON) AS VARCHAR)`` so the
+        SQLAlchemy profiler can compute statistics on them.
+        """
+        rows = conn.execute(sa.text(f"DESCRIBE SELECT * FROM {reader}")).fetchall()
+        if not rows:
+            return "*"
+        parts = []
+        for row in rows:
+            name, column_type = row[0], row[1]
+            quoted = '"' + name.replace('"', '""') + '"'
+            if self._is_nested_duckdb_type(column_type):
+                parts.append(f"CAST(CAST({quoted} AS JSON) AS VARCHAR) AS {quoted}")
+            else:
+                parts.append(quoted)
+        return ", ".join(parts)
+
     def _create_profile_view(
         self,
         conn: sa.engine.Connection,
         view: str,
         reader: str,
+        select_list: str,
         sample_rows: Optional[int] = None,
     ) -> None:
         suffix = f" USING SAMPLE {sample_rows} ROWS" if sample_rows is not None else ""
         conn.execute(
-            sa.text(f"CREATE OR REPLACE VIEW {view} AS SELECT * FROM {reader}{suffix}")
+            sa.text(
+                f"CREATE OR REPLACE VIEW {view} AS "
+                f"SELECT {select_list} FROM {reader}{suffix}"
+            )
         )
 
     def get_table_profile(
@@ -190,6 +225,7 @@ class DuckDBProfiler:
                 if self._is_remote(path):
                     self._ensure_remote_setup(conn)
                 self._ensure_format_extension(conn, ext)
+                select_list = self._build_select_list(conn, reader)
                 limit = self.profiling_config.profile_table_row_limit
                 sample_rows: Optional[int] = None
                 if self.profiling_config.use_sampling and limit:
@@ -201,7 +237,7 @@ class DuckDBProfiler:
                             f"Table exceeds profile_table_row_limit ({limit}); profiled a sample of {sample_rows} rows.",
                             context=dataset_urn,
                         )
-                self._create_profile_view(conn, view, reader, sample_rows)
+                self._create_profile_view(conn, view, reader, select_list, sample_rows)
             # engine.begin() auto-commits on __exit__; the view is now persisted
             # in the on-disk database and visible to any subsequent connection.
 
