@@ -4,9 +4,12 @@ import logging
 import os
 import shutil
 import tempfile
-from typing import Iterable, Optional, Set
+from typing import TYPE_CHECKING, Iterable, Optional, Set
 
 import sqlalchemy as sa
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.s3.source import TableData
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -110,7 +113,7 @@ class DuckDBProfiler:
             conn.execute(sa.text(f"INSTALL {extension}; LOAD {extension};"))
             self._loaded_extensions.add(extension)
 
-    def _path_and_ext(self, table_data: object) -> tuple[str, str]:
+    def _path_and_ext(self, table_data: "TableData") -> tuple[str, str]:
         """Return (resolved_path, lowercase_extension_without_dot).
 
         For partitioned tables the table_path is a directory prefix (e.g.
@@ -120,21 +123,21 @@ class DuckDBProfiler:
         ``/**/*.<ext>`` for remote partitioned paths to handle both cases
         uniformly.
         """
-        partitions = getattr(table_data, "partitions", None)
-        ext = os.path.splitext(table_data.full_path)[1].lstrip(".").lower()  # type: ignore[attr-defined]
+        partitions = table_data.partitions
+        ext = os.path.splitext(table_data.full_path)[1].lstrip(".").lower()
         if not ext:
             # No extension on the sample file — can't build a meaningful glob.
             # Fall through to the concrete full_path and let _reader_expr raise
             # an "unsupported format" error as usual.
-            return table_data.full_path, ext  # type: ignore[attr-defined]
+            return table_data.full_path, ext
         if partitions:
-            path: str = table_data.table_path  # type: ignore[attr-defined]
+            path: str = table_data.table_path
             # Remote paths need a glob; local directories work without one but
             # a glob is also valid and avoids relying on DuckDB's auto-detect.
             if not path.endswith(f".{ext}") and not path.endswith("*"):
                 path = f"{path.rstrip('/')}/**/*.{ext}"
         else:
-            path = table_data.full_path  # type: ignore[attr-defined]
+            path = table_data.full_path
         return path, ext
 
     def _reader_expr(self, path: str, ext: str) -> str:
@@ -148,11 +151,23 @@ class DuckDBProfiler:
         result = conn.execute(sa.text(f"SELECT COUNT(*) FROM {reader}")).scalar()
         return int(result) if result is not None else 0
 
+    def _create_profile_view(
+        self,
+        conn: sa.engine.Connection,
+        view: str,
+        reader: str,
+        sample_rows: Optional[int] = None,
+    ) -> None:
+        suffix = f" USING SAMPLE {sample_rows} ROWS" if sample_rows is not None else ""
+        conn.execute(
+            sa.text(f"CREATE OR REPLACE VIEW {view} AS SELECT * FROM {reader}{suffix}")
+        )
+
     def get_table_profile(
-        self, table_data: object, dataset_urn: str
+        self, table_data: "TableData", dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
         """Profile one table and yield a MetadataWorkUnit containing the profile."""
-        display_name: str = getattr(table_data, "display_name", str(table_data))
+        display_name: str = table_data.display_name
         try:
             path, ext = self._path_and_ext(table_data)
         except Exception as e:
@@ -176,33 +191,17 @@ class DuckDBProfiler:
                     self._ensure_remote_setup(conn)
                 self._ensure_format_extension(conn, ext)
                 limit = self.profiling_config.profile_table_row_limit
+                sample_rows: Optional[int] = None
                 if self.profiling_config.use_sampling and limit:
                     count = self._estimate_row_count(conn, reader)
                     if count > limit:
                         row_estimate = count
-                        sample = self.profiling_config.sample_size
-                        conn.execute(
-                            sa.text(
-                                f"CREATE OR REPLACE VIEW {view} AS "
-                                f"SELECT * FROM {reader} USING SAMPLE {int(sample)} ROWS"
-                            )
-                        )
+                        sample_rows = int(self.profiling_config.sample_size)
                         self.report.report_warning(
-                            f"Table exceeds profile_table_row_limit ({limit}); profiled a sample of {sample} rows.",
+                            f"Table exceeds profile_table_row_limit ({limit}); profiled a sample of {sample_rows} rows.",
                             context=dataset_urn,
                         )
-                    else:
-                        conn.execute(
-                            sa.text(
-                                f"CREATE OR REPLACE VIEW {view} AS SELECT * FROM {reader}"
-                            )
-                        )
-                else:
-                    conn.execute(
-                        sa.text(
-                            f"CREATE OR REPLACE VIEW {view} AS SELECT * FROM {reader}"
-                        )
-                    )
+                self._create_profile_view(conn, view, reader, sample_rows)
             # engine.begin() auto-commits on __exit__; the view is now persisted
             # in the on-disk database and visible to any subsequent connection.
 
@@ -240,7 +239,7 @@ class DuckDBProfiler:
 
         except Exception as e:
             self.report.report_warning(
-                f"DuckDB profiling failed for {dataset_urn}: {type(e).__name__}: {e}",
+                f"DuckDB profiling failed for {dataset_urn}",
                 context=display_name,
                 exc=e,
             )

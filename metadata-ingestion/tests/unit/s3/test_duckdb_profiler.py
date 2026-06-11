@@ -2,11 +2,15 @@
 
 import os
 from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
 import duckdb
+import sqlalchemy as sa
 
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.s3.duckdb_profiler import DuckDBProfiler
+from datahub.ingestion.source.s3.duckdb_secrets import build_s3_secret_sql
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.s3.source import Folder, TableData
 from datahub.metadata.schema_classes import DatasetProfileClass
@@ -160,7 +164,7 @@ def test_path_and_ext_non_partitioned_returns_full_path(tmp_path):
     assert path == full_path
 
 
-def _sampling_config(**kw) -> GEProfilingConfig:
+def _sampling_config(**kw: object) -> GEProfilingConfig:
     return GEProfilingConfig(enabled=True, **kw)
 
 
@@ -253,3 +257,48 @@ def test_profiles_local_avro(tmp_path):
     assert profile is not None
     assert profile.rowCount == 3
     assert profile.columnCount == 2
+
+
+def test_reader_expr_escapes_single_quotes():
+    """_reader_expr must double-escape single quotes in paths."""
+    profiler = DuckDBProfiler(
+        aws_config=None,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+    )
+    expr = profiler._reader_expr("s3://b/it's/f.parquet", "parquet")
+    profiler.close()
+    assert "it''s" in expr
+    assert "it's" not in expr
+
+
+def test_non_s3_platform_does_not_create_s3_secret():
+    """With platform='gcs', _ensure_remote_setup must not emit any S3 secret SQL."""
+    aws = AwsConnectionConfig(
+        aws_access_key_id="AKIA_EXAMPLE",
+        aws_secret_access_key="secret_example",
+        aws_region="us-east-1",
+    )
+    profiler = DuckDBProfiler(
+        aws_config=aws,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+        platform="gcs",
+    )
+    # Build the SQL that *would* have been emitted for S3 so we can check it was NOT sent.
+    s3_secret_sql = build_s3_secret_sql(aws)
+
+    # Use a mock connection to capture execute calls.
+    mock_conn = MagicMock(spec=sa.engine.Connection)
+
+    # We need httpfs to be already loaded so only the secret branch is tested.
+    profiler._httpfs_loaded = True
+
+    profiler._ensure_remote_setup(mock_conn)
+
+    # Assert S3 secret was NOT emitted.
+    executed_sqls = [str(call.args[0]) for call in mock_conn.execute.call_args_list]
+    assert not any(s3_secret_sql in sql for sql in executed_sqls)
+    # _secrets_done must remain False (the guard was never tripped).
+    assert profiler._secrets_done is False
+    profiler.close()

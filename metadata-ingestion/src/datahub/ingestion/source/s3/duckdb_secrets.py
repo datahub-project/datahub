@@ -35,9 +35,18 @@ def build_s3_secret_sql(aws: AwsConnectionConfig) -> str:
         parts.append(f"REGION '{_esc(aws.aws_region)}'")
     if aws.aws_endpoint_url:
         # DuckDB's ENDPOINT wants host[:port] without the scheme; USE_SSL reflects https.
-        parsed = urlparse(aws.aws_endpoint_url)
+        # urlparse mishandles scheme-less strings like "minio.example.com:9000" —
+        # it treats the whole string as a path. Detect this and prepend a dummy
+        # scheme so urlparse gives us a usable netloc.
+        url = aws.aws_endpoint_url
+        if "://" not in url:
+            parsed = urlparse(f"http://{url}")
+            use_ssl = False  # no scheme → assume plain HTTP
+        else:
+            parsed = urlparse(url)
+            use_ssl = parsed.scheme == "https"
         host = parsed.netloc or parsed.path
         parts.append(f"ENDPOINT '{_esc(host)}'")
-        parts.append("USE_SSL true" if parsed.scheme == "https" else "USE_SSL false")
+        parts.append("USE_SSL true" if use_ssl else "USE_SSL false")
     body = ", ".join(parts)
     return f"CREATE OR REPLACE SECRET datahub_s3 ({body})"
