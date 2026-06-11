@@ -23,6 +23,19 @@ def _make_parquet(tmp: str) -> str:
     return path
 
 
+def _make_avro(tmp: str) -> str:
+    path = os.path.join(tmp, "data.avro")
+    con = duckdb.connect()
+    # The avro extension ships in the DuckDB core repo (not community).
+    con.execute("INSTALL avro; LOAD avro;")
+    con.execute(
+        "COPY (SELECT * FROM (VALUES (1,'a'),(2,'b'),(3,'a')) AS v(num, txt)) "
+        f"TO '{path}' (FORMAT avro)"
+    )
+    con.close()
+    return path
+
+
 def _table_data(full_path: str, display_name: str = "data.parquet") -> TableData:
     return TableData(
         display_name=display_name,
@@ -222,3 +235,21 @@ def test_path_and_ext_empty_extension_falls_through(tmp_path):
     assert ext == ""
     # Must be the concrete path, NOT something like "/tmp/.../**/*."
     assert path == full_path
+
+
+def test_profiles_local_avro(tmp_path):
+    avro_path = _make_avro(str(tmp_path))
+    cfg = _profiling_config()
+    profiler = DuckDBProfiler(
+        aws_config=None, report=DataLakeSourceReport(), profiling_config=cfg
+    )
+    urn = "urn:li:dataset:(urn:li:dataPlatform:s3,a,PROD)"
+    profile = _extract_profile(
+        profiler.get_table_profile(
+            _table_data(avro_path, display_name="data.avro"), urn
+        )
+    )
+    profiler.close()
+    assert profile is not None
+    assert profile.rowCount == 3
+    assert profile.columnCount == 2
