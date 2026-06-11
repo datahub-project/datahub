@@ -13,9 +13,14 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ValidateInputFieldsReport(WorkunitProcessorReport):
+class ValidateInputFieldsProcessorReport(WorkunitProcessorReport):
     num_input_fields_filtered: int = 0
     num_workunits_with_invalid_fields: int = 0
+    num_workunits_skipped_entirely: int = 0
+
+
+# Backward-compatible alias
+ValidateInputFieldsReport = ValidateInputFieldsProcessorReport
 
 
 class ValidateInputFieldsProcessor(WorkunitProcessor):
@@ -24,11 +29,15 @@ class ValidateInputFieldsProcessor(WorkunitProcessor):
     NAME = "validate_input_fields"
 
     @classmethod
-    def get_report_class(cls) -> Type[ValidateInputFieldsReport]:
-        return ValidateInputFieldsReport
+    def get_report_class(cls) -> Type[ValidateInputFieldsProcessorReport]:
+        return ValidateInputFieldsProcessorReport
+
+    @property
+    def _report(self) -> ValidateInputFieldsProcessorReport:
+        assert isinstance(self.report, ValidateInputFieldsProcessorReport)
+        return self.report
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
-        assert isinstance(self.report, ValidateInputFieldsReport)
         for wu in stream:
             input_fields_aspect = wu.get_aspect_of_type(InputFieldsClass)
             if input_fields_aspect and input_fields_aspect.fields:
@@ -49,8 +58,8 @@ class ValidateInputFieldsProcessor(WorkunitProcessor):
                     logger.debug(
                         f"Filtered {invalid_count} invalid input field(s) with empty fieldPath for {wu.get_urn()}"
                     )
-                    self.report.num_input_fields_filtered += invalid_count
-                    self.report.num_workunits_with_invalid_fields += 1
+                    self._report.num_input_fields_filtered += invalid_count
+                    self._report.num_workunits_with_invalid_fields += 1
                     self.ctx.source_report.warning(
                         title="Invalid input fields filtered",
                         message="Input fields with empty fieldPath values were filtered out to prevent ingestion errors",
@@ -63,6 +72,7 @@ class ValidateInputFieldsProcessor(WorkunitProcessor):
                         logger.debug(
                             f"All input fields were invalid for {wu.get_urn()}, skipping InputFieldsClass workunit"
                         )
+                        self._report.num_workunits_skipped_entirely += 1
                         continue
 
             yield wu

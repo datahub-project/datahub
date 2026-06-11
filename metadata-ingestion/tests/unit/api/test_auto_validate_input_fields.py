@@ -7,6 +7,7 @@ from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 from datahub.ingestion.workunit_processors.validate_input_fields import (
     ValidateInputFieldsProcessor,
+    ValidateInputFieldsProcessorReport,
 )
 from datahub.metadata.schema_classes import (
     InputFieldClass,
@@ -125,13 +126,9 @@ def test_empty_field_paths_filtered(ctx):
     # Verify warning was reported
     assert len(ctx.source_report.warnings) == 1
     assert "Invalid input fields filtered" in str(ctx.source_report.warnings)
-    # Verify counter was incremented on the processor's own report
-    from datahub.ingestion.workunit_processors.validate_input_fields import (
-        ValidateInputFieldsReport,
-    )
-
-    assert isinstance(processor.report, ValidateInputFieldsReport)
+    assert isinstance(processor.report, ValidateInputFieldsProcessorReport)
     assert processor.report.num_input_fields_filtered == 2
+    assert processor.report.num_workunits_with_invalid_fields == 1
 
 
 def test_all_invalid_fields_skips_workunit(ctx):
@@ -170,15 +167,46 @@ def test_all_invalid_fields_skips_workunit(ctx):
     # The workunit should not be yielded at all
     assert len(out) == 0
 
-    # Verify warning was reported
     assert len(ctx.source_report.warnings) == 1
-    # Verify counter was incremented
-    from datahub.ingestion.workunit_processors.validate_input_fields import (
-        ValidateInputFieldsReport,
-    )
-
-    assert isinstance(processor.report, ValidateInputFieldsReport)
+    assert isinstance(processor.report, ValidateInputFieldsProcessorReport)
     assert processor.report.num_input_fields_filtered == 2
+    assert processor.report.num_workunits_with_invalid_fields == 1
+    assert processor.report.num_workunits_skipped_entirely == 1
+
+
+def test_partial_invalid_does_not_increment_skipped_entirely(ctx):
+    # num_workunits_skipped_entirely must stay 0 when at least one valid field remains
+    processor = ValidateInputFieldsProcessor.create(ctx)
+
+    input_fields = InputFieldsClass(
+        fields=[
+            InputFieldClass(
+                schemaField=SchemaFieldClass(
+                    fieldPath="valid",
+                    type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                    nativeDataType="number",
+                ),
+                schemaFieldUrn=f"urn:li:schemaField:({DUMMY_DATASET_URN},valid)",
+            ),
+            InputFieldClass(
+                schemaField=SchemaFieldClass(
+                    fieldPath="",
+                    type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                    nativeDataType="number",
+                ),
+                schemaFieldUrn=f"urn:li:schemaField:({DUMMY_DATASET_URN},)",
+            ),
+        ]
+    )
+    wu = MetadataChangeProposalWrapper(
+        entityUrn=DUMMY_CHART_URN, aspect=input_fields
+    ).as_workunit()
+    out = list(processor.process([wu]))
+
+    assert len(out) == 1
+    assert isinstance(processor.report, ValidateInputFieldsProcessorReport)
+    assert processor.report.num_workunits_skipped_entirely == 0
+    assert processor.report.num_input_fields_filtered == 1
 
 
 def test_no_input_fields_aspect(ctx):
