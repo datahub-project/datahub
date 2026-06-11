@@ -68,6 +68,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Ingestion / Data Lake)** Data lake profiling (S3, GCS, Azure Blob, Delta Lake sources) now uses **DuckDB** instead of Apache Spark + PyDeequ. Java and Spark are no longer required to profile data lake sources, and the `pyspark` and `pydeequ` dependencies have been removed from the `data-lake-profiling` extra. The `spark_driver_memory` and `spark_config` profiling config options are deprecated and ignored. Profiled metric values (e.g. distinct counts, quantiles, histograms) may differ slightly from previous runs because DuckDB uses different (approximate) algorithms; row, column, and null counts are unchanged. Avro profiling requires DuckDB's `avro` extension, which is downloaded automatically on first use; air-gapped deployments must pre-stage DuckDB extensions.
+
 - #17376: **(Ingestion / Hex)** Major in-place upgrade of the `hex` connector: upstream lineage (table-level and column-level), Project → Component links, run history (`lastRefreshed`), and optional AI context documents are now extracted directly from Hex REST APIs — no external CLI, warehouse-side ingestion dependency, or query-tag scraping required. See the [Hex connector docs](https://docs.datahub.com/docs/generated/ingestion/sources/hex) for the new `include_lineage`, `use_queried_tables_lineage`, `connection_platform_map`, and `include_context_documents` options.
 
 - **(Ingestion / dbt)** dbt test assertion entities now emit an `ownership` aspect when the dbt test node has explicit owner metadata (`meta.owner` / `config.meta.owner`).
