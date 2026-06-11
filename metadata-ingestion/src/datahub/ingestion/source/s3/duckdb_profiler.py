@@ -4,7 +4,7 @@ import logging
 import os
 import shutil
 import tempfile
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Set
 
 import sqlalchemy as sa
 
@@ -39,7 +39,12 @@ _READERS = {
     "tsv": "read_csv_auto('{path}', delim='\\t')",
     "json": "read_json_auto('{path}')",
     "jsonl": "read_json_auto('{path}')",
+    "avro": "read_avro('{path}')",
 }
+
+# Map a file extension to the DuckDB core extension required to read it.
+# Unlike httpfs (remote-only), format extensions are needed for local files too.
+_FORMAT_EXTENSIONS = {"avro": "avro"}
 
 
 class DuckDBProfiler:
@@ -68,6 +73,7 @@ class DuckDBProfiler:
         self._engine: Optional[sa.engine.Engine] = None
         self._httpfs_loaded = False
         self._secrets_done = False
+        self._loaded_extensions: Set[str] = set()
 
     def _engine_lazy(self) -> sa.engine.Engine:
         if self._engine is None:
@@ -89,6 +95,17 @@ class DuckDBProfiler:
         ):
             conn.execute(sa.text(build_s3_secret_sql(self.aws_config)))
             self._secrets_done = True
+
+    def _ensure_format_extension(self, conn: sa.engine.Connection, ext: str) -> None:
+        """Load the DuckDB core extension required for a file format (e.g. avro).
+
+        Unlike httpfs (remote-only), format extensions are needed for local files
+        too, so this is always called before building the view.
+        """
+        extension = _FORMAT_EXTENSIONS.get(ext)
+        if extension and extension not in self._loaded_extensions:
+            conn.execute(sa.text(f"INSTALL {extension}; LOAD {extension};"))
+            self._loaded_extensions.add(extension)
 
     def _path_and_ext(self, table_data: object) -> tuple[str, str]:
         """Return (resolved_path, lowercase_extension_without_dot).
@@ -154,6 +171,7 @@ class DuckDBProfiler:
             with engine.begin() as conn:
                 if self._is_remote(path):
                     self._ensure_remote_setup(conn)
+                self._ensure_format_extension(conn, ext)
                 limit = self.profiling_config.profile_table_row_limit
                 if self.profiling_config.use_sampling and limit:
                     count = self._estimate_row_count(conn, reader)
