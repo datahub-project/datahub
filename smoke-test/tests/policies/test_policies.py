@@ -4,12 +4,40 @@ from typing import Any, Dict, List
 
 import pytest
 
-from tests.utils import execute_graphql, get_root_urn, with_test_retry
+from tests.consistency_utils import wait_for_writes_to_sync
+from tests.privileges.utils import create_user, remove_user
+from tests.utils import (
+    execute_graphql,
+    get_admin_credentials,
+    get_frontend_url,
+    get_root_urn,
+    login_as,
+    with_test_retry,
+)
 
 logger = logging.getLogger(__name__)
 TEST_POLICY_NAME = "Updated Platform Policy"
 TEST_DENY_POLICY_NAME = "Test Deny Policy"
 PERF_DENY_POLICY_PREFIX = "PerfDeny-EDIT_ENTITY_TAGS-"
+PERF_NUM_QUERIES = 25
+PERF_LATENCY_RATIO_THRESHOLD = 5
+PERF_NUM_DENY_POLICIES = 20
+PERF_GROUP_PREFIX = "PerfDenyGroup-"
+PERF_DENY_USER_EMAIL = "perf_deny_user@example.com"
+PERF_DENY_USER_PASSWORD = "perf_deny_user_pw"
+
+_CREATE_POLICY_QUERY = """mutation createPolicy($input: PolicyUpdateInput!) {
+        createPolicy(input: $input) }"""
+_DELETE_POLICY_QUERY = """mutation deletePolicy($urn: String!) {
+        deletePolicy(urn: $urn) }"""
+_CREATE_GROUP_QUERY = """mutation createGroup($input: CreateGroupInput!) {
+        createGroup(input: $input) }"""
+_ADD_GROUP_MEMBERS_QUERY = """mutation addGroupMembers($groupUrn: String!, $userUrns: [String!]!) {
+        addGroupMembers(input: { groupUrn: $groupUrn, userUrns: $userUrns }) }"""
+_REMOVE_GROUP_QUERY = """mutation removeGroup($urn: String!) {
+        removeGroup(urn: $urn) }"""
+_LIST_POLICIES_PERF_QUERY = """query listPolicies($input: ListPoliciesInput!) {
+        listPolicies(input: $input) { start count total } }"""
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -215,81 +243,195 @@ def _ensure_deny_policy_present(auth_session, deny_urn):
     assert result[0]["effect"] == "DENY"
 
 
+def _timed_list_policies(session) -> List[float]:
+    """Return trimmed per-query ``listPolicies`` durations (seconds). Posts directly so
+    that both the module ``auth_session`` and a plain ``login_as`` session work."""
+    durations = []
+    payload = {
+        "query": _LIST_POLICIES_PERF_QUERY,
+        "variables": {"input": {"start": 0, "count": 20}},
+    }
+    for _ in range(PERF_NUM_QUERIES):
+        t0 = time.perf_counter()
+        response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=payload)
+        response.raise_for_status()
+        durations.append(time.perf_counter() - t0)
+    durations.sort()
+    trim = max(1, PERF_NUM_QUERIES // 10)
+    return durations[:-trim]
+
+
+def _median(values: List[float]) -> float:
+    return values[len(values) // 2]
+
+
+def _create_deny_policy(
+    session, *, name: str, privileges: List[str], user_urns=None, group_urns=None
+) -> str:
+    """Create an ACTIVE METADATA DENY policy scoped to all datasets."""
+    variables: Dict[str, Any] = {
+        "input": {
+            "type": "METADATA",
+            "name": name,
+            "description": "Perf smoke DENY policy",
+            "state": "ACTIVE",
+            "effect": "DENY",
+            "resources": {"type": "dataset", "allResources": True},
+            "privileges": privileges,
+            "actors": {
+                "users": user_urns or [],
+                "groups": group_urns or [],
+                "resourceOwners": False,
+                "allUsers": False,
+                "allGroups": False,
+            },
+        }
+    }
+    res = execute_graphql(session, _CREATE_POLICY_QUERY, variables)
+    return res["data"]["createPolicy"]
+
+
+def _assert_listpolicies_not_slowed_by_denies(session, deny_setup) -> None:
+    """Measure ``listPolicies`` median latency for ``session`` before and after the
+    ``deny_setup`` callback creates its DENY policies, asserting the median does not
+    grow beyond ``PERF_LATENCY_RATIO_THRESHOLD``x."""
+    baseline_median = _median(_timed_list_policies(session))
+
+    deny_setup()
+    # The authorizer cache refresh triggered by the policy upserts is async.
+    wait_for_writes_to_sync()
+    time.sleep(3)
+
+    with_denies_median = _median(_timed_list_policies(session))
+    ratio = with_denies_median / baseline_median if baseline_median > 0 else 0
+    logger.info(
+        "DENY perf: baseline median=%.2fms, with DENY policies median=%.2fms (ratio=%.2fx)",
+        baseline_median * 1000,
+        with_denies_median * 1000,
+        ratio,
+    )
+    assert with_denies_median <= baseline_median * PERF_LATENCY_RATIO_THRESHOLD, (
+        f"listPolicies median grew from {baseline_median * 1000:.2f}ms to "
+        f"{with_denies_median * 1000:.2f}ms after adding DENY policies ({ratio:.2f}x)."
+    )
+
+
 def test_deny_policy_perf_smoke(auth_session):
     """DENY policies on an unrelated privilege should not measurably slow down
     requests authorizing a different privilege. listPolicies authorizes
     MANAGE_POLICIES; the DENY policies created here target EDIT_ENTITY_TAGS."""
-    num_deny_policies = 20
-    num_queries = 25
-
-    def _timed_listPolicies() -> List[float]:
-        durations = []
-        for _ in range(num_queries):
-            t0 = time.perf_counter()
-            listPolicies(auth_session)
-            durations.append(time.perf_counter() - t0)
-        durations.sort()
-        trim = max(1, num_queries // 10)
-        return durations[:-trim]
-
-    baseline = _timed_listPolicies()
-    baseline_median = baseline[len(baseline) // 2]
-
-    create_policy_query = """mutation createPolicy($input: PolicyUpdateInput!) {
-            createPolicy(input: $input) }"""
-    delete_policy_query = """mutation deletePolicy($urn: String!) {
-            deletePolicy(urn: $urn) }"""
-
     deny_urns: List[str] = []
+
+    def _setup():
+        for i in range(PERF_NUM_DENY_POLICIES):
+            deny_urns.append(
+                _create_deny_policy(
+                    auth_session,
+                    name=f"{PERF_DENY_POLICY_PREFIX}{i}",
+                    privileges=["EDIT_ENTITY_TAGS"],
+                    user_urns=[get_root_urn()],
+                )
+            )
+
     try:
-        for i in range(num_deny_policies):
-            variables: Dict[str, Any] = {
+        _assert_listpolicies_not_slowed_by_denies(auth_session, _setup)
+    finally:
+        for urn in deny_urns:
+            try:
+                execute_graphql(auth_session, _DELETE_POLICY_QUERY, {"urn": urn})
+            except Exception:
+                logger.warning("Failed to clean up perf DENY policy %s", urn)
+
+
+@pytest.mark.parametrize("num_groups", [10, 100])
+def test_deny_policy_perf_with_many_group_memberships(auth_session, num_groups):
+    """A corpuser who belongs to many groups must not see authorization latency blow
+    up when group-scoped DENY policies on an unrelated privilege exist. The user is
+    granted MANAGE_POLICIES via one of its groups (so listPolicies authorizes), and the
+    DENY policies target EDIT_ENTITY_TAGS via the same groups — exercising the
+    group-resolution + group-match path that the single-user smoke does not."""
+    admin_username, admin_password = get_admin_credentials()
+    admin_session = login_as(admin_username, admin_password)
+    # create_user re-logs-in as admin and returns the fresh session; never mutate the
+    # shared module auth_session here.
+    admin_session = create_user(
+        admin_session, PERF_DENY_USER_EMAIL, PERF_DENY_USER_PASSWORD
+    )
+    user_urn = f"urn:li:corpuser:{PERF_DENY_USER_EMAIL}"
+
+    group_urns: List[str] = []
+    policy_urns: List[str] = []
+    try:
+        for i in range(num_groups):
+            res = execute_graphql(
+                admin_session,
+                _CREATE_GROUP_QUERY,
+                {"input": {"name": f"{PERF_GROUP_PREFIX}{i}"}},
+            )
+            group_urn = res["data"]["createGroup"]
+            group_urns.append(group_urn)
+            execute_graphql(
+                admin_session,
+                _ADD_GROUP_MEMBERS_QUERY,
+                {"groupUrn": group_urn, "userUrns": [user_urn]},
+            )
+
+        # Grant MANAGE_POLICIES to the user via its first group so listPolicies authorizes.
+        grant = execute_graphql(
+            admin_session,
+            _CREATE_POLICY_QUERY,
+            {
                 "input": {
-                    "type": "METADATA",
-                    "name": f"{PERF_DENY_POLICY_PREFIX}{i}",
-                    "description": "Perf smoke DENY policy on EDIT_ENTITY_TAGS",
+                    "type": "PLATFORM",
+                    "name": "PerfDeny-grant-manage-policies",
+                    "description": "Perf smoke MANAGE_POLICIES grant via group",
                     "state": "ACTIVE",
-                    "effect": "DENY",
-                    "resources": {"type": "dataset", "allResources": True},
-                    "privileges": ["EDIT_ENTITY_TAGS"],
+                    "effect": "ALLOW",
+                    "resources": {"filter": {"criteria": []}},
+                    "privileges": ["MANAGE_POLICIES"],
                     "actors": {
-                        "users": [get_root_urn()],
+                        "users": [],
+                        "groups": [group_urns[0]],
                         "resourceOwners": False,
                         "allUsers": False,
                         "allGroups": False,
                     },
                 }
-            }
-            res = execute_graphql(auth_session, create_policy_query, variables)
-            deny_urns.append(res["data"]["createPolicy"])
-
-        # invalidateCache on the upsert resolver is async; wait for the refresh.
+            },
+        )
+        policy_urns.append(grant["data"]["createPolicy"])
+        wait_for_writes_to_sync()
         time.sleep(3)
 
-        with_denies = _timed_listPolicies()
-        with_denies_median = with_denies[len(with_denies) // 2]
+        user_session = login_as(PERF_DENY_USER_EMAIL, PERF_DENY_USER_PASSWORD)
 
-        ratio = with_denies_median / baseline_median if baseline_median > 0 else 0
-        logger.info(
-            "DENY perf smoke: baseline median=%.2fms, with %d unrelated-priv DENY "
-            "policies median=%.2fms (ratio=%.2fx)",
-            baseline_median * 1000,
-            num_deny_policies,
-            with_denies_median * 1000,
-            ratio,
-        )
+        def _setup():
+            for i in range(PERF_NUM_DENY_POLICIES):
+                policy_urns.append(
+                    _create_deny_policy(
+                        admin_session,
+                        name=f"PerfDenyGroup-EDIT_ENTITY_TAGS-{i}",
+                        privileges=["EDIT_ENTITY_TAGS"],
+                        group_urns=[group_urns[i % len(group_urns)]],
+                    )
+                )
 
-        assert with_denies_median <= baseline_median * 5, (
-            f"listPolicies median grew from {baseline_median * 1000:.2f}ms to "
-            f"{with_denies_median * 1000:.2f}ms after adding {num_deny_policies} "
-            f"DENY policies on an unrelated privilege ({ratio:.2f}x)."
-        )
+        _assert_listpolicies_not_slowed_by_denies(user_session, _setup)
     finally:
-        for urn in deny_urns:
+        for urn in policy_urns:
             try:
-                execute_graphql(auth_session, delete_policy_query, {"urn": urn})
+                execute_graphql(admin_session, _DELETE_POLICY_QUERY, {"urn": urn})
             except Exception:
-                logger.warning("Failed to clean up perf DENY policy %s", urn)
+                logger.warning("Failed to clean up perf policy %s", urn)
+        for urn in group_urns:
+            try:
+                execute_graphql(admin_session, _REMOVE_GROUP_QUERY, {"urn": urn})
+            except Exception:
+                logger.warning("Failed to clean up perf group %s", urn)
+        try:
+            remove_user(admin_session, user_urn)
+        except Exception:
+            logger.warning("Failed to clean up perf user %s", user_urn)
 
 
 def listPolicies(auth_session):
