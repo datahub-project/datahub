@@ -129,7 +129,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586808240000
+            "lastUpdatedTimestamp": 1586833440000
         }
     },
     "systemMetadata": {
@@ -230,6 +230,22 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+    "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
@@ -302,10 +318,15 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "container": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -316,17 +337,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+    "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
-                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
-                }
-            ]
+            "container": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
         }
     },
     "systemMetadata": {
@@ -411,22 +427,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_exclude.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -440,6 +440,22 @@
                     "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
         }
     },
     "systemMetadata": {
@@ -524,22 +540,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_exclude.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -557,6 +557,22 @@
                     "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
         }
     },
     "systemMetadata": {
@@ -641,22 +657,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_exclude.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -678,6 +678,22 @@
                     "urn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:93525defb812252106d3b0c08a55e39a"
         }
     },
     "systemMetadata": {
@@ -762,22 +778,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:93525defb812252106d3b0c08a55e39a"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_exclude.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -803,6 +803,22 @@
                     "urn": "urn:li:container:93525defb812252106d3b0c08a55e39a"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
         }
     },
     "systemMetadata": {
@@ -887,22 +903,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_exclude.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -932,6 +932,22 @@
                     "urn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:98a716614da5246426edd48260406364"
         }
     },
     "systemMetadata": {
@@ -1004,22 +1020,6 @@
             "typeNames": [
                 "Folder"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_exclude.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:98a716614da5246426edd48260406364"
         }
     },
     "systemMetadata": {
@@ -1106,15 +1106,11 @@
             "fieldProfiles": [
                 {
                     "fieldPath": "name",
-                    "uniqueCount": 9,
-                    "uniqueProportion": 0.13043478260869565,
+                    "uniqueCount": 11,
+                    "uniqueProportion": 0.15942028985507245,
                     "nullCount": 1,
                     "nullProportion": 0.014285714285714285,
                     "distinctValueFrequencies": [
-                        {
-                            "value": "NullValue",
-                            "frequency": 1
-                        },
                         {
                             "value": "apple",
                             "frequency": 7
@@ -1158,40 +1154,45 @@
                     ],
                     "sampleValues": [
                         "apple",
-                        "apple",
-                        "apple",
+                        "cookie",
+                        "lasagna",
+                        "pasta",
+                        "spinach",
                         "chicken",
-                        "cookie",
-                        "cookie",
-                        "cookie",
-                        "lasagna",
-                        "lasagna",
                         "orange",
-                        "orange",
-                        "pasta",
-                        "pasta",
-                        "pasta",
-                        "pasta",
-                        "spinach",
-                        "spinach",
-                        "spinach",
+                        "hamburger",
+                        "sushi",
                         "water",
+                        "apple",
+                        "cookie",
+                        "lasagna",
+                        "pasta",
+                        "spinach",
+                        "chicken",
+                        "orange",
+                        "hamburger",
+                        "sushi",
                         "water"
                     ]
                 },
                 {
                     "fieldPath": "weight",
-                    "uniqueCount": 10,
-                    "uniqueProportion": 0.14285714285714285,
+                    "uniqueCount": 9,
+                    "uniqueProportion": 0.12857142857142856,
                     "nullCount": 0,
                     "nullProportion": 0.0,
+                    "min": "2",
+                    "max": "72",
+                    "mean": "37.0",
+                    "median": "40.0",
+                    "stdev": "20.159508850699943",
                     "distinctValueFrequencies": [
                         {
-                            "value": "10",
+                            "value": "2",
                             "frequency": 7
                         },
                         {
-                            "value": "2",
+                            "value": "10",
                             "frequency": 7
                         },
                         {
@@ -1228,26 +1229,26 @@
                         }
                     ],
                     "sampleValues": [
-                        "10",
-                        "10",
-                        "10",
+                        "50",
                         "23",
-                        "23",
-                        "23",
-                        "32",
-                        "32",
+                        "49",
+                        "72",
+                        "10",
                         "36",
                         "43",
+                        "2",
+                        "53",
+                        "32",
+                        "50",
+                        "23",
+                        "49",
+                        "72",
+                        "10",
+                        "36",
                         "43",
-                        "49",
-                        "49",
-                        "50",
-                        "50",
-                        "50",
-                        "72",
-                        "72",
-                        "72",
-                        "72"
+                        "2",
+                        "53",
+                        "32"
                     ]
                 },
                 {
@@ -1256,6 +1257,11 @@
                     "uniqueProportion": 0.05714285714285714,
                     "nullCount": 0,
                     "nullProportion": 0.0,
+                    "min": "4",
+                    "max": "7",
+                    "mean": "5.214285714285714",
+                    "median": "5.0",
+                    "stdev": "1.0480189336554038",
                     "distinctValueFrequencies": [
                         {
                             "value": "4",
@@ -1282,19 +1288,19 @@
                         "4",
                         "4",
                         "4",
-                        "5",
-                        "5",
-                        "5",
-                        "5",
-                        "5",
-                        "6",
-                        "6",
-                        "6",
-                        "6",
-                        "6",
-                        "6",
-                        "7",
-                        "7"
+                        "4",
+                        "4",
+                        "4",
+                        "4",
+                        "4",
+                        "4",
+                        "4",
+                        "4",
+                        "4",
+                        "4",
+                        "4",
+                        "4",
+                        "4"
                     ]
                 },
                 {
@@ -1334,26 +1340,26 @@
                         }
                     ],
                     "sampleValues": [
-                        "blue",
-                        "blue",
+                        "red",
                         "brown",
-                        "brown",
-                        "brown",
+                        "red",
+                        "yellow",
                         "green",
-                        "green",
-                        "green",
-                        "orange",
-                        "orange",
-                        "red",
-                        "red",
-                        "red",
-                        "red",
-                        "red",
                         "white",
+                        "orange",
+                        "brown",
+                        "orange",
+                        "blue",
+                        "red",
+                        "brown",
+                        "red",
                         "yellow",
-                        "yellow",
-                        "yellow",
-                        "yellow"
+                        "green",
+                        "white",
+                        "orange",
+                        "brown",
+                        "orange",
+                        "blue"
                     ]
                 },
                 {
@@ -1362,24 +1368,34 @@
                     "uniqueProportion": 0.028985507246376812,
                     "nullCount": 1,
                     "nullProportion": 0.014285714285714285,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "False",
+                            "frequency": 28
+                        },
+                        {
+                            "value": "True",
+                            "frequency": 41
+                        }
+                    ],
                     "sampleValues": [
+                        "True",
                         "False",
                         "False",
                         "False",
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "False",
-                        "None",
                         "True",
                         "True",
                         "True",
+                        "False",
+                        "True",
+                        "True",
+                        "False",
+                        "False",
+                        "False",
                         "True",
                         "True",
                         "True",
-                        "True",
+                        "False",
                         "True",
                         "True",
                         "True"
@@ -1470,7 +1486,7 @@
                 "op": "add",
                 "path": "/lastModified",
                 "value": {
-                    "time": 1586808240000
+                    "time": 1586833440000
                 }
             }
         ]
