@@ -485,7 +485,6 @@ databricks_common = {
 }
 
 databricks = {
-    "pyspark~=3.5.6,<4.0.0",
     "requests<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0

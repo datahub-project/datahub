@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 class UnityCatalogUsagePerfReport(Report):
     get_queries_timer: PerfTimer = field(default_factory=PerfTimer)
     sql_parsing_timer: PerfTimer = field(default_factory=PerfTimer)
-    spark_sql_parsing_timer: PerfTimer = field(default_factory=PerfTimer)
     aggregator_add_event_timer: PerfTimer = field(default_factory=PerfTimer)
     gen_operation_timer: PerfTimer = field(default_factory=PerfTimer)
     query_fingerprinting_timer: PerfTimer = field(default_factory=PerfTimer)
@@ -48,7 +47,6 @@ class UnityCatalogReport(SQLSourceReport):
     num_queries_dropped_parse_failure: int = 0
     num_queries_missing_table: int = 0  # Can be due to pattern filter
     num_queries_duplicate_table: int = 0
-    num_queries_parsed_by_spark_plan: int = 0
     usage_perf_report: UnityCatalogUsagePerfReport = field(
         default_factory=UnityCatalogUsagePerfReport
     )
