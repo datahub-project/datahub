@@ -591,11 +591,13 @@ class TestSqlQueriesSource:
         active_processor_names = set(
             source.get_report().workunit_processor_reports.keys()
         )
-        assert AutoWorkunitsReporterProcessor.NAME in active_processor_names
+        assert AutoWorkunitsReporterProcessor.__name__ in active_processor_names
         if expected_value:
-            assert AutoIncrementalLineageProcessor.NAME in active_processor_names
+            assert AutoIncrementalLineageProcessor.__name__ in active_processor_names
         else:
-            assert AutoIncrementalLineageProcessor.NAME not in active_processor_names
+            assert (
+                AutoIncrementalLineageProcessor.__name__ not in active_processor_names
+            )
 
         # Incremental lineage processor only active when configured
         if expected_value:

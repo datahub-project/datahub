@@ -2000,10 +2000,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         else:
             return work_unit
 
-    def get_excluded_workunit_processors(self) -> List[str]:
+    def get_excluded_workunit_processors(self):
         # For modified_since, stale removal is handled per-workspace in get_workunits_internal()
         if self.source_config.modified_since:
-            return [AutoStaleEntityRemovalProcessor.NAME]
+            return [AutoStaleEntityRemovalProcessor]
         return []
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

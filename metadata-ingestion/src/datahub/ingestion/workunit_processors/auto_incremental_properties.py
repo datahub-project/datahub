@@ -19,8 +19,6 @@ from datahub.metadata.schema_classes import (
 class AutoIncrementalPropertiesProcessor(WorkunitProcessor):
     """Convert dataset properties to incremental patches when incremental_properties is enabled."""
 
-    NAME = "auto_incremental_properties"
-
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
         return bool(getattr(ctx.source_config, "incremental_properties", False))

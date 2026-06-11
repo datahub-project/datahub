@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Type
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -14,6 +14,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.datahub.config import (
     DEFAULT_URN_DENY_PATTERNS,
@@ -82,11 +83,11 @@ class DataHubSource(StatefulIngestionSourceBase):
     def get_report(self) -> SourceReport:
         return self.report
 
-    def get_allowed_workunit_processors(self) -> List[str]:
+    def get_allowed_workunit_processors(self):
         # Exactly replicate data from DataHub source — avoid processors that create/remove workunits
-        processors = [AutoWorkunitsReporterProcessor.NAME]
+        processors: List[Type[WorkunitProcessor]] = [AutoWorkunitsReporterProcessor]
         if self.config.drop_duplicate_schema_fields:
-            processors.insert(0, ValidateDuplicateSchemaFieldPathsProcessor.NAME)
+            processors.insert(0, ValidateDuplicateSchemaFieldPathsProcessor)
         return processors
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

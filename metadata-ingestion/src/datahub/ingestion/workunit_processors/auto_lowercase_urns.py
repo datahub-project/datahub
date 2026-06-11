@@ -14,8 +14,6 @@ logger = logging.getLogger(__name__)
 class AutoLowercaseUrnsProcessor(WorkunitProcessor):
     """Lowercase all dataset URNs in the stream."""
 
-    NAME = "auto_lowercase_urns"
-
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
         return bool(getattr(ctx.source_config, "convert_urns_to_lowercase", False))

@@ -218,8 +218,8 @@ class DataHubApplySource(Source):
         yield from self._yield_term()
         yield from self._yield_owner()
 
-    def get_allowed_workunit_processors(self) -> List[str]:
-        return [AutoWorkunitsReporterProcessor.NAME]
+    def get_allowed_workunit_processors(self):
+        return [AutoWorkunitsReporterProcessor]
 
     def get_report(self) -> SourceReport:
         return self.report

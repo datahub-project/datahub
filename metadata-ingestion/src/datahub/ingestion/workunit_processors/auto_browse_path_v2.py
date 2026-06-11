@@ -25,8 +25,6 @@ logger = logging.getLogger(__name__)
 class AutoBrowsePathV2Processor(WorkunitProcessor):
     """Generate BrowsePathsV2 from Container and BrowsePaths aspects."""
 
-    NAME = "auto_browse_path_v2"
-
     def __init__(self, ctx: WorkunitProcessorContext) -> None:
         super().__init__(ctx)
         flags = ctx.pipeline_context.flags

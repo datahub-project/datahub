@@ -18,8 +18,6 @@ logger = logging.getLogger(__name__)
 class AutoStatusAspectProcessor(WorkunitProcessor):
     """Add status aspect (removed=False) to entities that don't have one."""
 
-    NAME = "auto_status_aspect"
-
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         """
         For all entities that don't have a status aspect, add one with removed set to false.

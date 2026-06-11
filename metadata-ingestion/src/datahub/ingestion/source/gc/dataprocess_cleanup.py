@@ -207,8 +207,8 @@ class DataProcessCleanup:
         return self.report
 
     # auto_work_unit_report is overriden to disable a couple of automation like auto status aspect, etc.. which is not needed her.
-    def get_allowed_workunit_processors(self) -> List[str]:
-        return [AutoWorkunitsReporterProcessor.NAME]
+    def get_allowed_workunit_processors(self):
+        return [AutoWorkunitsReporterProcessor]
 
     def fetch_dpis(self, job_urn: str, batch_size: int) -> List[dict]:
         assert self.ctx.graph

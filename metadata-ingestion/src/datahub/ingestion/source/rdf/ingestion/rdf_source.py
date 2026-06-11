@@ -353,10 +353,10 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
 
         return report
 
-    def get_allowed_workunit_processors(self) -> List[str]:
+    def get_allowed_workunit_processors(self):
         return [
-            AutoWorkunitsReporterProcessor.NAME,
-            AutoStaleEntityRemovalProcessor.NAME,
+            AutoWorkunitsReporterProcessor,
+            AutoStaleEntityRemovalProcessor,
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

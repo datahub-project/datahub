@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable
 
 from pydantic import Field
 
@@ -132,8 +132,8 @@ class DataHubGcSource(Source):
         return cls(ctx, config)
 
     # auto_work_unit_report is overriden to disable a couple of automation like auto status aspect, etc. which is not needed her.
-    def get_allowed_workunit_processors(self) -> List[str]:
-        return [AutoWorkunitsReporterProcessor.NAME]
+    def get_allowed_workunit_processors(self):
+        return [AutoWorkunitsReporterProcessor]
 
     def get_workunits_internal(
         self,

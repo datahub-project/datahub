@@ -162,8 +162,8 @@ class LineageFileSource(Source):
         lineage_config = LineageConfig.model_validate(config)
         return lineage_config
 
-    def get_allowed_workunit_processors(self) -> List[str]:
-        return [AutoStatusAspectProcessor.NAME, AutoWorkunitsReporterProcessor.NAME]
+    def get_allowed_workunit_processors(self):
+        return [AutoStatusAspectProcessor, AutoWorkunitsReporterProcessor]
 
     def get_workunits_internal(
         self,

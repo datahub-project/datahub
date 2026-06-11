@@ -238,7 +238,7 @@ def test_get_workunit_processors_includes_stale_entity_processor() -> None:
     source.state_provider = MagicMock()  # presence triggers stale entity removal
 
     source.get_workunit_processors()
-    assert AutoStaleEntityRemovalProcessor.NAME in report.workunit_processor_reports
+    assert AutoStaleEntityRemovalProcessor.__name__ in report.workunit_processor_reports
 
 
 def test_get_workunits_internal_iterates_all_projects() -> None:

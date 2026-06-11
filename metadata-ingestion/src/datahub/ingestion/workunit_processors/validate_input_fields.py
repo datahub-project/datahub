@@ -26,8 +26,6 @@ ValidateInputFieldsReport = ValidateInputFieldsProcessorReport
 class ValidateInputFieldsProcessor(WorkunitProcessor):
     """Validate input fields, filtering out entries with empty fieldPath values."""
 
-    NAME = "validate_input_fields"
-
     @classmethod
     def get_report_class(cls) -> Type[ValidateInputFieldsProcessorReport]:
         return ValidateInputFieldsProcessorReport

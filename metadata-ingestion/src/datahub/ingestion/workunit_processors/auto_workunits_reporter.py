@@ -10,8 +10,6 @@ from datahub.ingestion.api.workunit_processor import (
 class AutoWorkunitsReporterProcessor(WorkunitProcessor):
     """Report each workunit to the source report for metrics tracking."""
 
-    NAME = "auto_workunit_reporter"
-
     def __init__(self, ctx: WorkunitProcessorContext) -> None:
         super().__init__(ctx)
         self._source_report = ctx.source_report

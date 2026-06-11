@@ -51,6 +51,7 @@ from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
 
 if TYPE_CHECKING:
+    from datahub.ingestion.api.workunit_processor import WorkunitProcessor
     from datahub.ingestion.source.state.entity_removal_state import (
         GenericCheckpointState,
     )
@@ -546,24 +547,32 @@ class Source(Closeable, metaclass=ABCMeta):
         # method abstract.
         raise NotImplementedError('sources must implement "create"')
 
-    def get_excluded_workunit_processors(self) -> List[str]:
-        """Processor names to exclude from automatic discovery.
+    def get_excluded_workunit_processors(
+        self,
+    ) -> "List[Union[str, Type[WorkunitProcessor]]]":
+        """Processor classes or names to exclude from automatic discovery.
 
         Override ONLY when specific processors are architecturally unsafe for this source
         (e.g. parallelism incompatibilities). Default: empty list (no exclusions).
 
-        Use ProcessorClass.NAME constants for type safety and IDE autocomplete.
+        Pass processor classes directly for type safety and IDE autocomplete:
+            return [AutoStatusAspectProcessor, AutoBrowsePathV2Processor]
+
         The order in the master processor list is preserved.
         """
         return []
 
-    def get_allowed_workunit_processors(self) -> Optional[List[str]]:
-        """Whitelist of processor names to use. If None, all are considered.
+    def get_allowed_workunit_processors(
+        self,
+    ) -> "Optional[List[Union[str, Type[WorkunitProcessor]]]]":
+        """Whitelist of processor classes or names to use. If None, all are considered.
 
         Override when your source should use ONLY a specific small set of
         processors (e.g. utility/cleanup sources). Default: None (use all).
 
-        Use ProcessorClass.NAME constants for type safety and IDE autocomplete.
+        Pass processor classes directly for type safety and IDE autocomplete:
+            return [AutoLowercaseUrnsProcessor, EnsureAspectSizeProcessor]
+
         The order in the master processor list is preserved.
         """
         return None
@@ -649,21 +658,25 @@ class Source(Closeable, metaclass=ABCMeta):
             AutoStaleEntityRemovalProcessor,
         ]
 
-        excluded = set(self.get_excluded_workunit_processors())
+        # Convert processor classes to names for comparison
+        def _to_name(p: "Union[str, Type[WorkunitProcessor]]") -> str:
+            return p.__name__ if isinstance(p, type) else p
+
+        excluded = set(_to_name(p) for p in self.get_excluded_workunit_processors())
         allowed = self.get_allowed_workunit_processors()
-        allowed_set = set(allowed) if allowed is not None else None
+        allowed_set = set(_to_name(p) for p in allowed) if allowed is not None else None
 
         processors: List[WorkunitProcessor] = []
         for processor_class in _ALL_PROCESSOR_CLASSES:
-            name = processor_class.get_name()
+            name = processor_class.__name__
             if name in excluded:
-                logger.debug(f"Workunit processor '{name}' excluded by source")
+                logger.info(f"Workunit processor '{name}' excluded by source")
                 continue
             if allowed_set is not None and name not in allowed_set:
-                logger.debug(f"Workunit processor '{name}' not in allowed list")
+                logger.info(f"Workunit processor '{name}' not in allowed list")
                 continue
             if processor_class.should_enable(ctx):
-                logger.debug(f"Workunit processor '{name}' enabled")
+                logger.info(f"Workunit processor '{name}' enabled")
                 try:
                     processors.append(processor_class.create(ctx))
                 except Exception as e:
@@ -674,7 +687,7 @@ class Source(Closeable, metaclass=ABCMeta):
                         f"Failed to initialize workunit processor '{name}': {e}"
                     ) from e
             else:
-                logger.debug(f"Workunit processor '{name}' disabled by should_enable()")
+                logger.info(f"Workunit processor '{name}' disabled by should_enable()")
 
         return [p.process for p in processors]
 

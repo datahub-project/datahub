@@ -15,8 +15,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 class AutoStaleEntityRemovalProcessor(WorkunitProcessor):
     """Soft-delete stale entities that appeared in the previous run but not in the current run."""
 
-    NAME = "auto_stale_entity_removal"
-
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
         return ctx.stale_entity_removal_context is not None and isinstance(

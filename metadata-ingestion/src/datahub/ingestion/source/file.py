@@ -5,7 +5,7 @@ import os.path
 import pathlib
 from dataclasses import dataclass, field
 from enum import auto
-from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Iterable, Iterator, List, Optional, Tuple, Type, Union
 
 import ijson
 from pydantic import field_validator
@@ -30,6 +30,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.fs.fs_base import FileInfo, get_path_schema
 from datahub.ingestion.fs.fs_registry import fs_registry
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -222,14 +223,14 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 yield file_info
 
-    def get_allowed_workunit_processors(self) -> List[str]:
+    def get_allowed_workunit_processors(self):
         # No helpers that create/remove workunits (replays existing metadata)
-        processors: List[str] = [
-            AutoWorkunitsReporterProcessor.NAME,
-            AutoStaleEntityRemovalProcessor.NAME,
+        processors: List[Type[WorkunitProcessor]] = [
+            AutoWorkunitsReporterProcessor,
+            AutoStaleEntityRemovalProcessor,
         ]
         if self.config.stateful_ingestion:
-            processors.insert(0, AutoStatusAspectProcessor.NAME)
+            processors.insert(0, AutoStatusAspectProcessor)
         return processors
 
     def get_workunits_internal(

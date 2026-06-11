@@ -174,19 +174,19 @@ class IcebergSource(StatefulIngestionSourceBase):
         config = IcebergSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_allowed_workunit_processors(self) -> Optional[List[str]]:
+    def get_allowed_workunit_processors(self):
         # Explicit whitelist: this source uses parallel threads for metadata scraping,
         # so processors that assume sequential, per-entity ordering (auto_status_aspect,
         # auto_browse_path_v2) are unsafe. New processors must be explicitly opted in here.
         return [
-            AutoLowercaseUrnsProcessor.NAME,
-            AutoMaterializeReferencedTagsTermsProcessor.NAME,
-            ValidateDuplicateSchemaFieldPathsProcessor.NAME,
-            ValidateEmptySchemaFieldPathsProcessor.NAME,
-            AutoWorkunitsReporterProcessor.NAME,
-            AutoPatchLastModifiedProcessor.NAME,
-            EnsureAspectSizeProcessor.NAME,
-            AutoStaleEntityRemovalProcessor.NAME,
+            AutoLowercaseUrnsProcessor,
+            AutoMaterializeReferencedTagsTermsProcessor,
+            ValidateDuplicateSchemaFieldPathsProcessor,
+            ValidateEmptySchemaFieldPathsProcessor,
+            AutoWorkunitsReporterProcessor,
+            AutoPatchLastModifiedProcessor,
+            EnsureAspectSizeProcessor,
+            AutoStaleEntityRemovalProcessor,
         ]
 
     def _get_namespaces(self, catalog: Catalog) -> Iterable[Identifier]:

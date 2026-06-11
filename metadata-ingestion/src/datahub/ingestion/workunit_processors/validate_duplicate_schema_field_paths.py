@@ -15,8 +15,6 @@ logger = logging.getLogger(__name__)
 class ValidateDuplicateSchemaFieldPathsProcessor(WorkunitProcessor):
     """Remove duplicate field paths from schema metadata aspects."""
 
-    NAME = "validate_duplicate_schema_field_paths"
-
     def __init__(self, ctx: WorkunitProcessorContext) -> None:
         super().__init__(ctx)
         self._platform = ctx.infer_platform()

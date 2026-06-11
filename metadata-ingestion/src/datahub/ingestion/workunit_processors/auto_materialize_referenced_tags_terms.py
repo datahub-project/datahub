@@ -15,8 +15,6 @@ logger = logging.getLogger(__name__)
 class AutoMaterializeReferencedTagsTermsProcessor(WorkunitProcessor):
     """Emit tag/term key aspects for all referenced tags and terms."""
 
-    NAME = "auto_materialize_referenced_tags_terms"
-
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         """For all references to tags/terms, emit a tag/term key aspect to ensure that the tag exists in our backend."""
 

@@ -202,10 +202,10 @@ class SqlQueriesSource(Source):
     def get_report(self) -> SqlQueriesSourceReport:
         return self.report
 
-    def get_allowed_workunit_processors(self) -> List[str]:
+    def get_allowed_workunit_processors(self):
         return [
-            AutoWorkunitsReporterProcessor.NAME,
-            AutoIncrementalLineageProcessor.NAME,
+            AutoWorkunitsReporterProcessor,
+            AutoIncrementalLineageProcessor,
         ]
 
     def get_workunits_internal(

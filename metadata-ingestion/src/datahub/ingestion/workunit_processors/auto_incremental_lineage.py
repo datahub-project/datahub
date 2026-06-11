@@ -19,8 +19,6 @@ from datahub.metadata.schema_classes import (
 class AutoIncrementalLineageProcessor(WorkunitProcessor):
     """Convert lineage aspects to incremental patches when incremental_lineage is enabled."""
 
-    NAME = "auto_incremental_lineage"
-
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
         return bool(getattr(ctx.source_config, "incremental_lineage", False))

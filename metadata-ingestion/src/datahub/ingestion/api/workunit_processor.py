@@ -63,8 +63,7 @@ class WorkunitProcessor(ABC):
     """Base class for all workunit processors.
 
     Workunit processors are stream transformers that apply common logic to
-    metadata workunits across all sources. Each processor has a unique NAME
-    constant used to reference it in allowed/excluded lists.
+    metadata workunits across all sources.
 
     Naming Convention:
     - Auto*Processor: Processors that automatically enrich metadata by adding new data
@@ -74,8 +73,6 @@ class WorkunitProcessor(ABC):
     - Ensure*Processor: Processors that enforce constraints by modifying data to fit limits
       (e.g., EnsureAspectSizeProcessor)
     """
-
-    NAME: str  # Must be defined as a class-level constant in each subclass
 
     def __init__(self, ctx: WorkunitProcessorContext) -> None:
         self.ctx = ctx
@@ -89,12 +86,8 @@ class WorkunitProcessor(ABC):
         processor = cls(ctx)
         report_class = cls.get_report_class()
         processor.report = report_class()
-        ctx.source_report.workunit_processor_reports[cls.get_name()] = processor.report
+        ctx.source_report.workunit_processor_reports[cls.__name__] = processor.report
         return processor
-
-    @classmethod
-    def get_name(cls) -> str:
-        return cls.NAME
 
     @classmethod
     def get_report_class(cls) -> Type[WorkunitProcessorReport]:

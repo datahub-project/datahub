@@ -50,8 +50,6 @@ def try_aspect_from_metadata_change_proposal_class(
 class AutoPatchLastModifiedProcessor(WorkunitProcessor):
     """Patch datasetProperties.lastModified from operation aspects when not set."""
 
-    NAME = "auto_patch_last_modified"
-
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         """
         Generate a patch request for datasetProperties aspect in-case

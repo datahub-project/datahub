@@ -51,8 +51,6 @@ class EnsureAspectSizeProcessorReport(WorkunitProcessorReport):
 class EnsureAspectSizeProcessor(WorkunitProcessor):
     """Ensure aspects don't exceed the 16MB payload limit by truncating in priority order."""
 
-    NAME = "ensure_aspect_size"
-
     @classmethod
     def get_report_class(cls) -> Type[EnsureAspectSizeProcessorReport]:
         return EnsureAspectSizeProcessorReport
