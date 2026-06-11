@@ -102,6 +102,11 @@ class DuckDBProfiler:
         """
         partitions = getattr(table_data, "partitions", None)
         ext = os.path.splitext(table_data.full_path)[1].lstrip(".").lower()  # type: ignore[attr-defined]
+        if not ext:
+            # No extension on the sample file — can't build a meaningful glob.
+            # Fall through to the concrete full_path and let _reader_expr raise
+            # an "unsupported format" error as usual.
+            return table_data.full_path, ext  # type: ignore[attr-defined]
         if partitions:
             path: str = table_data.table_path  # type: ignore[attr-defined]
             # Remote paths need a glob; local directories work without one but
@@ -187,4 +192,5 @@ class DuckDBProfiler:
         """Dispose the SQLAlchemy engine and remove the temporary DuckDB file."""
         if self._engine is not None:
             self._engine.dispose()
+            self._engine = None
         shutil.rmtree(self._tmpdir, ignore_errors=True)
