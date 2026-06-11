@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
@@ -10,6 +10,7 @@ from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
@@ -74,13 +75,11 @@ class DataLakeSourceConfig(
         default=DataLakeProfilerConfig(), description="Data profiling configuration"
     )
 
-    spark_driver_memory: str = Field(
-        default="4g", description="Max amount of memory to grant Spark."
+    _spark_driver_memory_removed = pydantic_removed_field(
+        "spark_driver_memory", month="June", year=2025
     )
-
-    spark_config: Dict[str, Any] = Field(
-        description='Spark configuration properties to set on the SparkSession. Put config property names into quotes. For example: \'"spark.executor.memory": "2g"\'',
-        default={},
+    _spark_config_removed = pydantic_removed_field(
+        "spark_config", month="June", year=2025
     )
 
     max_rows: int = Field(
