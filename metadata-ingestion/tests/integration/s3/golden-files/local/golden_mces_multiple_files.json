@@ -1715,7 +1715,7 @@
                     "max": "68.35879",
                     "mean": "67.1695595",
                     "median": "67.23792",
-                    "stdev": "0.9602428325249324",
+                    "stdev": "0.960242832525",
                     "distinctValueFrequencies": [
                         {
                             "value": "65.3845",
@@ -1829,9 +1829,9 @@
                     "nullProportion": 0.0,
                     "min": "-164.7452",
                     "max": "156.21262",
-                    "mean": "-19.820037499999998",
+                    "mean": "-19.8200375",
                     "median": "-158.529605",
-                    "stdev": "161.16705449041643",
+                    "stdev": "161.16705449",
                     "quantiles": [
                         {
                             "quantile": "0.05",
@@ -2268,11 +2268,11 @@
                     "max": "0.436",
                     "mean": "0.12495",
                     "median": "0.0995",
-                    "stdev": "0.09422340473576615",
+                    "stdev": "0.0942234047358",
                     "quantiles": [
                         {
                             "quantile": "0.05",
-                            "value": "0.042800000000000005"
+                            "value": "0.0428"
                         },
                         {
                             "quantile": "0.25",
@@ -2288,7 +2288,7 @@
                         },
                         {
                             "quantile": "0.95",
-                            "value": "0.23365000000000016"
+                            "value": "0.23365"
                         }
                     ],
                     "histogram": {
@@ -2349,9 +2349,9 @@
                     "nullProportion": 0.0,
                     "min": "1.3",
                     "max": "12.3",
-                    "mean": "4.654999999999999",
+                    "mean": "4.655",
                     "median": "4.25",
-                    "stdev": "2.8424368714926724",
+                    "stdev": "2.84243687149",
                     "distinctValueFrequencies": [
                         {
                             "value": "1.3",
@@ -2463,7 +2463,7 @@
                     "max": "3.5",
                     "mean": "2.575",
                     "median": "2.6",
-                    "stdev": "0.5300198606010712",
+                    "stdev": "0.530019860601",
                     "distinctValueFrequencies": [
                         {
                             "value": "1.5",
@@ -2610,7 +2610,7 @@
                     "max": "0.19",
                     "mean": "0.0382",
                     "median": "0.0135",
-                    "stdev": "0.05666485033208765",
+                    "stdev": "0.0566648503321",
                     "distinctValueFrequencies": [
                         {
                             "value": "0.0",
@@ -2897,9 +2897,9 @@
                     "nullProportion": 0.0,
                     "min": "0.08",
                     "max": "337.23",
-                    "mean": "23.122000000000003",
-                    "median": "0.43000000000000005",
-                    "stdev": "77.54061601916496",
+                    "mean": "23.122",
+                    "median": "0.43",
+                    "stdev": "77.5406160192",
                     "sampleValues": [
                         "10.35",
                         "1.18",
@@ -2931,9 +2931,9 @@
                     "nullProportion": 0.0,
                     "min": "0.04",
                     "max": "28.68",
-                    "mean": "5.208499999999999",
+                    "mean": "5.2085",
                     "median": "2.725",
-                    "stdev": "7.025195464596659",
+                    "stdev": "7.0251954646",
                     "sampleValues": [
                         "0.62",
                         "0.2",
@@ -3075,9 +3075,9 @@
                     "nullProportion": 0.0,
                     "min": "0.46",
                     "max": "161.89",
-                    "mean": "12.609499999999999",
+                    "mean": "12.6095",
                     "median": "1.235",
-                    "stdev": "37.07419977842443",
+                    "stdev": "37.0741997784",
                     "distinctValueFrequencies": [
                         {
                             "value": "0.46",
@@ -3188,8 +3188,8 @@
                     "min": "0.1",
                     "max": "8.32",
                     "mean": "1.014",
-                    "median": "0.42000000000000004",
-                    "stdev": "1.8740735254912941",
+                    "median": "0.42",
+                    "stdev": "1.87407352549",
                     "sampleValues": [
                         "1.2",
                         "0.32",
@@ -3222,8 +3222,8 @@
                     "min": "0.96",
                     "max": "57.64",
                     "mean": "18.1565",
-                    "median": "11.774999999999999",
-                    "stdev": "16.41026997917687",
+                    "median": "11.775",
+                    "stdev": "16.4102699792",
                     "distinctValueFrequencies": [
                         {
                             "value": "0.96",
@@ -3337,13 +3337,13 @@
                     "nullProportion": 0.0,
                     "min": "0.26",
                     "max": "37.68",
-                    "mean": "7.119999999999999",
-                    "median": "3.2649999999999997",
-                    "stdev": "8.616963074748488",
+                    "mean": "7.12",
+                    "median": "3.265",
+                    "stdev": "8.61696307475",
                     "quantiles": [
                         {
                             "quantile": "0.05",
-                            "value": "0.8300000000000001"
+                            "value": "0.83"
                         },
                         {
                             "quantile": "0.25",
@@ -3351,7 +3351,7 @@
                         },
                         {
                             "quantile": "0.5",
-                            "value": "3.2649999999999997"
+                            "value": "3.265"
                         },
                         {
                             "quantile": "0.75",
@@ -3359,7 +3359,7 @@
                         },
                         {
                             "quantile": "0.95",
-                            "value": "17.48300000000002"
+                            "value": "17.483"
                         }
                     ],
                     "histogram": {
@@ -3849,7 +3849,7 @@
                     "max": "6",
                     "mean": "2.0",
                     "median": "1.0",
-                    "stdev": "1.7638342073763937",
+                    "stdev": "1.76383420738",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -3903,9 +3903,9 @@
                     "nullProportion": 0.0,
                     "min": "1",
                     "max": "6",
-                    "mean": "4.035714285714286",
+                    "mean": "4.03571428571",
                     "median": "4.0",
-                    "stdev": "1.6438920136009396",
+                    "stdev": "1.6438920136",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -3959,9 +3959,9 @@
                     "nullProportion": 0.0,
                     "min": "1",
                     "max": "7",
-                    "mean": "3.142857142857143",
+                    "mean": "3.14285714286",
                     "median": "4.0",
-                    "stdev": "1.9381985854431316",
+                    "stdev": "1.93819858544",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -4025,7 +4025,7 @@
                     "max": "7",
                     "mean": "4.5",
                     "median": "5.0",
-                    "stdev": "1.575271875417536",
+                    "stdev": "1.57527187542",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -5143,7 +5143,7 @@
                     "max": "72",
                     "mean": "37.0",
                     "median": "40.0",
-                    "stdev": "20.159508850699943",
+                    "stdev": "20.1595088507",
                     "distinctValueFrequencies": [
                         {
                             "value": "2",
@@ -5217,9 +5217,9 @@
                     "nullProportion": 0.0,
                     "min": "4",
                     "max": "7",
-                    "mean": "5.214285714285714",
+                    "mean": "5.21428571429",
                     "median": "5.0",
-                    "stdev": "1.0480189336554038",
+                    "stdev": "1.04801893366",
                     "distinctValueFrequencies": [
                         {
                             "value": "4",
@@ -5618,7 +5618,7 @@
                     "max": "6",
                     "mean": "2.6",
                     "median": "1.0",
-                    "stdev": "2.3021728866442674",
+                    "stdev": "2.30217288664",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -5651,7 +5651,7 @@
                     "max": "6",
                     "mean": "4.2",
                     "median": "4.0",
-                    "stdev": "2.04939015319192",
+                    "stdev": "2.04939015319",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -5684,7 +5684,7 @@
                     "max": "4",
                     "mean": "1.8",
                     "median": "1.0",
-                    "stdev": "1.3038404810405297",
+                    "stdev": "1.30384048104",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -5717,7 +5717,7 @@
                     "max": "5",
                     "mean": "4.2",
                     "median": "5.0",
-                    "stdev": "1.7888543819998317",
+                    "stdev": "1.788854382",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -6344,9 +6344,9 @@
                     "nullProportion": 0.0,
                     "min": "19",
                     "max": "59",
-                    "mean": "37.506024096385545",
+                    "mean": "37.5060240964",
                     "median": "36.0",
-                    "stdev": "9.544513912295251",
+                    "stdev": "9.5445139123",
                     "quantiles": [
                         {
                             "quantile": "0.05",
@@ -6366,7 +6366,7 @@
                         },
                         {
                             "quantile": "0.95",
-                            "value": "55.599999999999994"
+                            "value": "55.6"
                         }
                     ],
                     "histogram": {
@@ -6509,9 +6509,9 @@
                     "nullProportion": 0.0,
                     "min": "0",
                     "max": "514",
-                    "mean": "56.94377510040161",
+                    "mean": "56.9437751004",
                     "median": "7.0",
-                    "stdev": "149.81390624182086",
+                    "stdev": "149.813906242",
                     "distinctValueFrequencies": [
                         {
                             "value": "0",
@@ -6620,9 +6620,9 @@
                     "nullProportion": 0.0,
                     "min": "1",
                     "max": "29",
-                    "mean": "8.991967871485944",
+                    "mean": "8.99196787149",
                     "median": "6.0",
-                    "stdev": "8.226134576061817",
+                    "stdev": "8.22613457606",
                     "quantiles": [
                         {
                             "quantile": "0.05",
@@ -6703,9 +6703,9 @@
                     "nullProportion": 0.0,
                     "min": "1",
                     "max": "5",
-                    "mean": "2.8473895582329316",
+                    "mean": "2.84738955823",
                     "median": "3.0",
-                    "stdev": "1.0282321251923743",
+                    "stdev": "1.02823212519",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -6854,9 +6854,9 @@
                     "nullProportion": 0.0,
                     "min": "1",
                     "max": "4",
-                    "mean": "2.7068273092369477",
+                    "mean": "2.70682730924",
                     "median": "3.0",
-                    "stdev": "1.0309688396277825",
+                    "stdev": "1.03096883963",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -6945,9 +6945,9 @@
                     "nullProportion": 0.0,
                     "min": "1",
                     "max": "4",
-                    "mean": "2.7068273092369477",
+                    "mean": "2.70682730924",
                     "median": "3.0",
-                    "stdev": "0.6827316857558827",
+                    "stdev": "0.682731685756",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -6997,9 +6997,9 @@
                     "nullProportion": 0.0,
                     "min": "1",
                     "max": "5",
-                    "mean": "2.036144578313253",
+                    "mean": "2.03614457831",
                     "median": "2.0",
-                    "stdev": "1.1371205478326156",
+                    "stdev": "1.13712054783",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -7120,9 +7120,9 @@
                     "nullProportion": 0.0,
                     "min": "1",
                     "max": "4",
-                    "mean": "2.8032128514056227",
+                    "mean": "2.80321285141",
                     "median": "3.0",
-                    "stdev": "1.1059907062967669",
+                    "stdev": "1.1059907063",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -7215,9 +7215,9 @@
                     "nullProportion": 0.0,
                     "min": "0",
                     "max": "9",
-                    "mean": "2.7228915662650603",
+                    "mean": "2.72289156627",
                     "median": "2.0",
-                    "stdev": "2.5335487018182694",
+                    "stdev": "2.53354870182",
                     "distinctValueFrequencies": [
                         {
                             "value": "0",
@@ -7365,9 +7365,9 @@
                     "nullProportion": 0.0,
                     "min": "11",
                     "max": "25",
-                    "mean": "15.514056224899598",
+                    "mean": "15.5140562249",
                     "median": "14.0",
-                    "stdev": "3.8069338284563554",
+                    "stdev": "3.80693382846",
                     "distinctValueFrequencies": [
                         {
                             "value": "11",
@@ -7461,9 +7461,9 @@
                     "nullProportion": 0.0,
                     "min": "3",
                     "max": "4",
-                    "mean": "3.1927710843373496",
+                    "mean": "3.19277108434",
                     "median": "3.0",
-                    "stdev": "0.39526934442780143",
+                    "stdev": "0.395269344428",
                     "distinctValueFrequencies": [
                         {
                             "value": "3",
@@ -7505,9 +7505,9 @@
                     "nullProportion": 0.0,
                     "min": "1",
                     "max": "4",
-                    "mean": "2.8514056224899598",
+                    "mean": "2.85140562249",
                     "median": "3.0",
-                    "stdev": "1.1062542291374027",
+                    "stdev": "1.10625422914",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -7597,9 +7597,9 @@
                     "nullProportion": 0.0,
                     "min": "0",
                     "max": "3",
-                    "mean": "0.7228915662650602",
+                    "mean": "0.722891566265",
                     "median": "1.0",
-                    "stdev": "0.8373333201307388",
+                    "stdev": "0.837333320131",
                     "distinctValueFrequencies": [
                         {
                             "value": "0",
@@ -7649,9 +7649,9 @@
                     "nullProportion": 0.0,
                     "min": "0",
                     "max": "40",
-                    "mean": "11.397590361445783",
+                    "mean": "11.3975903614",
                     "median": "10.0",
-                    "stdev": "7.821506371036515",
+                    "stdev": "7.82150637104",
                     "quantiles": [
                         {
                             "quantile": "0.05",
@@ -7671,7 +7671,7 @@
                         },
                         {
                             "quantile": "0.95",
-                            "value": "25.599999999999994"
+                            "value": "25.6"
                         }
                     ],
                     "histogram": {
@@ -7732,9 +7732,9 @@
                     "nullProportion": 0.0,
                     "min": "0",
                     "max": "6",
-                    "mean": "2.751004016064257",
+                    "mean": "2.75100401606",
                     "median": "3.0",
-                    "stdev": "1.2835218827004482",
+                    "stdev": "1.2835218827",
                     "distinctValueFrequencies": [
                         {
                             "value": "0",
@@ -7796,9 +7796,9 @@
                     "nullProportion": 0.0,
                     "min": "1",
                     "max": "4",
-                    "mean": "2.7309236947791167",
+                    "mean": "2.73092369478",
                     "median": "3.0",
-                    "stdev": "0.7155301653607152",
+                    "stdev": "0.715530165361",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -7848,9 +7848,9 @@
                     "nullProportion": 0.0,
                     "min": "0",
                     "max": "40",
-                    "mean": "7.232931726907631",
+                    "mean": "7.23293172691",
                     "median": "5.0",
-                    "stdev": "6.7419276581508445",
+                    "stdev": "6.74192765815",
                     "quantiles": [
                         {
                             "quantile": "0.05",
@@ -7931,9 +7931,9 @@
                     "nullProportion": 0.0,
                     "min": "0",
                     "max": "18",
-                    "mean": "4.465863453815261",
+                    "mean": "4.46586345382",
                     "median": "3.0",
-                    "stdev": "3.9919070546410347",
+                    "stdev": "3.99190705464",
                     "quantiles": [
                         {
                             "quantile": "0.05",
@@ -7953,7 +7953,7 @@
                         },
                         {
                             "quantile": "0.95",
-                            "value": "12.599999999999994"
+                            "value": "12.6"
                         }
                     ],
                     "histogram": {
@@ -8014,9 +8014,9 @@
                     "nullProportion": 0.0,
                     "min": "0",
                     "max": "15",
-                    "mean": "2.2289156626506026",
+                    "mean": "2.22891566265",
                     "median": "1.0",
-                    "stdev": "3.327519544566408",
+                    "stdev": "3.32751954457",
                     "distinctValueFrequencies": [
                         {
                             "value": "0",
@@ -8110,9 +8110,9 @@
                     "nullProportion": 0.0,
                     "min": "0",
                     "max": "17",
-                    "mean": "4.333333333333333",
+                    "mean": "4.33333333333",
                     "median": "3.0",
-                    "stdev": "3.6902953228559467",
+                    "stdev": "3.69029532286",
                     "distinctValueFrequencies": [
                         {
                             "value": "0",

@@ -173,3 +173,18 @@ def test_summarize_cache_is_populated_and_served():
             PlatformAdapter, "get_row_count", side_effect=RuntimeError("base called")
         ):
             assert adapter.get_row_count(table, conn) == 5
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (0.16199999999999998, 0.162),  # 1-ULP noise collapses to the clean value
+        (17.483000000000015, 17.483),
+        (0.0, 0.0),
+        (3.0, 3.0),
+    ],
+)
+def test_round_sig_suppresses_float_noise(value, expected):
+    from datahub.ingestion.source.sqlalchemy_profiler.adapters.duckdb import _round_sig
+
+    assert _round_sig(value) == expected

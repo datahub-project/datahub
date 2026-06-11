@@ -1114,7 +1114,7 @@
                     "max": "6",
                     "mean": "2.0",
                     "median": "1.0",
-                    "stdev": "1.7638342073763937",
+                    "stdev": "1.76383420738",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -1168,9 +1168,9 @@
                     "nullProportion": 0.0,
                     "min": "1",
                     "max": "6",
-                    "mean": "4.035714285714286",
+                    "mean": "4.03571428571",
                     "median": "4.0",
-                    "stdev": "1.6438920136009396",
+                    "stdev": "1.6438920136",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -1224,9 +1224,9 @@
                     "nullProportion": 0.0,
                     "min": "1",
                     "max": "7",
-                    "mean": "3.142857142857143",
+                    "mean": "3.14285714286",
                     "median": "4.0",
-                    "stdev": "1.9381985854431316",
+                    "stdev": "1.93819858544",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
@@ -1290,7 +1290,7 @@
                     "max": "7",
                     "mean": "4.5",
                     "median": "5.0",
-                    "stdev": "1.575271875417536",
+                    "stdev": "1.57527187542",
                     "distinctValueFrequencies": [
                         {
                             "value": "1",
