@@ -2463,12 +2463,13 @@ ORDER by DataBaseName, TableName;
         message = self.WARNING_VIEW_ERROR_MAP.get(
             error_category, self.WARNING_VIEW_ERROR_MAP[ViewErrorCategory.UNKNOWN]
         )
-        self.report.warning(
-            title="View processing error",
-            message=message,  # type: ignore[arg-type]  # all dict values are compile-time literals
-            context=f"{schema}.{view_name}",
-            exc=exc,
-        )
+        with self.report.atomic():
+            self.report.warning(
+                title="View processing error",
+                message=message,  # type: ignore[arg-type]  # all dict values are compile-time literals
+                context=f"{schema}.{view_name}",
+                exc=exc,
+            )
 
     def _process_views_single_threaded(
         self, view_names: List[str], schema: str, sql_config: SQLCommonConfig
@@ -2826,11 +2827,12 @@ ORDER by DataBaseName, TableName;
                             f"executing on the server. Investigate "
                             f"DBC.SessionInfoV / network keepalive if this persists."
                         )
-                        self.report.warning(
-                            title="Lineage fetch stall detected",
-                            message="Teradata cursor may be blocked or the query is still executing on the server. Investigate DBC.SessionInfoV or network keepalive settings.",
-                            context=f"phase={phase}, query_index={query_index}, stalled_for={elapsed:.0f}s",
-                        )
+                        with self.report.atomic():
+                            self.report.warning(
+                                title="Lineage fetch stall detected",
+                                message="Teradata cursor may be blocked or the query is still executing on the server. Investigate DBC.SessionInfoV or network keepalive settings.",
+                                context=f"phase={phase}, query_index={query_index}, stalled_for={elapsed:.0f}s",
+                            )
                         stall_warned = True
 
         watchdog_thread: Optional[Thread] = None
