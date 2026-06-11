@@ -1,8 +1,14 @@
+import os
 from typing import Optional
 
 from pydantic.fields import Field
 
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+
+# Env var used to point DuckDB profiling at a pre-staged extension directory.
+# The datahub-ingestion image sets this to a build-time-baked location so
+# profiling works offline out of the box; operators can also set it themselves.
+DUCKDB_EXTENSION_DIRECTORY_ENV = "DATAHUB_DUCKDB_EXTENSION_DIRECTORY"
 
 
 class DataLakeProfilerConfig(GEProfilingConfig):
@@ -29,13 +35,16 @@ class DataLakeProfilerConfig(GEProfilingConfig):
     )
 
     duckdb_extension_directory: Optional[str] = Field(
-        default=None,
+        default_factory=lambda: os.environ.get(DUCKDB_EXTENSION_DIRECTORY_ENV),
         description=(
             "Directory DuckDB loads extensions from. DuckDB profiling needs the "
             "`httpfs` extension for remote (s3/gcs/abs) reads and `avro` for Avro "
             "files; by default these are downloaded on first use, which fails in "
             "air-gapped environments. Pre-stage the `.duckdb_extension` binaries "
-            "in this directory (matching your DuckDB version/platform) to load "
-            "them offline. Leave unset to download on demand."
+            "in this directory (DuckDB stores them version/platform-keyed under "
+            "`<dir>/v<version>/<platform>/`) to load them offline. When set, "
+            "downloads are disabled. Defaults to the "
+            f"`{DUCKDB_EXTENSION_DIRECTORY_ENV}` environment variable, which the "
+            "datahub-ingestion image points at a build-time-baked location."
         ),
     )
