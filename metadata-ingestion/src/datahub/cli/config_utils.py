@@ -47,11 +47,14 @@ ENV_METADATA_PROTOCOL = "DATAHUB_GMS_PROTOCOL"
 def _decode_jwt_exp(token: str) -> Optional[datetime]:
     """Decode the exp claim from a JWT without verifying the signature."""
     try:
-        payload_b64 = token.split(".")[1]
+        parts = token.split(".")
+        if len(parts) < 2:
+            return None
+        payload_b64 = parts[1]
         payload_b64 += "=" * (4 - len(payload_b64) % 4)
         exp = json.loads(base64.urlsafe_b64decode(payload_b64)).get("exp")
         return datetime.fromtimestamp(int(exp), tz=timezone.utc) if exp else None
-    except Exception:
+    except (IndexError, json.JSONDecodeError, ValueError, OverflowError):
         return None
 
 
@@ -91,6 +94,8 @@ class OAuthSessionConfig(BaseModel):
 
     client_id: str
     refresh_token: Optional[str] = None
+    # Stored from the discovery document so refresh doesn't rely on a hardcoded path.
+    token_endpoint: Optional[str] = None
 
 
 class DatahubConfig(BaseModel):
@@ -185,16 +190,17 @@ def write_oauth_config(
     access_token: str,
     client_id: str,
     refresh_token: Optional[str],
+    token_endpoint: Optional[str] = None,
 ) -> None:
     """Write GMS config together with OAuth2 session tokens to ~/.datahubenv."""
     config = DatahubConfig(gms=DatahubClientConfig(server=host, token=access_token))
+    oauth = OAuthSessionConfig(
+        client_id=client_id,
+        refresh_token=refresh_token,
+        token_endpoint=token_endpoint,
+    )
     config_dict = config.model_dump()
-
-    oauth_section: dict = {"client_id": client_id}
-    if refresh_token is not None:
-        oauth_section["refresh_token"] = refresh_token
-    config_dict["oauth"] = oauth_section
-
+    config_dict["oauth"] = oauth.model_dump(exclude_none=True)
     persist_raw_datahub_config(config_dict)
 
 
@@ -241,7 +247,12 @@ def refresh_oauth_token_if_needed() -> Optional[str]:
         if not gms_server:
             return None
 
-        token_endpoint = f"{gms_server.rstrip('/')}/auth/oauth2/token"
+        # Prefer the token_endpoint stored from the discovery document; fall back to
+        # the conventional path so configs written before this field was added still work.
+        stored_endpoint = oauth_section.get("token_endpoint")
+        token_endpoint = (
+            stored_endpoint or f"{gms_server.rstrip('/')}/auth/oauth2/token"
+        )
         logger.debug("Refreshing OAuth2 access token...")
 
         resp = requests.post(
@@ -270,7 +281,6 @@ def refresh_oauth_token_if_needed() -> Optional[str]:
 
         raw["gms"]["token"] = new_access_token
         raw["oauth"]["refresh_token"] = new_refresh_token
-        raw["oauth"].pop("token_expiry", None)  # clean up legacy field if present
 
         persist_raw_datahub_config(raw)
         logger.debug("OAuth2 access token refreshed successfully")

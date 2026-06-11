@@ -282,6 +282,7 @@ class TestInitOAuthFlag:
             client_id="dcr-abc",
             access_token="at-from-pkce",
             refresh_token="rt-from-pkce",
+            token_endpoint="https://example.datahub.io/auth/oauth2/token",
         )
         with patch("datahub.cli.oauth_cli.pkce_login", return_value=result) as mock:
             self.mock_pkce = mock
@@ -397,6 +398,7 @@ class TestInitOAuthFlag:
             client_id="dcr-abc",
             access_token="at-only",
             refresh_token=None,
+            token_endpoint="https://example.datahub.io/auth/oauth2/token",
         )
         with patch("datahub.cli.oauth_cli.pkce_login", return_value=result_no_rt):
             runner = CliRunner()

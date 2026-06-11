@@ -491,7 +491,7 @@ def init(
         from datahub.cli.oauth_cli import pkce_login
 
         result = pkce_login(host_value)
-        click.echo(f"✓ Logged in as {result.client_id}")
+        click.echo("✓ Successfully authenticated with DataHub")
         if result.refresh_token:
             click.echo(
                 "✓ Refresh token stored — access token will auto-renew on expiry"
@@ -501,6 +501,7 @@ def init(
             access_token=result.access_token,
             client_id=result.client_id,
             refresh_token=result.refresh_token,
+            token_endpoint=result.token_endpoint,
         )
         click.echo(f"✓ Configuration written to {DATAHUB_CONFIG_PATH}")
         return

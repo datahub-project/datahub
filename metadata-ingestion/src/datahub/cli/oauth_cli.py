@@ -3,11 +3,10 @@ import hashlib
 import http.server
 import logging
 import secrets
-import socket
 import threading
 import urllib.parse
 import webbrowser
-from typing import Any, Dict, NamedTuple, Optional, Tuple
+from typing import Any, Dict, NamedTuple, Optional, Tuple, Type
 
 import click
 import requests
@@ -33,6 +32,7 @@ class OAuthResult(NamedTuple):
     client_id: str
     access_token: str
     refresh_token: Optional[str]
+    token_endpoint: str
 
 
 def _check_cloud_instance(gms_url: str) -> None:
@@ -48,8 +48,20 @@ def _check_cloud_instance(gms_url: str) -> None:
                 )
     except click.ClickException:
         raise
-    except Exception:
+    except (requests.RequestException, ValueError, KeyError):
         pass  # Can't determine — fall through to the discovery endpoint check
+
+
+def _validate_endpoint_origin(endpoint_url: str, gms_url: str, field: str) -> None:
+    """Ensure a discovered endpoint belongs to the same origin as the GMS URL."""
+    gms_parsed = urllib.parse.urlparse(gms_url.rstrip("/"))
+    ep_parsed = urllib.parse.urlparse(endpoint_url)
+    if ep_parsed.netloc != gms_parsed.netloc:
+        raise click.ClickException(
+            f"Discovery document returned {field!r} on a different origin "
+            f"({ep_parsed.netloc!r} vs {gms_parsed.netloc!r}). "
+            "This may indicate a misconfigured or malicious server."
+        )
 
 
 def _discover_oauth_server(gms_url: str) -> Dict[str, Any]:
@@ -87,6 +99,17 @@ def _discover_oauth_server(gms_url: str) -> Dict[str, Any]:
         raise click.ClickException(
             f"OAuth2 discovery document at {discovery_url} is missing required fields.\n"
             "Use `datahub init --sso` for SSO login or `datahub init` for username/password login."
+        )
+
+    # Reject endpoints that point to a different origin — guards against a
+    # compromised server redirecting token requests to an attacker-controlled host.
+    _validate_endpoint_origin(
+        metadata["authorization_endpoint"], gms_url, "authorization_endpoint"
+    )
+    _validate_endpoint_origin(metadata["token_endpoint"], gms_url, "token_endpoint")
+    if "registration_endpoint" in metadata:
+        _validate_endpoint_origin(
+            metadata["registration_endpoint"], gms_url, "registration_endpoint"
         )
 
     return metadata
@@ -137,15 +160,9 @@ def _generate_pkce_pair() -> Tuple[str, str]:
     return verifier, challenge
 
 
-def _get_free_port() -> int:
-    """Bind to port 0 to let the OS assign a free port, then return it."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-
-
-def _make_callback_handler(result: Dict[str, Any]):  # type: ignore[type-arg]
+def _make_callback_handler(
+    result: Dict[str, Any], expected_state: str
+) -> Type[http.server.BaseHTTPRequestHandler]:
     """Return an HTTP handler class that captures the OAuth2 authorization code callback."""
 
     class _Handler(http.server.BaseHTTPRequestHandler):
@@ -155,8 +172,12 @@ def _make_callback_handler(result: Dict[str, Any]):  # type: ignore[type-arg]
             result["code"] = params.get("code", [None])[0]
             result["error"] = params.get("error", [None])[0]
             result["error_description"] = params.get("error_description", [None])[0]
+            result["state"] = params.get("state", [None])[0]
 
-            body = _SUCCESS_HTML if result.get("code") else _ERROR_HTML
+            # Show error page when state is missing/wrong even if a code was returned,
+            # so the user knows something went wrong before they close the tab.
+            state_ok = result.get("state") == expected_state
+            body = _SUCCESS_HTML if (result.get("code") and state_ok) else _ERROR_HTML
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
@@ -181,9 +202,9 @@ def pkce_login(gms_url: str, timeout_seconds: int = 120) -> OAuthResult:
          and discover endpoints. Fails gracefully if not a cloud/OAuth2-enabled instance.
       2. Register a public PKCE client via RFC 7591 Dynamic Client Registration.
          Fails gracefully if DCR is not enabled.
-      3. Start a loopback HTTP server on a random free port.
+      3. Start a loopback HTTP server on a random free port (bound atomically by the OS).
       4. Open the browser to the authorization endpoint.
-      5. Wait for the loopback redirect and extract the authorization code.
+      5. Wait for the loopback redirect, verify the state parameter, and extract the code.
       6. Exchange code + PKCE verifier for access_token + refresh_token.
 
     Args:
@@ -191,7 +212,7 @@ def pkce_login(gms_url: str, timeout_seconds: int = 120) -> OAuthResult:
         timeout_seconds: Seconds to wait for the user to complete browser login
 
     Returns:
-        OAuthResult with client_id, access_token, refresh_token, and token_expiry
+        OAuthResult with client_id, access_token, refresh_token, and token_endpoint
 
     Raises:
         click.ClickException: on any failure with a user-friendly message
@@ -210,14 +231,19 @@ def pkce_login(gms_url: str, timeout_seconds: int = 120) -> OAuthResult:
             "Use `datahub init --sso` for SSO login or `datahub init` for username/password login."
         )
 
-    port = _get_free_port()
+    code_verifier, code_challenge = _generate_pkce_pair()
+    state = secrets.token_urlsafe(16)
+
+    # Bind to port 0 and let the OS assign a free port atomically — eliminates the
+    # TOCTOU race that would exist between a probe bind and a separate server bind.
+    result: Dict[str, Any] = {}
+    handler_class = _make_callback_handler(result, state)
+    server = http.server.HTTPServer(("127.0.0.1", 0), handler_class)
+    port = server.server_address[1]
     redirect_uri = f"http://127.0.0.1:{port}/callback"
 
     click.echo("Registering OAuth2 client...")
     client_id = _register_cli_client(registration_endpoint, redirect_uri)
-
-    code_verifier, code_challenge = _generate_pkce_pair()
-    state = secrets.token_urlsafe(16)
 
     auth_params = {
         "response_type": "code",
@@ -230,9 +256,6 @@ def pkce_login(gms_url: str, timeout_seconds: int = 120) -> OAuthResult:
     }
     auth_url = f"{authorization_endpoint}?{urllib.parse.urlencode(auth_params)}"
 
-    result: Dict[str, Any] = {}
-    handler_class = _make_callback_handler(result)
-    server = http.server.HTTPServer(("127.0.0.1", port), handler_class)
     server_thread = threading.Thread(
         target=server.serve_forever,
         kwargs={"poll_interval": 0.5},
@@ -260,6 +283,13 @@ def pkce_login(gms_url: str, timeout_seconds: int = 120) -> OAuthResult:
     if result.get("error"):
         desc = result.get("error_description") or result["error"]
         raise click.ClickException(f"OAuth2 authorization failed: {desc}")
+
+    received_state = result.get("state")
+    if received_state != state:
+        raise click.ClickException(
+            "OAuth2 state mismatch — the callback did not include the expected state token. "
+            "This may indicate a CSRF attempt. Please try again."
+        )
 
     code = result.get("code")
     if not code:
@@ -307,4 +337,5 @@ def pkce_login(gms_url: str, timeout_seconds: int = 120) -> OAuthResult:
         client_id=client_id,
         access_token=access_token,
         refresh_token=refresh_token,
+        token_endpoint=token_endpoint,
     )

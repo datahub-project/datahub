@@ -12,7 +12,6 @@ from datahub.cli.oauth_cli import (
     _check_cloud_instance,
     _discover_oauth_server,
     _generate_pkce_pair,
-    _get_free_port,
     _make_callback_handler,
     _register_cli_client,
     pkce_login,
@@ -277,35 +276,21 @@ class TestGeneratePkcePair:
 
 
 # ---------------------------------------------------------------------------
-# _get_free_port
-# ---------------------------------------------------------------------------
-
-
-class TestGetFreePort:
-    def test_returns_valid_port(self) -> None:
-        port = _get_free_port()
-        assert 1 <= port <= 65535
-
-    def test_returns_different_ports(self) -> None:
-        # Not guaranteed but overwhelmingly likely on any real system
-        ports = {_get_free_port() for _ in range(5)}
-        assert len(ports) > 1
-
-
-# ---------------------------------------------------------------------------
 # _make_callback_handler (loopback server)
 # ---------------------------------------------------------------------------
 
 
 class TestCallbackHandler:
-    def _make_request(self, path: str) -> Dict[str, Any]:
+    def _make_request(
+        self, path: str, expected_state: str = "test-state"
+    ) -> Dict[str, Any]:
         """Spin up the loopback server, send a GET to `path`, return captured result."""
         import http.server
 
         result: Dict[str, Any] = {}
-        handler = _make_callback_handler(result)
-        port = _get_free_port()
-        server = http.server.HTTPServer(("127.0.0.1", port), handler)
+        handler = _make_callback_handler(result, expected_state)
+        server = http.server.HTTPServer(("127.0.0.1", 0), handler)
+        port = server.server_address[1]
         t = threading.Thread(
             target=server.serve_forever, kwargs={"poll_interval": 0.1}, daemon=True
         )
@@ -318,8 +303,9 @@ class TestCallbackHandler:
         return result
 
     def test_captures_authorization_code(self) -> None:
-        result = self._make_request("/callback?code=abc123&state=xyz")
+        result = self._make_request("/callback?code=abc123&state=test-state")
         assert result["code"] == "abc123"
+        assert result["state"] == "test-state"
         assert result["error"] is None
 
     def test_captures_error_on_denial(self) -> None:
