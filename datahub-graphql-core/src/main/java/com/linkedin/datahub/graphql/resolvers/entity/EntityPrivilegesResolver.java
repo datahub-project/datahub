@@ -28,16 +28,22 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import graphql.language.Field;
+import graphql.language.FragmentDefinition;
+import graphql.language.FragmentSpread;
+import graphql.language.InlineFragment;
+import graphql.language.Selection;
+import graphql.language.SelectionSet;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import graphql.schema.SelectedField;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -56,13 +62,15 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     final String urnString = ((Entity) environment.getSource()).getUrn();
     final Urn urn = UrnUtils.getUrn(urnString);
 
-    // Each EntityPrivileges field is the result of an independent authorization check. The
-    // resolver only computes query selected fields, to avoid unnecessary auth checks and improve
-    // performance.
-    final Set<String> selected =
-        environment.getSelectionSet().getImmediateFields().stream()
-            .map(SelectedField::getName)
-            .collect(Collectors.toSet());
+    // Each EntityPrivileges field is the result of an independent authorization check. We compute
+    // only the sub-fields the query selected, to avoid unnecessary auth checks.
+    //
+    // The selected sub-fields are read from the AST (this field's own selection set), NOT via
+    // environment.getSelectionSet(): the latter normalizes the whole sub-tree and is subject to
+    // graphql-java's max-field-count guard (100k), which a large recursive query such as the
+    // lineage graph (getBulkEntityLineageV2) can exceed -- aborting the entire query. Reading the
+    // immediate selection from the AST is local to the privileges field and cheap.
+    final Set<String> selected = selectedSubFields(environment);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -94,6 +102,41 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  /**
+   * Collects the names of the immediate sub-fields selected under the {@code privileges} field by
+   * reading this field's selection set from the query AST (resolving fragment spreads and inline
+   * fragments). This is intentionally local to the {@code privileges} field — it does not normalize
+   * the rest of the query — so it is not subject to graphql-java's max-field-count limit, which a
+   * large recursive query (e.g. the lineage graph) can otherwise exceed and abort.
+   */
+  private static Set<String> selectedSubFields(DataFetchingEnvironment environment) {
+    final Set<String> names = new HashSet<>();
+    final Map<String, FragmentDefinition> fragments = environment.getFragmentsByName();
+    for (Field field : environment.getMergedField().getFields()) {
+      collectFieldNames(field.getSelectionSet(), fragments, names);
+    }
+    return names;
+  }
+
+  private static void collectFieldNames(
+      SelectionSet selectionSet, Map<String, FragmentDefinition> fragments, Set<String> out) {
+    if (selectionSet == null) {
+      return;
+    }
+    for (Selection<?> selection : selectionSet.getSelections()) {
+      if (selection instanceof Field) {
+        out.add(((Field) selection).getName());
+      } else if (selection instanceof InlineFragment) {
+        collectFieldNames(((InlineFragment) selection).getSelectionSet(), fragments, out);
+      } else if (selection instanceof FragmentSpread) {
+        final FragmentDefinition fragment = fragments.get(((FragmentSpread) selection).getName());
+        if (fragment != null) {
+          collectFieldNames(fragment.getSelectionSet(), fragments, out);
+        }
+      }
+    }
   }
 
   /**

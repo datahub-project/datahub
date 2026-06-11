@@ -18,13 +18,13 @@ import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.r2.RemoteInvocationException;
+import graphql.execution.MergedField;
+import graphql.language.Field;
+import graphql.language.SelectionSet;
 import graphql.schema.DataFetchingEnvironment;
-import graphql.schema.DataFetchingFieldSelectionSet;
-import graphql.schema.SelectedField;
-import java.util.List;
+import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
-import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -68,19 +68,16 @@ public class EntityPrivilegesResolverTest {
           "canViewDatasetOperations",
           "canManageAssetSummary");
 
-  private static DataFetchingFieldSelectionSet mockSelectionSet(Set<String> fieldNames) {
-    List<SelectedField> fields =
-        fieldNames.stream()
-            .map(
-                name -> {
-                  SelectedField field = Mockito.mock(SelectedField.class);
-                  Mockito.when(field.getName()).thenReturn(name);
-                  return field;
-                })
-            .collect(Collectors.toList());
-    DataFetchingFieldSelectionSet selectionSet = Mockito.mock(DataFetchingFieldSelectionSet.class);
-    Mockito.when(selectionSet.getImmediateFields()).thenReturn(fields);
-    return selectionSet;
+  // Builds a real query AST for `privileges { <fieldNames> }` so the resolver reads the selected
+  // sub-fields the same way it does at runtime (from the field's selection set), exercising the
+  // actual code path rather than a mocked selection set.
+  private static MergedField mockMergedField(Set<String> fieldNames) {
+    SelectionSet.Builder selectionSet = SelectionSet.newSelectionSet();
+    for (String name : fieldNames) {
+      selectionSet.selection(Field.newField(name).build());
+    }
+    Field privileges = Field.newField("privileges").selectionSet(selectionSet.build()).build();
+    return MergedField.newMergedField(privileges).build();
   }
 
   private DataFetchingEnvironment setUpTestWithPermissions(Entity entity) {
@@ -89,15 +86,14 @@ public class EntityPrivilegesResolverTest {
 
   private DataFetchingEnvironment setUpTestWithPermissions(
       Entity entity, Set<String> selectedFields) {
-    // Build the selection-set mock first; nesting it inside the when(...).thenReturn(...) below
-    // would trigger Mockito's "stubbing another mock mid-stubbing" error.
-    DataFetchingFieldSelectionSet selectionSet = mockSelectionSet(selectedFields);
+    MergedField mergedField = mockMergedField(selectedFields);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Mockito.when(mockEnv.getSource()).thenReturn(entity);
-    Mockito.when(mockEnv.getSelectionSet()).thenReturn(selectionSet);
+    Mockito.when(mockEnv.getMergedField()).thenReturn(mergedField);
+    Mockito.when(mockEnv.getFragmentsByName()).thenReturn(Collections.emptyMap());
     return mockEnv;
   }
 
@@ -107,13 +103,14 @@ public class EntityPrivilegesResolverTest {
 
   private DataFetchingEnvironment setUpTestWithoutPermissions(
       Entity entity, Set<String> selectedFields) {
-    DataFetchingFieldSelectionSet selectionSet = mockSelectionSet(selectedFields);
+    MergedField mergedField = mockMergedField(selectedFields);
     QueryContext mockContext = getMockDenyContext();
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Mockito.when(mockEnv.getSource()).thenReturn(entity);
-    Mockito.when(mockEnv.getSelectionSet()).thenReturn(selectionSet);
+    Mockito.when(mockEnv.getMergedField()).thenReturn(mergedField);
+    Mockito.when(mockEnv.getFragmentsByName()).thenReturn(Collections.emptyMap());
     return mockEnv;
   }
 
