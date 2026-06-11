@@ -1,3 +1,4 @@
+import logging
 from typing import Iterable
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -5,6 +6,25 @@ from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessor,
     WorkunitProcessorContext,
 )
+from datahub.utilities.urns.urn_iter import lowercase_dataset_urns
+
+logger = logging.getLogger(__name__)
+
+
+def auto_lowercase_urns(
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """Lowercase all dataset urns"""
+    for wu in stream:
+        try:
+            old_urn = wu.get_urn()
+            lowercase_dataset_urns(wu.metadata)
+            wu.id = wu.id.replace(old_urn, wu.get_urn())
+
+            yield wu
+        except Exception as e:
+            logger.warning(f"Failed to lowercase urns for {wu}: {e}", exc_info=True)
+            yield wu
 
 
 class AutoLowercaseUrnsProcessor(WorkunitProcessor):
@@ -17,6 +37,4 @@ class AutoLowercaseUrnsProcessor(WorkunitProcessor):
         return bool(getattr(ctx.source_config, "convert_urns_to_lowercase", False))
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
-        from datahub.ingestion.api.source_helpers import auto_lowercase_urns
-
         return auto_lowercase_urns(stream)

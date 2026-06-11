@@ -205,6 +205,14 @@ def test_get_report_returns_source_report_instance() -> None:
 
 
 def test_get_workunit_processors_includes_stale_entity_processor() -> None:
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.api.source import SourceReport
+    from datahub.ingestion.workunit_processors.stale_entity_removal import (
+        StaleEntityRemovalProcessor,
+    )
+
     # DataplexSource no longer overrides get_workunit_processors() — stale entity
     # removal is wired up automatically by the base class when stateful ingestion
     # is enabled. Verify the base class is what gets called (no override present).
@@ -212,6 +220,26 @@ def test_get_workunit_processors_includes_stale_entity_processor() -> None:
         "DataplexSource should not override get_workunit_processors(); "
         "the base class handles stale entity removal automatically."
     )
+
+    # Verify StaleEntityRemovalProcessor is included when a state_provider is present.
+    source = object.__new__(DataplexSource)
+    report = SourceReport()
+    source.report = report
+    source.config = MagicMock()
+    source.config.stateful_ingestion = None
+    flags = MagicMock()
+    flags.generate_browse_path_v2 = False
+    flags.generate_browse_path_v2_dry_run = False
+    flags.set_system_metadata = False
+    ctx = MagicMock(spec=PipelineContext)
+    ctx.flags = flags
+    ctx.run_id = "test"
+    ctx.pipeline_name = None
+    source.ctx = ctx
+    source.state_provider = MagicMock()  # presence triggers stale entity removal
+
+    source.get_workunit_processors()
+    assert StaleEntityRemovalProcessor.NAME in report.workunit_processor_reports
 
 
 def test_get_workunits_internal_iterates_all_projects() -> None:

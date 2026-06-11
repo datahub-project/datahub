@@ -587,10 +587,15 @@ class TestSqlQueriesSource:
         processors = source.get_workunit_processors()
         assert all(proc is not None for proc in processors)
 
-        # The reporter is always included; incremental lineage only when enabled
-        processor_names = source.get_allowed_workunit_processors()
-        assert AutoWorkunitsReporterProcessor.NAME in processor_names
-        assert AutoIncrementalLineageProcessor.NAME in processor_names
+        # Check which processors were activated via workunit_processor_reports
+        active_processor_names = set(
+            source.get_report().workunit_processor_reports.keys()
+        )
+        assert AutoWorkunitsReporterProcessor.NAME in active_processor_names
+        if expected_value:
+            assert AutoIncrementalLineageProcessor.NAME in active_processor_names
+        else:
+            assert AutoIncrementalLineageProcessor.NAME not in active_processor_names
 
         # Incremental lineage processor only active when configured
         if expected_value:

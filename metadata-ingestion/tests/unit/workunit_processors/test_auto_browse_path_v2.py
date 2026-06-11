@@ -17,7 +17,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
-from datahub.ingestion.api.source_helpers import auto_status_aspect
+from datahub.ingestion.workunit_processors.auto_status_aspect import auto_status_aspect
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_utils import gen_schema_container
 from datahub.ingestion.workunit_processors.auto_browse_path_v2 import (

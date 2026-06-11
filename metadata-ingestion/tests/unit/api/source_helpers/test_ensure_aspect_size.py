@@ -47,11 +47,10 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def make_processor_ctx(report=None):
-    if report is None:
-        report = SourceReport()
+@pytest.fixture
+def processor_ctx():
     return WorkunitProcessorContext(
-        source_report=report,
+        source_report=SourceReport(),
         pipeline_context=MagicMock(),
         source_config=None,
         platform=None,
@@ -59,8 +58,8 @@ def make_processor_ctx(report=None):
 
 
 @pytest.fixture
-def processor():
-    return EnsureAspectSizeProcessor.create(make_processor_ctx())
+def processor(processor_ctx):
+    return EnsureAspectSizeProcessor.create(processor_ctx)
 
 
 def too_big_schema_metadata() -> SchemaMetadataClass:
@@ -998,7 +997,9 @@ def test_mce_workunit_checks_all_aspects_not_just_first_elif_regression(
     ensure_view_properties_size_mock.assert_called_once()
 
 
-def test_ensure_size_removes_formatted_view_logic_entirely_when_too_small():
+def test_ensure_size_removes_formatted_view_logic_entirely_when_too_small(
+    processor_ctx,
+):
     """Test that formattedViewLogic is removed entirely when it's too small to truncate.
 
     This tests the edge case where formattedViewLogic exists but is smaller than
@@ -1006,7 +1007,7 @@ def test_ensure_size_removes_formatted_view_logic_entirely_when_too_small():
     """
     # Use a smaller payload constraint to trigger the edge case more easily
     small_constraint = 1000  # 1KB constraint
-    processor = EnsureAspectSizeProcessor.create(make_processor_ctx())
+    processor = EnsureAspectSizeProcessor.create(processor_ctx)
     processor.payload_constraint = small_constraint
     processor.schema_size_constraint = int(small_constraint * 0.985)
 

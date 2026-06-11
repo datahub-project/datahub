@@ -44,7 +44,18 @@ Requirements:
 
 ### Breaking Changes
 
-- #17852: **(Ingestion framework)** `auto_browse_path_v2`, `_prepend_platform_instance`, and `_batch_workunits_by_urn` have been removed from `datahub.ingestion.api.source_helpers`. The logic now lives exclusively in `datahub.ingestion.workunit_processors.auto_browse_path_v2` and is invoked through `AutoBrowsePathV2Processor`. If your custom source or test imports these names from `source_helpers`, update the import path to `datahub.ingestion.workunit_processors.auto_browse_path_v2`.
+- #17852: **(Ingestion framework)** Several helper functions have been moved out of `datahub.ingestion.api.source_helpers` and related modules into dedicated processor modules. Update imports as follows:
+  - `auto_status_aspect` → `datahub.ingestion.workunit_processors.auto_status_aspect`
+  - `auto_workunit_reporter` → `datahub.ingestion.workunit_processors.auto_workunits_reporter`
+  - `auto_lowercase_urns` → `datahub.ingestion.workunit_processors.auto_lowercase_urns`
+  - `auto_materialize_referenced_tags_terms` → `datahub.ingestion.workunit_processors.auto_materialize_referenced_tags_terms`
+  - `auto_fix_duplicate_schema_field_paths` → `datahub.ingestion.workunit_processors.auto_fix_duplicate_schema_field_paths`
+  - `auto_fix_empty_field_paths` → `datahub.ingestion.workunit_processors.auto_fix_empty_field_paths`
+  - `auto_browse_path_v2`, `_prepend_platform_instance`, `_batch_workunits_by_urn` → `datahub.ingestion.workunit_processors.auto_browse_path_v2`
+  - `auto_incremental_lineage` → `datahub.ingestion.workunit_processors.auto_incremental_lineage` (was `datahub.ingestion.api.incremental_lineage_helper`)
+  - `auto_incremental_ownership` → `datahub.ingestion.workunit_processors.auto_incremental_ownership` (was `datahub.ingestion.api.incremental_ownership_helper`)
+  - `auto_incremental_properties` → `datahub.ingestion.workunit_processors.auto_incremental_properties` (was `datahub.ingestion.api.incremental_properties_helper`)
+  - `auto_patch_last_modified`, `TimestampPair`, `try_aspect_from_metadata_change_proposal_class` → `datahub.ingestion.workunit_processors.auto_patch_last_modified` (was `datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect`)
 
 - **(GMS rate limiting)** Renamed `rateLimits.defaultRetryAfterSeconds` / `RATE_LIMITS_DEFAULT_RETRY_AFTER` to `minRetryAfterSeconds` / `RATE_LIMITS_MIN_RETRY_AFTER`. The value is now the **minimum** `Retry-After` floor; endpoint (token-bucket) denials may return a longer wait derived from Bucket4j refill timing. Added `retryAfterJitterPercent` / `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT` (default `10`) to spread endpoint retry timing. **Action:** update env vars and external rate-limit YAML if you set the old names; capacity denials still use the flat minimum.
 

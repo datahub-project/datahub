@@ -1,7 +1,7 @@
 import json
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.incremental_ownership_helper import (
+from datahub.ingestion.workunit_processors.auto_incremental_ownership import (
     auto_incremental_ownership,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit

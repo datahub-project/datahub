@@ -8,9 +8,9 @@ import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.incremental_lineage_helper import (
+from datahub.ingestion.api.incremental_lineage_helper import convert_dashboard_info_to_patch
+from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
     auto_incremental_lineage,
-    convert_dashboard_info_to_patch,
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit

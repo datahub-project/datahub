@@ -8,8 +8,10 @@ from pydantic import ValidationError
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
-from datahub.ingestion.api.incremental_properties_helper import (
+from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
+    auto_incremental_lineage,
+)
+from datahub.ingestion.workunit_processors.auto_incremental_properties import (
     auto_incremental_properties,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit

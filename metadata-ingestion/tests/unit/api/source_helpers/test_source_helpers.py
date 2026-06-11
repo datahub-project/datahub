@@ -9,16 +9,16 @@ import datahub.metadata.schema_classes as models
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
-    auto_patch_last_modified,
-)
 from datahub.ingestion.api.source_helpers import (
     auto_empty_dataset_usage_statistics,
-    auto_lowercase_urns,
-    auto_status_aspect,
     auto_workunit,
     create_dataset_props_patch_builder,
 )
+from datahub.ingestion.workunit_processors.auto_lowercase_urns import auto_lowercase_urns
+from datahub.ingestion.workunit_processors.auto_patch_last_modified import (
+    auto_patch_last_modified,
+)
+from datahub.ingestion.workunit_processors.auto_status_aspect import auto_status_aspect
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
