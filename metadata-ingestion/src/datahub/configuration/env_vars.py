@@ -249,6 +249,75 @@ def get_sql_parse_cache_size() -> int:
     return int(os.getenv("DATAHUB_SQL_PARSE_CACHE_SIZE", "1000"))
 
 
+def get_sql_parse_max_statement_length() -> int:
+    """Max SQL string length (chars) accepted by parse_statement.
+
+    A pre-parse guard: pathologically large generated/dynamic SQL is rejected
+    before it reaches sqlglot's native parser, where it could overflow the C
+    stack and SIGSEGV the whole process. A value <= 0 disables the guard.
+    """
+    return int(os.getenv("DATAHUB_SQL_PARSE_MAX_STATEMENT_LENGTH", "1000000"))
+
+
+def get_sql_parse_max_ast_depth() -> int:
+    """Max AST nesting depth accepted by parse_statement.
+
+    A post-parse guard: once a statement is parsed, deeply-nested ASTs are
+    rejected before they are copied, qualified, walked, or fed into column-level
+    lineage - any of which recurse inside sqlglot[c]'s mypyc-compiled code and
+    can overflow the native C stack (an uncatchable SIGSEGV). A value <= 0
+    disables the guard.
+    """
+    return int(os.getenv("DATAHUB_SQL_PARSE_MAX_AST_DEPTH", "600"))
+
+
+def get_sql_parse_inflight_log_file() -> Optional[str]:
+    """Path to a file where parse_statement records the SQL it is about to parse.
+
+    A native stack overflow inside sqlglot's compiled parser/optimizer crashes
+    the whole process with a SIGSEGV that no try/except can intercept and that
+    discards Python's buffered logs - so the offending statement is normally
+    lost. parse_statement writes the in-flight SQL to this file (truncating,
+    then flushing immediately) before parsing, so after a crash the file names
+    the statement that killed the process.
+
+    On this debugging branch it is ON by default at a fixed /tmp path so it
+    needs no configuration. We use a literal /tmp (not tempfile.gettempdir())
+    on purpose: on the executor $TMPDIR points at the per-execution workspace,
+    which is deleted on teardown - so a dump written there would vanish before
+    it could be retrieved. Override the location with
+    DATAHUB_SQL_PARSE_INFLIGHT_LOG_FILE.
+    """
+    return (
+        os.getenv("DATAHUB_SQL_PARSE_INFLIGHT_LOG_FILE")
+        # Literal /tmp on purpose (see docstring); intentional debug dump location.
+        or "/tmp/datahub_sql_inflight.log"
+    )
+
+
+def get_sql_parse_optimize_dump_file() -> Optional[str]:
+    """Path to dump the exact inputs of the column-lineage optimize() call.
+
+    When the optimizer crashes the process with a native SIGSEGV, the input SQL
+    alone may not reproduce it (the fault can be process-state dependent). The
+    post-qualify SQL, schema mapping, dialect, and optimizer rules passed to
+    optimize() are written (JSON, flushed) before each call, so after a crash
+    the file holds a replayable reproducer of the exact inputs.
+
+    On this debugging branch it is ON by default at a fixed /tmp path so it
+    needs no configuration. We use a literal /tmp (not tempfile.gettempdir())
+    on purpose: on the executor $TMPDIR points at the per-execution workspace,
+    which is deleted on teardown - so a dump written there would vanish before
+    it could be retrieved. Override the location with
+    DATAHUB_SQL_PARSE_OPTIMIZE_DUMP_FILE.
+    """
+    return (
+        os.getenv("DATAHUB_SQL_PARSE_OPTIMIZE_DUMP_FILE")
+        # Literal /tmp on purpose (see docstring); intentional debug dump location.
+        or "/tmp/datahub_sql_optimize_dump.json"
+    )
+
+
 def get_dataset_urn_to_lower() -> str:
     """Convert dataset URNs to lowercase."""
     return os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")

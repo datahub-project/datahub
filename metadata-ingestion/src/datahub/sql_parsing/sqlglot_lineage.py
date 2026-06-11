@@ -2,6 +2,7 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 
 import dataclasses
 import functools
+import json
 import logging
 import traceback
 import uuid
@@ -36,6 +37,7 @@ from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.env_vars import (
     get_sql_agg_skip_joins,
     get_sql_parse_cache_size,
+    get_sql_parse_optimize_dump_file,
 )
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
@@ -855,6 +857,80 @@ class _ColumnResolver:
             return default_col_name
 
 
+def _dump_optimize_inputs(
+    statement: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+    schema: sqlglot.MappingSchema,
+    default_db: Optional[str],
+    default_schema: Optional[str],
+) -> None:
+    """Crash-safely dump the exact inputs of the column-lineage optimize() call.
+
+    A native optimizer SIGSEGV can be process-state dependent, so the input SQL
+    alone may not reproduce it. Capturing the post-qualify SQL, the schema
+    mapping, the dialect, and the optimizer rules lets them be fed straight back
+    into sqlglot.optimizer.optimize() to attempt a standalone reproduction. The
+    write is flushed so it survives the crash. No-op unless configured; never
+    raises (diagnostics must not break ingestion).
+    """
+    path = get_sql_parse_optimize_dump_file()
+    if not path:
+        return
+    try:
+        payload = {
+            "sql": statement.sql(dialect=dialect),
+            "dialect": dialect.__class__.__name__.lower(),
+            "default_db": default_db,
+            "default_schema": default_schema,
+            "schema_mapping": schema.mapping,
+            "rules": [f"{rule.__module__}:{rule.__name__}" for rule in _OPTIMIZE_RULES],
+        }
+        with open(path, "w") as f:
+            json.dump(payload, f, default=str)
+            f.flush()
+    except Exception:
+        logger.debug("Failed to dump optimize inputs", exc_info=True)
+
+
+def _statement_risks_unnest_resolver_recursion(
+    statement: sqlglot.exp.Expression, schema: sqlglot.MappingSchema
+) -> bool:
+    """Detect the sqlglot resolver infinite-recursion trigger (sqlglot >= 30.7.0).
+
+    sqlglot's column Resolver recurses without a re-entrancy guard when it tries
+    to type a ``LATERAL FLATTEN`` / ``UNNEST`` of an *unqualified* column whose
+    base table is absent from the schema, while a schema is otherwise present.
+    In the compiled ``sqlglot[c]`` build this overflows the native C stack into
+    an uncatchable SIGSEGV that kills the whole ingest process. We cannot
+    monkeypatch the compiled resolver (mypyc dispatches its internal calls
+    natively), so we detect the trigger here and skip column-level lineage,
+    keeping table-level lineage. The conditions mirror the confirmed trigger, so
+    safe LATERAL FLATTENs (qualified column, base table schema'd, or no schema at
+    all) are unaffected.
+
+    Regression introduced in sqlglot 30.7.0; still unfixed as of 30.10.0.
+    """
+    mapping = getattr(schema, "mapping", None) or {}
+    if not mapping:
+        # No schema at all -> sqlglot skips the type-resolution path; safe.
+        return False
+
+    def _is_known(table: sqlglot.exp.Table) -> bool:
+        try:
+            return bool(schema.column_names(table))
+        except Exception:
+            return False
+
+    if not any(not _is_known(table) for table in statement.find_all(sqlglot.exp.Table)):
+        # Every referenced table is schema'd -> type resolves directly; safe.
+        return False
+
+    for unnest in statement.find_all(sqlglot.exp.Lateral, sqlglot.exp.Unnest):
+        if any(not col.table for col in unnest.find_all(sqlglot.exp.Column)):
+            return True
+    return False
+
+
 def _prepare_query_columns(
     statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
@@ -931,6 +1007,17 @@ def _prepare_query_columns(
         # )
 
     if not is_create_ddl:
+        # Guard against a sqlglot resolver infinite recursion (>= 30.7.0) that
+        # SIGSEGVs the compiled build. We can't catch a native crash, so we must
+        # refuse the statement before handing it to optimize().
+        if _statement_risks_unnest_resolver_recursion(statement, sqlglot_db_schema):
+            raise SqlUnderstandingError(
+                "Skipping column-level lineage: LATERAL FLATTEN/UNNEST of an "
+                "unqualified column over a table missing from the schema triggers "
+                "a sqlglot optimizer stack overflow (sqlglot>=30.7.0). Table-level "
+                "lineage is unaffected."
+            )
+
         # Optimize the statement + qualify column references.
         if logger.getEffectiveLevel() <= logging.DEBUG:
             logger.debug(
@@ -945,6 +1032,11 @@ def _prepare_query_columns(
             # - running the full pre-type annotation optimizer
 
             # logger.debug("Schema: %s", sqlglot_db_schema.mapping)
+            # Capture the exact optimize() inputs before the call so a native
+            # crash here leaves a replayable reproducer (no-op unless configured).
+            _dump_optimize_inputs(
+                statement, dialect, sqlglot_db_schema, default_db, default_schema
+            )
             optimized = sqlglot.optimizer.optimizer.optimize(
                 statement,
                 dialect=dialect,

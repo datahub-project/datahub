@@ -2,14 +2,21 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 
 import functools
 import logging
+import os
 import re
+import threading
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import sqlglot
 import sqlglot.errors
 import sqlglot.optimizer.eliminate_ctes
 
-from datahub.configuration.env_vars import get_sql_parse_cache_size
+from datahub.configuration.env_vars import (
+    get_sql_parse_cache_size,
+    get_sql_parse_inflight_log_file,
+    get_sql_parse_max_ast_depth,
+    get_sql_parse_max_statement_length,
+)
 from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.sql_parsing.sql_parsing_common import get_dialect_str as _get_dialect_str
 
@@ -19,6 +26,39 @@ logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
 SQL_PARSE_CACHE_SIZE = get_sql_parse_cache_size()
 FORMAT_QUERY_CACHE_SIZE = get_sql_parse_cache_size()
+
+
+class StatementTooComplexError(ValueError):
+    """Raised when a statement is too large or deeply-nested to parse safely.
+
+    sqlglot[c]'s parser and AST traversal recurse on the native C stack, so a
+    pathologically long or deeply-nested statement can overflow it and crash the
+    whole process with a SIGSEGV that no Python ``try/except`` can intercept. We
+    reject such statements up front instead. Subclasses ``ValueError`` so the
+    many callers that already catch ``ValueError`` / broad ``Exception`` around
+    parsing treat it as a (recoverable) parse failure.
+    """
+
+
+def _statement_exceeds_depth_limit(
+    expression: sqlglot.exp.Expression, max_depth: int
+) -> bool:
+    """Check whether the AST nests deeper than ``max_depth``.
+
+    Implemented as an *iterative* depth-first traversal with an explicit stack
+    rather than recursion: measuring the depth of a pathologically deep statement
+    must not itself overflow the stack. Returns as soon as the limit is exceeded.
+    """
+    # Stack of (node, depth) pairs. Start the root at depth 1.
+    stack: List[Tuple[sqlglot.exp.Expression, int]] = [(expression, 1)]
+    while stack:
+        node, depth = stack.pop()
+        if depth > max_depth:
+            return True
+        for child in node.iter_expressions():
+            stack.append((child, depth + 1))
+    return False
+
 
 # Snowflake governance DDL syntax that sqlglot does not support. When sqlglot
 # encounters any of these it silently falls back to parsing the whole statement
@@ -151,9 +191,45 @@ def _parse_statement(
     return statement
 
 
+_inflight_log_lock = threading.Lock()
+
+
+def _record_inflight_sql(sql: str) -> None:
+    """Crash-safely record the SQL about to be parsed (see
+    ``get_sql_parse_inflight_log_file``).
+
+    Writes to the configured file truncating it first, then flushes so the bytes
+    reach the OS. A SIGSEGV kills the process but not the OS page cache, so the
+    file survives and names the statement that crashed - which buffered logging
+    and even faulthandler's stack dump do not capture. Best-effort: never raises.
+    """
+    path = get_sql_parse_inflight_log_file()
+    if not path:
+        return
+    try:
+        with _inflight_log_lock, open(path, "w") as f:
+            f.write(f"# pid={os.getpid()} thread={threading.current_thread().name}\n")
+            f.write(sql)
+            f.flush()
+    except OSError:
+        # Diagnostics must never break ingestion.
+        pass
+
+
 def parse_statement(
     sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
 ) -> sqlglot.exp.Expression:
+    # Pre-parse guard: reject absurdly long SQL before handing it to sqlglot's
+    # native parser, which recurses on the C stack and can SIGSEGV on huge
+    # generated/dynamic SQL. Length is the only signal available pre-parse.
+    max_length = get_sql_parse_max_statement_length()
+    if max_length > 0 and isinstance(sql, str) and len(sql) > max_length:
+        raise StatementTooComplexError(
+            f"SQL statement length ({len(sql)}) exceeds the parse limit "
+            f"({max_length}); skipping to avoid a native stack overflow in "
+            f"sqlglot. Adjust DATAHUB_SQL_PARSE_MAX_STATEMENT_LENGTH to override."
+        )
+
     # Parsing is significantly more expensive than copying the expression.
     # Because the expressions are mutable, we don't want to allow the caller
     # to modify the parsed expression that sits in the cache. We keep
@@ -168,7 +244,30 @@ def parse_statement(
         if sanitized != sql:
             logger.debug("Sanitized T-SQL temp tables: %s -> %s", sql, sanitized)
         sql = sanitized
-    return _parse_statement(sql, dialect).copy()
+
+    # Record the statement we are about to parse so that, if sqlglot's native
+    # parser/optimizer overflows the C stack and SIGSEGVs the process, the
+    # offending SQL is recoverable afterwards (no-op unless configured). This
+    # stays "in flight" through the parse, copy, and downstream column-lineage
+    # optimize step, all of which can trigger the crash.
+    if isinstance(sql, str):
+        _record_inflight_sql(sql)
+
+    statement = _parse_statement(sql, dialect)
+
+    # Post-parse guard: reject deeply-nested ASTs before the .copy() below and
+    # before any downstream copy/qualify/walk/column-lineage, all of which
+    # recurse inside sqlglot[c]'s compiled code and can overflow the C stack.
+    # The check is iterative so it cannot trigger the overflow it prevents.
+    max_depth = get_sql_parse_max_ast_depth()
+    if max_depth > 0 and _statement_exceeds_depth_limit(statement, max_depth):
+        raise StatementTooComplexError(
+            f"Statement AST nesting exceeds the depth limit ({max_depth}); "
+            f"skipping to avoid a native stack overflow in sqlglot. Adjust "
+            f"DATAHUB_SQL_PARSE_MAX_AST_DEPTH to override."
+        )
+
+    return statement.copy()
 
 
 def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.exp.Expr:
