@@ -1,5 +1,6 @@
 import { Pill } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
@@ -17,13 +18,14 @@ type Props = {
 };
 
 export const UserRolesSidebarSection = ({ rolesDetails }: Props) => {
+    const { t } = useTranslation('settings.permissions');
     const roles = rolesDetails
         .map((detail) => detail?.entity as DataHubRole | undefined)
         .filter((role): role is DataHubRole => !!role?.name);
 
     return (
         <SidebarSection
-            title="Roles"
+            title={t('roles.sidebarTitle')}
             content={
                 <RolesContainer>
                     {roles.map((role) => (

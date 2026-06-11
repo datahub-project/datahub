@@ -1,6 +1,7 @@
 import { Input, Modal, TextArea } from '@components';
 import { Form } from 'antd';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
@@ -23,6 +24,8 @@ type Props = {
 };
 
 export default function UpsertRoleModal({ open, role, onClose, onSave }: Props) {
+    const { t } = useTranslation('settings.permissions');
+    const { t: tc } = useTranslation('common.actions');
     const isEditing = !!role;
     const [form] = Form.useForm();
 
@@ -82,12 +85,12 @@ export default function UpsertRoleModal({ open, role, onClose, onSave }: Props) 
 
     return (
         <Modal
-            title={isEditing ? `Edit ${role?.name}` : 'Create Role'}
+            title={isEditing ? t('roles.editTitle', { name: role?.name }) : t('roles.createTitle')}
             onCancel={handleClose}
             buttons={[
-                { text: 'Cancel', variant: 'text', onClick: handleClose },
+                { text: tc('cancel'), variant: 'text', onClick: handleClose },
                 {
-                    text: isEditing ? 'Save' : 'Create',
+                    text: isEditing ? tc('save') : tc('create'),
                     variant: 'filled',
                     onClick: handleSave,
                 },
@@ -95,11 +98,15 @@ export default function UpsertRoleModal({ open, role, onClose, onSave }: Props) 
         >
             <Form form={form} layout="vertical">
                 <FieldContainer>
-                    <Form.Item name="name" rules={[{ required: true, message: 'A role name is required.' }]}>
-                        <Input label="Name" placeholder="e.g. Data Steward" />
+                    <Form.Item name="name" rules={[{ required: true, message: t('roles.nameRequired') }]}>
+                        <Input label={t('roles.nameLabel')} placeholder={t('roles.namePlaceholder')} />
                     </Form.Item>
                     <Form.Item name="description">
-                        <TextArea label="Description" placeholder="Describe the purpose of this role..." rows={3} />
+                        <TextArea
+                            label={t('roles.descriptionLabel')}
+                            placeholder={t('roles.descriptionPlaceholder')}
+                            rows={3}
+                        />
                     </Form.Item>
                 </FieldContainer>
             </Form>

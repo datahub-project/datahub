@@ -11,6 +11,7 @@ import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStack
 import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
 
 import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
 import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 import { clearUserListCache } from '@app/identity/user/cacheUtils';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
@@ -98,6 +99,8 @@ export const ManageRoles = () => {
     const { t } = useTranslation('settings.permissions');
     const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
+    const me = useUserContext();
+    const canManageRoles = me?.platformPrivileges?.manageRoles || false;
     const theme = useTheme();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -309,13 +312,13 @@ export const ManageRoles = () => {
                             setFocusRole(record.role);
                         },
                     },
-                    ...(record?.editable
+                    ...(record?.editable && canManageRoles
                         ? [
                               {
                                   key: 'edit',
                                   label: (
                                       <span>
-                                          <EditOutlined /> &nbsp; Edit
+                                          <EditOutlined /> &nbsp; {tc('edit')}
                                       </span>
                                   ),
                                   onClick: () => {
@@ -327,7 +330,7 @@ export const ManageRoles = () => {
                                   key: 'delete',
                                   label: (
                                       <span style={{ color: 'red' }}>
-                                          <DeleteOutlined /> &nbsp; Delete
+                                          <DeleteOutlined /> &nbsp; {tc('delete')}
                                       </span>
                                   ),
                                   onClick: () => setRoleToDelete(record.role),
@@ -373,15 +376,17 @@ export const ManageRoles = () => {
                     width="300px"
                     allowClear
                 />
-                <Button
-                    variant="filled"
-                    onClick={() => {
-                        setEditingRole(undefined);
-                        setShowUpsertRoleModal(true);
-                    }}
-                >
-                    Create Role
-                </Button>
+                {canManageRoles && (
+                    <Button
+                        variant="filled"
+                        onClick={() => {
+                            setEditingRole(undefined);
+                            setShowUpsertRoleModal(true);
+                        }}
+                    >
+                        {t('roles.createButton')}
+                    </Button>
+                )}
             </PageHeader>
             {isBatchAddRolesModalVisible && (
                 <Modal
@@ -438,22 +443,19 @@ export const ManageRoles = () => {
             />
             {roleToDelete && (
                 <Modal
-                    title={`Delete ${roleToDelete.name}`}
+                    title={t('roles.deleteTitle', { name: roleToDelete.name })}
                     onCancel={() => setRoleToDelete(undefined)}
                     buttons={[
-                        { text: 'Cancel', variant: 'text', onClick: () => setRoleToDelete(undefined) },
+                        { text: tc('cancel'), variant: 'text', onClick: () => setRoleToDelete(undefined) },
                         {
-                            text: 'Delete',
+                            text: tc('delete'),
                             variant: 'filled',
                             color: 'red',
                             onClick: () => deleteRole(roleToDelete),
                         },
                     ]}
                 >
-                    <Text>
-                        Are you sure you want to delete the <strong>{roleToDelete.name}</strong> role? Users assigned
-                        this role will lose any privileges granted by policies associated with it.
-                    </Text>
+                    <Text>{t('roles.deleteConfirm', { name: roleToDelete.name })}</Text>
                 </Modal>
             )}
         </PageContainer>
