@@ -63,8 +63,6 @@ class DuckDBProfiler:
         self.report = report
         self.profiling_config = profiling_config
         self.platform = platform
-        # Own SQLSourceReport so SQLAlchemyProfiler gets the right report type.
-        self._profiler_report = SQLSourceReport()
         self._tmpdir = tempfile.mkdtemp(prefix="datahub-duckdb-profile-")
         self._db_path = os.path.join(self._tmpdir, "profile.duckdb")
         self._engine: Optional[sa.engine.Engine] = None
@@ -127,6 +125,9 @@ class DuckDBProfiler:
 
         view = "profile_target"
         engine = self._engine_lazy()
+        # Fresh report per call so warnings from a previous table don't
+        # get re-forwarded on subsequent calls.
+        profiler_report = SQLSourceReport()
         try:
             reader = self._reader_expr(path, ext)
             with engine.begin() as conn:
@@ -140,7 +141,7 @@ class DuckDBProfiler:
 
             profiler = SQLAlchemyProfiler(
                 conn=engine,
-                report=self._profiler_report,
+                report=profiler_report,
                 config=self.profiling_config,
                 platform="duckdb",
             )
@@ -160,14 +161,15 @@ class DuckDBProfiler:
             self.report.report_warning(
                 f"DuckDB profiling failed for {dataset_urn}: {type(e).__name__}: {e}",
                 context=display_name,
+                exc=e,
             )
         finally:
             # Fold any warnings from the profiler-local report into the main
             # DataLake report so operators see them in the run summary.
-            for entry in self._profiler_report.warnings:
+            for entry in profiler_report.warnings:
                 self.report.report_warning(
                     entry.message,
-                    context=str(entry.context) if entry.context else None,
+                    context=", ".join(entry.context) if entry.context else None,
                 )
 
     def close(self) -> None:
