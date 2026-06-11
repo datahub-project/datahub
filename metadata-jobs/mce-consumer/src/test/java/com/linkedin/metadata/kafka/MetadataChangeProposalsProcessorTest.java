@@ -27,6 +27,7 @@ import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
@@ -48,6 +49,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.avro.generic.GenericRecord;
@@ -137,7 +139,11 @@ public class MetadataChangeProposalsProcessorTest {
 
     // Setup the processor
     MetadataChangeProposalConsumer mcpConsumer =
-        new MetadataChangeProposalConsumer(opContext, entityClient, mockKafkaProducer);
+        new MetadataChangeProposalConsumer(
+            opContext,
+            entityClient,
+            mockKafkaProducer,
+            new InboundContextResolver(Collections.emptyList()));
     processor =
         new MetadataChangeProposalsProcessor(
             mockKafkaThrottle, mockProvider, mockConsumerPauseSupport, mcpConsumer);
@@ -544,7 +550,11 @@ public class MetadataChangeProposalsProcessorTest {
 
     // Create a new processor with this context
     MetadataChangeProposalConsumer mcpConsumerNoMetrics =
-        new MetadataChangeProposalConsumer(opContextNoMetrics, entityClient, mockKafkaProducer);
+        new MetadataChangeProposalConsumer(
+            opContextNoMetrics,
+            entityClient,
+            mockKafkaProducer,
+            new InboundContextResolver(Collections.emptyList()));
     MetadataChangeProposalsProcessor processorNoMetrics =
         new MetadataChangeProposalsProcessor(
             mockKafkaThrottle, mockProvider, mockConsumerPauseSupport, mcpConsumerNoMetrics);

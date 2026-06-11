@@ -33,6 +33,7 @@ class DatahubClientConfig(ConfigModel):
     extra_headers: Optional[Dict[str, str]] = None
     ca_certificate_path: Optional[str] = None
     client_certificate_path: Optional[str] = None
+    client_key_path: Optional[str] = None
     disable_ssl_verification: bool = False
     openapi_ingestion: Optional[bool] = None
     client_mode: Optional[ClientMode] = None

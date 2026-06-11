@@ -2,6 +2,7 @@ package com.linkedin.metadata.ingestion.validation;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -31,6 +32,7 @@ public class ExecuteIngestionAuthValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspectsWithAuth(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext,
       @Nullable AuthorizationSession session) {
@@ -63,6 +65,7 @@ public class ExecuteIngestionAuthValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
@@ -70,7 +73,9 @@ public class ExecuteIngestionAuthValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 }
