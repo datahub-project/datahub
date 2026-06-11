@@ -29,6 +29,7 @@ def test_approx_unique_count_uses_native_function() -> None:
 def test_median_and_quantiles_use_quantile_cont() -> None:
     adapter = DuckDBAdapter(ProfilingConfig(), SQLSourceReport(), _engine())
     assert adapter.get_median_expr("col_a") is not None
+    assert "quantile_cont" in str(adapter.get_median_expr("col_a")).lower()
     eng = _engine()
     with eng.connect() as conn:
         conn.execute(
