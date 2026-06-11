@@ -271,7 +271,9 @@ This plugin extracts:
 
 Profiling is computed with **DuckDB** via the SQLAlchemy profiler — no Java or Spark installation is required. S3 credentials are passed to DuckDB's `httpfs` extension automatically via a secret derived from the source's `aws_config`; the `s3://` scheme is used for access during profiling. Enabling profiling will slow down ingestion runs.
 
-Supported formats for profiling: Parquet, CSV/TSV, JSON/JSONL, and Avro. Avro profiling requires DuckDB's `avro` extension, which is downloaded automatically on first use (network access required once; the extension is cached afterwards). Air-gapped deployments must pre-stage DuckDB extensions before running ingestion with Avro profiling enabled.
+Supported formats for profiling: Parquet, CSV/TSV, JSON/JSONL, and Avro (Parquet, CSV, and JSON readers are statically bundled in the DuckDB wheel).
+
+DuckDB loads two extensions at runtime: `httpfs` (for reading remote `s3://` objects) and `avro` (only when profiling Avro files). By default these are downloaded from DuckDB's extension repository on first use and cached afterwards (one-time network access). **For air-gapped deployments**, pre-stage the `.duckdb_extension` binaries (matching your DuckDB version and platform) and point `profiling.duckdb_extension_directory` at that directory — DuckDB then loads them offline without any download. If an extension is unavailable and cannot be downloaded, the affected table is skipped with an actionable warning rather than failing the run.
 
 :::note
 

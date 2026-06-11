@@ -79,7 +79,6 @@ class DuckDBProfiler:
         self._tmpdir = tempfile.mkdtemp(prefix="datahub-duckdb-profile-")
         self._db_path = os.path.join(self._tmpdir, "profile.duckdb")
         self._engine: Optional[sa.engine.Engine] = None
-        self._httpfs_loaded = False
         self._secrets_done = False
         self._loaded_extensions: Set[str] = set()
 
@@ -91,11 +90,47 @@ class DuckDBProfiler:
     def _is_remote(self, path: str) -> bool:
         return path.startswith(_REMOTE_SCHEMES)
 
+    def _apply_extension_directory(self, conn: sa.engine.Connection) -> None:
+        """Point DuckDB at a pre-staged extension directory, if configured.
+
+        Lets extensions load offline in air-gapped environments: operators copy
+        the `.duckdb_extension` binaries into this directory and DuckDB loads them
+        without contacting its extension repository.
+        """
+        ext_dir = getattr(self.profiling_config, "duckdb_extension_directory", None)
+        if ext_dir:
+            escaped = ext_dir.replace("'", "''")
+            conn.execute(sa.text(f"SET extension_directory = '{escaped}'"))
+
+    def _load_extension(self, conn: sa.engine.Connection, extension: str) -> None:
+        """Load a DuckDB extension, preferring an offline LOAD.
+
+        `LOAD` succeeds for statically-linked extensions or ones already present
+        in the (optionally pre-staged) extension directory — no network. Only if
+        that fails do we `INSTALL`, which downloads from DuckDB's extension
+        repository. In an air-gapped environment without a pre-staged extension
+        the download fails, and we raise an actionable error.
+        """
+        if extension in self._loaded_extensions:
+            return
+        try:
+            conn.execute(sa.text(f"LOAD {extension}"))
+        except Exception:
+            try:
+                conn.execute(sa.text(f"INSTALL {extension}; LOAD {extension};"))
+            except Exception as e:
+                raise ValueError(
+                    f"Could not load the DuckDB '{extension}' extension. DuckDB "
+                    f"downloads it on first use, which fails in air-gapped "
+                    f"environments. Pre-stage the extension offline and set "
+                    f"`profiling.duckdb_extension_directory` to its location "
+                    f"({type(e).__name__}: {e})."
+                ) from e
+        self._loaded_extensions.add(extension)
+
     def _ensure_remote_setup(self, conn: sa.engine.Connection) -> None:
-        """Install and load httpfs, and create an S3 secret when needed."""
-        if not self._httpfs_loaded:
-            conn.execute(sa.text("INSTALL httpfs; LOAD httpfs;"))
-            self._httpfs_loaded = True
+        """Load httpfs (for remote object-store reads) and create an S3 secret."""
+        self._load_extension(conn, "httpfs")
         if (
             not self._secrets_done
             and self.aws_config is not None
@@ -105,15 +140,10 @@ class DuckDBProfiler:
             self._secrets_done = True
 
     def _ensure_format_extension(self, conn: sa.engine.Connection, ext: str) -> None:
-        """Load the DuckDB core extension required for a file format (e.g. avro).
-
-        Unlike httpfs (remote-only), format extensions are needed for local files
-        too, so this is always called before building the view.
-        """
+        """Load the DuckDB extension required for a file format (e.g. avro)."""
         extension = _FORMAT_EXTENSIONS.get(ext)
-        if extension and extension not in self._loaded_extensions:
-            conn.execute(sa.text(f"INSTALL {extension}; LOAD {extension};"))
-            self._loaded_extensions.add(extension)
+        if extension:
+            self._load_extension(conn, extension)
 
     def _path_and_ext(self, table_data: "TableData") -> tuple[str, str]:
         """Return (resolved_path, lowercase_extension_without_dot).
@@ -247,6 +277,7 @@ class DuckDBProfiler:
         row_estimate: Optional[int] = None
         try:
             with engine.begin() as conn:
+                self._apply_extension_directory(conn)
                 if self._is_remote(path):
                     self._ensure_remote_setup(conn)
                 self._ensure_format_extension(conn, ext)
