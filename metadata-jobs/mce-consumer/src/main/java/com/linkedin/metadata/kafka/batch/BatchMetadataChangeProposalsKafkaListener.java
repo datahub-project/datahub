@@ -23,10 +23,11 @@ import org.springframework.stereotype.Component;
 
 /**
  * Kafka transport entrypoint for batch MCP. Partitions the inbound batch into affinity slices via
- * {@link InboundBatchAffinityResolver} (single OSS slice by default; deployments that register a
- * {@code @Primary} resolver get one slice per affinity group) and dispatches each slice
- * independently through {@link BatchMetadataChangeProposalsProcessor#consume(OperationContext,
- * List)}.
+ * {@link InboundBatchAffinityResolver} (single OSS slice by default; deployments that register
+ * their own {@link InboundBatchAffinityResolver} bean shadow the default via {@code
+ * @ConditionalOnMissingBean} on the registration site, getting one slice per affinity group) and
+ * dispatches each slice independently through {@link
+ * BatchMetadataChangeProposalsProcessor#consume(OperationContext, List)}.
  */
 @Component
 @KafkaMessagingEnabled

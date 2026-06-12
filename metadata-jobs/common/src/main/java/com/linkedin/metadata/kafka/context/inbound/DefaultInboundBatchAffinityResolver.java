@@ -11,9 +11,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
  * the system context. Backward-compatible with pre-PR4 behavior: callers that don't override this
  * resolver see exactly the same dispatch shape they had before.
  *
- * <p>Registered conditionally by {@link InboundContextResolverFactory} (the inbound-context bean
- * registration site) so deployments that ship their own {@link InboundBatchAffinityResolver} bean
- * shadow this default cleanly — exactly one resolver bean is ever active in the Spring context.
+ * <p>Registered conditionally by {@link InboundContextResolverFactory} so deployments that ship
+ * their own {@link InboundBatchAffinityResolver} bean shadow this default cleanly — exactly one
+ * resolver bean is ever active in the Spring context. No {@code @Primary} required.
  */
 public class DefaultInboundBatchAffinityResolver implements InboundBatchAffinityResolver {
 
