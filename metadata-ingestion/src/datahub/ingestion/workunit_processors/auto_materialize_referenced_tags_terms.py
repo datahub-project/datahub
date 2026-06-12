@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class AutoMaterializeReferencedTagsTermsProcessorReport(WorkunitProcessorReport):
     """Report for AutoMaterializeReferencedTagsTermsProcessor metrics."""
 
-    pass
+    num_exceptions: int = 0  # Invalid URNs that couldn't be materialized
 
 
 class AutoMaterializeReferencedTagsTermsProcessor(
@@ -59,6 +59,7 @@ class AutoMaterializeReferencedTagsTermsProcessor(
                     aspect=urn_tp.to_key_aspect(),
                 ).as_workunit()
             except InvalidUrnError:
-                logger.info(
+                self.report.num_exceptions += 1
+                logger.warning(
                     f"Source produced an invalid urn, so no key aspect will be generated: {urn}"
                 )
