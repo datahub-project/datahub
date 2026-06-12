@@ -1,4 +1,5 @@
 import { BADGE, defaultBadgesConfig } from '@geometricpanda/storybook-addon-badges';
+import { ConfigProvider } from 'antd';
 // FYI: import of antd styles required to show components based on it correctly
 import 'antd/dist/antd.css';
 import React, { useEffect } from 'react';
@@ -6,20 +7,26 @@ import { I18nextProvider } from 'react-i18next';
 import { ThemeProvider } from 'styled-components';
 
 import { LOCALE_MAP } from '../src/app/i18n/constants';
+import { isSupportedLanguage } from '../src/app/i18n/utils';
 import themes from '../src/conf/theme/themes';
+import dayjs from '../src/utils/dayjs';
 import DocTemplate from './DocTemplate.mdx';
 import i18n from './i18n';
 import './storybook-theme.css';
 
-// Drives the shared i18next instance from the toolbar's selected locale. Done in an
-// effect so we mutate the singleton after render rather than during it.
+// Drives i18next, antd, and dayjs from the toolbar's selected locale — mirroring the app's
+// `I18nProvider`/`useLanguageSync` so antd components (e.g. DatePicker calendar labels) and
+// dayjs-formatted dates localize too, not just `t()` strings. i18next is mutated in an effect
+// so we touch the singleton after render rather than during it.
 const LocaleProvider = ({ locale, children }: { locale: string; children: React.ReactNode }) => {
+    const localeConfig = isSupportedLanguage(locale) ? LOCALE_MAP[locale] : LOCALE_MAP.en;
     useEffect(() => {
-        if (i18n.language !== locale) {
-            i18n.changeLanguage(locale);
+        if (i18n.language !== localeConfig.lang) {
+            i18n.changeLanguage(localeConfig.lang);
         }
-    }, [locale]);
-    return <>{children}</>;
+        dayjs.locale(localeConfig.dayjs);
+    }, [localeConfig.lang, localeConfig.dayjs]);
+    return <ConfigProvider locale={localeConfig.antd}>{children}</ConfigProvider>;
 };
 
 const preview = {

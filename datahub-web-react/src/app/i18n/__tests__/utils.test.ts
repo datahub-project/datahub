@@ -6,6 +6,7 @@ describe('isSupportedLanguage', () => {
     it('returns true for supported languages', () => {
         expect(isSupportedLanguage('en')).toBe(true);
         expect(isSupportedLanguage('de')).toBe(true);
+        expect(isSupportedLanguage('es')).toBe(true);
     });
 
     it('returns false for unsupported languages', () => {
