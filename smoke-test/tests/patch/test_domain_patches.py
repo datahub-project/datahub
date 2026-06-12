@@ -228,8 +228,7 @@ def test_add_remove_via_domain_associations_upsert_updates_domains(patch_dataset
 
 def test_updating_both_domains_and_domain_associations_errors(patch_dataset):
     """Writing a Domains aspect where both `domains` and `domainAssociations`
-    are present with inconsistent URNs AND the domains field changed from
-    the previous value should result in an error."""
+    actually changed from previous and are inconsistent should result in an error."""
     graph_client, dataset_urn = patch_dataset
 
     domain_a = _make_domain_urn()
@@ -243,11 +242,11 @@ def test_updating_both_domains_and_domain_associations_errors(patch_dataset):
         )
     )
 
-    # Attempt to write inconsistent domains and domainAssociations:
-    # domains says [domain_b] but domainAssociations says [domain_a].
+    # Both fields differ from previous and are inconsistent with each other:
+    # domains says [domain_b] but domainAssociations says [domain_c].
     inconsistent_aspect = DomainsClass(
         domains=[domain_b],
-        domainAssociations=[DomainAssociationClass(domain=domain_a)],
+        domainAssociations=[],
     )
 
     with pytest.raises(OperationalError, match="Cannot update both"):
@@ -256,6 +255,86 @@ def test_updating_both_domains_and_domain_associations_errors(patch_dataset):
                 entityUrn=dataset_urn, aspect=inconsistent_aspect
             )
         )
+
+
+def test_read_modify_write_domains_updates_associations(patch_dataset):
+    """Read-modify-write on `domains` should sync domainAssociations,
+    even though the read-back aspect has domainAssociations populated."""
+    graph_client, dataset_urn = patch_dataset
+
+    domain_a = _make_domain_urn()
+    domain_b = _make_domain_urn()
+
+    # Seed with domain_a.
+    graph_client.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DomainsClass(domains=[domain_a]),
+        )
+    )
+
+    # Read back the full aspect — both fields are now populated.
+    aspect = _get_domains(graph_client, dataset_urn)
+    assert aspect.domains == [domain_a]
+    assert aspect.domainAssociations is not None
+    assert len(aspect.domainAssociations) == 1
+
+    # Simulate read-modify-write: change only domains, leave domainAssociations stale.
+    aspect.domains = [domain_a, domain_b]
+
+    graph_client.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=aspect,
+        )
+    )
+
+    result = _get_domains(graph_client, dataset_urn)
+    assert set(result.domains) == {domain_a, domain_b}
+    assert result.domainAssociations is not None
+    assoc_domains = {a.domain for a in result.domainAssociations}
+    assert assoc_domains == {domain_a, domain_b}
+
+
+def test_read_modify_write_associations_updates_domains(patch_dataset):
+    """Read-modify-write on `domainAssociations` should sync domains,
+    even though the read-back aspect has domains populated."""
+    graph_client, dataset_urn = patch_dataset
+
+    domain_a = _make_domain_urn()
+    domain_b = _make_domain_urn()
+
+    # Seed with domain_a.
+    graph_client.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DomainsClass(domains=[domain_a]),
+        )
+    )
+
+    # Read back the full aspect — both fields are now populated.
+    aspect = _get_domains(graph_client, dataset_urn)
+    assert aspect.domains == [domain_a]
+    assert aspect.domainAssociations is not None
+
+    # Simulate read-modify-write: change only domainAssociations, leave domains stale.
+    aspect.domainAssociations = [
+        DomainAssociationClass(domain=domain_a),
+        DomainAssociationClass(domain=domain_b),
+    ]
+
+    graph_client.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=aspect,
+        )
+    )
+
+    result = _get_domains(graph_client, dataset_urn)
+    assert set(result.domains) == {domain_a, domain_b}
+    assert result.domainAssociations is not None
+    assoc_domains = {a.domain for a in result.domainAssociations}
+    assert assoc_domains == {domain_a, domain_b}
 
 
 def test_propagated_domains_ordered_after_manual(patch_dataset):

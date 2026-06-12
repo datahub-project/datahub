@@ -19,6 +19,7 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -30,15 +31,13 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Keeps the {@code domains} and {@code domainAssociations} fields of the Domains aspect in sync.
  *
- * <p>Write path:
+ * <p>Write path — based on which field(s) actually <em>changed</em> relative to the previous value:
  *
  * <ul>
- *   <li>If both fields are present and inconsistent (all URNs from associations ≠ domains) AND
- *       domains changed from previous → reject with 400.
- *   <li>If {@code domainAssociations} is provided → derive {@code domains} from all entries;
- *       reorder so manual associations (and their URNs) precede propagated ones.
- *   <li>If only {@code domains} is provided (legacy path) → diff against previous and update {@code
- *       domainAssociations}.
+ *   <li>If both fields changed and the URN sets are inconsistent → reject with 400.
+ *   <li>If only {@code domainAssociations} changed → derive {@code domains} from associations.
+ *   <li>If only {@code domains} changed → derive {@code domainAssociations} from domains.
+ *   <li>If {@code domainAssociations} is not present → derive associations from {@code domains}.
  * </ul>
  */
 @Slf4j
@@ -75,61 +74,56 @@ public class DomainsSyncMutationHook extends MutationHook {
 
     Domains previous = item.getPreviousAspect(Domains.class);
 
-    boolean associationsProvided = proposed.hasDomainAssociations();
+    @Nullable DomainAssociationArray associations = proposed.getDomainAssociations();
 
-    if (associationsProvided) {
-      // Both fields present — only allowed if they are already in sync.
-      // "In sync" means the full set of URNs from associations equals the domains set.
-      Set<Urn> allAssociationUrns = getAllUrns(proposed.getDomainAssociations());
-      Set<Urn> domainUrns = toSet(proposed.getDomains());
+    if (associations == null) {
+      // Caller only set domains. Sync domainAssociations.
+      deriveAssociationsFromDomains(proposed, previous);
+    } else {
+      // Both fields present — determine which actually changed to decide source of truth.
+      boolean domainsChanged = didDomainsChange(proposed, previous);
+      boolean associationsChanged = didAssociationsChange(proposed, previous);
 
-      // When domains is empty, the caller relies on domainAssociations alone — no conflict.
-      if (!domainUrns.isEmpty() && !allAssociationUrns.equals(domainUrns)) {
-        boolean domainsChanged = didDomainsChange(proposed, previous);
-        if (domainsChanged) {
+      if (domainsChanged && associationsChanged) {
+        // Both changed — only allowed if they are consistent.
+        Set<Urn> allAssociationUrns =
+            associations.stream()
+                .map(DomainAssociation::getDomain)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Urn> domainUrns = new LinkedHashSet<>(proposed.getDomains());
+        if (!domainUrns.isEmpty() && !allAssociationUrns.equals(domainUrns)) {
           throw new ValidationException(
               "Cannot update both 'domains' and 'domainAssociations' in the same write. "
                   + "Use 'domainAssociations' for rich metadata or 'domains' for legacy "
                   + "compatibility, but not both. Entity: "
                   + item.getUrn());
         }
+      } else if (domainsChanged) {
+        // Only domains changed (e.g. read-modify-write that updated only domains).
+        deriveAssociationsFromDomains(proposed, previous);
       }
-
-      // domainAssociations is the source of truth; derive domains from non-propagated entries
-      deriveDomainsFromAssociations(proposed);
-      sortAssociations(proposed);
-      return true;
+      // else: only associations changed or neither — associations are already correct.
     }
 
-    // Legacy path: caller only set domains. Sync domainAssociations.
-    deriveAssociationsFromDomains(proposed, previous);
+    // Sort associations (manual before propagated), then derive domains to match.
     sortAssociations(proposed);
+    deriveDomainsFromAssociations(proposed);
     return true;
   }
 
   /**
-   * Derives the {@code domains} array from all entries in {@code domainAssociations}. Manual
-   * (non-propagated) URNs are listed first, followed by propagated URNs, mirroring the association
-   * order.
+   * Derives the {@code domains} array from {@code domainAssociations}, preserving the association
+   * order and deduplicating. Call after {@link #sortAssociations} so manual URNs come first.
    */
-  private void deriveDomainsFromAssociations(Domains proposed) {
+  private static void deriveDomainsFromAssociations(Domains proposed) {
     DomainAssociationArray associations = proposed.getDomainAssociations();
-    Set<Urn> manualUrns = new LinkedHashSet<>();
-    Set<Urn> propagatedUrns = new LinkedHashSet<>();
+    Set<Urn> urns = new LinkedHashSet<>();
     if (associations != null) {
       for (DomainAssociation assoc : associations) {
-        if (isPropagated(assoc)) {
-          propagatedUrns.add(assoc.getDomain());
-        } else {
-          manualUrns.add(assoc.getDomain());
-        }
+        urns.add(assoc.getDomain());
       }
     }
-    // Remove any propagated URN that also has a manual association
-    propagatedUrns.removeAll(manualUrns);
-    List<Urn> ordered = new ArrayList<>(manualUrns);
-    ordered.addAll(propagatedUrns);
-    proposed.setDomains(new UrnArray(ordered));
+    proposed.setDomains(new UrnArray(new ArrayList<>(urns)));
   }
 
   /**
@@ -196,28 +190,6 @@ public class DomainsSyncMutationHook extends MutationHook {
     domains.setDomainAssociations(sorted);
   }
 
-  private static Set<Urn> getAllUrns(DomainAssociationArray associations) {
-    Set<Urn> urns = new LinkedHashSet<>();
-    if (associations != null) {
-      for (DomainAssociation assoc : associations) {
-        urns.add(assoc.getDomain());
-      }
-    }
-    return urns;
-  }
-
-  private static Set<Urn> getNonPropagatedUrns(DomainAssociationArray associations) {
-    Set<Urn> urns = new LinkedHashSet<>();
-    if (associations != null) {
-      for (DomainAssociation assoc : associations) {
-        if (!isPropagated(assoc)) {
-          urns.add(assoc.getDomain());
-        }
-      }
-    }
-    return urns;
-  }
-
   static boolean isPropagated(DomainAssociation assoc) {
     if (!assoc.hasAttribution()) {
       return false;
@@ -230,17 +202,27 @@ public class DomainsSyncMutationHook extends MutationHook {
     return propagated != null && propagated.equalsIgnoreCase("true");
   }
 
-  private static Set<Urn> toSet(@Nullable UrnArray array) {
-    if (array == null || array.isEmpty()) {
-      return new LinkedHashSet<>();
-    }
-    return new LinkedHashSet<>(array);
+  private static boolean didDomainsChange(Domains proposed, @Nullable Domains previous) {
+    UrnArray proposedDomains = proposed.getDomains();
+    UrnArray previousDomains = previous != null ? previous.getDomains() : new UrnArray();
+    return !proposedDomains.equals(previousDomains);
   }
 
-  private static boolean didDomainsChange(Domains proposed, @Nullable Domains previous) {
-    Set<Urn> proposedDomains = toSet(proposed.getDomains());
-    Set<Urn> previousDomains =
-        previous != null ? toSet(previous.getDomains()) : new LinkedHashSet<>();
-    return !proposedDomains.equals(previousDomains);
+  private static boolean didAssociationsChange(Domains proposed, @Nullable Domains previous) {
+    DomainAssociationArray proposedAssociations =
+        proposed.getDomainAssociations() != null
+            ? proposed.getDomainAssociations()
+            : new DomainAssociationArray();
+    DomainAssociationArray previousAssociations =
+        previous != null && previous.getDomainAssociations() != null
+            ? previous.getDomainAssociations()
+            : new DomainAssociationArray();
+    if (proposedAssociations == null && previousAssociations == null) {
+      return false;
+    }
+    if (proposedAssociations == null || previousAssociations == null) {
+      return true;
+    }
+    return !proposedAssociations.equals(previousAssociations);
   }
 }

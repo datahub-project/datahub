@@ -276,6 +276,61 @@ public class DomainsSyncMutationHookTest {
     assertEquals(proposed.getDomains().get(0), DOMAIN_B);
   }
 
+  // ── Read-modify-write scenarios ───────────────────────────────────────────
+
+  @Test
+  public void testReadModifyWrite_onlyDomainsChanged_syncsAssociations() {
+    // Previous has both fields in sync (as if written by the hook previously)
+    DomainAssociation assocA = new DomainAssociation();
+    assocA.setDomain(DOMAIN_A);
+
+    Domains previous = makeDomains(DOMAIN_A);
+    previous.setDomainAssociations(new DomainAssociationArray(List.of(assocA)));
+
+    // Read-modify-write: caller read the full aspect, changed only domains, left associations stale
+    Domains proposed = new Domains();
+    proposed.setDomains(new UrnArray(List.of(DOMAIN_A, DOMAIN_B)));
+    proposed.setDomainAssociations(new DomainAssociationArray(List.of(assocA))); // stale from read
+
+    ChangeMCP item = makeChangeMCP(proposed, previous);
+
+    applyHook(item);
+
+    // Associations should be derived from domains (not left stale)
+    DomainAssociationArray assocs = proposed.getDomainAssociations();
+    assertEquals(assocs.size(), 2);
+    Set<Urn> assocUrns =
+        assocs.stream().map(DomainAssociation::getDomain).collect(Collectors.toSet());
+    assertEquals(assocUrns, Set.of(DOMAIN_A, DOMAIN_B));
+  }
+
+  @Test
+  public void testReadModifyWrite_onlyAssociationsChanged_syncsDomains() {
+    // Previous has both fields in sync
+    DomainAssociation assocA = new DomainAssociation();
+    assocA.setDomain(DOMAIN_A);
+
+    Domains previous = makeDomains(DOMAIN_A);
+    previous.setDomainAssociations(new DomainAssociationArray(List.of(assocA)));
+
+    // Read-modify-write: caller changed only associations, left domains stale
+    DomainAssociation newAssocB = new DomainAssociation();
+    newAssocB.setDomain(DOMAIN_B);
+
+    Domains proposed = new Domains();
+    proposed.setDomains(new UrnArray(List.of(DOMAIN_A))); // stale from read
+    proposed.setDomainAssociations(new DomainAssociationArray(List.of(assocA, newAssocB)));
+
+    ChangeMCP item = makeChangeMCP(proposed, previous);
+
+    applyHook(item);
+
+    // Domains should be derived from associations
+    assertEquals(proposed.getDomains().size(), 2);
+    assertTrue(proposed.getDomains().contains(DOMAIN_A));
+    assertTrue(proposed.getDomains().contains(DOMAIN_B));
+  }
+
   // ── Edge cases ─────────────────────────────────────────────────────────────
 
   @Test

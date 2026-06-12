@@ -57,9 +57,7 @@ class HasDomainsPatch(MetadataPatchProposal):
         Args:
             domain: The domain to remove, specified as a string or Urn object.
             attribution_source: When set, only the entry for that specific source is
-                removed.  When omitted, ``*`` is used as the source component, which
-                the backend expands to every source in the stored map — removing all
-                entries for this domain URN without affecting other domain URNs.
+                removed. When omitted, all entries for the specified domain urn are removed.
 
         Returns:
             The patch builder instance.
