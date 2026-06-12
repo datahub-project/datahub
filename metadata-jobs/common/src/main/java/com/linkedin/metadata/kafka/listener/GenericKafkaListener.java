@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.listener;
 
 import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
+import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.List;
@@ -10,22 +11,25 @@ import javax.annotation.Nonnull;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 /**
- * Generic interface for Kafka listeners that process events with hooks.
+ * Generic interface for Kafka and pgQueue listeners that process events with hooks.
  *
  * @param <E> The event type the hook processes
  * @param <H> The hook type this listener processes
- * @param <R> The record type
+ * @param <R> The raw record / payload type
  */
 public interface GenericKafkaListener<E, H extends EventHook<E>, R> {
 
   /**
    * Initializes the listener with system context and hooks.
    *
-   * @param systemOperationContext The operation context for the system
-   * @param consumerGroup The consumer group ID
-   * @param hooks The list of hooks to apply
-   * @param fineGrainedLoggingEnabled Whether to enable fine-grained logging
-   * @param aspectsToDrop Map of aspects to drop during processing
+   * @param systemOperationContext base operation context, used as the resolver baseline and for
+   *     metric / span scaffolding
+   * @param consumerGroup consumer group identifier
+   * @param hooks hooks to invoke per event
+   * @param fineGrainedLoggingEnabled whether to attach per-event attributes to logs / spans
+   * @param aspectsToDrop entity-type → set of aspect names to skip
+   * @param inboundContextResolver resolver that turns an inbound envelope into the per-event {@link
+   *     OperationContext}
    * @return this listener instance for chaining
    */
   GenericKafkaListener<E, H, R> init(
@@ -33,50 +37,36 @@ public interface GenericKafkaListener<E, H extends EventHook<E>, R> {
       @Nonnull String consumerGroup,
       @Nonnull List<H> hooks,
       boolean fineGrainedLoggingEnabled,
-      @Nonnull Map<String, Set<String>> aspectsToDrop);
+      @Nonnull Map<String, Set<String>> aspectsToDrop,
+      @Nonnull InboundContextResolver inboundContextResolver);
 
-  /**
-   * Process a batch of Kafka consumer records. This is the primary entry point for record
-   * processing. All listeners must implement this method.
-   *
-   * @param consumerRecords The batch of consumer records to process
-   */
+  /** Process a batch of Kafka consumer records. */
   void consumeBatch(@Nonnull List<ConsumerRecord<String, R>> consumerRecords);
 
   /**
-   * Process a single Kafka consumer record. Default implementation builds an envelope and delegates
-   * to {@link #consumeEnvelope(InboundMetadataEnvelope)}.
-   *
-   * @param consumerRecord The Kafka consumer record to process
+   * Default Kafka entry: wraps the consumer record in a transport-neutral envelope and delegates to
+   * {@link #consumeEnvelope(InboundMetadataEnvelope)}.
    */
-  default void consume(@Nonnull ConsumerRecord<String, R> consumerRecord) {
+  default void consume(@Nonnull final ConsumerRecord<String, R> consumerRecord) {
     consumeEnvelope(InboundMetadataEnvelope.fromKafka(consumerRecord, getConsumerGroupId()));
   }
 
-  /** Transport-neutral entry for Kafka, pgQueue, and other transports. */
+  /** Unified entry point. Both Kafka and pgQueue paths funnel through this method. */
   void consumeEnvelope(@Nonnull InboundMetadataEnvelope<R> envelope);
 
   /**
-   * Converts a generic record to the specific event type.
+   * Converts a raw record / payload to the specific event type.
    *
-   * @param record The generic record to convert
-   * @return The converted event object
+   * @param record the raw payload to convert
+   * @return the converted event object
    */
   E convertRecord(@Nonnull R record) throws IOException;
 
-  /**
-   * Gets the consumer group ID for this listener.
-   *
-   * @return The consumer group ID
-   */
+  /** Returns the consumer group ID for this listener. */
   @Nonnull
   String getConsumerGroupId();
 
-  /**
-   * Gets the list of hooks used by this listener.
-   *
-   * @return The list of hooks
-   */
+  /** Returns the hooks used by this listener. */
   @Nonnull
   List<H> getHooks();
 }

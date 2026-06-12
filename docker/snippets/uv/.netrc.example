@@ -17,6 +17,6 @@
 #   machine <hostname> login <username> password <token-or-password>
 #
 # Examples:
-machine dl.cloudsmith.io      login api-key    password <your-cloudsmith-api-key>
+machine dl.cloudsmith.io      login <your-cloudsmith-username> password <your-cloudsmith-api-key>
 machine cgr.dev               login <your-user> password <your-chainguard-token>
 machine my-nexus.example.com  login <user>     password <password>
