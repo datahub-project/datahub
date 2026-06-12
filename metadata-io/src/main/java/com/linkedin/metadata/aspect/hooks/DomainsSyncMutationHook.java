@@ -16,6 +16,7 @@ import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -163,31 +164,15 @@ public class DomainsSyncMutationHook extends MutationHook {
     proposed.setDomainAssociations(newAssociations);
   }
 
-  /** Reorders associations so that manual (non-propagated) entries come before propagated ones. */
+  /** Sorts associations so that manual (non-propagated) entries come before propagated ones. */
   private static void sortAssociations(Domains domains) {
-    if (!domains.hasDomainAssociations()) {
-      return;
-    }
     DomainAssociationArray associations = domains.getDomainAssociations();
     if (associations == null || associations.size() <= 1) {
       return;
     }
-    List<DomainAssociation> manual = new ArrayList<>();
-    List<DomainAssociation> propagated = new ArrayList<>();
-    for (DomainAssociation assoc : associations) {
-      if (isPropagated(assoc)) {
-        propagated.add(assoc);
-      } else {
-        manual.add(assoc);
-      }
-    }
-    if (propagated.isEmpty()) {
-      return;
-    }
-    DomainAssociationArray sorted = new DomainAssociationArray();
-    sorted.addAll(manual);
-    sorted.addAll(propagated);
-    domains.setDomainAssociations(sorted);
+    List<DomainAssociation> sorted = new ArrayList<>(associations);
+    sorted.sort(Comparator.comparing(DomainsSyncMutationHook::isPropagated));
+    domains.setDomainAssociations(new DomainAssociationArray(sorted));
   }
 
   static boolean isPropagated(DomainAssociation assoc) {
