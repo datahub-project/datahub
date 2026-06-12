@@ -189,9 +189,9 @@ public class MCLBatchKafkaListener
   }
 
   /**
-   * Process a single routing-key slice of MCLs with all registered hooks under the slice's
-   * representative {@link OperationContext}. Callers must guarantee the {@code mcls} share a
-   * routing identity; {@link #consumeBatch} does this via {@link #inboundContextResolver}.
+   * Process a single slice of MCLs with all registered hooks under the slice's representative
+   * {@link OperationContext}. Callers must guarantee the {@code mcls} share an operational
+   * identity; {@link #consumeBatch} does this via {@link #batchAffinityResolver}.
    */
   private void processBatchWithHooks(
       @Nonnull OperationContext sliceContext,
@@ -217,8 +217,10 @@ public class MCLBatchKafkaListener
                     // will fall back to individual processing via the default implementation
                     hook.invokeBatch(sliceContext, mcls);
 
-                    // Update metrics
-                    systemOperationContext
+                    // Update metrics — attribute under the slice context so deployments with
+                    // affinity-aware resolvers get per-slice counters; in the default case this
+                    // is the system context and behavior matches today.
+                    sliceContext
                         .getMetricUtils()
                         .ifPresent(
                             metricUtils -> {
@@ -227,7 +229,7 @@ public class MCLBatchKafkaListener
                             });
                   } catch (Exception e) {
                     // Just skip this hook and continue - "at most once" processing
-                    systemOperationContext
+                    sliceContext
                         .getMetricUtils()
                         .ifPresent(
                             metricUtils ->
@@ -249,7 +251,7 @@ public class MCLBatchKafkaListener
                 MetricUtils.name(this.getClass(), hookName + "_batch_latency"));
           }
 
-          systemOperationContext
+          sliceContext
               .getMetricUtils()
               .ifPresent(
                   metricUtils ->
