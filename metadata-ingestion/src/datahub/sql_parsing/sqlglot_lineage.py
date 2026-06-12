@@ -1119,13 +1119,19 @@ def _select_statement_cll(
                 continue
 
             try:
+                # output_col was resolved by our qualify pass (schema built with
+                # normalize=False), so it already holds the column's real casing.
+                # sqlglot.lineage re-normalizes the lookup name using dialect rules
+                # only -- on case-insensitive dialects (Databricks, Spark, Hive,
+                # Redshift, Trino, ...) that folds the identifier (quoting does not
+                # exempt it), so the lookup no longer matches and lineage is silently
+                # dropped for mixed-case columns. Marking the identifier case_sensitive
+                # makes that normalization a no-op on every dialect (sqlglot's
+                # documented hook); lineage() matches on the identifier name only.
+                output_col_expr = sqlglot.expressions.column(output_col)
+                output_col_expr.this.meta["case_sensitive"] = True
                 lineage_node = sqlglot.lineage.lineage(
-                    # Pass the already-resolved output column as a quoted identifier so
-                    # sqlglot's normalize_identifiers preserves its casing instead of
-                    # case-folding it (which would break the lookup for case-sensitive
-                    # columns). identify=True during qualification makes every projection
-                    # a quoted identifier, so quoted=True is uniformly correct here.
-                    sqlglot.expressions.column(output_col, quoted=True),
+                    output_col_expr,
                     statement,
                     dialect=dialect,
                     scope=root_scope,
