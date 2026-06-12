@@ -19,10 +19,6 @@ class ValidateInputFieldsProcessorReport(WorkunitProcessorReport):
     num_workunits_skipped_entirely: int = 0
 
 
-# Backward-compatible alias
-ValidateInputFieldsReport = ValidateInputFieldsProcessorReport
-
-
 class ValidateInputFieldsProcessor(
     WorkunitProcessor[ValidateInputFieldsProcessorReport]
 ):
