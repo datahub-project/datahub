@@ -10,13 +10,13 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { LineageV3Page } from '../../pages/lineage-v3.page';
-import { TIMEOUTS } from '../../utils/constants';
-import type { Page } from '@playwright/test';
+import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
 import type { Locator } from '@playwright/test';
 
 test.use({ featureName: 'lineage-v3' });
 
 // Datasets with schema columns for comprehensive column-level lineage testing
+const ENTITY_TYPE = 'dataset';
 const HDFS_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hdfs,playwright_column_level_hdfs,PROD)';
 const HIVE_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,playwright_column_level_hive,PROD)';
 const LOGGING_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,playwright_column_level_logging,PROD)';
@@ -69,20 +69,18 @@ test.describe('column-level lineage graph V3 test', () => {
 
   // Helper: Expand/contract columns and verify new state
   async function expandContractAndVerify(
-    page: Page,
     urn: string,
     node: Locator,
     columns: string[],
     shouldBeVisible: boolean,
   ): Promise<void> {
     await lineagePage.expandContractColumns(urn);
-    await page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
     await verifyColumnsVisibility(node, columns, shouldBeVisible);
   }
 
   test('navigate to lineage graph view and verify that column-level lineage is showing correctly', async ({ page }) => {
-    await lineagePage.goToLineageGraph('dataset', START_DATASET_URN);
-    await page.waitForLoadState('networkidle');
+    await lineagePage.goToLineageGraph(ENTITY_TYPE, START_DATASET_URN);
+    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     // Get node locators for all three datasets
     const hdfsNode = lineagePage.getReactFlowNodeByUrn(HDFS_DATASET_URN);
@@ -95,16 +93,16 @@ test.describe('column-level lineage graph V3 test', () => {
     await verifyColumnsVisibility(loggingNode, LOGGING_COLUMNS, false);
 
     // Phase 2: Expand HDFS and verify columns appear
-    await expandContractAndVerify(page, HDFS_DATASET_URN, hdfsNode, HDFS_COLUMNS, true);
+    await expandContractAndVerify(HDFS_DATASET_URN, hdfsNode, HDFS_COLUMNS, true);
 
     // Phase 3: Expand Hive and verify columns appear
-    await expandContractAndVerify(page, HIVE_DATASET_URN, hiveNode, HIVE_COLUMNS, true);
+    await expandContractAndVerify(HIVE_DATASET_URN, hiveNode, HIVE_COLUMNS, true);
 
     // Phase 4: Expand Logging and verify columns appear
-    await expandContractAndVerify(page, LOGGING_DATASET_URN, loggingNode, LOGGING_COLUMNS, true);
+    await expandContractAndVerify(LOGGING_DATASET_URN, loggingNode, LOGGING_COLUMNS, true);
 
     // Phase 5: Contract Hive and verify columns disappear
-    await expandContractAndVerify(page, HIVE_DATASET_URN, hiveNode, HIVE_COLUMNS, false);
+    await expandContractAndVerify(HIVE_DATASET_URN, hiveNode, HIVE_COLUMNS, false);
 
     // Phase 6: Verify HDFS and Logging columns still visible after Hive collapse
     await verifyColumnsVisibility(hdfsNode, HDFS_COLUMNS, true);
@@ -112,13 +110,10 @@ test.describe('column-level lineage graph V3 test', () => {
 
     // Phase 7: Contract all remaining datasets
     await lineagePage.expandContractColumns(HDFS_DATASET_URN);
-    await page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
-
     await lineagePage.expandContractColumns(LOGGING_DATASET_URN);
-    await page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     // Phase 8: Re-expand Hive and verify columns appear again
-    await expandContractAndVerify(page, HIVE_DATASET_URN, hiveNode, HIVE_COLUMNS, true);
+    await expandContractAndVerify(HIVE_DATASET_URN, hiveNode, HIVE_COLUMNS, true);
 
     // Phase 9: Verify other datasets remain collapsed
     await verifyColumnsVisibility(hdfsNode, HDFS_COLUMNS, false);

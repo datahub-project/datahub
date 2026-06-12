@@ -4,10 +4,10 @@
  * DATA SEEDING: Static datasets from fixtures/data.json (auto-seeded via test.use below)
  */
 
-import { test, expect } from '../../fixtures/base-test';
+import { test } from '../../fixtures/base-test';
 import { LineageV3Page } from '../../pages/lineage-v3.page';
 import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
-import { verifyCSVContent } from '../../utils/csv-utils';
+import { verifyCSVContent } from '../../utils/file-utils';
 
 test.use({ featureName: 'lineage-v3' });
 
@@ -25,6 +25,12 @@ const UI_STRINGS = {
   IMPACT_ANALYSIS: 'Impact Analysis',
   CREATING_CSV: 'Creating CSV',
   ENTITY_COUNT: /\d+ - \d+ of \d+/,
+} as const;
+
+// Result count patterns
+const RESULT_PATTERNS = {
+  RESULTS_8_TO_9: /1 - [8-9] of [8-9]/,
+  RESULTS_10: /1 - 10/,
 } as const;
 
 // Expected URNs at each degree level (matches Cypress coverage)
@@ -68,7 +74,7 @@ test.describe('CSV Export - Lineage Results', () => {
 
   test('download and verify lineage results for 1st, 2nd and 3+ degree of dependencies', async ({ page, context }) => {
     await lineagePage.goToLineageGraph('dataset', DATASET_URN);
-    await page.getByText(UI_STRINGS.IMPACT_ANALYSIS).click();
+    await lineagePage.clickText(UI_STRINGS.IMPACT_ANALYSIS);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     // ─── 1st Degree Download ────────────────────────────────────────────────
@@ -79,7 +85,7 @@ test.describe('CSV Export - Lineage Results', () => {
     await lineagePage.degree2Filter.click();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     // Verify result count is between 8-9 (flexible range as displayed in the UI)
-    await expect(page.getByText(/1 - [8-9] of [8-9]/)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await lineagePage.expectResultTextVisible(RESULT_PATTERNS.RESULTS_8_TO_9, TIMEOUTS.MEDIUM);
 
     downloadPath = await lineagePage.downloadCSV(context, CSV_FILES.SECOND_DEGREE);
     await verifyCSVContent(downloadPath, [...FIRST_DEGREE_URNS, ...SECOND_DEGREE_URNS], THIRD_DEGREE_PLUS_URNS);
@@ -88,7 +94,7 @@ test.describe('CSV Export - Lineage Results', () => {
     await lineagePage.degree3PlusFilter.click();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     // Verify result count shows all 10 items
-    await expect(page.getByText(/1 - 10/)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await lineagePage.expectResultTextVisible(RESULT_PATTERNS.RESULTS_10, TIMEOUTS.MEDIUM);
 
     downloadPath = await lineagePage.downloadCSV(context, CSV_FILES.THIRD_PLUS_DEGREE);
     await verifyCSVContent(downloadPath, [...FIRST_DEGREE_URNS, ...SECOND_DEGREE_URNS, ...THIRD_DEGREE_PLUS_URNS], []);

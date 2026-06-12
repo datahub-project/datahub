@@ -11,7 +11,7 @@
 import { request as playwrightRequest } from '@playwright/test';
 import { test, expect } from '../../fixtures/base-test';
 import { LineageV3Page } from '../../pages/lineage-v3.page';
-import { TIMEOUTS, gmsUrl } from '../../utils/constants';
+import { TIMEOUTS, gmsUrl, LOAD_STATES } from '../../utils/constants';
 import { seedTimeRangeLineage } from '../../utils/lineage-time-seeder';
 import { readGmsToken } from '../../fixtures/login';
 import { users } from '../../data/users';
@@ -213,6 +213,17 @@ const FILTERING_NODE18_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,play
 const FILTERING_NODE19_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node19,PROD)';
 const FILTERING_NODE20_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node20,PROD)';
 
+// Column names for complex lineage testing
+const COLUMN_NAMES = {
+  RECORD_ID: 'record_id',
+  NEXT_RECORD_ID: 'next_record_id',
+} as const;
+
+// Dataset search/selection terms
+const SEARCH_TERMS = {
+  HEALTH_TEST: 'playwright_health_test',
+} as const;
+
 // ── Test Suite ───────────────────────────────────────────────────────────────
 
 test.describe('lineage v3 — lineage graph', () => {
@@ -248,7 +259,7 @@ test.describe('lineage v3 — lineage graph', () => {
 
   test('can see full history', async () => {
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
-    await lineagePage.page.waitForLoadState('networkidle');
+    await lineagePage.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await lineagePage.waitForGraphToRender();
 
     // Verify all expected lineage nodes are visible
@@ -264,7 +275,7 @@ test.describe('lineage v3 — lineage graph', () => {
       JAN_1_2021_TIMESTAMP,
       JAN_1_2022_TIMESTAMP,
     );
-    await lineagePage.page.waitForLoadState('networkidle');
+    await lineagePage.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await lineagePage.waitForGraphToRender();
 
     // Verify root node is visible but downstream lineage from 2021 is not present
@@ -379,9 +390,9 @@ test.describe('lineage v3 — lineage graph', () => {
 
     await expect(page.getByRole('button', { name: /Set Upstreams/i })).toHaveAttribute('disabled');
 
-    await lineagePage.lineageEditSearchInput.type('playwright_health_test');
+    await lineagePage.lineageEditSearchInput.type(SEARCH_TERMS.HEALTH_TEST);
 
-    const urn = 'urn:li:dataset:(urn:li:dataPlatform:hive,playwright_health_test,PROD)';
+    const urn = `urn:li:dataset:(urn:li:dataPlatform:hive,${SEARCH_TERMS.HEALTH_TEST},PROD)`;
     const checkbox = page.getByTestId(`checkbox-${urn}`);
     await checkbox.click();
 
@@ -400,39 +411,59 @@ test.describe('lineage v3 — lineage graph', () => {
 
     // Column lineage - hover behavior
     await lineagePage.expandContractColumns(NODE2_DATASET_URN);
-    await lineagePage.hoverColumn(NODE2_DATASET_URN, 'record_id');
-    await lineagePage.checkEdgeBetweenColumnsExists(NODE1_DATASET_URN, 'record_id', NODE2_DATASET_URN, 'record_id');
-    await lineagePage.unhoverColumn(NODE2_DATASET_URN, 'record_id');
-    await lineagePage.checkEdgeBetweenColumnsNotExists(NODE1_DATASET_URN, 'record_id', NODE2_DATASET_URN, 'record_id');
-
-    // Column lineage - next_record_id column
-    await lineagePage.hoverColumn(NODE2_DATASET_URN, 'next_record_id');
+    await lineagePage.hoverColumn(NODE2_DATASET_URN, COLUMN_NAMES.RECORD_ID);
     await lineagePage.checkEdgeBetweenColumnsExists(
       NODE1_DATASET_URN,
-      'next_record_id',
+      COLUMN_NAMES.RECORD_ID,
       NODE2_DATASET_URN,
-      'next_record_id',
+      COLUMN_NAMES.RECORD_ID,
     );
-    await lineagePage.unhoverColumn(NODE2_DATASET_URN, 'next_record_id');
+    await lineagePage.unhoverColumn(NODE2_DATASET_URN, COLUMN_NAMES.RECORD_ID);
     await lineagePage.checkEdgeBetweenColumnsNotExists(
       NODE1_DATASET_URN,
-      'next_record_id',
+      COLUMN_NAMES.RECORD_ID,
       NODE2_DATASET_URN,
-      'next_record_id',
+      COLUMN_NAMES.RECORD_ID,
+    );
+
+    // Column lineage - next_record_id column
+    await lineagePage.hoverColumn(NODE2_DATASET_URN, COLUMN_NAMES.NEXT_RECORD_ID);
+    await lineagePage.checkEdgeBetweenColumnsExists(
+      NODE1_DATASET_URN,
+      COLUMN_NAMES.NEXT_RECORD_ID,
+      NODE2_DATASET_URN,
+      COLUMN_NAMES.NEXT_RECORD_ID,
+    );
+    await lineagePage.unhoverColumn(NODE2_DATASET_URN, COLUMN_NAMES.NEXT_RECORD_ID);
+    await lineagePage.checkEdgeBetweenColumnsNotExists(
+      NODE1_DATASET_URN,
+      COLUMN_NAMES.NEXT_RECORD_ID,
+      NODE2_DATASET_URN,
+      COLUMN_NAMES.NEXT_RECORD_ID,
     );
 
     // Column lineage - column selection/deselection
-    await lineagePage.selectColumn(NODE2_DATASET_URN, 'record_id');
-    await lineagePage.checkEdgeBetweenColumnsExists(NODE1_DATASET_URN, 'record_id', NODE2_DATASET_URN, 'record_id');
-    await lineagePage.selectColumn(NODE2_DATASET_URN, 'next_record_id');
+    await lineagePage.selectColumn(NODE2_DATASET_URN, COLUMN_NAMES.RECORD_ID);
     await lineagePage.checkEdgeBetweenColumnsExists(
       NODE1_DATASET_URN,
-      'next_record_id',
+      COLUMN_NAMES.RECORD_ID,
       NODE2_DATASET_URN,
-      'next_record_id',
+      COLUMN_NAMES.RECORD_ID,
+    );
+    await lineagePage.selectColumn(NODE2_DATASET_URN, COLUMN_NAMES.NEXT_RECORD_ID);
+    await lineagePage.checkEdgeBetweenColumnsExists(
+      NODE1_DATASET_URN,
+      COLUMN_NAMES.NEXT_RECORD_ID,
+      NODE2_DATASET_URN,
+      COLUMN_NAMES.NEXT_RECORD_ID,
     );
     // When next_record_id is selected, record_id deselection should remove its edge
-    await lineagePage.checkEdgeBetweenColumnsNotExists(NODE1_DATASET_URN, 'record_id', NODE2_DATASET_URN, 'record_id');
+    await lineagePage.checkEdgeBetweenColumnsNotExists(
+      NODE1_DATASET_URN,
+      COLUMN_NAMES.RECORD_ID,
+      NODE2_DATASET_URN,
+      COLUMN_NAMES.RECORD_ID,
+    );
 
     // Expand one node
     await lineagePage.expandOne(NODE2_DATASET_URN);
@@ -850,7 +881,7 @@ test.describe('lineage v3 — lineage graph', () => {
 
   test('can switch direction between upstream and downstream in compact mode', async () => {
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
-    await lineagePage.page.waitForLoadState('networkidle');
+    await lineagePage.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await lineagePage.waitForGraphToRender();
 
     // Verify both upstream and downstream lineage is visible
@@ -861,7 +892,7 @@ test.describe('lineage v3 — lineage graph', () => {
 
   test('renders complete lineage graph with multiple node types and edges', async () => {
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
-    await lineagePage.page.waitForLoadState('networkidle');
+    await lineagePage.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await lineagePage.waitForGraphToRender();
 
     // Verify all node types render and edges connect them
@@ -874,7 +905,7 @@ test.describe('lineage v3 — lineage graph', () => {
 
   test('graph remains stable with all lineage nodes visible after loading', async () => {
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
-    await lineagePage.page.waitForLoadState('networkidle');
+    await lineagePage.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await lineagePage.waitForGraphToRender();
 
     // Verify all nodes load completely and persist

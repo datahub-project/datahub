@@ -20,6 +20,7 @@ test.use({ featureName: 'lineage-v3' });
 const DATASET_ENTITY_TYPE = 'dataset';
 const HDFS_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHdfsDataset,PROD)';
 const KAFKA_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:kafka,SamplePlaywrightKafkaDataset,PROD)';
+const KAFKA_DATASET_NAME = 'SamplePlaywrightKafkaDataset';
 
 const COLUMN_NAMES = {
   SHIPMENT_INFO: 'shipment_info',
@@ -81,12 +82,12 @@ test.describe('column-level lineage and impact analysis path V3', () => {
 
     // Switch to upstream
     await lineagePage.clickUpstreamOption();
-    await expect(page.getByText('SamplePlaywrightKafkaDataset')).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await expect(page.getByText(COLUMN_NAMES.FIELD_BAR)).not.toBeVisible({ timeout: TIMEOUTS.SHORT });
+    await lineagePage.expectTextVisible(KAFKA_DATASET_NAME, TIMEOUTS.MEDIUM);
+    await lineagePage.expectTextNotVisible(COLUMN_NAMES.FIELD_BAR, TIMEOUTS.SHORT);
 
     // Select shipment_info and verify field_bar appears
     await lineagePage.selectColumnFromDropdown(COLUMN_NAMES.SHIPMENT_INFO);
-    await expect(page.getByText(COLUMN_NAMES.FIELD_BAR)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await lineagePage.expectTextVisible(COLUMN_NAMES.FIELD_BAR, TIMEOUTS.MEDIUM);
 
     // Open and verify column path modal
     await lineagePage.clickResultTextAndOpenModal();
@@ -101,9 +102,7 @@ test.describe('column-level lineage and impact analysis path V3', () => {
     await lineagePage.clickColumnLineageToggle();
 
     // Verify shipment_info is not visible before selection
-    await expect(page.getByText(COLUMN_NAMES.SHIPMENT_INFO, { exact: true })).not.toBeVisible({
-      timeout: TIMEOUTS.SHORT,
-    });
+    await lineagePage.expectTextNotVisible(COLUMN_NAMES.SHIPMENT_INFO, TIMEOUTS.SHORT, { exact: true });
 
     // Select field_bar and verify shipment_info appears in results
     await lineagePage.selectColumnFromDropdown(COLUMN_NAMES.FIELD_BAR);

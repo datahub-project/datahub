@@ -11,7 +11,7 @@
  */
 
 import { request as playwrightRequest } from '@playwright/test';
-import { test, expect } from '../../fixtures/base-test';
+import { test } from '../../fixtures/base-test';
 import { LineageV3Page } from '../../pages/lineage-v3.page';
 import { TIMEOUTS, gmsUrl, LOAD_STATES } from '../../utils/constants';
 import { seedTimeRangeLineage } from '../../utils/lineage-time-seeder';
@@ -86,34 +86,34 @@ test.describe('impact analysis', () => {
     });
   });
 
-  test('can see 1 hop of lineage by default', async ({ page }) => {
+  test('can see 1 hop of lineage by default', async () => {
     await lineagePage.goToDatasetLineage(DATASET_URN, DATASET_NAME);
 
     // Multi-hop datasets should not be visible at 1-hop depth
-    await expect(page.getByText(UI_TEXT.USER_CREATIONS)).toBeHidden();
-    await expect(page.getByText(UI_TEXT.USER_DELETIONS)).toBeHidden();
+    await lineagePage.expectResultTextHidden(UI_TEXT.USER_CREATIONS);
+    await lineagePage.expectResultTextHidden(UI_TEXT.USER_DELETIONS);
   });
 
-  test('can see lineage multiple hops away', async ({ page }) => {
+  test('can see lineage multiple hops away', async () => {
     await lineagePage.goToDatasetLineage(DATASET_URN, DATASET_NAME);
 
     await lineagePage.clickImpactAnalysis();
-    await page.getByText(UI_TEXT.THREE_PLUS).click();
+    await lineagePage.clickText(UI_TEXT.THREE_PLUS);
 
-    await expect(page.getByText(UI_TEXT.USER_CREATIONS).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await expect(page.getByText(UI_TEXT.USER_DELETIONS).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await lineagePage.expectResultTextVisible(UI_TEXT.USER_CREATIONS, TIMEOUTS.LONG);
+    await lineagePage.expectResultTextVisible(UI_TEXT.USER_DELETIONS, TIMEOUTS.LONG);
   });
 
-  test('can filter the lineage results', async ({ page }) => {
+  test('can filter the lineage results', async () => {
     await lineagePage.goToDatasetLineage(DATASET_URN, DATASET_NAME);
 
     await lineagePage.clickImpactAnalysis();
-    await page.getByText(UI_TEXT.THREE_PLUS).click();
+    await lineagePage.clickText(UI_TEXT.THREE_PLUS);
 
     await lineagePage.addDescriptionFilter(UI_TEXT.FILTER_TEXT);
 
-    await expect(page.getByText(UI_TEXT.USER_CREATIONS)).toBeHidden();
-    await expect(page.getByText(UI_TEXT.USER_DELETIONS).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await lineagePage.expectResultTextHidden(UI_TEXT.USER_CREATIONS);
+    await lineagePage.expectResultTextVisible(UI_TEXT.USER_DELETIONS, TIMEOUTS.LONG);
   });
 
   test('can view column level impact analysis and turn it off', async ({ page }) => {
@@ -125,19 +125,19 @@ test.describe('impact analysis', () => {
 
     await lineagePage.clickImpactAnalysis();
 
-    await expect(page.getByText(UI_TEXT.HDFS_DATASET).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await expect(page.getByText(UI_TEXT.SHIPMENT_INFO).first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await expect(page.getByText(UI_TEXT.FEATURE_1)).toBeHidden();
-    await expect(page.getByText(UI_TEXT.BAZ_CHART)).toBeHidden();
+    await lineagePage.expectResultTextVisible(UI_TEXT.HDFS_DATASET, TIMEOUTS.LONG);
+    await lineagePage.expectResultTextVisible(UI_TEXT.SHIPMENT_INFO, TIMEOUTS.MEDIUM);
+    await lineagePage.expectResultTextHidden(UI_TEXT.FEATURE_1);
+    await lineagePage.expectResultTextHidden(UI_TEXT.BAZ_CHART);
 
     // Toggle off column-level impact analysis
     await lineagePage.clickColumnLineageToggle();
     await page.waitForTimeout(TIMEOUTS.SHORT);
 
-    await expect(page.getByText(UI_TEXT.HDFS_DATASET).first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await expect(page.getByText(UI_TEXT.SHIPMENT_INFO)).toBeHidden();
-    await expect(page.getByText(UI_TEXT.FEATURE_1).first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await expect(page.getByText(UI_TEXT.BAZ_CHART).first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await lineagePage.expectResultTextVisible(UI_TEXT.HDFS_DATASET, TIMEOUTS.MEDIUM);
+    await lineagePage.expectResultTextHidden(UI_TEXT.SHIPMENT_INFO, TIMEOUTS.SHORT);
+    await lineagePage.expectResultTextVisible(UI_TEXT.FEATURE_1, TIMEOUTS.MEDIUM);
+    await lineagePage.expectResultTextVisible(UI_TEXT.BAZ_CHART, TIMEOUTS.MEDIUM);
   });
 
   test('can filter lineage edges by time', async ({ page }) => {
@@ -150,10 +150,10 @@ test.describe('impact analysis', () => {
     await lineagePage.clickImpactAnalysis();
 
     // No lineage edges should exist for the 2021 time window
-    await expect(page.getByText(UI_TEXT.HDFS_DATASET)).toBeHidden();
-    await expect(page.getByText(UI_TEXT.DOWNSTREAM_COLUMN)).toBeHidden();
-    await expect(page.getByText(UI_TEXT.FEATURE_1)).toBeHidden();
-    await expect(page.getByText(UI_TEXT.BAZ_CHART)).toBeHidden();
+    await lineagePage.expectResultTextHidden(UI_TEXT.HDFS_DATASET);
+    await lineagePage.expectResultTextHidden(UI_TEXT.DOWNSTREAM_COLUMN);
+    await lineagePage.expectResultTextHidden(UI_TEXT.FEATURE_1);
+    await lineagePage.expectResultTextHidden(UI_TEXT.BAZ_CHART);
   });
 
   test('can see when the inputs to a data job change', async ({ page, apiMock }) => {
@@ -171,11 +171,11 @@ test.describe('impact analysis', () => {
 
     await lineagePage.clickSidebarLineageTab();
     // Downstream
-    await expect(page.getByText(UI_TEXT.AGGREGATED).first()).toBeVisible({ timeout: TIMEOUTS.EXTRA_LONG });
+    await lineagePage.expectResultTextVisible(UI_TEXT.AGGREGATED, TIMEOUTS.EXTRA_LONG);
     // Upstream
     await lineagePage.clickUpstreamDirection();
-    await expect(page.getByText(UI_TEXT.TRANSACTIONS).first()).toBeVisible({ timeout: TIMEOUTS.EXTRA_LONG });
-    await expect(page.getByText(UI_TEXT.USER_PROFILE).first()).not.toBeVisible({ timeout: TIMEOUTS.SHORT });
+    await lineagePage.expectResultTextVisible(UI_TEXT.TRANSACTIONS, TIMEOUTS.EXTRA_LONG);
+    await lineagePage.expectResultTextNotVisible(UI_TEXT.USER_PROFILE, TIMEOUTS.SHORT);
 
     // From 7 days ago to now, user_profile was also added as an input
     await page.goto(
@@ -186,11 +186,11 @@ test.describe('impact analysis', () => {
 
     await lineagePage.clickSidebarLineageTab();
     // Downstream
-    await expect(page.getByText(UI_TEXT.AGGREGATED).first()).toBeVisible({ timeout: TIMEOUTS.EXTRA_LONG });
+    await lineagePage.expectResultTextVisible(UI_TEXT.AGGREGATED, TIMEOUTS.EXTRA_LONG);
     // Upstream
     await lineagePage.clickUpstreamDirection();
-    await expect(page.getByText(UI_TEXT.TRANSACTIONS).first()).toBeVisible({ timeout: TIMEOUTS.EXTRA_LONG });
-    await expect(page.getByText(UI_TEXT.USER_PROFILE).first()).toBeVisible({ timeout: TIMEOUTS.EXTRA_LONG });
+    await lineagePage.expectResultTextVisible(UI_TEXT.TRANSACTIONS, TIMEOUTS.EXTRA_LONG);
+    await lineagePage.expectResultTextVisible(UI_TEXT.USER_PROFILE, TIMEOUTS.EXTRA_LONG);
   });
 
   test('can see when a data job is replaced', async ({ page }) => {
@@ -204,7 +204,7 @@ test.describe('impact analysis', () => {
     await lineagePage.clickSidebarLineageTab();
     await lineagePage.clickUpstreamDirection();
 
-    await expect(page.getByText(UI_TEXT.TEMPERATURE_ETL_1).first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await lineagePage.expectResultTextVisible(UI_TEXT.TEMPERATURE_ETL_1, TIMEOUTS.MEDIUM);
 
     // Since 7 days ago, temperature_etl_1 has been replaced by temperature_etl_2
     await page.goto(
@@ -216,34 +216,30 @@ test.describe('impact analysis', () => {
     await lineagePage.clickSidebarLineageTab();
     await lineagePage.clickUpstreamDirection();
 
-    await expect(page.getByText(UI_TEXT.TEMPERATURE_ETL_2).first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await lineagePage.expectResultTextVisible(UI_TEXT.TEMPERATURE_ETL_2, TIMEOUTS.MEDIUM);
   });
 
   test('editing upstream lineage will redirect to visual view with edit modal open', async ({ page }) => {
     await page.goto(`/dataset/${DATASET_URN}/Lineage?is_lineage_mode=false&lineageView=impact`);
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
 
-    await expect(page.getByText(DATASET_NAME).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await lineagePage.expectResultTextVisible(DATASET_NAME, TIMEOUTS.LONG);
 
     await lineagePage.clickLineageEditMenuButton();
     await lineagePage.clickEditUpstreamLineage();
 
-    await expect(page.getByText(`Select the Upstreams to add to ${DATASET_NAME}`)).toBeVisible({
-      timeout: TIMEOUTS.MEDIUM,
-    });
+    await lineagePage.expectResultTextVisible(`Select the Upstreams to add to ${DATASET_NAME}`, TIMEOUTS.MEDIUM);
   });
 
   test('editing downstream lineage will redirect to visual view with edit modal open', async ({ page }) => {
     await page.goto(`/dataset/${DATASET_URN}/Lineage?is_lineage_mode=false&lineageView=impact`);
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
 
-    await expect(page.getByText(DATASET_NAME).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await lineagePage.expectResultTextVisible(DATASET_NAME, TIMEOUTS.LONG);
 
     await lineagePage.clickLineageEditMenuButton();
     await lineagePage.clickEditDownstreamLineage();
 
-    await expect(page.getByText(`Select the Downstreams to add to ${DATASET_NAME}`)).toBeVisible({
-      timeout: TIMEOUTS.MEDIUM,
-    });
+    await lineagePage.expectResultTextVisible(`Select the Downstreams to add to ${DATASET_NAME}`, TIMEOUTS.MEDIUM);
   });
 });
