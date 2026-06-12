@@ -1325,6 +1325,13 @@ S3_SINK_CONNECTOR_CLASS: Final[str] = "io.confluent.connect.s3.S3SinkConnector"
 SNOWFLAKE_SINK_CONNECTOR_CLASS: Final[str] = (
     "com.snowflake.kafka.connector.SnowflakeSinkConnector"
 )
+# Snowflake's high-performance (v4) connector built on Snowpipe Streaming. It is
+# config-compatible with the classic sink connector — only the class name differs —
+# so it reuses SnowflakeSinkConnector for lineage extraction.
+# https://docs.snowflake.com/en/connectors/kafkahp/setup-kafka
+SNOWFLAKE_STREAMING_SINK_CONNECTOR_CLASS: Final[str] = (
+    "com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector"
+)
 DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
     "io.debezium.connector.jdbc.JdbcSinkConnector"
 )
