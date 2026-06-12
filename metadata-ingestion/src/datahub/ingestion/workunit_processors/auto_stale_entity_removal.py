@@ -21,6 +21,11 @@ class AutoStaleEntityRemovalProcessorReport(WorkunitProcessorReport):
     pass
 
 
+# TODO: StaleEntityRemoval reports directly to the source report, so this processor report is currently empty.
+# Consider moving removal metrics here and keeping only stale entity identification metrics in the source report.
+# That will require to refactor all source reports that are currently inheriting from StaleEntityRemovalSourceReport
+
+
 class AutoStaleEntityRemovalProcessor(
     WorkunitProcessor[AutoStaleEntityRemovalProcessorReport]
 ):

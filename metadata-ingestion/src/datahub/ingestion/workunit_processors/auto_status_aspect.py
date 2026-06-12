@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 class AutoStatusAspectProcessorReport(WorkunitProcessorReport):
     """Report for AutoStatusAspectProcessor metrics."""
 
-    pass
+    num_errors: int = 0  # Unexpected metadata types
+    num_status_aspects_emitted: int = 0  # Status aspects added to entities
 
 
 class AutoStatusAspectProcessor(WorkunitProcessor[AutoStatusAspectProcessorReport]):
@@ -55,6 +56,7 @@ class AutoStatusAspectProcessor(WorkunitProcessor[AutoStatusAspectProcessorRepor
                 if wu.metadata.aspectName == StatusClass.ASPECT_NAME:
                     status_urns.add(urn)
             else:
+                self.report.num_errors += 1
                 raise ValueError(f"Unexpected type {type(wu.metadata)}")
 
             yield wu
@@ -66,6 +68,7 @@ class AutoStatusAspectProcessor(WorkunitProcessor[AutoStatusAspectProcessorRepor
                 # Example like dataProcessInstance doesn't suppport status aspect.
                 # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance
                 continue
+            self.report.num_status_aspects_emitted += 1
             yield MetadataChangeProposalWrapper(
                 entityUrn=urn,
                 aspect=StatusClass(removed=False),
