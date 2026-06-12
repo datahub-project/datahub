@@ -338,6 +338,7 @@ entities:
       - subTypes
       - displayProperties
       - assetSettings
+      - domains
   - name: document
     category: core
     keyAspect: documentKey
