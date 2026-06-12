@@ -28,7 +28,16 @@ logger = logging.getLogger(__name__)
 class AutoBrowsePathV2ProcessorReport(WorkunitProcessorReport):
     """Report for AutoBrowsePathV2Processor metrics."""
 
-    pass
+    # Invariant violations
+    num_out_of_batch: int = 0  # URN seen in multiple batches
+    num_out_of_order: int = 0  # Child container processed before parent
+
+    # Browse path emission counters by source
+    num_browse_path_v2_emitted: int = 0  # From source-generated BrowsePathsV2
+    num_container_or_legacy_emitted: int = (
+        0  # Derived from Container or legacy BrowsePaths
+    )
+    num_fallback_emitted: int = 0  # Fallback for root containers/dataFlow/dataJob
 
 
 class AutoBrowsePathV2Processor(WorkunitProcessor[AutoBrowsePathV2ProcessorReport]):
@@ -79,7 +88,7 @@ class AutoBrowsePathV2Processor(WorkunitProcessor[AutoBrowsePathV2ProcessorRepor
         source need not include it in its browse paths v2.
         """
 
-        # For telemetry, to see if our sources violate assumptions
+        # For telemetry, to see if our sources violate assumptions (per-invocation)
         num_out_of_order = 0
         num_out_of_batch = 0
 
@@ -152,6 +161,7 @@ class AutoBrowsePathV2Processor(WorkunitProcessor[AutoBrowsePathV2ProcessorRepor
                 # TODO: Add sentry alert
                 num_out_of_batch += 1
             elif browse_path_v2 is not None:
+                self.report.num_browse_path_v2_emitted += 1
                 emitted_urns.add(urn)
                 if not self.dry_run:
                     yield MetadataChangeProposalWrapper(
@@ -168,6 +178,7 @@ class AutoBrowsePathV2Processor(WorkunitProcessor[AutoBrowsePathV2ProcessorRepor
                         aspect=BrowsePathsV2Class(path=browse_path_v2),
                     ).as_workunit()
             elif path is not None:
+                self.report.num_container_or_legacy_emitted += 1
                 emitted_urns.add(urn)
                 if not self.dry_run:
                     yield MetadataChangeProposalWrapper(
@@ -198,6 +209,7 @@ class AutoBrowsePathV2Processor(WorkunitProcessor[AutoBrowsePathV2ProcessorRepor
                 # OS-dependent golden file differences because filesystem enumeration
                 # order determines which entities land in which batch. DataFlow and
                 # DataJob are safe because they never have Container aspects.
+                self.report.num_fallback_emitted += 1
                 emitted_urns.add(urn)
                 if not self.dry_run:
                     yield MetadataChangeProposalWrapper(
@@ -209,6 +221,11 @@ class AutoBrowsePathV2Processor(WorkunitProcessor[AutoBrowsePathV2ProcessorRepor
                         ),
                     ).as_workunit()
 
+        # Accumulate counts in report
+        self.report.num_out_of_batch += num_out_of_batch
+        self.report.num_out_of_order += num_out_of_order
+
+        # Send telemetry for this invocation
         if num_out_of_batch or num_out_of_order:
             properties = {
                 "platform": self.platform,
