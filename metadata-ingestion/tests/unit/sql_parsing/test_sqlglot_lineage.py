@@ -563,6 +563,58 @@ FROM snowflake_sample_data.tpch_sf1.orders o
     )
 
 
+def test_snowflake_case_sensitive_quoted_column_lineage() -> None:
+    # Regression guard for the case-sensitive column lineage fix.
+    #
+    # The output column is handed to sqlglot.lineage.lineage() as a quoted
+    # identifier (exp.column(output_col, quoted=True)) so that sqlglot's
+    # normalize_identifiers preserves its casing. If that is reverted to passing
+    # the raw string, Snowflake (UPPERCASE strategy) case-folds "CustomerName" to
+    # CUSTOMERNAME, the column can no longer be found in the query, and the
+    # upstream edge is silently dropped -- i.e. this assertion would see an empty
+    # column_lineage. See https://github.com/tobymao/sqlglot/issues/7733.
+    assert_sql_result(
+        """
+SELECT "CustomerName" AS "FullName"
+FROM db.sch.tbl
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,PROD)": {
+                "CustomerName": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_case_sensitive_quoted_column_lineage.json",
+    )
+
+
+def test_snowflake_case_sensitive_column_through_cte() -> None:
+    # Regression guard for the case-sensitive column lineage fix, this time with
+    # the quoted column "CustomerName" flowing through a CTE. Its casing must
+    # survive the full multi-hop lineage walk (CTE -> outer SELECT), not just the
+    # top-level projection lookup. As with the non-CTE case, reverting to a raw
+    # (non-quoted) column lets Snowflake case-fold the name so the upstream edge
+    # is silently dropped. See https://github.com/tobymao/sqlglot/issues/7733.
+    assert_sql_result(
+        """
+WITH staged AS (
+    SELECT "CustomerName" FROM db.sch.tbl
+)
+SELECT "CustomerName" AS "FullName"
+FROM staged
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,PROD)": {
+                "CustomerName": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_case_sensitive_column_through_cte.json",
+    )
+
+
 def test_snowflake_case_statement() -> None:
     assert_sql_result(
         """
