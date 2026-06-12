@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class AutoLowercaseUrnsProcessorReport(WorkunitProcessorReport):
     """Report for AutoLowercaseUrnsProcessor metrics."""
 
-    pass
+    num_exceptions: int = 0  # Failed to lowercase URNs
 
 
 class AutoLowercaseUrnsProcessor(WorkunitProcessor[AutoLowercaseUrnsProcessorReport]):
@@ -37,5 +37,6 @@ class AutoLowercaseUrnsProcessor(WorkunitProcessor[AutoLowercaseUrnsProcessorRep
 
                 yield wu
             except Exception as e:
+                self.report.num_exceptions += 1
                 logger.warning(f"Failed to lowercase urns for {wu}: {e}", exc_info=True)
                 yield wu
