@@ -1,0 +1,38 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "cff4a16758d09afd2d7285a8b7eecd6653b8846e21de6d95458ee51570e34601",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "fullname",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,PROD)",
+                    "column": "CustomerName"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"TBL\".\"CUSTOMERNAME\" AS \"CUSTOMERNAME\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "WITH staged AS (SELECT \"CustomerName\" FROM db.sch.tbl) SELECT \"CustomerName\" AS \"FullName\" FROM staged"
+    }
+}
