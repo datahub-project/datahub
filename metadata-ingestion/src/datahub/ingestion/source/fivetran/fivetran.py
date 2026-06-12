@@ -137,6 +137,15 @@ class FivetranSource(StatefulIngestionSourceBase):
         {"s3", "gcs", "abs"}
     )
 
+    # URN platforms whose namespace is the two-part `<schema>.<table>` with no
+    # `database` prefix — `build_destination_urn` emits these verbatim. The set
+    # is `_NON_RELATIONAL_DESTINATION_PLATFORMS - _PATH_STYLE_DESTINATION_PLATFORMS`;
+    # for `glue`, the destination schema *is* the Glue database (see the branch
+    # in `build_destination_urn` for the Fivetran MDL→Glue rationale).
+    _TWO_PART_NAMESPACE_DESTINATION_PLATFORMS: ClassVar[FrozenSet[str]] = frozenset(
+        {"iceberg", "glue"}
+    )
+
     def __init__(self, config: FivetranSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.config = config
@@ -311,11 +320,13 @@ class FivetranSource(StatefulIngestionSourceBase):
             except ValueError as e:
                 # Most common causes: (a) no platform discovered for this
                 # destination (REST call failed and no declarative
-                # override); (b) auto-detected `platform: glue` but no
-                # user-supplied `database`. Skip the lineage edge for this
-                # connector and keep the ingest going. Dedup the warning
-                # per destination — every connector on a misconfigured
-                # destination would otherwise emit its own copy.
+                # override), so `platform` is unset; (b) a path-style
+                # destination (`s3`/`gcs`/`abs`) whose `database` (the
+                # bucket-or-container prefix) couldn't be discovered or
+                # pinned. Skip the lineage edge for this connector and keep
+                # the ingest going. Dedup the warning per destination —
+                # every connector on a misconfigured destination would
+                # otherwise emit its own copy.
                 if connector.destination_id not in self._destinations_with_urn_warning:
                     self._destinations_with_urn_warning.add(connector.destination_id)
                     self.report.warning(
@@ -323,8 +334,10 @@ class FivetranSource(StatefulIngestionSourceBase):
                         message=(
                             "Skipping all lineage edges for this destination. "
                             "Subsequent edges will be skipped silently. Set "
-                            "`destination_to_platform_instance.<id>.database` "
-                            "(and `platform` if not auto-detected) to fix."
+                            "`destination_to_platform_instance.<id>.platform` "
+                            "if it wasn't auto-detected, and (for s3/gcs/abs "
+                            "destinations only) `.database` with the path "
+                            "prefix, to fix."
                         ),
                         context=(
                             f"connector_id={connector.connector_id}, "
@@ -396,17 +409,13 @@ class FivetranSource(StatefulIngestionSourceBase):
         DataHub's iceberg source convention so URNs align if the same
         catalog is also ingested directly.
 
-        Glue-routed Managed Data Lake destinations are treated as
-        relational: the URN is composed as
-        `glue.<destination_details.database>.<schema>.<table>`. The user
-        is responsible for setting `database` to the actual Glue database
-        name observed in their Glue console (Fivetran shares one Glue
-        database per region across all destinations and the REST API
-        does not expose this name) and for verifying that Fivetran's
-        Glue tables are literally named `<schema>.<table>` so the URN
-        aligns with DataHub's Glue source. If the Glue catalog uses a
-        different table-name convention, the URN won't match and the
-        customer must configure their Glue source accordingly.
+        Glue-routed Managed Data Lake destinations use the same two-part
+        `<schema>.<table>` shape: Fivetran's MDL registers each
+        destination schema as its own Glue database and each table as a
+        Glue table, so `<schema>.<table>` already equals
+        `<glue_db>.<table>` — matching DataHub's Glue source. No
+        user-supplied `database` is required or used for Glue (see the
+        inline comment on the two-part branch below).
 
         For path-style routed Managed Data Lake destinations
         (`platform: s3 | gcs | abs`), the URN follows DataHub's
@@ -437,11 +446,12 @@ class FivetranSource(StatefulIngestionSourceBase):
         #     matching DataHub's Glue source (which builds `<glue_db>.<table>`).
         #     A single destination spans many schemas (one per connector), each
         #     its own Glue database, so the per-row schema — not a single
-        #     user-supplied `database` — must lead the URN. (Verified against a
-        #     live Fivetran MDL→Glue catalog: Glue db `fivetran_log`, table
-        #     `account`.) `database` is therefore neither required nor used for
-        #     Glue.
-        if destination_details.platform in ("iceberg", "glue"):
+        #     user-supplied `database` — must lead the URN. `database` is
+        #     therefore neither required nor used for Glue.
+        if (
+            destination_details.platform
+            in FivetranSource._TWO_PART_NAMESPACE_DESTINATION_PLATFORMS
+        ):
             return DatasetUrn.create_from_ids(
                 platform_id=destination_details.platform,
                 table_name=table_name,

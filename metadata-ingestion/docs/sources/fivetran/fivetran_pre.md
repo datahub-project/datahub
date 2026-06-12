@@ -128,6 +128,35 @@ destination_to_platform_instance:
 
 The user override always wins; REST destination discovery still runs in the background to fill in any fields the user didn't pin (e.g. `database` from the discovered config when not overridden). Glue routing needs no `database` — the destination schema is the Glue database (see the Glue section above).
 
+**When you must set `platform` yourself.** Discovery only knows how to map the destination services DataHub recognizes (Snowflake, BigQuery, Databricks, and the Managed Data Lake variants). If a REST call succeeds but reports a service the connector doesn't map — or if you run without `api_config` and the recipe-level `destination_platform` doesn't fit a particular destination — the connector cannot guess a platform. It then skips that destination's lineage edges with a one-time structured warning, and you must pin `destination_to_platform_instance.<id>.platform` explicitly to resolve it.
+
+##### Dropping the schema segment from URNs (`include_schema_in_urn`)
+
+Fivetran reports every table as `<schema>.<table>`, and by default the connector keeps that schema segment in the dataset URN. Some platforms, however, have no schema layer in their natural URN — for example a Kafka topic is addressed as just `kafka.<topic>`, but Fivetran still slots a synthetic schema in front of it.
+
+**Set `include_schema_in_urn: false` when** the source or destination platform addresses tables with **no schema/namespace level** and DataHub's own source for that platform emits a URN _without_ a leading schema. Concretely, set it to `false` for:
+
+- **Streaming/message platforms** whose URN is a single name — e.g. Kafka (`kafka.<topic>`).
+- **File / object / SaaS sources** where Fivetran injects a synthetic schema (often the connector or source name) that isn't part of the real platform's identifier.
+
+The tell-tale symptom is a Fivetran-emitted URN that carries one **extra** leading segment compared to the URN the platform's native DataHub source produces, so lineage fails to stitch. Leave it at the default (`true`) for everything that does have a real schema — relational warehouses, and `iceberg`/`glue`.
+
+Set it on the matching `sources_to_platform_instance` or `destination_to_platform_instance` entry to strip the leading schema segment:
+
+```yaml
+config:
+  sources_to_platform_instance:
+    my_kafka_connector_id:
+      platform: kafka
+      include_schema_in_urn: false # emit `kafka.<topic>`, not `kafka.<schema>.<topic>`
+  destination_to_platform_instance:
+    my_kafka_connector_id:
+      platform: kafka
+      include_schema_in_urn: false
+```
+
+This is an independent knob from `database`/platform routing: `database` controls whether a database segment is **prepended**, while `include_schema_in_urn` controls whether the schema segment is **stripped**. (For `glue` specifically, never set it to `false` — the schema _is_ the Glue database, so dropping it would produce a wrong single-part URN.)
+
 #### Hybrid deployments and destination discovery
 
 If your Fivetran setup has a single account-level Fivetran Platform Connector delivering log data to one destination (typically Snowflake) but actual data is spread across destinations of different types (e.g., Snowflake for some connectors, Managed Data Lake for others), the per-recipe `destination_platform` field can only describe one destination's type at a time.
