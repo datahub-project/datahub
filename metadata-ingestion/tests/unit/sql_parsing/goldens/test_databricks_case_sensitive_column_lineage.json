@@ -1,0 +1,60 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "bab6830e987279585f6223e83750593a9254ac92df310f4e9502094f9fdecc2b",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "betStatusId",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)",
+                    "column": "betStatusId"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`bet`.`betStatusId` AS `betStatusId`"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "channelId",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)",
+                    "column": "channelId"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`bet`.`channelId` AS `channelId`"
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT * FROM hive_metastore.bronze_kambi.bet"
+    }
+}
