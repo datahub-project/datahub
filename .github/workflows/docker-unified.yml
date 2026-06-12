@@ -625,6 +625,7 @@ jobs:
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -869,6 +870,7 @@ jobs:
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -1140,6 +1142,7 @@ jobs:
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
