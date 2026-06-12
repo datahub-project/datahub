@@ -79,6 +79,8 @@ Requirements:
 - #17651 **(Ingestion / Dremio)** Dataset properties no longer emit a synthetic `created` timestamp when Dremio does not report one. Previously, missing creation timestamps surfaced as epoch 0 (1970-01-01) on the dataset properties aspect; the field is now omitted entirely. Dashboards or alerting that treated epoch 0 as a valid `created` time should treat it as missing instead.
 - #17812 **(Ingestion / Glue)** When `extract_lakeformation_tags` is enabled, the Glue connector now also extracts **column-level** Lake Formation tags by default (new `extract_lakeformation_column_tags`, default `true`) and can propagate a database's Lake Formation tags down to its tables and columns (new `propagate_lakeformation_tags`, default `false`). Existing recipes with `extract_lakeformation_tags: true` will start emitting directly-assigned column tags after upgrade with no config change; set `extract_lakeformation_column_tags: false` to retain the previous (table/database-only) behavior. Inherited (propagated) tags are marked with propagation attribution and a `propagated` context so they can be distinguished from directly-assigned tags. No additional AWS API calls are made — all tag levels come from the existing per-table `GetResourceLFTags` response.
 
+- #17860 **(CLI / Python SDK)** Mutual TLS (mTLS) client authentication is now supported for outbound HTTPS calls from the CLI.
+
 ## v1.6.0
 
 Requirements:
