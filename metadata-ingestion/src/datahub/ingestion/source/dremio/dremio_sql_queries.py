@@ -285,7 +285,7 @@ class DremioSQLQueries:
             AND query_type not like '%INTERNAL%'
             AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
             AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
-        ORDER BY submitted_ts DESC
+        ORDER BY submitted_ts ASC
         {{limit_clause}}
         """
 
@@ -320,6 +320,7 @@ class DremioSQLQueries:
             AND query_type not like '%INTERNAL%'
             AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
             AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
+        ORDER BY submitted_ts ASC
         """
 
     @staticmethod
@@ -351,6 +352,6 @@ class DremioSQLQueries:
             AND query_type not like '%INTERNAL%'
             AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
             AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
-        ORDER BY submitted_ts DESC
+        ORDER BY submitted_ts ASC
         {{limit_clause}}
         """

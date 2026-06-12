@@ -1,0 +1,45 @@
+namespace com.linkedin.execution
+
+/**
+ * Audit record for the CLI version chosen for an ingestion execution.
+ *
+ * Stamped on each ingestion or test-connection ExecutionRequestInput. Captures only metadata
+ * about the resolution (which tier fired + which GMS performed it) — the resolved CLI version
+ * itself lives in `args.version` on the same aspect (the wire-format field consumed by the
+ * executor). Splitting these avoids storing the version string twice on the aspect; this record
+ * exists so post-hoc forensics can answer "which tier produced the version, and which GMS wrote
+ * this?" from a single SQL query without log archaeology.
+ *
+ * NOTE: this stamps the version GMS *resolved*, not the version the executor actually
+ * installed. The executor may run a different effective version when (a) the recipe's
+ * `extra_pip` requirements transitively pull in `acryl-datahub`, (b) the customer opts out
+ * of installing `acryl-datahub` (e.g. `version="no-acryl-datahub"`), or (c) a bundled image
+ * short-circuits the install step. Treat this aspect as GMS-side intent, not proof-of-install.
+ *
+ * The resolution chain is, in priority order:
+ *   1. Per-source `config.version` explicit override (SOURCE_CONFIG_OVERRIDE)
+ *   2. Cohort whose `deployments` list contains this deployment's id (MATRIX_COHORT)
+ *   3. Connector's `_default` from the matrix (MATRIX_CONNECTOR_DEFAULT)
+ *   4. `defaultCliVersion` from application.yaml (APPLICATION_DEFAULT)
+ */
+record CliVersionAudit {
+  /**
+   * Which level of the resolution priority hit.
+   */
+  source: enum CliVersionSource {
+    /** Step 1 — explicit cli_version on the ingestion source's recipe config. */
+    SOURCE_CONFIG_OVERRIDE
+    /** Step 2 — matched a cohort whose deployments list contains this deployment's id. */
+    MATRIX_COHORT
+    /** Step 3 — fell through to the connector's _default in the matrix. */
+    MATRIX_CONNECTOR_DEFAULT
+    /** Step 4 — fell through to defaultCliVersion from application.yaml. */
+    APPLICATION_DEFAULT
+  }
+
+  /**
+   * GMS server version that performed the resolution. Populated regardless of which tier hit.
+   * Equals `GitVersion.getVersion()` on the pod that wrote this aspect.
+   */
+  serverVersion: optional string
+}
