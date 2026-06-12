@@ -88,10 +88,6 @@ class AutoBrowsePathV2Processor(WorkunitProcessor[AutoBrowsePathV2ProcessorRepor
         source need not include it in its browse paths v2.
         """
 
-        # For telemetry, to see if our sources violate assumptions (per-invocation)
-        num_out_of_order = 0
-        num_out_of_batch = 0
-
         # Set for all containers and urns with a Container aspect
         # Used to construct browse path v2 while iterating through stream
         # Assumes topological order of entities in stream, i.e. parent's
@@ -144,7 +140,7 @@ class AutoBrowsePathV2Processor(WorkunitProcessor[AutoBrowsePathV2ProcessorRepor
                     if urn in containers_used_as_parent:
                         # Topological order invariant violated; we've used the previous value of paths[urn]
                         # TODO: Add sentry alert
-                        num_out_of_order += 1
+                        self.report.num_out_of_order += 1
 
                 browse_path_aspect = wu.get_aspect_of_type(BrowsePathsClass)
                 if browse_path_aspect and browse_path_aspect.paths:
@@ -159,7 +155,7 @@ class AutoBrowsePathV2Processor(WorkunitProcessor[AutoBrowsePathV2ProcessorRepor
             if path is not None and urn in emitted_urns:
                 # Batch invariant violated
                 # TODO: Add sentry alert
-                num_out_of_batch += 1
+                self.report.num_out_of_batch += 1
             elif browse_path_v2 is not None:
                 self.report.num_browse_path_v2_emitted += 1
                 emitted_urns.add(urn)
@@ -221,17 +217,13 @@ class AutoBrowsePathV2Processor(WorkunitProcessor[AutoBrowsePathV2ProcessorRepor
                         ),
                     ).as_workunit()
 
-        # Accumulate counts in report
-        self.report.num_out_of_batch += num_out_of_batch
-        self.report.num_out_of_order += num_out_of_order
-
-        # Send telemetry for this invocation
-        if num_out_of_batch or num_out_of_order:
+        # Send telemetry
+        if self.report.num_out_of_batch or self.report.num_out_of_order:
             properties = {
                 "platform": self.platform,
                 "has_platform_instance": bool(self.platform_instance),
-                "num_out_of_batch": num_out_of_batch,
-                "num_out_of_order": num_out_of_order,
+                "num_out_of_batch": self.report.num_out_of_batch,
+                "num_out_of_order": self.report.num_out_of_order,
             }
             telemetry.telemetry_instance.ping("incorrect_browse_path_v2", properties)
 
