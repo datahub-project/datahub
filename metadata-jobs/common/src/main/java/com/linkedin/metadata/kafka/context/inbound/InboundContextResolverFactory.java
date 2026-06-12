@@ -14,8 +14,8 @@ import org.springframework.context.annotation.Configuration;
  *       Spring discovers. When no enrichers are registered (default), Spring injects an empty list
  *       and the resolver becomes a pass-through.
  *   <li>{@link InboundBatchAffinityResolver} — single-bean extension point. The default {@link
- *       DefaultInboundBatchAffinityResolver} is registered here via {@code
- *       @ConditionalOnMissingBean} so it loads only when no other implementation is present.
+ *       DefaultInboundBatchAffinityResolver} is registered here via
+ *       {@code @ConditionalOnMissingBean} so it loads only when no other implementation is present.
  * </ul>
  */
 @Configuration
