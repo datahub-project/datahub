@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 class ValidateEmptySchemaFieldPathsProcessorReport(WorkunitProcessorReport):
     """Report for ValidateEmptySchemaFieldPathsProcessor metrics."""
 
-    pass
+    total_schema_aspects: int = 0
+    schemas_with_empty_fields: int = 0
+    empty_field_paths: int = 0
 
 
 class ValidateEmptySchemaFieldPathsProcessor(
@@ -29,39 +31,36 @@ class ValidateEmptySchemaFieldPathsProcessor(
     def __init__(self, ctx: WorkunitProcessorContext) -> None:
         super().__init__(ctx)
         self._platform = ctx.infer_platform()
-        self._total_schema_aspects = 0
-        self._schemas_with_empty_fields = 0
-        self._empty_field_paths = 0
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         """Count schema metadata aspects with empty field paths and emit telemetry."""
         for wu in stream:
             schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
             if schema_metadata:
-                self._total_schema_aspects += 1
+                self.report.total_schema_aspects += 1
 
                 updated_fields: List[SchemaFieldClass] = []
                 for field in schema_metadata.fields:
                     if field.fieldPath:
                         updated_fields.append(field)
                     else:
-                        self._empty_field_paths += 1
+                        self.report.empty_field_paths += 1
 
-                if self._empty_field_paths > 0:
+                if self.report.empty_field_paths > 0:
                     logger.info(
                         f"Fixing empty field paths in schema aspect for {wu.get_urn()} by dropping empty fields"
                     )
                     schema_metadata.fields = updated_fields
-                    self._schemas_with_empty_fields += 1
+                    self.report.schemas_with_empty_fields += 1
 
             yield wu
 
-        if self._schemas_with_empty_fields > 0:
+        if self.report.schemas_with_empty_fields > 0:
             properties = {
                 "platform": self._platform,
-                "total_schema_aspects": self._total_schema_aspects,
-                "schemas_with_empty_fields": self._schemas_with_empty_fields,
-                "empty_field_paths": self._empty_field_paths,
+                "total_schema_aspects": self.report.total_schema_aspects,
+                "schemas_with_empty_fields": self.report.schemas_with_empty_fields,
+                "empty_field_paths": self.report.empty_field_paths,
             }
             telemetry.telemetry_instance.ping(
                 "ingestion_empty_schema_field_paths", properties
