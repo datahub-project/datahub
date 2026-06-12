@@ -5,21 +5,16 @@ import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.stereotype.Component;
 
 /**
  * Default {@link InboundBatchAffinityResolver} — returns a single slice carrying every record under
- * the system context. Used by deployments that do not need to split inbound batches into
- * independently-dispatched units of work.
+ * the system context. Backward-compatible with pre-PR4 behavior: callers that don't override this
+ * resolver see exactly the same dispatch shape they had before.
  *
- * <p>This bean is registered <em>only</em> when no other {@link InboundBatchAffinityResolver} bean
- * exists in the Spring context. Deployments that need affinity-aware splitting register their own
- * {@code @Component} of this type, and this default is not loaded — exactly one bean of {@link
- * InboundBatchAffinityResolver} is ever active.
+ * <p>Registered conditionally by {@link InboundContextResolverFactory} (the inbound-context bean
+ * registration site) so deployments that ship their own {@link InboundBatchAffinityResolver} bean
+ * shadow this default cleanly — exactly one resolver bean is ever active in the Spring context.
  */
-@Component
-@ConditionalOnMissingBean(InboundBatchAffinityResolver.class)
 public class DefaultInboundBatchAffinityResolver implements InboundBatchAffinityResolver {
 
   @Override

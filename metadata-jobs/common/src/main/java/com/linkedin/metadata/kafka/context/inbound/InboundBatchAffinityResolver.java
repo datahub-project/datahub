@@ -11,10 +11,11 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
  * records.
  *
  * <p>This is a <em>single-bean</em> extension point — exactly one implementation is ever active in
- * the Spring context. {@link DefaultInboundBatchAffinityResolver} is registered with
- * {@code @ConditionalOnMissingBean} so it only loads when no other implementation is present;
- * deployments that need affinity-aware splitting register their own {@code @Component} of this type
- * and the default is shadowed entirely (not loaded). No {@code @Primary} required.
+ * the Spring context. The default ({@link DefaultInboundBatchAffinityResolver}) is registered by
+ * {@link InboundContextResolverFactory} via {@code @Bean @ConditionalOnMissingBean}, so it loads
+ * only when no other implementation is present; deployments that need affinity-aware splitting
+ * register their own {@code InboundBatchAffinityResolver} bean and the default is shadowed entirely
+ * (not loaded). No {@code @Primary} required.
  *
  * <p>The resolver operates on raw {@link ConsumerRecord}s (not decoded payloads) so it can read
  * record headers / keys for grouping without forcing a decode step. Decoding happens inside each

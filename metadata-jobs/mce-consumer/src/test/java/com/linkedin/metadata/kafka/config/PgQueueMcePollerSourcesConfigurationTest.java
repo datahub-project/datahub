@@ -122,7 +122,11 @@ public class PgQueueMcePollerSourcesConfigurationTest {
 
     PgQueuePollerRegistration reg =
         configuration
-            .pgQueueBatchMcpSource(batchProcessor, "batch-group", Topics.METADATA_CHANGE_PROPOSAL)
+            .pgQueueBatchMcpSource(
+                batchProcessor,
+                mock(OperationContext.class),
+                "batch-group",
+                Topics.METADATA_CHANGE_PROPOSAL)
             .registrations()
             .findFirst()
             .orElseThrow();
@@ -143,7 +147,10 @@ public class PgQueueMcePollerSourcesConfigurationTest {
 
     PgQueuePollerSource source =
         configuration.pgQueueBatchMcpSource(
-            batchProcessor, "batch-group", Topics.METADATA_CHANGE_PROPOSAL);
+            batchProcessor,
+            mock(OperationContext.class),
+            "batch-group",
+            Topics.METADATA_CHANGE_PROPOSAL);
 
     PgQueuePollerRegistration reg = source.registrations().collect(Collectors.toList()).get(0);
     assertEquals(reg.consumerGroupId(), "batch-group");
