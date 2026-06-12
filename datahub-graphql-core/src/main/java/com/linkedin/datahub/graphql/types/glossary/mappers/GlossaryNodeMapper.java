@@ -21,10 +21,12 @@ import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.util.EntityResponseUtils;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.glossary.GlossaryNodeInfo;
@@ -69,6 +71,7 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
         (glossaryNode, dataMap) ->
             glossaryNode.setOwnership(
                 OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
+    mappingHelper.mapToResult(context, DOMAINS_ASPECT_NAME, this::mapDomains);
     mappingHelper.mapToResult(
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (glossaryNode, dataMap) ->
@@ -118,6 +121,14 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
     }
     result.setCreatedOn(createdAuditStamp);
     return result;
+  }
+
+  private void mapDomains(
+      @Nullable QueryContext context,
+      @Nonnull GlossaryNode glossaryNode,
+      @Nonnull DataMap dataMap) {
+    final Domains domains = new Domains(dataMap);
+    glossaryNode.setDomain(DomainAssociationMapper.map(context, domains, glossaryNode.getUrn()));
   }
 
   private void mapGlossaryNodeKey(@Nonnull GlossaryNode glossaryNode, @Nonnull DataMap dataMap) {
