@@ -590,3 +590,60 @@ def test_scroll_relationships_pagination(graph_client: DataHubGraph) -> None:
     logger.info(
         f"scroll_relationships pagination: page1={len(first_edges)}, page2={len(second_edges)} distinct edges"
     )
+
+
+# ---------------------------------------------------------------------------
+# scroll_lineage
+# ---------------------------------------------------------------------------
+
+
+def test_scroll_lineage_with_source_urns_filter(
+    graph_client: DataHubGraph,
+) -> None:
+    """scroll_lineage with source_urns should only return lineage edges
+    from the specified source entity."""
+    result = graph_client.scroll_lineage(
+        source_urns=[ZETA],
+        count=100,
+    )
+    assert len(result.relationships) >= 1
+    for rel in result.relationships:
+        assert rel.source_urn == ZETA, (
+            f"Expected source_urn={ZETA}, got '{rel.source_urn}'"
+        )
+    edges = {
+        (r.source_urn, r.destination_urn, r.relationship_type)
+        for r in result.relationships
+    }
+    assert (ZETA, ALPHA, "DownstreamOf") in edges, (
+        f"Expected ZETA->ALPHA DownstreamOf with source_urns filter, got: {edges}"
+    )
+    logger.info(
+        f"scroll_lineage with source_urns filter: {len(result.relationships)} edges"
+    )
+
+
+def test_scroll_lineage_with_relationship_type_filter(
+    graph_client: DataHubGraph,
+) -> None:
+    """scroll_lineage filtered to DerivedFrom should return FEATURE_1->ALPHA
+    but not ZETA->ALPHA (DownstreamOf)."""
+    result = graph_client.scroll_lineage(
+        relationship_types=["DerivedFrom"],
+        count=100,
+    )
+    assert len(result.relationships) >= 1
+    for rel in result.relationships:
+        assert rel.relationship_type == "DerivedFrom", (
+            f"Expected only DerivedFrom edges, got '{rel.relationship_type}'"
+        )
+    edges = {(r.source_urn, r.destination_urn) for r in result.relationships}
+    assert (FEATURE_1, ALPHA) in edges, (
+        f"Expected FEATURE_1->ALPHA DerivedFrom, got: {edges}"
+    )
+    assert (ZETA, ALPHA) not in edges, (
+        "ZETA->ALPHA DownstreamOf should be excluded by DerivedFrom filter"
+    )
+    logger.info(
+        f"scroll_lineage with DerivedFrom filter: {len(result.relationships)} edges"
+    )

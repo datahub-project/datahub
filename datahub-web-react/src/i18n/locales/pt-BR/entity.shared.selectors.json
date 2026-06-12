@@ -1,0 +1,10 @@
+{
+    "actorsSearch.placeholder": "Pesquisar usuários ou grupos",
+    "domainSelector.label": "Domains",
+    "domainSelector.placeholder": "Selecionar domínios",
+    "domainSelector.searchPlaceholder": "Pesquisar todos os domínios...",
+    "entitySearch.noEntitiesFound": "Nenhuma entidade encontrada",
+    "entitySearch.placeholder": "Pesquisar entidades...",
+    "groupBy.displayValue": "Agrupar {{label}}",
+    "groupBy.group": "Agrupar"
+}
