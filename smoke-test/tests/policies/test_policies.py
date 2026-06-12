@@ -20,9 +20,15 @@ TEST_POLICY_NAME = "Updated Platform Policy"
 TEST_DENY_POLICY_NAME = "Test Deny Policy"
 PERF_DENY_POLICY_PREFIX = "PerfDeny-EDIT_ENTITY_TAGS-"
 PERF_NUM_QUERIES = 25
-PERF_LATENCY_RATIO_THRESHOLD = 5
+PERF_LATENCY_RATIO_THRESHOLD = 2
+# Absolute slack added on top of the ratio. listPolicies baselines on a quiet local stack
+# can be a few ms, where any fixed jitter (GC, ES refresh after the policy writes) dwarfs the
+# real per-DENY cost and makes a pure ratio meaningless. The allowed budget is the larger of
+# (baseline x ratio) and (baseline + this floor).
+PERF_LATENCY_ABS_FLOOR_SECONDS = 0.05
 PERF_NUM_DENY_POLICIES = 20
 PERF_GROUP_PREFIX = "PerfDenyGroup-"
+PERF_DECOY_GROUP_PREFIX = "PerfDenyDecoy-"
 PERF_DENY_USER_EMAIL = "perf_deny_user@example.com"
 PERF_DENY_USER_PASSWORD = "perf_deny_user_pw"
 
@@ -282,17 +288,29 @@ def _median(values: List[float]) -> float:
 
 
 def _create_deny_policy(
-    session, *, name: str, privileges: List[str], user_urns=None, group_urns=None
+    session,
+    *,
+    name: str,
+    privileges: List[str],
+    policy_type: str = "METADATA",
+    user_urns=None,
+    group_urns=None,
 ) -> str:
-    """Create an ACTIVE METADATA DENY policy scoped to all datasets."""
+    """Create an ACTIVE DENY policy. METADATA policies are scoped to all datasets;
+    PLATFORM policies (e.g. for MANAGE_POLICIES) carry an empty resource filter."""
+    resources = (
+        {"filter": {"criteria": []}}
+        if policy_type == "PLATFORM"
+        else {"type": "dataset", "allResources": True}
+    )
     variables: Dict[str, Any] = {
         "input": {
-            "type": "METADATA",
+            "type": policy_type,
             "name": name,
             "description": "Perf smoke DENY policy",
             "state": "ACTIVE",
             "effect": "DENY",
-            "resources": {"type": "dataset", "allResources": True},
+            "resources": resources,
             "privileges": privileges,
             "actors": {
                 "users": user_urns or [],
@@ -309,8 +327,12 @@ def _create_deny_policy(
 
 def _assert_listpolicies_not_slowed_by_denies(session, deny_setup) -> None:
     """Measure ``listPolicies`` median latency for ``session`` before and after the
-    ``deny_setup`` callback creates its DENY policies, asserting the median does not
-    grow beyond ``PERF_LATENCY_RATIO_THRESHOLD``x."""
+    ``deny_setup`` callback creates its DENY policies. The with-DENY median must stay
+    within ``max(baseline x PERF_LATENCY_RATIO_THRESHOLD, baseline + floor)`` — the
+    absolute floor keeps the check meaningful when the baseline is only a few ms and
+    dominated by jitter rather than real per-DENY work. Each phase is preceded by a
+    discarded warm-up run so we never compare a cold/just-written stack against a warm one."""
+    _timed_list_policies(session)
     baseline_median = _median(_timed_list_policies(session))
 
     deny_setup()
@@ -318,17 +340,25 @@ def _assert_listpolicies_not_slowed_by_denies(session, deny_setup) -> None:
     wait_for_writes_to_sync()
     time.sleep(3)
 
+    _timed_list_policies(session)
     with_denies_median = _median(_timed_list_policies(session))
     ratio = with_denies_median / baseline_median if baseline_median > 0 else 0
+    allowed = max(
+        baseline_median * PERF_LATENCY_RATIO_THRESHOLD,
+        baseline_median + PERF_LATENCY_ABS_FLOOR_SECONDS,
+    )
     logger.info(
-        "DENY perf: baseline median=%.2fms, with DENY policies median=%.2fms (ratio=%.2fx)",
+        "DENY perf: baseline median=%.2fms, with DENY policies median=%.2fms "
+        "(ratio=%.2fx, allowed<=%.2fms)",
         baseline_median * 1000,
         with_denies_median * 1000,
         ratio,
+        allowed * 1000,
     )
-    assert with_denies_median <= baseline_median * PERF_LATENCY_RATIO_THRESHOLD, (
+    assert with_denies_median <= allowed, (
         f"listPolicies median grew from {baseline_median * 1000:.2f}ms to "
-        f"{with_denies_median * 1000:.2f}ms after adding DENY policies ({ratio:.2f}x)."
+        f"{with_denies_median * 1000:.2f}ms after adding DENY policies ({ratio:.2f}x), "
+        f"exceeding allowed {allowed * 1000:.2f}ms."
     )
 
 
@@ -361,11 +391,15 @@ def test_deny_policy_perf_smoke(auth_session):
 
 @pytest.mark.parametrize("num_groups", [10, 100])
 def test_deny_policy_perf_with_many_group_memberships(auth_session, num_groups):
-    """A corpuser who belongs to many groups must not see authorization latency blow
-    up when group-scoped DENY policies on an unrelated privilege exist. The user is
-    granted MANAGE_POLICIES via one of its groups (so listPolicies authorizes), and the
-    DENY policies target EDIT_ENTITY_TAGS via the same groups — exercising the
-    group-resolution + group-match path that the single-user smoke does not."""
+    """A corpuser who belongs to many groups must not see authorization latency blow up
+    when DENY policies exist on the very privilege being authorized. The user is granted
+    MANAGE_POLICIES via one of its groups (so listPolicies authorizes), and the DENY
+    policies also target MANAGE_POLICIES but via *decoy* groups the user is not a member
+    of. Because DENY is privilege-indexed, every one of these denies lands in the same
+    ``DENY_MANAGE_POLICIES`` bucket and is evaluated on every listPolicies request — yet
+    none match the user, so the ALLOW grant still wins. This is the realistic worst case
+    for DENY cost (hot-path evaluation against a many-group actor), unlike denies on an
+    unrelated privilege which the index skips entirely."""
     admin_username, admin_password = get_admin_credentials()
     admin_session = login_as(admin_username, admin_password)
     # create_user re-logs-in as admin and returns the fresh session; never mutate the
@@ -376,6 +410,7 @@ def test_deny_policy_perf_with_many_group_memberships(auth_session, num_groups):
     user_urn = f"urn:li:corpuser:{PERF_DENY_USER_EMAIL}"
 
     group_urns: List[str] = []
+    decoy_group_urns: List[str] = []
     policy_urns: List[str] = []
     try:
         for i in range(num_groups):
@@ -391,6 +426,16 @@ def test_deny_policy_perf_with_many_group_memberships(auth_session, num_groups):
                 _ADD_GROUP_MEMBERS_QUERY,
                 {"groupUrn": group_urn, "userUrns": [user_urn]},
             )
+
+        # Decoy groups the user is NOT a member of, used to scope the DENY policies so
+        # they are evaluated on the hot path but never actually match the actor.
+        for i in range(PERF_NUM_DENY_POLICIES):
+            res = _post_graphql(
+                admin_session,
+                _CREATE_GROUP_QUERY,
+                {"input": {"name": f"{PERF_DECOY_GROUP_PREFIX}{num_groups}-{i}"}},
+            )
+            decoy_group_urns.append(res["data"]["createGroup"])
 
         # Grant MANAGE_POLICIES to the user via its first group so listPolicies authorizes.
         grant = _post_graphql(
@@ -426,9 +471,10 @@ def test_deny_policy_perf_with_many_group_memberships(auth_session, num_groups):
                 policy_urns.append(
                     _create_deny_policy(
                         admin_session,
-                        name=f"PerfDenyGroup-EDIT_ENTITY_TAGS-{i}",
-                        privileges=["EDIT_ENTITY_TAGS"],
-                        group_urns=[group_urns[i % len(group_urns)]],
+                        name=f"PerfDenyHot-MANAGE_POLICIES-{num_groups}-{i}",
+                        privileges=["MANAGE_POLICIES"],
+                        policy_type="PLATFORM",
+                        group_urns=[decoy_group_urns[i % len(decoy_group_urns)]],
                     )
                 )
 
@@ -439,7 +485,7 @@ def test_deny_policy_perf_with_many_group_memberships(auth_session, num_groups):
                 _post_graphql(admin_session, _DELETE_POLICY_QUERY, {"urn": urn})
             except Exception:
                 logger.warning("Failed to clean up perf policy %s", urn)
-        for urn in group_urns:
+        for urn in group_urns + decoy_group_urns:
             try:
                 _post_graphql(admin_session, _REMOVE_GROUP_QUERY, {"urn": urn})
             except Exception:
