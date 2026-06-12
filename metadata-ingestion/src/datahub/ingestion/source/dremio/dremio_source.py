@@ -228,6 +228,11 @@ class DremioSourceMapEntry:
     SourceCapability.OPERATION_CAPTURE,
     "Optionally enabled via `include_query_lineage`; generated from Dremio job history",
 )
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Enabled by default via stateful ingestion",
+    supported=True,
+)
 class DremioSource(StatefulIngestionSourceBase):
     """
     Source that extracts metadata from Dremio via REST API and SQL queries.
@@ -275,7 +280,6 @@ class DremioSource(StatefulIngestionSourceBase):
             env=self.config.env,
             ui_url=api.ui_url,
         )
-        self.max_workers = config.max_workers
 
         # Custom resolver handles the "dremio." infix injected after platform_instance.
         self.dremio_schema_resolver = DremioSchemaResolver(
@@ -697,21 +701,15 @@ class DremioSource(StatefulIngestionSourceBase):
             start_time=effective_start, end_time=effective_end
         )
 
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_query = {
-                executor.submit(self.process_query, query): query for query in queries
-            }
-
-            for future in as_completed(future_to_query):
-                query = future_to_query[future]
-                try:
-                    future.result()
-                except Exception as exc:
-                    self.report.report_failure(
-                        message="Failed to process dremio query",
-                        context=f"{query.job_id}: {exc}",
-                        exc=exc,
-                    )
+        for query in queries:
+            try:
+                self.process_query(query)
+            except Exception as exc:
+                self.report.report_failure(
+                    message="Failed to process dremio query",
+                    context=f"{query.job_id}: {exc}",
+                    exc=exc,
+                )
 
         # Record the time window after successful processing so subsequent runs
         # can skip or advance past it.

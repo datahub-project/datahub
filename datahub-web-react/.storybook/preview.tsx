@@ -1,14 +1,26 @@
 import { BADGE, defaultBadgesConfig } from '@geometricpanda/storybook-addon-badges';
-import React from 'react';
+// FYI: import of antd styles required to show components based on it correctly
+import 'antd/dist/antd.css';
+import React, { useEffect } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { ThemeProvider } from 'styled-components';
 
+import { LOCALE_MAP } from '../src/app/i18n/constants';
 import themes from '../src/conf/theme/themes';
 import DocTemplate from './DocTemplate.mdx';
 import i18n from './i18n';
 import './storybook-theme.css';
-// FYI: import of antd styles required to show components based on it correctly
-import 'antd/dist/antd.css';
+
+// Drives the shared i18next instance from the toolbar's selected locale. Done in an
+// effect so we mutate the singleton after render rather than during it.
+const LocaleProvider = ({ locale, children }: { locale: string; children: React.ReactNode }) => {
+    useEffect(() => {
+        if (i18n.language !== locale) {
+            i18n.changeLanguage(locale);
+        }
+    }, [locale]);
+    return <>{children}</>;
+};
 
 const preview = {
     tags: ['!dev', 'autodocs'],
@@ -17,14 +29,29 @@ const preview = {
     //   (without it `theme` is empty and those reads throw "Cannot read properties of undefined").
     // - I18nextProvider: so `t()` / <Trans> render real strings instead of raw keys.
     decorators: [
-        (Story: React.ComponentType) => (
+        (Story: React.ComponentType, context: { globals: { locale?: string } }) => (
             <I18nextProvider i18n={i18n}>
-                <ThemeProvider theme={themes.themeV2}>
-                    <Story />
-                </ThemeProvider>
+                <LocaleProvider locale={context.globals.locale || 'en'}>
+                    <ThemeProvider theme={themes.themeV2}>
+                        <Story />
+                    </ThemeProvider>
+                </LocaleProvider>
             </I18nextProvider>
         ),
     ],
+    // Toolbar dropdown to switch the active language across all stories.
+    globalTypes: {
+        locale: {
+            name: 'Locale',
+            description: 'Active language',
+            defaultValue: 'en',
+            toolbar: {
+                icon: 'globe',
+                items: Object.values(LOCALE_MAP).map(({ lang, label }) => ({ value: lang, title: label })),
+                dynamicTitle: true,
+            },
+        },
+    },
     parameters: {
         previewTabs: {
             'storybook/docs/panel': { index: -1 },

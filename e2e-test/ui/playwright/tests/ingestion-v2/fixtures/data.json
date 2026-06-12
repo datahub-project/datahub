@@ -1,0 +1,152 @@
+[
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-execute-source",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright execute source\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-search-source-one",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright search source one\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-search-source-two",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright search source two\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-filter-source",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright filter source\",\"type\":\"snowflake\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"snowflake\\\",\\\"config\\\":{\\\"account_id\\\":\\\"test\\\",\\\"warehouse\\\":\\\"test\\\",\\\"username\\\":\\\"test\\\",\\\"password\\\":\\\"test\\\",\\\"role\\\":\\\"test\\\"}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-run-history-view-source",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright run history view source\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-run-history-source",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright run history source\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-exec-run-history",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestInput",
+    "aspect": {
+      "value": "{\"task\":\"RUN_INGEST\",\"args\":{},\"executorId\":\"default\",\"source\":{\"type\":\"INGESTION_SOURCE\",\"ingestionSource\":\"urn:li:dataHubIngestionSource:playwright-run-history-source\"},\"requestedAt\":1700000000000}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-exec-run-history",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestResult",
+    "aspect": {
+      "value": "{\"status\":\"SUCCESS\",\"startTimeMs\":1700000000000,\"durationMs\":5000}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-run-history-filter-1",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright run history filter 1\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-exec-filter-1",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestInput",
+    "aspect": {
+      "value": "{\"task\":\"RUN_INGEST\",\"args\":{},\"executorId\":\"default\",\"source\":{\"type\":\"INGESTION_SOURCE\",\"ingestionSource\":\"urn:li:dataHubIngestionSource:playwright-run-history-filter-1\"},\"requestedAt\":1700000000000}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-exec-filter-1",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestResult",
+    "aspect": {
+      "value": "{\"status\":\"SUCCESS\",\"startTimeMs\":1700000000000,\"durationMs\":5000}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-run-history-filter-2",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright run history filter 2\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-exec-filter-2",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestInput",
+    "aspect": {
+      "value": "{\"task\":\"RUN_INGEST\",\"args\":{},\"executorId\":\"default\",\"source\":{\"type\":\"INGESTION_SOURCE\",\"ingestionSource\":\"urn:li:dataHubIngestionSource:playwright-run-history-filter-2\"},\"requestedAt\":1700000000000}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-exec-filter-2",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestResult",
+    "aspect": {
+      "value": "{\"status\":\"SUCCESS\",\"startTimeMs\":1700000000000,\"durationMs\":5000}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubSecret",
+    "entityUrn": "urn:li:dataHubSecret:playwright-ingestion-secret",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubSecretValue",
+    "aspect": {
+      "value": "{\"name\":\"playwright-ingestion-secret\",\"value\":\"test-secret-value\"}",
+      "contentType": "application/json"
+    }
+  }
+]

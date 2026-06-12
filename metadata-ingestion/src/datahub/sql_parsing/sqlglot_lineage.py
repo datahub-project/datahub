@@ -62,6 +62,7 @@ from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
     QueryType,
     QueryTypeProps,
+    get_dialect_str,
 )
 from datahub.sql_parsing.sqlglot_utils import (
     DialectOrStr,
@@ -854,6 +855,46 @@ class _ColumnResolver:
             return default_col_name
 
 
+def _statement_risks_unnest_resolver_recursion(
+    statement: sqlglot.exp.Expression, schema: sqlglot.MappingSchema
+) -> bool:
+    """Detect the sqlglot resolver infinite-recursion trigger (sqlglot >= 30.7.0).
+
+    sqlglot's column Resolver recurses without a re-entrancy guard when it tries
+    to type a ``LATERAL FLATTEN`` / ``UNNEST`` of an *unqualified* column whose
+    base table is absent from the schema, while a schema is otherwise present:
+    typing the unnested column disambiguates it via ``get_table``, which
+    enumerates every source's columns, which re-enters the same lateral source.
+    In the compiled ``sqlglot[c]`` build this overflows the native C stack into
+    an uncatchable SIGSEGV that kills the whole ingest process. We cannot
+    monkeypatch the compiled resolver (mypyc dispatches its internal calls
+    natively), so we detect the trigger here and skip column-level lineage,
+    keeping table-level lineage.
+
+    The conditions mirror the confirmed trigger, so safe LATERAL FLATTENs
+    (qualified column, base table schema'd, or no schema at all) are unaffected.
+    """
+    mapping = getattr(schema, "mapping", None) or {}
+    if not mapping:
+        # No schema -> sqlglot skips the type-resolution path; safe.
+        return False
+
+    def _is_known(table: sqlglot.exp.Table) -> bool:
+        try:
+            return bool(schema.column_names(table))
+        except Exception:
+            return False
+
+    if not any(not _is_known(table) for table in statement.find_all(sqlglot.exp.Table)):
+        # Every referenced table is schema'd -> type resolves directly; safe.
+        return False
+
+    for unnest in statement.find_all(sqlglot.exp.Lateral, sqlglot.exp.Unnest):
+        if any(not col.table for col in unnest.find_all(sqlglot.exp.Column)):
+            return True
+    return False
+
+
 def _prepare_query_columns(
     statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
@@ -930,6 +971,17 @@ def _prepare_query_columns(
         # )
 
     if not is_create_ddl:
+        # Guard against a sqlglot resolver infinite recursion (>= 30.7.0) that
+        # SIGSEGVs the compiled build. We can't catch a native crash, so we must
+        # refuse the statement before handing it to optimize().
+        if _statement_risks_unnest_resolver_recursion(statement, sqlglot_db_schema):
+            raise SqlUnderstandingError(
+                "Skipping column-level lineage: LATERAL FLATTEN/UNNEST of an "
+                "unqualified column over a table missing from the schema triggers "
+                "a sqlglot optimizer stack overflow (sqlglot>=30.7.0). Table-level "
+                "lineage is unaffected."
+            )
+
         # Optimize the statement + qualify column references.
         if logger.getEffectiveLevel() <= logging.DEBUG:
             logger.debug(
@@ -2373,14 +2425,22 @@ def create_lineage_sql_parsed_result(
             schema_resolver.close()
 
 
-def _prepare_sql_query_list(queries: Union[str, List[str]]) -> List[str]:
+def _prepare_sql_query_list(
+    queries: Union[str, List[str]], dialect: Optional[str] = None
+) -> List[str]:
     if isinstance(queries, str):
-        return [stmt for stmt in split_statements(queries) if stmt.strip()]
+        return [
+            stmt for stmt in split_statements(queries, dialect=dialect) if stmt.strip()
+        ]
     else:
         result: List[str] = []
         for q in queries:
             if q and str(q).strip():
-                result.extend(stmt for stmt in split_statements(str(q)) if stmt.strip())
+                result.extend(
+                    stmt
+                    for stmt in split_statements(str(q), dialect=dialect)
+                    if stmt.strip()
+                )
         return result
 
 
@@ -2423,7 +2483,7 @@ def create_lineage_from_sql_statements(
         SqlParsingAggregator,
     )
 
-    queries = _prepare_sql_query_list(queries)
+    queries = _prepare_sql_query_list(queries, dialect=get_dialect_str(platform))
 
     if not queries:
         return SqlParsingResult.make_from_error(

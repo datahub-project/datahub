@@ -234,3 +234,20 @@ class TestIncrementalLineageWiring:
         # auto_incremental_lineage emits MCPs (not MCPWs) with PATCH type.
         assert getattr(emitted, "changeType", None) == ChangeTypeClass.PATCH
         assert getattr(emitted, "entityUrn", None) == downstream
+
+
+def test_stateful_ingestion_accepts_stale_removal_fields():
+    config = DremioSourceConfig(
+        hostname="localhost",
+        tls=False,
+        authentication_method="PAT",
+        password="token",
+        stateful_ingestion={
+            "enabled": True,
+            "fail_safe_threshold": 100,
+            "remove_stale_metadata": False,
+        },
+    )
+    assert config.stateful_ingestion is not None
+    assert config.stateful_ingestion.fail_safe_threshold == 100
+    assert config.stateful_ingestion.remove_stale_metadata is False

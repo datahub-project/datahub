@@ -20,7 +20,7 @@ const StyledEditor = styled(Editor)`
 `;
 
 export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
-    const { t } = useTranslation('entityV1.shared.entityDropdown');
+    const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tf } = useTranslation('common.feedback');
     const [batchUpdateDeprecation] = useBatchUpdateDeprecationMutation();
@@ -45,13 +45,13 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
                 },
             });
             message.destroy();
-            message.success({ content: t('deprecationModal.updateSuccess'), duration: 2 });
+            message.success({ content: t('deprecation.updated'), duration: 2 });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
                 message.error(
                     handleBatchError(urns, e, {
-                        content: t('deprecationModal.updateError', { message: e.message || '' }),
+                        content: t('deprecation.updateError', { errorMessage: e.message || '' }),
                         duration: 2,
                     }),
                 );
@@ -63,7 +63,7 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
 
     return (
         <Modal
-            title={t('deprecationModal.title')}
+            title={t('deprecation.addDetailsTitle')}
             open
             onCancel={handleClose}
             keyboard
@@ -73,17 +73,17 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
                         {tc('cancel')}
                     </Button>
                     <Button form="addDeprecationForm" key="submit" htmlType="submit">
-                        {t('deprecationModal.ok')}
+                        {t('deprecation.ok')}
                     </Button>
                 </>
             }
             width="40%"
         >
             <Form form={form} name="addDeprecationForm" onFinish={handleOk} layout="vertical">
-                <Form.Item name="note" label={t('deprecationModal.noteLabel')} rules={[{ whitespace: true }]}>
+                <Form.Item name="note" label={t('deprecation.noteLabel')} rules={[{ whitespace: true }]}>
                     <StyledEditor />
                 </Form.Item>
-                <Form.Item name="decommissionTime" label={t('deprecationModal.decommissionDateLabel')}>
+                <Form.Item name="decommissionTime" label={t('deprecation.decommissionDateLabel')}>
                     <DatePicker style={{ width: '100%' }} />
                 </Form.Item>
             </Form>

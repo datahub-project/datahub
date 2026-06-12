@@ -148,6 +148,18 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     }
   }
 
+  public static OperationContext withReadPreference(
+      @Nonnull OperationContext opContext, @Nonnull ReadPreference readPreference) {
+    try {
+      return opContext.toBuilder()
+          .primaryStorageContext(
+              opContext.getPrimaryStorageContext().withReadPreference(readPreference))
+          .build(opContext.getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   /**
    * Set the system authentication object AND allow escalation of privilege for the session. This
    * OperationContext typically serves the default.
@@ -177,8 +189,33 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
         searchContext,
         retrieverContext,
         validationContext,
+        systemTelemetryContext,
+        PrimaryStorageContext.EMPTY,
+        enforceExistenceEnabled);
+  }
+
+  public static OperationContext asSystem(
+      @Nonnull OperationContextConfig config,
+      @Nonnull Authentication systemAuthentication,
+      @Nonnull EntityRegistry entityRegistry,
+      @Nullable ServicesRegistryContext servicesRegistryContext,
+      @Nullable SearchContext searchContext,
+      @Nullable RetrieverContext retrieverContext,
+      @Nonnull ValidationContext validationContext,
+      @Nullable SystemTelemetryContext systemTelemetryContext,
+      @Nullable PrimaryStorageContext primaryStorageContext,
+      boolean enforceExistenceEnabled) {
+    return OperationContext.asSystem(
+        config,
+        systemAuthentication,
+        entityRegistry,
+        servicesRegistryContext,
+        searchContext,
+        retrieverContext,
+        validationContext,
         ObjectMapperContext.DEFAULT,
         systemTelemetryContext,
+        primaryStorageContext,
         enforceExistenceEnabled);
   }
 
@@ -192,6 +229,7 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
       @Nonnull ValidationContext validationContext,
       @Nonnull ObjectMapperContext objectMapperContext,
       @Nullable SystemTelemetryContext systemTelemetryContext,
+      @Nullable PrimaryStorageContext primaryStorageContext,
       boolean enforceExistenceEnabled) {
     ActorContext systemActorContext =
         ActorContext.builder()
@@ -216,6 +254,8 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
           .validationContext(validationContext)
           .objectMapperContext(objectMapperContext)
           .systemTelemetryContext(systemTelemetryContext)
+          .primaryStorageContext(
+              primaryStorageContext != null ? primaryStorageContext : PrimaryStorageContext.EMPTY)
           .build(systemAuthentication, enforceExistenceEnabled);
     } catch (Exception e) {
       throw new RuntimeException("Failed to build OperationContext", e);
@@ -234,6 +274,7 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   @Nonnull private final ObjectMapperContext objectMapperContext;
   @Nonnull private final ValidationContext validationContext;
   @Nullable private final SystemTelemetryContext systemTelemetryContext;
+  @Nonnull private final PrimaryStorageContext primaryStorageContext;
 
   // Mutable collection for pending aspect deletions during validation
   // This is per-operation and not shared across threads, so ArrayList is safe
@@ -248,6 +289,10 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   public OperationContext withLineageFlags(
       @Nonnull Function<LineageFlags, LineageFlags> flagDefaults) {
     return OperationContext.withLineageFlags(this, flagDefaults);
+  }
+
+  public OperationContext withReadPreference(@Nonnull ReadPreference readPreference) {
+    return OperationContext.withReadPreference(this, readPreference);
   }
 
   public OperationContext asSession(
@@ -551,6 +596,7 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
                 getServicesRegistryContext() == null
                     ? EmptyContext.EMPTY
                     : getServicesRegistryContext())
+            .add(getPrimaryStorageContext())
             .build()
             .stream()
             .map(ContextInterface::getCacheKeyComponent)
@@ -622,6 +668,14 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
 
   public static class OperationContextBuilder {
 
+    @Nullable private PrimaryStorageContext primaryStorageContext;
+
+    public OperationContextBuilder primaryStorageContext(
+        @Nullable PrimaryStorageContext primaryStorageContext) {
+      this.primaryStorageContext = primaryStorageContext;
+      return this;
+    }
+
     @Nonnull
     public OperationContext build(
         @Nonnull Authentication sessionAuthentication, boolean enforceExistenceEnabled) {
@@ -673,6 +727,9 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
                   : ObjectMapperContext.DEFAULT,
               this.validationContext,
               this.systemTelemetryContext,
+              this.primaryStorageContext != null
+                  ? this.primaryStorageContext
+                  : PrimaryStorageContext.EMPTY,
               new java.util.ArrayList<>());
 
       if (!sessionActor.isActive(authContext, retriever)) {
