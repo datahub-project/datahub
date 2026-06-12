@@ -149,20 +149,6 @@ def _patch_lineage() -> None:
     lineage_py.Node = Node  # type: ignore
     sqlglot.lineage.Node = Node  # type: ignore
 
-    patchy.patch(
-        lineage_py.lineage,
-        """\
-@@ -68,4 +68,6 @@
-     if column is not None:
--        column_name = normalize_identifiers.normalize_identifiers(column, dialect=dialect).name
-+        # column_name = normalize_identifiers.normalize_identifiers(column, dialect=dialect).name
-+        assert isinstance(column, str)
-+        column_name = column
-         if not any(select.alias_or_name == column_name for select in selectable.selects):
-             raise SqlglotError(f"Cannot find column '{column_name}' in query.")
-""",
-    )
-
     # Patch 1: Change set to list for source_columns (preserve column order)
     patchy.patch(
         lineage_py.to_node,
