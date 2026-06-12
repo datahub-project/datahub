@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.listener;
 
 import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
+import com.linkedin.metadata.kafka.context.inbound.InboundBatchAffinityResolver;
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -26,6 +27,8 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
 
   @Getter protected InboundContextResolver inboundContextResolver;
 
+  @Getter protected InboundBatchAffinityResolver batchAffinityResolver;
+
   @Getter protected String consumerGroupId;
 
   @Getter protected List<H> hooks;
@@ -40,10 +43,12 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
       @Nonnull List<H> hooks,
       boolean fineGrainedLoggingEnabled,
       @Nonnull Map<String, Set<String>> aspectsToDrop,
-      @Nonnull InboundContextResolver inboundContextResolver) {
+      @Nonnull InboundContextResolver inboundContextResolver,
+      @Nonnull InboundBatchAffinityResolver batchAffinityResolver) {
 
     this.systemOperationContext = systemOperationContext;
     this.inboundContextResolver = inboundContextResolver;
+    this.batchAffinityResolver = batchAffinityResolver;
     this.consumerGroupId = consumerGroup;
     this.hooks = hooks;
     this.hooks.forEach(hook -> hook.init(systemOperationContext));

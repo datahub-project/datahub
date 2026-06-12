@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -46,13 +47,30 @@ public class DataHubUsageEventsProcessor {
   }
 
   /**
-   * Batch listener: Spring Kafka delivers a List of records per poll; we transform each, then hand
-   * the whole batch to the indexer in a single {@link DataHubUsageEventIndexer#indexBatch(List)}
-   * call so storage-aware impls (Postgres) can commit them in one transaction. Mirrors the pattern
-   * used by {@code BatchMetadataChangeProposalsProcessor}.
+   * Legacy entry — used by callers that haven't been sliced upstream. Equivalent to {@link
+   * #consume(OperationContext, List)} with the system context.
+   *
+   * <p>The affinity-aware Kafka listener ({@link DataHubUsageEventsKafkaListener}) splits the
+   * inbound batch into affinity slices and calls {@link #consume(OperationContext, List)} once per
+   * slice with that slice's representative context.
    */
   public void consume(final List<ConsumerRecord<String, String>> consumerRecords) {
+    consume(systemOperationContext, consumerRecords);
+  }
+
+  /**
+   * Batch listener: Spring Kafka delivers a List of records per poll; we transform each, then hand
+   * the whole batch to the indexer in a single {@link DataHubUsageEventIndexer#indexBatch(List)}
+   * call so storage-aware impls (Postgres) can commit them in one transaction. Spans + lag metrics
+   * are attributed under {@code sliceContext}, which is the slice's representative {@link
+   * OperationContext} (the system context in OSS; a per-affinity context in deployments that supply
+   * a custom {@code InboundBatchAffinityResolver}).
+   */
+  public void consume(
+      @Nonnull final OperationContext sliceContext,
+      final List<ConsumerRecord<String, String>> consumerRecords) {
     indexBatch(
+        sliceContext,
         consumerRecords.stream()
             .map(
                 record ->
@@ -71,6 +89,7 @@ public class DataHubUsageEventsProcessor {
   /** pgQueue transport: same indexing path as {@link #consume(List)}. */
   public void consume(String logicalTopic, final List<QueueReceivedMessage> messages) {
     indexBatch(
+        systemOperationContext,
         messages.stream()
             .map(
                 msg -> {
@@ -88,8 +107,8 @@ public class DataHubUsageEventsProcessor {
             .toList());
   }
 
-  private void indexBatch(List<UsageEventInput> inputs) {
-    systemOperationContext.withSpan(
+  private void indexBatch(@Nonnull OperationContext sliceContext, List<UsageEventInput> inputs) {
+    sliceContext.withSpan(
         "consume",
         () -> {
           List<DataHubUsageEventIndexer.IndexableUsageEvent> events =

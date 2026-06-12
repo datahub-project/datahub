@@ -113,6 +113,10 @@ public class PgQueueMcePollerSourcesConfiguration {
                     handles.add(h);
                   }
                   try {
+                    // pgQueue is the single-deployment transport — affinity-aware partitioning
+                    // (InboundBatchAffinityResolver, applied at the Kafka batch ingress points)
+                    // is not wired here by design. Multi-affinity deployments use Kafka. The
+                    // legacy two-arg consume() delegates to systemOperationContext.
                     batchProcessor.consume(synthetic, inboundProperties);
                     ctx.commit(handles);
                   } catch (Exception e) {
