@@ -6,7 +6,8 @@ import com.linkedin.common.Urn
  * Links from an Asset to its Domains
  */
 @Aspect = {
-  "name": "domains"
+  "name": "domains",
+  "schemaVersion": 2
 }
 record Domains {
   /**
