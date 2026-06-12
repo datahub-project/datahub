@@ -60,12 +60,12 @@ def _make_processor(
     ctx.infer_platform.return_value = platform
     ctx.source_config = config
 
-    return AutoBrowsePathV2Processor(ctx)
+    return AutoBrowsePathV2Processor.create(ctx)
 
 
 def _auto_status_aspect(stream):
     """Helper function to apply auto status aspect processor."""
-    processor = AutoStatusAspectProcessor(mock.MagicMock())
+    processor = AutoStatusAspectProcessor.create(mock.MagicMock())
     return processor.process(stream)
 
 

@@ -101,7 +101,7 @@ def test_auto_status_aspect():
             )
         ),
     ]
-    processor = AutoStatusAspectProcessor(mock.MagicMock())
+    processor = AutoStatusAspectProcessor.create(mock.MagicMock())
     assert list(processor.process(initial_wu)) == expected
 
 
@@ -337,7 +337,7 @@ def test_auto_patch_last_modified_no_change():
 
     expected = initial_wu
 
-    processor = AutoPatchLastModifiedProcessor(mock.MagicMock())
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
     assert list(processor.process(initial_wu)) == expected  # There should be no change
 
 
@@ -353,7 +353,7 @@ def test_auto_patch_last_modified_max_last_updated_timestamp():
 
     # work unit should contain a path of datasetProperties with lastModified set to max of operation.lastUpdatedTime
     # i.e., 20
-    processor = AutoPatchLastModifiedProcessor(mock.MagicMock())
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
     assert list(processor.process(auto_workunit(mcps))) == expected
 
 
@@ -378,7 +378,7 @@ def test_auto_patch_last_modified_multi_patch():
 
     # In this case, the final work units include two patch units: one originating from the source and
     # the other from auto_patch_last_modified.
-    processor = AutoPatchLastModifiedProcessor(mock.MagicMock())
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
     assert list(processor.process(work_units)) == expected
 
 
@@ -402,7 +402,7 @@ def test_auto_patch_last_modified_last_modified_patch_exist():
     # The input and output should align since the source is generating a patch for datasetProperties with the
     # lastModified attribute.
     # Therefore, `auto_patch_last_modified` should not create any additional patch.
-    processor = AutoPatchLastModifiedProcessor(mock.MagicMock())
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
     assert list(processor.process(work_units)) == work_units
 
 
@@ -428,5 +428,5 @@ def test_auto_patch_last_modified_last_modified_patch_not_exist():
         *get_auto_generated_wu(),  # The output should include an additional patch for the `lastModified` attribute.
     ]
 
-    processor = AutoPatchLastModifiedProcessor(mock.MagicMock())
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
     assert list(processor.process(work_units)) == expected
