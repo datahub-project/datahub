@@ -19,12 +19,22 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       publish: ${{ steps.publish.outputs.publish }}
+      datahub_configured: ${{ steps.publish.outputs.datahub_configured }}
     steps:
       - name: Check whether upload to datahub is enabled
         id: publish
+        # secrets cannot be referenced directly in step `if:` conditions, so we
+        # resolve the DataHub target here and expose a boolean output instead.
+        env:
+          DATAHUB_SERVER: ${{ secrets.DataHubServer }}
         run: |
           echo "Enable publish: ${{ github.repository == 'datahub-project/datahub' }}"
           echo "publish=${{ github.repository == 'datahub-project/datahub' }}" >> "$GITHUB_OUTPUT"
+          if [ -n "$DATAHUB_SERVER" ]; then
+            echo "datahub_configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "datahub_configured=false" >> "$GITHUB_OUTPUT"
+          fi
   metadata-ingestion-docgen:
     runs-on: ubuntu-latest
     needs: setup
@@ -57,8 +67,11 @@ jobs:
       - name: Upload metadata to S3
         if: ${{ needs.setup.outputs.publish == 'true' }}
         run: aws s3 cp ./metadata-ingestion/generated/docs/metadata_model_mces.json s3://${{ secrets.ACRYL_CI_ARTIFACTS_BUCKET }}/datahub/demo/metadata/
+      - name: Warn if DataHub upload target is not configured
+        if: ${{ needs.setup.outputs.publish == 'true' && needs.setup.outputs.datahub_configured != 'true' }}
+        run: echo "::warning::Skipping 'Upload metadata to DataHub' because the DataHubServer secret is not set. The model was still generated and uploaded to S3."
       - name: Upload metadata to DataHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
+        if: ${{ needs.setup.outputs.publish == 'true' && needs.setup.outputs.datahub_configured == 'true' }}
         env:
           DATAHUB_SERVER: ${{ secrets.DataHubServer }}
           DATAHUB_TOKEN: ${{ secrets.DataHubToken }}

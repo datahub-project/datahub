@@ -1,0 +1,17 @@
+{
+    "card.nodeGroupCountTooltip_one": "Contém {{count}} grupo de termos",
+    "card.nodeGroupCountTooltip_other": "Contém {{count}} grupos de termos",
+    "card.termCountTooltip_one": "Contém {{count}} termo",
+    "card.termCountTooltip_other": "Contém {{count}} termos",
+    "empty.addTerm": "Adicionar Termo",
+    "empty.addTermGroup": "Adicionar Grupo de Termos",
+    "empty.description": "Crie Termos e Grupos de Termos para organizar ativos de dados usando um vocabulário compartilhado.",
+    "empty.title": "Glossário Vazio",
+    "list.error": "Falha ao carregar o glossário! Ocorreu um erro inesperado.",
+    "list.loading": "Carregando Glossário...",
+    "page.createGlossary": "Criar Glossário",
+    "page.subtitle": "Classifique seus ativos de dados e colunas usando dicionários de dados",
+    "page.title": "Glossário de Negócios",
+    "section.glossaryTerms": "Glossary Terms",
+    "section.termGroups": "Grupos de Termos"
+}
