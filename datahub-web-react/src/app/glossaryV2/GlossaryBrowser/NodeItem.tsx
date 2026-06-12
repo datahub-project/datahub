@@ -1,4 +1,3 @@
-import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
@@ -98,9 +97,11 @@ const ChildrenCount = styled.div`
     margin-right: 12px;
 `;
 
-const StyledDivider = styled.div<{ depth: number }>`
-    width: calc(100% + 26px + ${(props) => props.depth * 18}px);
-    margin-left: calc(-13px - ${(props) => props.depth * 18}px);
+// Full-bleed divider that spans the row regardless of depth indentation. The previous formula
+// (width: 100% + 26px + depth*18px paired with a negative margin-left) overshot the sidebar by
+// 13px on the right, surfacing as a horizontal scrollbar on BrowserWrapper's overflow:auto.
+const StyledDivider = styled.div`
+    width: 100%;
     border-bottom: 1px solid ${(props) => props.theme.colors.bgActive};
 `;
 
@@ -179,8 +180,10 @@ function NodeItem(props: Props) {
 
     if (shouldHideNode) return null;
 
-    const glossaryColor = iconColor || node.displayProperties?.colorHex || generateColor(node.urn);
-    const NodeIcon = iconColor ? BookmarkSimple : BookmarksSimple;
+    // A node's own saved displayProperties.colorHex (set via the header color picker)
+    // takes precedence over a color inherited from a parent node, which in turn beats the
+    // deterministic palette fallback. This keeps the sidebar in sync with the entity header.
+    const glossaryColor = node.displayProperties?.colorHex || iconColor || generateColor(node.urn);
 
     return (
         <ItemWrapper $isSelected={entityData?.urn === node.urn} $isChildNode={isChildNode}>
@@ -203,7 +206,7 @@ function NodeItem(props: Props) {
                             />
                         ))}
                 </CaretSlot>
-                <StyledNodeIcon color={glossaryColor} icon={NodeIcon} size={24} iconSize={14} />
+                <StyledNodeIcon color={glossaryColor} icon={BookmarksSimple} size={24} iconSize={14} />
                 {!isSelecting && (
                     <NodeLink
                         to={`${entityRegistry.getEntityUrl(node.type, node.urn)}`}
@@ -223,7 +226,7 @@ function NodeItem(props: Props) {
                 {isSelected && <SelectedMark />}
                 {!!noOfChildren && <ChildrenCount>{noOfChildren}</ChildrenCount>}
             </NodeWrapper>
-            <StyledDivider depth={depth} />
+            <StyledDivider />
             {areChildrenVisible && (
                 <>
                     {!children.length && loading && <Loader size="xs" padding={8} />}
@@ -257,7 +260,7 @@ function NodeItem(props: Props) {
                                             selectedUrns={selectedUrns}
                                             iconColor={glossaryColor}
                                         />
-                                        <StyledDivider depth={depth + 1} />
+                                        <StyledDivider />
                                     </span>
                                 ))}
                             <div ref={scrollRef} />

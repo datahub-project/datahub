@@ -9,7 +9,7 @@ import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { Tooltip } from '@src/alchemy-components';
 
-import { EntityType, Maybe } from '@types';
+import { DisplayProperties, EntityType, Maybe } from '@types';
 
 const SmallDescription = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};
@@ -97,6 +97,7 @@ interface Props {
     type: EntityType;
     urn: string;
     entityData: GenericEntityProperties | null;
+    displayProperties?: Maybe<DisplayProperties>;
     nodeCount?: Maybe<number>;
     termCount?: Maybe<number>;
     maxDepth?: number;
@@ -104,13 +105,19 @@ interface Props {
 
 const GlossaryListCard = (props: Props) => {
     const { t } = useTranslation('governance.glossary');
-    const { name, description, type, entityData, urn, nodeCount, termCount, maxDepth } = props;
+    const { name, description, type, entityData, urn, displayProperties, nodeCount, termCount, maxDepth } = props;
     const isDescriptionTruncated = description && description.length > MAX_DESCRIPTION_LENGTH;
     const truncatedDescription = description?.slice(0, MAX_DESCRIPTION_LENGTH);
     const isExceedingMaxDepth = (maxDepth || 0) > MAX_DEPTH_QUERIED;
     const generateColor = useGenerateGlossaryColorFromPalette();
     const isNode = type === EntityType.GlossaryNode;
-    const glossaryColor = generateColor(entityData?.urn || urn);
+    // Priority: the child's own saved colorHex > the parent (current page) entity's color
+    // > a deterministic palette color derived from the parent's URN. Falling back to the
+    // parent's URN (rather than the child's) matches the sidebar tree's inheritance, so a
+    // child without an explicit color renders the same swatch wherever it appears.
+    const parentColor = entityData?.displayProperties?.colorHex;
+    const parentUrn = entityData?.urn;
+    const glossaryColor = displayProperties?.colorHex || parentColor || generateColor(parentUrn || urn);
     const Icon = isNode ? BookmarksSimple : BookmarkSimple;
 
     return (

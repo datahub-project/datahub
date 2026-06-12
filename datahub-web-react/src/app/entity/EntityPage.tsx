@@ -71,12 +71,18 @@ export const EntityPage = ({ entityType }: Props) => {
         entityType === EntityType.DataProcessInstance ||
         entityType === EntityType.GlossaryNode;
 
+    // Build the profile JSX up-front (and unconditionally) so any hooks that entity definitions
+    // inline through `getProfileTabs()` run on every render. Otherwise the hook count flips when
+    // `canViewEntityPage` transitions from undefined → defined after the privileges query
+    // resolves, producing a Rules-of-Hooks violation.
+    const profile = entityRegistry.renderProfile(entityType, urn);
+
     return (
         <>
             {error && <ErrorSection />}
             {data && !canViewEntityPage && <UnauthorizedPage />}
             {canViewEntityPage &&
-                ((showNewPage && <>{entityRegistry.renderProfile(entityType, urn)}</>) || (
+                ((showNewPage && <>{profile}</>) || (
                     <BrowsableEntityPage
                         isBrowsable={isBrowsable}
                         urn={urn}
@@ -86,7 +92,7 @@ export const EntityPage = ({ entityType }: Props) => {
                         {isLineageMode && isLineageSupported ? (
                             <LineageExplorer type={entityType} urn={urn} />
                         ) : (
-                            entityRegistry.renderProfile(entityType, urn)
+                            profile
                         )}
                     </BrowsableEntityPage>
                 ))}

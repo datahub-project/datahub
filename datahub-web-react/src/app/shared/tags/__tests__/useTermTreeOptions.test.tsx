@@ -120,6 +120,23 @@ describe('useTermTreeOptions', () => {
         expect(termRow.color).toBe(FIXTURE_COLOR);
     });
 
+    it("a term's own displayProperties.colorHex overrides the inherited root color", () => {
+        // Once a user explicitly picks a color for an individual term, that color is the source
+        // of truth wherever the term appears — including the modal picker (this hook).
+        const ROOT_COLOR = 'fixture-root-color'; // Should be ignored on the term row.
+        const TERM_COLOR = 'fixture-term-own-color';
+        const root = makeNode('urn:li:glossaryNode:root', 'Root', [], ROOT_COLOR);
+        const term = {
+            ...makeTerm('urn:li:glossaryTerm:t1', 'Term1', [root]),
+            displayProperties: { colorHex: TERM_COLOR },
+        } as unknown as GlossaryTerm;
+        const { result } = renderHook(() => useTermTreeOptions({ entities: [term] }));
+
+        const [rootRow, termRow] = result.current.allOptions;
+        expect(rootRow.color).toBe(ROOT_COLOR); // Node header still reads from the root.
+        expect(termRow.color).toBe(TERM_COLOR); // Term row reads from its own colorHex.
+    });
+
     it('propagates the root color to descendant node headers (matches the sidebar)', () => {
         // Regression: `Adoption.PetProperties` used to render with its own URN-hashed color
         // (e.g. orange) in the modal, while the sidebar showed it with Adoption's color (pink)

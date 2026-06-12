@@ -2609,6 +2609,11 @@ type GlossaryTerm implements Entity {
   The forms associated with the Dataset
   """
   forms: Forms
+
+  """
+  Display properties for the glossary term
+  """
+  displayProperties: DisplayProperties
 }
 
 """

@@ -37,6 +37,32 @@ describe('getDeepestParentNode', () => {
 describe('getGlossaryTermColor', () => {
     const generateColor = (urn: string) => `palette-${urn}`;
 
+    it("prefers the term's own displayProperties.colorHex above any parent color", () => {
+        // Term wins even when both a deeper colorHex-bearing parent and a palette fallback are
+        // available — once a user has picked a color via the term's picker, that's authoritative.
+        const TERM_COLOR = 'term-own-color';
+        const PARENT_COLOR = 'parent-display-color';
+        const term = {
+            urn: 'urn:li:glossaryTerm:t1',
+            displayProperties: { colorHex: TERM_COLOR },
+            parentNodes: makeParentNodes([
+                makeParentNode('urn:li:glossaryNode:direct'),
+                makeParentNode('urn:li:glossaryNode:root', PARENT_COLOR),
+            ]),
+        } as unknown as GlossaryTerm;
+        expect(getGlossaryTermColor(term, generateColor)).toBe(TERM_COLOR);
+    });
+
+    it("uses the term's own displayProperties.colorHex for a root-level term", () => {
+        const TERM_COLOR = 'term-own-color';
+        const term = {
+            urn: 'urn:li:glossaryTerm:root-level',
+            displayProperties: { colorHex: TERM_COLOR },
+            parentNodes: undefined,
+        } as unknown as GlossaryTerm;
+        expect(getGlossaryTermColor(term, generateColor)).toBe(TERM_COLOR);
+    });
+
     it('uses the root parent node displayProperties.colorHex when set', () => {
         // Function returns the colorHex string verbatim — any sentinel works, no need for a real hex.
         const PARENT_COLOR = 'parent-display-color';

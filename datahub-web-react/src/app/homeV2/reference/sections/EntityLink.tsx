@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import styled, { CSSObject } from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
+import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { IconStyleType } from '@src/app/entityV2/Entity';
@@ -13,7 +13,7 @@ import { getEntityPlatforms } from '@src/app/entityV2/shared/containers/profile/
 import HealthIcon from '@src/app/previewV2/HealthIcon';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 
-import { Entity, EntityType } from '@types';
+import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
 const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperties }>`
     display: flex;
@@ -71,16 +71,11 @@ const DisplayNameText = styled.span<{ entity: GenericEntityProperties }>`
     text-overflow: ellipsis;
 `;
 
-const RibbonDecoration = styled.div`
-    width: 22px;
-    height: 32px;
-    position: relative;
-    overflow: hidden;
-
-    > span {
-        top: -10px;
-        padding: 5px;
-    }
+const GlossaryIconWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0px 4px;
 `;
 
 type Props = {
@@ -110,11 +105,15 @@ export const EntityLink = ({
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
 
     const getPlatformIcon = (entityData: GenericEntityProperties) => {
-        if (entityData.type === EntityType.GlossaryTerm) {
+        if (entityData.type === EntityType.GlossaryTerm || entityData.type === EntityType.GlossaryNode) {
             return (
-                <RibbonDecoration>
-                    <GlossaryPreviewCardDecoration urn={entity.urn || ''} entityData={entity} />
-                </RibbonDecoration>
+                <GlossaryIconWrapper>
+                    <GlossaryEntityIcon
+                        entity={entity as unknown as GlossaryTerm | GlossaryNode}
+                        size={24}
+                        iconSize={14}
+                    />
+                </GlossaryIconWrapper>
             );
         }
         const { platform, platforms } = getEntityPlatforms(entityData.type || null, entityData);

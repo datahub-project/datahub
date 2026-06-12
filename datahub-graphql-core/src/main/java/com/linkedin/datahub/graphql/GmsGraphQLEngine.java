@@ -1494,7 +1494,7 @@ public class GmsGraphQLEngine {
                   "updateOwnershipType", new UpdateOwnershipTypeResolver(this.ownershipTypeService))
               .dataFetcher(
                   "updateDisplayProperties",
-                  new UpdateDisplayPropertiesResolver(this.entityService))
+                  new UpdateDisplayPropertiesResolver(this.entityService, this.entityClient))
               .dataFetcher(
                   "deleteOwnershipType", new DeleteOwnershipTypeResolver(this.ownershipTypeService))
               .dataFetcher("submitFormPrompt", new SubmitFormPromptResolver(this.formService))
