@@ -33,7 +33,9 @@ class TimestampPair:
 class AutoPatchLastModifiedProcessorReport(WorkunitProcessorReport):
     """Report for AutoPatchLastModifiedProcessor metrics."""
 
-    pass
+    num_patches_emitted: int = (
+        0  # Datasets patched with lastModified from operation timestamps
+    )
 
 
 def try_aspect_from_metadata_change_proposal_class(
@@ -130,6 +132,7 @@ class AutoPatchLastModifiedProcessor(
                 timestamp_pair.last_modified_dataset_props is None
                 and timestamp_pair.last_updated_timestamp_dataset_props
             ):
+                self.report.num_patches_emitted += 1
                 dataset_patch_builder = DatasetPatchBuilder(urn=entity_urn)
 
                 dataset_patch_builder.set_last_modified(
