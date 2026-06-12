@@ -22,6 +22,7 @@ from typing import (
 import pydantic.dataclasses
 import sqlglot
 import sqlglot.errors
+import sqlglot.expressions
 import sqlglot.lineage
 import sqlglot.optimizer
 import sqlglot.optimizer.annotate_types
@@ -1119,7 +1120,12 @@ def _select_statement_cll(
 
             try:
                 lineage_node = sqlglot.lineage.lineage(
-                    output_col,
+                    # Pass the already-resolved output column as a quoted identifier so
+                    # sqlglot's normalize_identifiers preserves its casing instead of
+                    # case-folding it (which would break the lookup for case-sensitive
+                    # columns). identify=True during qualification makes every projection
+                    # a quoted identifier, so quoted=True is uniformly correct here.
+                    sqlglot.expressions.column(output_col, quoted=True),
                     statement,
                     dialect=dialect,
                     scope=root_scope,
