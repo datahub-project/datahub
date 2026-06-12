@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 class ValidateDuplicateSchemaFieldPathsProcessorReport(WorkunitProcessorReport):
     """Report for ValidateDuplicateSchemaFieldPathsProcessor metrics."""
 
-    pass
+    total_schema_aspects: int = 0
+    schemas_with_duplicates: int = 0
+    duplicated_field_paths: int = 0
 
 
 class ValidateDuplicateSchemaFieldPathsProcessor(
@@ -29,16 +31,13 @@ class ValidateDuplicateSchemaFieldPathsProcessor(
     def __init__(self, ctx: WorkunitProcessorContext) -> None:
         super().__init__(ctx)
         self._platform = ctx.infer_platform()
-        self._total_schema_aspects = 0
-        self._schemas_with_duplicates = 0
-        self._duplicated_field_paths = 0
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         """Count schema metadata aspects with duplicate field paths and emit telemetry."""
         for wu in stream:
             schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
             if schema_metadata:
-                self._total_schema_aspects += 1
+                self.report.total_schema_aspects += 1
 
                 seen_fields = set()
                 dropped_fields = []
@@ -55,17 +54,17 @@ class ValidateDuplicateSchemaFieldPathsProcessor(
                         f"Fixing duplicate field paths in schema aspect for {wu.get_urn()} by dropping fields: {dropped_fields}"
                     )
                     schema_metadata.fields = updated_fields
-                    self._schemas_with_duplicates += 1
-                    self._duplicated_field_paths += len(dropped_fields)
+                    self.report.schemas_with_duplicates += 1
+                    self.report.duplicated_field_paths += len(dropped_fields)
 
             yield wu
 
-        if self._schemas_with_duplicates:
+        if self.report.schemas_with_duplicates:
             properties = {
                 "platform": self._platform,
-                "total_schema_aspects": self._total_schema_aspects,
-                "schemas_with_duplicates": self._schemas_with_duplicates,
-                "duplicated_field_paths": self._duplicated_field_paths,
+                "total_schema_aspects": self.report.total_schema_aspects,
+                "schemas_with_duplicates": self.report.schemas_with_duplicates,
+                "duplicated_field_paths": self.report.duplicated_field_paths,
             }
             telemetry.telemetry_instance.ping(
                 "ingestion_duplicate_schema_field_paths", properties
