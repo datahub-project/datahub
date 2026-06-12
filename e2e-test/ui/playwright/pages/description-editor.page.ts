@@ -2,6 +2,7 @@ import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { TIMEOUTS, TABLE_LOAD_DELAY, LOAD_STATES } from '../utils/constants';
+import { writeFile, deleteFileIfExists } from '../helpers/file-utils';
 
 // Page object for entity description editor interactions
 export default class DescriptionEditorPage extends BasePage {
@@ -74,15 +75,7 @@ export default class DescriptionEditorPage extends BasePage {
 
   // Upload via button with temp file (handles unsupported file type validation)
   async dropFileIntoEditor(fileContent: string, fileName: string, _mimeType: string): Promise<void> {
-    const fs = await import('fs');
-    const path = await import('path');
-    const os = await import('os');
-    const crypto = await import('crypto');
-
-    const tempDir = os.tmpdir();
-    const uniqueSuffix = crypto.randomBytes(6).toString('hex');
-    const tempFilePath = path.join(tempDir, `test-${Date.now()}-${uniqueSuffix}-${fileName}`);
-    fs.writeFileSync(tempFilePath, fileContent);
+    const tempFilePath = writeFile(fileContent, fileName);
 
     try {
       await this.uploadFileButton.click();
@@ -93,12 +86,7 @@ export default class DescriptionEditorPage extends BasePage {
       const fileNode = this.editorFileNodesContainer.getByTestId(this.getFileNodeTestId(fileName));
       await expect(fileNode).toBeHidden();
     } finally {
-      try {
-        const fsCleanup = await import('fs');
-        fsCleanup.unlinkSync(tempFilePath);
-      } catch {
-        // Ignore cleanup errors
-      }
+      deleteFileIfExists(tempFilePath);
     }
   }
 
