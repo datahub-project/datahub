@@ -67,6 +67,16 @@ TDS_PARAM_INITIAL_SQL = TDS_WITH_INITIAL_SQL.replace(
     b" WHERE REGION = &lt;[Parameters].[Region]&gt;'",
 )
 
+# Initial SQL whose line breaks were lost: a leading `--` line comment with no
+# terminating newline swallows the whole script, so split_statements yields zero
+# statements and no lineage. The connector must surface this (warning + counter)
+# rather than fail silently.
+TDS_FLATTENED_COMMENT_INITIAL_SQL = TDS_WITH_INITIAL_SQL.replace(
+    b"one-time-sql='CREATE TEMPORARY TABLE TMP AS SELECT * FROM ANALYTICS_DB.PUBLIC.SOURCE_TABLE'",
+    b"one-time-sql='-- build temp stage CREATE TEMPORARY TABLE TMP AS "
+    b"SELECT * FROM ANALYTICS_DB.PUBLIC.SOURCE_TABLE'",
+)
+
 
 def _make_tdsx(tds_bytes: bytes) -> bytes:
     buf = io.BytesIO()
@@ -291,6 +301,38 @@ def test_get_initial_sql_lineage_multi_statement():
         and "SOURCE_TWO" in result.raw_sql
     )
     assert site_source.report.num_initial_sql_parse_failures == 0
+    assert site_source.report.num_initial_sql_statements_parsed == 2
+    assert site_source.report.num_initial_sql_connections_without_statements == 0
+
+
+def test_get_initial_sql_lineage_flattened_comment_warns_and_counts():
+    # Stored Initial SQL that has lost its line breaks: a leading `--` comment with no
+    # newline swallows the whole script, so zero statements split out and no lineage is
+    # produced. This must be surfaced (warning + counter), NOT treated as a parse
+    # failure and NOT left silent.
+    site_source = _make_site_source()
+    tdsx = _make_tdsx(TDS_FLATTENED_COMMENT_INITIAL_SQL)
+
+    def fake_download(luid, filepath=None, include_extract=True):
+        path = Path(filepath) / "ds.tdsx"
+        path.write_bytes(tdsx)
+        return str(path)
+
+    with mock.patch.object(
+        site_source.server.datasources, "download", side_effect=fake_download
+    ):
+        result = site_source.get_initial_sql_lineage(
+            datasource={"luid": "abc-123", "id": "dsid"},
+            datasource_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,dsid,PROD)",
+        )
+
+    # Raw SQL is still captured for the custom property, but yields no lineage.
+    assert result.upstreams == []
+    assert result.raw_sql is not None
+    assert site_source.report.num_initial_sql_connections_found == 1
+    assert site_source.report.num_initial_sql_statements_parsed == 0
+    assert site_source.report.num_initial_sql_parse_failures == 0
+    assert site_source.report.num_initial_sql_connections_without_statements == 1
 
 
 def test_emit_datasource_upstream_lineage_merges_and_dedups_initial_sql():
