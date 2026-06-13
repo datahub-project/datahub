@@ -237,10 +237,9 @@ aws_common = {
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
-    # Known vulnerability: urllib3 has CVEs (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441)
-    # fixed in urllib3>=2.6.0
-    # We cannot require >=2.6.0 due to great expectations
-    "urllib3>=1.26,<3.0",
+    # urllib3: CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 fixed in 2.6.3.
+    # CVE-2026-44431, CVE-2026-44432 fixed in 2.7.0.
+    "urllib3>=2.7.0,<3.0",
     "botocore!=1.23.0,<2.0.0",
 }
 
@@ -648,7 +647,9 @@ plugins: Dict[str, Set[str]] = {
     # UnsupportedProductError
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
-    "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
+    # 7.17.x on Python >=3.10 drops the urllib3<2 pin (uses urllib3<3,>=1.21.1).
+    # 7.13.4 floor preserves compatibility; 7.17.13 is the last 7.x release.
+    "elasticsearch": {"elasticsearch>=7.13.4,<=7.17.13", *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
         "pandas<3.0.0",
@@ -798,7 +799,8 @@ plugins: Dict[str, Set[str]] = {
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
-    "tableau": {"tableauserverclient>=0.24.0,<=0.40"} | sqlglot_lib,
+    # 0.35 widens id/name/project_id fields to Optional[str]; floor set to match.
+    "tableau": {"tableauserverclient>=0.35,<=0.40"} | sqlglot_lib,
     "thoughtspot": {"thoughtspot_rest_api>=2.0.0,<3.0.0"} | sqlglot_lib,
     "teradata": sql_common
     | usage_common
@@ -876,6 +878,9 @@ all_exclude_plugins: Set[str] = {
     # The great-expectations extra is only retained for compatibility, but new users should
     # be using the datahub-gx-plugin package instead.
     "great-expectations",
+    # profiling-ge (acryl-great-expectations) pins urllib3<1.27 which conflicts with
+    # the urllib3>=2.7.0 floor required by aws-common and related extras.
+    "profiling-ge",
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",

@@ -1316,6 +1316,13 @@ class TableauSiteSource:
                 return all_project_map
 
             for project in TSC.Pager(self.server.projects):
+                if not project.id or not project.name:
+                    self.report.warning(
+                        title="Skipping Tableau project with missing identifier",
+                        message="Project returned from server has no id or name.",
+                        context=f"id={project.id} name={project.name}",
+                    )
+                    continue
                 all_project_map[project.id] = TableauProject(
                     id=project.id,
                     name=project.name,
@@ -1325,19 +1332,19 @@ class TableauSiteSource:
                     path=[],
                 )
             # Set parent project name
-            for _project_id, project in all_project_map.items():
-                if project.parent_id is None:
+            for _project_id, tp in all_project_map.items():
+                if tp.parent_id is None:
                     continue
 
-                if project.parent_id in all_project_map:
-                    project.parent_name = all_project_map[project.parent_id].name
+                if tp.parent_id in all_project_map:
+                    tp.parent_name = all_project_map[tp.parent_id].name
                 else:
                     self.report.warning(
                         title="Incomplete project hierarchy",
                         message="Project details missing. Child projects will be ingested without reference to their parent project. We generally need Site Administrator Explorer permissions to extract the complete project hierarchy.",
-                        context=f"Missing {project.parent_id}, referenced by {project.id} {project.name}",
+                        context=f"Missing {tp.parent_id}, referenced by {tp.id} {tp.name}",
                     )
-                    project.parent_id = None
+                    tp.parent_id = None
 
             # Post-condition
             assert all(
@@ -1465,7 +1472,8 @@ class TableauSiteSource:
                         f"registry"
                     )
                     continue
-                self.datasource_project_map[ds.id] = ds.project_id
+                if ds.id and ds.project_id:
+                    self.datasource_project_map[ds.id] = ds.project_id
         except Exception as e:
             self.report.get_all_datasources_query_failed = True
             self.report.warning(
@@ -1485,7 +1493,8 @@ class TableauSiteSource:
                     f"registry"
                 )
                 continue
-            self.workbook_project_map[wb.id] = wb.project_id
+            if wb.id and wb.project_id:
+                self.workbook_project_map[wb.id] = wb.project_id
 
     def _populate_projects_registry(self) -> None:
         if self.server is None:
@@ -2632,7 +2641,8 @@ class TableauSiteSource:
                     f"registry"
                 )
             else:
-                self.datasource_project_map[ds_result.id] = ds_result.project_id
+                if ds_result.id and ds_result.project_id:
+                    self.datasource_project_map[ds_result.id] = ds_result.project_id
         except Exception as e:
             self.report.num_get_datasource_query_failures += 1
             self.report.warning(
@@ -3901,8 +3911,11 @@ class TableauSiteSource:
             self.config.permission_ingestion
             and self.config.permission_ingestion.enable_workbooks
         ):
-            logger.debug(f"Ingest access roles of workbook-id='{workbook.get(c.LUID)}'")
-            workbook_instance = self.server.workbooks.get_by_id(workbook.get(c.LUID))
+            wb_luid = workbook.get(c.LUID)
+            if not wb_luid:
+                return
+            logger.debug(f"Ingest access roles of workbook-id='{wb_luid}'")
+            workbook_instance = self.server.workbooks.get_by_id(str(wb_luid))
             self.server.workbooks.populate_permissions(workbook_instance)
             custom_props = self._create_workbook_properties(
                 workbook_instance.permissions
@@ -4313,7 +4326,8 @@ class TableauSiteSource:
 
     def _fetch_groups(self):
         for group in TSC.Pager(self.server.groups):
-            self.group_map[group.id] = group
+            if group.id:
+                self.group_map[group.id] = group
 
     def _get_allowed_capabilities(self, capabilities: Dict[str, str]) -> List[str]:
         if not self.config.permission_ingestion:
@@ -4333,7 +4347,7 @@ class TableauSiteSource:
         groups = []
         for rule in permissions:
             if rule.grantee.tag_name == "group":
-                group = self.group_map.get(rule.grantee.id)
+                group = self.group_map.get(rule.grantee.id) if rule.grantee.id else None
                 if not group or not group.name:
                     logger.debug(f"Group {rule.grantee.id} not found in group map.")
                     continue

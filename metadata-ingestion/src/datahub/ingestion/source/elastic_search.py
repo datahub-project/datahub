@@ -5,7 +5,18 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type, Union
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 
 from elasticsearch import Elasticsearch
 from pydantic import field_validator
@@ -648,12 +659,17 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
 
         if self.source_config.is_profiling_enabled():
             if self.cat_response is None:
-                self.cat_response = self.client.cat.indices(
-                    params={
-                        "format": "json",
-                        "bytes": "b",
-                        "h": "index,docs.count,store.size",
-                    }
+                # cat.indices with format=json returns list[dict] at runtime;
+                # stubs in 7.17.x incorrectly type it as dict | str.
+                self.cat_response = cast(
+                    List[Dict[str, Any]],
+                    self.client.cat.indices(
+                        params={
+                            "format": "json",
+                            "bytes": "b",
+                            "h": "index,docs.count,store.size",
+                        }
+                    ),
                 )
                 if self.cat_response is None:
                     return
