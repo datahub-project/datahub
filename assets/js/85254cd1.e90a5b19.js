@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkdocs_website=globalThis.webpackChunkdocs_website||[]).push([[1683],{70894(s){s.exports=JSON.parse('{"label":"Business Glossary","permalink":"/learn/tags/business-glossary","allTagsPath":"/learn/tags","count":1}')}}]);
