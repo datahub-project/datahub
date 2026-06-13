@@ -1065,55 +1065,153 @@ The `migrate` group of commands allows you to perform certain kinds of migration
 
 The `dataplatform2instance` migration command allows you to migrate your entities from an instance-agnostic platform identifier to an instance-specific platform identifier. If you have ingested metadata in the past for this platform and would like to transfer any important metadata over to the new instance-specific entities, then you should use this command. For example, if your users have added documentation or added tags or terms to your datasets, then you should run this command to transfer this metadata over to the new entities. For further context, read the Platform Instance Guide [here](./platform-instances.md).
 
-A few important options worth calling out:
+This command migrates the following entity types: datasets, charts, dashboards, dataflows, datajobs, and containers.
 
-- --dry-run / -n : Use this to get a report for what will be migrated before running
-- --force / -F : Use this if you know what you are doing and do not want to get a confirmation prompt before migration is started
-- --keep : When enabled, will preserve the old entities and not delete them. Default behavior is to soft-delete old entities.
-- --hard : When enabled, will hard-delete the old entities.
+Options:
+
+- `--platform` (required): The data platform to migrate (e.g. `hive`, `snowflake`, `powerbi`).
+- `--instance` (required): The target platform instance name.
+- `--dry-run` / `-n`: Preview what will be migrated without making changes.
+- `--force` / `-F`: Skip the confirmation prompt.
+- `--keep`: Preserve old entities instead of soft-deleting them.
+- `--hard`: Hard-delete old entities instead of soft-delete.
+- `--env`: The environment/fabric to filter on (default: `PROD`).
+- `--on-conflict`: How to handle entities that already exist at the target. One of `overwrite` (default), `patch`, or `prompt`.
+- `--skip-on-error`: Continue migrating remaining entities when one fails, instead of aborting.
+- `--entity-types`: Comma-separated list of entity types to migrate (default: all). Available: `dataset`, `chart`, `dashboard`, `dataFlow`, `dataJob`.
 
 **_Note_**: Timeseries aspects such as Usage Statistics and Dataset Profiles are not migrated over to the new entity instances, you will get new data points created when you re-run ingestion using the `usage` or sources with profiling turned on.
 
 ##### Dry Run
 
 ```console
-datahub migrate dataplatform2instance --platform elasticsearch --instance prod_index --dry-run
-Starting migration: platform:elasticsearch, instance=prod_index, force=False, dry-run=True
-100% (25 of 25) |####################################################################################################################################################################################| Elapsed Time: 0:00:00 Time:  0:00:00
+datahub migrate dataplatform2instance --platform powerbi --instance my_instance --dry-run --skip-on-error
+Starting migration: platform:powerbi, instance=my_instance, force=False, dry-run=True
+This command will migrate DATASET, CHART, DASHBOARD, DATAFLOW, DATAJOB and CONTAINERS.
+No dataset entities found without instance, skipping.
+No chart entities found without instance, skipping.
+No dashboard entities found without instance, skipping.
+No dataFlow entities found without instance, skipping.
+No dataJob entities found without instance, skipping.
+100% (398 of 398) |##############| Elapsed Time: 0:00:00
 [Dry Run] Migration Report:
 --------------
-[Dry Run] Migration Run Id: migrate-5710349c-1ec7-4b83-a7d3-47d71b7e972e
-[Dry Run] Num entities created = 25
+[Dry Run] Migration Run Id: container-migrate-f324880f-...
+[Dry Run] Num entities created = 0
 [Dry Run] Num entities affected = 0
-[Dry Run] Num entities migrated = 25
-[Dry Run] Details:
-[Dry Run] New Entities Created: {'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.datahubretentionindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.schemafieldindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.system_metadata_service_v1,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.tagindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.dataset_datasetprofileaspect_v1,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.mlmodelindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.mlfeaturetableindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.datajob_datahubingestioncheckpointaspect_v1,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.datahub_usage_event,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.dataset_operationaspect_v1,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.datajobindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.dataprocessindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.glossarytermindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.dataplatformindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.mlmodeldeploymentindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.datajob_datahubingestionrunsummaryaspect_v1,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.graph_service_v1,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.datahubpolicyindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.dataset_datasetusagestatisticsaspect_v1,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.dashboardindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.glossarynodeindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.mlfeatureindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.dataflowindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.mlprimarykeyindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,prod_index.chartindex_v2,PROD)'}
-[Dry Run] External Entities Affected: None
-[Dry Run] Old Entities Migrated = {'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,dataset_datasetusagestatisticsaspect_v1,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,mlmodelindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,mlmodeldeploymentindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,datajob_datahubingestionrunsummaryaspect_v1,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,datahubretentionindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,datahubpolicyindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,dataset_datasetprofileaspect_v1,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,glossarynodeindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,dataset_operationaspect_v1,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,graph_service_v1,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,datajobindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,mlprimarykeyindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,dashboardindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,datajob_datahubingestioncheckpointaspect_v1,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,tagindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,datahub_usage_event,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,schemafieldindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,mlfeatureindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,dataprocessindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,dataplatformindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,mlfeaturetableindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,glossarytermindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,dataflowindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,chartindex_v2,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:elasticsearch,system_metadata_service_v1,PROD)'}
+[Dry Run] Num entities migrated = 0
 ```
 
 ##### Real Migration (with soft-delete)
 
-```
-> datahub migrate dataplatform2instance --platform hive --instance
+```console
 datahub migrate dataplatform2instance --platform hive --instance warehouse
 Starting migration: platform:hive, instance=warehouse, force=False, dry-run=False
-Will migrate 4 urns such as ['urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)']
-New urns will look like ['urn:li:dataset:(urn:li:dataPlatform:hive,warehouse.logging_events,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,warehouse.fct_users_created,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,warehouse.SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,warehouse.fct_users_deleted,PROD)']
-
-Ok to proceed? [y/N]:
+This command will migrate DATASET, CHART, DASHBOARD, DATAFLOW, DATAJOB and CONTAINERS.
+Will migrate 4 urns such as [...]
+New urns will look like ['urn:li:dataset:(urn:li:dataPlatform:hive,warehouse.SampleHiveDataset,PROD)', ...]
+Ok to proceed? [y/N]: y
 ...
 Migration Report:
 --------------
-Migration Run Id: migrate-f5ae7201-4548-4bee-aed4-35758bb78c89
+Migration Run Id: migrate-f5ae7201-...-dataset
 Num entities created = 4
 Num entities affected = 0
 Num entities migrated = 4
-Details:
-New Entities Created: {'urn:li:dataset:(urn:li:dataPlatform:hive,warehouse.SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,warehouse.fct_users_deleted,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,warehouse.logging_events,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,warehouse.fct_users_created,PROD)'}
-External Entities Affected: None
-Old Entities Migrated = {'urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)'}
 ```
+
+#### instance2instance
+
+The `instance2instance` migration command allows you to migrate entities from one platform instance to another. This is useful when you need to rename or consolidate platform instances, for example when merging two DataHub environments or renaming an instance after an infrastructure change.
+
+Like `dataplatform2instance`, this command migrates datasets, charts, dashboards, dataflows, datajobs, and containers. It rewrites URNs by replacing the old instance prefix with the new one and updates all incoming relationships (lineage, dashboard references, etc.) to point to the new entities.
+
+When the target entity already exists, the command uses a merge strategy controlled by `--on-conflict`:
+
+- `patch` (default): Additively merge ownership, tags, terms, and lineage. Skip scalar fields (description, custom properties) that conflict.
+- `overwrite`: Replace all target aspects with source values.
+- `prompt`: Ask interactively for each conflict.
+
+**Merge limitation**: Full aspect-level merge (via the Patch API) is only supported for **dataset** entities. For charts, dashboards, dataflows, and datajobs, the merge path falls back to overwrite when the target entity already exists.
+
+Options:
+
+- `--platform` (required): The data platform (e.g. `snowflake`, `powerbi`).
+- `--old-instance` (required): The source platform instance name.
+- `--new-instance` (required): The target platform instance name.
+- `--dry-run` / `-n`: Preview what will be migrated without making changes.
+- `--force` / `-F`: Skip the confirmation prompt.
+- `--keep`: Preserve old entities instead of soft-deleting them.
+- `--hard`: Hard-delete old entities instead of soft-delete.
+- `--env`: The environment/fabric to filter on (default: `PROD`).
+- `--on-conflict`: Conflict resolution strategy: `patch` (default), `overwrite`, or `prompt`.
+- `--skip-on-error`: Continue migrating remaining entities when one fails, instead of aborting.
+- `--entity-types`: Comma-separated list of entity types to migrate (default: all). Available: `dataset`, `chart`, `dashboard`, `dataFlow`, `dataJob`.
+
+**⚠️ Note**: `dataFlow` and `dataJob` should always be migrated together. DataJob URNs embed their parent DataFlow URN — migrating one without the other creates orphaned references. The CLI will prompt for confirmation if you attempt to separate them.
+
+##### When to Use Which Command
+
+| Scenario                                                   | Command                                            |
+| ---------------------------------------------------------- | -------------------------------------------------- |
+| First time adding a platform instance to existing entities | `dataplatform2instance`                            |
+| Renaming or consolidating platform instances               | `instance2instance`                                |
+| Partial migration (specific entity types only)             | Either command with `--entity-types=dataset,chart` |
+
+The key difference: `dataplatform2instance` migrates entities that have **no** platform instance to a new instance (prepending the instance prefix). `instance2instance` migrates entities from one **existing** instance to another (replacing the instance prefix). The default `--on-conflict` also differs: `overwrite` for p2i, `patch` for i2i.
+
+##### Dry Run
+
+```console
+datahub migrate instance2instance \
+  --platform powerbi \
+  --old-instance old_inst \
+  --new-instance new_inst \
+  --dry-run \
+  --skip-on-error
+Starting migration: platform:powerbi, old-instance=old_inst, new-instance=new_inst, force=False, dry-run=True, on-conflict=patch
+This command will migrate DATASET, CHART, DASHBOARD, DATAFLOW, DATAJOB and CONTAINERS.
+Found 689 dataset entities to migrate.
+100% (689 of 689) |##############| Elapsed Time: 0:04:55
+[Dry Run] Migration Report:
+--------------
+[Dry Run] Migration Run Id: migrate-i2i-cba165cc-...-dataset
+[Dry Run] Num entities created = 689
+[Dry Run] Num entities affected = 181
+[Dry Run] Num entities migrated = 688
+[Dry Run] Entities errored = 1
+[Dry Run]   urn:li:dataset:(...,%_of_sales,PROD): URLDecoder: Illegal hex characters in escape (%) pattern
+No chart entities found, skipping.
+No dashboard entities found, skipping.
+No dataFlow entities found, skipping.
+No dataJob entities found, skipping.
+```
+
+##### Real Migration with Merge
+
+```console
+datahub migrate instance2instance \
+  --platform powerbi \
+  --old-instance old_inst \
+  --new-instance new_inst \
+  --on-conflict patch \
+  --skip-on-error
+```
+
+##### Safe Exploration Workflow
+
+When migrating between instances, a safe approach is:
+
+1. **Dry run** to see what will happen:
+   ```console
+   datahub migrate instance2instance --platform powerbi --old-instance old --new-instance new --dry-run
+   ```
+2. **Migrate with --keep** to preserve the old entities as a safety net:
+   ```console
+   datahub migrate instance2instance --platform powerbi --old-instance old --new-instance new --keep
+   ```
+3. **Verify** the new entities look correct in the DataHub UI.
+4. **Clean up** old entities manually with `datahub delete` if everything looks good.
 
 ## Alternate Installation Options
 
