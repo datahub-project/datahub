@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
+  <edmx:Reference Uri="https://sap.github.io/odata-vocabularies/vocabularies/Analytics.xml">
+    <edmx:Include Alias="Analytics" Namespace="com.sap.vocabularies.Analytics.v1"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="https://oasis-tcs.github.io/odata-vocabularies/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Alias="Capabilities" Namespace="Org.OData.Capabilities.V1"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="https://sap.github.io/odata-vocabularies/vocabularies/Common.xml">
+    <edmx:Include Alias="Common" Namespace="com.sap.vocabularies.Common.v1"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="https://oasis-tcs.github.io/odata-vocabularies/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Alias="Core" Namespace="Org.OData.Core.V1"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="https://sap.github.io/odata-vocabularies/vocabularies/DataIntegration.xml">
+    <edmx:Include Alias="DataIntegration" Namespace="com.sap.vocabularies.DataIntegration.v1"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="https://sap.github.io/odata-vocabularies/vocabularies/Hierarchy.xml">
+    <edmx:Include Alias="Hierarchy" Namespace="com.sap.vocabularies.Hierarchy.v1"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema Namespace="StandaloneService" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+      <EntityContainer Name="EntityContainer">
+        <EntitySet Name="SAP_TIME_VIEW_DIMENSION_DAY" EntityType="StandaloneService.SAP_TIME_VIEW_DIMENSION_DAY"/>
+      </EntityContainer>
+      <EntityType Name="SAP_TIME_VIEW_DIMENSION_DAY">
+        <Key>
+          <PropertyRef Name="DATE_SQL"/>
+        </Key>
+        <Property Name="DATE_SQL" Type="Edm.Date" Nullable="false"/>
+        <Property Name="DATE_SAP" Type="Edm.String" MaxLength="8"/>
+        <Property Name="DAY_OF_WEEK" Type="Edm.String" MaxLength="2"/>
+        <Property Name="CALWEEK" Type="Edm.String" MaxLength="6"/>
+        <Property Name="CALMONTH" Type="Edm.String" MaxLength="6"/>
+        <Property Name="MONTH" Type="Edm.String" MaxLength="2"/>
+        <Property Name="CALQUARTER" Type="Edm.String" MaxLength="5"/>
+        <Property Name="QUARTER" Type="Edm.String" MaxLength="2"/>
+        <Property Name="YEAR" Type="Edm.String" MaxLength="4"/>
+        <Property Name="DAY_INT" Type="Edm.Byte"/>
+      </EntityType>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_DAY">
+        <Annotation Term="Hierarchy.leveled">
+          <Collection>
+            <Record>
+              <PropertyValue Property="name" String="YQMD"/>
+              <PropertyValue Property="label" String="Year, Quarter, Month, Day"/>
+              <PropertyValue Property="levels">
+                <Collection>
+                  <Record>
+                    <PropertyValue Property="element" Path="YEAR"/>
+                  </Record>
+                  <Record>
+                    <PropertyValue Property="element" Path="CALQUARTER"/>
+                  </Record>
+                  <Record>
+                    <PropertyValue Property="element" Path="CALMONTH"/>
+                  </Record>
+                  <Record>
+                    <PropertyValue Property="element" Path="DATE_SQL"/>
+                  </Record>
+                </Collection>
+              </PropertyValue>
+            </Record>
+            <Record>
+              <PropertyValue Property="name" String="YMD"/>
+              <PropertyValue Property="label" String="Year, Month, Day"/>
+              <PropertyValue Property="levels">
+                <Collection>
+                  <Record>
+                    <PropertyValue Property="element" Path="YEAR"/>
+                  </Record>
+                  <Record>
+                    <PropertyValue Property="element" Path="CALMONTH"/>
+                  </Record>
+                  <Record>
+                    <PropertyValue Property="element" Path="DATE_SQL"/>
+                  </Record>
+                </Collection>
+              </PropertyValue>
+            </Record>
+            <Record>
+              <PropertyValue Property="name" String="YWD"/>
+              <PropertyValue Property="label" String="Year, Week, Day"/>
+              <PropertyValue Property="levels">
+                <Collection>
+                  <Record>
+                    <PropertyValue Property="element" Path="YEAR"/>
+                  </Record>
+                  <Record>
+                    <PropertyValue Property="element" Path="CALWEEK"/>
+                  </Record>
+                  <Record>
+                    <PropertyValue Property="element" Path="DATE_SQL"/>
+                  </Record>
+                </Collection>
+              </PropertyValue>
+            </Record>
+          </Collection>
+        </Annotation>
+        <Annotation Term="Analytics.dimensionType" String="#TIME"/>
+        <Annotation Term="Common.Label" String="Time Dimension - Day"/>
+        <Annotation Term="DataIntegration.OriginalName" String="SAP.TIME.VIEW_DIMENSION_DAY"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.EntityContainer/SAP_TIME_VIEW_DIMENSION_DAY">
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record Type="Capabilities.DeleteRestrictionsType">
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record Type="Capabilities.InsertRestrictionsType">
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record Type="Capabilities.UpdateRestrictionsType">
+            <PropertyValue Property="Updatable" Bool="false"/>
+          </Record>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_DAY/DATE_SQL">
+        <Annotation Term="Analytics.dimension" Bool="true"/>
+        <Annotation Term="Common.Label" String="Date"/>
+        <Annotation Term="Common.IsCalendarDate" Bool="true"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_DAY/DATE_SAP">
+        <Annotation Term="Analytics.dimension" Bool="true"/>
+        <Annotation Term="Common.Label" String="Date (String)"/>
+        <Annotation Term="Common.IsCalendarDate" Bool="true"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_DAY/DAY_OF_WEEK">
+        <Annotation Term="Analytics.dimension" Bool="true"/>
+        <Annotation Term="Common.Label" String="Day of Week"/>
+        <Annotation Term="Common.IsDayOfCalendarYear" Bool="true"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_DAY/CALWEEK">
+        <Annotation Term="Analytics.dimension" Bool="true"/>
+        <Annotation Term="Common.Label" String="Calendar Week"/>
+        <Annotation Term="Common.IsCalendarYearWeek" Bool="true"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_DAY/CALMONTH">
+        <Annotation Term="Analytics.dimension" Bool="true"/>
+        <Annotation Term="Common.Label" String="Calendar Month"/>
+        <Annotation Term="Common.IsCalendarYearMonth" Bool="true"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_DAY/MONTH">
+        <Annotation Term="Analytics.dimension" Bool="true"/>
+        <Annotation Term="Common.Label" String="Month"/>
+        <Annotation Term="Common.IsCalendarMonth" Bool="true"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_DAY/CALQUARTER">
+        <Annotation Term="Analytics.dimension" Bool="true"/>
+        <Annotation Term="Common.Label" String="Calendar Quarter"/>
+        <Annotation Term="Common.IsCalendarYearQuarter" Bool="true"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_DAY/QUARTER">
+        <Annotation Term="Analytics.dimension" Bool="true"/>
+        <Annotation Term="Common.Label" String="Quarter"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_DAY/YEAR">
+        <Annotation Term="Analytics.dimension" Bool="true"/>
+        <Annotation Term="Common.Label" String="Year"/>
+        <Annotation Term="Common.IsCalendarYear" Bool="true"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_DAY/DAY_INT">
+        <Annotation Term="Common.Label" String="Day (Number)"/>
+      </Annotations>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

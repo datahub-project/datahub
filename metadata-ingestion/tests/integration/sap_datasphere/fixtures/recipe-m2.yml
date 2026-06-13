@@ -1,0 +1,15 @@
+source:
+  type: sap-datasphere
+  config:
+    base_url: "https://yourtenant.eu10.hcs.cloud.sap"
+    token: "${SAP_DATASPHERE_TOKEN}"
+    env: "PROD"
+    space_pattern:
+      allow:
+        - "DEMO_SPACE"
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    token: "${DATAHUB_GMS_TOKEN}"

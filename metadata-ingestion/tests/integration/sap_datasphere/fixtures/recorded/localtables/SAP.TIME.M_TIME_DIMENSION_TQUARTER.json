@@ -1,0 +1,60 @@
+{
+  "definitions": {
+    "SAP.TIME.M_TIME_DIMENSION_TQUARTER": {
+      "kind": "entity",
+      "@readonly": true,
+      "elements": {
+        "ID": {
+          "type": "cds.String",
+          "key": true,
+          "@EndUserText.label": "Identifier",
+          "length": 2,
+          "@ObjectModel.text.element": [
+            {
+              "=": "_DESCRIPTION"
+            }
+          ]
+        },
+        "_DESCRIPTION": {
+          "type": "cds.String",
+          "@Semantics.text": true,
+          "@EndUserText.label": "Quarter Name",
+          "length": 50
+        },
+        "_LANGU": {
+          "type": "cds.String",
+          "key": true,
+          "@Semantics.language": true,
+          "@EndUserText.label": "Language",
+          "length": 5
+        }
+      },
+      "@ObjectModel.modelingPattern": {
+        "#": "LANGUAGE_DEPENDENT_TEXT"
+      },
+      "@ObjectModel.supportedCapabilities": [
+        {
+          "#": "LANGUAGE_DEPENDENT_TEXT"
+        }
+      ],
+      "@EndUserText.label": "Translation Table - Quarter",
+      "@cds.persistence.exists": true,
+      "@DataWarehouse.pinToMemory": true
+    }
+  },
+  "timeDimensionSetting": {
+    "SAP.TIME.M_TIME_DIMENSION_TQUARTER": {
+      "timesettings": {
+        "from": "2015",
+        "to": "2030",
+        "calendarType": "gregorian",
+        "granularity": "day",
+        "status": "COMPLETED"
+      },
+      "textQuarterTable": {
+        "business": "Translation Table - Quarter",
+        "technical": "SAP.TIME.M_TIME_DIMENSION_TQUARTER"
+      }
+    }
+  }
+}
