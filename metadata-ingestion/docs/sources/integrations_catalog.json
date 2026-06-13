@@ -764,11 +764,15 @@
     "img_path": "img/logos/platforms/microstrategy.svg"
   },
   "quicksight": {
-    "api_connector": true,
     "platform_type": "BI Tool",
+    "connection_type": "Pull",
     "title": "Amazon QuickSight",
     "description": "AWS serverless business intelligence service for creating interactive dashboards and visualizations.",
-    "img_path": "img/logos/platforms/quicksight.svg"
+    "img_path": "img/logos/platforms/quicksight.svg",
+    "extra_features": [
+      "Lower Casing",
+      "Status Aspect"
+    ]
   },
   "kinesis": {
     "api_connector": true,
