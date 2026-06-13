@@ -88,6 +88,12 @@ def initialize_secret_masking(
     Initialize secret masking infrastructure (logging filter + exception hook).
 
     Secrets register automatically at point-of-read.
+
+    .. deprecated::
+        ``force`` is deprecated and ignored. The filter is installed once for the
+        process lifetime and every call opens a per-execution secret scope, so
+        there is nothing to force. The argument is kept only for backward
+        compatibility and will be removed in a future release.
     """
     global _bootstrap_completed, _bootstrap_error
 
@@ -102,88 +108,109 @@ def initialize_secret_masking(
         _bootstrap_completed = True  # Mark as completed to avoid repeated warnings
         return
 
-    # Thread-safe initialization: acquire lock for entire operation
+    registry = SecretRegistry.get_instance()
+
+    # The filter + exception hook are installed once for the process lifetime;
+    # they are harmless when no secrets are registered. Only secrets are scoped
+    # per execution (ensure_execution below). `force` is accepted for backward
+    # compatibility but no longer gates anything — installation is idempotent.
+    #
+    # The whole install-check + scope registration is done under _bootstrap_lock
+    # (the same lock shutdown holds across its teardown), so a concurrent
+    # shutdown can't decide it is the last execution and uninstall the filter
+    # between our completion-check and our scope registration — which would let
+    # this execution run unmasked.
     with _bootstrap_lock:
-        # Prevent double initialization
-        if _bootstrap_completed and not force:
-            logger.debug("Secret masking already initialized")
-            return
-
-        try:
-            logger.info("Initializing secret masking infrastructure")
-
-            # Get registry
-            registry = SecretRegistry.get_instance()
-
-            # Install logging filter + stdout wrapper
-            install_masking_filter(
-                secret_registry=registry,
-                max_message_size=max_message_size,
-                install_stdout_wrapper=True,
-            )
-
-            # Install custom exception hook to mask unhandled exceptions
-            _install_exception_hook(registry)
-
-            # Configure warnings to use logging
-            logging.captureWarnings(True)
-
-            # Disable HTTP debug output (prevent deadlock)
+        if not _bootstrap_completed:
             try:
-                import http.client
+                logger.info("Initializing secret masking infrastructure")
 
-                http.client.HTTPConnection.debuglevel = 0
-            except Exception:
-                pass
+                # Install logging filter + stdout wrapper (idempotent)
+                install_masking_filter(
+                    secret_registry=registry,
+                    max_message_size=max_message_size,
+                    install_stdout_wrapper=True,
+                )
 
-            # Set HTTP-related loggers to INFO (not DEBUG)
-            for logger_name in [
-                "urllib3",
-                "urllib3.connectionpool",
-                "urllib3.util.retry",
-                "requests",
-            ]:
+                # Install custom exception hook to mask unhandled exceptions
+                _install_exception_hook(registry)
+
+                # Configure warnings to use logging
+                logging.captureWarnings(True)
+
+                # Disable HTTP debug output (prevent deadlock)
                 try:
-                    logging.getLogger(logger_name).setLevel(logging.INFO)
+                    import http.client
+
+                    http.client.HTTPConnection.debuglevel = 0
                 except Exception:
                     pass
 
-            _bootstrap_completed = True
-            _bootstrap_error = None
-            logger.info(
-                "Secret masking infrastructure initialized successfully. "
-                "Secrets will be registered automatically as they are loaded."
-            )
+                # Set HTTP-related loggers to INFO (not DEBUG)
+                for logger_name in [
+                    "urllib3",
+                    "urllib3.connectionpool",
+                    "urllib3.util.retry",
+                    "requests",
+                ]:
+                    try:
+                        logging.getLogger(logger_name).setLevel(logging.INFO)
+                    except Exception:
+                        pass
 
-        except Exception as e:
-            _bootstrap_error = e
-            logger.error(f"Failed to initialize secret masking: {e}", exc_info=True)
-            # Don't raise - graceful degradation
+                _bootstrap_completed = True
+                _bootstrap_error = None
+                logger.info(
+                    "Secret masking infrastructure initialized successfully. "
+                    "Secrets will be registered automatically as they are loaded."
+                )
+            except Exception as e:
+                _bootstrap_error = e
+                logger.error(f"Failed to initialize secret masking: {e}", exc_info=True)
+                return  # Don't raise - graceful degradation
+
+        # Open a secret scope for this execution (idempotent within one context).
+        # Secrets registered after this belong to this execution and are dropped
+        # by the matching shutdown_secret_masking(), without affecting others.
+        registry.ensure_execution()
 
 
 def shutdown_secret_masking() -> None:
-    """Shutdown secret masking system."""
+    """End the current execution's masking scope.
+
+    Drops only this execution's secrets. If other executions are still running,
+    masking stays installed (their secrets must keep being masked). Only when the
+    last active execution ends do we fully tear down the filter/exception hook.
+    """
     global _bootstrap_completed, _bootstrap_error, _original_excepthook
 
     try:
-        uninstall_masking_filter()
-
-        # Restore original exception hook
-        if _original_excepthook is not None:
-            sys.excepthook = _original_excepthook
-            _original_excepthook = None
-
-        # Clear registry
         registry = SecretRegistry.get_instance()
-        registry.clear()
+        # Hold _bootstrap_lock across the "am I the last execution?" decision and
+        # the teardown, so it is atomic w.r.t. a concurrent initialize that is
+        # checking _bootstrap_completed and registering a new scope. Otherwise an
+        # execution starting in this window would skip re-install and then have
+        # the filter uninstalled out from under it (running unmasked).
+        with _bootstrap_lock:
+            # Remove this execution's secrets; bail out if others are still active.
+            if registry.end_execution():
+                return
 
-        # Reset masking-safe loggers to restore normal logging
-        from datahub.masking.logging_utils import reset_masking_safe_loggers
+            # Last execution finished — fully tear down.
+            uninstall_masking_filter()
 
-        reset_masking_safe_loggers()
+            # Restore original exception hook
+            if _original_excepthook is not None:
+                sys.excepthook = _original_excepthook
+                _original_excepthook = None
 
-        _bootstrap_completed = False
-        _bootstrap_error = None
+            # Reset masking-safe loggers to restore normal logging
+            from datahub.masking.logging_utils import reset_masking_safe_loggers
+
+            reset_masking_safe_loggers()
+
+            _bootstrap_completed = False
+            _bootstrap_error = None
 
         logger.info("Secret masking shutdown completed")
     except Exception as e:
