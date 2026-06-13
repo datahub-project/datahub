@@ -2544,6 +2544,32 @@
       "platform_name": "MongoDB",
       "support_status": "CERTIFIED"
     },
+    "montecarlo": {
+      "capabilities": [
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Monitor/rule descriptions become assertion descriptions",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled via connection_to_platform_map",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.montecarlo.source.MonteCarloSource",
+      "platform_id": "montecarlo",
+      "platform_name": "Monte Carlo",
+      "support_status": "TESTING"
+    },
     "mssql": {
       "capabilities": [
         {

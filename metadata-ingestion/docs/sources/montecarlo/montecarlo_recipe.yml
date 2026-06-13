@@ -1,0 +1,23 @@
+source:
+  type: montecarlo
+  config:
+    api_id: ${MCD_ID} # Monte Carlo API key id (mcd_id)
+    api_token: ${MCD_TOKEN} # Monte Carlo API key token (mcd_token)
+
+    # Map each Monte Carlo warehouse/resource UUID to a DataHub platform so the
+    # monitored-asset URNs match those emitted by your warehouse sources.
+    connection_to_platform_map:
+      "<mc-warehouse-uuid>":
+        platform: snowflake
+        platform_instance: prod
+        env: PROD
+
+    emit_assertions: true # monitors + custom rules -> Assertion entities
+    emit_alerts: true # alerts/incidents -> AssertionRunEvent failures
+    alerts_lookback_days: 30 # how far back to fetch alerts (default: 30 days)
+
+    # stateful_ingestion:
+    #   enabled: true
+
+sink:
+  # sink configs

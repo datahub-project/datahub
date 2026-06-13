@@ -1066,3 +1066,13 @@
     displayName: Airbyte
     type: OTHERS
     logoUrl: "assets/platforms/airbytelogo.png"
+- entityUrn: urn:li:dataPlatform:montecarlo
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: montecarlo
+    displayName: Monte Carlo
+    type: OTHERS
+    logoUrl: "assets/platforms/montecarlologo.png"

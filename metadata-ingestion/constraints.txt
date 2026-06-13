@@ -343,6 +343,7 @@ databricks-sql-connector==2.9.6
     # via acryl-datahub
 dataclasses-json==0.6.7
     # via
+    #   pycarlo
     #   unstructured
     #   unstructured-ingest
 dataflows-tabulator==1.54.3
@@ -554,6 +555,7 @@ graphql-core==3.2.8
     # via
     #   acryl-datahub
     #   gql
+    #   sgqlc
 greenlet==3.3.2
     # via
     #   acryl-datahub
@@ -1178,6 +1180,8 @@ pyasn1-modules==0.4.2
     #   python-ldap
 pyathena==2.25.2
     # via acryl-datahub
+pycarlo==0.12.457
+    # via acryl-datahub
 pycountry==26.2.16
     # via schwifty
 pycparser==3.0 ; implementation_name != 'PyPy'
@@ -1288,6 +1292,8 @@ pytest-rerunfailures==16.1
     # via acryl-datahub
 pytest-timeout==2.4.0
     # via acryl-datahub
+python-box==7.4.1
+    # via pycarlo
 python-dateutil==2.9.0.post0
     # via
     #   acryl-datahub
@@ -1427,6 +1433,7 @@ requests==2.32.5
     #   mlflow-skinny
     #   moto
     #   msal
+    #   pycarlo
     #   pydruid
     #   pyiceberg
     #   redash-toolbelt
@@ -1475,6 +1482,7 @@ responses==0.26.0
     # via
     #   acryl-datahub
     #   moto
+    #   pycarlo
 rfc3339-validator==0.1.4
     # via
     #   jsonschema
@@ -1548,6 +1556,8 @@ setuptools==81.0.0
     #   redshift-connector
     #   spacy
     #   thinc
+sgqlc==16.5
+    # via pycarlo
 shellingham==1.5.4
     # via typer
 simple-salesforce==1.12.9

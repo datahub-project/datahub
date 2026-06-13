@@ -1,5 +1,15 @@
 [
     {
+        "urn": "urn:li:dataPlatform:montecarlo",
+        "name": "montecarlo",
+        "displayName": "Monte Carlo",
+        "description": "Import monitors, custom rules, and alerts from Monte Carlo as DataHub assertions.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/montecarlo",
+        "recipe": "source:\n  type: montecarlo\n  config:\n    api_id: ${MCD_ID}\n    api_token: ${MCD_TOKEN}\n    connection_to_platform_map:\n      \"<mc-warehouse-uuid>\":\n        platform: snowflake\n        platform_instance: prod\n        env: PROD\n    emit_assertions: true\n    emit_alerts: true\n    alerts_lookback_days: 30\n    stateful_ingestion:\n      enabled: true",
+        "category": "Observability",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:bigquery",
         "name": "bigquery",
         "displayName": "BigQuery",

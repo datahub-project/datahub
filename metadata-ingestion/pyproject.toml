@@ -794,6 +794,10 @@ mongodb = [
     "pymongo[aws]>=4.8.0,<5.0.0",
 ]
 
+montecarlo = [
+    "pycarlo>=0.10.0,<1.0.0",
+]
+
 mssql = [
     "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
@@ -1423,6 +1427,7 @@ all = [
     "psycopg2-binary<3.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
+    "pycarlo>=0.10.0,<1.0.0",
     "pydantic<2.12",
     "pydeequ>=1.1.0,<2.0.0",
     "pydruid>=0.6.2,<=0.6.9",
@@ -2062,6 +2067,7 @@ fivetran = "datahub.ingestion.source.fivetran.fivetran:FivetranSource"
 snaplogic = "datahub.ingestion.source.snaplogic.snaplogic:SnaplogicSource"
 qlik-sense = "datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource"
 sigma = "datahub.ingestion.source.sigma.sigma:SigmaSource"
+montecarlo = "datahub.ingestion.source.montecarlo.source:MonteCarloSource"
 sac = "datahub.ingestion.source.sac.sac:SACSource"
 cassandra = "datahub.ingestion.source.cassandra.cassandra:CassandraSource"
 neo4j = "datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource"
