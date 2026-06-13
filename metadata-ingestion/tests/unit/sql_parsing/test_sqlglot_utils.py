@@ -39,6 +39,14 @@ def test_is_dialect_instance():
     assert is_dialect_instance(redshift, ["postgres", "snowflake"])
 
 
+def test_mysql_compatible_dialects():
+    # TiDB and MariaDB speak the MySQL wire protocol; they must resolve to the
+    # MySQL dialect, otherwise sqlglot raises "Unknown dialect" and view/query
+    # lineage parsing silently produces nothing.
+    for platform in ["mysql", "mariadb", "tidb"]:
+        assert is_dialect_instance(get_dialect(platform), "mysql")
+
+
 def test_query_types():
     assert get_query_type_of_sql(
         sqlglot.parse_one(
