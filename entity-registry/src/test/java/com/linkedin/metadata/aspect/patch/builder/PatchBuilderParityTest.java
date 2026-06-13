@@ -396,4 +396,60 @@ public class PatchBuilderParityTest {
             .build();
     assertPayloadMatches("structuredProperties_remove", mcp);
   }
+
+  // ---- Domains ----
+
+  private static final String DOMAIN_URN = "urn:li:domain:testDomain";
+
+  @Test
+  public void testDomainsAdd() throws Exception {
+    MetadataChangeProposal mcp =
+        new DomainsPatchBuilder()
+            .urn(Urn.createFromString(DATASET_URN))
+            .addDomain(Urn.createFromString(DOMAIN_URN), null)
+            .build();
+    assertPayloadMatches("domains_add", mcp);
+  }
+
+  @Test
+  public void testDomainsAddWithContext() throws Exception {
+    MetadataChangeProposal mcp =
+        new DomainsPatchBuilder()
+            .urn(Urn.createFromString(DATASET_URN))
+            .addDomain(Urn.createFromString(DOMAIN_URN), "testContext")
+            .build();
+    assertPayloadMatches("domains_add_with_context", mcp);
+  }
+
+  @Test
+  public void testDomainsAddAttributed() throws Exception {
+    MetadataChangeProposal mcp =
+        new DomainsPatchBuilder()
+            .urn(Urn.createFromString(DATASET_URN))
+            .addDomain(
+                Urn.createFromString(DOMAIN_URN), null, Urn.createFromString(ATTRIBUTION_SOURCE))
+            .build();
+    assertPayloadMatches("domains_add_attributed", mcp);
+  }
+
+  @Test
+  public void testDomainsRemove() throws Exception {
+    MetadataChangeProposal mcp =
+        new DomainsPatchBuilder()
+            .urn(Urn.createFromString(DATASET_URN))
+            .removeDomain(Urn.createFromString(DOMAIN_URN))
+            .build();
+    assertPayloadMatches("domains_remove", mcp);
+  }
+
+  @Test
+  public void testDomainsRemoveAttributed() throws Exception {
+    MetadataChangeProposal mcp =
+        new DomainsPatchBuilder()
+            .urn(Urn.createFromString(DATASET_URN))
+            .removeDomain(
+                Urn.createFromString(DOMAIN_URN), Urn.createFromString(ATTRIBUTION_SOURCE))
+            .build();
+    assertPayloadMatches("domains_remove_attributed", mcp);
+  }
 }

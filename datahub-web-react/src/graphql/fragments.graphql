@@ -1330,6 +1330,9 @@ fragment entityDomain on DomainAssociation {
         }
     }
     associatedUrn
+    attribution {
+        ...attributionFields
+    }
 }
 
 fragment entityApplication on ApplicationAssociation {
