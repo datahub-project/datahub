@@ -2445,6 +2445,130 @@ public class PolicyEngineTest {
     assertFalse(result.isGranted());
   }
 
+  @Test
+  public void testEvaluatePolicyActorFilterExcludedUserNoMatch() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    actorFilter.setAllGroups(false);
+    actorFilter.setExcludedUsers(
+        new UrnArray(ImmutableList.of(Urn.createFromString(AUTHORIZED_PRINCIPAL))));
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.empty(),
+            Collections.emptyList());
+    assertFalse(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyActorFilterExcludedGroupNoMatch() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(true);
+    actorFilter.setExcludedGroups(
+        new UrnArray(ImmutableList.of(Urn.createFromString(AUTHORIZED_GROUP))));
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.empty(),
+            Collections.emptyList());
+    assertFalse(result.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyActorFilterExcludedResourceOwnerTypeNoMatch() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    actorFilter.setResourceOwnersTypes(
+        new UrnArray(ImmutableList.of(Urn.createFromString(OWNERSHIP_TYPE_URN))));
+    actorFilter.setExcludedResourceOwnersTypes(
+        new UrnArray(ImmutableList.of(Urn.createFromString(OWNERSHIP_TYPE_URN))));
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    final EntityResponse entityResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(
+        OWNERSHIP_ASPECT_NAME,
+        new EnvelopedAspect()
+            .setValue(new Aspect(createOwnershipAspectWithTypeUrn(OWNERSHIP_TYPE_URN).data())));
+    entityResponse.setAspects(aspectMap);
+    when(_entityClient.getV2(
+            eq(systemOperationContext),
+            eq(resourceUrn.getEntityType()),
+            eq(resourceUrn),
+            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME))))
+        .thenReturn(entityResponse);
+
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolvers(
+            "dataset",
+            RESOURCE_URN,
+            ImmutableSet.of(AUTHORIZED_PRINCIPAL),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet());
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+    assertFalse(result.isGranted());
+  }
+
   private Ownership createOwnershipAspect(final Boolean addUserOwner, final Boolean addGroupOwner)
       throws Exception {
     final Ownership ownershipAspect = new Ownership();
