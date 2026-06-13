@@ -39,6 +39,11 @@ def test_is_dialect_instance():
     assert is_dialect_instance(redshift, ["postgres", "snowflake"])
 
 
+def test_glue_resolves_to_hive_dialect():
+    # sqlglot has no `glue` dialect; ingestion treats Glue (Athena/Presto) as hive.
+    assert is_dialect_instance(get_dialect("glue"), "hive")
+
+
 def test_query_types():
     assert get_query_type_of_sql(
         sqlglot.parse_one(
