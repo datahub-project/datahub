@@ -72,5 +72,5 @@ class TiDBSource(MySQLSource):
         config = TiDBConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_platform(self):
+    def get_platform(self) -> str:
         return "tidb"

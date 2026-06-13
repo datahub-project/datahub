@@ -1,0 +1,14 @@
+services:
+  testtidb:
+    # Standalone single-node TiDB backed by the in-memory "unistore" engine,
+    # so no PD/TiKV containers are required for the test.
+    image: pingcap/tidb:v7.5.5
+    container_name: "testtidb"
+    command:
+      - --store=unistore
+      - --host=0.0.0.0
+      - --advertise-address=127.0.0.1
+    ports:
+      - "54000:4000"
+    volumes:
+      - ./setup:/setup

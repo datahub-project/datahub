@@ -18,6 +18,8 @@ If you were previously ingesting TiDB using the MySQL connector, switch to the d
 ### Limitations
 
 - TiDB does not support stored procedures or functions, so stored procedure ingestion is disabled for this source.
+- TiDB sequences (`CREATE SEQUENCE`) are not ingested. They are a TiDB-native object type with no MySQL equivalent and are not exposed through the MySQL-compatible table reflection path this source relies on.
+- TiDB-specific table flavors (partitioned, cached, and global temporary tables) are ingested as regular tables, consistent with how TiDB reports them (`TABLE_TYPE = 'BASE TABLE'`).
 - Lineage completeness depends on available view definitions and SQL parsing coverage.
 - Profiling on very large schemas or wide tables can increase extraction time.
 
