@@ -1537,6 +1537,28 @@ class SQLServerSource(SQLAlchemySource):
                     self._discovered_table_cache[name] = result
                     return result
 
+            # For 2-part names (schema.table), try to qualify against
+            # `discovered_datasets` by comparing the last two segments. TSQL
+            # procedure bodies often reference tables as `schema.table` even
+            # though discovery records them fully qualified as
+            # `db.schema.table`; without this we mark every such reference as
+            # undiscovered and the temp-table filter drops real lineage.
+            if len(parts) == 2:
+                standardized_parts = standardized_name.split(".")
+                schema_name_std = standardized_parts[0]
+                table_name_std = standardized_parts[1]
+
+                for discovered_name in self.discovered_datasets:
+                    discovered_parts = discovered_name.split(".")
+                    if (
+                        len(discovered_parts) >= 3
+                        and discovered_parts[-2] == schema_name_std
+                        and discovered_parts[-1] == table_name_std
+                    ):
+                        result = True
+                        self._discovered_table_cache[name] = result
+                        return result
+
             # For names with fewer than MSSQL_QUALIFIED_NAME_PARTS,
             # treat as undiscovered since we can't verify
             result = False

@@ -69,6 +69,21 @@ def test_is_discovered_table(mssql_source):
     assert mssql_source.is_discovered_table("invalid_table_name") is False
 
 
+def test_is_discovered_table_two_part_name_matches_discovered(mssql_source):
+    """A 2-part name (schema.table) should resolve to a discovered table when
+    the schema/table pair matches a fully-qualified entry in
+    `discovered_datasets`. Procedure bodies frequently reference tables this
+    way (e.g. ``UPDATE dbo.regular_table FROM ...``) and without this match
+    the temp-table filter would drop real lineage."""
+    assert mssql_source.is_discovered_table("dbo.regular_table") is True
+
+
+def test_is_discovered_table_two_part_name_no_match(mssql_source):
+    """A 2-part name with no matching discovered table is still treated as
+    undiscovered (the legacy behaviour for short names)."""
+    assert mssql_source.is_discovered_table("dbo.unknown_table") is False
+
+
 def test_detect_rds_environment_on_premises(mssql_source):
     """Test environment detection for on-premises SQL Server"""
     mock_conn = MagicMock()
