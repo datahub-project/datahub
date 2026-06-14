@@ -522,10 +522,12 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 {
                     "name": view_name,
                     "schema": raw_view.get("schema") or "",
+                    "catalog": raw_view.get("catalog") or "",
                     "table_name": (
                         raw_view.get("table_name")
                         or raw_view.get("sql_table_name")
                         or raw_view.get("source_table")
+                        or raw_view.get("semantic_view_name")
                         or ""
                     ),
                     "dimensions": dimensions,
@@ -641,10 +643,18 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             physical_urn: Optional[str] = None
 
             schema = view.get("schema") or ""
+            catalog = view.get("catalog") or ""
             table = view.get("table_name") or ""
+            logger.debug(
+                "View physical binding for %s.%s: %r",
+                model_id,
+                view.get("name", ""),
+                view,
+            )
             if table:
+                effective_database = catalog or database
                 physical_urn = self._physical_dataset_urn(
-                    platform, database, schema, table, platform_instance
+                    platform, effective_database, schema, table, platform_instance
                 )
                 self._physical_dataset_urns.add(physical_urn)
                 yield from self._emit_dataset(
