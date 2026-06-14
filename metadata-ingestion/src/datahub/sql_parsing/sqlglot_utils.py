@@ -3,7 +3,7 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 import functools
 import logging
 import re
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import sqlglot
 import sqlglot.errors
@@ -257,10 +257,68 @@ _TABLE_NAME_NORMALIZATION_RULES = {
 }
 
 
+# Ephemeral object-name markers for temp-aware fingerprinting. Unlike the
+# connector's full-name `temporary_tables_pattern` (which matches a resolved
+# db.schema.table name), these match the distinctive ephemeral token *within* a
+# SQL identifier, so they can be substituted directly on the query text before
+# hashing. Collapsing them lets per-run ETL/sync queries that differ only by an
+# ephemeral name map to a single fingerprint (one Query entity). Lineage-safe:
+# these tables are excluded/resolved from lineage anyway.
+_TMP_UUID = r"[0-9a-f]{8}[-_][0-9a-f]{4}[-_][0-9a-f]{4}[-_][0-9a-f]{4}[-_][0-9a-f]{12}"
+
+
+def _ephemeral_identifier(marker: str) -> "re.Pattern[str]":
+    """Match an ephemeral table identifier that carries a per-run marker token.
+
+    Only the identifier-NAME characters around the marker are matched. A
+    dialect's quote characters (``"``, `` ` ``, ``[`` / ``]``) are not identifier
+    characters, so they naturally bound the match and are left in place — the
+    rule therefore fires regardless of how the dialect quotes the name, without
+    enumerating per-dialect quoting (sqlglot already owns that knowledge, and we
+    avoid duplicating it here).
+    """
+    return re.compile(r"[\w$]*" + marker + r"[\w$]*", re.IGNORECASE)
+
+
+# Fast-path only (raw-text substitution for connectors that fingerprint without
+# parsing — Snowflake/BigQuery). The slow/AST path instead reuses the connector's
+# temporary_tables_pattern by resolved name. Only patterns whose token varies PER
+# RUN belong here; stable names like dbt's `<model>__dbt_tmp` are excluded so we
+# don't merge distinct real models.
+DEFAULT_TEMP_TABLE_FINGERPRINT_RULES: List["re.Pattern[str]"] = [
+    _ephemeral_identifier(rf"-STAGING-{_TMP_UUID}"),  # fivetran/stitch staging
+    _ephemeral_identifier(rf"segment_{_TMP_UUID}"),  # segment
+    _ephemeral_identifier(rf"STAGING_\w*_{_TMP_UUID}"),  # stitch
+    _ephemeral_identifier(
+        r"(?:GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9a-f]{8}"
+    ),  # great expectations
+    _ephemeral_identifier(r"SNOWPARK_TEMP_TABLE_\w+"),  # snowpark
+    _ephemeral_identifier(r"temp_[0-9a-f]{32}"),  # pysnowflake scratch
+]
+# Unquoted so it stays a valid, parseable identifier under every dialect (the
+# slow/AST path re-parses the substituted text).
+_TEMP_TABLE_FINGERPRINT_PLACEHOLDER = "__DATAHUB_TEMP__"
+
+
+def _apply_temp_table_patterns(
+    query_text: str, temp_table_patterns: Optional[Sequence["re.Pattern[str]"]]
+) -> str:
+    """Replace per-run ephemeral identifiers with a stable placeholder.
+
+    Applied BEFORE basic normalization: the basic rules replace digit runs (e.g.
+    inside a UUID), which would mangle the ephemeral token before it could match.
+    """
+    if temp_table_patterns:
+        for pat in temp_table_patterns:
+            query_text = pat.sub(_TEMP_TABLE_FINGERPRINT_PLACEHOLDER, query_text)
+    return query_text
+
+
 def generalize_query_fast(
     expression: sqlglot.exp.ExpOrStr,
     dialect: DialectOrStr,
     change_table_names: bool = False,
+    temp_table_patterns: Optional[Sequence["re.Pattern[str]"]] = None,
 ) -> str:
     """Variant of `generalize_query` that only does basic normalization.
 
@@ -282,6 +340,8 @@ def generalize_query_fast(
     else:
         query_text = str(expression)
 
+    query_text = _apply_temp_table_patterns(query_text, temp_table_patterns)
+
     REGEX_REPLACEMENTS = {
         **_BASIC_NORMALIZATION_RULES,
         **(_TABLE_NAME_NORMALIZATION_RULES if change_table_names else {}),
@@ -292,7 +352,11 @@ def generalize_query_fast(
     return query_text
 
 
-def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) -> str:
+def generalize_query(
+    expression: sqlglot.exp.ExpOrStr,
+    dialect: DialectOrStr,
+    temp_table_patterns: Optional[Sequence["re.Pattern[str]"]] = None,
+) -> str:
     """
     Generalize/normalize a SQL query.
 
@@ -304,6 +368,11 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
     Args:
         expression: The SQL query to generalize.
         dialect: The SQL dialect to use.
+        temp_table_patterns: Resolved-name regexes (e.g. a connector's
+            ``temporary_tables_pattern``). Any table whose ``catalog.db.name``
+            matches is replaced with a placeholder before fingerprinting, so
+            per-run ephemeral tables collapse. Reusing the connector's existing
+            temp detection avoids a parallel set of text/quoting heuristics.
 
     Returns:
         The generalized SQL query.
@@ -343,6 +412,17 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
             _simplify_node_expressions(node)
         elif isinstance(node, sqlglot.exp.Literal):
             return sqlglot.exp.Placeholder()
+        elif temp_table_patterns and isinstance(node, sqlglot.exp.Table):
+            full_name = ".".join(p for p in (node.catalog, node.db, node.name) if p)
+            if any(pat.search(full_name) for pat in temp_table_patterns):
+                # Collapse the per-run ephemeral table to a fixed placeholder so
+                # repeated runs share one fingerprint. Keeps any alias intact.
+                node.set(
+                    "this",
+                    sqlglot.exp.to_identifier(_TEMP_TABLE_FINGERPRINT_PLACEHOLDER),
+                )
+                node.set("db", None)
+                node.set("catalog", None)
 
         return node
 
@@ -356,17 +436,27 @@ def get_query_fingerprint_debug(
     platform: DialectOrStr,
     fast: bool = False,
     secondary_id: Optional[str] = None,
+    temp_table_patterns: Optional[Sequence["re.Pattern[str]"]] = None,
 ) -> Tuple[str, Optional[str]]:
     try:
         if not fast:
             dialect = get_dialect(platform)
-            expression_sql = generalize_query(expression, dialect=dialect)
+            # On the slow/AST path, temp tables are normalized by RESOLVED NAME
+            # (reusing the connector's temporary_tables_pattern) inside
+            # generalize_query — no raw-text/quoting heuristics needed here.
+            expression_sql = generalize_query(
+                expression, dialect=dialect, temp_table_patterns=temp_table_patterns
+            )
             # Normalize placeholders for consistent fingerprinting -> this only needs to be backward compatible with earlier sqglot generated generalized queries where the placeholders were always ?
             expression_sql = PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION.sub(
                 "?", expression_sql
             )
         else:
-            expression_sql = generalize_query_fast(expression, dialect=platform)
+            expression_sql = generalize_query_fast(
+                expression,
+                dialect=platform,
+                temp_table_patterns=temp_table_patterns,
+            )
     except (ValueError, sqlglot.errors.SqlglotError) as e:
         if not isinstance(expression, str):
             raise
@@ -386,6 +476,7 @@ def get_query_fingerprint(
     platform: DialectOrStr,
     fast: bool = False,
     secondary_id: Optional[str] = None,
+    temp_table_patterns: Optional[Sequence["re.Pattern[str]"]] = None,
 ) -> str:
     """Get a fingerprint for a SQL query.
 
@@ -409,7 +500,11 @@ def get_query_fingerprint(
     """
 
     return get_query_fingerprint_debug(
-        expression=expression, platform=platform, fast=fast, secondary_id=secondary_id
+        expression=expression,
+        platform=platform,
+        fast=fast,
+        secondary_id=secondary_id,
+        temp_table_patterns=temp_table_patterns,
     )[0]
 
 
