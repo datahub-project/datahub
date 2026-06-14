@@ -16,6 +16,7 @@ from datahub.ingestion.source.datahub_documents.datahub_documents_config import 
     DataHubDocumentsSourceConfig,
 )
 from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
+    PROCESSING_ALGO_VERSION,
     DataHubDocumentsSource,
 )
 from datahub.ingestion.source.datahub_documents.text_partitioner import TextPartitioner
@@ -66,14 +67,14 @@ class TestDataHubDocumentsConfig:
         """Test default configuration values."""
         config = DataHubDocumentsSourceConfig()
 
-        assert config.platform_filter is None  # Default: None = all NATIVE documents
+        assert config.platform_filter is None
+        assert config.include_unembedded is True  # default: embed all unembedded docs
         assert config.incremental.enabled is True
         assert config.skip_empty_text is True
         assert config.min_text_length == 50
         assert config.event_mode.enabled is False
         assert config.chunking.strategy == "by_title"
         assert config.partition_strategy == "markdown"
-        # Embedding config defaults to None - loaded from server
         assert config.embedding.provider is None
         assert config.embedding.model is None
 
@@ -912,6 +913,9 @@ class TestStateStorage:
             # Mock state handler with existing document hash
             mock_state_handler = patch.object(source, "state_handler").start()
             mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_last_processing_algo_version.return_value = (
+                PROCESSING_ALGO_VERSION
+            )
 
             # Document with same hash (unchanged)
             text = "Same content"
@@ -1540,7 +1544,8 @@ class TestConfigFingerprintInHash:
     def test_batch_mode_filters_by_source_type(self, ctx, mock_graph):
         """Test that batch mode filters documents by source type."""
         config = DataHubDocumentsSourceConfig(
-            platform_filter=None,  # Default: all NATIVE
+            platform_filter=None,
+            include_unembedded=False,  # test explicit source-type filtering
             datahub={"server": "http://test-server:8080"},
             embedding={
                 "provider": "bedrock",
@@ -1548,7 +1553,7 @@ class TestConfigFingerprintInHash:
                 "aws_region": "us-west-2",
                 "allow_local_embedding_config": True,
             },
-            min_text_length=10,  # Lower threshold for test,
+            min_text_length=10,
             stateful_ingestion={"enabled": False},
         )
 
@@ -1598,6 +1603,7 @@ class TestConfigFingerprintInHash:
         """Test batch mode with platform filter includes EXTERNAL from specified platforms."""
         config = DataHubDocumentsSourceConfig(
             platform_filter=["notion"],
+            include_unembedded=False,  # test explicit platform filtering
             datahub={"server": "http://test-server:8080"},
             embedding={
                 "provider": "bedrock",
@@ -1605,7 +1611,7 @@ class TestConfigFingerprintInHash:
                 "aws_region": "us-west-2",
                 "allow_local_embedding_config": True,
             },
-            min_text_length=10,  # Lower threshold for test,
+            min_text_length=10,
             stateful_ingestion={"enabled": False},
         )
 
@@ -1673,6 +1679,7 @@ class TestPartialEntityHandling:
         """Create test configuration."""
         return DataHubDocumentsSourceConfig(
             platform_filter=None,
+            include_unembedded=False,  # test source-type filtering, not adoption
             datahub={"server": "http://test-server:8080"},
             embedding={
                 "provider": "bedrock",
@@ -2314,3 +2321,334 @@ class TestDataHubGraphInitialization:
             # Verify source uses the context graph
             assert source.graph is mock_ctx_graph
             assert source.graph is not mock_graph_class.return_value
+
+
+GRAPH_PATCH = "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+
+
+def _make_source(ctx, **config_kwargs):
+    """Helper: create a DataHubDocumentsSource with patched DataHubGraph."""
+    defaults = dict(
+        datahub={"server": "http://test-server:8080"},
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+        stateful_ingestion={"enabled": False},
+    )
+    defaults.update(config_kwargs)
+    config = DataHubDocumentsSourceConfig(**defaults)
+    with patch(GRAPH_PATCH):
+        return DataHubDocumentsSource(ctx, config)
+
+
+@pytest.fixture
+def base_ctx():
+    return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+
+class TestBootstrapMode:
+    """Tests for _is_bootstrap_run() and PROCESSING_ALGO_VERSION cache-busting."""
+
+    def test_first_run_no_previous_state(self, base_ctx):
+        """First run (no checkpoint) should NOT trigger bootstrap — incremental handles it."""
+        source = _make_source(base_ctx)
+        mock_sh = Mock()
+        mock_sh.is_checkpointing_enabled.return_value = True
+        mock_sh.get_last_processing_algo_version.return_value = None  # no prior state
+        source.state_handler = mock_sh
+
+        assert source._is_bootstrap_run() is False
+
+    def test_same_algo_version_is_normal_incremental(self, base_ctx):
+        """When stored version matches PROCESSING_ALGO_VERSION, run incrementally."""
+        from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
+            PROCESSING_ALGO_VERSION,
+        )
+
+        source = _make_source(base_ctx)
+        mock_sh = Mock()
+        mock_sh.is_checkpointing_enabled.return_value = True
+        mock_sh.get_last_processing_algo_version.return_value = PROCESSING_ALGO_VERSION
+        source.state_handler = mock_sh
+
+        assert source._is_bootstrap_run() is False
+
+    def test_changed_algo_version_triggers_bootstrap(self, base_ctx):
+        """Stored version differs from PROCESSING_ALGO_VERSION → bootstrap this run."""
+        source = _make_source(base_ctx)
+        mock_sh = Mock()
+        mock_sh.is_checkpointing_enabled.return_value = True
+        mock_sh.get_last_processing_algo_version.return_value = "0"  # old version
+        source.state_handler = mock_sh
+
+        assert source._is_bootstrap_run() is True
+
+    def test_force_reprocess_config_triggers_bootstrap(self, base_ctx):
+        """force_reprocess=True always triggers bootstrap regardless of algo version."""
+        from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
+            PROCESSING_ALGO_VERSION,
+        )
+
+        source = _make_source(base_ctx, incremental={"force_reprocess": True})
+        mock_sh = Mock()
+        mock_sh.is_checkpointing_enabled.return_value = True
+        mock_sh.get_last_processing_algo_version.return_value = PROCESSING_ALGO_VERSION
+        source.state_handler = mock_sh
+
+        assert source._is_bootstrap_run() is True
+
+    def test_no_state_handler_is_not_bootstrap(self, base_ctx):
+        """No state handler → can't detect algo change → not bootstrap."""
+        source = _make_source(base_ctx)
+        source.state_handler = None
+
+        assert source._is_bootstrap_run() is False
+
+    def test_algo_version_written_to_checkpoint(self, base_ctx):
+        """PROCESSING_ALGO_VERSION is recorded in the checkpoint at start of each run."""
+        from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
+            PROCESSING_ALGO_VERSION,
+        )
+
+        source = _make_source(base_ctx)
+        mock_sh = Mock()
+        mock_sh.is_checkpointing_enabled.return_value = True
+        mock_sh.get_last_processing_algo_version.return_value = PROCESSING_ALGO_VERSION
+        source.state_handler = mock_sh
+
+        mock_docs = [{"urn": "urn:li:document:1", "text": "hello world content here"}]
+        with (
+            patch.object(source, "_fetch_documents_graphql", return_value=mock_docs),
+            patch.object(source, "_process_single_document", return_value=iter([])),
+        ):
+            list(source._process_batch_mode())
+
+        mock_sh.set_processing_algo_version.assert_called_once_with(PROCESSING_ALGO_VERSION)
+
+    def test_bootstrap_bypasses_incremental_check(self, base_ctx):
+        """In bootstrap mode every doc is processed even if hash is unchanged."""
+        source = _make_source(base_ctx)
+        mock_sh = Mock()
+        mock_sh.is_checkpointing_enabled.return_value = True
+        mock_sh.get_last_processing_algo_version.return_value = "0"  # triggers bootstrap
+        # Return the same hash the doc would compute → normally skipped
+        text = "unchanged content text here"
+        mock_sh.get_document_hash.return_value = source._calculate_text_hash(text)
+        source.state_handler = mock_sh
+
+        mock_docs = [{"urn": "urn:li:document:1", "text": text}]
+        with (
+            patch.object(source, "_fetch_documents_graphql", return_value=mock_docs),
+            patch.object(
+                source, "_process_single_document", return_value=iter([])
+            ) as mock_process,
+        ):
+            list(source._process_batch_mode())
+
+        # Bootstrap bypasses incremental — doc must be processed even though hash matches
+        mock_process.assert_called_once()
+
+    def test_normal_run_skips_unchanged_docs(self, base_ctx):
+        """In normal incremental mode, unchanged docs are still skipped."""
+        from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
+            PROCESSING_ALGO_VERSION,
+        )
+
+        source = _make_source(base_ctx)
+        mock_sh = Mock()
+        mock_sh.is_checkpointing_enabled.return_value = True
+        mock_sh.get_last_processing_algo_version.return_value = PROCESSING_ALGO_VERSION
+        text = "unchanged content text here"
+        mock_sh.get_document_hash.return_value = source._calculate_text_hash(text)
+        source.state_handler = mock_sh
+
+        mock_docs = [{"urn": "urn:li:document:1", "text": text}]
+        with (
+            patch.object(source, "_fetch_documents_graphql", return_value=mock_docs),
+            patch.object(
+                source, "_process_single_document", return_value=iter([])
+            ) as mock_process,
+        ):
+            list(source._process_batch_mode())
+
+        mock_process.assert_not_called()
+
+
+class TestAdoptionTracking:
+    """Tests for include_unembedded adoption behavior and carry-forward state."""
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    def _make_graphql_result(self, urn, source_type="NATIVE", platform=None, text="enough content here"):
+        entity: dict[str, Any] = {
+            "urn": urn,
+            "info": {
+                "source": {"sourceType": source_type},
+                "contents": {"text": text},
+            },
+        }
+        if platform:
+            entity["dataPlatformInstance"] = {
+                "platform": {"urn": f"urn:li:dataPlatform:{platform}"}
+            }
+        return {"entity": entity}
+
+    def test_unembedded_doc_is_adopted(self, ctx):
+        """A doc with no semanticContent is adopted on first encounter."""
+        source = _make_source(ctx, include_unembedded=True, min_text_length=10)
+
+        urn = "urn:li:document:confluence1"
+        source.document_state = {}  # no previously adopted
+
+        mock_response = {"search": {"searchResults": [self._make_graphql_result(urn, "EXTERNAL", "confluence")]}}
+
+        with (
+            patch.object(source.graph, "execute_graphql", return_value=mock_response),
+            patch.object(source.graph, "get_urns_by_filter", return_value=iter([urn])),
+        ):
+            docs = source._fetch_documents_graphql()
+
+        assert len(docs) == 1
+        assert docs[0]["urn"] == urn
+
+    def test_previously_adopted_doc_is_maintained(self, ctx):
+        """A doc that was adopted before is included even after it gains semanticContent."""
+        source = _make_source(ctx, include_unembedded=True, min_text_length=10)
+
+        urn = "urn:li:document:confluence1"
+        # Simulate prior adoption: URN is in document_state
+        source.document_state = {urn: {"content_hash": "oldhash", "last_processed": "2026-01-01"}}
+
+        mock_response = {"search": {"searchResults": [self._make_graphql_result(urn, "EXTERNAL", "confluence")]}}
+
+        with (
+            patch.object(source.graph, "execute_graphql", return_value=mock_response),
+            # Doc now has semanticContent → NOT in unembedded_urns
+            patch.object(source.graph, "get_urns_by_filter", return_value=iter([])),
+        ):
+            docs = source._fetch_documents_graphql()
+
+        assert len(docs) == 1
+        assert docs[0]["urn"] == urn
+
+    def test_ingestion_embedded_doc_is_skipped(self, ctx):
+        """A doc with semanticContent that we've never processed is left to ingestion source."""
+        source = _make_source(ctx, include_unembedded=True, min_text_length=10)
+
+        urn = "urn:li:document:confluence1"
+        source.document_state = {}  # never adopted
+
+        mock_response = {"search": {"searchResults": [self._make_graphql_result(urn, "EXTERNAL", "confluence")]}}
+
+        with (
+            patch.object(source.graph, "execute_graphql", return_value=mock_response),
+            # Doc already has semanticContent → not in unembedded_urns
+            patch.object(source.graph, "get_urns_by_filter", return_value=iter([])),
+        ):
+            docs = source._fetch_documents_graphql()
+
+        assert len(docs) == 0
+
+    def test_platform_filter_restricts_new_adoptions(self, ctx):
+        """platform_filter limits which platforms can be newly adopted."""
+        source = _make_source(ctx, include_unembedded=True, platform_filter=["notion"], min_text_length=10)
+
+        notion_urn = "urn:li:document:notion1"
+        confluence_urn = "urn:li:document:confluence1"
+        source.document_state = {}
+
+        mock_response = {
+            "search": {
+                "searchResults": [
+                    self._make_graphql_result(notion_urn, "EXTERNAL", "notion"),
+                    self._make_graphql_result(confluence_urn, "EXTERNAL", "confluence"),
+                ]
+            }
+        }
+
+        with (
+            patch.object(source.graph, "execute_graphql", return_value=mock_response),
+            # Both are unembedded
+            patch.object(source.graph, "get_urns_by_filter", return_value=iter([notion_urn, confluence_urn])),
+        ):
+            docs = source._fetch_documents_graphql()
+
+        urns = [d["urn"] for d in docs]
+        assert notion_urn in urns
+        assert confluence_urn not in urns  # filtered by platform_filter
+
+    def test_platform_filter_does_not_restrict_previously_adopted(self, ctx):
+        """Previously adopted docs bypass platform_filter (ownership is maintained)."""
+        source = _make_source(ctx, include_unembedded=True, platform_filter=["notion"], min_text_length=10)
+
+        confluence_urn = "urn:li:document:confluence1"
+        # Previously adopted even though confluence is not in platform_filter
+        source.document_state = {confluence_urn: {"content_hash": "h", "last_processed": "2026-01-01"}}
+
+        mock_response = {
+            "search": {
+                "searchResults": [self._make_graphql_result(confluence_urn, "EXTERNAL", "confluence")]
+            }
+        }
+
+        with (
+            patch.object(source.graph, "execute_graphql", return_value=mock_response),
+            patch.object(source.graph, "get_urns_by_filter", return_value=iter([])),
+        ):
+            docs = source._fetch_documents_graphql()
+
+        assert len(docs) == 1
+        assert docs[0]["urn"] == confluence_urn
+
+    def test_carry_forward_state_for_skipped_doc(self, ctx):
+        """Skipped (unchanged) docs have their state carried forward into the new checkpoint."""
+        from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
+            PROCESSING_ALGO_VERSION,
+        )
+
+        source = _make_source(ctx)
+        mock_sh = Mock()
+        mock_sh.is_checkpointing_enabled.return_value = True
+        mock_sh.get_last_processing_algo_version.return_value = PROCESSING_ALGO_VERSION
+
+        text = "unchanged content text here"
+        mock_sh.get_document_hash.return_value = source._calculate_text_hash(text)
+        source.state_handler = mock_sh
+
+        mock_docs = [{"urn": "urn:li:document:1", "text": text}]
+        with (
+            patch.object(source, "_fetch_documents_graphql", return_value=mock_docs),
+            patch.object(source, "_process_single_document", return_value=iter([])),
+        ):
+            list(source._process_batch_mode())
+
+        # Carry-forward must be called so the URN stays in the adopted set
+        mock_sh.carry_forward_document_state.assert_called_once_with("urn:li:document:1")
+
+
+class TestDocumentChunkingCheckpointState:
+    """Tests for DocumentChunkingCheckpointState schema."""
+
+    def test_has_processing_algo_version_field(self):
+        from datahub.ingestion.source.datahub_documents.document_chunking_state import (
+            DocumentChunkingCheckpointState,
+        )
+
+        state = DocumentChunkingCheckpointState()
+        assert hasattr(state, "processing_algo_version")
+        assert state.processing_algo_version == ""  # default empty = "unknown"
+
+    def test_processing_algo_version_round_trips(self):
+        from datahub.ingestion.source.datahub_documents.document_chunking_state import (
+            DocumentChunkingCheckpointState,
+        )
+
+        state = DocumentChunkingCheckpointState(processing_algo_version="2")
+        serialized = state.model_dump_json()
+        restored = DocumentChunkingCheckpointState.model_validate_json(serialized)
+        assert restored.processing_algo_version == "2"

@@ -51,6 +51,12 @@ from datahub.ingestion.source.unstructured.event_consumer import DocumentEventCo
 
 logger = logging.getLogger(__name__)
 
+# Bump this when the processing algorithm changes in a way that requires all previously
+# embedded documents to be re-processed (e.g., improved chunking logic, better text
+# normalization). A mismatch with the version stored in the last checkpoint triggers a
+# full re-process for the entire run, bypassing the per-document incremental check.
+PROCESSING_ALGO_VERSION = "1"
+
 
 class DataHubDocumentsReport(StatefulIngestionReport):
     """Report for DataHub documents source."""
@@ -235,25 +241,57 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         if self.config.incremental.enabled:
             self._save_state()
 
+    def _is_bootstrap_run(self) -> bool:
+        """Return True if this run should bypass incremental and re-process everything.
+
+        True when:
+        - force_reprocess is set in config, OR
+        - the processing algorithm version in the last checkpoint differs from
+          PROCESSING_ALGO_VERSION (algorithm improved — old embeddings are stale)
+
+        False when:
+        - no previous state exists (first run — incremental handles it naturally), OR
+        - previous state exists and algo version matches (normal incremental run)
+        """
+        if self.config.incremental.force_reprocess:
+            return True
+        if self.state_handler and self.state_handler.is_checkpointing_enabled():
+            last_version = self.state_handler.get_last_processing_algo_version()
+            if last_version is not None and last_version != PROCESSING_ALGO_VERSION:
+                logger.info(
+                    f"Processing algorithm changed ({last_version!r} → {PROCESSING_ALGO_VERSION!r}). "
+                    "Switching to bootstrap mode — all documents will be re-processed."
+                )
+                return True
+        return False
+
     def _process_batch_mode(self) -> Iterable[MetadataWorkUnit]:
         """Process documents using GraphQL search (batch mode)."""
         logger.info("Running in batch mode")
+
+        bootstrap = self._is_bootstrap_run()
+        if bootstrap:
+            logger.info("Bootstrap mode: incremental check bypassed for this run.")
+
+        # Record current algo version in the checkpoint so future runs can detect changes.
+        if self.state_handler and self.state_handler.is_checkpointing_enabled():
+            self.state_handler.set_processing_algo_version(PROCESSING_ALGO_VERSION)
 
         # Fetch documents from DataHub
         documents = self._fetch_documents_graphql()
 
         # Process each document
         for doc in documents:
-            # Check if we should process this document (incremental mode)
-            if (
-                self.config.incremental.enabled
-                and not self.config.incremental.force_reprocess
-            ):
+            # Incremental check — skipped entirely in bootstrap mode
+            if self.config.incremental.enabled and not bootstrap:
                 if not self._should_process(doc["urn"], doc.get("text", "")):
                     logger.debug(
                         f"Skipping document {doc['urn']} (unchanged content hash)"
                     )
                     self.report.report_document_skipped_unchanged()
+                    # Carry state forward so this doc stays in the adopted set
+                    # and is included in future runs even after it gains semanticContent.
+                    self._carry_forward_document_state(doc["urn"])
                     continue
 
             # Process document and yield workunits
@@ -723,6 +761,39 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 return parts[-1]
         return None
 
+    def _get_unembedded_urns(self) -> set[str]:
+        """Return the set of document URNs that have NO semanticContent aspect.
+
+        Uses a single Elasticsearch query: EXISTS on the 'embeddings' field
+        (which is indexed from semanticContent) with negated=True.  One round-trip
+        regardless of how many documents exist.
+        """
+        from datahub.ingestion.graph.filters import RawSearchFilterRule
+
+        no_embeddings_filter: RawSearchFilterRule = {
+            "field": "embeddings",
+            "condition": "EXISTS",
+            "values": [],
+            "negated": True,
+        }
+        try:
+            urns = set(
+                self.graph.get_urns_by_filter(
+                    entity_types=["document"],
+                    extraFilters=[no_embeddings_filter],
+                )
+            )
+            logger.info(
+                f"Elasticsearch filter found {len(urns)} documents without semanticContent."
+            )
+            return urns
+        except Exception as e:
+            logger.warning(
+                f"Could not query unembedded documents via Elasticsearch, "
+                f"falling back to processing all documents: {e}"
+            )
+            return set()
+
     def _fetch_documents_graphql(self) -> list[dict[str, Any]]:
         """Fetch Document entities from DataHub using GraphQL."""
         query = """
@@ -760,18 +831,20 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         }
         """
 
-        # Build search input with optional multi-platform filter
+        # Build search input — when include_unembedded is set, fetch all docs
+        # regardless of platform so we can catch every unembedded document.
         search_input: dict[str, Any] = {
             "type": "DOCUMENT",
             "query": "*",
             "start": 0,
-            "count": 1000,  # Fetch in batches
+            "count": 10000,
         }
 
-        # Only add platform filter if specific platforms are provided
-        # Empty list or wildcard ("*", "ALL") means no GraphQL filter (client-side filtering instead)
+        # Only add platform filter if specific platforms are provided and we're NOT
+        # doing an include_unembedded scan (which needs all platforms).
         if (
-            self.config.platform_filter
+            not self.config.include_unembedded
+            and self.config.platform_filter
             and "*" not in self.config.platform_filter
             and "ALL" not in self.config.platform_filter
         ):
@@ -792,6 +865,23 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             search_data = response.get("search") or {}
             search_results = search_data.get("searchResults") or []
 
+            # When include_unembedded is set:
+            # - previously_adopted_urns: docs we've embedded before (own going forward)
+            # - unembedded_urns: docs with no semanticContent yet (new adoptions)
+            # A doc passes the filter if it's in either set.
+            previously_adopted_urns: set[str] = set()
+            unembedded_urns: set[str] = set()
+            if self.config.include_unembedded:
+                if self.state_handler and self.state_handler.is_checkpointing_enabled():
+                    previously_adopted_urns = self.state_handler.get_all_tracked_urns()
+                else:
+                    previously_adopted_urns = set(self.document_state.keys())
+                logger.info(
+                    f"include_unembedded=True: {len(previously_adopted_urns)} previously "
+                    "adopted docs; querying Elasticsearch for new unembedded docs."
+                )
+                unembedded_urns = self._get_unembedded_urns()
+
             documents = []
             for result in search_results:
                 entity = result.get("entity") or {}
@@ -809,10 +899,36 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 contents = info.get("contents") or {}
                 text = contents.get("text") or ""
 
-                # Filter by source type (NATIVE vs EXTERNAL) for batch mode
-                should_process = self._should_process_by_source_type(entity, info)
-                if not should_process:
-                    continue
+                if self.config.include_unembedded:
+                    if urn in previously_adopted_urns:
+                        # We've embedded this before — maintain ownership going forward.
+                        logger.debug(f"Maintaining {urn} — previously adopted")
+                    elif urn in unembedded_urns:
+                        # New adoption candidate: no semanticContent yet.
+                        # Apply platform_filter to restrict new adoptions if specified.
+                        if (
+                            self.config.platform_filter
+                            and "*" not in self.config.platform_filter
+                            and "ALL" not in self.config.platform_filter
+                        ):
+                            platform = self._extract_platform_from_entity(entity)
+                            if platform not in self.config.platform_filter:
+                                logger.debug(
+                                    f"Skipping {urn} — platform '{platform}' not in "
+                                    f"platform_filter {self.config.platform_filter} "
+                                    "(new adoptions restricted)"
+                                )
+                                continue
+                        logger.debug(
+                            f"Adopting {urn} — no semanticContent aspect found"
+                        )
+                    else:
+                        # Already has semanticContent from ingestion source — skip it.
+                        continue
+                else:
+                    should_process = self._should_process_by_source_type(entity, info)
+                    if not should_process:
+                        continue
 
                 # Skip if no text or too short
                 if not text or (
@@ -917,6 +1033,17 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         # Deterministic JSON serialization
         hash_str = json.dumps(hash_input, sort_keys=True)
         return hashlib.sha256(hash_str.encode("utf-8")).hexdigest()
+
+    def _carry_forward_document_state(self, document_urn: str) -> None:
+        """Carry state forward for a skipped (unchanged) doc.
+
+        Keeps the URN in the adopted set so ownership persists across runs
+        even when the document content hasn't changed.
+        """
+        if self.state_handler and self.state_handler.is_checkpointing_enabled():
+            self.state_handler.carry_forward_document_state(document_urn)
+        # For file-based state (self.document_state dict), the full dict is
+        # loaded at startup and saved at close — unchanged entries persist automatically.
 
     def _update_document_state(self, document_urn: str, text: str) -> None:
         """Update state after processing document."""
