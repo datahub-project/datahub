@@ -24,7 +24,10 @@ protobuf>=6.33.5,<7.0.0
 # older version; this constraint is safe for Docker images which don't coexist with
 # Airflow's pinned dependencies.
 aiohttp>=3.13.4
-pillow>=12.1.1
+# pillow: CVE fixes; minimum 12.2.0
+pillow>=12.2.0
+# tornado: CVE fixes; minimum 6.5.5
+tornado>=6.5.5
 setuptools>=80.10.1
 # JWE RSA1_5 padding oracle (CVE); fixed in 1.6.9
 # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
