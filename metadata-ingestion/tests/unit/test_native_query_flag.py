@@ -90,7 +90,7 @@ def test_native_query_false_skips_native_query_expression():
         config=config,
     )
     assert result == []
-    assert reporter.m_query_native_query_skipped == 1
+    assert reporter.table_expression_lineage_stats.m_query_native_query_skipped == 1
 
 
 @pytest.mark.integration_batch_5
