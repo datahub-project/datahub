@@ -12,6 +12,7 @@ public class LoginDenialReasonTest {
     assertFalse(LoginDenialReason.INVALID_CREDENTIALS.logsAtWarn());
     assertFalse(LoginDenialReason.HARD_DELETED.logsAtWarn());
     assertFalse(LoginDenialReason.NOT_PROVISIONED.logsAtWarn());
+    assertFalse(LoginDenialReason.TOO_MANY_FAILED_ATTEMPTS.logsAtWarn());
   }
 
   @Test

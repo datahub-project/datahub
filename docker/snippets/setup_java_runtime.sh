@@ -12,6 +12,30 @@ set -eu
 # Must stay on its own line as JAVA_MAJOR=<digits> for datahub-actions Dockerfile parsing.
 JAVA_MAJOR=25
 
+retry_command() {
+  label="$1"
+  shift
+
+  max_retries=3
+  retry_num=0
+
+  while :; do
+    if "$@"; then
+      return 0
+    fi
+
+    retry_num=$((retry_num + 1))
+    if [ "$retry_num" -gt "$max_retries" ]; then
+      echo "setup_java_runtime.sh: ${label} failed after $((max_retries + 1)) attempts" >&2
+      return 1
+    fi
+
+    sleep_seconds=$((retry_num * 5))
+    echo "setup_java_runtime.sh: ${label} failed with a transient error; retry ${retry_num}/${max_retries} in ${sleep_seconds}s" >&2
+    sleep "$sleep_seconds"
+  done
+}
+
 mkdir -p /usr/local/bin
 
 INSTALL_JATTACH="${INSTALL_JATTACH:-1}"
@@ -31,7 +55,7 @@ esac
 JAVA_JRE_PKG="openjdk-${JAVA_MAJOR}-jre"
 JAVA_VM_HOME="/usr/lib/jvm/java-${JAVA_MAJOR}-openjdk"
 
-apk add --no-cache \
+retry_command "apk add" apk add --no-cache \
   bash \
   coreutils \
   curl \
@@ -63,7 +87,8 @@ if [ "$INSTALL_JATTACH" = "1" ]; then
       ;;
   esac
   TGZ="jattach-linux-${JA_ARCH}.tgz"
-  wget --no-verbose "${GITHUB_REPO_URL}/jattach/jattach/releases/download/${JATTACH_TAG}/${TGZ}" -O "/tmp/${TGZ}"
+  retry_command "download jattach" \
+    wget --no-verbose "${GITHUB_REPO_URL}/jattach/jattach/releases/download/${JATTACH_TAG}/${TGZ}" -O "/tmp/${TGZ}"
   tar -xzf "/tmp/${TGZ}" -C /usr/local/bin jattach
   chmod 755 /usr/local/bin/jattach
   rm -f "/tmp/${TGZ}"
@@ -71,10 +96,12 @@ fi
 
 mkdir -p "$OTEL_JMX_DIR"
 
-wget --no-verbose "${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.27.0/opentelemetry-javaagent.jar" \
+retry_command "download opentelemetry javaagent" \
+  wget --no-verbose "${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.27.0/opentelemetry-javaagent.jar" \
   -O "${OTEL_JMX_DIR}/opentelemetry-javaagent.jar"
 
-wget --no-verbose \
+retry_command "download jmx prometheus javaagent" \
+  wget --no-verbose \
   "${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar" \
   -O "${OTEL_JMX_DIR}/jmx_prometheus_javaagent.jar"
 

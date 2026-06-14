@@ -8,6 +8,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationConfiguration;
+import com.datahub.authentication.LoginDenialReason;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
@@ -333,6 +334,175 @@ public class NativeUserServiceTest {
     assertFalse(
         _nativeUserService.doesPasswordMatch(
             mock(OperationContext.class), USER_URN_STRING, PASSWORD));
+  }
+
+  @Test
+  public void testCheckNativeLoginEligibilityReturnsEmptyWhenLockoutDisabled() throws Exception {
+    assertEquals(
+        _nativeUserService.checkNativeLoginEligibility(opContext, USER_URN_STRING),
+        java.util.Optional.empty());
+    verify(_entityService, never())
+        .getLatestAspect(any(OperationContext.class), any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME));
+  }
+
+  @Test
+  public void testCheckNativeLoginEligibilityReturnsEmptyWhenLockoutFieldMissing()
+      throws Exception {
+    AuthenticationConfiguration authConfig = new AuthenticationConfiguration();
+    authConfig.setSystemClientId("someCustomId");
+    authConfig.setMaxFailedLoginAttempts(3);
+    authConfig.setFailedLoginLockoutDurationMs(60_000);
+
+    NativeUserService nativeUserService =
+        new NativeUserService(_entityService, _entityClient, _secretService, authConfig);
+
+    CorpUserCredentials corpUserCredentials = new CorpUserCredentials();
+    corpUserCredentials.setSalt(ENCRYPTED_SALT);
+    corpUserCredentials.setHashedPassword(HASHED_PASSWORD);
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(corpUserCredentials);
+
+    assertEquals(
+        nativeUserService.checkNativeLoginEligibility(opContext, USER_URN_STRING),
+        java.util.Optional.empty());
+    verify(_entityClient, never()).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testRecordFailedLoginAttemptReturnsInvalidCredentialsWhenUserNotFound()
+      throws Exception {
+    AuthenticationConfiguration authConfig = new AuthenticationConfiguration();
+    authConfig.setSystemClientId("someCustomId");
+    authConfig.setMaxFailedLoginAttempts(2);
+    authConfig.setFailedLoginLockoutDurationMs(60_000);
+
+    NativeUserService nativeUserService =
+        new NativeUserService(_entityService, _entityClient, _secretService, authConfig);
+
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(null);
+
+    assertEquals(
+        nativeUserService.recordFailedLoginAttempt(opContext, USER_URN_STRING),
+        LoginDenialReason.INVALID_CREDENTIALS);
+    verify(_entityClient, never()).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testResetFailedLoginAttemptsNoopWhenLockoutStateAbsent() throws Exception {
+    CorpUserCredentials corpUserCredentials = new CorpUserCredentials();
+    corpUserCredentials.setSalt(ENCRYPTED_SALT);
+    corpUserCredentials.setHashedPassword(HASHED_PASSWORD);
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(corpUserCredentials);
+
+    _nativeUserService.resetFailedLoginAttempts(opContext, USER_URN_STRING);
+
+    verify(_entityClient, never()).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testRecordFailedLoginAttemptLocksAfterThreshold() throws Exception {
+    AuthenticationConfiguration authConfig = new AuthenticationConfiguration();
+    authConfig.setSystemClientId("someCustomId");
+    authConfig.setMaxFailedLoginAttempts(2);
+    authConfig.setFailedLoginLockoutDurationMs(60_000);
+
+    NativeUserService nativeUserService =
+        new NativeUserService(_entityService, _entityClient, _secretService, authConfig);
+
+    CorpUserCredentials corpUserCredentials = new CorpUserCredentials();
+    corpUserCredentials.setSalt(ENCRYPTED_SALT);
+    corpUserCredentials.setHashedPassword(HASHED_PASSWORD);
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(corpUserCredentials);
+
+    assertEquals(
+        nativeUserService.recordFailedLoginAttempt(opContext, USER_URN_STRING),
+        LoginDenialReason.INVALID_CREDENTIALS);
+    assertEquals(corpUserCredentials.data().get("failedLoginAttempts"), 1);
+
+    assertEquals(
+        nativeUserService.recordFailedLoginAttempt(opContext, USER_URN_STRING),
+        LoginDenialReason.TOO_MANY_FAILED_ATTEMPTS);
+    assertEquals(corpUserCredentials.data().get("failedLoginAttempts"), 2);
+    assertTrue(corpUserCredentials.data().containsKey("loginLockoutExpiryTimeMillis"));
+  }
+
+  @Test
+  public void testCheckNativeLoginEligibilityReturnsLockoutDenial() throws Exception {
+    AuthenticationConfiguration authConfig = new AuthenticationConfiguration();
+    authConfig.setSystemClientId("someCustomId");
+    authConfig.setMaxFailedLoginAttempts(3);
+    authConfig.setFailedLoginLockoutDurationMs(60_000);
+
+    NativeUserService nativeUserService =
+        new NativeUserService(_entityService, _entityClient, _secretService, authConfig);
+
+    CorpUserCredentials corpUserCredentials = new CorpUserCredentials();
+    corpUserCredentials.setSalt(ENCRYPTED_SALT);
+    corpUserCredentials.setHashedPassword(HASHED_PASSWORD);
+    corpUserCredentials
+        .data()
+        .put("loginLockoutExpiryTimeMillis", Instant.now().plusSeconds(60).toEpochMilli());
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(corpUserCredentials);
+
+    assertEquals(
+        nativeUserService.checkNativeLoginEligibility(opContext, USER_URN_STRING),
+        java.util.Optional.of(LoginDenialReason.TOO_MANY_FAILED_ATTEMPTS));
+  }
+
+  @Test
+  public void testCheckNativeLoginEligibilityClearsExpiredLockout() throws Exception {
+    AuthenticationConfiguration authConfig = new AuthenticationConfiguration();
+    authConfig.setSystemClientId("someCustomId");
+    authConfig.setMaxFailedLoginAttempts(3);
+    authConfig.setFailedLoginLockoutDurationMs(60_000);
+
+    NativeUserService nativeUserService =
+        new NativeUserService(_entityService, _entityClient, _secretService, authConfig);
+
+    CorpUserCredentials corpUserCredentials = new CorpUserCredentials();
+    corpUserCredentials.setSalt(ENCRYPTED_SALT);
+    corpUserCredentials.setHashedPassword(HASHED_PASSWORD);
+    corpUserCredentials.data().put("failedLoginAttempts", 3);
+    corpUserCredentials
+        .data()
+        .put("loginLockoutExpiryTimeMillis", Instant.now().minusSeconds(60).toEpochMilli());
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(corpUserCredentials);
+
+    assertEquals(
+        nativeUserService.checkNativeLoginEligibility(opContext, USER_URN_STRING),
+        java.util.Optional.empty());
+    assertFalse(corpUserCredentials.data().containsKey("failedLoginAttempts"));
+    assertFalse(corpUserCredentials.data().containsKey("loginLockoutExpiryTimeMillis"));
+    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testResetFailedLoginAttemptsClearsLockoutState() throws Exception {
+    CorpUserCredentials corpUserCredentials = new CorpUserCredentials();
+    corpUserCredentials.setSalt(ENCRYPTED_SALT);
+    corpUserCredentials.setHashedPassword(HASHED_PASSWORD);
+    corpUserCredentials.data().put("failedLoginAttempts", 2);
+    corpUserCredentials.data().put("loginLockoutExpiryTimeMillis", Instant.now().toEpochMilli());
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(corpUserCredentials);
+
+    _nativeUserService.resetFailedLoginAttempts(opContext, USER_URN_STRING);
+
+    assertFalse(corpUserCredentials.data().containsKey("failedLoginAttempts"));
+    assertFalse(corpUserCredentials.data().containsKey("loginLockoutExpiryTimeMillis"));
+    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
   }
 
   @Test

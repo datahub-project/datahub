@@ -3,9 +3,11 @@ package com.datahub.authentication.user;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authentication.AuthenticationConfiguration;
+import com.datahub.authentication.LoginDenialReason;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserCredentials;
@@ -19,6 +21,7 @@ import io.datahubproject.metadata.services.SecretService;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class NativeUserService {
   private static final long DEFAULT_PASSWORD_RESET_TOKEN_EXPIRATION_MS = TimeUnit.DAYS.toMillis(1);
+  private static final String FAILED_LOGIN_ATTEMPTS_FIELD_NAME = "failedLoginAttempts";
+  private static final String LOGIN_LOCKOUT_EXPIRY_TIME_MILLIS_FIELD_NAME =
+      "loginLockoutExpiryTimeMillis";
 
   private final EntityService<?> _entityService;
   private final EntityClient _entityClient;
@@ -122,15 +128,9 @@ public class NativeUserService {
     corpUserCredentials.setSalt(encryptedSalt);
     String hashedPassword = _secretService.getHashedPassword(salt, password);
     corpUserCredentials.setHashedPassword(hashedPassword);
+    clearFailedNativeLoginState(corpUserCredentials);
 
-    // Ingest corpUserCredentials MCP
-    final MetadataChangeProposal corpUserCredentialsProposal = new MetadataChangeProposal();
-    corpUserCredentialsProposal.setEntityType(CORP_USER_ENTITY_NAME);
-    corpUserCredentialsProposal.setEntityUrn(userUrn);
-    corpUserCredentialsProposal.setAspectName(CORP_USER_CREDENTIALS_ASPECT_NAME);
-    corpUserCredentialsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserCredentials));
-    corpUserCredentialsProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(opContext, corpUserCredentialsProposal);
+    ingestCorpUserCredentials(opContext, userUrn, corpUserCredentials);
   }
 
   public String generateNativeUserPasswordResetToken(
@@ -158,14 +158,7 @@ public class NativeUserService {
     long expirationTime = Instant.now().plusMillis(tokenExpirationMs).toEpochMilli();
     corpUserCredentials.setPasswordResetTokenExpirationTimeMillis(expirationTime);
 
-    // Ingest CorpUserCredentials MCP
-    final MetadataChangeProposal corpUserCredentialsProposal = new MetadataChangeProposal();
-    corpUserCredentialsProposal.setEntityType(CORP_USER_ENTITY_NAME);
-    corpUserCredentialsProposal.setEntityUrn(userUrn);
-    corpUserCredentialsProposal.setAspectName(CORP_USER_CREDENTIALS_ASPECT_NAME);
-    corpUserCredentialsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserCredentials));
-    corpUserCredentialsProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(opContext, corpUserCredentialsProposal);
+    ingestCorpUserCredentials(opContext, userUrn, corpUserCredentials);
 
     return passwordResetToken;
   }
@@ -215,15 +208,9 @@ public class NativeUserService {
     corpUserCredentials.setSalt(encryptedSalt);
     String hashedPassword = _secretService.getHashedPassword(salt, password);
     corpUserCredentials.setHashedPassword(hashedPassword);
+    clearFailedNativeLoginState(corpUserCredentials);
 
-    // Ingest corpUserCredentials MCP
-    final MetadataChangeProposal corpUserCredentialsProposal = new MetadataChangeProposal();
-    corpUserCredentialsProposal.setEntityType(CORP_USER_ENTITY_NAME);
-    corpUserCredentialsProposal.setEntityUrn(userUrn);
-    corpUserCredentialsProposal.setAspectName(CORP_USER_CREDENTIALS_ASPECT_NAME);
-    corpUserCredentialsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserCredentials));
-    corpUserCredentialsProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(opContext, corpUserCredentialsProposal);
+    ingestCorpUserCredentials(opContext, userUrn, corpUserCredentials);
   }
 
   public boolean doesPasswordMatch(
@@ -247,5 +234,144 @@ public class NativeUserService {
     String storedHashedPassword = corpUserCredentials.getHashedPassword();
     String hashedPassword = _secretService.getHashedPassword(salt, password);
     return storedHashedPassword.equals(hashedPassword);
+  }
+
+  @Nonnull
+  public Optional<LoginDenialReason> checkNativeLoginEligibility(
+      @Nonnull OperationContext opContext, @Nonnull String userUrnString) throws Exception {
+    Objects.requireNonNull(userUrnString, "userUrnSting must not be null!");
+    if (!isFailedLoginLockoutEnabled()) {
+      return Optional.empty();
+    }
+
+    final Urn userUrn = Urn.createFromString(userUrnString);
+    final CorpUserCredentials corpUserCredentials = getCorpUserCredentials(opContext, userUrn);
+    if (corpUserCredentials == null) {
+      return Optional.empty();
+    }
+
+    final Long lockoutExpiry =
+        getOptionalLong(corpUserCredentials, LOGIN_LOCKOUT_EXPIRY_TIME_MILLIS_FIELD_NAME);
+    if (lockoutExpiry == null) {
+      return Optional.empty();
+    }
+
+    final long now = Instant.now().toEpochMilli();
+    if (lockoutExpiry > now) {
+      return Optional.of(LoginDenialReason.TOO_MANY_FAILED_ATTEMPTS);
+    }
+
+    clearFailedNativeLoginState(corpUserCredentials);
+    ingestCorpUserCredentials(opContext, userUrn, corpUserCredentials);
+    return Optional.empty();
+  }
+
+  @Nonnull
+  public LoginDenialReason recordFailedLoginAttempt(
+      @Nonnull OperationContext opContext, @Nonnull String userUrnString) throws Exception {
+    Objects.requireNonNull(userUrnString, "userUrnSting must not be null!");
+    if (!isFailedLoginLockoutEnabled()) {
+      return LoginDenialReason.INVALID_CREDENTIALS;
+    }
+
+    final Urn userUrn = Urn.createFromString(userUrnString);
+    final CorpUserCredentials corpUserCredentials = getCorpUserCredentials(opContext, userUrn);
+    if (corpUserCredentials == null) {
+      return LoginDenialReason.INVALID_CREDENTIALS;
+    }
+
+    final int updatedAttempts = getFailedLoginAttempts(corpUserCredentials) + 1;
+    corpUserCredentials.data().put(FAILED_LOGIN_ATTEMPTS_FIELD_NAME, updatedAttempts);
+
+    LoginDenialReason denialReason = LoginDenialReason.INVALID_CREDENTIALS;
+    if (updatedAttempts >= _authConfig.getMaxFailedLoginAttempts()) {
+      corpUserCredentials
+          .data()
+          .put(
+              LOGIN_LOCKOUT_EXPIRY_TIME_MILLIS_FIELD_NAME,
+              Instant.now().toEpochMilli() + _authConfig.getFailedLoginLockoutDurationMs());
+      denialReason = LoginDenialReason.TOO_MANY_FAILED_ATTEMPTS;
+    }
+
+    ingestCorpUserCredentials(opContext, userUrn, corpUserCredentials);
+    return denialReason;
+  }
+
+  public void resetFailedLoginAttempts(
+      @Nonnull OperationContext opContext, @Nonnull String userUrnString) throws Exception {
+    Objects.requireNonNull(userUrnString, "userUrnSting must not be null!");
+
+    final Urn userUrn = Urn.createFromString(userUrnString);
+    final CorpUserCredentials corpUserCredentials = getCorpUserCredentials(opContext, userUrn);
+    if (corpUserCredentials == null) {
+      return;
+    }
+
+    final DataMap credentialsData = corpUserCredentials.data();
+    if (credentialsData == null) {
+      return;
+    }
+
+    if (!credentialsData.containsKey(FAILED_LOGIN_ATTEMPTS_FIELD_NAME)
+        && !credentialsData.containsKey(LOGIN_LOCKOUT_EXPIRY_TIME_MILLIS_FIELD_NAME)) {
+      return;
+    }
+
+    clearFailedNativeLoginState(corpUserCredentials);
+    ingestCorpUserCredentials(opContext, userUrn, corpUserCredentials);
+  }
+
+  private boolean isFailedLoginLockoutEnabled() {
+    return _authConfig.getMaxFailedLoginAttempts() > 0
+        && _authConfig.getFailedLoginLockoutDurationMs() > 0;
+  }
+
+  private CorpUserCredentials getCorpUserCredentials(
+      @Nonnull OperationContext opContext, @Nonnull Urn userUrn) throws Exception {
+    return (CorpUserCredentials)
+        _entityService.getLatestAspect(opContext, userUrn, CORP_USER_CREDENTIALS_ASPECT_NAME);
+  }
+
+  private void ingestCorpUserCredentials(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn userUrn,
+      @Nonnull CorpUserCredentials corpUserCredentials)
+      throws Exception {
+    final MetadataChangeProposal corpUserCredentialsProposal = new MetadataChangeProposal();
+    corpUserCredentialsProposal.setEntityType(CORP_USER_ENTITY_NAME);
+    corpUserCredentialsProposal.setEntityUrn(userUrn);
+    corpUserCredentialsProposal.setAspectName(CORP_USER_CREDENTIALS_ASPECT_NAME);
+    corpUserCredentialsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserCredentials));
+    corpUserCredentialsProposal.setChangeType(ChangeType.UPSERT);
+    _entityClient.ingestProposal(opContext, corpUserCredentialsProposal);
+  }
+
+  private static int getFailedLoginAttempts(@Nonnull CorpUserCredentials corpUserCredentials) {
+    final DataMap data = corpUserCredentials.data();
+    if (data == null) {
+      return 0;
+    }
+    final Object value = data.get(FAILED_LOGIN_ATTEMPTS_FIELD_NAME);
+    return value instanceof Number ? ((Number) value).intValue() : 0;
+  }
+
+  private static Long getOptionalLong(
+      @Nonnull CorpUserCredentials corpUserCredentials, @Nonnull String fieldName) {
+    final DataMap data = corpUserCredentials.data();
+    if (data == null) {
+      return null;
+    }
+    final Object value = data.get(fieldName);
+    return value instanceof Number ? ((Number) value).longValue() : null;
+  }
+
+  private static void clearFailedNativeLoginState(
+      @Nonnull CorpUserCredentials corpUserCredentials) {
+    final DataMap data = corpUserCredentials.data();
+    if (data == null) {
+      return;
+    }
+    data.remove(FAILED_LOGIN_ATTEMPTS_FIELD_NAME);
+    data.remove(LOGIN_LOCKOUT_EXPIRY_TIME_MILLIS_FIELD_NAME);
   }
 }
