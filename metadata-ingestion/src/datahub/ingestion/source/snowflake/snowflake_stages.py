@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Literal, Optional, Tuple
 
 from pydantic import Field
 
@@ -18,11 +18,18 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
-from datahub.ingestion.source.azure.abs_utils import make_abs_urn
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.aws.s3_util import (
+    make_s3_urn_for_lineage,
+    strip_s3_prefix,
+)
+from datahub.ingestion.source.azure.abs_utils import make_abs_urn, strip_abs_prefix
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+)
+from datahub.ingestion.source.data_lake_common.path_urn_resolver import (
+    DataLakePathResolver,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -40,6 +47,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
 )
+from datahub.utilities.urns.error import InvalidUrnError
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -50,11 +58,25 @@ class StageKey(ContainerKey):
     stage: str
 
 
-@dataclass
+ExternalStagePlatform = Literal["s3", "gcs", "abs"]
+
+
+@dataclass(frozen=True)
+class ParsedStageUrl:
+    platform: ExternalStagePlatform
+    path: str
+    fallback_urn: str
+
+    @property
+    def bucket(self) -> str:
+        return self.path.split("/", 1)[0]
+
+
+@dataclass(frozen=True)
 class StageLookupEntry:
     stage: SnowflakeStage
     container_key: StageKey
-    dataset_urn: Optional[str] = None
+    dataset_urns: Tuple[str, ...] = ()
 
 
 @dataclass
@@ -63,9 +85,19 @@ class SnowflakeStagesExtractor:
     report: SnowflakeV2Report
     data_dictionary: SnowflakeDataDictionary
     identifiers: SnowflakeIdentifierBuilder
+    graph: Optional[DataHubGraph] = None
 
-    # Lookup map: "DB.SCHEMA.STAGE_NAME" -> StageLookupEntry
     stage_lookup: Dict[str, StageLookupEntry] = field(default_factory=dict)
+
+    _stage_url_cache: Dict[str, Tuple[str, ...]] = field(default_factory=dict)
+
+    _path_resolver: Optional[DataLakePathResolver] = field(default=None, init=False)
+
+    def __post_init__(self) -> None:
+        if self.graph is not None:
+            self._path_resolver = DataLakePathResolver(
+                graph=self.graph, env=self.config.env
+            )
 
     def get_workunits(
         self,
@@ -92,11 +124,6 @@ class SnowflakeStagesExtractor:
                 env=self.config.env,
             )
 
-            lookup_entry = StageLookupEntry(
-                stage=stage,
-                container_key=stage_key,
-            )
-
             yield from self._gen_stage_container(
                 stage=stage,
                 stage_key=stage_key,
@@ -105,16 +132,20 @@ class SnowflakeStagesExtractor:
 
             if stage.stage_type == SnowflakeStageType.INTERNAL:
                 dataset_urn = self._gen_internal_stage_dataset_urn(stage)
-                lookup_entry.dataset_urn = dataset_urn
+                dataset_urns: Tuple[str, ...] = (dataset_urn,)
                 yield from self._gen_internal_stage_dataset(
                     stage=stage,
                     dataset_urn=dataset_urn,
                     stage_key=stage_key,
                 )
             else:
-                lookup_entry.dataset_urn = self._resolve_external_stage_url(stage.url)
+                dataset_urns = self._resolve_external_stage_url(stage.url)
 
-            self.stage_lookup[stage_identifier] = lookup_entry
+            self.stage_lookup[stage_identifier] = StageLookupEntry(
+                stage=stage,
+                container_key=stage_key,
+                dataset_urns=dataset_urns,
+            )
 
     def _gen_stage_container(
         self,
@@ -210,28 +241,132 @@ class SnowflakeStagesExtractor:
             dataset_urn=dataset_urn,
         )
 
-    def _resolve_external_stage_url(self, url: Optional[str]) -> Optional[str]:
+    def _resolve_external_stage_url(self, url: Optional[str]) -> Tuple[str, ...]:
         if not url:
-            return None
+            return ()
+        if url in self._stage_url_cache:
+            return self._stage_url_cache[url]
+
+        urns = self._compute_external_stage_urns(url)
+        if urns is None:
+            # Transient failure — do not cache so a later lookup can retry.
+            return ()
+        self._stage_url_cache[url] = urns
+        return urns
+
+    def _compute_external_stage_urns(self, url: str) -> Optional[Tuple[str, ...]]:
+        try:
+            parsed = self._parse_external_stage_url(url)
+        except (ValueError, InvalidUrnError) as e:
+            # InvalidUrnError is also caught because the gcs URN constructor rejects
+            # an empty path (e.g. ``gcs://``) before our downstream guard can fire.
+            self.report.warning(
+                title="Failed to parse external stage URL",
+                message="Stage lineage will be skipped for this stage.",
+                context=url,
+                exc=e,
+            )
+            return ()
+
+        if parsed is None:
+            self.report.info(
+                title="Unsupported external stage URL scheme",
+                message="Stage lineage will be skipped. Only s3://, gcs://, and azure:// are supported.",
+                context=url,
+            )
+            return ()
+
+        if (
+            self.config.resolve_external_stage_lineage_via_graph
+            and self._path_resolver is not None
+        ):
+            return self._resolve_stage_via_graph(parsed, url)
+        return (parsed.fallback_urn,)
+
+    def _parse_external_stage_url(self, url: str) -> Optional[ParsedStageUrl]:
         if url.startswith("s3://"):
-            return make_s3_urn_for_lineage(url, self.config.env)
+            return ParsedStageUrl(
+                platform="s3",
+                path=strip_s3_prefix(url).rstrip("/"),
+                fallback_urn=make_s3_urn_for_lineage(url, self.config.env),
+            )
         if url.startswith("gcs://"):
-            # Snowflake uses gcs:// but DataHub GCS platform expects the path without prefix
-            path = url[len("gcs://") :]
-            if path.endswith("/"):
-                path = path[:-1]
-            return make_dataset_urn_with_platform_instance(
+            path = url[len("gcs://") :].rstrip("/")
+            return ParsedStageUrl(
                 platform="gcs",
-                name=path,
-                env=self.config.env,
-                platform_instance=None,
+                path=path,
+                fallback_urn=make_dataset_urn_with_platform_instance(
+                    platform="gcs",
+                    name=path,
+                    env=self.config.env,
+                    platform_instance=None,
+                ),
             )
         if url.startswith("azure://"):
-            # Snowflake stores azure://<account>.blob.core.windows.net/<container>/<path>
+            # Snowflake's azure:// is the same host structure as Azure's https:// URL,
+            # which is what make_abs_urn / strip_abs_prefix expect.
             abs_url = url.replace("azure://", "https://", 1)
-            return make_abs_urn(abs_url, self.config.env)
-        logger.debug(f"Unsupported external stage URL scheme: {url}")
+            return ParsedStageUrl(
+                platform="abs",
+                path=strip_abs_prefix(abs_url).rstrip("/"),
+                fallback_urn=make_abs_urn(abs_url, self.config.env),
+            )
         return None
+
+    def _resolve_stage_via_graph(
+        self, parsed: ParsedStageUrl, url: str
+    ) -> Optional[Tuple[str, ...]]:
+        # ``raise`` (not ``assert``) so the guard stays loud under ``python -O``.
+        if self._path_resolver is None:
+            raise RuntimeError(
+                "_resolve_stage_via_graph requires a path resolver; "
+                "guard on self._path_resolver in the caller."
+            )
+
+        if not parsed.path:
+            self.report.warning(
+                title="External stage URL has no path component",
+                message=(
+                    "Cannot resolve stage lineage; URL has empty path after stripping "
+                    "the scheme. This usually indicates a malformed stage definition."
+                ),
+                context=url,
+            )
+            self.report.external_stage_lineage_unresolved += 1
+            return ()
+
+        result = self._path_resolver.resolve_datasets_under_path(
+            platform=parsed.platform,
+            bucket=parsed.bucket,
+            path=parsed.path,
+            platform_instance=self.config.external_stage_platform_instance,
+        )
+
+        if result.transient_error is not None:
+            self.report.warning(
+                title="Failed to resolve external stage lineage via graph",
+                message="Stage lineage will be skipped for this stage.",
+                context=url,
+                exc=result.transient_error,
+            )
+            self.report.external_stage_lineage_unresolved += 1
+            return None
+
+        if not result.matched_urns:
+            self.report.warning(
+                title="External stage lineage unresolved",
+                message=(
+                    "No existing dataset URNs found for this stage. Lineage will be "
+                    "skipped until the underlying data lake source has been ingested; "
+                    "re-run after the data lake source completes."
+                ),
+                context=f"platform={parsed.platform}, url={url}",
+            )
+            self.report.external_stage_lineage_unresolved += 1
+            return ()
+
+        self.report.external_stage_lineage_resolved += 1
+        return result.matched_urns
 
     def get_stage_lookup_entry(self, stage_fqn: str) -> Optional[StageLookupEntry]:
         return self.stage_lookup.get(stage_fqn.upper())

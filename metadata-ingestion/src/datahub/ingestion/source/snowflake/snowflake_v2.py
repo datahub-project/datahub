@@ -759,6 +759,7 @@ class SnowflakeV2Source(
                 report=self.report,
                 data_dictionary=self.data_dictionary,
                 identifiers=self.identifiers,
+                graph=self.ctx.graph,
             )
 
         if stages_extractor:

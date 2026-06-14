@@ -424,6 +424,21 @@ stage_pattern:
     - "MY_DB.MY_SCHEMA.*"
 ```
 
+###### External Stage Lineage via Graph (`resolve_external_stage_lineage_via_graph`)
+
+By default, DataHub generates a dataset URN for each external stage directly from its raw S3/GCS/Azure URL. If your data lake source was ingested with a `platform_instance`, the auto-generated URN may not match the existing dataset in DataHub, causing broken lineage.
+
+Set `resolve_external_stage_lineage_via_graph: true` to look up existing dataset URNs in the DataHub graph whose paths share the stage URL as a prefix, instead of generating a URN from the raw path. This requires the corresponding data lake source (S3, GCS, or Azure) to have been ingested first; otherwise stage lineage will be skipped on the current run and resolved on a subsequent run.
+
+If the underlying data lake source was ingested with a `platform_instance`, set `external_stage_platform_instance` to that value so the graph lookup uses the correct URN prefix.
+
+```yaml
+include_stages: true
+resolve_external_stage_lineage_via_graph: true
+# Only needed if the data lake source was ingested with a platform_instance:
+external_stage_platform_instance: my-s3-instance
+```
+
 ##### Tasks (`include_tasks: true`)
 
 Tasks are ingested as DataJob entities grouped under a per-schema DataFlow. Predecessor dependencies between tasks are captured as `inputDatajobs` on the DataJobInputOutput aspect, preserving the DAG structure.
