@@ -784,11 +784,11 @@ Join thousands of data practitioners building with DataHub!
 
 **Next Town Hall:**
 
-- 🎟️ [Register for the next Town Hall](https://luma.com/zp3h4ex8)
+- 🎟️ [Register for the next Town Hall](https://luma.com/1vz73xnf)
 
 **Last Town Hall:**
 
-- 📺 [Powering AI Agents with DataHub Context](https://youtu.be/dqZNV09yvA0?si=IWUKhLm0Xa_PoYsy) (January 2026)
+- 📺 [Context to Action with Grab, dltHub, and iFood](https://youtu.be/GsnX7edN6Rw) (May 2026)
 
 [→ View all past recordings](https://www.youtube.com/playlist?list=PLdCtLs64vZvHTXGqybmOfyxXbGDn2Reb9)
 
