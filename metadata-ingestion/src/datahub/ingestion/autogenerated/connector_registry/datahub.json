@@ -2768,6 +2768,44 @@
       "platform_name": "Notion",
       "support_status": "INCUBATING"
     },
+    "odcs": {
+      "capabilities": [
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Dataset and column descriptions.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "ODCS soft-deletes only the logical `odcs` Datasets and Assertions it owns; physical datasets and their `logicalParent` links are never marked removed.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Owners derived from `team[]`.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Top-level and column-level `tags`.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Canonical schema (types, descriptions, keys) from `schema[].properties[]`.",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.odcs.odcs_source.ODCSSource",
+      "platform_id": "odcs",
+      "platform_name": "Open Data Contract Standard",
+      "support_status": "INCUBATING"
+    },
     "okta": {
       "capabilities": [
         {
