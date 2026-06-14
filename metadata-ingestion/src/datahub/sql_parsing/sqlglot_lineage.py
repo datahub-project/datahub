@@ -84,7 +84,7 @@ logger = logging.getLogger(__name__)
 
 
 def _restore_mssql_temp_table_prefix(
-    table: sqlglot.exp.Table,
+    identifier: sqlglot.exp.Expression,
     dialect: Optional[sqlglot.Dialect],
 ) -> str:
     """Restore MSSQL temp table prefix (# or ##) stripped by SQLGlot.
@@ -104,34 +104,30 @@ def _restore_mssql_temp_table_prefix(
       - datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator.is_temp_table()
 
     Args:
-        table: The SQLGlot Table expression
-        dialect: The SQL dialect being used
+        identifier: The inner identifier expression (typically ``table.this`` or
+            the rightmost element of a ``Dot`` chain).
+        dialect: The SQL dialect being used.
 
     Returns:
-        The table name with # or ## prefix restored if needed (for MSSQL only)
+        ``identifier.name`` with ``#`` or ``##`` prepended for MSSQL temp tables,
+        unchanged otherwise.
     """
-    # Only apply to MSSQL dialect
+    name = identifier.name
     if dialect is None or not is_dialect_instance(dialect, ["mssql"]):
-        return table.name
-
-    identifier = table.this
+        return name
     if not hasattr(identifier, "args"):
-        return table.name
-
-    table_name = identifier.name if hasattr(identifier, "name") else table.name
+        return name
 
     # Note: sqlglot v28+ uses "global_" instead of "global"
     is_global_temp = identifier.args.get("global_", False) or identifier.args.get(
         "global", False
     )
     is_local_temp = identifier.args.get("temporary", False)
-
-    if is_global_temp and not table_name.startswith("##"):
-        return f"##{table_name}"
-    elif is_local_temp and not table_name.startswith("#"):
-        return f"#{table_name}"
-
-    return table_name
+    if is_global_temp and not name.startswith("##"):
+        return f"##{name}"
+    if is_local_temp and not name.startswith("#"):
+        return f"#{name}"
+    return name
 
 
 def _table_name_from_sqlglot_table(
@@ -140,84 +136,13 @@ def _table_name_from_sqlglot_table(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> _TableName:
-    """Create a _TableName from a sqlglot Table, handling MSSQL temp table prefixes.
-
-    This is a dialect-aware wrapper around _TableName.from_sqlglot_table that
-    restores MSSQL temp table prefixes (# or ##) that SQLGlot strips during parsing.
-
-    Args:
-        table: The SQLGlot Table expression
-        dialect: The SQL dialect being used
-        default_db: Default database if not specified in table
-        default_schema: Default schema if not specified in table
-
-    Returns:
-        A _TableName with the correct table name (including temp prefix for MSSQL)
-    """
-    # Handle Snowflake semantic views: SEMANTIC_VIEW(table_name ...)
-    # In this case, table.this is a SemanticView expression, and we need to
-    # extract the actual table from within it.
-    if isinstance(table.this, sqlglot.exp.SemanticView):
-        # The SemanticView.this contains the actual table reference
-        inner_table = table.this.this
-        if isinstance(inner_table, sqlglot.exp.Table):
-            # Recursively extract from the inner table
-            return _table_name_from_sqlglot_table(
-                inner_table, dialect, default_db, default_schema
-            )
-        elif isinstance(inner_table, sqlglot.exp.Identifier):
-            # Simple table name
-            return _TableName(
-                database=table.catalog or default_db,
-                db_schema=table.db or default_schema,
-                table=inner_table.name,
-                parts=None,
-            )
-
-    # Handle Dot expressions (more than 3-part names).
-    # Dot is left-associative (a.b.c = Dot(Dot(a,b),c)), so collect right-side
-    # identifiers while walking left, then reverse. Mirror of the traversal in
-    # `_TableName.from_sqlglot_table`; kept in sync intentionally.
-    if isinstance(table.this, sqlglot.exp.Dot):
-        all_parts_exp: List[sqlglot.exp.Expression] = []
-        exp: sqlglot.exp.Expression = table.this
-        while isinstance(exp, sqlglot.exp.Dot):
-            all_parts_exp.append(exp.expression)
-            exp = exp.this
-        all_parts_exp.append(exp)
-        all_parts_exp.reverse()
-
-        # Only restore MSSQL temp prefix on the rightmost part (the actual table name).
-        final_exp = all_parts_exp[-1]
-        final_part = final_exp.name
-        if (
-            dialect is not None
-            and is_dialect_instance(dialect, ["mssql"])
-            and hasattr(final_exp, "args")
-        ):
-            # Note: sqlglot v28+ uses "global_" instead of "global"
-            is_global_temp = final_exp.args.get("global_", False) or final_exp.args.get(
-                "global", False
-            )
-            is_local_temp = final_exp.args.get("temporary", False)
-            if is_global_temp and not final_part.startswith("##"):
-                final_part = f"##{final_part}"
-            elif is_local_temp and not final_part.startswith("#"):
-                final_part = f"#{final_part}"
-
-        parts = [p.name for p in all_parts_exp[:-1]] + [final_part]
-        table_name = ".".join(parts)
-    else:
-        table_name = _restore_mssql_temp_table_prefix(table, dialect)
-
-    # Extract parts tuple for multi-part table names (for schema resolver compatibility)
-    parts_tuple = tuple(p.name for p in table.parts) if table.parts else None
-
-    return _TableName(
-        database=table.catalog or default_db,
-        db_schema=table.db or default_schema,
-        table=table_name,
-        parts=parts_tuple,
+    """Dialect-aware wrapper around ``_TableName.from_sqlglot_table`` that
+    restores MSSQL temp-table prefixes (# or ##) on the rightmost identifier."""
+    return _TableName.from_sqlglot_table(
+        table,
+        default_db=default_db,
+        default_schema=default_schema,
+        leaf_name_transform=lambda exp: _restore_mssql_temp_table_prefix(exp, dialect),
     )
 
 

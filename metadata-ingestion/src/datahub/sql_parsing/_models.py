@@ -1,8 +1,12 @@
 import functools
-from typing import Any, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 import sqlglot
 from pydantic import BaseModel
+
+
+def _default_leaf_name(exp: sqlglot.exp.Expression) -> str:
+    return exp.name
 
 
 class _ParserBaseModel(
@@ -92,39 +96,42 @@ class _TableName(_FrozenModel):
         table: sqlglot.exp.Table,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
+        leaf_name_transform: Optional[Callable[[sqlglot.exp.Expression], str]] = None,
     ) -> "_TableName":
+        transform = leaf_name_transform or _default_leaf_name
+
         # Handle Snowflake semantic views: SEMANTIC_VIEW(table_name ...)
-        # In this case, table.this is a SemanticView expression, and we need to
-        # extract the actual table from within it.
+        # sqlglot parses every SEMANTIC_VIEW variant (simple/qualified name,
+        # METRICS, DIMENSIONS) as SemanticView(this=Table), so we just unwrap
+        # and recurse.
         if isinstance(table.this, sqlglot.exp.SemanticView):
-            # The SemanticView.this contains the actual table reference
             inner_table = table.this.this
-            if isinstance(inner_table, sqlglot.exp.Table):
-                # Recursively extract from the inner table
-                return cls.from_sqlglot_table(inner_table, default_db, default_schema)
-            elif isinstance(inner_table, sqlglot.exp.Identifier):
-                # Simple table name
-                return cls(
-                    database=table.catalog or default_db,
-                    db_schema=table.db or default_schema,
-                    table=inner_table.name,
-                    parts=None,
-                )
+            assert isinstance(inner_table, sqlglot.exp.Table), (
+                f"Unexpected SemanticView inner type: {type(inner_table).__name__}"
+            )
+            return cls.from_sqlglot_table(
+                inner_table,
+                default_db=default_db,
+                default_schema=default_schema,
+                leaf_name_transform=leaf_name_transform,
+            )
 
         if isinstance(table.this, sqlglot.exp.Dot):
-            # Multi-part tables (>3 parts) have extra parts in a Dot expression.
-            # Dot is left-associative (a.b.c = Dot(Dot(a,b),c)), so collect right-side
-            # identifiers while walking left, then reverse.
-            parts = []
-            exp = table.this
+            # Dot is left-associative (a.b.c = Dot(Dot(a,b),c)), so collect
+            # right-side identifiers while walking left, then reverse.
+            all_parts_exp: List[sqlglot.exp.Expression] = []
+            exp: sqlglot.exp.Expression = table.this
             while isinstance(exp, sqlglot.exp.Dot):
-                parts.append(exp.expression.name)
+                all_parts_exp.append(exp.expression)
                 exp = exp.this
-            parts.append(exp.name)
-            parts.reverse()
+            all_parts_exp.append(exp)
+            all_parts_exp.reverse()
+            parts = [p.name for p in all_parts_exp[:-1]] + [
+                transform(all_parts_exp[-1])
+            ]
             table_name = ".".join(parts)
         else:
-            table_name = table.this.name
+            table_name = transform(table.this)
 
         parts_tuple = tuple(p.name for p in table.parts) if table.parts else None
 
