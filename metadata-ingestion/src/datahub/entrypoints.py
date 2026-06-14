@@ -36,6 +36,7 @@ from datahub.cli.specific.assertions_cli import assertions
 from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
 from datahub.cli.specific.dataset_cli import dataset
+from datahub.cli.specific.domain_cli import domain
 from datahub.cli.specific.forms_cli import forms
 from datahub.cli.specific.group_cli import group
 from datahub.cli.specific.structuredproperties_cli import properties
@@ -513,6 +514,7 @@ datahub.add_command(user)
 datahub.add_command(group)
 datahub.add_command(dataproduct)
 datahub.add_command(dataset)
+datahub.add_command(domain)
 datahub.add_command(properties)
 datahub.add_command(forms)
 datahub.add_command(datacontract)
