@@ -38,16 +38,25 @@ interface TentativeEdge {
  */
 export function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: NodeContext['nodes']): boolean {
     const node = nodes.get(datasetUrn);
-    if (!node?.entity?.schemaMetadata?.fields) {
+
+    // Field source priority: a dataset's schemaMetadata.fields, otherwise the
+    // entity's inputFields[].schemaField. Charts and dashboards don't have
+    // schemaMetadata in the GraphQL schema, but they DO have inputFields, so
+    // without this fallback their column-level lineage is silently dropped by
+    // the existence check below.
+    const schemaFields = node?.entity?.schemaMetadata?.fields;
+    const inputFields = node?.entity?.inputFields?.fields
+        ?.map((f) => f?.schemaField)
+        ?.filter((f): f is NonNullable<typeof f> => !!f);
+    const fields = schemaFields ?? inputFields;
+    if (!fields?.length) {
         return false;
     }
 
     // Normalize both paths to V1 format for comparison, since fineGrainedLineages paths
     // are downgraded to V1 in EntityRegistry but schema field paths may still be V2
     const normalizedFieldPath = downgradeV2FieldPath(fieldPath);
-    return node.entity.schemaMetadata.fields.some(
-        (field) => downgradeV2FieldPath(field.fieldPath) === normalizedFieldPath,
-    );
+    return fields.some((field) => downgradeV2FieldPath(field.fieldPath) === normalizedFieldPath);
 }
 
 /**
