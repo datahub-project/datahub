@@ -19,6 +19,7 @@ import static com.linkedin.metadata.Constants.NOTEBOOK_ENTITY_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
+import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static com.linkedin.metadata.authorization.Disjunctive.DENY_ACCESS;
@@ -26,6 +27,7 @@ import static com.linkedin.metadata.authorization.PoliciesConfig.API_ENTITY_PRIV
 import static com.linkedin.metadata.authorization.PoliciesConfig.API_PRIVILEGE_MAP;
 import static com.linkedin.metadata.authorization.PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE;
 
+import com.datahub.authorization.config.SystemDataAccessControlConfiguration;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -38,6 +40,8 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.policy.SystemDataPolicy;
+import com.linkedin.metadata.policy.SystemDataPolicyIndex;
 import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.ScrollResult;
@@ -56,6 +60,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -82,15 +87,42 @@ public class AuthUtil {
   // TODO: Some unit tests seem to rely on this being false, so setting the default to false.
   // When running as the spring boot application, the default property value is true.
   private static boolean isRestApiAuthorizationEnabled = false;
+  private static boolean isSystemDataAccessControlEnabled = true;
+
+  public static boolean isSystemDataAccessControlEnabled() {
+    return isSystemDataAccessControlEnabled;
+  }
 
   // Eliminating the dependency on the env var REST_API_AUTHORIZATION_ENABLED and instead using the
   // application property to keep it consistent with all other usage of that property.
   @Value("${authorization.restApiAuthorization:true}")
   protected Boolean restApiAuthorizationEnabled;
 
+  /** Test override when Spring {@link SystemDataAccessControlConfiguration} bean is absent. */
+  @VisibleForTesting protected Boolean systemDataAccessControlEnabledOverride;
+
+  @Nullable private final SystemDataAccessControlConfiguration systemDataAccessControlConfiguration;
+
+  public AuthUtil() {
+    this(null);
+  }
+
+  @Autowired
+  public AuthUtil(
+      @Nullable final SystemDataAccessControlConfiguration systemDataAccessControlConfiguration) {
+    this.systemDataAccessControlConfiguration = systemDataAccessControlConfiguration;
+  }
+
   @PostConstruct
   protected void init() {
     AuthUtil.isRestApiAuthorizationEnabled = this.restApiAuthorizationEnabled;
+    if (systemDataAccessControlEnabledOverride != null) {
+      AuthUtil.isSystemDataAccessControlEnabled = systemDataAccessControlEnabledOverride;
+    } else if (systemDataAccessControlConfiguration != null) {
+      AuthUtil.isSystemDataAccessControlEnabled = systemDataAccessControlConfiguration.isEnabled();
+    } else {
+      AuthUtil.isSystemDataAccessControlEnabled = true;
+    }
   }
 
   /**
@@ -262,6 +294,10 @@ public class AuthUtil {
       @Nonnull final ApiOperation apiOperation,
       @Nonnull final Collection<Urn> urns) {
 
+    if (!passesSystemDataEntityUrnGate(session, apiOperation, urns)) {
+      return false;
+    }
+
     Map<String, List<EntitySpec>> resourceSpecs =
         urns.stream()
             .map(urn -> new EntitySpec(urn.getEntityType(), urn.toString()))
@@ -282,6 +318,10 @@ public class AuthUtil {
       @Nonnull final ApiOperation apiOperation,
       @Nonnull final Collection<Urn> urns,
       @Nonnull final Collection<Urn> subResources) {
+
+    if (!passesSystemDataEntityUrnGate(session, apiOperation, urns)) {
+      return false;
+    }
 
     Map<String, List<EntitySpec>> resourceSpecs =
         urns.stream()
@@ -335,12 +375,61 @@ public class AuthUtil {
     return entityTypes.stream()
         .distinct()
         .allMatch(
-            entityType ->
-                isAPIAuthorized(
-                    session,
-                    lookupAPIPrivilege(apiGroup, apiOperation, entityType),
-                    new EntitySpec(entityType, ""),
-                    Collections.emptyList()));
+            entityType -> {
+              if (!passesSystemDataEntityTypeGate(session, apiOperation, entityType)) {
+                return false;
+              }
+              return isAPIAuthorized(
+                  session,
+                  lookupAPIPrivilege(apiGroup, apiOperation, entityType),
+                  new EntitySpec(entityType, ""),
+                  Collections.emptyList());
+            });
+  }
+
+  private static boolean passesSystemDataEntityUrnGate(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final ApiOperation apiOperation,
+      @Nonnull final Collection<Urn> urns) {
+    if (!(session instanceof EntityRegistryAuthorizationSession)) {
+      return true;
+    }
+    EntityRegistry entityRegistry =
+        ((EntityRegistryAuthorizationSession) session).getEntityRegistry();
+    return urns.stream()
+        .allMatch(urn -> passesSystemDataGate(entityRegistry, apiOperation, urn.getEntityType()));
+  }
+
+  private static boolean passesSystemDataEntityTypeGate(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final ApiOperation apiOperation,
+      @Nonnull final String entityType) {
+    if (!(session instanceof EntityRegistryAuthorizationSession)) {
+      return true;
+    }
+    EntityRegistry entityRegistry =
+        ((EntityRegistryAuthorizationSession) session).getEntityRegistry();
+    return passesSystemDataGate(entityRegistry, apiOperation, entityType);
+  }
+
+  private static boolean passesSystemDataGate(
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final ApiOperation apiOperation,
+      @Nonnull final String entityType) {
+    if (!isSystemDataAccessControlEnabled) {
+      return true;
+    }
+    SystemDataPolicyIndex policy = SystemDataPolicy.index(entityRegistry);
+    if (!policy.isKnownEntity(entityType)) {
+      return true;
+    }
+    if (READ.equals(apiOperation) && !policy.isEntityReadEligible(entityType)) {
+      return false;
+    }
+    if (EXISTS.equals(apiOperation) && !policy.isEntityExistsEligible(entityType)) {
+      return false;
+    }
+    return true;
   }
 
   public static boolean isAPIAuthorized(
@@ -477,6 +566,10 @@ public class AuthUtil {
       @Nonnull final ApiGroup apiGroup,
       @Nonnull final ApiOperation apiOperation,
       @Nonnull final Collection<Urn> urns) {
+
+    if (!passesSystemDataEntityUrnGate(session, apiOperation, urns)) {
+      return false;
+    }
 
     Map<String, List<EntitySpec>> resourceSpecs =
         urns.stream()
@@ -678,6 +771,4 @@ public class AuthUtil {
     final AuthorizationResult result = session.authorize(privilege, resourceSpec, subResources);
     return AuthorizationResult.Type.DENY.equals(result.getType());
   }
-
-  protected AuthUtil() {}
 }

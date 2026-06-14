@@ -65,5 +65,6 @@ schemaField: "SchemaField entities represent individual dataset columns as first
 structuredProperty: "Structured Properties are typed, governed custom metadata fields that extend the core model and can be attached to any entity in DataHub."
 tag: "Tags are lightweight labels — like pii or deprecated — applied to datasets, columns, and other assets for fast classification and filtering."
 telemetry: "Internal DataHub entity that stores the anonymous client identifier used for opt-in product usage telemetry reported back to the platform."
+dataHubSystemState: "Internal GMS entity for durable operational state. Hidden from users by default via @SystemEntity; writable only by the system actor."
 test: "Tests define rules that match assets meeting specific criteria, used to flag governance gaps or required metadata across the catalog."
 versionSet: "VersionSets group related versions of an entity — typically ML models or datasets — so users can navigate the evolution of a single logical asset."

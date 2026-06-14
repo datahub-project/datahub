@@ -4,6 +4,8 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
+import com.linkedin.metadata.models.annotation.SystemAnnotation;
+import com.linkedin.metadata.models.annotation.SystemEntityAnnotation;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +33,10 @@ public class AspectSpec {
   private final Class<RecordTemplate> _aspectClass;
   @Setter @Getter private String registryName = "unknownRegistry";
   @Setter @Getter private ComparableVersion registryVersion = new ComparableVersion("0.0.0.0-dev");
+  @Setter @Getter private SystemAnnotation systemAnnotation = SystemAnnotation.absent();
+
+  @Setter @Getter
+  private SystemEntityAnnotation systemEntityAnnotation = SystemEntityAnnotation.absent();
 
   public AspectSpec(
       @Nonnull final AspectAnnotation aspectAnnotation,

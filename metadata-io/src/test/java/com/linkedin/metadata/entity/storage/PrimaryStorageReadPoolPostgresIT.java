@@ -12,6 +12,7 @@ import static org.testng.Assert.fail;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.PostgresTestUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
+import com.linkedin.metadata.aspect.plugins.filter.ReadIntent;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
@@ -104,7 +105,8 @@ public class PrimaryStorageReadPoolPostgresIT {
 
     primaryDatabase.save(row);
     EntityAspect readBack =
-        aspectDao.getAspect(opContext, urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION);
+        aspectDao.getAspect(
+            opContext, urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION, ReadIntent.READ);
     assertNotNull(readBack);
     assertEquals(readBack.getUrn(), urn);
   }
@@ -124,7 +126,7 @@ public class PrimaryStorageReadPoolPostgresIT {
     EntityAspectIdentifier key =
         new EntityAspectIdentifier(urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION);
     Map<EntityAspectIdentifier, EntityAspect> batch =
-        aspectDao.batchGet(opContext, Set.of(key), false);
+        aspectDao.batchGet(opContext, Set.of(key), false, ReadIntent.READ);
     assertEquals(batch.size(), 1);
     assertEquals(batch.get(key).getUrn(), urn);
     assertEquals(aspectDao.getServer(), primaryDatabase);
