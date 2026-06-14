@@ -781,6 +781,7 @@ class SnowflakeV2Source(
                 report=self.report,
                 data_dictionary=self.data_dictionary,
                 identifiers=self.identifiers,
+                schema_resolver=self.aggregator._schema_resolver,
             )
             for db in databases:
                 for schema in db.schemas:
@@ -873,7 +874,12 @@ class SnowflakeV2Source(
                 self.report.edition = SnowflakeEdition.STANDARD
             else:
                 self.report.edition = SnowflakeEdition.ENTERPRISE
-        except Exception:
+        except Exception as e:
+            self.report.warning(
+                title="Snowflake Edition Detection Failed",
+                message="Could not determine Snowflake edition; tag extraction may be affected",
+                exc=e,
+            )
             self.report.edition = None
 
     def get_snowsight_url_builder(self) -> Optional[SnowsightUrlBuilder]:
@@ -969,8 +975,8 @@ class SnowflakeV2Source(
         try:
             if os.path.exists(file_path):
                 os.remove(file_path)
-        except Exception:
-            logger.debug(f'Failed to remove OCSP cache file at "{file_path}"')
+        except Exception as e:
+            logger.warning('Failed to remove OCSP cache file at "%s": %s', file_path, e)
 
     def close(self) -> None:
         super().close()
