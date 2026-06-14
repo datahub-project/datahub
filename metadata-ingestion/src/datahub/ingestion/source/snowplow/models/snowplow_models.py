@@ -893,18 +893,73 @@ class EnrichmentContent(BaseModel):
 
 
 class Enrichment(BaseModel):
-    """Enrichment from BDP API (represents a DataJob in DataHub)."""
+    """Enrichment from BDP API (represents a DataJob in DataHub).
 
-    id: str = Field(description="Enrichment UUID")
+    The internal shape predates the pipelines/v1 API. Instances are built from the
+    non-deprecated endpoint via :meth:`from_resource`; ``id``/``filename`` hold the
+    enrichment ``name`` (the new payload has no UUID) and ``last_update`` is empty
+    (the new payload does not return it).
+    """
+
+    id: str = Field(description="Enrichment identifier (the enrichment name)")
     filename: str = Field(description="Enrichment configuration filename")
     content: Optional[EnrichmentContent] = Field(
         None,
         description="Enrichment configuration (None if disabled and not configured)",
     )
     enabled: bool = Field(description="Whether enrichment is enabled")
-    last_update: str = Field(alias="lastUpdate", description="Last update timestamp")
+    last_update: str = Field(
+        default="", alias="lastUpdate", description="Last update timestamp (if known)"
+    )
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @staticmethod
+    def _vendor_from_schema_key(schema_key: str) -> str:
+        """Derive the enrichment vendor from an Iglu schema key.
+
+        Schema keys look like ``iglu:<vendor>/<name>/jsonschema/<version>``. The
+        pipelines/v1 enrichments payload no longer returns a vendor field, so we
+        recover it from the schema key.
+        """
+        key = (
+            schema_key[len("iglu:") :] if schema_key.startswith("iglu:") else schema_key
+        )
+        return key.split("/")[0] if "/" in key else ""
+
+    @classmethod
+    def from_resource(cls, resource: Dict[str, Any]) -> "Enrichment":
+        """Build an Enrichment from a pipelines/v1 ``EnrichmentResource`` payload.
+
+        The non-deprecated endpoint returns ``{name, enabled, schemaKey, userData}``
+        rather than the legacy ``{id, filename, content, enabled, lastUpdate}`` shape
+        (the deprecated endpoint used the latter). Adapting here keeps downstream
+        lineage/PII logic unchanged.
+        """
+        name = resource["name"]
+        schema_key = resource.get("schemaKey", "")
+        enabled = bool(resource.get("enabled", False))
+        # ``userData`` *is* the enrichment parameter object (e.g. {"geo": {...}} for
+        # ip-lookups, {"pii": [...], "strategy": {...}} for pii). It is not wrapped in
+        # a "parameters" key despite what the OpenAPI example suggests; this matches the
+        # deprecated endpoint's content.data.parameters exactly.
+        user_data = resource.get("userData") or {}
+        parameters = user_data if isinstance(user_data, dict) else {}
+
+        return cls(
+            id=name,
+            filename=name,
+            enabled=enabled,
+            content=EnrichmentContent(
+                schema_ref=schema_key,
+                data=EnrichmentContentData(
+                    enabled=enabled,
+                    name=name,
+                    parameters=parameters,
+                    vendor=cls._vendor_from_schema_key(schema_key),
+                ),
+            ),
+        )
 
     @property
     def schema_ref(self) -> str:
