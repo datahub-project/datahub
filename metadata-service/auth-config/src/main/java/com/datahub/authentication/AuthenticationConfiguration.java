@@ -37,6 +37,12 @@ public class AuthenticationConfiguration {
   /** The lifespan of a UI session token. */
   private long sessionTokenDurationMs;
 
+  /**
+   * Whether UI session tokens should be stored server-side so they can be explicitly revoked.
+   * Disabled by default to preserve the existing stateless session behavior.
+   */
+  private boolean statefulSessionTokensEnabled;
+
   /** The lifespan of a password reset token in milliseconds. Defaults to 24 hours. */
   private long passwordResetTokenExpirationMs;
 

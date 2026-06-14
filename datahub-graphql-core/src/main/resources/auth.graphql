@@ -222,6 +222,12 @@ input ListAccessTokenInput {
   Facet filters to apply to search results, default is no filters
   """
   filters: [FacetFilterInput!]
+
+  """
+  Whether to include internal UI session tokens in the result set.
+  Defaults to false so standard token management views stay focused on PATs and service tokens.
+  """
+  includeSessionTokens: Boolean
 }
 
 """

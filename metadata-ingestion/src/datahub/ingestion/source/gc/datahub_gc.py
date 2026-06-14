@@ -335,6 +335,7 @@ class DataHubGcSource(Source):
                 "input": {
                     "start": 0,
                     "count": 10,
+                    "includeSessionTokens": True,
                     "filters": [
                         {
                             "field": "expiresAt",
