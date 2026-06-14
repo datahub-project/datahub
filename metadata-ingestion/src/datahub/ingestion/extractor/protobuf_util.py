@@ -1,4 +1,5 @@
 import contextlib
+import hashlib
 import logging
 import os
 import re
@@ -51,6 +52,103 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
+_DESCRIPTOR_CACHE: Dict[str, Optional[FileDescriptor]] = {}
+
+GOOGLE_TYPE_DEFINITIONS = {
+    "google/type/date.proto": """
+syntax = "proto3";
+
+package google.type;
+
+option cc_enable_arenas = true;
+option go_package = "google.golang.org/genproto/googleapis/type/date;date";
+option java_multiple_files = true;
+option java_outer_classname = "DateProto";
+option java_package = "com.google.type";
+option objc_class_prefix = "GTP";
+
+// Represents a whole or partial calendar date, such as a birthday. The time of
+// day and time zone are either specified elsewhere or are insignificant. The
+// date is relative to the Gregorian Calendar. This can represent one of the
+// following:
+//
+// * A full date, with non-zero year, month, and day values
+// * A month and day value, with a zero year, such as an anniversary
+// * A year on its own, with zero month and day values
+// * A year and month value, with a zero day, such as a credit card expiration date
+//
+// Related types are [google.type.TimeOfDay][google.type.TimeOfDay] and
+// `google.protobuf.Timestamp`.
+message Date {
+  // Year of the date. Must be from 1 to 9999, or 0 to specify a date without
+  // a year.
+  int32 year = 1;
+
+  // Month of a year. Must be from 1 to 12, or 0 to specify a year without a
+  // month and day.
+  int32 month = 2;
+
+  // Day of a month. Must be from 1 to 31 and valid for the year and month, or 0
+  // to specify a year by itself or a year and month where the day isn't
+  // significant.
+  int32 day = 3;
+}
+""",
+    "google/type/decimal.proto": """
+syntax = "proto3";
+
+package google.type;
+
+option cc_enable_arenas = true;
+option go_package = "google.golang.org/genproto/googleapis/type/decimal;decimal";
+option java_multiple_files = true;
+option java_outer_classname = "DecimalProto";
+option java_package = "com.google.type";
+option objc_class_prefix = "GTP";
+
+// A representation of a decimal value, such as 2.5. Clients may convert values
+// into language-native decimal formats, such as Java's [BigDecimal][] or
+// Python's [decimal.Decimal][].
+//
+// [BigDecimal]: https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/BigDecimal.html
+// [decimal.Decimal]: https://docs.python.org/3/library/decimal.html
+message Decimal {
+  // The decimal value, as a string.
+  //
+  // The string representation consists of an optional sign, `+` (`U+002B`)
+  // or `-` (`U+002D`), followed by a sequence of zero or more decimal digits
+  // ("the integer"), optionally followed by a fraction, optionally followed
+  // by an exponent.
+  //
+  // The fraction consists of a decimal point followed by zero or more decimal
+  // digits. The string must contain at least one digit in either the integer
+  // or the fraction. The number formed by the sign, the integer and the
+  // fraction is referred to as the significand.
+  //
+  // The exponent consists of the character `e` (`U+0065`) or `E` (`U+0045`)
+  // followed by one or more decimal digits.
+  //
+  // Services **should** normalize decimal values before storing them by:
+  //
+  //   - Removing an explicitly-provided `+` sign (`+2.5` -> `2.5`).
+  //   - Replacing a zero-length integer value with `0` (`.5` -> `0.5`).
+  //   - Coercing the exponent character to upper-case, with explicit sign
+  //     (`2.5e8` -> `2.5E+8`).
+  //   - Removing an explicitly-provided zero exponent (`2.5E0` -> `2.5`).
+  //
+  // Services **may** perform additional normalization based on its own needs
+  // and the internal decimal implementation selected, such as shifting the
+  // decimal point and exponent value together (example: `2.5E-1` <-> `0.25`).
+  // Additionally, services **may** preserve trailing zeroes in the fraction
+  // to indicate increased precision, but are not required to do so.
+  //
+  // Note that only the `.` character is supported to divide the integer
+  // and the fraction; `,` is not supported.
+  string value = 1;
+}
+""",
+}
+
 
 # ------------------------------------------------------------------------------
 #  API
@@ -72,15 +170,24 @@ def protobuf_schema_to_mce_fields(
     :param is_key_schema: True if it is a key-schema. Default is False (value-schema).
     :return: The list of MCE compatible SchemaFields.
     """
-    descriptor: FileDescriptor = _from_protobuf_schema_to_descriptors(
-        main_schema, imported_schemas
-    )
+    descriptor = _from_protobuf_schema_to_descriptors(main_schema, imported_schemas)
+
+    # Handle case where descriptor compilation failed
+    if descriptor is None:
+        logger.warning(
+            f"Failed to compile protobuf schema {main_schema.name}, returning empty fields"
+        )
+        return []
+
     graph: nx.DiGraph = _populate_graph(descriptor)
 
     if nx.is_directed_acyclic_graph(graph):
         return _schema_fields_from_dag(graph, is_key_schema)
     else:
-        raise Exception("Cyclic schemas are not supported")
+        logger.warning(
+            f"Cyclic schema detected in {main_schema.name}, returning empty fields"
+        )
+        return []
 
 
 #
@@ -234,26 +341,99 @@ def _create_schema_field(path: List[str], field: FieldDescriptor) -> _PathAndFie
 
 def _from_protobuf_schema_to_descriptors(
     main_schema: ProtobufSchema, imported_schemas: Optional[List[ProtobufSchema]] = None
-) -> FileDescriptor:
+) -> Optional[FileDescriptor]:
     if imported_schemas is None:
         imported_schemas = []
     imported_schemas.insert(0, main_schema)
+
+    all_schema_content = "\n".join([schema.content for schema in imported_schemas])
+
+    cache_key = hashlib.md5(all_schema_content.encode()).hexdigest()
+    if cache_key in _DESCRIPTOR_CACHE:
+        cached_descriptor = _DESCRIPTOR_CACHE[cache_key]
+        if cached_descriptor is not None:
+            logger.debug(
+                f"Reusing cached descriptor for {main_schema.name} (hash: {cache_key[:8]}...)"
+            )
+        return cached_descriptor
+
+    google_types_referenced = []
+
+    if "google.type.Date" in all_schema_content and not any(
+        schema.name == "google/type/date.proto" for schema in imported_schemas
+    ):
+        google_types_referenced.append("google/type/date.proto")
+
+    if "google.type.Decimal" in all_schema_content and not any(
+        schema.name == "google/type/decimal.proto" for schema in imported_schemas
+    ):
+        google_types_referenced.append("google/type/decimal.proto")
+
+    for google_type_file in google_types_referenced:
+        if google_type_file in GOOGLE_TYPE_DEFINITIONS:
+            logger.info(f"Adding fallback definition for {google_type_file}")
+            imported_schemas.append(
+                ProtobufSchema(
+                    name=google_type_file,
+                    content=GOOGLE_TYPE_DEFINITIONS[google_type_file],
+                )
+            )
+
     with TemporaryDirectory() as tmpdir, _add_sys_path(tmpdir):
-        for schema in imported_schemas:  # type: ProtobufSchema
+        for schema in imported_schemas:
             #
-            # Ignore any google/protobuf modules
+            # Ignore google/protobuf modules but allow google/type modules
+            # which contain common types like google.type.Date and google.type.Decimal
             #
-            if not schema.name.startswith("google/protobuf"):
+            should_skip_schema = schema.name.startswith("google/protobuf") or (
+                schema.name.startswith("google/")
+                and not schema.name.startswith("google/type")
+            )
+            if not should_skip_schema:
                 #
                 # This is just in case one of the referenced schemas has '/' in their name
                 #
                 full_path = os.path.join(tmpdir, schema.name)
                 Path(full_path).parent.mkdir(parents=True, exist_ok=True)
-                #
                 with open(full_path, "w") as temp_file:
                     temp_file.writelines(schema.content)
 
-        return grpc.protos(main_schema.name).DESCRIPTOR
+        try:
+            descriptor = grpc.protos(main_schema.name).DESCRIPTOR
+            _DESCRIPTOR_CACHE[cache_key] = descriptor
+            return descriptor
+        except Exception as e:
+            error_msg = str(e)
+
+            if "duplicate symbol" in error_msg.lower():
+                logger.debug(
+                    f"Protobuf schema {main_schema.name} contains symbols already registered in "
+                    f"global descriptor pool (hash: {cache_key[:8]}...). This typically occurs when "
+                    f"multiple topics share the same schema. Schema fields will be unavailable."
+                )
+            elif "google.type" in error_msg:
+                logger.warning(
+                    f"Failed to compile protobuf schema {main_schema.name}: {e}"
+                )
+                logger.error(
+                    f"Google type definition error in {main_schema.name}. "
+                    f"This may indicate missing google/type imports in the schema registry."
+                )
+            elif "descriptor pool" in error_msg.lower():
+                logger.warning(
+                    f"Failed to compile protobuf schema {main_schema.name}: {e}"
+                )
+                logger.error(
+                    f"Descriptor pool error in {main_schema.name}. "
+                    f"This may indicate conflicting protobuf definitions or circular dependencies."
+                )
+            else:
+                logger.warning(
+                    f"Failed to compile protobuf schema {main_schema.name}: {e}"
+                )
+
+            _DESCRIPTOR_CACHE[cache_key] = None
+            return None
 
 
 def _get_column_type(descriptor: DescriptorBase) -> SchemaFieldDataType:
