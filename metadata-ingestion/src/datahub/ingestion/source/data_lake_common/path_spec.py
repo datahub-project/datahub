@@ -99,7 +99,7 @@ class PathSpec(ConfigModel):
 
     default_extension: Optional[str] = Field(
         None,
-        description="For files without extension it will assume the specified file type. If it is not set the files without extensions will be skipped.",
+        description="Assume this file type for files where the format cannot be inferred from the file name. This includes files with no extension and files whose apparent extension (the part after the last dot) is not a recognised format (which can happen for file names whose stem contains dots, e.g. ``foo.bar.baz-<hash>.gz``). If unset, such files are skipped.",
     )
 
     table_name: Optional[str] = Field(
