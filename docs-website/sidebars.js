@@ -23,6 +23,11 @@ module.exports = {
           id: "docs/quickstart",
         },
         {
+          type: "doc",
+          label: "Use Docs with AI",
+          id: "docs/use-docs-with-ai",
+        },
+        {
           type: "link",
           label: "Demo",
           href: "https://demo.datahub.com/",
