@@ -23,6 +23,7 @@ import { CompactView } from '@app/previewV2/CompactView';
 import ContextPath from '@app/previewV2/ContextPath';
 import DefaultPreviewCardFooter from '@app/previewV2/DefaultPreviewCardFooter';
 import EntityHeader from '@app/previewV2/EntityHeader';
+import SummarySection from '@app/previewV2/SearchCardSummarySection';
 import { ActionsAndStatusSection } from '@app/previewV2/shared';
 import {
     useRemoveApplicationAssets,
@@ -387,6 +388,7 @@ export default function DefaultPreviewCard({
                     browsePaths={browsePaths}
                 />
             )}
+            <SummarySection data={data} />
             <DefaultPreviewCardFooter
                 glossaryTerms={glossaryTerms}
                 tags={tags}
