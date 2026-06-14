@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass, field
-from functools import partial
 from typing import Any, Dict, Iterable, List, Optional
 
 from pydantic import field_validator
@@ -25,18 +24,19 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     Source,
     SourceCapability,
     SourceReport,
 )
-from datahub.ingestion.api.source_helpers import (
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
+from datahub.ingestion.workunit_processors.auto_status_aspect import (
+    AutoStatusAspectProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
 from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -162,11 +162,8 @@ class LineageFileSource(Source):
         lineage_config = LineageConfig.model_validate(config)
         return lineage_config
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            auto_status_aspect,
-            partial(auto_workunit_reporter, self.get_report()),
-        ]
+    def get_allowed_workunit_processors(self):
+        return [AutoStatusAspectProcessor, AutoWorkunitsReporterProcessor]
 
     def get_workunits_internal(
         self,

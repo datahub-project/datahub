@@ -205,27 +205,40 @@ def test_get_report_returns_source_report_instance() -> None:
 
 
 def test_get_workunit_processors_includes_stale_entity_processor() -> None:
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+        AutoStaleEntityRemovalProcessor,
+    )
+
+    # DataplexSource no longer overrides get_workunit_processors() — stale entity
+    # removal is wired up automatically by the base class when stateful ingestion
+    # is enabled. Verify the base class is what gets called (no override present).
+    assert "get_workunit_processors" not in DataplexSource.__dict__, (
+        "DataplexSource should not override get_workunit_processors(); "
+        "the base class handles stale entity removal automatically."
+    )
+
+    # Verify AutoStaleEntityRemovalProcessor is included when a state_provider is present.
     source = object.__new__(DataplexSource)
-    source.config = Mock()
-    source.ctx = Mock()
+    report = DataplexReport()
+    source.report = report
+    source.config = MagicMock()
+    source.config.stateful_ingestion = None
+    flags = MagicMock()
+    flags.generate_browse_path_v2 = False
+    flags.generate_browse_path_v2_dry_run = False
+    flags.set_system_metadata = False
+    ctx = MagicMock(spec=PipelineContext)
+    ctx.flags = flags
+    ctx.run_id = "test"
+    ctx.pipeline_name = None
+    source.ctx = ctx
+    source.state_provider = MagicMock()  # presence triggers stale entity removal
 
-    stale_processor = Mock()
-    stale_handler = Mock()
-    stale_handler.workunit_processor = stale_processor
-
-    with (
-        patch(
-            "datahub.ingestion.source.dataplex.dataplex.StatefulIngestionSourceBase.get_workunit_processors",
-            return_value=[None],
-        ),
-        patch(
-            "datahub.ingestion.source.dataplex.dataplex.StaleEntityRemovalHandler.create",
-            return_value=stale_handler,
-        ),
-    ):
-        processors = source.get_workunit_processors()
-
-    assert processors == [None, stale_processor]
+    source.get_workunit_processors()
+    assert AutoStaleEntityRemovalProcessor.__name__ in report.workunit_processor_reports
 
 
 def test_get_workunits_internal_iterates_all_projects() -> None:

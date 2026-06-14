@@ -14,7 +14,7 @@ from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -94,21 +94,11 @@ class DummySource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.source_config = config
         self.reporter = DummySourceReport()
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.source_config, self.ctx
-        )
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = DummySourceConfig.model_validate(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         for dataset in dummy_datasets:

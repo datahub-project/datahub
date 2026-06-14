@@ -1,10 +1,11 @@
 import json
+from unittest import mock
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.incremental_ownership_helper import (
-    auto_incremental_ownership,
-)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.workunit_processors.auto_incremental_ownership import (
+    AutoIncrementalOwnershipProcessor,
+)
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
@@ -35,18 +36,26 @@ def _ownership_wu(
 
 
 def test_disabled_passes_through_as_upsert():
-    """When incremental_ownership=False, ownership emits as standard UPSERT."""
-    result = list(auto_incremental_ownership(False, [_ownership_wu()]))
+    """When incremental_ownership=False, processor should not be enabled."""
+    from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 
-    assert len(result) == 1
-    assert isinstance(result[0].metadata, MetadataChangeProposalWrapper)
-    assert result[0].metadata.changeType == "UPSERT"
+    # Create context with incremental_ownership=False
+    ctx = WorkunitProcessorContext(
+        source_report=mock.MagicMock(),
+        pipeline_context=mock.MagicMock(),
+        source_config=mock.MagicMock(incremental_ownership=False),
+        platform=None,
+    )
+
+    # Processor should not be enabled when incremental_ownership=False
+    assert not AutoIncrementalOwnershipProcessor.should_enable(ctx)
 
 
 def test_enabled_converts_dataset_ownership_to_patch():
     """When incremental_ownership=True, dataset ownership becomes a JSON Patch MCP
     with the correct owner URNs in the payload."""
-    result = list(auto_incremental_ownership(True, [_ownership_wu()]))
+    processor = AutoIncrementalOwnershipProcessor(mock.MagicMock())
+    result = list(processor.process([_ownership_wu()]))
 
     assert len(result) == 1
     mcp = result[0].metadata
@@ -64,10 +73,10 @@ def test_enabled_converts_dataset_ownership_to_patch():
 def test_enabled_does_not_convert_container_ownership():
     """Container ownership passes through as UPSERT even when incremental is on —
     only dataset entities should be converted to patches."""
+    processor = AutoIncrementalOwnershipProcessor(mock.MagicMock())
     result = list(
-        auto_incremental_ownership(
-            True,
-            [_ownership_wu(urn="urn:li:container:abc123", entity_type="container")],
+        processor.process(
+            [_ownership_wu(urn="urn:li:container:abc123", entity_type="container")]
         )
     )
 
@@ -83,7 +92,8 @@ def test_enabled_with_empty_owners_drops_workunit():
         entityUrn=DATASET_URN, aspect=OwnershipClass(owners=[])
     ).as_workunit()
 
-    result = list(auto_incremental_ownership(True, [empty_wu]))
+    processor = AutoIncrementalOwnershipProcessor(mock.MagicMock())
+    result = list(processor.process([empty_wu]))
 
     assert result == []
 
@@ -96,7 +106,8 @@ def test_enabled_preserves_system_metadata():
         systemMetadata=SYS_META,
     ).as_workunit()
 
-    result = list(auto_incremental_ownership(True, [wu]))
+    processor = AutoIncrementalOwnershipProcessor(mock.MagicMock())
+    result = list(processor.process([wu]))
 
     assert len(result) == 1
     mcp = result[0].metadata
@@ -112,7 +123,8 @@ def test_enabled_passes_through_non_ownership_aspects():
         entityUrn=DATASET_URN, aspect=StatusClass(removed=False)
     ).as_workunit()
 
-    result = list(auto_incremental_ownership(True, [status_wu]))
+    processor = AutoIncrementalOwnershipProcessor(mock.MagicMock())
+    result = list(processor.process([status_wu]))
 
     assert len(result) == 1
     assert isinstance(result[0].metadata, MetadataChangeProposalWrapper)
@@ -133,7 +145,8 @@ def test_enabled_converts_dataset_ownership_in_mce_to_patch():
     )
     wu = MetadataWorkUnit(id="mce-test", mce=mce)
 
-    result = list(auto_incremental_ownership(True, [wu]))
+    processor = AutoIncrementalOwnershipProcessor(mock.MagicMock())
+    result = list(processor.process([wu]))
 
     assert len(result) == 2
 

@@ -1,14 +1,12 @@
 import logging
 from collections import Counter
 from dataclasses import dataclass, field
-from functools import partial
 from typing import Dict, Iterable, Optional, Set, Type, cast
 
 import pydantic
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import entity_supports_aspect
-from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint
@@ -20,7 +18,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
     StatefulIngestionReport,
-    StatefulIngestionSourceBase,
+    StateProviderWrapper,
 )
 from datahub.ingestion.source.state.use_case_handler import (
     StatefulIngestionUsecaseHandlerBase,
@@ -56,6 +54,11 @@ class EntityTypeDeletionSummary:
     soft_deleted_count: int = 0
 
 
+# TODO: Move StaleEntityRemovalSourceReport fields (soft_deleted_stale_entities,
+# last_state_non_deletable_entities, entity_type_deletion_summary) into a
+# WorkunitProcessorReport subclass on StaleEntityRemovalProcessor and register
+# it via source_report.workunit_processor_reports["stale_entity_removal"], so
+# stale-removal metrics are captured alongside other workunit processor metrics.
 @dataclass
 class StaleEntityRemovalSourceReport(StatefulIngestionReport):
     soft_deleted_stale_entities: LossyList[str] = field(default_factory=LossyList)
@@ -109,15 +112,17 @@ class StaleEntityRemovalHandler(
 
     def __init__(
         self,
-        source: StatefulIngestionSourceBase,
+        state_provider: StateProviderWrapper,
+        report: "StaleEntityRemovalSourceReport",
         config: StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
         state_type_class: Type["GenericCheckpointState"],
         pipeline_name: Optional[str],
         run_id: str,
+        platform: Optional[str] = None,
     ):
-        self.source = source
-        self.state_provider = source.state_provider
-
+        self.state_provider = state_provider
+        self.report = report
+        self.platform = platform
         self.state_type_class = state_type_class
         self.pipeline_name = pipeline_name
         self.run_id = run_id
@@ -132,20 +137,6 @@ class StaleEntityRemovalHandler(
         self._job_id = self._init_job_id()
         self._urns_to_skip: Set[str] = set()
         self.state_provider.register_stateful_ingestion_usecase_handler(self)
-
-    @classmethod
-    def create(
-        cls,
-        source: StatefulIngestionSourceBase,
-        config: StatefulIngestionConfigBase,
-        ctx: PipelineContext,
-        state_type_class: Type["GenericCheckpointState"] = GenericCheckpointState,
-    ) -> "StaleEntityRemovalHandler":
-        return cls(source, config, state_type_class, ctx.pipeline_name, ctx.run_id)
-
-    @property
-    def workunit_processor(self):
-        return partial(auto_stale_entity_removal, self)
 
     @classmethod
     def compute_job_id(
@@ -176,7 +167,7 @@ class StaleEntityRemovalHandler(
         )
 
     def _init_job_id(self, unique_id: Optional[str] = None) -> JobId:
-        platform: Optional[str] = getattr(self.source, "platform", "default")
+        platform: Optional[str] = self.platform or "default"
         return self.compute_job_id(platform, unique_id)
 
     def _ignore_old_state(self) -> bool:
@@ -227,10 +218,8 @@ class StaleEntityRemovalHandler(
             aspect=StatusClass(removed=True),
         )
         wu = MetadataWorkUnit(id=f"soft-delete-{urn}", mcp=mcp)
-        report = self.source.get_report()
-        assert isinstance(report, StaleEntityRemovalSourceReport)
-        report.report_workunit(wu)
-        report.report_stale_entity_soft_deleted(urn)
+        self.report.report_workunit(wu)
+        self.report.report_stale_entity_soft_deleted(urn)
         return wu
 
     def add_urn_to_skip(self, urn: str) -> None:
@@ -289,27 +278,22 @@ class StaleEntityRemovalHandler(
 
         # Compute per-entity-type summary before any early-exit checks
         # so the summary is always available in the report.
-        report = self.source.get_report()
-        assert isinstance(report, StaleEntityRemovalSourceReport)
-        report.entity_type_deletion_summary = self._build_checkpoint_comparison(
+        self.report.entity_type_deletion_summary = self._build_checkpoint_comparison(
             last_checkpoint_state, cur_checkpoint_state
         )
         copy_previous_state_and_exit = False
 
         # If the source already had a failure, skip soft-deletion.
         # TODO: Eventually, switch this to check if anything in the pipeline had a failure so far, not just the source.
-        if self.source.get_report().failures:
-            self.source.get_report().report_warning(
+        if self.report.failures:
+            self.report.report_warning(
                 title="Skipping stateful ingestion / stale entity removal",
                 message="The soft-deletion of stale entities will be skipped because the source reported a failure.",
             )
             copy_previous_state_and_exit = True
 
-        if (
-            not copy_previous_state_and_exit
-            and self.source.get_report().events_produced == 0
-        ):
-            self.source.get_report().report_failure(
+        if not copy_previous_state_and_exit and self.report.events_produced == 0:
+            self.report.report_failure(
                 title="Skipping stateful ingestion / stale entity removal",
                 message="The source did not produce any metadata. Despite stateful ingestion being enabled, we will not delete any metadata. "
                 "This is a fail-safe mechanism to prevent the accidental deletion of all entities.",
@@ -329,7 +313,7 @@ class StaleEntityRemovalHandler(
             and self.stateful_ingestion_config.fail_safe_threshold < 100.0
         ):
             # Log the failure. This would prevent the current state from getting committed.
-            self.source.get_report().report_failure(
+            self.report.report_failure(
                 title="Skipping stateful ingestion / stale entity removal",
                 message=f"\
 The previous run produced {last_checkpoint_state.urn_count()} entities, whereas this run produced {cur_checkpoint_state.urn_count()} entities. \
@@ -363,15 +347,17 @@ stateful_ingestion:\
                 or not entity_supports_aspect(entity_type, StatusClass)
             ):
                 # If any entity does not support aspect 'status' then skip that entity urn
-                report.report_last_state_non_deletable_entities(urn)
+                self.report.report_last_state_non_deletable_entities(urn)
                 continue
             if urn in self._urns_to_skip:
-                report.report_last_state_non_deletable_entities(urn)
+                self.report.report_last_state_non_deletable_entities(urn)
                 logger.debug(
                     f"Not soft-deleting entity {urn} since it is in urns_to_skip"
                 )
                 continue
-            report.entity_type_deletion_summary[entity_type].soft_deleted_count += 1
+            self.report.entity_type_deletion_summary[
+                entity_type
+            ].soft_deleted_count += 1
             yield self._create_soft_delete_workunit(urn)
 
     def add_entity_to_state(self, type: str, urn: str) -> None:

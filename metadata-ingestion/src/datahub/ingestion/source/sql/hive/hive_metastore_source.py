@@ -13,7 +13,7 @@ Architecture:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Tuple
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.sql.hive.hive_data_fetcher import HiveDataFetcher
@@ -30,7 +30,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     TestableSource,
     TestConnectionReport,
 )
@@ -43,9 +42,6 @@ from datahub.ingestion.source.sql.hive.hive_metastore_config import (
 )
 from datahub.ingestion.source.sql.hive.hive_metastore_report import (
     HiveMetastoreSourceReport,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -162,9 +158,6 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         # Initialize stale entity removal
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, config, ctx
-        )
 
     @classmethod
     def create(
@@ -264,13 +257,6 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         return test_report
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        """Return WorkUnit processors for stale entity removal."""
-        return [
-            *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Generate WorkUnits via the metadata processor."""

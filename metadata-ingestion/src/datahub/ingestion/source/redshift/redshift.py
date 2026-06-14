@@ -1,4 +1,3 @@
-import functools
 import logging
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Type, Union
@@ -26,10 +25,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     TestableSource,
     TestConnectionReport,
 )
@@ -79,9 +76,6 @@ from datahub.ingestion.source.state.profiling_state_handler import ProfilingHand
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
     RedundantUsageRunSkipHandler,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -362,17 +356,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             database_container_key=database_container_key,
             sub_types=[DatasetContainerSubTypes.DATABASE],
         )
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def _warn_deprecated_configs(self):
         if (

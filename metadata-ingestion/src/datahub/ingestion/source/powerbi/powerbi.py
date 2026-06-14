@@ -25,7 +25,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
-    auto_incremental_lineage,
     convert_dashboard_info_to_patch,
 )
 from datahub.ingestion.api.source import (
@@ -60,9 +59,13 @@ from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
+    auto_stale_entity_removal,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -1723,10 +1726,26 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 "Note: This may overwrite existing user profiles from LDAP/Okta/SCIM."
             )
 
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.source_config, self.ctx
-        )
+        # For modified_since, stale removal is handled per-workspace in get_workunits_internal().
+        # For the default path, AutoStaleEntityRemovalProcessor handles it automatically via get_workunit_processors().
+        if self.source_config.modified_since:
+            from datahub.ingestion.source.state.entity_removal_state import (
+                GenericCheckpointState,
+            )
+
+            self.stale_entity_removal_handler: Optional[StaleEntityRemovalHandler] = (
+                StaleEntityRemovalHandler(
+                    state_provider=self.state_provider,
+                    report=self.reporter,
+                    config=self.source_config,
+                    state_type_class=GenericCheckpointState,
+                    pipeline_name=ctx.pipeline_name,
+                    run_id=ctx.run_id,
+                    platform=self.platform,
+                )
+            )
+        else:
+            self.stale_entity_removal_handler = None
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -1981,19 +2000,18 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         else:
             return work_unit
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        # As modified_workspaces is not idempotent, hence workunit processors are run later for each workspace_id
-        # This will result in creating a checkpoint for each workspace_id
+    def get_excluded_workunit_processors(self):
+        # For modified_since, stale removal is handled per-workspace in get_workunits_internal()
         if self.source_config.modified_since:
-            return []  # Handle these in get_workunits_internal
-        else:
-            return [
-                *super().get_workunit_processors(),
-                functools.partial(
-                    auto_incremental_lineage, self.source_config.incremental_lineage
-                ),
-                self.stale_entity_removal_handler.workunit_processor,
-            ]
+            return [AutoStaleEntityRemovalProcessor]
+        return []
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        # As modified_workspaces is not idempotent, workunit processors are run per workspace_id
+        # to create a separate checkpoint for each workspace.
+        if self.source_config.modified_since:
+            return []  # All processing handled per-workspace in get_workunits_internal
+        return super().get_workunit_processors()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
@@ -2059,9 +2077,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 continue
 
             if self.source_config.modified_since:
-                # As modified_workspaces is not idempotent, hence we checkpoint for each powerbi workspace
-                # Because job_id is used as a dictionary key, we have to set a new job_id
+                # Per-workspace checkpointing: each workspace gets its own checkpoint job_id.
+                # Because job_id is used as a dictionary key, we have to set a new job_id.
                 # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
+                assert self.stale_entity_removal_handler is not None
                 self.stale_entity_removal_handler.set_job_id(workspace.id)
                 self.state_provider.register_stateful_ingestion_usecase_handler(
                     self.stale_entity_removal_handler
@@ -2070,7 +2089,11 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._apply_workunit_processors(
                     [
                         *super().get_workunit_processors(),
-                        self.stale_entity_removal_handler.workunit_processor,
+                        # stale_entity_removal is excluded from super() via get_excluded_workunit_processors(),
+                        # so we apply it manually here for per-workspace checkpointing.
+                        functools.partial(
+                            auto_stale_entity_removal, self.stale_entity_removal_handler
+                        ),
                     ],
                     self.get_workspace_workunit(workspace),
                 )

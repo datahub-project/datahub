@@ -8,18 +8,20 @@ Tests for stateful and incremental features added to the Dremio connector:
 """
 
 from datetime import datetime, timezone
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.incremental_properties_helper import (
-    auto_incremental_properties,
-)
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 from datahub.ingestion.source.dremio.dremio_api import (
     DremioAPIOperations,
     DremioEdition,
 )
 from datahub.ingestion.source.dremio.dremio_entities import DremioCatalog
+from datahub.ingestion.workunit_processors.auto_incremental_properties import (
+    AutoIncrementalPropertiesProcessor,
+)
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
@@ -48,7 +50,16 @@ class TestAutoIncrementalProperties:
     def test_converts_dataset_properties_to_patch(self):
         """When incremental=True, DatasetProperties MCPs are converted to PATCH operations."""
         wu = _make_props_workunit()
-        output = list(auto_incremental_properties(True, [wu]))
+
+        # Create processor context with incremental_properties enabled
+        ctx = WorkunitProcessorContext(
+            source_report=SourceReport(),
+            pipeline_context=MagicMock(),
+            source_config=MagicMock(incremental_properties=True),
+            platform=None,
+        )
+        processor = AutoIncrementalPropertiesProcessor.create(ctx)
+        output = list(processor.process(iter([wu])))
 
         assert len(output) == 1
         output_mcp = output[0].metadata
