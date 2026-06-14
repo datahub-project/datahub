@@ -284,27 +284,14 @@ class S3Source(StatefulIngestionSourceBase):
                     for config_flag in profiling_flags_to_report
                 },
             )
-            # Set SPARK_VERSION before importing profiling module
-            # This is needed because pydeequ imports require this to be set
-            os.environ.setdefault("SPARK_VERSION", "3.5")
+            from datahub.ingestion.source.s3.duckdb_profiler import DuckDBProfiler
 
-            try:
-                from datahub.ingestion.source.s3.profiling import SparkProfiler
-
-                self.profiler = SparkProfiler(
-                    aws_config=config.aws_config,
-                    spark_driver_memory=config.spark_driver_memory,
-                    spark_config=config.spark_config,
-                    report=self.report,
-                    profiling_times_taken=self.profiling_times_taken,
-                    profiling_config=config.profiling,
-                )
-            except (ImportError, ModuleNotFoundError) as e:
-                raise RuntimeError(
-                    "PySpark is not installed but is required for S3 profiling. "
-                    "Please install with profiling support: "
-                    "pip install 'acryl-datahub[data-lake-profiling]' or 'acryl-datahub[s3]'"
-                ) from e
+            self.profiler = DuckDBProfiler(
+                aws_config=config.aws_config,
+                report=self.report,
+                profiling_config=config.profiling,
+                platform=self.source_config.platform,
+            )
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -1250,3 +1237,8 @@ class S3Source(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
+
+    def close(self) -> None:
+        if getattr(self, "profiler", None) is not None:
+            self.profiler.close()
+        super().close()

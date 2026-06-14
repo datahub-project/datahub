@@ -379,9 +379,13 @@ def test_get_folder_info_returns_expected_folder(s3_resource):
 
     bucket = s3_resource.Bucket("my-bucket")
     bucket.create()
-    with time_machine.travel("2025-01-01 01:00:00", tick=False):
+    # Use timezone-aware (UTC) travel times so the recorded LastModified is
+    # deterministic regardless of the machine's local timezone. A naive string
+    # is interpreted as local time, which makes the assertions below off by the
+    # local UTC offset on non-UTC machines.
+    with time_machine.travel(datetime(2025, 1, 1, 1, tzinfo=timezone.utc), tick=False):
         bucket.put_object(Key="my-folder/dir1/0001.csv")
-    with time_machine.travel("2025-01-01 02:00:00", tick=False):
+    with time_machine.travel(datetime(2025, 1, 1, 2, tzinfo=timezone.utc), tick=False):
         bucket.put_object(Key="my-folder/dir1/0002.csv", Body=" " * 150)
 
     # act

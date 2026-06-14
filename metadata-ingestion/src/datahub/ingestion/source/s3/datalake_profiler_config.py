@@ -1,62 +1,27 @@
+import os
 from typing import Optional
 
-import pydantic
-from pydantic import model_validator
 from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.source_config.operation_config import OperationConfig
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+
+# Env var used to point DuckDB profiling at a pre-staged extension directory.
+# The datahub-ingestion image sets this to a build-time-baked location so
+# profiling works offline out of the box; operators can also set it themselves.
+DUCKDB_EXTENSION_DIRECTORY_ENV = "DATAHUB_DUCKDB_EXTENSION_DIRECTORY"
 
 
-class DataLakeProfilerConfig(ConfigModel):
-    enabled: bool = Field(
-        default=False, description="Whether profiling should be done."
-    )
-    operation_config: OperationConfig = Field(
-        default_factory=OperationConfig,
-        description="Experimental feature. To specify operation configs.",
-    )
+class DataLakeProfilerConfig(GEProfilingConfig):
+    """Profiling config for data-lake sources (S3, GCS, abs, delta-lake).
 
-    # These settings will override the ones below.
-    profile_table_level_only: bool = Field(
-        default=False,
-        description="Whether to perform profiling at table-level only or include column-level profiling as well.",
-    )
+    Inherits the shared profiler config: the `method` switch (defaulting to
+    "sqlalchemy"), sampling, row/size limits, and the query combiner. Data-lake
+    profiling historically enabled quantiles, histograms, and distinct-value
+    frequencies by default, whereas GEProfilingConfig defaults them off — we
+    restore the historical defaults here so existing recipes produce the same
+    output after the migration from Spark/Deequ to DuckDB.
+    """
 
-    _allow_deny_patterns: AllowDenyPattern = pydantic.PrivateAttr(
-        default=AllowDenyPattern.allow_all(),
-    )
-
-    max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = Field(
-        default=None,
-        description="A positive integer that specifies the maximum number of columns to profile for any table. `None` implies all columns. The cost of profiling goes up significantly as the number of columns to profile goes up.",
-    )
-
-    include_field_null_count: bool = Field(
-        default=True,
-        description="Whether to profile for the number of nulls for each column.",
-    )
-    include_field_min_value: bool = Field(
-        default=True,
-        description="Whether to profile for the min value of numeric columns.",
-    )
-    include_field_max_value: bool = Field(
-        default=True,
-        description="Whether to profile for the max value of numeric columns.",
-    )
-    include_field_mean_value: bool = Field(
-        default=True,
-        description="Whether to profile for the mean value of numeric columns.",
-    )
-    include_field_median_value: bool = Field(
-        default=True,
-        description="Whether to profile for the median value of numeric columns.",
-    )
-    include_field_stddev_value: bool = Field(
-        default=True,
-        description="Whether to profile for the standard deviation of numeric columns.",
-    )
     include_field_quantiles: bool = Field(
         default=True,
         description="Whether to profile for the quantiles of numeric columns.",
@@ -68,23 +33,18 @@ class DataLakeProfilerConfig(ConfigModel):
         default=True,
         description="Whether to profile for the histogram for numeric fields.",
     )
-    include_field_sample_values: bool = Field(
-        default=True,
-        description="Whether to profile for the sample values for all columns.",
+
+    duckdb_extension_directory: Optional[str] = Field(
+        default_factory=lambda: os.environ.get(DUCKDB_EXTENSION_DIRECTORY_ENV),
+        description=(
+            "Directory DuckDB loads extensions from. DuckDB profiling needs the "
+            "`httpfs` extension for remote (s3/gcs/abs) reads and `avro` for Avro "
+            "files; by default these are downloaded on first use, which fails in "
+            "air-gapped environments. Pre-stage the `.duckdb_extension` binaries "
+            "in this directory (DuckDB stores them version/platform-keyed under "
+            "`<dir>/v<version>/<platform>/`) to load them offline. When set, "
+            "downloads are disabled. Defaults to the "
+            f"`{DUCKDB_EXTENSION_DIRECTORY_ENV}` environment variable, which the "
+            "datahub-ingestion image points at a build-time-baked location."
+        ),
     )
-
-    @model_validator(mode="after")
-    def ensure_field_level_settings_are_normalized(self) -> "DataLakeProfilerConfig":
-        max_num_fields_to_profile = self.max_number_of_fields_to_profile
-
-        # Disable all field-level metrics.
-        if self.profile_table_level_only:
-            for field_name in self.__class__.model_fields:
-                if field_name.startswith("include_field_"):
-                    setattr(self, field_name, False)
-
-            assert max_num_fields_to_profile is None, (
-                "max_number_of_fields_to_profile should be set to None"
-            )
-
-        return self

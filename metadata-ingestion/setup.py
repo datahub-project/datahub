@@ -445,8 +445,9 @@ azure_data_factory = {
 }
 
 data_lake_profiling = {
-    "pydeequ>=1.1.0,<2.0.0",
-    "pyspark~=3.5.6,<4.0.0",
+    # DuckDB profiling engine + its SQLAlchemy dialect (replaced Spark/Deequ).
+    "duckdb>=1.0.0,<2.0.0",
+    "duckdb-engine>=0.13.0,<1.0.0",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
