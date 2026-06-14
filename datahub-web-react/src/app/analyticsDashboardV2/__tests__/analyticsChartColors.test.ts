@@ -38,7 +38,7 @@ const mockTheme = {
         chartsBlueHigh: '#10737F',
         chartsSeafoamHigh: '#20594B',
         chartsSeafoamMedium: '#80CBC4',
-        textTertiary: '#8088A3',
+        textTertiary: '#68708b',
     },
 } as unknown as DefaultTheme;
 

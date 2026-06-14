@@ -83,7 +83,7 @@ export const REDESIGN_COLORS = {
     SECTION_BACKGROUND: '#F6F6F6',
     LIGHT_TEXT_DARK_BACKGROUND: '#EEECFA',
     GREY_500: '#6b7280',
-    GREY_300: '#8088A3',
+    GREY_300: '#68708b',
     YELLOW_500: '#f6cf6a',
     YELLOW_200: '#fcf1d3',
     YELLOW_600: '#f4c449',
