@@ -2,6 +2,7 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 
 import { ListPoliciesDocument, ListPoliciesQuery } from '@graphql/policy.generated';
 import {
+    PolicyEffect,
     PolicyMatchCondition,
     PolicyMatchCriterion,
     PolicyMatchCriterionValue,
@@ -20,6 +21,7 @@ export const EMPTY_POLICY = {
     name: '',
     description: '',
     state: PolicyState.Active,
+    effect: PolicyEffect.Allow,
     privileges: new Array<string>(),
     resources: {
         filter: {

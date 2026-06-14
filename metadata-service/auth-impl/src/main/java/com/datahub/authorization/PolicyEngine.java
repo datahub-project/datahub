@@ -58,8 +58,31 @@ public class PolicyEngine {
       final String privilege,
       final Optional<ResolvedEntitySpec> resource,
       final List<ResolvedEntitySpec> subResources) {
+    return evaluatePolicy(
+        opContext,
+        policy,
+        resolvedActorSpec,
+        privilege,
+        resource,
+        subResources,
+        new PolicyEvaluationContext());
+  }
 
-    final PolicyEvaluationContext context = new PolicyEvaluationContext();
+  /**
+   * Evaluates a policy with a caller-supplied {@link PolicyEvaluationContext}. Callers that
+   * evaluate multiple policies for the same actor should create one context and reuse it across all
+   * calls so that group-membership and role lookups (which may hit the entity client) are performed
+   * at most once per request rather than once per policy.
+   */
+  public PolicyEvaluationResult evaluatePolicy(
+      @Nonnull OperationContext opContext,
+      final DataHubPolicyInfo policy,
+      final ResolvedEntitySpec resolvedActorSpec,
+      final String privilege,
+      final Optional<ResolvedEntitySpec> resource,
+      final List<ResolvedEntitySpec> subResources,
+      final PolicyEvaluationContext context) {
+
     log.debug("Evaluating policy {}", policy.getDisplayName());
 
     // If the privilege is not in scope, deny the request.
@@ -72,9 +95,8 @@ public class PolicyEngine {
               policy.getPrivileges(), privilege));
     }
 
-    // If policy is not applicable, deny the request
     if (!isPolicyApplicable(opContext, policy, resolvedActorSpec, resource, context, subResources)
-        .isGranted()) {
+        .isApplicable()) {
       return new PolicyEvaluationResult(
           policy.getDisplayName(),
           false,
@@ -83,7 +105,7 @@ public class PolicyEngine {
               resolvedActorSpec.getSpec().getEntity(), resource));
     }
 
-    return new PolicyEvaluationResult(policy.getDisplayName(), true, "Policy allowed");
+    return new PolicyEvaluationResult(policy.getDisplayName(), true, "Policy is applicable");
   }
 
   public PolicyActors getMatchingActors(
@@ -158,6 +180,12 @@ public class PolicyEngine {
     }
   }
 
+  /**
+   * Returns the net set of privileges an actor has after applying all matching ALLOW and DENY
+   * policies. Uses actor+resource match only (no per-privilege filter); matching DENY policies
+   * subtract their full privilege list. Consistent with {@link #evaluatePolicy}: a DENY for
+   * privilege A has no effect on privilege B in either path.
+   */
   public PolicyGrantedPrivileges getGrantedPrivileges(
       @Nonnull OperationContext opContext,
       final List<DataHubPolicyInfo> policies,
@@ -165,17 +193,26 @@ public class PolicyEngine {
       final Optional<ResolvedEntitySpec> resource,
       final List<ResolvedEntitySpec> subResources) {
     Set<String> privileges = new HashSet<>();
+    Set<String> deniedPrivileges = new HashSet<>();
     Map<String, String> reasonsOfDeny = new HashedMap<>();
     PolicyEvaluationContext context = new PolicyEvaluationContext();
+
     for (DataHubPolicyInfo policy : policies) {
       PolicyEvaluationResult result =
           isPolicyApplicable(opContext, policy, resolvedActorSpec, resource, context, subResources);
-      if (result.isGranted()) {
-        privileges.addAll(policy.getPrivileges());
+      if (result.isApplicable()) {
+        if (PoliciesConfig.DENY_POLICY_EFFECT.equals(policy.getEffect())) {
+          deniedPrivileges.addAll(policy.getPrivileges());
+        } else {
+          privileges.addAll(policy.getPrivileges());
+        }
       } else {
         reasonsOfDeny.put(result.getPolicyName(), result.getReason());
       }
     }
+
+    privileges.removeAll(deniedPrivileges);
+
     return new PolicyGrantedPrivileges(new ArrayList<>(privileges), reasonsOfDeny);
   }
 
@@ -217,6 +254,9 @@ public class PolicyEngine {
       return true;
     }
     if (requestResource.isEmpty()) {
+      if (policyResourceFilter.isAllResources()) {
+        return true;
+      }
       log.debug("Resource filter present in policy, but no resource spec provided.");
       return false;
     }
@@ -565,8 +605,12 @@ public class PolicyEngine {
     return groups;
   }
 
-  /** Class used to store state across a single Policy evaluation. */
-  static class PolicyEvaluationContext {
+  /**
+   * Mutable state bag shared across policy evaluations for the same request. Caches group
+   * membership and role resolution so that entity-client calls are made at most once per
+   * authorize() call rather than once per policy evaluated.
+   */
+  public static class PolicyEvaluationContext {
     private Set<String> groups;
     private Set<Urn> roles;
 
@@ -598,20 +642,26 @@ public class PolicyEngine {
     }
   }
 
-  /** Class used to represent the result of a Policy evaluation */
+  /**
+   * Result of evaluating whether a policy matches a given request.
+   *
+   * <p>{@code isApplicable() == true} means the policy's privilege, resource, and actor filters all
+   * matched. For ALLOW policies this means access is granted; for DENY policies this means access
+   * is denied. Callers must check the policy's effect to determine the outcome.
+   */
   public static class PolicyEvaluationResult {
     private final String policyName;
-    private final boolean isGranted;
+    private final boolean isApplicable;
     private final String reason;
 
-    private PolicyEvaluationResult(String policyName, boolean isGranted, String reason) {
+    private PolicyEvaluationResult(String policyName, boolean isApplicable, String reason) {
       this.policyName = policyName;
-      this.isGranted = isGranted;
+      this.isApplicable = isApplicable;
       this.reason = reason;
     }
 
-    public boolean isGranted() {
-      return this.isGranted;
+    public boolean isApplicable() {
+      return this.isApplicable;
     }
 
     public String getReason() {

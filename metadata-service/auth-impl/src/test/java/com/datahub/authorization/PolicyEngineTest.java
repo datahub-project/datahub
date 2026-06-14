@@ -158,7 +158,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             Collections.emptyList());
 
-    assertFalse(result.isGranted());
+    assertFalse(result.isApplicable());
   }
 
   @Test
@@ -191,7 +191,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_OWNERS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertFalse(result.isGranted());
+    assertFalse(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -221,7 +221,7 @@ public class PolicyEngineTest {
             "MANAGE_POLICIES",
             Optional.empty(),
             Collections.emptyList());
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -263,7 +263,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             Collections.emptyList());
 
-    assertTrue(result1.isGranted());
+    assertTrue(result1.isApplicable());
 
     // Verify we are not making any network calls for these predicates.
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -305,7 +305,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             Collections.emptyList());
 
-    assertFalse(result2.isGranted());
+    assertFalse(result2.isApplicable());
 
     // Verify we are not making any network calls for these predicates.
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -346,7 +346,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result1.isGranted());
+    assertTrue(result1.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -387,7 +387,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertFalse(result2.isGranted());
+    assertFalse(result2.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -430,7 +430,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             Collections.emptyList());
 
-    assertTrue(authorizedResult.isGranted());
+    assertTrue(authorizedResult.isApplicable());
 
     // Verify we are only calling for roles during these requests.
     verify(_entityClient, times(1))
@@ -478,7 +478,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             Collections.emptyList());
 
-    assertFalse(unauthorizedResult.isGranted());
+    assertFalse(unauthorizedResult.isApplicable());
 
     // Verify we are only calling for roles during these requests.
     verify(_entityClient, times(1))
@@ -521,7 +521,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result1.isGranted());
+    assertTrue(result1.isApplicable());
 
     // Assert unauthorized user cannot edit entity tags.
     PolicyEngine.PolicyEvaluationResult result2 =
@@ -532,7 +532,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result2.isGranted());
+    assertTrue(result2.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -570,7 +570,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result1.isGranted());
+    assertTrue(result1.isApplicable());
 
     // Assert unauthorized user cannot edit entity tags.
     PolicyEngine.PolicyEvaluationResult result2 =
@@ -581,7 +581,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertFalse(result2.isGranted());
+    assertFalse(result2.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -640,7 +640,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result1.isGranted());
+    assertTrue(result1.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -702,7 +702,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result1.isGranted());
+    assertTrue(result1.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -765,7 +765,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertFalse(result1.isGranted());
+    assertFalse(result1.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -824,7 +824,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result1.isGranted());
+    assertTrue(result1.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -861,7 +861,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertFalse(result2.isGranted());
+    assertFalse(result2.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -899,7 +899,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -936,7 +936,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertFalse(result.isGranted());
+    assertFalse(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -976,7 +976,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -1011,7 +1011,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
 
     StringArray resourceUrns = new StringArray();
     resourceUrns.add(RESOURCE_URN); // Filter applies to specific resource.
@@ -1028,7 +1028,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -1069,7 +1069,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -1112,7 +1112,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertFalse(result.isGranted());
+    assertFalse(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -1152,7 +1152,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertFalse(result.isGranted());
+    assertFalse(result.isApplicable());
 
     resourceFilter.setAllResources(true);
     dataHubPolicyInfo.setResources(resourceFilter);
@@ -1168,7 +1168,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result.isGranted()); // Due to allResources set to true
+    assertTrue(result.isApplicable()); // Due to allResources set to true
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -1212,7 +1212,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -1256,7 +1256,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertFalse(result.isGranted());
+    assertFalse(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -1305,7 +1305,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -1354,7 +1354,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertFalse(result.isGranted());
+    assertFalse(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -1403,7 +1403,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).getV2(any(), any(), any(), any());
@@ -1452,7 +1452,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertFalse(result.isGranted());
+    assertFalse(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).getV2(any(), any(), any(), any());
@@ -1504,7 +1504,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).getV2(any(), any(), any(), any());
@@ -1556,7 +1556,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertFalse(result.isGranted());
+    assertFalse(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).getV2(any(), any(), any(), any());
@@ -1608,7 +1608,7 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertFalse(result.isGranted());
+    assertFalse(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).getV2(any(), any(), any(), any());
@@ -1657,7 +1657,7 @@ public class PolicyEngineTest {
             "VIEW_ENTITY_PAGE",
             Optional.of(resourceSpec),
             Collections.emptyList());
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -2093,7 +2093,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             allowedTags);
 
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
   }
 
   @Test
@@ -2145,7 +2145,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             mixedTags);
 
-    assertFalse(result.isGranted());
+    assertFalse(result.isApplicable());
   }
 
   @Test
@@ -2191,7 +2191,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             Collections.emptyList());
 
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
   }
 
   @Test
@@ -2232,7 +2232,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             anyTags);
 
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
   }
 
   @Test
@@ -2283,7 +2283,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             allowedTags);
 
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
 
     // Sub-resources that include the restricted tag should be denied
     List<ResolvedEntitySpec> restrictedTags =
@@ -2301,7 +2301,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             restrictedTags);
 
-    assertFalse(result.isGranted());
+    assertFalse(result.isApplicable());
   }
 
   @Test
@@ -2353,7 +2353,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             allowedTags);
 
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
 
     // Sub-resources (tags) with disallowed URN prefix should be denied
     List<ResolvedEntitySpec> disallowedTags =
@@ -2372,7 +2372,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             disallowedTags);
 
-    assertFalse(result.isGranted());
+    assertFalse(result.isApplicable());
   }
 
   @Test
@@ -2423,7 +2423,7 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             allowedOwnerships);
 
-    assertTrue(result.isGranted());
+    assertTrue(result.isApplicable());
 
     // Sub-resources that include technical ownership types should be denied
     List<ResolvedEntitySpec> mixedOwnerships =
@@ -2442,7 +2442,339 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             mixedOwnerships);
 
-    assertFalse(result.isGranted());
+    assertFalse(result.isApplicable());
+  }
+
+  @Test
+  public void testEvaluatePolicyDenyEffectMatchingActorAndPrivilegeReturnsApplicable()
+      throws Exception {
+    final DataHubPolicyInfo policy = new DataHubPolicyInfo();
+    policy.setType(METADATA_POLICY_TYPE);
+    policy.setState(ACTIVE_POLICY_STATE);
+    policy.setEffect(DENY_POLICY_EFFECT);
+    policy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    policy.setDisplayName("Deny tags");
+    policy.setDescription("Deny all users from editing tags");
+    policy.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    policy.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    policy.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            policy,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertTrue(result.isApplicable());
+  }
+
+  @Test
+  public void testEvaluatePolicyDenyEffectPrivilegeMismatchReturnsNotApplicable() throws Exception {
+    final DataHubPolicyInfo policy = new DataHubPolicyInfo();
+    policy.setType(METADATA_POLICY_TYPE);
+    policy.setState(ACTIVE_POLICY_STATE);
+    policy.setEffect(DENY_POLICY_EFFECT);
+    policy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    policy.setDisplayName("Deny tags only");
+    policy.setDescription("Deny editing tags but NOT owners");
+    policy.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    policy.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    policy.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            policy,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_OWNERS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertFalse(result.isApplicable());
+  }
+
+  @Test
+  public void testEvaluatePolicyInactiveDenyPolicyReturnsNotApplicable() throws Exception {
+    final DataHubPolicyInfo policy = new DataHubPolicyInfo();
+    policy.setType(METADATA_POLICY_TYPE);
+    policy.setState(INACTIVE_POLICY_STATE);
+    policy.setEffect(DENY_POLICY_EFFECT);
+    policy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    policy.setDisplayName("Inactive deny");
+    policy.setDescription("This deny policy is inactive");
+    policy.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    policy.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    policy.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            policy,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertFalse(result.isApplicable());
+  }
+
+  @Test
+  public void testEvaluatePolicyDenyEffectActorMismatchReturnsNotApplicable() throws Exception {
+    final DataHubPolicyInfo policy = new DataHubPolicyInfo();
+    policy.setType(METADATA_POLICY_TYPE);
+    policy.setState(ACTIVE_POLICY_STATE);
+    policy.setEffect(DENY_POLICY_EFFECT);
+    policy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    policy.setDisplayName("Deny specific user");
+    policy.setDescription("Deny only the authorized user");
+    policy.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setUsers(
+        new UrnArray(ImmutableList.of(Urn.createFromString(AUTHORIZED_PRINCIPAL))));
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    actorFilter.setResourceOwners(false);
+    policy.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    policy.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            policy,
+            resolvedUnauthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertFalse(result.isApplicable());
+  }
+
+  @Test
+  public void testGetGrantedPrivilegesDenyRemovesDeniedPrivilegesFromAllowSet() throws Exception {
+    final DataHubActorFilter allUsersFilter = new DataHubActorFilter();
+    allUsersFilter.setAllUsers(true);
+
+    final DataHubResourceFilter allDatasetsFilter = new DataHubResourceFilter();
+    allDatasetsFilter.setAllResources(true);
+    allDatasetsFilter.setType("dataset");
+
+    final DataHubPolicyInfo allowPolicy = new DataHubPolicyInfo();
+    allowPolicy.setType(METADATA_POLICY_TYPE);
+    allowPolicy.setState(ACTIVE_POLICY_STATE);
+    allowPolicy.setEffect(ALLOW_POLICY_EFFECT);
+    allowPolicy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS", "EDIT_ENTITY_OWNERS"));
+    allowPolicy.setDisplayName("Allow tags and owners");
+    allowPolicy.setDescription("Allow editing tags and owners");
+    allowPolicy.setEditable(true);
+    allowPolicy.setActors(allUsersFilter);
+    allowPolicy.setResources(allDatasetsFilter);
+
+    final DataHubPolicyInfo denyPolicy = new DataHubPolicyInfo();
+    denyPolicy.setType(METADATA_POLICY_TYPE);
+    denyPolicy.setState(ACTIVE_POLICY_STATE);
+    denyPolicy.setEffect(DENY_POLICY_EFFECT);
+    denyPolicy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    denyPolicy.setDisplayName("Deny tags");
+    denyPolicy.setDescription("Deny editing tags");
+    denyPolicy.setEditable(true);
+    denyPolicy.setActors(allUsersFilter);
+    denyPolicy.setResources(allDatasetsFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    PolicyEngine.PolicyGrantedPrivileges granted =
+        _policyEngine.getGrantedPrivileges(
+            systemOperationContext,
+            ImmutableList.of(allowPolicy, denyPolicy),
+            resolvedAuthorizedUserSpec,
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    // EDIT_ENTITY_TAGS must be absent (denied), EDIT_ENTITY_OWNERS must remain (only ALLOW).
+    assertFalse(granted.getPrivileges().contains("EDIT_ENTITY_TAGS"));
+    assertTrue(granted.getPrivileges().contains("EDIT_ENTITY_OWNERS"));
+  }
+
+  @Test
+  public void testGetGrantedPrivilegesDenyDoesNotAffectUnrelatedPrivileges() throws Exception {
+    final DataHubActorFilter allUsersFilter = new DataHubActorFilter();
+    allUsersFilter.setAllUsers(true);
+
+    final DataHubResourceFilter allDatasetsFilter = new DataHubResourceFilter();
+    allDatasetsFilter.setAllResources(true);
+    allDatasetsFilter.setType("dataset");
+
+    final DataHubPolicyInfo allowPolicy = new DataHubPolicyInfo();
+    allowPolicy.setType(METADATA_POLICY_TYPE);
+    allowPolicy.setState(ACTIVE_POLICY_STATE);
+    allowPolicy.setEffect(ALLOW_POLICY_EFFECT);
+    allowPolicy.setPrivileges(
+        new StringArray("EDIT_ENTITY_TAGS", "EDIT_ENTITY_OWNERS", "VIEW_ENTITY_PAGE"));
+    allowPolicy.setDisplayName("Allow everything");
+    allowPolicy.setDescription("Allow all three privileges");
+    allowPolicy.setEditable(true);
+    allowPolicy.setActors(allUsersFilter);
+    allowPolicy.setResources(allDatasetsFilter);
+
+    final DataHubPolicyInfo denyPolicy = new DataHubPolicyInfo();
+    denyPolicy.setType(METADATA_POLICY_TYPE);
+    denyPolicy.setState(ACTIVE_POLICY_STATE);
+    denyPolicy.setEffect(DENY_POLICY_EFFECT);
+    denyPolicy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    denyPolicy.setDisplayName("Deny tags only");
+    denyPolicy.setDescription("Only deny tag editing");
+    denyPolicy.setEditable(true);
+    denyPolicy.setActors(allUsersFilter);
+    denyPolicy.setResources(allDatasetsFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    PolicyEngine.PolicyGrantedPrivileges granted =
+        _policyEngine.getGrantedPrivileges(
+            systemOperationContext,
+            ImmutableList.of(allowPolicy, denyPolicy),
+            resolvedAuthorizedUserSpec,
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertFalse(granted.getPrivileges().contains("EDIT_ENTITY_TAGS"));
+    assertTrue(granted.getPrivileges().contains("EDIT_ENTITY_OWNERS"));
+    assertTrue(granted.getPrivileges().contains("VIEW_ENTITY_PAGE"));
+  }
+
+  @Test
+  public void testGetGrantedPrivilegesDenyPolicyActorMismatchDoesNotRemovePrivilege()
+      throws Exception {
+    final DataHubResourceFilter allDatasetsFilter = new DataHubResourceFilter();
+    allDatasetsFilter.setAllResources(true);
+    allDatasetsFilter.setType("dataset");
+
+    final DataHubActorFilter allowAllFilter = new DataHubActorFilter();
+    allowAllFilter.setAllUsers(true);
+
+    final DataHubPolicyInfo allowPolicy = new DataHubPolicyInfo();
+    allowPolicy.setType(METADATA_POLICY_TYPE);
+    allowPolicy.setState(ACTIVE_POLICY_STATE);
+    allowPolicy.setEffect(ALLOW_POLICY_EFFECT);
+    allowPolicy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    allowPolicy.setDisplayName("Allow tags for everyone");
+    allowPolicy.setDescription("Allow all users to edit tags");
+    allowPolicy.setEditable(true);
+    allowPolicy.setActors(allowAllFilter);
+    allowPolicy.setResources(allDatasetsFilter);
+
+    final DataHubActorFilter denySpecificFilter = new DataHubActorFilter();
+    denySpecificFilter.setUsers(
+        new UrnArray(ImmutableList.of(Urn.createFromString(AUTHORIZED_PRINCIPAL))));
+    denySpecificFilter.setAllUsers(false);
+
+    final DataHubPolicyInfo denyPolicy = new DataHubPolicyInfo();
+    denyPolicy.setType(METADATA_POLICY_TYPE);
+    denyPolicy.setState(ACTIVE_POLICY_STATE);
+    denyPolicy.setEffect(DENY_POLICY_EFFECT);
+    denyPolicy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    denyPolicy.setDisplayName("Deny specific user from tags");
+    denyPolicy.setDescription("Deny only the authorized user");
+    denyPolicy.setEditable(true);
+    denyPolicy.setActors(denySpecificFilter);
+    denyPolicy.setResources(allDatasetsFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    PolicyEngine.PolicyGrantedPrivileges grantedForDeniedUser =
+        _policyEngine.getGrantedPrivileges(
+            systemOperationContext,
+            ImmutableList.of(allowPolicy, denyPolicy),
+            resolvedAuthorizedUserSpec, // This user IS in the DENY list
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    PolicyEngine.PolicyGrantedPrivileges grantedForAllowedUser =
+        _policyEngine.getGrantedPrivileges(
+            systemOperationContext,
+            ImmutableList.of(allowPolicy, denyPolicy),
+            resolvedUnauthorizedUserSpec, // This user is NOT in the DENY list
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertFalse(grantedForDeniedUser.getPrivileges().contains("EDIT_ENTITY_TAGS"));
+    assertTrue(grantedForAllowedUser.getPrivileges().contains("EDIT_ENTITY_TAGS"));
+  }
+
+  @Test
+  public void testEvaluatePolicyNullEffectTreatedAsAllow() throws Exception {
+    // Policies stored before the effect field existed have null effect; must behave as ALLOW.
+    final DataHubPolicyInfo legacyPolicy = new DataHubPolicyInfo();
+    legacyPolicy.setType(METADATA_POLICY_TYPE);
+    legacyPolicy.setState(ACTIVE_POLICY_STATE);
+    // No setEffect() call — simulates a legacy policy stored without the field.
+    legacyPolicy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    legacyPolicy.setDisplayName("Legacy allow policy");
+    legacyPolicy.setDescription("Pre-deny-feature policy");
+    legacyPolicy.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    legacyPolicy.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    legacyPolicy.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            legacyPolicy,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertTrue(result.isApplicable());
+
+    PolicyEngine.PolicyGrantedPrivileges granted =
+        _policyEngine.getGrantedPrivileges(
+            systemOperationContext,
+            ImmutableList.of(legacyPolicy),
+            resolvedAuthorizedUserSpec,
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    assertTrue(granted.getPrivileges().contains("EDIT_ENTITY_TAGS"));
   }
 
   private Ownership createOwnershipAspect(final Boolean addUserOwner, final Boolean addGroupOwner)
