@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.data_lake_common.path_spec import (
+    SUPPORTED_COMPRESSIONS,
     SUPPORTED_FILE_TYPES,
     FolderTraversalMethod,
     PathSpec,
@@ -651,6 +652,31 @@ def test_validate_path_spec_compression_extension() -> None:
     assert path_spec.enable_compression is True
 
 
+def test_validate_path_spec_zip_extension() -> None:
+    assert "zip" in SUPPORTED_COMPRESSIONS
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.csv.zip",
+        file_types=["csv"],
+        enable_compression=True,
+    )
+    assert path_spec.enable_compression is True
+
+
+@pytest.mark.parametrize(
+    "include",
+    [
+        "s3://bucket/{table}/*.csv.zip",
+        "s3://bucket/{table}/*.json.zip",
+        "s3://bucket/{table}/*.tsv.zip",
+        "s3://bucket/{table}/*.parquet.zip",
+        "s3://bucket/{table}/*.avro.zip",
+    ],
+)
+def test_validate_path_spec_zip_with_all_supported_inner_types(include: str) -> None:
+    path_spec = PathSpec(include=include, enable_compression=True)
+    assert path_spec.include == include
+
+
 # Tests for partition extraction
 def test_get_partition_from_path_no_table() -> None:
     """Test get_partition_from_path when include doesn't contain {table}."""
@@ -797,3 +823,46 @@ def test_extract_table_name_and_path_with_table() -> None:
 
     assert table_name == "users"
     assert table_path == "s3://bucket/users"
+
+
+# extension_map tests
+
+
+def test_extension_map_valid() -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.js",
+        extension_map={"js": "json"},
+    )
+    assert path_spec.extension_map == {"js": "json"}
+
+
+def test_extension_map_invalid_value_raises() -> None:
+    with pytest.raises(ValidationError, match="not a supported file type"):
+        PathSpec(
+            include="s3://bucket/{table}/*.js",
+            extension_map={"js": "excel"},
+        )
+
+
+def test_extension_map_allows_include_with_mapped_ext() -> None:
+    # *.js in include is only valid because js is mapped; must not raise
+    PathSpec(include="s3://bucket/{table}/*.js", extension_map={"js": "json"})
+
+
+def test_include_unknown_ext_without_extension_map_raises() -> None:
+    with pytest.raises(ValidationError):
+        PathSpec(include="s3://bucket/{table}/*.js")
+
+
+def test_resolve_extension_mapped() -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.js",
+        extension_map={"js": "json"},
+    )
+    assert path_spec.resolve_extension(".js") == ".json"
+
+
+def test_resolve_extension_passthrough() -> None:
+    path_spec = PathSpec(include="s3://bucket/{table}/*.csv")
+    assert path_spec.resolve_extension(".csv") == ".csv"
+    assert path_spec.resolve_extension(".unknown") == ".unknown"

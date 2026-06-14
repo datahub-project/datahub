@@ -1,8 +1,12 @@
 import dataclasses
+import io
 import logging
 import os
+import pathlib
+import tempfile
+import zipfile
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from pandas import DataFrame
 from pydeequ.analyzers import (
@@ -43,6 +47,7 @@ from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
 )
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
     convert_to_cardinality,
@@ -596,8 +601,67 @@ class SparkProfiler:
 
         return SparkSession.builder.config(conf=conf).getOrCreate()
 
+    _SPARK_SUPPORTED_EXTS = frozenset(
+        {".parquet", ".csv", ".tsv", ".json", ".jsonl", ".avro"}
+    )
+
+    def _extract_zip_to_tmp(
+        self, full_path: str, path_spec: PathSpec
+    ) -> Optional[Tuple[str, str]]:
+        """Extract the first supported entry from a zip to a temp file.
+
+        Inner extension is detected from the entry name, not the outer filename,
+        and resolved through path_spec.extension_map before writing the temp file.
+        Returns (temp_path, resolved_ext) or None on error; caller must delete the file.
+        """
+        try:
+            if "s3://" in full_path and self.aws_config is not None:
+                s3 = self.aws_config.get_s3_client()
+                buf = io.BytesIO()
+                s3.download_fileobj(
+                    get_bucket_name(full_path),
+                    get_bucket_relative_path(full_path),
+                    buf,
+                )
+                buf.seek(0)
+                zip_source: Union[io.BytesIO, str] = buf
+            else:
+                zip_source = full_path
+
+            accepted = self._SPARK_SUPPORTED_EXTS | {
+                f".{k}" for k in path_spec.extension_map
+            }
+            with zipfile.ZipFile(zip_source) as zf:
+                members = zf.namelist()
+                entry = next(
+                    (m for m in members if pathlib.Path(m).suffix in accepted),
+                    None,
+                )
+                if entry is None:
+                    self.report.report_warning(
+                        full_path,
+                        f"zip archive contains no entry with a supported extension "
+                        f"({sorted(accepted)}); found: {members}",
+                    )
+                    return None
+                if len(members) > 1:
+                    logger.warning(
+                        f"zip archive {full_path} contains {len(members)} entries; "
+                        f"profiling only the first supported entry: {entry}"
+                    )
+                inner_ext = path_spec.resolve_extension(pathlib.Path(entry).suffix)
+                data = zf.read(entry)
+
+            with tempfile.NamedTemporaryFile(suffix=inner_ext, delete=False) as tmp:
+                tmp.write(data)
+                return tmp.name, inner_ext
+        except Exception as e:
+            self.report.report_warning(
+                full_path, f"failed to extract zip entry for profiling: {e}"
+            )
+            return None
+
     def read_file_spark(self, file: str, ext: str) -> Optional["SparkDataFrame"]:
-        """Read a file using Spark and return a DataFrame."""
         from pyspark.sql.utils import AnalysisException
 
         logger.debug(f"Opening file {file} for profiling in spark")
@@ -653,87 +717,83 @@ class SparkProfiler:
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_table_profile(
-        self, table_data: Any, dataset_urn: str
+        self, table_data: Any, dataset_urn: str, path_spec: PathSpec
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        Generate profiling metadata for a table.
-
-        Args:
-            table_data: TableData object containing information about the table
-            dataset_urn: URN for the dataset
-
-        Yields:
-            MetadataWorkUnit containing profile information
-        """
         # Importing here to avoid Deequ dependency for non profiling use cases
         from pydeequ.analyzers import AnalyzerContext
 
-        # read in the whole table with Spark for profiling
-        table = None
+        raw_ext = pathlib.Path(table_data.full_path).suffix
+        tmp_path: Optional[str] = None
         try:
-            if table_data.partitions:
-                table = self.read_file_spark(
-                    table_data.table_path, os.path.splitext(table_data.full_path)[1]
-                )
+            if raw_ext == ".zip":
+                result = self._extract_zip_to_tmp(table_data.full_path, path_spec)
+                if result is None:
+                    return
+                tmp_path, ext = result
+                spark_path = tmp_path
             else:
-                table = self.read_file_spark(
-                    table_data.full_path, os.path.splitext(table_data.full_path)[1]
+                spark_path = table_data.full_path
+                ext = path_spec.resolve_extension(raw_ext)
+
+            table = None
+            try:
+                if table_data.partitions:
+                    table = self.read_file_spark(table_data.table_path, ext)
+                else:
+                    table = self.read_file_spark(spark_path, ext)
+            except Exception as e:
+                logger.error(e)
+
+            if table is None:
+                self.report.report_warning(
+                    table_data.display_name,
+                    f"unable to read table {table_data.display_name} from file {table_data.full_path}",
                 )
-        except Exception as e:
-            logger.error(e)
+                return
 
-        # if table is not readable, skip
-        if table is None:
-            self.report.report_warning(
-                table_data.display_name,
-                f"unable to read table {table_data.display_name} from file {table_data.full_path}",
-            )
-            return
+            with PerfTimer() as timer:
+                logger.debug(
+                    f"Profiling {table_data.full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                )
+                table_profiler = _SingleTableProfiler(
+                    table,
+                    self.spark,
+                    self.profiling_config,
+                    self.report,
+                    table_data.full_path,
+                )
 
-        with PerfTimer() as timer:
-            # init PySpark analysis object
-            logger.debug(
-                f"Profiling {table_data.full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-            )
-            table_profiler = _SingleTableProfiler(
-                table,
-                self.spark,
-                self.profiling_config,
-                self.report,
-                table_data.full_path,
-            )
+                logger.debug(
+                    f"Profiling {table_data.full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                )
+                # instead of computing each profile individually, we run them all in a single analyzer.run() call
+                # we use a single call because the analyzer optimizes the number of calls to the underlying profiler
+                # since multiple profiles reuse computations, this saves a lot of time
+                table_profiler.prepare_table_profiles()
 
-            logger.debug(
-                f"Profiling {table_data.full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-            )
-            # instead of computing each profile individually, we run them all in a single analyzer.run() call
-            # we use a single call because the analyzer optimizes the number of calls to the underlying profiler
-            # since multiple profiles reuse computations, this saves a lot of time
-            table_profiler.prepare_table_profiles()
+                logger.debug(
+                    f"Profiling {table_data.full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                )
+                analysis_result = table_profiler.analyzer.run()
+                analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
+                    self.spark, analysis_result
+                )
 
-            # compute the profiles
-            logger.debug(
-                f"Profiling {table_data.full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-            )
-            analysis_result = table_profiler.analyzer.run()
-            analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
-                self.spark, analysis_result
-            )
+                logger.debug(
+                    f"Profiling {table_data.full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                )
+                table_profiler.extract_table_profiles(analysis_metrics)
 
-            logger.debug(
-                f"Profiling {table_data.full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-            )
-            table_profiler.extract_table_profiles(analysis_metrics)
+                time_taken = timer.elapsed_seconds()
+                logger.info(
+                    f"Finished profiling {table_data.full_path}; took {time_taken:.3f} seconds"
+                )
+                self.profiling_times_taken.append(time_taken)
 
-            time_taken = timer.elapsed_seconds()
-
-            logger.info(
-                f"Finished profiling {table_data.full_path}; took {time_taken:.3f} seconds"
-            )
-
-            self.profiling_times_taken.append(time_taken)
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=table_profiler.profile,
-        ).as_workunit()
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=table_profiler.profile,
+            ).as_workunit()
+        finally:
+            if tmp_path is not None:
+                os.unlink(tmp_path)

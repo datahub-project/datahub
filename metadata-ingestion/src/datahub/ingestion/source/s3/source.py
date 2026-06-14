@@ -1,17 +1,23 @@
 import dataclasses
 import functools
+import io
 import logging
 import os
 import pathlib
 import posixpath
 import re
 import time
+import zipfile
 from datetime import datetime
 from pathlib import PurePath
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import IO, TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import smart_open.compression as so_compression
 from smart_open import open as smart_open
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -49,6 +55,8 @@ from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import (
+    SUPPORTED_COMPRESSIONS,
+    SUPPORTED_FILE_TYPES,
     FolderTraversalMethod,
     PathSpec,
 )
@@ -85,6 +93,58 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 # Hack to support the .gzip extension with smart_open.
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
+
+
+class SeekableS3File:
+    """Seekable file-like wrapper around an S3 object using HTTP range requests.
+
+    zipfile.ZipFile requires random access (seek + tell) because the central
+    directory lives at the end of the archive. This wrapper satisfies that
+    interface without downloading the entire file upfront — only the bytes
+    actually requested are fetched.
+    """
+
+    def __init__(self, s3_client: "S3Client", bucket: str, key: str) -> None:
+        self._s3 = s3_client
+        self._bucket = bucket
+        self._key = key
+        self._pos = 0
+        self._size: int = s3_client.head_object(Bucket=bucket, Key=key)["ContentLength"]
+
+    def read(self, size: int = -1) -> bytes:
+        if self._pos >= self._size:
+            return b""
+        end = (
+            (self._size - 1) if size < 0 else min(self._pos + size - 1, self._size - 1)
+        )
+        data: bytes = self._s3.get_object(
+            Bucket=self._bucket, Key=self._key, Range=f"bytes={self._pos}-{end}"
+        )["Body"].read()
+        self._pos += len(data)
+        return data
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        if whence == 0:
+            self._pos = offset
+        elif whence == 1:
+            self._pos += offset
+        elif whence == 2:
+            self._pos = self._size + offset
+        self._pos = max(0, min(self._pos, self._size))
+        return self._pos
+
+    def tell(self) -> int:
+        return self._pos
+
+    def seekable(self) -> bool:
+        return True
+
+    def readable(self) -> bool:
+        return True
+
+    def close(self) -> None:
+        pass
+
 
 # config flags to emit telemetry for
 config_options_to_report = [
@@ -312,32 +372,105 @@ class S3Source(StatefulIngestionSourceBase):
 
         return cls(config, ctx)
 
+    def _open_zip_entry(
+        self,
+        full_path: str,
+        s3_client: Optional["S3Client"],
+        path_spec: PathSpec,
+    ) -> Tuple[Optional[IO[bytes]], str]:
+        """Open the first supported entry inside a .zip archive.
+
+        For S3 paths a seekable range-request wrapper is used so that only the
+        bytes actually needed are downloaded (central directory + chosen entry).
+        For local paths the file is already seekable so zipfile works directly.
+
+        Returns (file_like_object, inner_extension) or (None, "") when no
+        supported entry is found.
+        """
+        if s3_client is not None:
+            parsed = urlparse(re.sub(URI_SCHEME_REGEX, "s3://", full_path))
+            zip_file: IO[bytes] = SeekableS3File(  # type: ignore[assignment]
+                s3_client, parsed.netloc, parsed.path.lstrip("/")
+            )
+        else:
+            zip_file = open(full_path, "rb")
+
+        try:
+            zf = zipfile.ZipFile(zip_file)
+        except zipfile.BadZipFile as e:
+            self.report.report_warning(full_path, f"could not open zip archive: {e}")
+            zip_file.close()
+            return None, ""
+
+        members = zf.namelist()
+        accepted = set(SUPPORTED_FILE_TYPES) | set(path_spec.extension_map.keys())
+        supported = [
+            m for m in members if pathlib.Path(m).suffix.lstrip(".") in accepted
+        ]
+
+        if not supported:
+            self.report.report_warning(
+                full_path,
+                f"zip archive contains no files with a supported extension "
+                f"({sorted(accepted)}); found: {members}",
+            )
+            zf.close()
+            zip_file.close()
+            return None, ""
+
+        if len(members) > 1:
+            logger.warning(
+                f"zip archive {full_path} contains {len(members)} files; "
+                f"using first supported entry: {supported[0]}"
+            )
+
+        entry_name = supported[0]
+        inner_extension = pathlib.Path(entry_name).suffix
+        entry_bytes = zf.read(entry_name)
+        zf.close()
+        zip_file.close()
+        return io.BytesIO(entry_bytes), inner_extension
+
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
+        s3_client: Optional["S3Client"] = None
         if self.is_s3_platform():
             if self.source_config.aws_config is None:
                 raise ValueError("AWS config is required for S3 file sources")
-
             s3_client = self.source_config.aws_config.get_s3_client(
                 self.source_config.verify_ssl
             )
 
-            path = re.sub(URI_SCHEME_REGEX, "s3://", table_data.full_path)
-            file = smart_open(path, "rb", transport_params={"client": s3_client})
-        else:
-            # We still use smart_open here to take advantage of the compression
-            # capabilities of smart_open.
-            file = smart_open(table_data.full_path, "rb")
-
         extension = pathlib.Path(table_data.full_path).suffix
-        from datahub.ingestion.source.data_lake_common.path_spec import (
-            SUPPORTED_COMPRESSIONS,
-        )
 
-        if path_spec.enable_compression and (extension[1:] in SUPPORTED_COMPRESSIONS):
-            # Removing the compression extension and using the one before that like .json.gz -> .json
-            extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
+        if path_spec.enable_compression and extension[1:] in SUPPORTED_COMPRESSIONS:
+            if extension[1:] == "zip":
+                file, extension = self._open_zip_entry(
+                    table_data.full_path, s3_client, path_spec
+                )
+                if file is None:
+                    return []
+            else:
+                # .gz / .bz2 — smart_open decompresses transparently
+                if s3_client is not None:
+                    path = re.sub(URI_SCHEME_REGEX, "s3://", table_data.full_path)
+                    file = smart_open(
+                        path, "rb", transport_params={"client": s3_client}
+                    )
+                else:
+                    file = smart_open(table_data.full_path, "rb")
+                # Strip the compression suffix to reveal the inner format (.json.gz -> .json)
+                extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
+        else:
+            if s3_client is not None:
+                path = re.sub(URI_SCHEME_REGEX, "s3://", table_data.full_path)
+                file = smart_open(path, "rb", transport_params={"client": s3_client})
+            else:
+                file = smart_open(table_data.full_path, "rb")
+
         if extension == "" and path_spec.default_extension:
             extension = f".{path_spec.default_extension}"
+
+        extension = path_spec.resolve_extension(extension)
 
         fields = []
         inferrer = self._get_inferrer(extension, table_data.content_type)
@@ -594,7 +727,9 @@ class S3Source(StatefulIngestionSourceBase):
         )
 
         if self.source_config.is_profiling_enabled():
-            yield from self.profiler.get_table_profile(table_data, dataset_urn)
+            yield from self.profiler.get_table_profile(
+                table_data, dataset_urn, path_spec
+            )
 
     def get_prefix(self, relative_path: str) -> str:
         index = re.search(r"[\*|\{]", relative_path)
