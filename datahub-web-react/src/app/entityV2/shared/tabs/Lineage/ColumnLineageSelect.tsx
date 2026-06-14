@@ -67,6 +67,7 @@ export default function ColumnsLineageSelect({
         <>
             {isColumnLevelLineage && (
                 <StyledSelect
+                    data-testid="column-selector-dropdown"
                     value={selectedColumn}
                     onChange={selectColumn}
                     showSearch
@@ -77,7 +78,11 @@ export default function ColumnsLineageSelect({
                     {entityWithSchema?.schemaMetadata?.fields?.map((field) => {
                         const fieldPath = downgradeV2FieldPath(field.fieldPath);
                         return (
-                            <Select.Option value={field.fieldPath} label={fieldPath}>
+                            <Select.Option
+                                value={field.fieldPath}
+                                label={fieldPath}
+                                data-testid={`column-option-${fieldPath}`}
+                            >
                                 <Tooltip title={fieldPath} showArrow={false}>
                                     {fieldPath}
                                 </Tooltip>
@@ -88,7 +93,12 @@ export default function ColumnsLineageSelect({
                         const fieldPath = downgradeV2FieldPath(field?.schemaField?.fieldPath);
                         const key = `${field?.schemaField?.fieldPath}-${idx}`;
                         return (
-                            <Select.Option key={key} value={field?.schemaField?.fieldPath || ''} label={fieldPath}>
+                            <Select.Option
+                                key={key}
+                                value={field?.schemaField?.fieldPath || ''}
+                                label={fieldPath}
+                                data-testid={`column-option-${fieldPath}`}
+                            >
                                 <Tooltip title={fieldPath} showArrow={false}>
                                     {fieldPath}
                                 </Tooltip>
