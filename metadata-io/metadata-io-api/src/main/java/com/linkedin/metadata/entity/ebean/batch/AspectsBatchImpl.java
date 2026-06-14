@@ -258,7 +258,7 @@ public class AspectsBatchImpl implements AspectsBatch {
           AspectsBatch.validateProposed(
               operationContext, this.nonRepeatedItems, this.retrieverContext, operationContext);
       if (!exceptions.isEmpty()) {
-        throw new ValidationException("Failed to validate MCP due to: " + exceptions);
+        throw new ValidationException(exceptions.toString());
       }
 
       return new AspectsBatchImpl(this.items, this.nonRepeatedItems, this.retrieverContext);

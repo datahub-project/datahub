@@ -49,6 +49,16 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       message = extractErrorMessage(validationException);
     }
 
+    // Also check for metadata-io ValidationException (different package, same name)
+    com.linkedin.metadata.entity.validation.ValidationException metadataValidationException =
+        findFirstThrowableCauseOfClass(
+            exception, com.linkedin.metadata.entity.validation.ValidationException.class);
+    if (metadataValidationException != null) {
+      log.error("Failed to execute", metadataValidationException);
+      errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
+      message = metadataValidationException.getMessage();
+    }
+
     IllegalStateException illegalStateException =
         findFirstThrowableCauseOfClass(exception, IllegalStateException.class);
     if (message.equals(DEFAULT_ERROR_MESSAGE) && illegalStateException != null) {
@@ -68,6 +78,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     if (illException == null
         && graphQLException == null
         && validationException == null
+        && metadataValidationException == null
         && illegalStateException == null
         && runtimeException == null) {
       log.error("Failed to execute", exception);
