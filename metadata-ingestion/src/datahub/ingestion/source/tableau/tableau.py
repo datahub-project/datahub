@@ -943,6 +943,14 @@ class TableauSourceReport(
     # Download succeeded but the archive carried no .tds/.twb definition to parse.
     num_initial_sql_definitions_missing: int = 0
     num_initial_sql_embedded_datasources_unmatched: int = 0
+    # Diagnostics: total statements split out across all Initial SQL connections, and
+    # the count of non-empty Initial SQL values that split into ZERO statements. The
+    # latter is the signal that the SQL lost its line breaks (e.g. `--` line comments
+    # with no terminating newline collapse the whole script into one comment), so
+    # split_statements produced nothing to parse -- an otherwise-silent zero-lineage
+    # outcome. See _initial_sql_result_from_connections for the per-datasource warning.
+    num_initial_sql_statements_parsed: int = 0
+    num_initial_sql_connections_without_statements: int = 0
     num_hidden_assets_skipped: int = 0
     logged_in_user: LossyList[UserInfo] = dataclass_field(default_factory=LossyList)
 
@@ -3018,11 +3026,17 @@ class TableauSiteSource:
             # semicolons (idiomatic T-SQL). split_statements handles both. The parser
             # handles one statement at a time; statements that reference no tables
             # (e.g. SET) contribute no lineage.
-            for statement in split_statements(
-                conn.initial_sql, dialect=get_dialect_str(platform)
-            ):
-                if not statement.strip():
-                    continue
+            statements = [
+                statement
+                for statement in split_statements(
+                    conn.initial_sql, dialect=get_dialect_str(platform)
+                )
+                if statement.strip()
+            ]
+            self.report.num_initial_sql_statements_parsed += len(statements)
+
+            conn_upstreams: List[Upstream] = []
+            for statement in statements:
                 # Resolve Tableau parameter templating + neutralize T-SQL @variables
                 # before parsing (the raw SQL is preserved for the custom property).
                 # Temp-table (#/##) upstreams are dropped in make_upstream_class.
@@ -3059,10 +3073,42 @@ class TableauSiteSource:
                     continue
                 # platform_instance is the overridden upstream instance so over-qualified
                 # names (e.g. a SQL Server linked-server prefix) are trimmed correctly.
-                upstreams.extend(
+                conn_upstreams.extend(
                     make_upstream_class(
                         parsed_result, platform_instance=platform_instance
                     )
+                )
+
+            upstreams.extend(conn_upstreams)
+
+            # Log the datasource, its raw Initial SQL, and the lineage produced so a
+            # missing-lineage run can be debugged directly. repr() keeps newline
+            # boundaries visible. At DEBUG so SQL stays out of normal logs -- run
+            # ingestion with --debug to see it.
+            logger.debug(
+                "Initial SQL for %s:\n  sql=%r\n  lineage upstreams (%d): %s",
+                datasource_urn,
+                conn.initial_sql,
+                len(conn_upstreams),
+                [u.dataset for u in conn_upstreams],
+            )
+
+            # A non-empty Initial SQL that split into zero statements yields no lineage
+            # (e.g. `--` line comments with no terminating newline collapse the whole
+            # script into a single comment). Surface it instead of failing silently.
+            if not statements:
+                has_newline = "\n" in conn.initial_sql or "\r" in conn.initial_sql
+                has_line_comment = "--" in conn.initial_sql
+                self.report.num_initial_sql_connections_without_statements += 1
+                self.report.warning(
+                    title="Initial SQL produced no parseable statements",
+                    message="Initial SQL was present but split into zero statements, so "
+                    "no lineage was extracted from it. This commonly happens when the "
+                    "stored SQL has lost its line breaks and contains `--` line comments: "
+                    "the script collapses into a single comment. Run with --debug to see "
+                    "the raw Initial SQL.",
+                    context=f"{datasource_urn} (chars={len(conn.initial_sql)}, "
+                    f"has_newline={has_newline}, has_line_comment={has_line_comment})",
                 )
 
         self.report.num_initial_sql_lineage_upstreams += len(upstreams)
