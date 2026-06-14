@@ -252,6 +252,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             yield_common_aspects_fn=self._yield_common_aspects,
             model_usage_tracker=self.model_usage_tracker,
             platform=self.platform,
+            report=self.report,
             state_handler=self.state_handler,
             rate_limiter=self._rate_limiter,
         )
