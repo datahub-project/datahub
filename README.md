@@ -63,12 +63,9 @@ _Enterprise-grade metadata platform enabling discovery, governance, and observab
 </p>
 
 <p align="center">
-  <a href="https://datahub.com/free-trial/"><b>Free Cloud Trial</b></a> •
   <a href="https://docs.datahub.com/docs/quickstart"><b>Quick Start</b></a> •
-  <a href="https://demo.datahub.com"><b>Live Demo</b></a> •
   <a href="https://docs.datahub.com"><b>Documentation</b></a> •
-  <a href="https://datahub.com/slack"><b>Slack Community</b></a> •
-  <a href="https://www.youtube.com/@datahubproject"><b>YouTube</b></a>
+  <a href="https://datahub.com/slack"><b>Slack Community</b></a>
 </p>
 
 <p align="center">
@@ -784,11 +781,11 @@ Join thousands of data practitioners building with DataHub!
 
 **Next Town Hall:**
 
-- 🎟️ [Register for the next Town Hall](https://luma.com/zp3h4ex8)
+- 🎟️ [Register for the next Town Hall](https://luma.com/2yinw29m)
 
 **Last Town Hall:**
 
-- 📺 [Powering AI Agents with DataHub Context](https://youtu.be/dqZNV09yvA0?si=IWUKhLm0Xa_PoYsy) (January 2026)
+- 📺 [Agents, Apps & the Art of Extension](https://www.youtube.com/watch?v=MAyldt2n3R8) (March 2026)
 
 [→ View all past recordings](https://www.youtube.com/playlist?list=PLdCtLs64vZvHTXGqybmOfyxXbGDn2Reb9)
 
