@@ -104,17 +104,32 @@ task yarnGenerate(type: Copy, dependsOn: yarnGenerateCacheable) {
   includeEmptyDirs = false
 }
 
-task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+// Generate per-icon stub files so Vite can build them as separate lazy chunks.
+// Client downloads only the icon chunks it actually renders — none are in the main bundle.
+task generateLazyIconStubs(type: NodeTask, dependsOn: yarnInstall) {
+  script = file('scripts/generate-lazy-icon-stubs.js')
+
+  // Track the package version, not the 3000+ individual icon files — same correctness,
+  // one file to fingerprint instead of hashing the entire CSR directory.
+  inputs.file('node_modules/@phosphor-icons/react/package.json')
+  outputs.dir('src/app/mfeframework/lazy-icons')
+
+  // yarnGenerateCacheable reads src/ as part of its doFirst cleanup; mustRunAfter
+  // gives Gradle an explicit ordering so it doesn't flag the overlap as implicit.
+  mustRunAfter yarnGenerateCacheable
+}
+
+task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   environment.put('REACT_APP_PROXY_TARGET', 'http://localhost:9001')
   args = ['run', 'start']
 }
 
-task yarnPreview(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnPreview(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   environment.put('REACT_APP_PROXY_TARGET', project.findProperty('proxy') ?: 'http://localhost:9001')
   args = ['run', 'preview']
 }
 
-task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   // Explicitly runs in non-watch mode.
   def testArgs = ['run', project.hasProperty('withCoverage') ? 'test-coverage' : 'test', 'run']
 
@@ -139,7 +154,7 @@ task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   outputs.cacheIf { true }
 }
 
-task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   def targetFile = project.findProperty('file') ?: ''
 
   if (targetFile.isEmpty()) {
@@ -168,7 +183,7 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 
 test.dependsOn([yarnInstall, yarnTest])
 
-task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   def targetFile = project.findProperty('file') ?: ''
 
   if (targetFile.isEmpty()) {
@@ -205,7 +220,7 @@ task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   }
 }
 
-task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   // Pass DataHub version via environment variable to vite build
   environment.put('DATAHUB_APP_VERSION', project.version)
 
