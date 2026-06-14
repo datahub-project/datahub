@@ -252,10 +252,19 @@ def generate_procedure_lineage(
         )
 
         if datajob_input_output and additional_input_jobs:
-            if datajob_input_output.inputDatajobs:
-                datajob_input_output.inputDatajobs.extend(additional_input_jobs)
-            else:
-                datajob_input_output.inputDatajobs = additional_input_jobs
+            # ``additional_input_jobs`` comes from sources that read procedure
+            # dependencies from a system catalogue (e.g. Oracle's
+            # ALL_DEPENDENCIES). ``parse_procedure_code`` may have already
+            # populated ``inputDatajobs`` by parsing CALL/EXEC out of the
+            # procedure body. Both paths are authoritative, so we merge them
+            # but deduplicate to keep ``inputDatajobs`` a true set.
+            existing = list(datajob_input_output.inputDatajobs or [])
+            seen = set(existing)
+            for urn in additional_input_jobs:
+                if urn not in seen:
+                    existing.append(urn)
+                    seen.add(urn)
+            datajob_input_output.inputDatajobs = existing
 
         if datajob_input_output:
             yield MetadataChangeProposalWrapper(
