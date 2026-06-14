@@ -396,7 +396,7 @@ query searchAcrossLineage {
       urn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders,PROD)"
       count: 10
       direction: UPSTREAM
-      orFilters: [{ and: [{ field: "degree", values: ["1"] }] }]
+      orFilters: [{ and: [{ field: "degree", values: ["1", "2", "3+"] }] }]
       lineageFlags: {
         startTimeMillis: 1625097600000
         endTimeMillis: 1627776000000
