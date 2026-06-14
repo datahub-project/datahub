@@ -14,7 +14,7 @@ import TabFullsizedContext from '@app/shared/TabFullsizedContext';
 
 import { LineageDirection } from '@types';
 
-const LINEAGE_SWITCH_WIDTH = 90;
+const LINEAGE_SWITCH_MIN_WIDTH = 90;
 
 const LineageTabWrapper = styled.div`
     display: flex;
@@ -27,7 +27,7 @@ const LineageSwitchWrapper = styled.div`
     border-radius: 4.5px;
     display: flex;
     margin: 13px 11px;
-    width: ${LINEAGE_SWITCH_WIDTH * 2}px;
+    width: fit-content;
 `;
 
 const LineageViewSwitch = styled.div<{ selected: boolean }>`
@@ -36,11 +36,14 @@ const LineageViewSwitch = styled.div<{ selected: boolean }>`
     color: ${({ selected, theme }) => (selected ? theme.colors.bg : theme.colors.textBrand)};
     cursor: pointer;
     display: flex;
+    flex: 1;
     font-size: 10px;
     justify-content: center;
     line-height: 24px;
     height: 24px;
-    width: ${LINEAGE_SWITCH_WIDTH}px;
+    min-width: ${LINEAGE_SWITCH_MIN_WIDTH}px;
+    padding: 0 12px;
+    white-space: nowrap;
 `;
 
 const VisualizationWrapper = styled.div`
