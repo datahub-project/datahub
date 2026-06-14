@@ -25,4 +25,4 @@ requests>=2.32.4,<3.0.0
 deepdiff!=8.0.0
 opensearch-py==2.6.0
 
-python-dotenv==1.0.1
+python-dotenv==1.2.2
