@@ -928,3 +928,141 @@ def test_json_schema_ref_loop_in_definitions():
     # Both should be RecordType
     assert isinstance(fields[0].type.type, RecordTypeClass)
     assert isinstance(fields[1].type.type, RecordTypeClass)
+
+
+def test_json_schema_complex_recursive_refs_with_oneof():
+    """
+    Regression test for issue #14358: Complex JSON Schema with recursive $refs
+    combined with nested oneOf causes combinatorial explosion.
+
+    Without the fix: 218,976 fields, ~25 seconds.
+    With the fix: ~37 fields in < 1ms.
+    """
+    schema = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": "https://schema.com/schema/1.0",
+        "type": "object",
+        "properties": {
+            "group": {
+                "type": "object",
+                "properties": {
+                    "filter": {
+                        "type": "array",
+                        "items": {"$ref": "#/definitions/condition"},
+                        "minItems": 1,
+                    }
+                },
+                "required": ["filter"],
+            }
+        },
+        "required": ["group"],
+        "definitions": {
+            "condition": {
+                "type": "object",
+                "properties": {
+                    "operator": {
+                        "description": "Condition operator",
+                        "type": "string",
+                        "enum": [
+                            "EXISTS",
+                            "GREATERTHAN",
+                            "LESSTHAN",
+                            "EQUALS",
+                            "MATCHES",
+                            "CONTAINS",
+                            "IN",
+                            "BETWEEN",
+                            "NOT",
+                            "AND",
+                            "OR",
+                            "XOR",
+                        ],
+                    },
+                    "condition": {
+                        "description": "negated condition",
+                        "$ref": "#/definitions/condition",
+                    },
+                    "conditions": {
+                        "description": "array of conditions (logical expressions)",
+                        "type": "array",
+                        "items": {"$ref": "#/definitions/condition"},
+                        "minItems": 2,
+                    },
+                },
+                "oneOf": [
+                    {
+                        "properties": {
+                            "operator": {"enum": ["GREATERTHAN", "LESSTHAN", "EQUALS"]}
+                        },
+                        "required": ["operator"],
+                        "oneOf": [
+                            {
+                                "properties": {"numberValue": {}},
+                                "required": ["numberValue"],
+                            },
+                            {
+                                "properties": {"booleanValue": {}},
+                                "required": ["booleanValue"],
+                            },
+                            {
+                                "properties": {"stringValue": {}},
+                                "required": ["stringValue"],
+                            },
+                            {
+                                "properties": {"referenceValue": {}},
+                                "required": ["referenceValue"],
+                            },
+                        ],
+                    },
+                    {
+                        "description": "negation logical filter condition",
+                        "properties": {
+                            "operator": {"enum": ["NOT"]},
+                            "condition": {},
+                        },
+                        "required": ["operator", "condition"],
+                    },
+                    {
+                        "description": "logical filter condition",
+                        "properties": {
+                            "operator": {"enum": ["AND", "OR", "XOR"]},
+                            "conditions": {},
+                        },
+                        "required": ["operator", "conditions"],
+                    },
+                ],
+            }
+        },
+    }
+
+    import time
+
+    start = time.time()
+    fields = json_schema_to_schema_fields(schema)
+    elapsed = time.time() - start
+
+    # Must complete quickly — the fix cuts 218k fields / 25s down to ~37 fields / <1ms
+    assert elapsed < 5.0, (
+        f"Processing took {elapsed:.1f}s with {len(fields)} fields — "
+        f"recursive $ref + oneOf explosion not prevented"
+    )
+    assert len(fields) < 1000, (
+        f"Generated {len(fields)} fields — expected < 1000 with proper recursion detection"
+    )
+
+    # Structural correctness
+    field_paths = [f.fieldPath for f in fields]
+    assert any("group" in p for p in field_paths)
+    assert any("filter" in p for p in field_paths)
+    assert any("condition" in p for p in field_paths)
+    assert any("operator" in p for p in field_paths)
+
+    # Must detect recursive fields
+    recursive_fields = [f for f in fields if f.recursive]
+    assert len(recursive_fields) > 0
+
+    # Recursive fields without a schema description should get a helpful note
+    for rf in recursive_fields:
+        assert rf.description, "Recursive fields should have a description"
+
+    assert_fields_are_valid(fields)
