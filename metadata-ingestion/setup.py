@@ -960,6 +960,7 @@ base_dev_requirements = {
     "pytest-cov>=2.8.1,<8.0.0",
     "pytest-random-order~=1.1.0,<2.0.0",
     "pytest-rerunfailures<17.0",
+    "pytest-testmon>=2.0.0,<3.0.0",  # selective test runner: skips tests unaffected by changed files
     "requests-mock<2.0.0",
     "time-machine<4.0.0",
     "jsonpickle<5.0.0",

@@ -295,6 +295,7 @@ coverage==7.13.4
     # via
     #   acryl-datahub
     #   pytest-cov
+    #   pytest-testmon
 cramjam==2.11.0
     # via
     #   acryl-datahub
@@ -1275,6 +1276,7 @@ pytest==9.0.3
     #   pytest-docker
     #   pytest-random-order
     #   pytest-rerunfailures
+    #   pytest-testmon
     #   pytest-timeout
 pytest-asyncio==1.3.0
     # via acryl-datahub
@@ -1285,6 +1287,8 @@ pytest-docker==3.2.5
 pytest-random-order==1.1.1
     # via acryl-datahub
 pytest-rerunfailures==16.1
+    # via acryl-datahub
+pytest-testmon==2.2.0
     # via acryl-datahub
 pytest-timeout==2.4.0
     # via acryl-datahub

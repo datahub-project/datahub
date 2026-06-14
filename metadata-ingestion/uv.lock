@@ -629,6 +629,7 @@ dev = [
     { name = "pytest-docker" },
     { name = "pytest-random-order" },
     { name = "pytest-rerunfailures" },
+    { name = "pytest-testmon" },
     { name = "pytest-timeout" },
     { name = "python-dateutil" },
     { name = "python-json-logger" },
@@ -822,6 +823,7 @@ docs = [
     { name = "pytest-docker" },
     { name = "pytest-random-order" },
     { name = "pytest-rerunfailures" },
+    { name = "pytest-testmon" },
     { name = "pytest-timeout" },
     { name = "python-dateutil" },
     { name = "python-json-logger" },
@@ -2775,6 +2777,8 @@ requires-dist = [
     { name = "pytest-random-order", marker = "extra == 'docs'", specifier = "~=1.1.0,<2.0.0" },
     { name = "pytest-rerunfailures", marker = "extra == 'dev'", specifier = "<17.0" },
     { name = "pytest-rerunfailures", marker = "extra == 'docs'", specifier = "<17.0" },
+    { name = "pytest-testmon", marker = "extra == 'dev'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "pytest-testmon", marker = "extra == 'docs'", specifier = ">=2.0.0,<3.0.0" },
     { name = "pytest-timeout", marker = "extra == 'dev'", specifier = "<3.0.0" },
     { name = "pytest-timeout", marker = "extra == 'docs'", specifier = "<3.0.0" },
     { name = "pytest-timeout", marker = "extra == 'testing-utils'", specifier = "<3.0.0" },
@@ -10556,6 +10560,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/de/04/71e9520551fc8fe2cf5c1a1842e4e600265b0815f2016b7c27ec85688682/pytest_rerunfailures-16.1.tar.gz", hash = "sha256:c38b266db8a808953ebd71ac25c381cb1981a78ff9340a14bcb9f1b9bff1899e", size = 30889, upload-time = "2025-10-10T07:06:01.238Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/77/54/60eabb34445e3db3d3d874dc1dfa72751bfec3265bd611cb13c8b290adea/pytest_rerunfailures-16.1-py3-none-any.whl", hash = "sha256:5d11b12c0ca9a1665b5054052fcc1084f8deadd9328962745ef6b04e26382e86", size = 14093, upload-time = "2025-10-10T07:06:00.019Z" },
+]
+
+[[package]]
+name = "pytest-testmon"
+version = "2.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "coverage" },
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4d/1d/3e4230cc67cd6205bbe03c3527500c0ccaf7f0c78b436537eac71590ee4a/pytest_testmon-2.2.0.tar.gz", hash = "sha256:01f488e955ed0e0049777bee598bf1f647dd524e06f544c31a24e68f8d775a51", size = 23108, upload-time = "2025-12-01T07:30:24.76Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/61/55/ebb3c2f59fb089f08d00f764830d35780fc4e4c41dffcadafa3264682b65/pytest_testmon-2.2.0-py3-none-any.whl", hash = "sha256:2604ca44a54d61a2e830d9ce828b41a837075e4ebc1f81b148add8e90d34815b", size = 25199, upload-time = "2025-12-01T07:30:23.623Z" },
 ]
 
 [[package]]
