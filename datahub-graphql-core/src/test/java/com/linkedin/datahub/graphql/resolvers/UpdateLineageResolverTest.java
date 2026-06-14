@@ -46,6 +46,11 @@ public class UpdateLineageResolverTest {
       "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test1)";
   private static final String DATAJOB_URN_2 =
       "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test2)";
+  private static final String ML_MODEL_URN =
+      "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,model1,PROD)";
+  private static final String ML_MODEL_GROUP_URN =
+      "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,modelGroup1,PROD)";
+  private static final String DATA_PROCESS_INSTANCE_URN = "urn:li:dataProcessInstance:abc123";
 
   @BeforeMethod
   public void setupTest() {
@@ -128,6 +133,39 @@ public class UpdateLineageResolverTest {
             createLineageEdge(DATASET_URN_3, DATAJOB_URN_1));
     List<LineageEdge> edgesToRemove =
         Arrays.asList(createLineageEdge(DATAJOB_URN_1, DATASET_URN_1));
+    mockInputAndContext(edgesToAdd, edgesToRemove);
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
+
+    assertTrue(resolver.get(_mockEnv).get());
+  }
+
+  @Test
+  public void testUpdateMlModelLineage() throws Exception {
+    List<LineageEdge> edgesToAdd =
+        Arrays.asList(
+            createLineageEdge(ML_MODEL_URN, DATAJOB_URN_1),
+            createLineageEdge(DATAJOB_URN_2, ML_MODEL_URN));
+    List<LineageEdge> edgesToRemove =
+        Arrays.asList(createLineageEdge(ML_MODEL_URN, DATA_PROCESS_INSTANCE_URN));
+    mockInputAndContext(edgesToAdd, edgesToRemove);
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
+
+    assertTrue(resolver.get(_mockEnv).get());
+  }
+
+  @Test
+  public void testUpdateMlModelGroupLineage() throws Exception {
+    List<LineageEdge> edgesToAdd =
+        Arrays.asList(
+            createLineageEdge(ML_MODEL_GROUP_URN, DATAJOB_URN_1),
+            createLineageEdge(DATA_PROCESS_INSTANCE_URN, ML_MODEL_GROUP_URN));
+    List<LineageEdge> edgesToRemove = Collections.emptyList();
     mockInputAndContext(edgesToAdd, edgesToRemove);
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
