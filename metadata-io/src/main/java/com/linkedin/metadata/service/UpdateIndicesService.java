@@ -102,15 +102,13 @@ public class UpdateIndicesService implements SearchIndicesService {
         AspectsBatch.applyMCLSideEffects(mclItems, opContext.getRetrieverContext())
             .collect(Collectors.toList());
 
-    // Group events by URN for batch processing while preserving order
+    // Group events by URN for batch processing while preserving order. Cross-routing-key mixing
+    // is segregated upstream in the Kafka batch listener (see MCLBatchKafkaListener.consumeBatch),
+    // so every call to this method already arrives under a single routing identity — grouping by
+    // URN alone is sufficient here.
     LinkedHashMap<Urn, List<MCLItem>> groupedEvents =
         UpdateIndicesUtil.groupEventsByUrn(Stream.concat(mclItems.stream(), sideEffects.stream()));
 
-    // TODO(opcontext-batch-followup): per event ES routing is a follow-up — once the inbound
-    // enricher exposes a stable routing key, group by (Urn, routingKey) and thread the per-event
-    // OperationContext through to the strategy contract. URNs are not tenant-scoped (two tenants
-    // can legitimately produce the same URN string), so grouping by URN alone is not safe for
-    // cross-tenant batches in the multi-tenant target deployment.
     for (UpdateIndicesStrategy strategy : updateStrategies) {
       if (strategy.isEnabled()) {
         strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);

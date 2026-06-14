@@ -210,6 +210,7 @@ class ConnectorRegistry:
             DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,
             S3_SINK_CONNECTOR_CLASS,
             SNOWFLAKE_SINK_CONNECTOR_CLASS,
+            SNOWFLAKE_STREAMING_SINK_CONNECTOR_CLASS,
             BigQuerySinkConnector,
             ClickHouseSinkConnector,
             ConfluentS3SinkConnector,
@@ -227,9 +228,10 @@ class ConnectorRegistry:
         # S3 sink connectors
         elif connector_class_value == S3_SINK_CONNECTOR_CLASS:
             return ConfluentS3SinkConnector(manifest, config, report)
-        # Snowflake sink connectors (both self-hosted and Cloud)
+        # Snowflake sink connectors (classic self-hosted, high-performance v4, and Cloud)
         elif connector_class_value in (
             SNOWFLAKE_SINK_CONNECTOR_CLASS,
+            SNOWFLAKE_STREAMING_SINK_CONNECTOR_CLASS,
             SNOWFLAKE_SINK_CLOUD,
         ):
             return SnowflakeSinkConnector(manifest, config, report)
