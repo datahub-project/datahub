@@ -396,7 +396,7 @@ class UnityCatalogSourceConfig(
     ml_model_max_results: int = pydantic.Field(
         default=1000,
         ge=0,
-        description="Maximum number of ML models to ingest.",
+        description="Maximum number of ML models to ingest. Set to 0 to skip ML model ingestion.",
     )
 
     _forced_disable_tag_extraction: bool = pydantic.PrivateAttr(default=False)
