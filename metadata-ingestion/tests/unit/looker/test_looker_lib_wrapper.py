@@ -1,7 +1,9 @@
 import os
 from unittest import mock
 
+import looker_sdk.rtl.requests_transport as looker_requests_transport
 import pytest
+from requests.adapters import HTTPAdapter
 
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
@@ -79,3 +81,36 @@ def test_settings_read_config_ignores_lookersdk_env_vars(monkeypatch):
     assert data["client_secret"] == "real-secret"
     assert data["base_url"] == "https://real.example.com"
     assert settings.base_url == "https://real.example.com"
+
+
+def test_http_adapter_pool_size_matches_max_threads():
+    """HTTPAdapter pool size must be set to max_threads + 10 to avoid connection pool warnings."""
+    config = LookerAPIConfig(
+        base_url="https://looker.example.com",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        max_threads=20,
+    )
+
+    mock_session = mock.MagicMock()
+    mock_transport = mock.MagicMock(spec=looker_requests_transport.RequestsTransport)
+    mock_transport.session = mock_session
+
+    mock_client = mock.MagicMock()
+    mock_client.transport = mock_transport
+
+    with (
+        mock.patch("looker_sdk.init40", return_value=mock_client),
+        mock.patch(
+            "datahub.ingestion.source.looker.looker_lib_wrapper.HTTPAdapter",
+            wraps=HTTPAdapter,
+        ) as mock_adapter_cls,
+    ):
+        LookerAPI(config=config)
+
+    mock_adapter_cls.assert_called_once_with(
+        max_retries=config.max_retries,
+        pool_connections=30,
+        pool_maxsize=30,
+    )
+    assert mock_session.mount.call_count == 2
