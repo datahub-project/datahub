@@ -1,67 +1,296 @@
 [
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(metabase,1)",
-            "aspects": [
+    "entityType": "container",
+    "entityUrn": "urn:li:container:54527befae123f79b7139811154aea45",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "metabase",
+                "env": "PROD",
+                "collection_id": "150"
+            },
+            "name": "John Doe",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:54527befae123f79b7139811154aea45",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:54527befae123f79b7139811154aea45",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:metabase"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:54527befae123f79b7139811154aea45",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Collection"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:54527befae123f79b7139811154aea45",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,1)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "",
+                "Dimensions": "customer_id, first_name, last_name, amount, payment_date, rental_id",
+                "database_id": "1"
+            },
+            "title": "Customer Payment",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1639417592792,
+                    "actor": "urn:li:corpuser:admin@metabase.com"
+                }
+            },
+            "chartUrl": "http://localhost:3000/card/1",
+            "inputEdges": [
                 {
-                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                        "customProperties": {
-                            "Metrics": "",
-                            "Filters": "",
-                            "Dimensions": "customer_id, first_name, last_name, amount, payment_date, rental_id"
-                        },
-                        "title": "Customer Payment",
-                        "description": "",
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 1639417592792,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
-                            }
-                        },
-                        "chartUrl": "http://localhost:3000/card/1",
-                        "inputEdges": [
-                            {
-                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)",
-                                "lastModified": {
-                                    "time": 1639417592792,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            },
-                            {
-                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)",
-                                "lastModified": {
-                                    "time": 1639417592792,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            }
-                        ],
-                        "type": "TABLE"
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)",
+                    "lastModified": {
+                        "time": 1639417592792,
+                        "actor": "urn:li:corpuser:admin@metabase.com"
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.chart.ChartQuery": {
-                        "rawQuery": "SELECT\n\tcustomer.customer_id,\n\tfirst_name,\n\tlast_name,\n\tamount,\n\tpayment_date,\n\trental_id\nFROM\n\tcustomer\nINNER JOIN payment \n    ON payment.customer_id = customer.customer_id\nORDER BY payment_date",
-                        "type": "SQL"
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)",
+                    "lastModified": {
+                        "time": 1639417592792,
+                        "actor": "urn:li:corpuser:admin@metabase.com"
+                    }
+                }
+            ],
+            "type": "TABLE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,1)",
+    "changeType": "UPSERT",
+    "aspectName": "chartQuery",
+    "aspect": {
+        "json": {
+            "rawQuery": "SELECT\n\tcustomer.customer_id,\n\tfirst_name,\n\tlast_name,\n\tamount,\n\tpayment_date,\n\trental_id\nFROM\n\tcustomer\nINNER JOIN payment \n    ON payment.customer_id = customer.customer_id\nORDER BY payment_date",
+            "type": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,1)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:admin@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,1)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),amount)",
+                    "schemaField": {
+                        "fieldPath": "amount",
+                        "nullable": true,
+                        "description": "amount",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Decimal",
+                        "recursive": false,
+                        "isPartOfKey": false
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:admin@metabase.com",
-                                "type": "DATAOWNER"
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),customer_id)",
+                    "schemaField": {
+                        "fieldPath": "customer_id",
+                        "nullable": true,
+                        "description": "customer_id",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
                             }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
+                        },
+                        "nativeDataType": "type/Integer",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),first_name)",
+                    "schemaField": {
+                        "fieldPath": "first_name",
+                        "nullable": true,
+                        "description": "first_name",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),last_name)",
+                    "schemaField": {
+                        "fieldPath": "last_name",
+                        "nullable": true,
+                        "description": "last_name",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),payment_date)",
+                    "schemaField": {
+                        "fieldPath": "payment_date",
+                        "nullable": true,
+                        "description": "payment_date",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),rental_id)",
+                    "schemaField": {
+                        "fieldPath": "rental_id",
+                        "nullable": true,
+                        "description": "rental_id",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Integer",
+                        "recursive": false,
+                        "isPartOfKey": false
                     }
                 }
             ]
@@ -75,55 +304,167 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(metabase,2)",
-            "aspects": [
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Count",
+                "Filters": "['=', ['field', 136, None], 2006]",
+                "Dimensions": "Rating",
+                "database_id": "2"
+            },
+            "title": "Films, Count, Grouped by Rating, Filtered by Release Year, Sorted by [Unknown Field] descending",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1636614000000,
+                    "actor": "urn:li:corpuser:admin@metabase.com"
+                }
+            },
+            "chartUrl": "http://localhost:3000/card/2",
+            "inputEdges": [
                 {
-                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                        "customProperties": {
-                            "Metrics": "Count",
-                            "Filters": "['=', ['field', 136, None], 2006]",
-                            "Dimensions": "Rating"
-                        },
-                        "title": "Films, Count, Grouped by Rating, Filtered by Release Year, Sorted by [Unknown Field] descending",
-                        "description": "",
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 1636614000000,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
-                            }
-                        },
-                        "chartUrl": "http://localhost:3000/card/2",
-                        "inputEdges": [
-                            {
-                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)",
-                                "lastModified": {
-                                    "time": 1636614000000,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            }
-                        ],
-                        "type": "BAR"
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)",
+                    "lastModified": {
+                        "time": 1636614000000,
+                        "actor": "urn:li:corpuser:admin@metabase.com"
+                    }
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:admin@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,3)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "Distinct values of order_number, Sum of nominal_total",
+                "Filters": "['time-interval', ['field', 'completed_at', {'base-type': 'type/DateTimeWithTZ'}], -8, 'day', {'include-current': False}]",
+                "Dimensions": "completed_at",
+                "database_id": "2"
+            },
+            "title": "Question with data from other question",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1685628119636,
+                    "actor": "urn:li:corpuser:john.doe@example.com"
+                }
+            },
+            "chartUrl": "http://localhost:3000/card/3",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)",
+                    "lastModified": {
+                        "time": 1685628119636,
+                        "actor": "urn:li:corpuser:john.doe@example.com"
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:admin@metabase.com",
-                                "type": "DATAOWNER"
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)",
+                    "lastModified": {
+                        "time": 1685628119636,
+                        "actor": "urn:li:corpuser:john.doe@example.com"
+                    }
+                }
+            ],
+            "type": "TABLE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD),rating)",
+                    "schemaField": {
+                        "fieldPath": "rating",
+                        "nullable": true,
+                        "description": "Rating",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.EnumType": {}
                             }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
+                        },
+                        "nativeDataType": "type/PostgresEnum",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD),rating)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
                     }
                 }
             ]
@@ -137,62 +478,125 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(metabase,3)",
-            "aspects": [
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,3)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                        "customProperties": {
-                            "Metrics": "Distinct values of order_number, Sum of nominal_total",
-                            "Filters": "['time-interval', ['field', 'completed_at', {'base-type': 'type/DateTimeWithTZ'}], -8, 'day', {'include-current': False}]",
-                            "Dimensions": "completed_at"
-                        },
-                        "title": "Question with data from other question",
-                        "description": "",
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 1685628119636,
-                                "actor": "urn:li:corpuser:john.doe@example.com"
+                    "owner": "urn:li:corpuser:admin@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,3)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:7d4a07a81661f9a5038ca3c0dc950791"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,3)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:7d4a07a81661f9a5038ca3c0dc950791",
+                    "urn": "urn:li:container:7d4a07a81661f9a5038ca3c0dc950791"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,3)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),completed_at)",
+                    "schemaField": {
+                        "fieldPath": "completed_at",
+                        "nullable": true,
+                        "description": "completed_at",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
                             }
                         },
-                        "chartUrl": "http://localhost:3000/card/3",
-                        "inputEdges": [
-                            {
-                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)",
-                                "lastModified": {
-                                    "time": 1685628119636,
-                                    "actor": "urn:li:corpuser:john.doe@example.com"
-                                }
-                            },
-                            {
-                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)",
-                                "lastModified": {
-                                    "time": 1685628119636,
-                                    "actor": "urn:li:corpuser:john.doe@example.com"
-                                }
-                            }
-                        ],
-                        "type": "TABLE"
+                        "nativeDataType": "type/Date",
+                        "recursive": false,
+                        "isPartOfKey": false
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:admin@metabase.com",
-                                "type": "DATAOWNER"
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": true,
+                        "description": "Distinct values of order_number",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
                             }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),sum)",
+                    "schemaField": {
+                        "fieldPath": "sum",
+                        "nullable": true,
+                        "description": "Sum of nominal_total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Float",
+                        "recursive": false,
+                        "isPartOfKey": false
                     }
                 }
             ]
@@ -206,68 +610,116 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(metabase,10)",
-            "aspects": [
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "title": "Dashboard 1",
+            "description": "",
+            "charts": [],
+            "chartEdges": [
                 {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
-                        "title": "Dashboard 1",
-                        "description": "",
-                        "charts": [],
-                        "chartEdges": [
-                            {
-                                "destinationUrn": "urn:li:chart:(metabase,1)",
-                                "lastModified": {
-                                    "time": 1705398694904,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            },
-                            {
-                                "destinationUrn": "urn:li:chart:(metabase,2)",
-                                "lastModified": {
-                                    "time": 1705398694904,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            },
-                            {
-                                "destinationUrn": "urn:li:chart:(metabase,3)",
-                                "lastModified": {
-                                    "time": 1705398694904,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            }
-                        ],
-                        "datasets": [],
-                        "dashboards": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 1705398694904,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
-                            },
-                            "lastModified": {
-                                "time": 1705398694904,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
-                            }
-                        },
-                        "dashboardUrl": "http://localhost:3000/dashboard/10"
+                    "destinationUrn": "urn:li:chart:(metabase,1)",
+                    "lastModified": {
+                        "time": 1705398694904,
+                        "actor": "urn:li:corpuser:admin@metabase.com"
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:admin@metabase.com",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
+                    "destinationUrn": "urn:li:chart:(metabase,2)",
+                    "lastModified": {
+                        "time": 1705398694904,
+                        "actor": "urn:li:corpuser:admin@metabase.com"
                     }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,3)",
+                    "lastModified": {
+                        "time": 1705398694904,
+                        "actor": "urn:li:corpuser:admin@metabase.com"
+                    }
+                }
+            ],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1705398694904,
+                    "actor": "urn:li:corpuser:admin@metabase.com"
+                },
+                "lastModified": {
+                    "time": 1705398694904,
+                    "actor": "urn:li:corpuser:admin@metabase.com"
+                }
+            },
+            "dashboardUrl": "http://localhost:3000/dashboard/10"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:admin@metabase.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ef5fb074bf61d7999d70d8528fb7da3c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ef5fb074bf61d7999d70d8528fb7da3c",
+                    "urn": "urn:li:container:ef5fb074bf61d7999d70d8528fb7da3c"
                 }
             ]
         }
@@ -280,70 +732,52 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(metabase,20)",
-            "aspects": [
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,20)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "title": "Dashboard 2",
+            "description": "",
+            "charts": [],
+            "chartEdges": [
                 {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
-                        "title": "Dashboard 2",
-                        "description": "",
-                        "charts": [],
-                        "chartEdges": [
-                            {
-                                "destinationUrn": "urn:li:chart:(metabase,1)",
-                                "lastModified": {
-                                    "time": 1705398694904,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            },
-                            {
-                                "destinationUrn": "urn:li:chart:(metabase,2)",
-                                "lastModified": {
-                                    "time": 1705398694904,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            },
-                            {
-                                "destinationUrn": "urn:li:chart:(metabase,3)",
-                                "lastModified": {
-                                    "time": 1705398694904,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            }
-                        ],
-                        "datasets": [],
-                        "dashboards": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 1705398694904,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
-                            },
-                            "lastModified": {
-                                "time": 1705398694904,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
-                            }
-                        },
-                        "dashboardUrl": "http://localhost:3000/dashboard/20"
+                    "destinationUrn": "urn:li:chart:(metabase,1)",
+                    "lastModified": {
+                        "time": 1705398694904,
+                        "actor": "urn:li:corpuser:admin@metabase.com"
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:admin@metabase.com",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
+                    "destinationUrn": "urn:li:chart:(metabase,2)",
+                    "lastModified": {
+                        "time": 1705398694904,
+                        "actor": "urn:li:corpuser:admin@metabase.com"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,3)",
+                    "lastModified": {
+                        "time": 1705398694904,
+                        "actor": "urn:li:corpuser:admin@metabase.com"
                     }
                 }
-            ]
+            ],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1705398694904,
+                    "actor": "urn:li:corpuser:admin@metabase.com"
+                },
+                "lastModified": {
+                    "time": 1705398694904,
+                    "actor": "urn:li:corpuser:admin@metabase.com"
+                }
+            },
+            "dashboardUrl": "http://localhost:3000/dashboard/20"
         }
     },
     "systemMetadata": {
@@ -354,70 +788,23 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(metabase,10)",
-            "aspects": [
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,20)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
-                        "title": "Dashboard 1",
-                        "description": "",
-                        "charts": [],
-                        "chartEdges": [
-                            {
-                                "destinationUrn": "urn:li:chart:(metabase,1)",
-                                "lastModified": {
-                                    "time": 1705398694904,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            },
-                            {
-                                "destinationUrn": "urn:li:chart:(metabase,2)",
-                                "lastModified": {
-                                    "time": 1705398694904,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            },
-                            {
-                                "destinationUrn": "urn:li:chart:(metabase,3)",
-                                "lastModified": {
-                                    "time": 1705398694904,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            }
-                        ],
-                        "datasets": [],
-                        "dashboards": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 1705398694904,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
-                            },
-                            "lastModified": {
-                                "time": 1705398694904,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
-                            }
-                        },
-                        "dashboardUrl": "http://localhost:3000/dashboard/10"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:admin@metabase.com",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                    "owner": "urn:li:corpuser:admin@metabase.com",
+                    "type": "DATAOWNER"
                 }
-            ]
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -428,68 +815,33 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(metabase,20)",
-            "aspects": [
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,20)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ef5fb074bf61d7999d70d8528fb7da3c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,20)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
                 {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
-                        "title": "Dashboard 2",
-                        "description": "",
-                        "charts": [],
-                        "chartEdges": [
-                            {
-                                "destinationUrn": "urn:li:chart:(metabase,1)",
-                                "lastModified": {
-                                    "time": 1705398694904,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            },
-                            {
-                                "destinationUrn": "urn:li:chart:(metabase,2)",
-                                "lastModified": {
-                                    "time": 1705398694904,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            },
-                            {
-                                "destinationUrn": "urn:li:chart:(metabase,3)",
-                                "lastModified": {
-                                    "time": 1705398694904,
-                                    "actor": "urn:li:corpuser:admin@metabase.com"
-                                }
-                            }
-                        ],
-                        "datasets": [],
-                        "dashboards": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 1705398694904,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
-                            },
-                            "lastModified": {
-                                "time": 1705398694904,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
-                            }
-                        },
-                        "dashboardUrl": "http://localhost:3000/dashboard/20"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:admin@metabase.com",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                    "id": "urn:li:container:ef5fb074bf61d7999d70d8528fb7da3c",
+                    "urn": "urn:li:container:ef5fb074bf61d7999d70d8528fb7da3c"
                 }
             ]
         }

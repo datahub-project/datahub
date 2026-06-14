@@ -1,0 +1,61 @@
+[
+  {
+    "authority_level": null,
+    "can_write": true,
+    "name": "Our analytics",
+    "effective_ancestors": [],
+    "effective_location": null,
+    "parent_id": null,
+    "id": "root",
+    "is_personal": false
+  },
+  {
+    "authority_level": null,
+    "description": "Personal analytics collection",
+    "archived": false,
+    "slug": "john_doe_personal_collection",
+    "can_write": true,
+    "name": "John Doe",
+    "personal_owner_id": 14,
+    "type": null,
+    "id": 150,
+    "entity_id": "kdLA_-CQy4F5lL15k8-TU",
+    "location": "/",
+    "namespace": null,
+    "is_personal": true,
+    "created_at": "2024-01-12T11:51:24.394309Z"
+  },
+  {
+    "authority_level": null,
+    "description": "Engineering team analytics and metrics",
+    "archived": false,
+    "slug": "engineering_analytics",
+    "can_write": true,
+    "name": "Engineering Analytics",
+    "personal_owner_id": null,
+    "type": null,
+    "id": 200,
+    "entity_id": "abc123-engineering",
+    "location": "/",
+    "namespace": null,
+    "is_personal": false,
+    "created_at": "2024-01-10T09:00:00.000Z"
+  },
+  {
+    "authority_level": null,
+    "description": "Product metrics subdashboard",
+    "archived": false,
+    "slug": "product_metrics",
+    "can_write": true,
+    "name": "Product Metrics",
+    "personal_owner_id": null,
+    "type": null,
+    "id": 201,
+    "entity_id": "xyz789-product",
+    "location": "/200/",
+    "namespace": null,
+    "is_personal": false,
+    "created_at": "2024-01-11T10:30:00.000Z"
+  }
+]
+

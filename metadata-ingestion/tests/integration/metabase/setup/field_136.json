@@ -1,0 +1,9 @@
+{
+  "id": 136,
+  "name": "release_year",
+  "display_name": "Release Year",
+  "table_id": 21,
+  "base_type": "type/Integer",
+  "semantic_type": "type/Category",
+  "description": null
+}
