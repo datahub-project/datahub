@@ -71,8 +71,7 @@ config:
     polaris_warehouse_a:
       platform: iceberg # default; emit `iceberg.<schema>.<table>` URNs
     glue_warehouse_b:
-      platform: glue # emit `glue.<database>.<schema>.<table>` URNs
-      database: <actual Glue database name from your AWS Glue console>
+      platform: glue # emit `glue.<schema>.<table>` URNs (schema == Glue database)
       platform_instance: "glue_us_west" # match the Glue source recipe
       env: PROD
     s3_lake_c:
@@ -85,25 +84,23 @@ config:
 
 **Iceberg (default, or `platform: iceberg`).** Emits `urn:li:dataset:(iceberg, <schema>.<table>, env)`. No extra config needed for Polaris / Iceberg-REST destinations — this is the fallback default for any MDL destination whose config doesn't trigger another auto-detect rule.
 
-**Glue (`platform: glue`, or auto-detected).** Emits `urn:li:dataset:(glue, <database>.<schema>.<table>, env)` aligned with DataHub's [Glue source](https://docs.datahub.com/docs/generated/ingestion/sources/glue). **Auto-detected** in two cases — no explicit `platform: glue` needed in either:
+**Glue (`platform: glue`, or auto-detected).** Emits `urn:li:dataset:(glue, <schema>.<table>, env)` aligned with DataHub's [Glue source](https://docs.datahub.com/docs/generated/ingestion/sources/glue). **Auto-detected** in two cases — no explicit `platform: glue` needed in either:
 
 - The destination has Fivetran's `should_maintain_tables_in_glue: true` toggle set (visible via `/v1/destinations/{id}`), OR
-- The user supplied `database` on the destination entry (a database name only makes sense for Glue among MDL platforms, so the connector treats it as a glue-intent signal and avoids silently dropping it on an iceberg/s3/gcs/abs route).
+- The user supplied `database` on the destination entry (a backward-compatible glue-intent signal — the connector routes to glue rather than the iceberg default).
 
-**You must supply `database` yourself for Glue routing.** Fivetran's REST API does not expose the actual Glue database name it creates, and the Fivetran docs do not document the Glue-table-naming convention (Fivetran shares one Glue database per region across all destinations in that region). Inspect your AWS Glue console to find the actual database name and configure it on the destination entry:
+**No `database` config is needed for Glue.** Fivetran's Managed Data Lake registers each destination **schema** as its own AWS Glue **database** and each table as a Glue table. So the URN is the two-part `<schema>.<table>` — where the schema _is_ the Glue database — exactly matching DataHub's Glue source (which builds `<glue_db>.<table>`). The schema comes from each lineage record, so a destination spanning many schemas (one Glue database per connector) is handled automatically:
 
 ```yaml
 destination_to_platform_instance:
   glue_warehouse_a:
-    # platform: glue can be auto-detected from the MDL toggle, but you can
-    # also pin it explicitly.
-    database: fivetran_managed_data_lake_us_west_2 # actual Glue database name
+    # platform: glue is auto-detected from the `should_maintain_tables_in_glue`
+    # toggle, but you can pin it explicitly. No `database` required.
     platform_instance: "glue_us_west" # match the Glue source recipe
+    env: PROD
 ```
 
-The connector then composes `urn:li:dataset:(glue, <database>.<schema>.<table>, env)` using the `<schema>.<table>` from Fivetran's lineage record verbatim as the Glue table name. **Verify against your Glue catalog** that Fivetran's table names are formatted this way; if they aren't, the URN won't align with DataHub's Glue source URNs and lineage won't render.
-
-Until `database` is set, Glue lineage edges are skipped with a structured warning (one per destination, not per edge — repeated edges on a misconfigured destination are silently skipped after the first warning).
+For example, a Glue destination with the `sales` and `marketing` schemas emits `urn:li:dataset:(glue, sales.orders, PROD)` and `urn:li:dataset:(glue, marketing.campaigns, PROD)` — each schema mapping to its own Glue database. To align with a DataHub Glue ingestion, give both recipes the same `platform_instance` and `env` (a plain Glue source uses none by default). Any `database` set on a glue destination entry is ignored for URN construction.
 
 **Object-storage routing (`platform: s3`, `gcs`, or `abs`).** Emits a path-style URN aligned with DataHub's [S3](https://docs.datahub.com/docs/generated/ingestion/sources/s3), [GCS](https://docs.datahub.com/docs/generated/ingestion/sources/gcs), or [Azure Blob / ADLS](https://docs.datahub.com/docs/generated/ingestion/sources/abs) sources. The path prefix is composed from fields in the Fivetran destination response (`/v1/destinations/{id}`) — no extra recipe configuration required:
 
@@ -129,7 +126,36 @@ destination_to_platform_instance:
     env: PROD
 ```
 
-The user override always wins; REST destination discovery still runs in the background to fill in any fields the user didn't pin (e.g. `database` from the discovered config when not overridden). For Glue routing, also set `destination_to_platform_instance.<destination_id>.database` to the actual Glue database name from your AWS Glue console.
+The user override always wins; REST destination discovery still runs in the background to fill in any fields the user didn't pin (e.g. `database` from the discovered config when not overridden). Glue routing needs no `database` — the destination schema is the Glue database (see the Glue section above).
+
+**When you must set `platform` yourself.** Discovery only knows how to map the destination services DataHub recognizes (Snowflake, BigQuery, Databricks, and the Managed Data Lake variants). If a REST call succeeds but reports a service the connector doesn't map — or if you run without `api_config` and the recipe-level `destination_platform` doesn't fit a particular destination — the connector cannot guess a platform. It then skips that destination's lineage edges with a one-time structured warning, and you must pin `destination_to_platform_instance.<id>.platform` explicitly to resolve it.
+
+##### Dropping the schema segment from URNs (`include_schema_in_urn`)
+
+Fivetran reports every table as `<schema>.<table>`, and by default the connector keeps that schema segment in the dataset URN. Some platforms, however, have no schema layer in their natural URN — for example a Kafka topic is addressed as just `kafka.<topic>`, but Fivetran still slots a synthetic schema in front of it.
+
+**Set `include_schema_in_urn: false` when** the source or destination platform addresses tables with **no schema/namespace level** and DataHub's own source for that platform emits a URN _without_ a leading schema. Concretely, set it to `false` for:
+
+- **Streaming/message platforms** whose URN is a single name — e.g. Kafka (`kafka.<topic>`).
+- **File / object / SaaS sources** where Fivetran injects a synthetic schema (often the connector or source name) that isn't part of the real platform's identifier.
+
+The tell-tale symptom is a Fivetran-emitted URN that carries one **extra** leading segment compared to the URN the platform's native DataHub source produces, so lineage fails to stitch. Leave it at the default (`true`) for everything that does have a real schema — relational warehouses, and `iceberg`/`glue`.
+
+Set it on the matching `sources_to_platform_instance` or `destination_to_platform_instance` entry to strip the leading schema segment:
+
+```yaml
+config:
+  sources_to_platform_instance:
+    my_kafka_connector_id:
+      platform: kafka
+      include_schema_in_urn: false # emit `kafka.<topic>`, not `kafka.<schema>.<topic>`
+  destination_to_platform_instance:
+    my_kafka_connector_id:
+      platform: kafka
+      include_schema_in_urn: false
+```
+
+This is an independent knob from `database`/platform routing: `database` controls whether a database segment is **prepended**, while `include_schema_in_urn` controls whether the schema segment is **stripped**. (For `glue` specifically, never set it to `false` — the schema _is_ the Glue database, so dropping it would produce a wrong single-part URN.)
 
 #### Hybrid deployments and destination discovery
 
