@@ -252,14 +252,20 @@ public class DataHubOAuthAuthenticator implements Authenticator {
         throw new AuthenticationException("Missing required claim: " + providerUserIdClaim);
       }
 
-      // Build unique service account user ID
-      final String userId = serviceAccountService.buildServiceUserUrn(issuer, subject);
+      final String userId;
+      if (matchingProvider.isMapToCorpUser()) {
+        // Map to existing corpuser identity (same behavior as frontend OIDC SSO)
+        String regex = matchingProvider.getUserIdClaimRegex();
+        userId =
+            serviceAccountService.resolveCorpUser(
+                subject, regex, entityService, systemOperationContext);
+      } else {
+        // Default: create a separate __oauth_ service account
+        userId = serviceAccountService.buildServiceUserUrn(issuer, subject);
+        serviceAccountService.ensureServiceAccountExists(
+            userId, issuer, subject, entityService, systemOperationContext);
+      }
 
-      // Ensure service account exists in DataHub (create if needed)
-      serviceAccountService.ensureServiceAccountExists(
-          userId, issuer, subject, entityService, systemOperationContext);
-
-      // TODO: distinguish USER vs SERVICE based on scope or custom claim
       ActorType actorType = ActorType.USER;
       return new Authentication(new Actor(actorType, userId), jwtToken);
     } catch (Exception e) {
