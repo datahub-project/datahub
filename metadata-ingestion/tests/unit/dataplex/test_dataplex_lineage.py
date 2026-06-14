@@ -97,8 +97,8 @@ def test_lineage_extraction_disabled(
         dataplex_entry_fqn="bigquery:test-project.test-dataset.test-table",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
-        datahub_dataset_name="test-project.test-dataset.test-table",
-        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        datahub_entity_type="Dataset",
+        datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test-dataset.test-table,PROD)",
     )
     result = extractor.get_lineage_for_entry(
         entry_data, [("test-project", "us-central1")]
@@ -161,8 +161,8 @@ def test_get_lineage_for_entry_with_upstream(
         dataplex_entry_fqn="bigquery:test-project.test-dataset.test-table",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
-        datahub_dataset_name="test-project.test-dataset.test-table",
-        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        datahub_entity_type="Dataset",
+        datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test-dataset.test-table,PROD)",
     )
 
     # Get lineage
@@ -188,8 +188,8 @@ def test_get_lineage_for_entry_uses_lineage_project_and_location_matrix(
         dataplex_entry_fqn="bigquery:test-project.ds.table",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
-        datahub_dataset_name="test-project.ds.table",
-        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        datahub_entity_type="Dataset",
+        datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.ds.table,PROD)",
     )
 
     lineage_extractor.config.project_ids = ["test-project", "other-project"]
@@ -262,8 +262,8 @@ def test_get_lineage_for_entry_uses_provided_active_project_location_pairs(
         dataplex_entry_fqn="bigquery:test-project.ds.table",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
-        datahub_dataset_name="test-project.ds.table",
-        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        datahub_entity_type="Dataset",
+        datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.ds.table,PROD)",
     )
 
     provided_pairs = [
@@ -305,8 +305,8 @@ def test_get_lineage_for_entry_requires_active_project_location_pairs() -> None:
         dataplex_entry_fqn="bigquery:test-project.ds.table",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
-        datahub_dataset_name="test-project.ds.table",
-        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        datahub_entity_type="Dataset",
+        datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.ds.table,PROD)",
     )
 
     # Required positional arg enforcement is handled by Python signature.
@@ -324,8 +324,8 @@ def test_get_lineage_for_entry_keeps_duplicates_from_multiple_locations(
         dataplex_entry_fqn="bigquery:test-project.ds.table_dedup",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
-        datahub_dataset_name="test-project.ds.table_dedup",
-        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        datahub_entity_type="Dataset",
+        datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.ds.table_dedup,PROD)",
     )
 
     lineage_extractor.config.lineage_locations = ["us-central1", "us-east1"]
@@ -361,8 +361,8 @@ def test_get_lineage_for_entry_continues_after_single_location_error(
         dataplex_entry_fqn="bigquery:test-project.ds.table_error_isolation",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
-        datahub_dataset_name="test-project.ds.table_error_isolation",
-        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        datahub_entity_type="Dataset",
+        datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.ds.table_error_isolation,PROD)",
     )
 
     lineage_extractor.config.project_ids = ["test-project"]
@@ -460,8 +460,8 @@ def test_get_lineage_workunits_for_multiple_entries(
             dataplex_entry_fqn="bigquery:test-project.dataset.table1",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
-            datahub_dataset_name="test-project.dataset.table1",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.dataset.table1,PROD)",
         ),
         EntryDataTuple(
             dataplex_entry_short_name="entry2",
@@ -470,8 +470,8 @@ def test_get_lineage_workunits_for_multiple_entries(
             dataplex_entry_fqn="bigquery:test-project.dataset.table2",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
-            datahub_dataset_name="test-project.dataset.table2",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.dataset.table2,PROD)",
         ),
     ]
 
@@ -571,8 +571,8 @@ def test_lineage_with_cross_platform_references(
         dataplex_entry_fqn="bigquery:my-project.analytics.test-table",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
-        datahub_dataset_name="my-project.analytics.test-table",
-        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        datahub_entity_type="Dataset",
+        datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.analytics.test-table,PROD)",
     )
 
     result = lineage_extractor.get_lineage_for_entry(
@@ -622,8 +622,8 @@ def test_get_lineage_workunits_skips_unsupported_upstream_platform() -> None:
             dataplex_entry_type_short_name="bigquery-table",
             dataplex_entry_fqn="bigquery:test-project.dataset.table_1",
             datahub_platform="bigquery",
-            datahub_dataset_name="test-project.dataset.table_1",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.dataset.table_1,PROD)",
         )
     ]
 
@@ -668,8 +668,8 @@ def test_get_lineage_workunits_parses_cross_platform_upstream_fqn() -> None:
             dataplex_entry_type_short_name="bigquery-table",
             dataplex_entry_fqn="bigquery:test-project.dataset.table_1",
             datahub_platform="bigquery",
-            datahub_dataset_name="test-project.dataset.table_1",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.dataset.table_1,PROD)",
         )
     ]
 
@@ -872,8 +872,8 @@ def test_pagination_automatic_handling() -> None:
         dataplex_entry_fqn="bigquery:test-project.test_dataset.test_table",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
-        datahub_dataset_name="test-project.test_dataset.test_table",
-        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        datahub_entity_type="Dataset",
+        datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test_dataset.test_table,PROD)",
     )
 
     result = extractor.get_lineage_for_entry(
@@ -924,8 +924,8 @@ def test_pagination_with_large_result_set() -> None:
         dataplex_entry_fqn="bigquery:test-project.analytics.target_table",
         dataplex_entry_type_short_name="bigquery-table",
         datahub_platform="bigquery",
-        datahub_dataset_name="test-project.analytics.target_table",
-        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        datahub_entity_type="Dataset",
+        datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.target_table,PROD)",
     )
 
     result = extractor.get_lineage_for_entry(
@@ -1007,8 +1007,8 @@ def test_streaming_lineage_processing() -> None:
             dataplex_entry_fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
-            datahub_dataset_name=f"test-project.dataset_{i}.entry_{i}",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
         for i in range(5)
     ]
@@ -1063,8 +1063,8 @@ def test_streaming_lineage_memory_cleanup() -> None:
             dataplex_entry_fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
-            datahub_dataset_name=f"test-project.dataset_{i}.entry_{i}",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
         for i in range(6)
     ]
@@ -1141,8 +1141,8 @@ class TestLineageMapKeyCollision:
                 dataplex_entry_fqn="bigquery:test-project.analytics.customers",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
-                datahub_dataset_name="test-project.analytics.customers",  # Full path
-                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+                datahub_entity_type="Dataset",
+                datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
             ),
             EntryDataTuple(
                 dataplex_entry_short_name="sales_customers",
@@ -1151,8 +1151,8 @@ class TestLineageMapKeyCollision:
                 dataplex_entry_fqn="bigquery:test-project.sales.customers",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
-                datahub_dataset_name="test-project.sales.customers",  # Same table name, different dataset
-                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+                datahub_entity_type="Dataset",
+                datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.sales.customers,PROD)",
             ),
             EntryDataTuple(
                 dataplex_entry_short_name="abc_users",
@@ -1161,8 +1161,8 @@ class TestLineageMapKeyCollision:
                 dataplex_entry_fqn="bigquery:test-project.abc.users",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
-                datahub_dataset_name="test-project.abc.users",
-                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+                datahub_entity_type="Dataset",
+                datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.abc.users,PROD)",
             ),
         ]
 
@@ -1239,8 +1239,8 @@ class TestLineageMapKeyCollision:
                 dataplex_entry_fqn="bigquery:test-project.analytics.customers",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
-                datahub_dataset_name="test-project.analytics.customers",
-                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+                datahub_entity_type="Dataset",
+                datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
             ),
             EntryDataTuple(
                 dataplex_entry_short_name="customers_sales",
@@ -1249,8 +1249,8 @@ class TestLineageMapKeyCollision:
                 dataplex_entry_fqn="bigquery:test-project.sales.customers",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
-                datahub_dataset_name="test-project.sales.customers",
-                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+                datahub_entity_type="Dataset",
+                datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.sales.customers,PROD)",
             ),
         ]
 
@@ -1321,8 +1321,8 @@ class TestLineageMapKeyCollision:
                 dataplex_entry_fqn="bigquery:test-project.analytics.customers",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
-                datahub_dataset_name="test-project.analytics.customers",
-                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+                datahub_entity_type="Dataset",
+                datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
             ),
             EntryDataTuple(
                 dataplex_entry_short_name="sales_customers",
@@ -1331,8 +1331,8 @@ class TestLineageMapKeyCollision:
                 dataplex_entry_fqn="bigquery:test-project.sales.customers",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
-                datahub_dataset_name="test-project.sales.customers",
-                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+                datahub_entity_type="Dataset",
+                datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.sales.customers,PROD)",
             ),
         ]
 
@@ -1392,8 +1392,8 @@ class TestLineageMapKeyCollision:
                 dataplex_entry_fqn="bigquery:test-project.analytics.customers",
                 dataplex_entry_type_short_name="bigquery-table",
                 datahub_platform="bigquery",
-                datahub_dataset_name="test-project.analytics.customers",
-                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+                datahub_entity_type="Dataset",
+                datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
             ),
         ]
 
@@ -1429,8 +1429,8 @@ class TestDataplexParallelLineage:
             dataplex_entry_fqn=f"bigquery:p.ds.table{idx}",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
-            datahub_dataset_name=f"p.ds.table{idx}",
-            datahub_dataset_urn=f"urn:li:dataset:(urn:li:dataPlatform:bigquery,p.ds.table{idx},PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn=f"urn:li:dataset:(urn:li:dataPlatform:bigquery,p.ds.table{idx},PROD)",
         )
 
     def test_get_lineage_workunits_returns_all_workunits(

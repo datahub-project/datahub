@@ -3,16 +3,17 @@
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class EntryDataTuple:
-    """Immutable Dataplex/DataHub identity tuple for lineage tracking.
+    """Immutable Dataplex/DataHub identity tuple for lineage and term association tracking.
 
-    Used in sets for lineage extraction, so must be hashable (frozen=True).
+    Used in sets for lineage extraction and glossary term association lookups,
+    so must be hashable (frozen=True). Supports both Dataset and Container entities.
     """
 
     dataplex_entry_short_name: str
@@ -21,8 +22,8 @@ class EntryDataTuple:
     dataplex_entry_type_short_name: str
     dataplex_entry_fqn: str
     datahub_platform: str
-    datahub_dataset_name: str
-    datahub_dataset_urn: str
+    datahub_entity_type: Literal["Dataset", "Container"]
+    datahub_urn: str
 
 
 def make_audit_stamp(timestamp: Any) -> Optional[Dict[str, Any]]:

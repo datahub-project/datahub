@@ -22,8 +22,8 @@ class TestEntryDataTuple:
             dataplex_entry_fqn="bigquery:test-project.test-dataset.test-table",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
-            datahub_dataset_name="test-project.test-dataset.test-table",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
 
         assert entry_data.dataplex_entry_short_name == "test-entry"
@@ -34,7 +34,7 @@ class TestEntryDataTuple:
         )
         assert entry_data.dataplex_entry_type_short_name == "bigquery-table"
         assert entry_data.datahub_platform == "bigquery"
-        assert entry_data.datahub_dataset_name == "test-project.test-dataset.test-table"
+        assert entry_data.datahub_entity_type == "Dataset"
 
     def test_entry_data_tuple_hashable(self):
         """Test that EntryDataTuple is hashable (frozen)."""
@@ -45,8 +45,8 @@ class TestEntryDataTuple:
             dataplex_entry_fqn="bigquery:project.dataset.table",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
-            datahub_dataset_name="project.dataset.table",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
 
         entry_data2 = EntryDataTuple(
@@ -56,8 +56,8 @@ class TestEntryDataTuple:
             dataplex_entry_fqn="bigquery:project.dataset.table",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
-            datahub_dataset_name="project.dataset.table",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
 
         # Should be able to add to set
