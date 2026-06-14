@@ -936,6 +936,22 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     else:
                         views.append(view)
             snowflake_schema.views = [view.name for view in views]
+
+            # Diagnostic: detect if target assets appear in regular views
+            if self.config.semantic_views.enabled:
+                _diag_targets = {"SV_PARTNER_ORG", "STRATEGYOPS_AGENT"}
+                sv_in_views = [
+                    f"{v.name}(comment={v.comment!r})"
+                    for v in views
+                    if v.name.upper() in _diag_targets
+                ]
+                if sv_in_views:
+                    self.structured_reporter.warning(
+                        title="Target assets found in regular views query",
+                        message=f"These may overlap with semantic views: {sv_in_views}",
+                        context=f"{db_name}.{schema_name}",
+                    )
+
             return views
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
@@ -962,6 +978,20 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             logger.info(
                 f"Retrieved {len(semantic_views_from_db)} semantic views for {db_name}.{schema_name}"
             )
+
+            # Diagnostic: log target assets only
+            _diag_targets = {"SV_PARTNER_ORG", "STRATEGYOPS_AGENT"}
+            _diag_matches = [
+                f"{sv.name}(comment={sv.comment!r})"
+                for sv in semantic_views_from_db
+                if sv.name.upper() in _diag_targets
+            ]
+            if _diag_matches:
+                self.structured_reporter.warning(
+                    title="Semantic view fetch diagnostic",
+                    message=f"Total={len(semantic_views_from_db)}, targets: {_diag_matches}",
+                    context=f"{db_name}.{schema_name}",
+                )
 
             semantic_views: List[SnowflakeSemanticView] = []
             for semantic_view in semantic_views_from_db:
@@ -1245,6 +1275,20 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     f"Could not fetch tags for semantic view {semantic_view_name}: {e}"
                 )
                 semantic_view.tags = None
+
+        # Diagnostic: log target assets only
+        _diag_targets = {"SV_PARTNER_ORG", "STRATEGYOPS_AGENT"}
+        if semantic_view.name.upper() in _diag_targets:
+            self.structured_reporter.warning(
+                title="Semantic view emit diagnostic",
+                message=(
+                    f"columns={len(semantic_view.columns)}, "
+                    f"comment={semantic_view.comment!r}, "
+                    f"base_tables={[str(bt) for bt in semantic_view.base_tables]}, "
+                    f"include_technical_schema={self.config.include_technical_schema}"
+                ),
+                context=semantic_view_name,
+            )
 
         # Emit schema FIRST, then lineage (DataHub needs columns before lineage references)
         if self.config.include_technical_schema:

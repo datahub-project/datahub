@@ -1599,7 +1599,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 created=row["CREATED"],
                 comment=row.get("COMMENT"),
                 view_definition=None,
-                last_altered=row["LAST_ALTERED"],
+                last_altered=row["CREATED"],
             )
             semantic_views.append(semantic_view)
 
