@@ -1,6 +1,6 @@
 import datetime
 
-from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 
 
 def test_get_partition_range_from_partition_id():

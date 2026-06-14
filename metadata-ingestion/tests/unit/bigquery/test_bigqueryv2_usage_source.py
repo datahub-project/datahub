@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import time_machine
@@ -15,7 +16,8 @@ from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilde
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
-FROZEN_TIME = "2021-07-20 00:00:00"
+# Pin to UTC: time_machine.travel treats naive strings as local time.
+FROZEN_TIME = datetime(2021, 7, 20, 0, 0, 0, tzinfo=timezone.utc)
 
 
 @patch(
