@@ -28,6 +28,8 @@ from datahub.ingestion.source.tableau.tableau_common import (
     TableauLineageOverrides,
     TableauUpstreamReference,
     get_filter_pages,
+    get_fully_qualified_table_name,
+    get_overridden_info,
     make_filter,
     optimize_query_filter,
     tableau_field_to_schema_field,
@@ -291,7 +293,8 @@ def test_lineage_overrides():
     )
 
     # Transform presto urn to hive urn
-    # resulting platform instance for hive = mapped platform instance + presto_catalog
+    # Hive is two-tier, so the presto catalog is dropped from the URN to match
+    # what the Hive ingestion source emits.
     assert (
         TableauUpstreamReference(
             "presto_catalog",
@@ -306,7 +309,7 @@ def test_lineage_overrides():
                 platform_override_map={"presto": "hive"},
             ),
         )
-        == "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.presto_catalog.test-schema.test-table,PROD)"
+        == "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.test-schema.test-table,PROD)"
     )
 
     # transform hive urn to presto urn
@@ -325,6 +328,162 @@ def test_lineage_overrides():
             ),
         )
         == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
+    )
+
+
+def test_lineage_overrides_presto_to_athena():
+    # Tableau models an Athena connection as `presto` with a `hive` catalog.
+    # Remapping presto -> athena must produce Athena's two-tier
+    # `schema.table` URN, not Presto's three-tier `catalog.schema.table`.
+    assert (
+        TableauUpstreamReference(
+            "hive",
+            "test-database-id",
+            "test-schema",
+            "test-table",
+            "presto",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map={"presto": "athena_instance"},
+            lineage_overrides=TableauLineageOverrides(
+                platform_override_map={"presto": "athena"},
+            ),
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,athena_instance.test-schema.test-table,PROD)"
+    )
+
+
+def test_database_id_to_platform_instance_map_routes_per_id():
+    # Motivating case: multiple Athena workgroups (PROD/DEV/STG) share a
+    # regional hostname, so hostname routing collapses them. Each connection
+    # has a distinct Tableau database id, so id routing disambiguates them
+    # from a single recipe.
+    id_map = {
+        "id-prod": "athena_prod_instance",
+        "id-dev": "athena_dev_instance",
+        "id-stg": "athena_stg_instance",
+    }
+
+    for db_id, expected_instance in id_map.items():
+        assert (
+            TableauUpstreamReference(
+                "hive",
+                db_id,
+                "test-schema",
+                "test-table",
+                "presto",
+            ).make_dataset_urn(
+                env=DEFAULT_ENV,
+                platform_instance_map=None,
+                lineage_overrides=TableauLineageOverrides(
+                    platform_override_map={"presto": "athena"},
+                ),
+                database_id_to_platform_instance_map=id_map,
+            )
+            == f"urn:li:dataset:(urn:li:dataPlatform:athena,{expected_instance}.test-schema.test-table,PROD)"
+        )
+
+
+def test_database_id_to_platform_instance_map_is_platform_agnostic():
+    # The feature is not Athena-specific. Same pattern routes per-account for
+    # any platform whose hostname can be shared — e.g. Snowflake accounts
+    # behind a proxy, with no lineage_overrides involved.
+    assert (
+        TableauUpstreamReference(
+            "test-database-name",
+            "snowflake-account-a-id",
+            "test-schema",
+            "test-table",
+            "snowflake",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map={},
+            database_id_to_platform_instance_map={
+                "snowflake-account-a-id": "snowflake_account_a",
+                "snowflake-account-b-id": "snowflake_account_b",
+            },
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_account_a.test-database-name.test-schema.test-table,PROD)"
+    )
+
+
+def test_database_id_to_platform_instance_map_falls_back_on_miss():
+    # Unmapped database ids must not inject a platform_instance; routing
+    # falls through to whatever else is configured (or none).
+    assert (
+        TableauUpstreamReference(
+            "test-database-name",
+            "unmapped-id",
+            "test-schema",
+            "test-table",
+            "snowflake",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map={},
+            database_id_to_platform_instance_map={"some-other-id": "some_instance"},
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test-database-name.test-schema.test-table,PROD)"
+    )
+
+
+def test_database_id_to_platform_instance_map_wins_over_hostname():
+    # When both maps could match, id routing wins because it identifies one
+    # connection unambiguously whereas a hostname can collide across envs.
+    db_id = "id-prod"
+    shared_hostname = "athena.us-east-1.amazonaws.com"
+
+    assert (
+        TableauUpstreamReference(
+            "hive",
+            db_id,
+            "test-schema",
+            "test-table",
+            "presto",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map=None,
+            lineage_overrides=TableauLineageOverrides(
+                platform_override_map={"presto": "athena"},
+            ),
+            database_hostname_to_platform_instance_map={
+                shared_hostname: "wrong_instance",
+            },
+            database_server_hostname_map={db_id: shared_hostname},
+            database_id_to_platform_instance_map={db_id: "right_instance"},
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,right_instance.test-schema.test-table,PROD)"
+    )
+
+
+def test_overridden_info_drives_target_platform_url_shape():
+    # Guards both URN-building sites in the Tableau source: every caller of
+    # get_overridden_info() must pass the returned `platform` (the overridden
+    # one) into get_fully_qualified_table_name(), not `original_platform`.
+    # Passing original_platform would advertise the target platform in the
+    # URN but keep the source platform's URN shape, producing dangling URNs
+    # that never match what the target platform's ingestion source emits.
+    upstream_db, _, platform, original_platform = get_overridden_info(
+        connection_type="presto",
+        upstream_db="hive",
+        upstream_db_id="some-id",
+        platform_instance_map=None,
+        lineage_overrides=TableauLineageOverrides(
+            platform_override_map={"presto": "athena"},
+        ),
+    )
+    assert platform == "athena"
+    assert original_platform == "presto"
+    assert upstream_db is None  # two-tier target drops the database segment
+
+    # With the overridden platform we get Athena's two-tier shape.
+    assert (
+        get_fully_qualified_table_name(
+            platform=platform,
+            upstream_db=upstream_db or "",
+            schema="test-schema",
+            table_name="test-table",
+        )
+        == "test-schema.test-table"
     )
 
 

@@ -808,6 +808,7 @@ class TableauUpstreamReference:
         lineage_overrides: Optional[TableauLineageOverrides] = None,
         database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = None,
         database_server_hostname_map: Optional[Dict[str, str]] = None,
+        database_id_to_platform_instance_map: Optional[Dict[str, str]] = None,
     ) -> str:
         (
             upstream_db,
@@ -822,10 +823,14 @@ class TableauUpstreamReference:
             platform_instance_map=platform_instance_map,
             database_hostname_to_platform_instance_map=database_hostname_to_platform_instance_map,
             database_server_hostname_map=database_server_hostname_map,
+            database_id_to_platform_instance_map=database_id_to_platform_instance_map,
         )
 
+        # Build the URN with the overridden platform's semantics so the result
+        # matches what the target platform's ingestion source emits (two-tier
+        # vs three-tier, identifier casing, database stripping).
         table_name = get_fully_qualified_table_name(
-            original_platform,
+            platform,
             upstream_db or "",
             self.schema,
             self.table,
@@ -844,6 +849,7 @@ def get_overridden_info(
     lineage_overrides: Optional[TableauLineageOverrides] = None,
     database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = None,
     database_server_hostname_map: Optional[Dict[str, str]] = None,
+    database_id_to_platform_instance_map: Optional[Dict[str, str]] = None,
 ) -> Tuple[Optional[str], Optional[str], str, str]:
     original_platform = platform = get_platform(connection_type)
     if (
@@ -876,7 +882,20 @@ def get_overridden_info(
         ):
             platform_instance = database_hostname_to_platform_instance_map.get(hostname)
 
-    if original_platform in (
+    # database id is strictly more specific than hostname: one id identifies
+    # one connection, whereas a hostname can be shared (e.g. Athena workgroups
+    # behind a regional endpoint). Apply id routing last so it wins on conflict.
+    if (
+        database_id_to_platform_instance_map is not None
+        and upstream_db_id is not None
+        and upstream_db_id in database_id_to_platform_instance_map
+    ):
+        platform_instance = database_id_to_platform_instance_map[upstream_db_id]
+
+    # Two-tier check uses the overridden platform: when a three-tier source
+    # (e.g. presto) is remapped to a two-tier target (e.g. athena), the URN
+    # must drop the upstream database to match the target's shape.
+    if platform in (
         "athena",
         "hive",
         "mysql",

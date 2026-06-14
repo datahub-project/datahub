@@ -606,6 +606,18 @@ class TableauConfig(
         description="Mappings to change platform instance in generated dataset urns based on database. Use only if you really know what you are doing.",
     )
 
+    database_id_to_platform_instance_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description=(
+            "Mappings from Tableau database id to DataHub platform_instance. "
+            "Use when distinct connections share a hostname so "
+            "`database_hostname_to_platform_instance_map` cannot tell them "
+            "apart (e.g. AWS Athena workgroups behind a regional endpoint, "
+            "or multiple Snowflake accounts behind a single proxy). Takes "
+            "precedence over hostname-based routing when both match."
+        ),
+    )
+
     extract_usage_stats: bool = Field(
         default=False,
         description="[experimental] Extract usage statistics for dashboards and charts.",
@@ -1297,16 +1309,50 @@ class TableauSiteSource:
                 return parsed_host_name
             return server_connection
 
+        hostname_map = self.config.database_hostname_to_platform_instance_map or {}
+        id_map = self.config.database_id_to_platform_instance_map or {}
+
         for database_server in self.get_connection_objects(
             query=database_servers_graphql_query,
             connection_type=c.DATABASE_SERVERS_CONNECTION,
             page_size=self.config.effective_database_server_page_size,
         ):
-            database_server_id = database_server.get(c.ID)
+            database_server_id = str(database_server.get(c.ID) or "")
             server_connection = database_server.get(c.HOST_NAME)
             host_name = maybe_parse_hostname()
+            name = database_server.get(c.NAME) or ""
+            connection_type = database_server.get(c.CONNECTION_TYPE) or ""
+
             if host_name:
-                self.database_server_hostname_map[str(database_server_id)] = host_name
+                self.database_server_hostname_map[database_server_id] = host_name
+
+            # Log every server so users can find ids for the id routing map
+            # without hitting the Tableau Metadata API directly.
+            logger.info(
+                "Tableau database server: id=%s name=%r hostName=%s connectionType=%s",
+                database_server_id,
+                name,
+                host_name,
+                connection_type,
+            )
+
+            routed_by_hostname = bool(host_name and host_name in hostname_map)
+            routed_by_id = bool(database_server_id and database_server_id in id_map)
+            if not (routed_by_hostname or routed_by_id):
+                self.report.warning(
+                    title="Tableau database not routed to a platform_instance",
+                    message=(
+                        "Connection matches neither "
+                        "`database_hostname_to_platform_instance_map` nor "
+                        "`database_id_to_platform_instance_map`. Lineage URNs "
+                        "for this connection will be emitted without a "
+                        "platform_instance — add an entry to route it."
+                    ),
+                    context=(
+                        f"id={database_server_id} name={name!r} "
+                        f"hostName={host_name} connectionType={connection_type}"
+                    ),
+                )
 
     def _get_all_project(self) -> Dict[str, TableauProject]:
         all_project_map: Dict[str, TableauProject] = {}
@@ -2197,6 +2243,7 @@ class TableauSiteSource:
                 self.config.lineage_overrides,
                 self.config.database_hostname_to_platform_instance_map,
                 self.database_server_hostname_map,
+                self.config.database_id_to_platform_instance_map,
             )
             table_id_to_urn[table[c.ID]] = table_urn
 
@@ -2773,6 +2820,7 @@ class TableauSiteSource:
                     Optional[TableauLineageOverrides],
                     Optional[Dict[str, str]],
                     Optional[Dict[str, str]],
+                    Optional[Dict[str, str]],
                 ],
                 Tuple[Optional[str], Optional[str], str, str],
             ]
@@ -2820,6 +2868,7 @@ class TableauSiteSource:
                 self.config.lineage_overrides,
                 self.config.database_hostname_to_platform_instance_map,
                 self.database_server_hostname_map,
+                self.config.database_id_to_platform_instance_map,
             )
 
         logger.debug(
@@ -4423,10 +4472,11 @@ class TableauSiteSource:
                 platform_instance_map=self.config.platform_instance_map,
                 database_hostname_to_platform_instance_map=self.config.database_hostname_to_platform_instance_map,
                 database_server_hostname_map=self.database_server_hostname_map,
+                database_id_to_platform_instance_map=self.config.database_id_to_platform_instance_map,
             )
 
             fully_qualified_name = get_fully_qualified_table_name(
-                platform=original_platform,
+                platform=platform,
                 upstream_db=upstream_db or "",
                 schema=schema,
                 table_name=raw_table_name,
@@ -4540,9 +4590,10 @@ class TableauSiteSource:
                         timer.elapsed_seconds(digits=2)
                     )
 
-            # Populate the map of database names and database hostnames to be used later to map
-            # databases to platform instances.
-            if self.config.database_hostname_to_platform_instance_map:
+            if (
+                self.config.database_hostname_to_platform_instance_map
+                or self.config.database_id_to_platform_instance_map
+            ):
                 with PerfTimer() as timer:
                     self._populate_database_server_hostname_map()
                     self.report.populate_database_server_hostname_map_timer[
