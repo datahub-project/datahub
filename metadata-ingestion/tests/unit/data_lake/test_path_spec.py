@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.data_lake_common.path_spec import (
+    SUPPORTED_COMPRESSIONS,
     SUPPORTED_FILE_TYPES,
     FolderTraversalMethod,
     PathSpec,
@@ -649,6 +650,31 @@ def test_validate_path_spec_compression_extension() -> None:
     # The path should be allowed because .gz is a supported compression
     assert path_spec.include.endswith(".csv.gz")
     assert path_spec.enable_compression is True
+
+
+def test_validate_path_spec_zip_extension() -> None:
+    assert "zip" in SUPPORTED_COMPRESSIONS
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.csv.zip",
+        file_types=["csv"],
+        enable_compression=True,
+    )
+    assert path_spec.enable_compression is True
+
+
+@pytest.mark.parametrize(
+    "include",
+    [
+        "s3://bucket/{table}/*.csv.zip",
+        "s3://bucket/{table}/*.json.zip",
+        "s3://bucket/{table}/*.tsv.zip",
+        "s3://bucket/{table}/*.parquet.zip",
+        "s3://bucket/{table}/*.avro.zip",
+    ],
+)
+def test_validate_path_spec_zip_with_all_supported_inner_types(include: str) -> None:
+    path_spec = PathSpec(include=include, enable_compression=True)
+    assert path_spec.include == include
 
 
 # Tests for partition extraction

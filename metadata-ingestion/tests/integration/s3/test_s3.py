@@ -1,7 +1,10 @@
+import io
 import json
 import logging
 import os
+import zipfile
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import Mock, call, patch
 
 import moto.s3
@@ -10,13 +13,16 @@ from boto3.session import Session
 from moto import mock_aws
 from pydantic import ValidationError
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_boto_utils import (
     list_folders_path,
     list_objects_recursive_path,
 )
+from datahub.ingestion.source.file import read_metadata_file
 from datahub.ingestion.source.s3.source import S3Source
+from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.testing import mce_helpers
 
 logging.getLogger("boto3").setLevel(logging.INFO)
@@ -527,3 +533,123 @@ def test_data_lake_s3_calls(s3_populate, calls_test_tuple):
         calls.append(c)
 
     assert calls == expected_calls
+
+
+ZIP_BUCKET = "zip-integration-test-bucket"
+
+_AWS_CONFIG = {
+    "aws_region": "us-east-1",
+    "aws_access_key_id": "testing",
+    "aws_secret_access_key": "testing",
+}
+
+
+def _make_zip(inner_name: str, content: str) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(inner_name, content)
+    return buf.getvalue()
+
+
+@pytest.fixture(scope="module")
+def zip_bucket(s3_resource, s3_client):
+    s3_resource.create_bucket(Bucket=ZIP_BUCKET)
+    s3_client.put_object(
+        Bucket=ZIP_BUCKET,
+        Key="employees.csv.zip",
+        Body=_make_zip("employees.csv", "name,age,city\nAlice,30,NYC\nBob,25,LA\n"),
+    )
+    s3_client.put_object(
+        Bucket=ZIP_BUCKET,
+        Key="products.json.zip",
+        Body=_make_zip("products.json", '[{"product": "widget", "price": 9.99}]'),
+    )
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("part1.csv", "name,age\nAlice,30\n")
+        zf.writestr("part2.csv", "name,age\nBob,25\n")
+    s3_client.put_object(Bucket=ZIP_BUCKET, Key="multi_entry.zip", Body=buf.getvalue())
+    yield
+
+
+def _run_pipeline(tmp_path: Path, source_config: dict) -> Path:
+    out = tmp_path / "out.json"
+    pipeline = Pipeline.create(
+        {
+            "source": {"type": "s3", "config": source_config},
+            "sink": {"type": "file", "config": {"filename": str(out)}},
+            "run_id": "zip-test",
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+    return out
+
+
+def _schema_fields(out_file: Path) -> set:
+    fields = set()
+    for item in read_metadata_file(out_file):
+        if isinstance(item, MetadataChangeProposalWrapper) and isinstance(
+            item.aspect, SchemaMetadataClass
+        ):
+            for field in item.aspect.fields:
+                fields.add(field.fieldPath)
+    return fields
+
+
+@pytest.mark.integration
+def test_s3_zip_csv_schema_inference(zip_bucket, tmp_path):
+    out = _run_pipeline(
+        tmp_path,
+        {
+            "path_specs": [
+                {
+                    "include": f"s3://{ZIP_BUCKET}/employees.csv.zip",
+                    "enable_compression": True,
+                }
+            ],
+            "aws_config": _AWS_CONFIG,
+            "profiling": {"enabled": False},
+        },
+    )
+    assert {"name", "age", "city"}.issubset(_schema_fields(out))
+
+
+@pytest.mark.integration
+def test_s3_zip_json_schema_inference(zip_bucket, tmp_path):
+    out = _run_pipeline(
+        tmp_path,
+        {
+            "path_specs": [
+                {
+                    "include": f"s3://{ZIP_BUCKET}/products.json.zip",
+                    "enable_compression": True,
+                }
+            ],
+            "aws_config": _AWS_CONFIG,
+            "profiling": {"enabled": False},
+        },
+    )
+    assert {"product", "price"}.issubset(_schema_fields(out))
+
+
+@pytest.mark.integration
+def test_s3_zip_multi_entry_uses_first_and_warns(zip_bucket, tmp_path, caplog):
+    with caplog.at_level(logging.WARNING, logger="datahub.ingestion.source.s3.source"):
+        out = _run_pipeline(
+            tmp_path,
+            {
+                "path_specs": [
+                    {
+                        "include": f"s3://{ZIP_BUCKET}/multi_entry.zip",
+                        "enable_compression": True,
+                        "default_extension": "csv",
+                    }
+                ],
+                "aws_config": _AWS_CONFIG,
+                "profiling": {"enabled": False},
+            },
+        )
+
+    assert _schema_fields(out)
+    assert any("2 files" in r.message for r in caplog.records)
