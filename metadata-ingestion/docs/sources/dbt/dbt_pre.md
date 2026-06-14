@@ -238,6 +238,38 @@ source:
 
 :::
 
+#### Remote File Access (S3 and GCS)
+
+The dbt connector supports reading artifact files directly from cloud storage. All path fields (`manifest_path`, `catalog_path`, `sources_path`, `run_results_paths`) accept S3 (`s3://`) and GCS (`gs://`) URIs in addition to local paths.
+
+**For S3**, provide `aws_connection` with your AWS credentials:
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: "s3://my-bucket/dbt/target/manifest.json"
+    aws_connection:
+      aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
+      aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+```
+
+**For GCS**, provide `gcs_connection` with [HMAC keys](https://cloud.google.com/storage/docs/authentication/hmackeys):
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: "gs://my-bucket/dbt/target/manifest.json"
+    catalog_path: "gs://my-bucket/dbt/target/catalog.json"
+    target_platform: bigquery
+    gcs_connection:
+      hmac_access_id: "${GCS_HMAC_ACCESS_ID}"
+      hmac_access_secret: "${GCS_HMAC_ACCESS_SECRET}"
+```
+
+To create HMAC keys, see the [GCS HMAC key documentation](https://cloud.google.com/storage/docs/authentication/managing-hmackeys).
+
 ### Prerequisites
 
 The artifacts used by this source are:
