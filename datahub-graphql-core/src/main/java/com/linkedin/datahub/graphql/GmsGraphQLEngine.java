@@ -3174,6 +3174,18 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher(
+                    "ownershipTypes",
+                    new LoadableTypeBatchResolver<>(
+                        ownershipType,
+                        (env) -> {
+                          final FormActorAssignment actors = env.getSource();
+                          return actors.getOwnershipTypes() != null
+                              ? actors.getOwnershipTypes().stream()
+                                  .map(OwnershipTypeEntity::getUrn)
+                                  .collect(Collectors.toList())
+                              : null;
+                        }))
+                .dataFetcher(
                     "users",
                     new LoadableTypeBatchResolver<>(
                         corpUserType,

@@ -1732,6 +1732,14 @@ fragment formAssociationFields on FormAssociation {
             }
             actors {
                 owners
+                ownershipTypes {
+                    urn
+                    type
+                    info {
+                        name
+                        description
+                    }
+                }
                 isAssignedToMe
             }
         }
