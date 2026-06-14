@@ -4,6 +4,7 @@ import {
     COLUMNS_MODULE,
     DATA_PRODUCTS_MODULE,
     LINEAGE_MODULE,
+    OUTPUT_PORTS_MODULE,
     RELATED_TERMS_MODULE,
 } from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 
@@ -30,7 +31,7 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             summaryElements = [CREATED, OWNERS];
             break;
         case EntityType.DataProduct:
-            rows = [{ modules: [ASSETS_MODULE] }];
+            rows = [{ modules: [OUTPUT_PORTS_MODULE, ASSETS_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         case EntityType.GlossaryTerm:
