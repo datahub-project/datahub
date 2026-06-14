@@ -563,6 +563,83 @@ FROM snowflake_sample_data.tpch_sf1.orders o
     )
 
 
+def test_snowflake_case_sensitive_quoted_column_lineage() -> None:
+    # Regression guard for the case-sensitive column lineage fix.
+    #
+    # The output column is handed to sqlglot.lineage.lineage() with its identifier
+    # marked case_sensitive so sqlglot's normalize_identifiers leaves the casing
+    # alone. If that marker is dropped, Snowflake (UPPERCASE strategy) case-folds
+    # "CustomerName" to CUSTOMERNAME, the column can no longer be found in the query,
+    # and the upstream edge is silently dropped -- i.e. this assertion would see an
+    # empty column_lineage. See https://github.com/tobymao/sqlglot/issues/7733.
+    assert_sql_result(
+        """
+SELECT "CustomerName" AS "FullName"
+FROM db.sch.tbl
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,PROD)": {
+                "CustomerName": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_case_sensitive_quoted_column_lineage.json",
+    )
+
+
+def test_snowflake_case_sensitive_column_through_cte() -> None:
+    # Regression guard for the case-sensitive column lineage fix, this time with
+    # the quoted column "CustomerName" flowing through a CTE. Its casing must
+    # survive the full multi-hop lineage walk (CTE -> outer SELECT), not just the
+    # top-level projection lookup. As with the non-CTE case, dropping the
+    # case_sensitive marker lets Snowflake case-fold the name so the upstream edge
+    # is silently dropped. See https://github.com/tobymao/sqlglot/issues/7733.
+    assert_sql_result(
+        """
+WITH staged AS (
+    SELECT "CustomerName" FROM db.sch.tbl
+)
+SELECT "CustomerName" AS "FullName"
+FROM staged
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,PROD)": {
+                "CustomerName": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_case_sensitive_column_through_cte.json",
+    )
+
+
+def test_databricks_case_sensitive_column_lineage() -> None:
+    # Regression guard for case-insensitive dialects (Databricks/Spark/Hive/Redshift/
+    # Trino/...). Unlike Snowflake, these fold identifiers *even when quoted*. A
+    # SELECT * over a schema with mixed-case columns expands to the columns' real
+    # casing (betStatusId), so the lineage lookup must not be re-folded. Passing the
+    # lookup column as quoted=True alone is not enough here -- it case-folds
+    # "betStatusId" to "betstatusid", the column is no longer found, and the upstream
+    # edge is silently dropped. Marking the identifier case_sensitive keeps it
+    # verbatim. This mirrors the Unity Catalog view-lineage path. See
+    # https://github.com/tobymao/sqlglot/issues/7733.
+    assert_sql_result(
+        "SELECT * FROM hive_metastore.bronze_kambi.bet",
+        dialect="databricks",
+        default_db="hive_metastore",
+        default_schema="bronze_kambi",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)": {
+                "betStatusId": "BIGINT",
+                "channelId": "BIGINT",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_databricks_case_sensitive_column_lineage.json",
+    )
+
+
 def test_snowflake_case_statement() -> None:
     assert_sql_result(
         """

@@ -22,6 +22,7 @@ from typing import (
 import pydantic.dataclasses
 import sqlglot
 import sqlglot.errors
+import sqlglot.expressions
 import sqlglot.lineage
 import sqlglot.optimizer
 import sqlglot.optimizer.annotate_types
@@ -1118,8 +1119,19 @@ def _select_statement_cll(
                 continue
 
             try:
+                # output_col was resolved by our qualify pass (schema built with
+                # normalize=False), so it already holds the column's real casing.
+                # sqlglot.lineage re-normalizes the lookup name using dialect rules
+                # only -- on case-insensitive dialects (Databricks, Spark, Hive,
+                # Redshift, Trino, ...) that folds the identifier (quoting does not
+                # exempt it), so the lookup no longer matches and lineage is silently
+                # dropped for mixed-case columns. Marking the identifier case_sensitive
+                # makes that normalization a no-op on every dialect (sqlglot's
+                # documented hook); lineage() matches on the identifier name only.
+                output_col_expr = sqlglot.expressions.column(output_col)
+                output_col_expr.this.meta["case_sensitive"] = True
                 lineage_node = sqlglot.lineage.lineage(
-                    output_col,
+                    output_col_expr,
                     statement,
                     dialect=dialect,
                     scope=root_scope,
