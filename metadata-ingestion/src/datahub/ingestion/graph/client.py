@@ -1313,13 +1313,15 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         body: Dict = {
             "query": query,
         }
+        variable_keys: Optional[List[str]] = None
         if variables:
             body["variables"] = variables
+            variable_keys = list(variables.keys())
         if operation_name:
             body["operationName"] = operation_name
 
         logger.debug(
-            f"Executing {operation_name or ''} graphql query: {query} with variables: {json.dumps(variables)}"
+            f"Executing {operation_name or ''} graphql query: {query} with variables: {len(variable_keys) if variable_keys is not None else 0}"
         )
         result = self._post_generic(url, body)
         if result.get("errors"):
