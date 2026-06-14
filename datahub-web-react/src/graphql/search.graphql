@@ -527,6 +527,66 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     ...datasetStatsFields
 }
 
+fragment siblingSearchDatasetFields on Dataset {
+    exists
+    name
+    origin
+    platform {
+        ...platformFields
+    }
+    editableProperties {
+        name
+        description
+    }
+    platformNativeType
+    properties {
+        name
+        description
+        qualifiedName
+        customProperties {
+            key
+            value
+        }
+        externalUrl
+        lastModified {
+            time
+            actor
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    subTypes {
+        typeNames
+    }
+    parentContainers {
+        ...parentContainersFields
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    health {
+        ...entityHealth
+    }
+    lastOperation: operations(limit: 1) {
+        lastUpdatedTimestamp
+        timestampMillis
+    }
+    statsSummary {
+        queryCountLast30Days
+        uniqueUserCountLast30Days
+    }
+    siblings {
+        isPrimary
+    }
+}
+
 fragment searchResultsWithoutSchemaField on Entity {
     urn
     type
@@ -538,7 +598,7 @@ fragment searchResultsWithoutSchemaField on Entity {
                 urn
                 type
                 ... on Dataset {
-                    ...nonSiblingsDatasetSearchFields
+                    ...siblingSearchDatasetFields
                     structuredProperties {
                         properties {
                             ...structuredPropertiesFields
@@ -555,10 +615,7 @@ fragment searchResultsWithoutSchemaField on Entity {
                     urn
                     type
                     ... on Dataset {
-                        ...nonSiblingsDatasetSearchFields
-                        siblings {
-                            isPrimary
-                        }
+                        ...siblingSearchDatasetFields
                         structuredProperties {
                             properties {
                                 ...structuredPropertiesFields
