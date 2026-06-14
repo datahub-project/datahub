@@ -251,6 +251,68 @@
       "platform_name": "Azure Data Factory",
       "support_status": "INCUBATING"
     },
+    "bigid": {
+      "capabilities": [
+        {
+          "capability": "CLASSIFICATION",
+          "description": "BigID classification findings as GlossaryTerms on SchemaFields",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Column-level profiles from BigID columnProfile data",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Stale entity removal via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Domain entities created when domain_mode is auto_namespaced or config_map",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Ownership on GlossaryTerms (not Datasets); controlled by owner_type config",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "BigID tags applied to datasets and columns",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Platform instance emitted per dataset when platform_instance is configured",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Column schema from BigID columns API (requires create_datasets=True)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Not supported",
+          "subtype_modifier": null,
+          "supported": false
+        }
+      ],
+      "classname": "datahub.ingestion.source.bigid.bigid_source.BigIDSource",
+      "platform_id": "bigid",
+      "platform_name": "BigID",
+      "support_status": "INCUBATING"
+    },
     "bigquery": {
       "capabilities": [
         {

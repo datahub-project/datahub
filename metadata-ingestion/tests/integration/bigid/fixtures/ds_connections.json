@@ -1,0 +1,5 @@
+[
+  {"name": "Snowflake-Prod", "type": "snowflake"},
+  {"name": "Postgres-Dev", "type": "rdb-postgresql"},
+  {"name": "SharePoint Online", "type": "sharepoint-online-v2"}
+]
