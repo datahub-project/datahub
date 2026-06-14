@@ -711,31 +711,39 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             f"Processing {len(semantic_views)} semantic views: {[sv.name for sv in semantic_views]}"
         )
 
-        # Pre-compute and store upstream URNs for each semantic view
-        # This must happen before _process_semantic_view so column lineage can access them
+        # Pre-compute and store upstream URNs for each semantic view.
+        # This must happen before _process_semantic_view so column lineage can access them.
+        # Note: database_pattern is intentionally NOT applied to upstream base table URNs.
+        # Semantic views can reference tables from databases outside the recipe scope, and
+        # filtering those URNs would silently drop cross-database lineage. Regular view
+        # lineage (sql_parsing_aggregator) applies the pattern only to the downstream
+        # entity, and we match that behavior here.
         for semantic_view in semantic_views:
-            upstream_urns = []
-            if semantic_view.base_tables:
-                for base_table_id in semantic_view.base_tables:
-                    base_table_identifier = self.identifiers.get_dataset_identifier(
+            upstream_urns = [
+                self.identifiers.gen_dataset_urn(
+                    self.identifiers.get_dataset_identifier(
                         base_table_id.table,
                         base_table_id.schema,
                         base_table_id.database,
                     )
-                    is_allowed = self.filters.is_dataset_pattern_allowed(
-                        base_table_identifier, SnowflakeObjectDomain.TABLE
-                    )
-                    if is_allowed:
-                        upstream_urn = self.identifiers.gen_dataset_urn(
-                            base_table_identifier
-                        )
-                        upstream_urns.append(upstream_urn)
-
-            # Store for use in column lineage generation
+                )
+                for base_table_id in semantic_view.base_tables
+            ]
             semantic_view.resolved_upstream_urns = upstream_urns
-            logger.debug(
-                f"Pre-computed {len(upstream_urns)} upstream URNs for semantic view {semantic_view.name}"
-            )
+            if upstream_urns:
+                logger.debug(
+                    f"Pre-computed {len(upstream_urns)} upstream URNs for semantic view {semantic_view.name}"
+                )
+            else:
+                self.structured_reporter.warning(
+                    title="Semantic view lineage skipped",
+                    message=(
+                        "No upstream base tables could be resolved. "
+                        "Ensure the view definition is available and the ingestion "
+                        "role has at least REFERENCES on the base table databases."
+                    ),
+                    context=f"{db_name}.{schema_name}.{semantic_view.name}",
+                )
 
         # STEP 1: Yield dataset work units first (this registers schemas with the aggregator)
         # This also registers explicit column lineage LAST to override auto-generation
@@ -1271,14 +1279,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         column_lineages,
                         upstream_urns,
                     )
-                else:
-                    logger.debug(
-                        f"No upstream URNs found for {semantic_view.name}, skipping lineage"
-                    )
             except Exception as e:
                 self.structured_reporter.warning(
                     title="Failed to generate column lineage for semantic view",
-                    message=str(e),
+                    message="An exception occurred while generating column lineage.",
                     context=semantic_view.name,
                     exc=e,
                 )
