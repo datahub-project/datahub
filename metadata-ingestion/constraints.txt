@@ -1213,7 +1213,7 @@ pydeequ==1.5.0
     # via acryl-datahub
 pydruid==0.6.9
     # via acryl-datahub
-pygments==2.19.2
+pygments==2.20.0
     # via
     #   feast
     #   ipython
