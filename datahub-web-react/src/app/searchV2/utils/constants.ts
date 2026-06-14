@@ -35,6 +35,7 @@ export const DEGREE_FILTER_NAME = 'degree';
 export const BROWSE_PATH_V2_FILTER_NAME = 'browsePathV2';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
 export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
+export const HAS_FAILING_TESTS_FILTER_NAME = 'hasFailingTests';
 export const HAS_SIBLINGS_FILTER_NAME = 'hasSiblings';
 export const CHART_TYPE_FILTER_NAME = 'type';
 export const LAST_MODIFIED_FILTER_NAME = 'lastModifiedAt';
@@ -100,6 +101,7 @@ export const FIELD_TO_LABEL = {
     platformInstance: 'Platform Instance',
     hasActiveIncidents: 'Has Active Incidents',
     hasFailingAssertions: 'Has Failing Assertions',
+    hasFailingTests: 'Has Failing Tests',
     hasSiblings: 'Has Siblings',
     [BROWSE_PATH_V2_FILTER_NAME]: 'Path',
     [LAST_MODIFIED_FILTER_NAME]: 'Last Modified (In Source)',
@@ -123,6 +125,7 @@ export const ENTITY_TYPE_FIELDS = new Set([ENTITY_SUB_TYPE_FILTER_NAME]);
 export const BOOLEAN_FIELDS = new Set([
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
     HAS_FAILING_ASSERTIONS_FILTER_NAME,
+    HAS_FAILING_TESTS_FILTER_NAME,
     REMOVED_FILTER_NAME,
 ]);
 

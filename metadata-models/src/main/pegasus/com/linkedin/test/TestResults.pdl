@@ -15,6 +15,7 @@ record TestResults {
         "fieldType": "URN",
         "fieldName": "failingTests"
         "hasValuesFieldName": "hasFailingTests",
+        "addHasValuesToFilters": true,
         "queryByDefault": false,
       }
     }
