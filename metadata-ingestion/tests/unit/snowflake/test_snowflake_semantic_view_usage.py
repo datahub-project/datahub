@@ -27,6 +27,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetUsageStatistics
+from datahub.metadata.com.linkedin.pegasus2avro.query import QueryProperties
 
 
 class TestSemanticViewsConfig:
@@ -467,3 +468,183 @@ class TestSemanticViewUsageIntegration:
             "SELECT * FROM SEMANTIC_VIEW(test_db.public.sales_view)"
             in usage_stats.topSqlQueries
         )
+
+
+class TestCortexAnalystConfig:
+    """Tests for Cortex Analyst config validation."""
+
+    def test_warning_cortex_analyst_without_enabled(self):
+        with patch(
+            "datahub.ingestion.source.snowflake.snowflake_config.logger"
+        ) as mock_logger:
+            SemanticViewsConfig(
+                enabled=False,
+                include_cortex_analyst_queries=True,
+            )
+            mock_logger.warning.assert_called()
+
+
+class TestCortexAnalystSqlQuery:
+    """Tests for Cortex Analyst SQL query generation."""
+
+    def test_cortex_analyst_requests_query(self):
+        query = SnowflakeQuery.semantic_view_cortex_analyst_requests(
+            start_time_millis=1704067200000,
+            end_time_millis=1704153600000,
+            max_requests=500,
+        )
+
+        assert "cortex_analyst_requests_v" in query.lower()
+        assert "latest_question" in query.lower()
+        assert "generated_sql" in query.lower()
+        assert "semantic_model_name" in query.lower()
+        assert "LIMIT 500" in query
+
+
+class TestCortexAnalystExtraction:
+    """Tests for Cortex Analyst query extraction."""
+
+    @pytest.fixture
+    def mock_connection(self) -> MagicMock:
+        return MagicMock()
+
+    @pytest.fixture
+    def extractor(self, mock_connection: MagicMock) -> SemanticViewUsageExtractor:
+        config = MagicMock(spec=SnowflakeV2Config)
+        config.semantic_views = SemanticViewsConfig(
+            enabled=True,
+            include_cortex_analyst_queries=True,
+            max_queries_per_view=100,
+        )
+        config.start_time = datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
+        config.end_time = datetime.datetime(2024, 1, 2, tzinfo=datetime.timezone.utc)
+        config.email_domain = "test.com"
+
+        identifiers = MagicMock(spec=SnowflakeIdentifierBuilder)
+        identifiers.gen_dataset_urn.return_value = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.sales_view,PROD)"
+        )
+        identifiers.get_user_identifier.return_value = "analyst@test.com"
+
+        report = SnowflakeV2Report()
+        return SemanticViewUsageExtractor(
+            config=config,
+            report=report,
+            connection=mock_connection,
+            identifiers=identifiers,
+        )
+
+    def test_cortex_analyst_extraction_end_to_end(
+        self, extractor: SemanticViewUsageExtractor, mock_connection: MagicMock
+    ) -> None:
+        """Test full extraction: query -> parse -> emit Query entities."""
+        mock_connection.query.return_value = [
+            {
+                "QUESTION": "What were total sales last quarter?",
+                "GENERATED_SQL": "SELECT SUM(amount) FROM sales WHERE quarter = 'Q4'",
+                "SEMANTIC_MODEL_NAME": "db.schema.sales_view",
+                "USER_NAME": "analyst",
+                "REQUEST_TIMESTAMP": datetime.datetime(
+                    2024, 1, 1, 10, 0, tzinfo=datetime.timezone.utc
+                ),
+            },
+            {
+                "QUESTION": "Show me top customers by revenue",
+                "GENERATED_SQL": "SELECT customer, SUM(revenue) FROM sales GROUP BY 1 ORDER BY 2 DESC",
+                "SEMANTIC_MODEL_NAME": "db.schema.sales_view",
+                "USER_NAME": "manager",
+                "REQUEST_TIMESTAMP": datetime.datetime(
+                    2024, 1, 1, 11, 0, tzinfo=datetime.timezone.utc
+                ),
+            },
+        ]
+
+        discovered = {"db.schema.sales_view"}
+        workunits = list(extractor.get_cortex_analyst_query_workunits(discovered))
+
+        # 2 queries * 2 aspects (QueryProperties + QuerySubjects) = 4
+        assert len(workunits) == 4
+
+        # Verify first query's properties
+        props_wu = workunits[0]
+        assert isinstance(props_wu.metadata, MetadataChangeProposalWrapper)
+        query_props = props_wu.metadata.aspect
+        assert isinstance(query_props, QueryProperties)
+        assert (
+            query_props.customProperties["natural_language_question"]
+            == "What were total sales last quarter?"
+        )
+        assert query_props.customProperties["query_source"] == "CORTEX_ANALYST"
+        assert (
+            query_props.statement.value
+            == "SELECT SUM(amount) FROM sales WHERE quarter = 'Q4'"
+        )
+
+    def test_cortex_analyst_skips_undiscovered_views(
+        self, extractor: SemanticViewUsageExtractor, mock_connection: MagicMock
+    ) -> None:
+        """Test that queries for undiscovered views are skipped."""
+        mock_connection.query.return_value = [
+            {
+                "QUESTION": "What is revenue?",
+                "GENERATED_SQL": "SELECT revenue FROM sales",
+                "SEMANTIC_MODEL_NAME": "db.schema.unknown_view",
+                "USER_NAME": "analyst",
+                "REQUEST_TIMESTAMP": datetime.datetime(
+                    2024, 1, 1, 10, 0, tzinfo=datetime.timezone.utc
+                ),
+            },
+        ]
+
+        discovered = {"db.schema.sales_view"}
+        workunits = list(extractor.get_cortex_analyst_query_workunits(discovered))
+
+        assert len(workunits) == 0
+
+    def test_cortex_analyst_disabled_emits_nothing(
+        self, extractor: SemanticViewUsageExtractor
+    ) -> None:
+        extractor.config.semantic_views.include_cortex_analyst_queries = False
+        workunits = list(
+            extractor.get_cortex_analyst_query_workunits({"db.schema.sales_view"})
+        )
+        assert len(workunits) == 0
+
+    def test_cortex_analyst_handles_privilege_error(
+        self, extractor: SemanticViewUsageExtractor, mock_connection: MagicMock
+    ) -> None:
+        """Test graceful handling when user lacks SELECT on CORTEX_ANALYST_REQUESTS_V."""
+        mock_connection.query.side_effect = Exception(
+            "Insufficient privileges to operate on view 'CORTEX_ANALYST_REQUESTS_V'"
+        )
+
+        discovered = {"db.schema.sales_view"}
+        workunits = list(extractor.get_cortex_analyst_query_workunits(discovered))
+
+        assert len(workunits) == 0
+        # Should have reported a warning
+        assert len(extractor.report.warnings) > 0
+
+    def test_cortex_analyst_respects_max_queries_per_view(
+        self, extractor: SemanticViewUsageExtractor, mock_connection: MagicMock
+    ) -> None:
+        """Test that per-view limit is respected."""
+        extractor.config.semantic_views.max_queries_per_view = 2
+
+        base_time = datetime.datetime(2024, 1, 1, 10, 0, tzinfo=datetime.timezone.utc)
+        mock_connection.query.return_value = [
+            {
+                "QUESTION": f"Question {i}",
+                "GENERATED_SQL": f"SELECT {i}",
+                "SEMANTIC_MODEL_NAME": "db.schema.sales_view",
+                "USER_NAME": "analyst",
+                "REQUEST_TIMESTAMP": base_time + datetime.timedelta(minutes=i),
+            }
+            for i in range(10)
+        ]
+
+        discovered = {"db.schema.sales_view"}
+        workunits = list(extractor.get_cortex_analyst_query_workunits(discovered))
+
+        # 2 queries * 2 aspects = 4
+        assert len(workunits) == 4
