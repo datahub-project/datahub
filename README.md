@@ -728,12 +728,12 @@ DataHub is part of a rich ecosystem of tools and integrations.
 
 ### Official Repositories
 
-| Repository                                                            | Description                                                     | Links                                            |
-| --------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
-| **[datahub](https://github.com/datahub-project/datahub)**             | Core platform: metadata model, services, connectors, and web UI | [Docs](https://docs.datahub.com/docs/quickstart) |
-| **[datahub-actions](https://github.com/acryldata/datahub-actions)**   | Framework for responding to metadata changes in real-time       | [Guide](https://docs.datahub.com/docs/actions)   |
-| **[datahub-helm](https://github.com/acryldata/datahub-helm)**         | Production-ready Helm charts for Kubernetes deployment          | [Charts](https://artifacthub.io/packages/helm/datahub/datahub)        |
-| **[static-assets](https://github.com/datahub-project/static-assets)** | Logos, images, and brand assets for DataHub                     | -                                                |
+| Repository                                                            | Description                                                     | Links                                                          |
+| --------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------- |
+| **[datahub](https://github.com/datahub-project/datahub)**             | Core platform: metadata model, services, connectors, and web UI | [Docs](https://docs.datahub.com/docs/quickstart)               |
+| **[datahub-actions](https://github.com/acryldata/datahub-actions)**   | Framework for responding to metadata changes in real-time       | [Guide](https://docs.datahub.com/docs/actions)                 |
+| **[datahub-helm](https://github.com/acryldata/datahub-helm)**         | Production-ready Helm charts for Kubernetes deployment          | [Charts](https://artifacthub.io/packages/helm/datahub/datahub) |
+| **[static-assets](https://github.com/datahub-project/static-assets)** | Logos, images, and brand assets for DataHub                     | -                                                              |
 
 ### Community Plugins & Integrations
 
@@ -785,7 +785,7 @@ Join thousands of data practitioners building with DataHub!
 | **GitHub Discussions** | Technical discussions, feature requests  | [Start a Discussion](https://github.com/datahub-project/datahub/discussions) |
 | **GitHub Issues**      | Bug reports, feature requests            | [Open an Issue](https://github.com/datahub-project/datahub/issues)           |
 | **Stack Overflow**     | Technical Q&A (tag: `datahub`)           | [Ask a Question](https://stackoverflow.com/questions/tagged/datahub)         |
-| **YouTube**            | Tutorials, demos, talks                  | [Subscribe](https://www.youtube.com/@DataHubCloud)                         |
+| **YouTube**            | Tutorials, demos, talks                  | [Subscribe](https://www.youtube.com/@DataHubCloud)                           |
 | **LinkedIn**           | Company updates, blogs                   | [Follow Us](https://linkedin.com/company/datahubproject)                     |
 | **Twitter/X**          | Quick updates, community highlights      | [Follow @datahubproject](https://twitter.com/datahubproject)                 |
 
@@ -836,19 +836,19 @@ Browse [Good First Issues](https://github.com/datahub-project/datahub/labels/goo
 
 ### 🔗 Important Links
 
-| Resource                  | URL                                                |
-| ------------------------- | -------------------------------------------------- |
-| 📖 Official Documentation | https://docs.datahub.com                           |
-| 🏠 Project Website        | https://datahub.com                                |
-| 🌐 Live Demo              | https://demo.datahub.com                           |
+| Resource                  | URL                                               |
+| ------------------------- | ------------------------------------------------- |
+| 📖 Official Documentation | https://docs.datahub.com                          |
+| 🏠 Project Website        | https://datahub.com                               |
+| 🌐 Live Demo              | https://demo.datahub.com                          |
 | 📊 Feature Requests       | https://support.datahub.com/hc/en-us/requests/new |
-| 🗓️ Town Hall Schedule     | https://docs.datahub.com/docs/townhalls            |
-| 💬 Slack Community        | https://datahub.com/slack                          |
-| 📺 YouTube Channel        | https://www.youtube.com/@DataHubCloud                |
-| 📝 Blog                   | https://datahub.com/blog/                          |
-| 🔗 LinkedIn               | https://www.linkedin.com/company/72009941          |
-| 🐦 Twitter/X              | https://twitter.com/datahubproject                 |
-| 🔒 Security               | https://docs.datahub.com/docs/security             |
+| 🗓️ Town Hall Schedule     | https://docs.datahub.com/docs/townhalls           |
+| 💬 Slack Community        | https://datahub.com/slack                         |
+| 📺 YouTube Channel        | https://www.youtube.com/@DataHubCloud             |
+| 📝 Blog                   | https://datahub.com/blog/                         |
+| 🔗 LinkedIn               | https://www.linkedin.com/company/72009941         |
+| 🐦 Twitter/X              | https://twitter.com/datahubproject                |
+| 🔒 Security               | https://docs.datahub.com/docs/security            |
 
 ---
 
