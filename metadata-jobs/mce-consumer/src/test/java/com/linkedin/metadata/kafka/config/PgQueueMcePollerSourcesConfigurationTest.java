@@ -22,6 +22,7 @@ import com.linkedin.metadata.queue.PgQueuePayloadCompression;
 import com.linkedin.metadata.queue.QueueMessageHandle;
 import com.linkedin.metadata.queue.QueueReceivedMessage;
 import com.linkedin.mxe.Topics;
+import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -121,7 +122,11 @@ public class PgQueueMcePollerSourcesConfigurationTest {
 
     PgQueuePollerRegistration reg =
         configuration
-            .pgQueueBatchMcpSource(batchProcessor, "batch-group", Topics.METADATA_CHANGE_PROPOSAL)
+            .pgQueueBatchMcpSource(
+                batchProcessor,
+                mock(OperationContext.class),
+                "batch-group",
+                Topics.METADATA_CHANGE_PROPOSAL)
             .registrations()
             .findFirst()
             .orElseThrow();
@@ -131,7 +136,7 @@ public class PgQueueMcePollerSourcesConfigurationTest {
         new PgQueuePollContext(store, "batch-group", Duration.ofSeconds(30), deserializer);
     reg.handler().handleBatch(Topics.METADATA_CHANGE_PROPOSAL, List.of(msg), ctx);
 
-    verify(batchProcessor).consume(any(), any());
+    verify(batchProcessor).consume(any(OperationContext.class), any(), any());
     verify(store).commitForGroup(eq("batch-group"), eq(List.of(msg.handle())), eq(true));
   }
 
@@ -142,7 +147,10 @@ public class PgQueueMcePollerSourcesConfigurationTest {
 
     PgQueuePollerSource source =
         configuration.pgQueueBatchMcpSource(
-            batchProcessor, "batch-group", Topics.METADATA_CHANGE_PROPOSAL);
+            batchProcessor,
+            mock(OperationContext.class),
+            "batch-group",
+            Topics.METADATA_CHANGE_PROPOSAL);
 
     PgQueuePollerRegistration reg = source.registrations().collect(Collectors.toList()).get(0);
     assertEquals(reg.consumerGroupId(), "batch-group");

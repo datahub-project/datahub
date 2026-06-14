@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.listener;
 
 import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
+import com.linkedin.metadata.kafka.context.inbound.InboundBatchAffinityResolver;
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -30,6 +31,10 @@ public interface GenericKafkaListener<E, H extends EventHook<E>, R> {
    * @param aspectsToDrop entity-type → set of aspect names to skip
    * @param inboundContextResolver resolver that turns an inbound envelope into the per-event {@link
    *     OperationContext}
+   * @param batchAffinityResolver resolver that partitions an inbound batch into affinity slices for
+   *     batch dispatch; single-bean (deployments that want affinity-aware splitting register their
+   *     own {@code @Component}; otherwise the {@code @ConditionalOnMissingBean} OSS default loads).
+   *     Single-event listeners ignore this field; batch listeners read it in {@code consumeBatch}.
    * @return this listener instance for chaining
    */
   GenericKafkaListener<E, H, R> init(
@@ -38,7 +43,8 @@ public interface GenericKafkaListener<E, H extends EventHook<E>, R> {
       @Nonnull List<H> hooks,
       boolean fineGrainedLoggingEnabled,
       @Nonnull Map<String, Set<String>> aspectsToDrop,
-      @Nonnull InboundContextResolver inboundContextResolver);
+      @Nonnull InboundContextResolver inboundContextResolver,
+      @Nonnull InboundBatchAffinityResolver batchAffinityResolver);
 
   /** Process a batch of Kafka consumer records. */
   void consumeBatch(@Nonnull List<ConsumerRecord<String, R>> consumerRecords);
