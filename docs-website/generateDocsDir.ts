@@ -126,6 +126,7 @@ function list_markdown_files(): string[] {
     /^metadata-models\/docs\//, // these are used to generate docs, so we don't want to consider them here
     /^metadata-ingestion\/archived\//, // these are archived, so we don't want to consider them here
     /^metadata-ingestion\/docs\/sources\//, // these are used to generate docs, so we don't want to consider them here
+    /^metadata-ingestion\/src\/datahub\/ingestion\/source\/odcs\/odcs_schema\//, // vendored ODCS JSON schemas + attribution README, not user-facing
     /^metadata-ingestion\/tests\//,
     /^metadata-ingestion-examples\//,
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.

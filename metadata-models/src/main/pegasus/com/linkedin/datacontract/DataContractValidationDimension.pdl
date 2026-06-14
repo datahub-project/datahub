@@ -1,0 +1,23 @@
+namespace com.linkedin.datacontract
+
+/**
+ * A validation dimension within a contract section. Aggregates one or more
+ * DataHub assertions. The dimension's status is derived at read time from
+ * the latest results of its assertions.
+ */
+record DataContractValidationDimension {
+  /**
+   * Human-readable name, e.g. "Freshness", "Completeness".
+   */
+  name: string
+
+  /**
+   * Optional descriptive body.
+   */
+  description: optional string
+
+  /**
+   * Assertion references contributing to this dimension.
+   */
+  assertions: array[DataContractValidationAssertion] = []
+}

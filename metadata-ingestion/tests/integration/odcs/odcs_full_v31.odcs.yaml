@@ -1,0 +1,109 @@
+apiVersion: v3.1.0
+kind: DataContract
+id: 00000000-0000-0000-0000-000000000002
+name: customers_full
+version: 2.1.0
+status: active
+domain: customers
+dataProduct: customer-360
+tenant: acme
+frobozz: 42                       # unknown field — exercises D5 extras-warning
+description:
+  purpose: Customer master records used by the CDP.
+  usage: Joinable to orders and events on customer_id.
+  limitations: Non-PII columns only available outside the data perimeter.
+tags:
+  - finance
+  - pii
+team:
+  - username: alice
+    role: owner
+  - username: bob
+    role: dataSteward
+  - username: bob
+    role: dataSteward          # exact duplicate – should dedup
+  - username: carol
+    role: businessOwner
+  - username: dave
+    role: owner
+    dateOut: "2024-01-01"      # excluded
+  - username: "group:platform-team"
+    role: dataOwner
+  - username: erin
+    role: someUnmappedRole     # falls back to TECHNICAL_OWNER
+servers:
+  - server: prod-postgres
+    type: postgres
+    host: postgres.example.internal
+    port: 5432
+    database: customers_db
+    schema: public
+  - server: prod-snowflake
+    type: snowflake
+    account: acme-prod
+    database: ANALYTICS
+    schema: PUBLIC
+schema:
+  - name: customers
+    physicalName: customers
+    description: Master table of customers.
+    tags:
+      - core
+    properties:
+      - name: id
+        physicalName: id
+        logicalType: number
+        primaryKey: true
+        required: true
+        description: Surrogate key.
+        quality:
+          - name: id_not_null
+            rule: notNull
+      - name: email
+        physicalName: email
+        logicalType: string
+        required: true
+        tags:
+          - pii
+        classification: confidential
+        description: Primary contact email for the customer.
+        quality:
+          - name: email_unique
+            rule: unique
+      - name: profile
+        physicalName: profile
+        logicalType: object
+        description: Nested profile struct.
+        properties:
+          - name: country
+            logicalType: string
+            quality:
+              - name: country_not_null
+                rule: notNull
+          - name: score
+            logicalType: number
+            quality:
+              - name: score_in_range
+                rule: range          # unknown library — falls through to CustomAssertion
+                mustBeBetween: [0, 100]
+    quality:
+      - name: customers_row_count
+        rule: rowCount
+        mustBeGreaterOrEqualTo: 100
+      - name: customers_row_count_not_in_range
+        rule: rowCount
+        mustNotBeBetween: [1, 10]      # exercises D6 routing-to-custom
+  - name: orders
+    physicalName: orders
+    description: Order events.
+    properties:
+      - name: order_id
+        logicalType: number
+        primaryKey: true
+      - name: customer_id
+        logicalType: number
+quality:
+  - name: customers_have_emails
+    type: sql
+    query: SELECT COUNT(*) FROM customers WHERE email IS NULL
+    mustBeGreaterThan: 0

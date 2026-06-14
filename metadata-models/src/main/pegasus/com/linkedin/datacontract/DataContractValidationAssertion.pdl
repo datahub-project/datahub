@@ -1,0 +1,17 @@
+namespace com.linkedin.datacontract
+
+import com.linkedin.common.Urn
+
+/**
+ * Reference to a DataHub assertion used as part of a validation dimension.
+ */
+record DataContractValidationAssertion {
+  /**
+   * The assertion contributing to this validation dimension.
+   */
+  @Relationship = {
+    "name": "IncludesValidationAssertion",
+    "entityTypes": [ "assertion" ]
+  }
+  assertion: Urn
+}

@@ -1235,48 +1235,47 @@ def generate_stitched_record(
                         relationship_info = json_dict["Relationship"]
                         # detect if we have relationship specified at leaf level or thru path specs
                         if "entityTypes" not in relationship_info:
-                            # path spec
-                            assert len(relationship_info.keys()) == 1, (
-                                "We should never have more than one path spec assigned to a relationship annotation"
-                            )
-                            final_info = None
-                            for _, v in relationship_info.items():
-                                final_info = v
-                            relationship_info = final_info
+                            # path spec form - one or more paths can share an annotation block.
+                            # Each path defines an independent relationship from this field.
+                            relationship_specs = list(relationship_info.values())
+                        else:
+                            # leaf form - single relationship on the urn field directly
+                            relationship_specs = [relationship_info]
 
-                        assert "entityTypes" in relationship_info
+                        for rel_spec in relationship_specs:
+                            assert "entityTypes" in rel_spec
 
-                        entity_types: List[str] = relationship_info.get(
-                            "entityTypes", []
-                        )
-                        relnship_name = relationship_info.get("name", None)
-                        for entity_type in entity_types:
-                            destination_entity_name = capitalize_first(entity_type)
+                            entity_types: List[str] = rel_spec.get("entityTypes", [])
+                            relnship_name = rel_spec.get("name", None)
+                            for entity_type in entity_types:
+                                destination_entity_name = capitalize_first(entity_type)
 
-                            foreign_dataset_urn = make_dataset_urn(
-                                platform="datahub",
-                                name=destination_entity_name,
-                            )
-                            fkey = ForeignKeyConstraintClass(
-                                name=relnship_name,
-                                foreignDataset=foreign_dataset_urn,
-                                foreignFields=[
-                                    make_schema_field_urn(foreign_dataset_urn, "urn")
-                                ],
-                                sourceFields=[
-                                    make_schema_field_urn(
-                                        source_dataset_urn, f_field.fieldPath
-                                    )
-                                ],
-                            )
-                            foreign_keys.append(fkey)
-                            relnships_graph.add_edge(
-                                entity_display_name,
-                                destination_entity_name,
-                                fkey.name,
-                                f" via `{strip_types(f_field.fieldPath)}`",
-                                edge_id=f"{entity_display_name}:{fkey.name}:{destination_entity_name}:{strip_types(f_field.fieldPath)}",
-                            )
+                                foreign_dataset_urn = make_dataset_urn(
+                                    platform="datahub",
+                                    name=destination_entity_name,
+                                )
+                                fkey = ForeignKeyConstraintClass(
+                                    name=relnship_name,
+                                    foreignDataset=foreign_dataset_urn,
+                                    foreignFields=[
+                                        make_schema_field_urn(
+                                            foreign_dataset_urn, "urn"
+                                        )
+                                    ],
+                                    sourceFields=[
+                                        make_schema_field_urn(
+                                            source_dataset_urn, f_field.fieldPath
+                                        )
+                                    ],
+                                )
+                                foreign_keys.append(fkey)
+                                relnships_graph.add_edge(
+                                    entity_display_name,
+                                    destination_entity_name,
+                                    fkey.name,
+                                    f" via `{strip_types(f_field.fieldPath)}`",
+                                    edge_id=f"{entity_display_name}:{fkey.name}:{destination_entity_name}:{strip_types(f_field.fieldPath)}",
+                                )
 
             dataset_urn = make_dataset_urn(
                 platform="datahub",
