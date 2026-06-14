@@ -100,7 +100,7 @@ Ensure your service account has the following permissions:
 
 ## 3. Propagating for Existing Assets (Optional)
 
-To ensure that all existing table Tags and Column Glossary Terms are propagated to BigQuery, you can back-fill historical data for existing assets. Note that the initial back-filling process may take some time, depending on the number of BigQuery assets you have.
+To ensure that all existing table Tags, Column Glossary Terms, and Descriptions are propagated to BigQuery, you can back-fill historical data for existing assets. Note that the initial back-filling process may take some time, depending on the number of BigQuery assets you have.
 
 To do so, follow these steps:
 
@@ -117,7 +117,7 @@ To do so, follow these steps:
   <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-initialize.png"/>
 </p>
 
-This one-time step will kick off the back-filling process for existing descriptions. If you only want to begin propagating descriptions going forward, you can skip this step.
+This one-time step will kick off the back-filling process for existing tags, glossary terms, and descriptions. If you only want to begin propagating metadata going forward, you can skip this step.
 
 ## Viewing Propagated Tags
 
@@ -180,9 +180,9 @@ A: In case of conflicts (e.g., a tag is modified in both systems between syncs),
 
 A: Ensure that the service account used for the automation has the necessary permissions in both DataHub and BigQuery to read and write metadata. See the required BigQuery permissions at the top of the page.
 
-### Q: Can table description removed?
+### Q: Can table descriptions be removed?
 
-No, the sync can only modify table description but it won't remove or clear a description from a table.
+Yes. Removing a description in DataHub clears the corresponding BigQuery table or column description. Rolling back the automation removes tags, glossary terms, and descriptions previously applied by the sync.
 
 ## Related Documentation
 
