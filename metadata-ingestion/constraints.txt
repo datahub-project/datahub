@@ -1390,7 +1390,7 @@ readme-renderer==44.0
     # via twine
 redash-toolbelt==0.1.9
     # via acryl-datahub
-redshift-connector==2.1.12
+redshift-connector==2.1.14
     # via acryl-datahub
 referencing==0.37.0
     # via
