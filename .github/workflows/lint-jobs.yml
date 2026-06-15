@@ -238,9 +238,9 @@ jobs:
       pull-requests: write # post the i18n parity summary as a sticky PR comment
     env:
       YARN_CACHE_FOLDER: /tmp/.yarn-cache/
-      # Warn-only for now: reports missing/stale/placeholder drift without failing the build.
-      # Set to "fail" to make errors (stale keys, placeholder drift) block CI.
-      I18N_PARITY_MODE: warn
+      # Errors (stale/extra keys, placeholder drift) block CI. Missing keys remain warnings
+      # regardless of mode, so EN-only PRs aren't blocked while translations catch up.
+      I18N_PARITY_MODE: fail
       I18N_PARITY_SUMMARY_FILE: ${{ github.workspace }}/i18n-parity-summary.md
     steps:
       - name: Check out the repo
