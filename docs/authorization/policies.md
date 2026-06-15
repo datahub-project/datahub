@@ -81,6 +81,10 @@ When you target a policy by domain, the policy applies recursively to any asset 
 
 **Example**: A policy targeting the "Marketing" domain will apply to all datasets, dashboards, and other assets assigned to that domain, as well as assets in child domains like "Marketing Analytics" or "Marketing Campaigns".
 
+:::caution View-based access control performance
+When [view-based access control](#designing-policies-for-view-based-access-control) is enabled, domain filters can be expensive: DataHub walks the domain hierarchy for each authorization check. Prefer [ownership-based policies](#ownership-based-access) for entity access, and use domain filters mainly for domain-entity visibility or Cloud discovery boundaries. Keep domain hierarchies shallow.
+:::
+
 ##### Container-Based Policy Targeting
 
 Policies can be targeted to assets based on **Containers** (e.g., databases, schemas, projects). This allows you to apply permissions based on technical organization.
@@ -88,6 +92,10 @@ Policies can be targeted to assets based on **Containers** (e.g., databases, sch
 When you target a policy by container, the policy applies recursively to all assets within that container as well as any assets in nested child containers.
 
 **Example**: A policy targeting a "production" database container will apply to all schemas within that database and all tables within those schemas.
+
+:::caution View-based access control performance
+When [view-based access control](#designing-policies-for-view-based-access-control) is enabled, container filters walk the container hierarchy sequentially for each authorization check. Avoid container-based policies on deep warehouse hierarchies (database → schema → table). See [Domains and containers](#domains-and-containers) for alternatives.
+:::
 
 ##### Glossary-Based Policy Targeting
 
@@ -169,6 +177,118 @@ AUTH_POLICIES_ENABLED=false
 ### REST API Authorization
 
 Policies only affect REST APIs when the environment variable `REST_API_AUTHORIZATION` is set to `true` for GMS. Some policies only apply when this setting is enabled, marked above, and other Metadata and Platform policies apply to the APIs where relevant, also specified in the table above.
+
+## Designing policies for view-based access control
+
+This section covers how to design access policies when **view-based access control (VBAC)** is enabled — that is, when policies restrict what users can **view or discover**, not just edit. Poor policy design in VBAC deployments can cause slow search, slow entity pages, and high load on the metadata service.
+
+### When this guidance applies
+
+| Deployment            | VBAC prerequisite                                                                      | What it enables                                                                                                                     |
+| --------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **DataHub Cloud**     | [Search Access Controls](../features/feature-guides/search-access-controls.md) enabled | **`View Entity`** privilege; search results filtered at query time                                                                  |
+| **Self-hosted (OSS)** | `VIEW_AUTHORIZATION_ENABLED=true` on GMS                                               | **`View Entity Page`** privilege; entity page gating and optional post-search result masking — **not** Elasticsearch query pushdown |
+
+### Performance considerations
+
+Policy evaluation is **grant-only** and **first-match-wins**: DataHub checks policies in order until one grants access. Under VBAC, view and discovery privileges trigger authorization on search results, entity pages, and browse — often **once per entity**.
+
+Keep these factors in mind when designing policies:
+
+| Factor                         | Impact                                                                                                                                 | Recommendation                                                                                                                |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Number of active policies**  | Every user session evaluates actor match against all policies; each authorization request may iterate policies until one grants access | Consolidate policies; avoid duplicating the same privilege across many policies                                               |
+| **Domain resource filters**    | Each check may walk the full domain parent hierarchy                                                                                   | Prefer ownership for entity access; keep domain trees shallow; use domain filters for domain entities or Cloud discovery only |
+| **Container resource filters** | Each check walks the container chain (database → schema → table)                                                                       | Avoid container-based view policies on deep hierarchies                                                                       |
+| **Group membership**           | Users in many groups increase matching and role-resolution cost                                                                        | One group per team policy boundary; avoid listing many groups on a single policy                                              |
+| **Search under VBAC**          | Each search hit may be authorized individually with full policy evaluation                                                             | Fewer domain-scoped view policies; prefer ownership-based grants                                                              |
+| **Policy cache**               | Policy changes may take up to ~120 seconds to propagate (`POLICY_CACHE_REFRESH_INTERVAL_SECONDS`)                                      | Plan for brief delay after policy updates                                                                                     |
+
+### Groups
+
+Groups are the preferred way to assign policies to teams. When VBAC is enabled:
+
+- **Sync from your IdP** when possible ([Okta](../generated/ingestion/sources/okta.md), [Azure AD](../generated/ingestion/sources/azure-ad.md)) so group membership stays current without manual updates.
+- **Assign one group per policy boundary** — e.g. a "Team A Developers" group on a single owner-based policy, rather than listing many groups on one policy.
+- **Limit overlapping group membership** — users in many groups increase authorization cost, especially when policies match on roles derived from group membership.
+- **Prefer group-level policies over per-user policies** — easier to maintain and fewer actor entries to evaluate.
+
+For SCIM-based group provisioning, see [Okta identity provisioning](../managed-datahub/configuring-identity-provisioning-with-okta.md) and [Microsoft Entra identity provisioning](../managed-datahub/configuring-identity-provisioning-with-ms-entra.md).
+
+### Domains and containers
+
+[Domains](../domains.md) organize metadata for curation; they can also be used as policy resource filters. Under VBAC, **using domains as the primary boundary for entity view access is expensive** because DataHub resolves parent domains recursively on every authorization check.
+
+**Prefer:**
+
+- **Ownership-based policies** for dataset and other entity access (see [Ownership-based access](#ownership-based-access))
+- **Domain filters** only for **domain entity** visibility (so users can navigate the domain tree) or for **Cloud Search Access Controls** discovery boundaries
+- **Shallow domain hierarchies** when domain filters are required
+
+**Avoid:**
+
+- One full-metadata view policy per team domain when ownership can express the same boundary
+- Deep nested domain trees as the primary access boundary
+- Container-based view policies on deep warehouse hierarchies
+
+### Roles and VBAC
+
+When VBAC is enabled, **Admin**, **Editor**, and **Reader** roles **override** view-based policy restrictions. Users assigned any of these roles can view all entities regardless of domain- or ownership-based view policies.
+
+Do not assign Editor or Reader to users who should have restricted discovery. Reserve the Admin role for platform operators. See [Roles](./roles.md) and [Search Access Controls](../features/feature-guides/search-access-controls.md).
+
+### Recommended patterns
+
+These patterns assume VBAC is enabled and separate teams need isolated metadata visibility. Use generic team and domain names when implementing.
+
+#### Pattern A — Multi-team isolation (ownership-first)
+
+Use when separate teams or business units should only access their own metadata:
+
+1. **Platform Admins** — `Admin` role only (hardcoded super-privileges).
+2. **Central platform team** — one metadata policy: actors = IdP group(s), resources = broad (by entity type), privileges = view/edit as needed.
+3. **Team-scoped users** — one **owner-based metadata policy** per team: actors = **resource owners** (group ownership type), privileges include view/edit metadata; assign ownership at ingestion (see [Ownership-based access](#ownership-based-access)).
+4. **Domain visibility only** — one narrow policy per team targeting **domain entities** (not datasets) so users can navigate the domain structure without domain-scoped dataset policies.
+
+Resource matching via ownership uses a single ownership aspect fetch instead of walking domain parents on every dataset.
+
+#### Pattern B — Domain-scoped discovery (DataHub Cloud)
+
+On **DataHub Cloud** with Search Access Controls enabled:
+
+- Use domain-based **`View Entity`** policies for discovery boundaries.
+- Keep the domain hierarchy **shallow**, policy count **low**, and **do not assign Editor/Reader roles** to restricted users.
+
+### Anti-patterns
+
+- One policy per user instead of per group.
+- Many overlapping domain policies for the same privilege (e.g. one full-metadata policy per team domain instead of consolidating).
+- Deep nested domain trees as the primary access boundary.
+- Container-based policies on deep database → schema → table chains.
+- Assigning **Reader** or **Editor** while expecting domain or ownership isolation.
+- Relying on OSS `VIEW_AUTHORIZATION_ENABLED` alone to prevent users from discovering other teams' data in search (OSS does not filter search at query time).
+- Large numbers of URN-specific policies instead of tags plus one tag-based policy.
+
+### Ownership-based access
+
+Assign **ownership at ingestion** so owner-based policies can grant view and edit access without domain-scoped resource filters. Use the [`pattern_add_dataset_ownership`](../../metadata-ingestion/docs/transformer/dataset_transformer.md) transformer to match dataset URNs and assign group owners by pattern.
+
+**Schema ownership:** Ingestion recipes that assign ownership only to datasets may leave schemas without owners. If team-scoped users need to view schemas via owner-based policies, assign schema ownership through the UI or extend ingestion to cover schema entities.
+
+### Troubleshooting slow search or UI
+
+If search or entity pages feel slow after enabling VBAC:
+
+1. **Count active policies** — reduce overlapping or redundant policies.
+2. **Review domain-scoped view policies** — replace dataset boundaries with ownership-based policies where possible.
+3. **Check domain depth** — flatten nested domains used in policy filters.
+4. **Review group membership** — reduce users in many overlapping groups.
+5. **Check role assignments** — Editor/Reader on restricted users won't cause slowness but indicates misconfiguration if isolation is expected.
+6. **Wait for cache refresh** — policy changes may take up to `POLICY_CACHE_REFRESH_INTERVAL_SECONDS` (default 120) to apply.
+
+### Policy propagation
+
+Policy definitions are cached in GMS and refreshed periodically. After creating or editing policies, allow up to **`POLICY_CACHE_REFRESH_INTERVAL_SECONDS`** seconds (default **120**) before changes fully propagate. See [environment variables](../deploy/environment-vars.md) for configuration.
 
 ## Reference
 
