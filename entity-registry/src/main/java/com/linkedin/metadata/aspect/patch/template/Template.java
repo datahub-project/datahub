@@ -61,13 +61,7 @@ public interface Template<T extends RecordTemplate> {
                   .readObject());
       JsonNode postProcessed = rebaseFields(OBJECT_MAPPER.readTree(patched.toString()));
       return RecordUtils.toRecordTemplate(getTemplateType(), postProcessed.toString());
-    } catch (JsonProcessingException e) {
-      throw new RuntimeException(
-          String.format(
-              "Error performing JSON PATCH on aspect %s. Patch: %s Target: %s",
-              recordTemplate.schema().getName(), jsonPatch, transformed.toString()),
-          e);
-    } catch (jakarta.json.JsonException e) {
+    } catch (JsonProcessingException | jakarta.json.JsonException e) {
       throw new RuntimeException(
           String.format(
               "Error performing JSON PATCH on aspect %s. Patch: %s Target: %s",
