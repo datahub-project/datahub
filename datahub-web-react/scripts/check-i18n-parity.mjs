@@ -108,11 +108,8 @@ function emitGithubAnnotations(perLocale, errorsBlock) {
     }
 }
 
-// Render a markdown summary to the job summary page (visible without opening logs).
-function writeGithubStepSummary(perLocale, warnings, errors) {
-    const summaryFile = process.env.GITHUB_STEP_SUMMARY;
-    if (!summaryFile) return;
-
+// Build the markdown report shared by the job summary and the sticky PR comment.
+function buildSummaryMarkdown(perLocale, warnings, errors) {
     const lines = ['## i18n locale parity', ''];
     const status = errors > 0 ? '❌ failed' : warnings > 0 ? '⚠️ passed with warnings' : '✅ in sync';
     lines.push(`**Status:** ${status} — ${warnings} warning(s), ${errors} error(s)`, '');
@@ -127,8 +124,21 @@ function writeGithubStepSummary(perLocale, warnings, errors) {
         const detail = [...langErrors.map((e) => `❌ ${e}`), ...langWarnings.map((w) => `⚠️ ${w}`)].join('\n');
         lines.push(`<details><summary>${lang}</summary>`, '', '```', detail, '```', '', '</details>', '');
     }
+    return lines.join('\n');
+}
 
-    appendFileSync(summaryFile, `${lines.join('\n')}\n`);
+// Render the report to the job summary page (visible on the run page without opening logs) and,
+// when there are findings, to a file the workflow turns into a sticky PR comment.
+function writeReports(perLocale, warnings, errors) {
+    const markdown = buildSummaryMarkdown(perLocale, warnings, errors);
+    if (process.env.GITHUB_STEP_SUMMARY) {
+        appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n`);
+    }
+    // Only emit the comment file when there's something to report — absence signals "in sync" to
+    // the workflow so it doesn't open a noisy comment on every PR.
+    if (process.env.I18N_PARITY_SUMMARY_FILE && warnings + errors > 0) {
+        appendFileSync(process.env.I18N_PARITY_SUMMARY_FILE, `${markdown}\n`);
+    }
 }
 
 const enDir = path.join(localesDir, BASE_LANG);
@@ -224,7 +234,7 @@ for (const lang of languages) {
 // Surface results in the GitHub Actions UI (annotations + job summary) so they're visible on the
 // run/PR checks page without opening the raw job logs. No-ops when run outside Actions.
 emitGithubAnnotations(results, enforce);
-writeGithubStepSummary(results, totalWarnings, totalErrors);
+writeReports(results, totalWarnings, totalErrors);
 
 console.log(`\n────────────────────────`);
 console.log(`Locales checked: ${languages.join(', ')}`);
