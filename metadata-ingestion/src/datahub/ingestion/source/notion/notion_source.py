@@ -18,7 +18,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -26,9 +25,6 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
 from datahub.ingestion.source.notion.notion_report import NotionSourceReport
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -350,9 +346,6 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         self.notion_parent_metadata: Dict[str, Any] = {}
 
         # Initialize stateful ingestion handler for stale entity removal
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, ctx
-        )
 
         # Initialize document state tracking for content-based change detection
         self.document_state: Dict[str, Dict[str, Any]] = {}
@@ -1328,17 +1321,6 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "NotionSource":
         config = NotionSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        """Register workunit processors for stateful ingestion.
-
-        The stale entity removal handler will automatically track all emitted
-        document URNs and generate deletion workunits for any that disappeared.
-        """
-        return [
-            *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main method to generate work units."""

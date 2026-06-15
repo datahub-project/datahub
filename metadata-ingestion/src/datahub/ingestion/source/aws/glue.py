@@ -1,5 +1,4 @@
 import datetime
-import functools
 import json
 import logging
 import re
@@ -60,10 +59,8 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
-    auto_incremental_properties,
 )
 from datahub.ingestion.api.report import EntityFilterReport
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
@@ -86,7 +83,6 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -1710,18 +1706,6 @@ class GlueSource(StatefulIngestionSourceBase):
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
             )
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_properties,
-                self.source_config.incremental_properties,
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         databases, tables = self.get_all_databases_and_tables()
