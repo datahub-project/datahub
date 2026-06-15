@@ -4,6 +4,7 @@
     "copyUrn.tooltip": "URN kopieren. Eine URN identifiziert eine Entität in DataHub eindeutig.",
     "customIcon.alt": "Symbol",
     "entityCountCard.viewCountTooltip": "{{formattedCount}} {{tooltipDescriptor}} ansehen",
+    "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
     "multiStepForm.disabledNextTooltip": "Bitte fülle alle erforderlichen Felder aus, bevor du zum nächsten Schritt gehst",
     "noEntityFound.subtitle": "Diese Entität konnte leider nicht in DataHub gefunden werden",
     "noEntityFound.title": "Nicht gefunden",
