@@ -6,6 +6,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { TagActionsColumn } from '@app/tags/TagsTableColumns';
 import themeV2 from '@conf/theme/themeV2';
 
+// Mock Apollo hooks so no ApolloProvider is needed
+vi.mock('@src/graphql/tag.generated', () => ({
+    useGetTagQuery: vi.fn(() => ({
+        data: { tag: { deprecation: { deprecated: false } } },
+        refetch: vi.fn(),
+    })),
+}));
+
+vi.mock('@graphql/mutations.generated', () => ({
+    useBatchUpdateDeprecationMutation: vi.fn(() => [vi.fn()]),
+}));
+
 vi.mock('@components', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@components')>();
     return {
