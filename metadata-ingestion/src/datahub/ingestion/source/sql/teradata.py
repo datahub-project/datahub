@@ -1519,6 +1519,20 @@ ORDER by DataBaseName, TableName;
         )
         self.report.sql_aggregator = self.aggregator.report
 
+        # Surface the size-based profiling filter at startup. This default (5 GB)
+        # was previously ignored for Teradata, so log it to avoid surprising users
+        # whose large tables suddenly stop being profiled after upgrade.
+        if (
+            self.config.is_profiling_enabled()
+            and self.config.profiling.profile_table_size_limit is not None
+        ):
+            logger.info(
+                "Teradata profiling will skip tables larger than %d GB "
+                "(profile_table_size_limit). Set profile_table_size_limit: null to "
+                "profile all tables regardless of size.",
+                self.config.profiling.profile_table_size_limit,
+            )
+
         if self.config.include_tables or self.config.include_views:
             with self.report.new_stage("Table and view discovery"):
                 self.cache_tables_and_views()
@@ -3048,7 +3062,13 @@ ORDER by DataBaseName, TableName;
 
         We start from the full table list and remove only the tables DBC reports as
         oversized. Any table absent from DBC.TableSizeV (new/zero-perm tables or
-        permission asymmetry) is therefore treated as eligible
+        permission asymmetry) is therefore treated as eligible.
+
+        `threshold_time` (derived from `profile_if_updated_since_days`) is intentionally
+        ignored: this connector currently implements size-based filtering only. The SQL
+        base's `is_dataset_eligible_for_profiling` does not apply freshness either, so
+        time-based filtering is effectively a no-op for Teradata today. It could be added
+        later using `TeradataTable.last_alter_timestamp` from the table cache.
         """
         size_limit_gb = self.config.profiling.profile_table_size_limit
         if size_limit_gb is None:

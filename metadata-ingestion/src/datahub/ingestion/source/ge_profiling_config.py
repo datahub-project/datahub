@@ -158,9 +158,9 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     ] = Field(
         default=5,
         description="Profile tables only if their size is less than specified GBs. If set to `null`, "
-        "no limit on the size of tables to profile. Supported only in `Snowflake`, `BigQuery` and "
-        "`Databricks`. Supported for `Oracle` based on calculated size from gathered stats. "
-        "Supported for `Teradata` based on actual table size from DBC space accounting.",
+        "no limit on the size of tables to profile. Supported in `Snowflake`, `BigQuery`, "
+        "`Databricks`, `Oracle`, and `Teradata`. `Oracle` uses calculated size from gathered stats. "
+        "`Teradata` uses DBC space accounting.",
     )
 
     profile_table_row_limit: Annotated[
