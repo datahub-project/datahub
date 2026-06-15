@@ -81,6 +81,8 @@ Requirements:
 
 - #17860 **(CLI / Python SDK)** Mutual TLS (mTLS) client authentication is now supported for outbound HTTPS calls from the CLI.
 
+- #17891 **(Ingestion / Teradata)** Teradata profiling now respects `profile_table_size_limit` (default **5 GB**); tables larger than the limit are skipped by default, bringing Teradata in line with Snowflake, BigQuery, Databricks, and Oracle. Table size is derived from DBC space accounting (`SUM(CurrentPerm)` in `DBC.TableSizeV`). Tables whose size cannot be determined (e.g. the ingestion user lacks `SELECT` on `DBC.TableSizeV`) are still profiled (fail-open). **Action:** to restore the previous behavior of profiling all tables regardless of size, set `profile_table_size_limit: null` under `profiling`.
+
 ## v1.6.0
 
 Requirements:
