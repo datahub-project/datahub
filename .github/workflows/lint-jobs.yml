@@ -249,6 +249,13 @@ jobs:
       - name: Run lint
         run: |
           ./gradlew :datahub-web-react:yarnLint
+      - name: Check i18n locale parity
+        # Warn-only for now: reports missing/stale/placeholder drift without failing the build.
+        # Set I18N_PARITY_MODE to "fail" to make errors (stale keys, placeholder drift) block CI.
+        env:
+          I18N_PARITY_MODE: warn
+        run: |
+          ./gradlew :datahub-web-react:yarnI18nParityCheck
       - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Save yarn cache
         if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}

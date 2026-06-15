@@ -128,6 +128,7 @@
         "format-file": "prettier --write",
         "type-check": "NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit",
         "check-translations": "node scripts/check-translations.mjs",
+        "check-i18n-parity": "node scripts/check-i18n-parity.mjs",
         "type-watch": "NODE_OPTIONS=--max-old-space-size=8192 tsc -w --noEmit",
         "storybook": "storybook dev -p 6006",
         "build-storybook": "NODE_OPTIONS='--max-old-space-size=8192 --openssl-legacy-provider' storybook build"

@@ -166,6 +166,24 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   }
 }
 
+// Verifies non-EN locale JSON files stay in sync with the `en` source of truth (stale keys,
+// placeholder drift). Only reads JSON, so it skips the expensive yarnGenerate codegen step.
+task yarnI18nParityCheck(type: YarnTask, dependsOn: [yarnInstall]) {
+  args = ['run', 'check-i18n-parity']
+  inputs.files(project.fileTree(dir: 'src/i18n/locales', include: ['**/*.json']))
+  def parity_sentinel = "${buildDir}/.yarn-i18n-parity-sentinel"
+  outputs.file(parity_sentinel)
+  doLast {
+    def file = file(parity_sentinel)
+    if (!file.exists()) {
+      file.createNewFile()
+    } else {
+      file.setLastModified(System.currentTimeMillis())
+    }
+  }
+  outputs.cacheIf { true }
+}
+
 test.dependsOn([yarnInstall, yarnTest])
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
