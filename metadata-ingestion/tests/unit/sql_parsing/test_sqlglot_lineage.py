@@ -590,11 +590,11 @@ FROM db.sch.tbl
 
 def test_snowflake_case_sensitive_column_through_cte() -> None:
     # Regression guard for the case-sensitive column lineage fix, this time with
-    # the quoted column "CustomerName" flowing through a CTE. Its casing must
-    # survive the full multi-hop lineage walk (CTE -> outer SELECT), not just the
-    # top-level projection lookup. As with the non-CTE case, dropping the
-    # case_sensitive marker lets Snowflake case-fold the name so the upstream edge
-    # is silently dropped. See https://github.com/tobymao/sqlglot/issues/7733.
+    # the quoted column "CustomerName" flowing through a CTE, exercising scope
+    # resolution across the CTE -> outer SELECT hop. As with the non-CTE case,
+    # dropping the case_sensitive marker lets Snowflake case-fold the projection
+    # lookup so the upstream edge is silently dropped.
+    # See https://github.com/tobymao/sqlglot/issues/7733.
     assert_sql_result(
         """
 WITH staged AS (
