@@ -386,10 +386,10 @@ def test_ensure_size_of_too_big_schema_metadata(processor):
     )
     assert len(schema.fields) < 1004, "Schema has not been properly truncated"
     assert schema.fields[-1].fieldPath == "dddd", "Small field was not added at the end"
-    # +100kb is completely arbitrary, but we are truncating the aspect based on schema fields size only, not total taken
-    # by other parameters of the aspect - it is reasonable approach though - schema fields is the only field in schema
-    # metadata which can be expected to grow out of control
-    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES + 100000, (
+    # The truncated aspect must fit within the budget. The budget now accounts
+    # for the full serialized aspect (not just the fields list), so the result
+    # is bounded by the payload constraint rather than an arbitrary slop.
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
         "Aspect exceeded acceptable size"
     )
 
@@ -403,6 +403,84 @@ def test_ensure_size_of_proper_schema_metadata(processor):
     )
     assert orig_repr == json.dumps(schema.to_obj()), (
         "Aspect was modified in case where workunit processor should have been no-op"
+    )
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_schema_metadata_budget_accounts_for_raw_schema(processor):
+    # rawSchema takes ~half the budget; the field budget must shrink to
+    # compensate so the total aspect — raw schema included — stays within the
+    # limit. Previously only the fields were counted, so the aspect could
+    # still exceed the limit after truncation.
+    raw_schema_size = processor.schema_size_constraint // 2
+    fields = [
+        SchemaFieldClass(
+            fieldPath=f"t{i}",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+            description=20000 * "a",
+        )
+        for i in range(1000)
+    ]
+    schema = SchemaMetadataClass(
+        schemaName="abcdef",
+        version=1,
+        platform="s3",
+        hash="ABCDE1234567890",
+        platformSchema=OtherSchemaClass(rawSchema="a" * raw_schema_size),
+        fields=fields,
+    )
+
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
+    )
+
+    assert isinstance(schema.platformSchema, OtherSchemaClass)
+    assert schema.platformSchema.rawSchema == "a" * raw_schema_size, (
+        "Raw schema that fits within budget should be retained"
+    )
+    assert len(schema.fields) < 1000, (
+        "Fields should have been trimmed to fit the budget"
+    )
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
+        "Aspect exceeded acceptable size despite truncation"
+    )
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_schema_metadata_drops_oversized_raw_schema(processor):
+    # When rawSchema alone exceeds the budget, it is dropped so the structured
+    # fields can still be retained rather than failing the whole aspect.
+    fields = [
+        SchemaFieldClass(
+            f"f{i}",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        )
+        for i in range(5)
+    ]
+    schema = SchemaMetadataClass(
+        schemaName="abcdef",
+        version=1,
+        platform="s3",
+        hash="ABCDE1234567890",
+        platformSchema=OtherSchemaClass(
+            rawSchema="a" * (processor.schema_size_constraint + 100000)
+        ),
+        fields=fields,
+    )
+
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
+    )
+
+    assert isinstance(schema.platformSchema, OtherSchemaClass)
+    assert schema.platformSchema.rawSchema == "", "Oversized raw schema was not dropped"
+    assert len(schema.fields) == 5, (
+        "Fields should be retained once the oversized raw schema is dropped"
+    )
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
+        "Aspect exceeded acceptable size"
     )
 
 
