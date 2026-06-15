@@ -946,9 +946,6 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     num_database_tables_to_scan: TopKDict[str, int] = field(default_factory=TopKDict)
     num_database_views_to_scan: TopKDict[str, int] = field(default_factory=TopKDict)
 
-    # Tables excluded from profiling because their size exceeds
-    profiling_skipped_size_limit: TopKDict[str, int] = field(default_factory=TopKDict)
-
     # Global metadata extraction timing (single query for all databases)
     metadata_extraction_total_sec: float = 0.0
 
@@ -3061,7 +3058,7 @@ ORDER by DataBaseName, TableName;
         size_limit_bytes = size_limit_gb * 1024**3
 
         try:
-            with inspector.engine.connect() as conn:
+            with self._retry_connect(inspector.engine) as conn:
                 rows = self._retry_execute(
                     conn,
                     text(self.PROFILE_OVERSIZED_TABLES_QUERY),
@@ -3093,7 +3090,7 @@ ORDER by DataBaseName, TableName;
             if table.strip().lower() not in oversized
         ]
         if oversized:
-            self.report.profiling_skipped_size_limit[schema] = len(oversized)
+            self.report.profiling_skipped_size_limit[schema] += len(oversized)
         logger.info(
             "Profiling %d tables in %s; skipped %d above the %d GB size limit.",
             len(candidates),
