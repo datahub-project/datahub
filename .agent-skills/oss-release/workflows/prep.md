@@ -171,9 +171,12 @@ target when the changelog skill produces content.
 
 **Default path — generate via the changelog skill:**
 
-Check if the `generating-datahub-changelog` skill is available in your runtime's skill registry
-(in Claude Code, look for `connectors-accelerator:generating-datahub-changelog` in the
-available-skills list).
+Use the **repo-canonical** changelog skill at
+`.agent-skills/generating-datahub-changelog/SKILL.md` (invokable as the
+`generating-datahub-changelog` skill / `/generating-datahub-changelog` command). It is
+vendored into this repo and version-controlled — **prefer it over** the plugin's
+`connectors-accelerator:generating-datahub-changelog`, which is only a fallback for repos
+that don't have the in-repo copy.
 
 If available, invoke it via your native skill tool (e.g. Claude Code's `Skill` tool). **Your
 first action inside the invoked skill MUST be to `Read` the template file that matches the

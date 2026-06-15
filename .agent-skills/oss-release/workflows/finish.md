@@ -113,8 +113,10 @@ Set up the notes path and run the stale-notes detector (same script `prep` uses)
 
 Capture the printed path as the notes file.
 
-Invoke the changelog skill with the full cumulative range.
-`connectors-accelerator:generating-datahub-changelog` is the skill name in Claude Code.
+Invoke the changelog skill with the full cumulative range. Use the **repo-canonical**
+`generating-datahub-changelog` skill (`.agent-skills/generating-datahub-changelog/SKILL.md`,
+`/generating-datahub-changelog`); fall back to the plugin's
+`connectors-accelerator:generating-datahub-changelog` only if the in-repo copy is absent.
 Pass **the range `<LAST_STABLE>..<RC_SHA>`** (use `LAST_STABLE` from the preflight summary
 and `RC_SHA` from Step 0) plus the same custom path filter the `prep` workflow uses. If
 the changelog skill is unavailable, fall back to skip-with-placeholder or user-provided
@@ -156,6 +158,19 @@ release. Note: **no `--prerelease`** for stable releases. Intentionally NOT in
 `.agent-skills/oss-release/references/cut-release-render.md`. For stable releases: omit
 `--prerelease` in the rendered commands code block; set `Pre-release` row in the
 parameters table to `false`. Everything else identical to the prep render.
+
+## Linear release tracking — automated, no step needed
+
+Linear release tracking is **fully automated** by the `.github/workflows/linear-release-tracking.yml`
+GitHub Action (Linear's native "Ingestion CLI/PyPI Releases" pipeline). It fires on the
+`release: published` event that `cut-release.sh`'s `gh release create` emits — so publishing
+the stable release automatically syncs issues, completes the Linear release, and stamps the
+CLI Release version label. **There is no manual `finish` step for this.**
+
+If you want to _verify_ the automation caught everything (its discovery keys off `ING-XXXX`
+in commit text, which OSS commits rarely carry), run the optional manual audit:
+`/oss-release mark-linear` → `.agent-skills/oss-release/workflows/mark-linear-tickets.md`.
+That is an audit/gap-filler, not part of the release flow.
 
 ---
 
