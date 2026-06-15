@@ -14,7 +14,6 @@ from datahub.ingestion.api.workunit_processor import (
 )
 from datahub.metadata.schema_classes import (
     DatasetProfileClass,
-    OtherSchemaClass,
     QueryPropertiesClass,
     QuerySubjectsClass,
     SchemaFieldClass,
@@ -105,10 +104,15 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         """Serialized size of the aspect excluding the ``fields`` list.
 
         The ``fields`` list is the part we trim, but the rest of the aspect is
-        emitted too and must count against the budget — in particular
-        ``platformSchema.rawSchema``, which for deeply-nested schemas can be
-        several MB on its own. Budgeting fields alone lets the final aspect
-        exceed the limit even after truncation.
+        emitted too and must count against the budget — chiefly the
+        ``platformSchema`` blob, which for deeply-nested schemas can be several
+        MB on its own, plus top-level scalars (``hash``, ``schemaName``, …).
+
+        We measure by temporarily clearing ``fields`` and serializing the whole
+        aspect, rather than sizing ``platformSchema`` alone, so the budget
+        reflects *all* non-field content the server will parse (nothing is missed
+        if new top-level fields are added later). The mutation is local and
+        restored in the ``finally``.
         """
         original_fields = schema.fields
         try:
@@ -117,30 +121,51 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         finally:
             schema.fields = original_fields
 
+    def _drop_platform_schema(self, schema: SchemaMetadataClass) -> bool:
+        """Blank the raw platform-schema string(s) on the aspect's platformSchema.
+
+        ``platformSchema`` holds an opaque, source-format dump of the schema —
+        ``rawSchema`` / ``documentSchema`` / ``tableSchema`` / ``keySchema`` /
+        ``valueSchema`` depending on the union variant. It is the least valuable
+        part of the aspect (``fields`` carry the structured, queryable metadata),
+        so we shed it before trimming fields. Every string member is blanked, so
+        this covers all platformSchema variants generically — not just
+        ``OtherSchema``. Returns ``True`` if any content was cleared.
+        """
+        platform_schema = schema.platformSchema
+        if platform_schema is None:
+            return False
+        cleared = False
+        for key, value in platform_schema._inner_dict.items():
+            if isinstance(value, str) and value:
+                platform_schema._inner_dict[key] = ""
+                cleared = True
+        return cleared
+
     def ensure_schema_metadata_size(
         self, dataset_urn: str, schema: SchemaMetadataClass
     ) -> None:
-        # Budget against the full serialized aspect, not just the fields list.
-        # Top-level keys and especially platformSchema.rawSchema are emitted as
-        # well; ignoring them lets the aspect exceed the limit.
-        raw_schema_dropped = False
+        # Budget against the full serialized aspect, not just the fields list:
+        # the platformSchema blob (and other top-level content) is emitted too.
+        truncated = False
         non_fields_size = self._schema_size_without_fields(schema)
+
+        # If the non-field content alone exceeds the budget, the platformSchema
+        # blob is the culprit and the least valuable content. Drop it BEFORE
+        # trimming fields (which carry the metadata users query), then re-measure.
+        # Otherwise the field budget would start already-oversized and reject
+        # every field while the aspect stays over the limit.
         if (
             non_fields_size >= self.schema_size_constraint
-            and isinstance(schema.platformSchema, OtherSchemaClass)
-            and schema.platformSchema.rawSchema
+            and self._drop_platform_schema(schema)
         ):
-            # The raw schema blob alone exceeds the budget. Drop it so the
-            # structured fields can still be retained instead of failing the
-            # whole aspect.
             self.ctx.source_report.warning(
                 title="Schema truncated due to size constraint",
                 message="Dataset schema contained too much data and would have caused ingestion to fail",
-                context=f"Raw schema was removed from schema for {dataset_urn} due to aspect size constraints",
+                context=f"Raw platform schema was removed from schema for {dataset_urn} due to aspect size constraints",
             )
-            schema.platformSchema.rawSchema = ""
             non_fields_size = self._schema_size_without_fields(schema)
-            raw_schema_dropped = True
+            truncated = True
 
         total_fields_size = non_fields_size
         accepted_fields: List[SchemaFieldClass] = []
@@ -155,7 +180,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
                     message="Dataset schema contained too much data and would have caused ingestion to fail",
                     context=f"Field {schema_field.fieldPath} was removed from schema for {dataset_urn} due to aspect size constraints",
                 )
-        if raw_schema_dropped or len(accepted_fields) < len(schema.fields):
+        if truncated or len(accepted_fields) < len(schema.fields):
             self._record_truncation("schemaMetadata")
         schema.fields = accepted_fields
 

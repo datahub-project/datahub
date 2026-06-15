@@ -27,6 +27,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GenericAspectClass,
+    KafkaSchemaClass,
     MetadataChangeProposalClass,
     NumberTypeClass,
     OtherSchemaClass,
@@ -478,6 +479,47 @@ def test_ensure_schema_metadata_drops_oversized_raw_schema(processor):
     assert schema.platformSchema.rawSchema == "", "Oversized raw schema was not dropped"
     assert len(schema.fields) == 5, (
         "Fields should be retained once the oversized raw schema is dropped"
+    )
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
+        "Aspect exceeded acceptable size"
+    )
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_schema_metadata_drops_oversized_non_other_platform_schema(processor):
+    # The platform-schema blob must be dropped before fields for ANY union
+    # variant, not just OtherSchema. Here a KafkaSchema documentSchema alone
+    # exceeds the budget; without generic handling the field loop would reject
+    # every field and still leave the aspect oversized.
+    fields = [
+        SchemaFieldClass(
+            f"f{i}",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        )
+        for i in range(5)
+    ]
+    schema = SchemaMetadataClass(
+        schemaName="abcdef",
+        version=1,
+        platform="kafka",
+        hash="ABCDE1234567890",
+        platformSchema=KafkaSchemaClass(
+            documentSchema="a" * (processor.schema_size_constraint + 100000)
+        ),
+        fields=fields,
+    )
+
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(kafka, dummy_dataset, DEV)", schema
+    )
+
+    assert isinstance(schema.platformSchema, KafkaSchemaClass)
+    assert schema.platformSchema.documentSchema == "", (
+        "Oversized platform schema was not dropped"
+    )
+    assert len(schema.fields) == 5, (
+        "Fields should be retained once the oversized platform schema is dropped"
     )
     assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
         "Aspect exceeded acceptable size"
