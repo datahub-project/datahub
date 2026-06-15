@@ -20,7 +20,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceReport,
     StructuredLogCategory,
 )
@@ -45,9 +44,6 @@ from datahub.ingestion.source.fivetran.log_reader import FivetranConnectorReader
 from datahub.ingestion.source.fivetran.response_models import (
     FivetranDestinationConfig,
     FivetranDestinationDetails,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -865,14 +861,6 @@ class FivetranSource(StatefulIngestionSourceBase):
         for job in connector.jobs:
             dpi = self._generate_dpi_from_job(job, datajob)
             yield from self._get_dpi_workunits(job, dpi)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """

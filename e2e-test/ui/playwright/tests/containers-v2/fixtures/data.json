@@ -1,0 +1,194 @@
+[
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:containers_v2_test",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "json": {
+        "name": "Playwright Containers V2 Test",
+        "description": "Test container with 5 child datasets for Playwright containers-v2 tests"
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,containers_v2_table_1,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "containers_v2_table_1",
+              "description": "Test dataset 1 for container"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "DATASET",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,containers_v2_table_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:containers_v2_test"
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,containers_v2_table_2,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "containers_v2_table_2",
+              "description": "Test dataset 2 for container"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "DATASET",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,containers_v2_table_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:containers_v2_test"
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,containers_v2_table_3,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "containers_v2_table_3",
+              "description": "Test dataset 3 for container"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "DATASET",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,containers_v2_table_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:containers_v2_test"
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,containers_v2_table_4,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "containers_v2_table_4",
+              "description": "Test dataset 4 for container"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "DATASET",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,containers_v2_table_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:containers_v2_test"
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,containers_v2_table_5,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "containers_v2_table_5",
+              "description": "Test dataset 5 for container"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "DATASET",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,containers_v2_table_5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:containers_v2_test"
+      }
+    }
+  }
+]
