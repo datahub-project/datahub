@@ -4205,3 +4205,53 @@ class TestCharPaddingFixes:
             library_col_info={"name": "col1", "nullable": True, "autoincrement": False},
         )
         assert cols[0]["autoincrement"] is False
+
+
+class TestGenerateProfileCandidates:
+    """Size-based profiling candidate filtering (skips large tables)."""
+
+    @staticmethod
+    def _source_with_size_limit(size_limit_gb: Optional[int]) -> TeradataSource:
+        config = TeradataConfig.model_validate(
+            {
+                **_base_config(),
+                "profiling": {"profile_table_size_limit": size_limit_gb},
+            }
+        )
+        with (
+            patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ),
+        ):
+            return TeradataSource(config, PipelineContext(run_id="test"))
+
+    def test_returns_under_limit_tables_and_converts_gb_to_bytes(self):
+        """Tables returned by DBC become candidates; the GB limit is converted to
+        bytes for the query and CHAR-padded table names are stripped."""
+        source = self._source_with_size_limit(2)
+
+        row1 = MagicMock()
+        row1.name = "small_table "  # trailing pad must be stripped
+        row2 = MagicMock()
+        row2.name = "another"
+        result = MagicMock()
+        result.fetchall.return_value = [row1, row2]
+
+        with patch.object(
+            source, "_retry_execute", return_value=result
+        ) as mock_execute:
+            candidates = source.generate_profile_candidates(
+                MagicMock(), None, "myschema"
+            )
+
+        assert candidates == ["myschema.small_table", "myschema.another"]
+        params = mock_execute.call_args.args[2]
+        assert params["schema"] == "myschema"
+        assert params["size_limit_bytes"] == 2 * 1024**3
+
+    def test_without_size_limit_raises_not_implemented(self):
+        """No size limit -> base profiling falls back to all tables."""
+        source = self._source_with_size_limit(None)
+        with pytest.raises(NotImplementedError):
+            source.generate_profile_candidates(MagicMock(), None, "myschema")

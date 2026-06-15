@@ -1438,6 +1438,14 @@ AND t.TableKind in ('T', 'V', 'Q', 'O')
 ORDER by DataBaseName, TableName;
 """.strip()
 
+    PROFILE_CANDIDATES_QUERY: str = """
+    SELECT TableName AS name
+    FROM DBC.TableSizeV
+    WHERE DatabaseName (NOT CASESPECIFIC) = :schema (NOT CASESPECIFIC)
+    GROUP BY TableName
+    HAVING SUM(CurrentPerm) < :size_limit_bytes
+    """.strip()
+
     def _build_tables_and_views_query(self) -> str:
         excluded_dbs = ",".join([f"'{db}'" for db in EXCLUDED_DATABASES])
 
@@ -3020,3 +3028,44 @@ ORDER by DataBaseName, TableName;
 
         # Report failed views summary
         super().close()
+
+    def generate_profile_candidates(
+        self,
+        inspector: Inspector,
+        threshold_time: Optional[datetime],
+        schema: str,
+    ) -> Optional[List[str]]:
+        """Return the tables in `schema` small enough to profile.
+
+        Teradata can profile-scan a multi-GB table for a very long time, so we use
+        DBC space accounting to skip tables above `profile_table_size_limit` (GB)
+        before any profiling query is issued. Row-count filtering is not supported
+        because Teradata has no cheap, reliable DBC row count without COLLECT STATS.
+        """
+        size_limit_gb = self.config.profiling.profile_table_size_limit
+        if size_limit_gb is None:
+            # Nothing we can filter on -> let the base treat all tables as eligible.
+            raise NotImplementedError("Teradata only supports size-based candidates")
+
+        size_limit_bytes = size_limit_gb * 1024**3
+        conn = inspector.bind  # inspect(conn) was used, so bind is the Connection
+
+        rows = self._retry_execute(
+            conn,
+            text(self.PROFILE_CANDIDATES_QUERY),
+            {"schema": schema, "size_limit_bytes": size_limit_bytes},
+        ).fetchall()
+
+        candidates = [
+            self.get_identifier(
+                schema=schema, entity=row.name.strip(), inspector=inspector
+            )
+            for row in rows
+        ]
+        logger.info(
+            "Profiling %d of the tables in %s (size limit %d GB).",
+            len(candidates),
+            schema,
+            size_limit_gb,
+        )
+        return candidates
