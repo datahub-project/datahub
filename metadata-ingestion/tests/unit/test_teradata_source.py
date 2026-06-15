@@ -4255,3 +4255,18 @@ class TestGenerateProfileCandidates:
         source = self._source_with_size_limit(None)
         with pytest.raises(NotImplementedError):
             source.generate_profile_candidates(MagicMock(), None, "myschema")
+
+    def test_query_failure_falls_back_to_no_filtering(self):
+        """If sizing the tables fails (e.g. no SELECT on DBC.TableSizeV), return
+        None so profiling proceeds for all tables instead of failing the run."""
+        source = self._source_with_size_limit(2)
+
+        with patch.object(
+            source, "_retry_execute", side_effect=Exception("permission denied on DBC")
+        ):
+            candidates = source.generate_profile_candidates(
+                MagicMock(), None, "myschema"
+            )
+
+        assert candidates is None
+        assert len(source.report.warnings) > 0

@@ -3050,11 +3050,28 @@ ORDER by DataBaseName, TableName;
         size_limit_bytes = size_limit_gb * 1024**3
         conn = inspector.bind  # inspect(conn) was used, so bind is the Connection
 
-        rows = self._retry_execute(
-            conn,
-            text(self.PROFILE_CANDIDATES_QUERY),
-            {"schema": schema, "size_limit_bytes": size_limit_bytes},
-        ).fetchall()
+        try:
+            rows = self._retry_execute(
+                conn,
+                text(self.PROFILE_CANDIDATES_QUERY),
+                {"schema": schema, "size_limit_bytes": size_limit_bytes},
+            ).fetchall()
+        except Exception as e:
+            # Sizing relies on SELECT access to DBC.TableSizeV, which locked-down
+            # Teradata instances routinely withhold. Fall back to "no filtering"
+            # (return None) so profiling proceeds for all tables rather than
+            # failing the entire run.
+            self.report.warning(
+                title="Could not size tables for profiling",
+                message=(
+                    "Failed to query DBC.TableSizeV to apply profile_table_size_limit. "
+                    "Profiling will proceed without size-based filtering for this schema. "
+                    "Ensure the ingestion user has SELECT on DBC.TableSizeV to skip large tables."
+                ),
+                context=f"schema={schema}",
+                exc=e,
+            )
+            return None
 
         candidates = [
             self.get_identifier(
