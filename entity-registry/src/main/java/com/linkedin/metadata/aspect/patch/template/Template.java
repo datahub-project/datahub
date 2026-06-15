@@ -67,6 +67,12 @@ public interface Template<T extends RecordTemplate> {
               "Error performing JSON PATCH on aspect %s. Patch: %s Target: %s",
               recordTemplate.schema().getName(), jsonPatch, transformed.toString()),
           e);
+    } catch (jakarta.json.JsonException e) {
+      throw new RuntimeException(
+          String.format(
+              "Error performing JSON PATCH on aspect %s. Patch: %s Target: %s",
+              recordTemplate.schema().getName(), jsonPatch, transformed.toString()),
+          e);
     }
   }
 
