@@ -295,6 +295,7 @@ class DremioSource(StatefulIngestionSourceBase):
             usage_config=self.config.usage,
             # Gate SQL-discovered URNs through the catalog-walk filters.
             is_allowed_table=self._is_allowed_table,
+            format_queries=False,
         )
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
