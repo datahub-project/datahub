@@ -13,6 +13,7 @@ import com.datahub.event.PlatformEventProcessor;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.PeConsumerConfiguration;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
+import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
 import com.linkedin.metadata.pgqueue.PgQueuePollContext;
 import com.linkedin.metadata.pgqueue.PgQueuePollerRegistration;
 import com.linkedin.metadata.pgqueue.PgQueuePollerSource;
@@ -102,7 +103,7 @@ public class PgQueuePePollerSourcesConfigurationTest {
         new PgQueuePollContext(store, "pe-group", Duration.ofSeconds(30), deserializer);
     reg.handler().handleBatch("PlatformEvent_v1", List.of(msg), ctx);
 
-    verify(processor).consumeEnvelope(any());
+    verify(processor).consumeEnvelope(any(InboundMetadataEnvelope.class));
     verify(store).commitForGroup(eq("pe-group"), eq(List.of(handle)), eq(true));
   }
 }

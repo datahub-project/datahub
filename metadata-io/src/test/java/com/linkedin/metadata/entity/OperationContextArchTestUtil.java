@@ -8,48 +8,42 @@ import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
-import org.testng.annotations.Test;
+import java.util.stream.Collectors;
 
 /**
- * Architectural rule: every public method declared directly on {@link AspectDao} must have the
- * required parameter types at the specified indices, unless annotated with {@link
- * OperationContextExempt}.
+ * Shared ArchUnit helpers for enforcing parameter-shape rules on a target class. Anyone can call
+ * {@link #checkArch(Class, Map)} to assert that every public, non-exempt method declared directly
+ * on a target type has the required parameter type at a specific index — e.g. {@code Map.of(0,
+ * OperationContext.class)} to require {@code OperationContext} as the first parameter.
  *
- * <p>Use {@link #checkArch(Class, Map)} to add enforcement for additional DAO interfaces. The
- * {@code requiredAtIndex} map encodes which type is required at which parameter position — e.g.
- * {@code Map.of(0, OperationContext.class)} means the first parameter must be (or extend) {@code
- * OperationContext}.
+ * <p>Currently filters to {@code arePublic() && !@OperationContextExempt}. A future overload can
+ * accept a visibility filter map (private / protected / public) and a custom exempt annotation if
+ * more arch rules want to plug in. Add the overload when the first caller needs it; until then keep
+ * the surface small.
  */
-public class AspectDaoOperationContextTest {
+public final class OperationContextArchTestUtil {
 
-  @Test
-  public void aspectDaoPublicMethodsMustHaveOperationContextAsFirstParam() {
-    checkArch(AspectDao.class, Map.of(0, OperationContext.class));
-  }
-
-  // ---------------------------------------------------------------------------
-  // Reusable helper — add one @Test per interface you want to enforce
-  // ---------------------------------------------------------------------------
+  private OperationContextArchTestUtil() {}
 
   /**
-   * Asserts that every public, non-exempt method declared directly on {@code daoInterface} has the
-   * types specified by {@code requiredAtIndex} at the corresponding parameter positions.
+   * Asserts that every public, non-exempt method declared directly on {@code targetClass} has the
+   * types specified by {@code requiredAtIndex} at the corresponding parameter positions. Methods
+   * carrying {@link OperationContextExempt} are skipped.
    *
-   * @param daoInterface the interface whose methods are checked
+   * @param targetClass the class/interface whose methods are checked
    * @param requiredAtIndex map of {@code parameterIndex → required type}; all entries must be
    *     satisfied for a method to pass
    */
-  private static void checkArch(Class<?> daoInterface, Map<Integer, Class<?>> requiredAtIndex) {
-    // Imports only the single interface class file. Sufficient for parameter-type checks on methods
-    // declared directly in daoInterface. If future rules need cross-class analysis (e.g. checking
-    // implementations), switch to importPackagesOf(daoInterface).
-    var classes = new ClassFileImporter().importClasses(daoInterface);
+  public static void checkArch(Class<?> targetClass, Map<Integer, Class<?>> requiredAtIndex) {
+    // Imports only the single class file. Sufficient for parameter-type checks on methods declared
+    // directly in targetClass. If future rules need cross-class analysis (e.g. checking
+    // implementations), switch to importPackagesOf(targetClass).
+    var classes = new ClassFileImporter().importClasses(targetClass);
     methods()
         .that()
-        .areDeclaredIn(daoInterface)
+        .areDeclaredIn(targetClass)
         .and()
         .arePublic()
         .and()
@@ -64,7 +58,7 @@ public class AspectDaoOperationContextTest {
         "have required parameter types — "
             + requiredAtIndex.entrySet().stream()
                 .map(e -> "param[" + e.getKey() + "]=" + e.getValue().getSimpleName())
-                .collect(java.util.stream.Collectors.joining(", "));
+                .collect(Collectors.joining(", "));
     return new ArchCondition<>(description) {
       @Override
       public void check(JavaMethod method, ConditionEvents events) {

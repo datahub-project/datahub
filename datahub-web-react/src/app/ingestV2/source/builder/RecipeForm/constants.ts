@@ -315,6 +315,13 @@ import {
     TABLEAU_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/tableau';
 import {
+    TIDB,
+    TIDB_DATABASE,
+    TIDB_HOST_PORT,
+    TIDB_PASSWORD,
+    TIDB_USERNAME,
+} from '@app/ingestV2/source/builder/RecipeForm/tidb';
+import {
     TRINO,
     TRINO_DATABASE,
     TRINO_HOST_PORT,
@@ -589,6 +596,18 @@ export const RECIPE_FIELDS: RecipeFields = {
     },
     [MARIADB]: {
         fields: [MARIADB_HOST_PORT, MARIADB_USERNAME, MARIADB_PASSWORD, MARIADB_DATABASE],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [
+            INCLUDE_TABLES,
+            INCLUDE_VIEWS,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
+    },
+    [TIDB]: {
+        fields: [TIDB_HOST_PORT, TIDB_USERNAME, TIDB_PASSWORD, TIDB_DATABASE],
         filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
         advancedFields: [
             INCLUDE_TABLES,

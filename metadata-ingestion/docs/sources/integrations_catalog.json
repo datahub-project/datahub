@@ -477,6 +477,15 @@
       "Status Aspect"
     ]
   },
+  "tidb": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "TiDB is an open-source, distributed SQL database compatible with the MySQL protocol and ecosystem.",
+    "img_path": "img/logos/platforms/tidb.svg",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
   "trino": {
     "platform_type": "Database",
     "connection_type": "Pull",

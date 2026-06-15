@@ -100,9 +100,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
       log.debug("Processing {} events for URN: {} with V3 unified batch", urnEvents.size(), urn);
 
-      if (structuredPropertiesHookEnabled) {}
-
-      // V3 optimization: single operation per URN
+      // V3 optimization: single operation per URN regardless of aspect count
       processUrnBatch(opContext, urn, urnEvents, structuredPropertiesHookEnabled, throttleSummary);
     }
 

@@ -507,6 +507,11 @@ scripts/dev/datahub-dev.sh env list           # show current vars and pending_re
 
 **Do NOT** manually edit `.env` files, use `docker compose -e`, or `export` — always use the wrapper.
 
+**GMS primary storage read pool** (optional, entity aspect DAO only): `EBEAN_READ_POOL_ENABLED` /
+`CASSANDRA_READ_POOL_ENABLED` route non-locking reads to a second pool; writes and `forUpdate`
+reads stay on PRIMARY. See [docs/deploy/primary-storage-read-pool.md](docs/deploy/primary-storage-read-pool.md).
+`DATAHUB_READ_ONLY=true` is separate — it disables writes and does not register the read pool.
+
 ### Feature Flag Lifecycle
 
 **All flag changes require a container restart.** Use `env set` + `env restart`:
