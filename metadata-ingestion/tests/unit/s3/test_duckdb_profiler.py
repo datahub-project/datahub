@@ -299,7 +299,7 @@ def test_path_with_single_quote_is_handled_via_binding(tmp_path):
 
 
 def test_non_s3_platform_does_not_create_s3_secret():
-    """With platform='gcs', _ensure_remote_setup must not emit any S3 secret SQL."""
+    """With platform='gcs', _ensure_s3_secret must not emit any S3 secret SQL."""
     aws = AwsConnectionConfig(
         aws_access_key_id="AKIA_EXAMPLE",
         aws_secret_access_key="secret_example",
@@ -317,10 +317,7 @@ def test_non_s3_platform_does_not_create_s3_secret():
     # Use a mock connection to capture execute calls.
     mock_conn = MagicMock(spec=sa.engine.Connection)
 
-    # We need httpfs to be already loaded so only the secret branch is tested.
-    profiler._httpfs_loaded = True
-
-    profiler._ensure_remote_setup(mock_conn)
+    profiler._ensure_s3_secret(mock_conn)
 
     # Assert S3 secret was NOT emitted.
     executed_sqls = [str(call.args[0]) for call in mock_conn.execute.call_args_list]
@@ -371,8 +368,8 @@ def test_nested_column_is_profiled_as_json(tmp_path):
 
 
 def test_load_extension_airgapped_error_is_actionable():
-    """When both LOAD and INSTALL fail (air-gapped, not pre-staged), the error
-    must mention pre-staging and the duckdb_extension_directory config."""
+    """When INSTALL+LOAD fails (air-gapped, not pre-staged), the error must
+    mention pre-staging and the duckdb_extension_directory config."""
     profiler = DuckDBProfiler(
         aws_config=None,
         report=DataLakeSourceReport(),
@@ -392,19 +389,30 @@ def test_load_extension_airgapped_error_is_actionable():
         profiler.close()
 
 
-def test_load_extension_prefers_offline_load():
-    """LOAD is tried first; when it succeeds, INSTALL (the download path) is never run."""
+def test_load_extension_uses_single_install_load_statement():
+    """The extension is loaded via a single `INSTALL ...; LOAD ...` statement.
+
+    Regression guard for the CI breakage: we must NOT probe with a bare `LOAD`
+    first. `_load_extension` runs inside the `engine.begin()` transaction that
+    materializes the profile table; a failed `LOAD` (extension not yet present)
+    aborts that transaction in DuckDB, so an `INSTALL` retry then fails with
+    "current transaction is aborted" and the extension never downloads — the
+    profile is silently dropped (exactly what broke the avro integration test).
+    """
     profiler = DuckDBProfiler(
         aws_config=None,
         report=DataLakeSourceReport(),
         profiling_config=_profiling_config(),
     )
-    conn = MagicMock()  # execute() succeeds for LOAD
-    profiler._load_extension(conn, "httpfs")
+    conn = MagicMock()
+    profiler._load_extension(conn, "avro")
     profiler.close()
     assert conn.execute.call_count == 1
-    assert "LOAD httpfs" in str(conn.execute.call_args[0][0])
-    assert "httpfs" in profiler._loaded_extensions
+    sql = str(conn.execute.call_args[0][0])
+    assert "INSTALL avro" in sql and "LOAD avro" in sql
+    # The INSTALL must precede the LOAD (so a cold cache downloads first).
+    assert sql.index("INSTALL avro") < sql.index("LOAD avro")
+    assert "avro" in profiler._loaded_extensions
 
 
 def test_apply_extension_directory_sets_when_configured():
@@ -438,9 +446,15 @@ def test_apply_extension_directory_noop_when_unset():
     conn.execute.assert_not_called()
 
 
-def test_load_extension_offline_mode_never_installs():
-    """When duckdb_extension_directory is set (offline intent), a failed LOAD must
-    NOT trigger INSTALL (no network attempt) — it fails fast with guidance."""
+def test_load_extension_still_installs_when_extension_directory_set():
+    """A configured `duckdb_extension_directory` must NOT disable INSTALL.
+
+    The directory's presence does not guarantee the correct binary (right DuckDB
+    version/platform) is staged there, so we still issue INSTALL — which no-ops
+    offline when the staged binary is correct, and downloads/repairs otherwise.
+    Gating INSTALL on the directory would silently break profiling against a
+    stale or mismatched directory.
+    """
     from datahub.ingestion.source.s3.datalake_profiler_config import (
         DataLakeProfilerConfig,
     )
@@ -452,15 +466,7 @@ def test_load_extension_offline_mode_never_installs():
         aws_config=None, report=DataLakeSourceReport(), profiling_config=cfg
     )
     conn = MagicMock()
-    conn.execute.side_effect = Exception("LOAD failed: not pre-staged")
-    try:
-        try:
-            profiler._load_extension(conn, "httpfs")
-            raise AssertionError("expected ValueError")
-        except ValueError as e:
-            assert "duckdb_extension_directory" in str(e)
-        # Only LOAD was attempted — no INSTALL (which would hit the network).
-        assert conn.execute.call_count == 1
-        assert "LOAD httpfs" in str(conn.execute.call_args[0][0])
-    finally:
-        profiler.close()
+    profiler._load_extension(conn, "httpfs")
+    profiler.close()
+    sql = str(conn.execute.call_args[0][0])
+    assert "INSTALL httpfs" in sql

@@ -103,49 +103,50 @@ class DuckDBProfiler:
             conn.execute(sa.text(f"SET extension_directory = '{escaped}'"))
 
     def _load_extension(self, conn: sa.engine.Connection, extension: str) -> None:
-        """Load a DuckDB extension, preferring an offline LOAD.
+        """Install (if needed) and load a DuckDB extension.
 
-        `LOAD` succeeds for statically-linked extensions or ones already present
-        in the (optionally pre-staged) extension directory — no network.
+        Issued as a single ``INSTALL ...; LOAD ...`` statement. ``INSTALL`` is a
+        no-op when the extension is already present — including a correct binary
+        pre-staged in ``duckdb_extension_directory``, in which case it touches no
+        network (verified to work fully air-gapped). When the extension is
+        missing, or the staged binary doesn't match this DuckDB version/platform,
+        ``INSTALL`` downloads the right one; we fail only if that download fails.
 
-        When `duckdb_extension_directory` is set, the operator has declared an
-        offline/air-gapped intent: we do NOT attempt `INSTALL` (which would reach
-        out to DuckDB's extension repository and can hang on a black-holed
-        network) and instead fail fast with guidance to pre-stage the binary.
-        Otherwise we fall back to `INSTALL` (a one-time download).
+        A configured ``duckdb_extension_directory`` is deliberately NOT treated as
+        an "offline, never download" switch: its mere presence does not guarantee
+        the correct binary is staged there, so gating ``INSTALL`` on it would
+        silently disable profiling against a stale/mismatched directory. Always
+        attempting ``INSTALL`` lets a correct directory skip the network while a
+        missing/wrong one self-heals (or fails loudly).
+
+        We must NOT probe with a bare ``LOAD`` first: this runs inside the
+        ``engine.begin()`` transaction that materializes the profile table, and a
+        failed ``LOAD`` (extension not yet present) aborts that transaction in
+        DuckDB — the ``INSTALL`` retry would then fail with "current transaction
+        is aborted" and nothing would download. ``INSTALL ...; LOAD ...`` in one
+        statement keeps the download path on a clean transaction.
         """
         if extension in self._loaded_extensions:
             return
-        offline = bool(
-            getattr(self.profiling_config, "duckdb_extension_directory", None)
-        )
         try:
-            conn.execute(sa.text(f"LOAD {extension}"))
-        except Exception as load_err:
-            if offline:
-                raise ValueError(
-                    f"Could not load the DuckDB '{extension}' extension from the "
-                    f"configured `profiling.duckdb_extension_directory`. Downloads "
-                    f"are disabled when that directory is set; pre-stage the "
-                    f"matching '{extension}.duckdb_extension' binary (for your "
-                    f"DuckDB version and platform) there "
-                    f"({type(load_err).__name__}: {load_err})."
-                ) from load_err
-            try:
-                conn.execute(sa.text(f"INSTALL {extension}; LOAD {extension};"))
-            except Exception as e:
-                raise ValueError(
-                    f"Could not load the DuckDB '{extension}' extension. DuckDB "
-                    f"downloads it on first use, which fails in air-gapped "
-                    f"environments. Pre-stage the extension offline and set "
-                    f"`profiling.duckdb_extension_directory` to its location "
-                    f"({type(e).__name__}: {e})."
-                ) from e
+            conn.execute(sa.text(f"INSTALL {extension}; LOAD {extension};"))
+        except Exception as e:
+            raise ValueError(
+                f"Could not load or install the DuckDB '{extension}' extension. "
+                f"DuckDB downloads it on first use, which fails in air-gapped "
+                f"environments. Pre-stage the matching '{extension}.duckdb_extension' "
+                f"binary (for your DuckDB version and platform) and point "
+                f"`profiling.duckdb_extension_directory` at it "
+                f"({type(e).__name__}: {e})."
+            ) from e
         self._loaded_extensions.add(extension)
 
-    def _ensure_remote_setup(self, conn: sa.engine.Connection) -> None:
-        """Load httpfs (for remote object-store reads) and create an S3 secret."""
-        self._load_extension(conn, "httpfs")
+    def _ensure_s3_secret(self, conn: sa.engine.Connection) -> None:
+        """Create the DuckDB S3 secret for credentialed remote reads (once).
+
+        Must run after all extensions are loaded: a failed extension `LOAD`
+        triggers a `rollback()` that would otherwise discard the secret.
+        """
         if (
             not self._secrets_done
             and self.aws_config is not None
@@ -294,7 +295,8 @@ class DuckDBProfiler:
             with engine.begin() as conn:
                 self._apply_extension_directory(conn)
                 if self._is_remote(path):
-                    self._ensure_remote_setup(conn)
+                    self._load_extension(conn, "httpfs")
+                    self._ensure_s3_secret(conn)
                 self._ensure_format_extension(conn, ext)
                 select_list = self._build_select_list(conn, ext, path)
                 limit = self.profiling_config.profile_table_row_limit
