@@ -15,6 +15,9 @@
 import { test } from '../../fixtures/base-test';
 import { AnalyticsPage } from '../../pages/analytics.page';
 
+const CHART_URN = 'urn:li:chart:(looker,playwright_baz1)';
+const CHART_TITLE = 'Baz Chart 1';
+
 test.describe('Analytics', () => {
   let analyticsPage: AnalyticsPage;
 
@@ -28,11 +31,8 @@ test.describe('Analytics', () => {
   });
 
   test('can track tab interactions and see them in analytics', async () => {
-    const chartUrn = 'urn:li:chart:(looker,playwright_baz1)';
-    const chartTitle = 'Baz Chart 1';
-
-    await analyticsPage.goToChart(chartUrn);
-    await analyticsPage.verifyChartTitle(chartTitle);
+    await analyticsPage.goToChart(CHART_URN);
+    await analyticsPage.verifyChartTitle(CHART_TITLE);
     await analyticsPage.clickTab('Dashboards');
     await analyticsPage.goToAnalytics();
     await analyticsPage.verifyTabViewsChartVisible();

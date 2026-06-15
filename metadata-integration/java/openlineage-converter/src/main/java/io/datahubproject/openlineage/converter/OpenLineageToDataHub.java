@@ -1330,6 +1330,9 @@ public class OpenLineageToDataHub {
 
   public static SchemaFieldDataType.Type convertOlFieldTypeToDHFieldType(
       String openLineageFieldType) {
+    if (openLineageFieldType == null) {
+      return SchemaFieldDataType.Type.create(new NullType());
+    }
     switch (openLineageFieldType) {
       case "string":
         return SchemaFieldDataType.Type.create(new StringType());
@@ -1368,7 +1371,7 @@ public class OpenLineageToDataHub {
             field -> {
               SchemaField schemaField = new SchemaField();
               schemaField.setFieldPath(field.getName());
-              schemaField.setNativeDataType(field.getType());
+              schemaField.setNativeDataType(field.getType() == null ? "" : field.getType());
               schemaField.setType(
                   new SchemaFieldDataType()
                       .setType(convertOlFieldTypeToDHFieldType(field.getType())));
