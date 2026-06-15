@@ -4308,6 +4308,21 @@ class TestGenerateProfileCandidates:
         assert candidates[0].lower() == "myschema.smalltable"
         assert source.report.profiling_skipped_size_limit["myschema"] == 1
 
+    def test_empty_schema_returns_empty_list_not_none(self):
+        """A schema with no tables yields [] (filtering applied, nothing to profile),
+        not None (which would mean "no filtering")."""
+        source = self._source_with_size_limit(2)
+
+        result = self._oversized_rows()
+        inspector = MagicMock()
+        inspector.get_table_names.return_value = []
+
+        with patch.object(source, "_retry_execute", return_value=result):
+            candidates = source.generate_profile_candidates(inspector, None, "myschema")
+
+        assert candidates == []
+        assert candidates is not None
+
     def test_without_size_limit_raises_not_implemented(self):
         """No size limit -> base profiling falls back to all tables."""
         source = self._source_with_size_limit(None)
@@ -4327,4 +4342,6 @@ class TestGenerateProfileCandidates:
             )
 
         assert candidates is None
-        assert len(source.report.warnings) > 0
+        # The warning should point at the DBC view so operators know what to grant;
+        # match on a stable keyword rather than the full wording.
+        assert any("DBC.TableSizeV" in w.message for w in source.report.warnings)
