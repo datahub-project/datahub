@@ -21,10 +21,8 @@ TEST_DENY_POLICY_NAME = "Test Deny Policy"
 PERF_DENY_POLICY_PREFIX = "PerfDeny-EDIT_ENTITY_TAGS-"
 PERF_NUM_QUERIES = 25
 PERF_LATENCY_RATIO_THRESHOLD = 2
-# Absolute slack added on top of the ratio. listPolicies baselines on a quiet local stack
-# can be a few ms, where any fixed jitter (GC, ES refresh after the policy writes) dwarfs the
-# real per-DENY cost and makes a pure ratio meaningless. The allowed budget is the larger of
-# (baseline x ratio) and (baseline + this floor).
+# Absolute slack so a few-ms baseline (where jitter dwarfs real per-DENY cost) can't fail the
+# ratio. Allowed budget = max(baseline x ratio, baseline + this floor).
 PERF_LATENCY_ABS_FLOOR_SECONDS = 0.05
 PERF_NUM_DENY_POLICIES = 20
 PERF_GROUP_PREFIX = "PerfDenyGroup-"
@@ -326,12 +324,9 @@ def _create_deny_policy(
 
 
 def _assert_listpolicies_not_slowed_by_denies(session, deny_setup) -> None:
-    """Measure ``listPolicies`` median latency for ``session`` before and after the
-    ``deny_setup`` callback creates its DENY policies. The with-DENY median must stay
-    within ``max(baseline x PERF_LATENCY_RATIO_THRESHOLD, baseline + floor)`` — the
-    absolute floor keeps the check meaningful when the baseline is only a few ms and
-    dominated by jitter rather than real per-DENY work. Each phase is preceded by a
-    discarded warm-up run so we never compare a cold/just-written stack against a warm one."""
+    """Assert ``listPolicies`` median latency after ``deny_setup`` stays within
+    ``max(baseline x PERF_LATENCY_RATIO_THRESHOLD, baseline + PERF_LATENCY_ABS_FLOOR_SECONDS)``.
+    A discarded warm-up run precedes each measurement."""
     _timed_list_policies(session)
     baseline_median = _median(_timed_list_policies(session))
 
@@ -391,15 +386,11 @@ def test_deny_policy_perf_smoke(auth_session):
 
 @pytest.mark.parametrize("num_groups", [10, 100])
 def test_deny_policy_perf_with_many_group_memberships(auth_session, num_groups):
-    """A corpuser who belongs to many groups must not see authorization latency blow up
-    when DENY policies exist on the very privilege being authorized. The user is granted
-    MANAGE_POLICIES via one of its groups (so listPolicies authorizes), and the DENY
-    policies also target MANAGE_POLICIES but via *decoy* groups the user is not a member
-    of. Because DENY is privilege-indexed, every one of these denies lands in the same
-    ``DENY_MANAGE_POLICIES`` bucket and is evaluated on every listPolicies request — yet
-    none match the user, so the ALLOW grant still wins. This is the realistic worst case
-    for DENY cost (hot-path evaluation against a many-group actor), unlike denies on an
-    unrelated privilege which the index skips entirely."""
+    """A many-group corpuser must not see authorization latency blow up when DENY policies
+    exist on the privilege being authorized. The user is granted MANAGE_POLICIES via a group;
+    the DENY policies also target MANAGE_POLICIES but via decoy groups the user is not in, so
+    they land in the privilege-indexed ``DENY_MANAGE_POLICIES`` bucket and are evaluated on
+    every request without matching — the realistic worst case for hot-path DENY cost."""
     admin_username, admin_password = get_admin_credentials()
     admin_session = login_as(admin_username, admin_password)
     # create_user re-logs-in as admin and returns the fresh session; never mutate the
@@ -427,8 +418,7 @@ def test_deny_policy_perf_with_many_group_memberships(auth_session, num_groups):
                 {"groupUrn": group_urn, "userUrns": [user_urn]},
             )
 
-        # Decoy groups the user is NOT a member of, used to scope the DENY policies so
-        # they are evaluated on the hot path but never actually match the actor.
+        # Decoy groups the user is not in, so the DENY policies are evaluated but never match.
         for i in range(PERF_NUM_DENY_POLICIES):
             res = _post_graphql(
                 admin_session,
