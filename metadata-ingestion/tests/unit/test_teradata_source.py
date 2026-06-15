@@ -4303,6 +4303,7 @@ class TestGenerateProfileCandidates:
         with patch.object(source, "_retry_execute", return_value=result):
             candidates = source.generate_profile_candidates(inspector, None, "myschema")
 
+        assert candidates is not None
         assert len(candidates) == 1
         assert candidates[0].lower() == "myschema.smalltable"
         assert source.report.profiling_skipped_size_limit["myschema"] == 1
