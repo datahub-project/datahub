@@ -16,7 +16,7 @@ from typing import (
     Set,
     Tuple,
 )
-from urllib.parse import urlparse
+from urllib.parse import quote as _urlquote, urlparse
 
 import botocore.exceptions
 import yaml
@@ -172,6 +172,15 @@ GLUE_NATIVE_CONNECTION_TYPE_MAP: Dict[str, str] = {
 }
 
 JDBC_PREFIX = "jdbc:"
+
+
+def _glue_name_to_urn_part(name: str) -> str:
+    # Glue allows / in database and table names. UrnEncoder does not encode /,
+    # so a literal / in the URN name field breaks DataHub lookups. We pre-encode
+    # the entire name component so all URL-unsafe chars (/ included) become
+    # percent-encoded before UrnEncoder runs (which then sees no reserved chars
+    # and returns the pre-encoded string unchanged).
+    return _urlquote(name, safe="")
 
 
 def _sanitize_jdbc_url(jdbc_url: str) -> str:
@@ -1737,9 +1746,13 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.report_table_dropped(full_table_name)
             return
 
+        urn_name = (
+            f"{_glue_name_to_urn_part(database_name)}"
+            f".{_glue_name_to_urn_part(table_name)}"
+        )
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
-            name=full_table_name,
+            name=urn_name,
             env=self.env,
             platform_instance=self.source_config.platform_instance,
         )
