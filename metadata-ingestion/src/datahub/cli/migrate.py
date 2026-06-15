@@ -44,7 +44,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
-from datahub.utilities.urns.urn import Urn
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 log = logging.getLogger(__name__)
 
@@ -123,11 +123,9 @@ def migrate() -> None:
     pass
 
 
-def _get_type_from_urn(urn: str) -> str:
-    return urn.split(":")[2]
-
-
-def _parse_entity_types(entity_types_arg: Optional[str]) -> List[str]:
+def _parse_entity_types(
+    entity_types_arg: Optional[str], force: bool = False, dry_run: bool = False
+) -> List[str]:
     """Parse --entity-types CLI argument into a validated list of entity types."""
     if entity_types_arg is None:
         return list(ALL_ENTITY_TYPES)
@@ -139,11 +137,13 @@ def _parse_entity_types(entity_types_arg: Optional[str]) -> List[str]:
             f"Available: {', '.join(ALL_ENTITY_TYPES)}",
             param_hint="--entity-types",
         )
-    _warn_dataflow_datajob_coupling(types)
+    _warn_dataflow_datajob_coupling(types, force=force, dry_run=dry_run)
     return types
 
 
-def _warn_dataflow_datajob_coupling(types: List[str]) -> None:
+def _warn_dataflow_datajob_coupling(
+    types: List[str], force: bool = False, dry_run: bool = False
+) -> None:
     """Warn if dataFlow and dataJob are not migrated together."""
     has_flow = "dataFlow" in types
     has_job = "dataJob" in types
@@ -153,14 +153,16 @@ def _warn_dataflow_datajob_coupling(types: List[str]) -> None:
             "DataJob URNs embed their parent DataFlow URN — if you migrate "
             "flows without their jobs, the jobs will reference stale flow URNs."
         )
-        click.confirm("Continue without dataJob?", abort=True)
+        if not force and not dry_run:
+            click.confirm("Continue without dataJob?", abort=True)
     elif has_job and not has_flow:
         click.echo(
             "\n⚠️  Warning: migrating dataJob without dataFlow. "
             "DataJob URNs embed their parent DataFlow URN — migrating jobs "
             "without their parent flows may produce inconsistent URNs."
         )
-        click.confirm("Continue without dataFlow?", abort=True)
+        if not force and not dry_run:
+            click.confirm("Continue without dataFlow?", abort=True)
 
 
 # --- Core migration logic ---
@@ -227,7 +229,7 @@ def _migrate_single_entity(
     # Update incoming relationships
     for relationship in migration_utils.get_incoming_relationships(src_entity_urn):
         target_urn = relationship.urn
-        entity_type = _get_type_from_urn(target_urn)
+        entity_type = guess_entity_type(target_urn)
         relationship_type = relationship.relationship_type
         aspect_name = migration_utils.get_aspect_name_from_relationship(
             relationship_type, entity_type
@@ -458,7 +460,7 @@ def _process_container_relationships(
         if target_urn in container_id_map:
             target_urn = container_id_map[target_urn]
 
-        entity_type = _get_type_from_urn(target_urn)
+        entity_type = guess_entity_type(target_urn)
         relationship_type = relationship.relationship_type
         aspect_name = migration_utils.get_aspect_name_from_relationship(
             relationship_type, entity_type
@@ -553,7 +555,9 @@ def dataplatform2instance(
     graph = get_default_graph(ClientMode.CLI)
     conflict = ConflictStrategy(on_conflict)
 
-    entity_types_to_migrate = _parse_entity_types(entity_types)
+    entity_types_to_migrate = _parse_entity_types(
+        entity_types, force=force, dry_run=dry_run
+    )
     click.echo(
         f"This command will migrate {', '.join(t.upper() for t in entity_types_to_migrate)} "
         "and CONTAINERS."
@@ -677,7 +681,9 @@ def instance2instance(
 ) -> None:
     """Migrate entities from one platform instance to another."""
     conflict = ConflictStrategy(on_conflict)
-    entity_types_to_migrate = _parse_entity_types(entity_types)
+    entity_types_to_migrate = _parse_entity_types(
+        entity_types, force=force, dry_run=dry_run
+    )
     click.echo(
         f"Starting migration: platform:{platform}, "
         f"old-instance={old_instance}, new-instance={new_instance}, "

@@ -41,6 +41,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.str_enum import StrEnum
+from datahub.utilities.urns.urn import guess_entity_type
 
 log = logging.getLogger(__name__)
 
@@ -633,7 +634,7 @@ def merge_entity(
     """
     # Only datasets support Patch-based merge. Other entity types fall back to
     # overwrite because there's no ChartPatchBuilder/DashboardPatchBuilder etc.
-    entity_type = dst_urn.split(":")[2]
+    entity_type = guess_entity_type(dst_urn)
     if entity_type != "dataset":
         log.info(
             f"Entity type '{entity_type}' does not support merge — "

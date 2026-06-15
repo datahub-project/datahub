@@ -7,30 +7,30 @@ import pytest
 
 from datahub.cli.migrate import (
     MigrationReport,
-    _get_type_from_urn,
     _migrate_entities,
     _migrate_single_entity,
 )
 from datahub.cli.migration_utils import ConflictStrategy
 from datahub.metadata.schema_classes import SystemMetadataClass
+from datahub.utilities.urns.urn import guess_entity_type
 
-# --- _get_type_from_urn ---
+# --- guess_entity_type ---
 
 
-class TestGetTypeFromUrn:
+class TestGuessEntityType:
     def test_extracts_dataset(self) -> None:
         assert (
-            _get_type_from_urn(
+            guess_entity_type(
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t,PROD)"
             )
             == "dataset"
         )
 
     def test_extracts_chart(self) -> None:
-        assert _get_type_from_urn("urn:li:chart:(powerbi,my_chart)") == "chart"
+        assert guess_entity_type("urn:li:chart:(powerbi,my_chart)") == "chart"
 
     def test_extracts_container(self) -> None:
-        assert _get_type_from_urn("urn:li:container:abc123") == "container"
+        assert guess_entity_type("urn:li:container:abc123") == "container"
 
 
 # --- _migrate_single_entity ---
