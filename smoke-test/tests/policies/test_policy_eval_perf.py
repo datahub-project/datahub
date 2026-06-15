@@ -14,12 +14,7 @@ from datahub.metadata.schema_classes import (
 )
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.privileges.utils import create_user, remove_user
-from tests.utils import (
-    delete_urns,
-    get_admin_credentials,
-    get_frontend_url,
-    login_as,
-)
+from tests.utils import delete_urns, get_admin_credentials, get_frontend_url, login_as
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +154,11 @@ def _create_scoped_policy(
             "resources": {
                 "filter": {
                     "criteria": [
-                        {"field": "DOMAIN", "values": [domain_urn], "condition": "EQUALS"}
+                        {
+                            "field": "DOMAIN",
+                            "values": [domain_urn],
+                            "condition": "EQUALS",
+                        }
                     ]
                 }
             },
@@ -328,7 +327,11 @@ def test_domains_page_perf_with_domain_scoped_policies(
                         "query": "*",
                         "count": PERF_PAGE_COUNT,
                         "orFilters": [
-                            {"and": [{"field": "domains", "values": [child_domain_urn]}]}
+                            {
+                                "and": [
+                                    {"field": "domains", "values": [child_domain_urn]}
+                                ]
+                            }
                         ],
                     }
                 },
@@ -360,4 +363,3 @@ def test_domains_page_perf_with_domain_scoped_policies(
             dataset_urns=dataset_urns,
             domain_urns=[child_domain_urn, parent_domain_urn],
         )
-
