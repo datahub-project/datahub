@@ -86,6 +86,7 @@ export const OperationsTab = () => {
             title: t('shared.runIdColumn'),
             dataIndex: 'name',
             key: 'name',
+            render: (name) => <div data-testid={`run-name-${name}`}>{name}</div>,
         },
         {
             title: t('dataJob.name'),
@@ -103,14 +104,14 @@ export const OperationsTab = () => {
                 const text = getExecutionRequestStatusDisplayText(statusForStyling);
                 const color = getExecutionRequestStatusDisplayColor(theme, statusForStyling);
                 return (
-                    <>
+                    <div data-testid={`run-status-${row.name}`}>
                         <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
                             {Icon && <Icon style={{ color }} />}
                             <Typography.Text strong style={{ color, marginLeft: 8 }}>
                                 {text || tl('na')}
                             </Typography.Text>
                         </div>
-                    </>
+                    </div>
                 );
             },
         },
@@ -198,6 +199,7 @@ export const OperationsTab = () => {
     const tableData = runs
         ?.filter((run) => run)
         .map((run) => ({
+            key: run?.name,
             time: run?.created?.time,
             name: run?.name,
             status: run?.state?.[0]?.status,
