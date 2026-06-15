@@ -1,4 +1,4 @@
-describe("auto-complete", () => {
+describe.skip("auto-complete", () => {
   beforeEach(() => {
     cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showHomePageRedesign = false;

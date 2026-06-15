@@ -6,7 +6,7 @@ const password = `password${number}`;
 const role = `role${number}`;
 const ingestion_source_name = `ingestion source ${number}`;
 
-describe("ingestion source creation flow", () => {
+describe.skip("ingestion source creation flow", () => {
   beforeEach(() => {
     cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;

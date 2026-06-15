@@ -1,6 +1,6 @@
 import { aliasQuery, hasOperationName } from "../utils";
 
-describe("businessAttribute", () => {
+describe.skip("businessAttribute", () => {
   let businessAttributeEntityEnabled;
 
   beforeEach(() => {

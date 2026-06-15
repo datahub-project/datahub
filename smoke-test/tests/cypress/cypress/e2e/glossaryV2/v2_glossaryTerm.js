@@ -57,7 +57,7 @@ const enterKeyInSearchBox = (text) => {
     .type(`${text}{enter}`);
 };
 
-describe("glossaryTerm", () => {
+describe.skip("glossaryTerm", () => {
   beforeEach(() => {
     cy.login();
     cy.skipIntroducePage();

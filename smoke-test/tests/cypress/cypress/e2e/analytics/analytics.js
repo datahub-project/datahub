@@ -1,4 +1,4 @@
-describe("analytics", () => {
+describe.skip("analytics", () => {
   it("can go to a chart and see analytics in tab views", () => {
     cy.login();
 

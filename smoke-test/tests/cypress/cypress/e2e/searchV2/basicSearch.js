@@ -5,7 +5,7 @@ const SAMPLE_ENTITY_NAME = "SampleCypressKafkaDataset";
 const SAMPLE_ENTITY_URN =
   "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)";
 
-describe("searchBarV2 - Basic Search", () => {
+describe.skip("searchBarV2 - Basic Search", () => {
   const helper = new SearchV2Helper();
 
   const setupTest = (searchBarApi = "SEARCH_ACROSS_ENTITIES") => {

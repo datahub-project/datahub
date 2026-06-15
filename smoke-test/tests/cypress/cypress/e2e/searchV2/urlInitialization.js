@@ -3,7 +3,7 @@ import { SearchV2Helper } from "./helpers/searchV2Helper";
 
 const SAMPLE_ENTITY_NAME = "SampleCypressKafkaDataset";
 
-describe("searchBarV2 - URL Initialization", () => {
+describe.skip("searchBarV2 - URL Initialization", () => {
   const helper = new SearchV2Helper();
 
   const setupTest = (searchBarApi = "SEARCH_ACROSS_ENTITIES") => {

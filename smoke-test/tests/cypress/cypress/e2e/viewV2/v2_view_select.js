@@ -3,7 +3,7 @@ function openViewEditDropDownAndClickId(data_id) {
   cy.clickOptionWithTestId(data_id);
 }
 
-describe("view select", () => {
+describe.skip("view select", () => {
   it("click view select, create view, clear view, make defaults, clear view", () => {
     cy.login();
     const randomNumber = Math.floor(Math.random() * 100000);

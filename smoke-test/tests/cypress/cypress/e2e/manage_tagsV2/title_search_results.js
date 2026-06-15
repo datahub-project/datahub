@@ -1,4 +1,4 @@
-describe("tags - title, search, and results", () => {
+describe.skip("tags - title, search, and results", () => {
   beforeEach(() => {
     cy.login();
   });

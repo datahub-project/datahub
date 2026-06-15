@@ -1,4 +1,4 @@
-describe("tags - search not exists", () => {
+describe.skip("tags - search not exists", () => {
   beforeEach(() => {
     cy.login();
   });

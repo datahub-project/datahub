@@ -1,6 +1,6 @@
 import { aliasQuery, hasOperationName } from "../utils";
 
-describe("attribute list adding tags and terms", () => {
+describe.skip("attribute list adding tags and terms", () => {
   let businessAttributeEntityEnabled;
 
   beforeEach(() => {

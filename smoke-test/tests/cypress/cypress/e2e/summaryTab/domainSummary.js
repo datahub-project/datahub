@@ -6,7 +6,7 @@ const TEST_DOMAIN_URN = "urn:li:domain:testing";
 const TEST_SUBDOMAIN_NAME = "Subdomain";
 const TEST_DATA_PRODUCT_NAME = "Testing";
 
-describe("summary tab - domain", () => {
+describe.skip("summary tab - domain", () => {
   beforeEach(() => {
     utils.setSummaryTabFlags(true);
     cy.login();

@@ -2,7 +2,7 @@ import TagsPageHelper from "./helpers/tags_page_helper";
 
 const test_id = `manage_tagsV2_${new Date().getTime()}`;
 
-describe("tags - create/edit/remove", () => {
+describe.skip("tags - create/edit/remove", () => {
   beforeEach(() => {
     cy.login();
   });

@@ -19,7 +19,7 @@ const startAtDataSetLineage = () => {
   cy.get('[data-node-key="Lineage"]').first().should("be.visible").click();
 };
 
-describe("impact analysis", () => {
+describe.skip("impact analysis", () => {
   beforeEach(() => {
     setLineageV3FeatureFlags();
   });

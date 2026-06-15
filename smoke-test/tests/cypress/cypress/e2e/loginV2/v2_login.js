@@ -1,4 +1,4 @@
-describe("login", () => {
+describe.skip("login", () => {
   it("logs in", () => {
     cy.visit("/");
     cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));

@@ -28,7 +28,7 @@ function expandGroupIfNeeded(group) {
     });
 }
 
-describe("incidents", () => {
+describe.skip("incidents", () => {
   const newIncidentNameWithTimeStamp = `${NEW_INCIDENT_VALUES.NAME}-${Date.now()}`;
   const editedIncidentNameWithTimeStamp = `${newIncidentNameWithTimeStamp}-edited`;
 

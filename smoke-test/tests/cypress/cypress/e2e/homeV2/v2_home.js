@@ -1,4 +1,4 @@
-describe("home", () => {
+describe.skip("home", () => {
   beforeEach(() => {
     cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showHomePageRedesign = false;

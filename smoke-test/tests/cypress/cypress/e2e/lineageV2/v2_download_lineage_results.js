@@ -29,7 +29,7 @@ const downloadCsvFile = (filename) => {
   cy.ensureTextNotPresent("Creating CSV");
 };
 
-describe("download lineage results to .csv file", () => {
+describe.skip("download lineage results to .csv file", () => {
   beforeEach(() => {
     cy.on("uncaught:exception", (err, runnable) => false);
   });

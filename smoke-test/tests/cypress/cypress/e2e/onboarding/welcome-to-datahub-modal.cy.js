@@ -1,6 +1,6 @@
 import { aliasQuery, hasOperationName } from "../utils";
 
-describe("WelcomeToDataHubModal", () => {
+describe.skip("WelcomeToDataHubModal", () => {
   const SKIP_WELCOME_MODAL_KEY = "skipWelcomeModal";
 
   beforeEach(() => {

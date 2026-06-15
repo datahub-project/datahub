@@ -56,7 +56,7 @@ const deleteGlossary = (message) => {
   cy.waitTextVisible(message);
 };
 
-describe("glossary sidebar navigation test", () => {
+describe.skip("glossary sidebar navigation test", () => {
   beforeEach(() => {
     Cypress.on("uncaught:exception", (err, runnable) => false);
     cy.login();

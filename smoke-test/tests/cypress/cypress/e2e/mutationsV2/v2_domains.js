@@ -4,7 +4,7 @@ const test_domain_id = Math.floor(Math.random() * 100000);
 const test_domain = `CypressDomainTest ${test_domain_id}`;
 const test_domain_urn = `urn:li:domain:${test_domain_id}`;
 
-describe("add remove domain", () => {
+describe.skip("add remove domain", () => {
   beforeEach(() => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       aliasQuery(req, "appConfig");

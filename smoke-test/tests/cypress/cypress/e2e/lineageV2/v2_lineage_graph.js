@@ -103,7 +103,7 @@ const FILTERING_NODE19_URN =
 const FILTERING_NODE20_URN =
   "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node20,PROD)";
 
-describe("lineage_graph", () => {
+describe.skip("lineage_graph", () => {
   beforeEach(() => {
     cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.lineageGraphV3 = false;

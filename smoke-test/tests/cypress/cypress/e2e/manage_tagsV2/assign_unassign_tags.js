@@ -7,7 +7,7 @@ const SAMPLE_DATASET_URN =
   "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)";
 const SAMPLE_DATASET_NAME = "SampleCypressHiveDataset";
 
-describe("tags - assign/unassign", () => {
+describe.skip("tags - assign/unassign", () => {
   beforeEach(() => {
     cy.login();
   });

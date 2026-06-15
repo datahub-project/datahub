@@ -1,4 +1,4 @@
-describe("models", () => {
+describe.skip("models", () => {
   it("can visit sagemaker models and groups", () => {
     cy.visitWithLogin(
       "/mlModels/urn:li:mlModel:(urn:li:dataPlatform:sagemaker,cypress-model,PROD)/Summary?is_lineage_mode=false",

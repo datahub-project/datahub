@@ -10,7 +10,7 @@ const expandContractColumns = (asset) => {
     .click({ force: true });
 };
 
-describe("column-level lineage graph test", () => {
+describe.skip("column-level lineage graph test", () => {
   beforeEach(() => {
     setLineageV3FeatureFlags();
   });

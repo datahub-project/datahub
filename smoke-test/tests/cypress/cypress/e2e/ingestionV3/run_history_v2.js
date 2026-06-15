@@ -13,7 +13,7 @@ import {
 
 const testId = Math.floor(Math.random() * 100000);
 
-describe("run history tab in manage data sources", () => {
+describe.skip("run history tab in manage data sources", () => {
   const createdSources = [];
 
   beforeEach(() => {

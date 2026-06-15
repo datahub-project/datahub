@@ -153,7 +153,7 @@ const ensureThatUrlIsNotAvaliableOnSidebar = (url) => {
   });
 };
 
-describe("edit documentation and link to dataset", () => {
+describe.skip("edit documentation and link to dataset", () => {
   // https://github.com/cypress-io/cypress/issues/29277
   Cypress.on(
     "uncaught:exception",

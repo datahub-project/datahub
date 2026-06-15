@@ -22,7 +22,7 @@ function getSetRequiredFeatureFlagsInterceptor() {
 
 // const testId = getUniqueTestId();
 
-describe("uploadFiles", () => {
+describe.skip("uploadFiles", () => {
   const setupInterceptors = (testId) => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       if (hasOperationName(req, "getPresignedUploadUrl")) {

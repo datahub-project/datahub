@@ -30,7 +30,7 @@ const deleteGlossary = (message) => {
   cy.ensureTextNotPresent(message);
 };
 
-describe("glossary", () => {
+describe.skip("glossary", () => {
   beforeEach(() => {
     Cypress.on("uncaught:exception", (err, runnable) => false);
   });

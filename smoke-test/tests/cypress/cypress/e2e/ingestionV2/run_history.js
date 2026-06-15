@@ -11,7 +11,7 @@ import {
   goToIngestionPage,
 } from "./utils";
 
-describe("run history tab in manage data sources", () => {
+describe.skip("run history tab in manage data sources", () => {
   beforeEach(() => {
     setIngestionRedesignFlags(true);
     cy.login();

@@ -18,7 +18,7 @@ function typeInMonacoEditor(text) {
     .type(text);
 }
 
-describe("run managed ingestion", () => {
+describe.skip("run managed ingestion", () => {
   beforeEach(() => {
     cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;

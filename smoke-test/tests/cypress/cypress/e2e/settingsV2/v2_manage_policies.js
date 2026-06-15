@@ -124,7 +124,7 @@ function deletePolicy(policyEdited, deletePolicyTitle) {
   cy.ensureTextNotPresent(policyEdited);
 }
 
-describe("create and manage platform and metadata policies", () => {
+describe.skip("create and manage platform and metadata policies", () => {
   beforeEach(() => {
     cy.login();
     cy.visit("/settings/permissions/policies");

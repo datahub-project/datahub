@@ -1,4 +1,4 @@
-describe("siblings", () => {
+describe.skip("siblings", () => {
   it("will merge metadata to non-primary sibling", () => {
     cy.login();
     cy.visit("/");

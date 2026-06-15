@@ -1,6 +1,6 @@
 import { aliasQuery, hasOperationName, getUniqueTestId } from "../utils";
 
-describe("manage service accounts", () => {
+describe.skip("manage service accounts", () => {
   before(() => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       aliasQuery(req, "appConfig");

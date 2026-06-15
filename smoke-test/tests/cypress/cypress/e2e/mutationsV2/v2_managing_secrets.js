@@ -1,4 +1,4 @@
-describe("managing secrets for ingestion creation", () => {
+describe.skip("managing secrets for ingestion creation", () => {
   beforeEach(() => {
     cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;

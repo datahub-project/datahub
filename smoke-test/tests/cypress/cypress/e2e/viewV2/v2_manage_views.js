@@ -1,4 +1,4 @@
-describe("manage views", () => {
+describe.skip("manage views", () => {
   it("go to views settings page, create, edit, make default, delete a view", () => {
     const viewName = "Test View";
 

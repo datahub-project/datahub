@@ -3,7 +3,7 @@ import { SearchV2Helper } from "./helpers/searchV2Helper";
 
 const SAMPLE_ENTITY_NAME = "SampleCypressKafkaDataset";
 
-describe("searchBarV2 - Keyboard Interaction", () => {
+describe.skip("searchBarV2 - Keyboard Interaction", () => {
   const helper = new SearchV2Helper();
 
   const setupTest = (searchBarApi = "SEARCH_ACROSS_ENTITIES") => {

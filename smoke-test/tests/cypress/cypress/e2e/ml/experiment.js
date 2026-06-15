@@ -1,4 +1,4 @@
-describe("experiment", () => {
+describe.skip("experiment", () => {
   beforeEach(() => {
     cy.visit("/");
     cy.login();

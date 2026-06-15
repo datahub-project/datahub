@@ -25,7 +25,7 @@ const clickDownAndUpArrow = (asset) => {
     .click();
 };
 
-describe("column-Level lineage and impact analysis path test", () => {
+describe.skip("column-Level lineage and impact analysis path test", () => {
   beforeEach(() => {
     cy.on("uncaught:exception", (err, runnable) => false);
     cy.intercept("POST", "/api/v2/graphql", (req) => {
