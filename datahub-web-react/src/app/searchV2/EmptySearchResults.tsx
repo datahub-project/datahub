@@ -23,20 +23,19 @@ const Section = styled.div`
     margin-bottom: 16px;
 `;
 
-function getRefineSearchText(filters: FacetFilterInput[], viewUrn?: string | null) {
-    let text = '';
+// Each branch maps to a complete translation key so the whole sentence — including the
+// refine-link wording — is translated as one unit, rather than interpolating an English fragment.
+function getRefineSuggestionKey(filters: FacetFilterInput[], viewUrn?: string | null): string | null {
     if (filters.length && viewUrn) {
-        /* untranslated-text -- sentence fragment assembled dynamically; full sentence refactor required */
-        text = 'clearing all filters and selected view';
-    } else if (filters.length) {
-        /* untranslated-text -- sentence fragment assembled dynamically; full sentence refactor required */
-        text = 'clearing all filters';
-    } else if (viewUrn) {
-        /* untranslated-text -- sentence fragment assembled dynamically; full sentence refactor required */
-        text = 'clearing the selected view';
+        return 'emptyResults.trySuggestionClearFiltersAndView';
     }
-
-    return text;
+    if (filters.length) {
+        return 'emptyResults.trySuggestionClearFilters';
+    }
+    if (viewUrn) {
+        return 'emptyResults.trySuggestionClearView';
+    }
+    return null;
 }
 
 interface Props {
@@ -49,7 +48,7 @@ export default function EmptySearchResults({ suggestions }: Props) {
     const history = useHistory();
     const userContext = useUserContext();
     const suggestText = suggestions.length > 0 ? suggestions[0].text : '';
-    const refineSearchText = getRefineSearchText(filters, viewUrn);
+    const refineSuggestionKey = getRefineSuggestionKey(filters, viewUrn);
 
     const onClickExploreAll = useCallback(() => {
         analytics.event({ type: EventType.SearchResultsExploreAllClickEvent });
@@ -71,18 +70,18 @@ export default function EmptySearchResults({ suggestions }: Props) {
     return (
         <NoDataContainer>
             <Section>{t('emptyResults.noResultsFound', { query })}</Section>
-            {refineSearchText && (
+            {refineSuggestionKey && (
                 <Trans
                     t={t}
-                    i18nKey="emptyResults.trySuggestion"
-                    values={{ refineText: refineSearchText, suggestText }}
+                    i18nKey={refineSuggestionKey}
+                    values={{ suggestText }}
                     components={{
                         refineLink: <SuggestedText onClick={clearFiltersAndView} />,
                         suggestLink: <SuggestedText onClick={searchForSuggestion} />,
                     }}
                 />
             )}
-            {!refineSearchText && suggestText && (
+            {!refineSuggestionKey && suggestText && (
                 <Trans
                     t={t}
                     i18nKey="emptyResults.didYouMean"
@@ -90,7 +89,7 @@ export default function EmptySearchResults({ suggestions }: Props) {
                     components={{ suggestion: <SuggestedText onClick={searchForSuggestion} /> }}
                 />
             )}
-            {!refineSearchText && !suggestText && (
+            {!refineSuggestionKey && !suggestText && (
                 <Button onClick={onClickExploreAll}>
                     <RocketOutlined /> {t('emptyResults.exploreAll')}
                 </Button>
