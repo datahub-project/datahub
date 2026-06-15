@@ -1,5 +1,5 @@
 /**
- * Task Runs V2 tests — Migrated from Cypress lineageV2 tests
+ * Task Runs V2 tests — Migrated from Cypress task-runs-v2
  *
  * Coverage:
  * 1. Navigate to dataset runs view and verify run metadata (timestamp, status, datasets)
@@ -17,7 +17,7 @@
  *
  * Page Objects:
  * - TaskRunsPage: Handles navigation and assertions for runs views
- *   Selectors in POM: runIdCell, runStatusCell, getDatasetLink (dynamic)
+ *   Selectors in POM: getRunNameCell(name), getRunStatusCell(name), getDatasetLink(urn) — all dynamic/parameterized
  */
 
 import { test } from '../../fixtures/base-test';
@@ -45,8 +45,8 @@ test.describe('task runs', () => {
   test('can visit dataset with runs aspect and verify the task run is present', async () => {
     await taskRunsPage.navigateToDatasetRuns(SAMPLE_DATASET_URN);
 
-    await taskRunsPage.verifyRunId(RUN_TIMESTAMP);
-    await taskRunsPage.verifyRunStatus(RUN_STATUS);
+    await taskRunsPage.verifyRunId(RUN_TIMESTAMP, RUN_TIMESTAMP);
+    await taskRunsPage.verifyRunStatus(RUN_TIMESTAMP, RUN_STATUS);
     await taskRunsPage.assertDatasetLinkVisible(INPUT_DATASET_URN, INPUT_DATASET_NAME);
     await taskRunsPage.assertDatasetLinkVisible(OUTPUT_DATASET_URN_1, OUTPUT_DATASET_NAME_1);
     await taskRunsPage.assertDatasetLinkVisible(OUTPUT_DATASET_URN_2, OUTPUT_DATASET_NAME_2);
@@ -55,8 +55,8 @@ test.describe('task runs', () => {
   test('can visit task with runs aspect and verify the task run is present', async () => {
     await taskRunsPage.navigateToTaskRuns(SAMPLE_TASK_URN);
 
-    await taskRunsPage.verifyRunId(RUN_TIMESTAMP);
-    await taskRunsPage.verifyRunStatus(RUN_STATUS);
+    await taskRunsPage.verifyRunId(RUN_TIMESTAMP, RUN_TIMESTAMP);
+    await taskRunsPage.verifyRunStatus(RUN_TIMESTAMP, RUN_STATUS);
     await taskRunsPage.assertDatasetLinkVisible(INPUT_DATASET_URN, INPUT_DATASET_NAME);
     await taskRunsPage.assertDatasetLinkVisible(OUTPUT_DATASET_URN_1, OUTPUT_DATASET_NAME_1);
     await taskRunsPage.assertDatasetLinkVisible(OUTPUT_DATASET_URN_2, OUTPUT_DATASET_NAME_2);
