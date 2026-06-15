@@ -141,18 +141,11 @@ public class PolicyEngine {
 
     final DataHubActorFilter actorFilter = policy.getActors();
 
-    // Applicability is the logical AND of an actor match and a resource match, so the order of the
-    // checks never changes the decision -- only the work performed before short-circuiting. We order
-    // the checks cheapest-first so that a policy which cannot apply to the requester is rejected
-    // without performing expensive resolution.
-    //
-    // The user/group/role actor predicates do not require the resource and resolve the actor's
-    // membership at most once per request (memoized on the shared evaluation context). Resource
-    // matching, by contrast, can force expensive, uncached resolution of resource attributes such as
-    // the recursive domain hierarchy or container parents. So we evaluate the resource-independent
-    // actor predicates first: if they match, the resource still has to be in scope; if they do not
-    // match and the policy has no resource-ownership actor criterion, the actor cannot match and we
-    // skip resource resolution entirely.
+    // Applicability is (actor matches) AND (resource matches), so check order never changes the
+    // decision -- only the work done before short-circuiting. Resolving the resource scope can
+    // trigger expensive, uncached lookups (e.g. the recursive domain/container hierarchy), whereas
+    // the user/group/role actor predicates are resource-independent and memoized per request.
+    // Evaluate those first so a policy that cannot apply to the actor skips resource resolution.
     final boolean actorMatchesIgnoringOwnership =
         isUserMatch(resolvedActorSpec, actorFilter)
             || isGroupMatch(resolvedActorSpec, actorFilter, context)
@@ -166,10 +159,9 @@ public class PolicyEngine {
       return new PolicyEvaluationResult(policy.getDisplayName(), false, "Actor did not match");
     }
 
-    // The only remaining way the actor can match is via resource ownership, which itself needs the
-    // resource. Resolve the resource scope first so that a non-matching resource short-circuits
-    // before the ownership lookup; this keeps ownership policies exactly as cheap as the original
-    // ordering while still avoiding resource resolution for the non-ownership policies above.
+    // Resource ownership is the only actor predicate that needs the resource. Resolve the resource
+    // scope first so a non-matching resource short-circuits before the ownership lookup, keeping
+    // ownership policies exactly as cheap as the original ordering.
     final PolicyEvaluationResult resourceResult =
         evaluateResourceScope(policy, resource, subResources);
     if (!resourceResult.isGranted()) {
@@ -182,7 +174,9 @@ public class PolicyEngine {
     return new PolicyEvaluationResult(policy.getDisplayName(), false, "Actor did not match");
   }
 
-  /** Returns an applicable result iff the resource and any sub-resources are in the policy's scope. */
+  /**
+   * Returns an applicable result iff the resource and any sub-resources are in the policy's scope.
+   */
   private PolicyEvaluationResult evaluateResourceScope(
       final DataHubPolicyInfo policy,
       final Optional<ResolvedEntitySpec> resource,

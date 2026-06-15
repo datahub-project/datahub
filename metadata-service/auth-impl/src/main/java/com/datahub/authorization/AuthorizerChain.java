@@ -1,6 +1,7 @@
 package com.datahub.authorization;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.plugins.auth.authorization.ResourceSpecCachingAuthorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.policy.DataHubPolicyInfo;
 import java.util.ArrayList;
@@ -26,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
  * #authorize(AuthorizationRequest)}.
  */
 @Slf4j
-public class AuthorizerChain implements Authorizer {
+public class AuthorizerChain implements Authorizer, ResourceSpecCachingAuthorizer {
 
   private final List<Authorizer> authorizers;
 
@@ -49,6 +50,14 @@ public class AuthorizerChain implements Authorizer {
    */
   @Nullable
   public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
+    return authorize(request, null);
+  }
+
+  @Override
+  @Nullable
+  public AuthorizationResult authorize(
+      @Nonnull final AuthorizationRequest request,
+      @Nullable final Map<EntitySpec, ResolvedEntitySpec> resourceSpecCache) {
     Objects.requireNonNull(request);
     // Save contextClassLoader
     ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
@@ -64,7 +73,12 @@ public class AuthorizerChain implements Authorizer {
         // loading request from plugin's home directory,
         // otherwise plugin's internal library wouldn't be able to find their dependent classes
         Thread.currentThread().setContextClassLoader(authorizer.getClass().getClassLoader());
-        AuthorizationResult result = authorizer.authorize(request);
+        // Forward the request-scoped resolved-spec cache to delegates that support it so the same
+        // resource is resolved at most once per request; others resolve per call as before.
+        AuthorizationResult result =
+            (authorizer instanceof ResourceSpecCachingAuthorizer)
+                ? ((ResourceSpecCachingAuthorizer) authorizer).authorize(request, resourceSpecCache)
+                : authorizer.authorize(request);
         // reset
         Thread.currentThread().setContextClassLoader(contextClassLoader);
 

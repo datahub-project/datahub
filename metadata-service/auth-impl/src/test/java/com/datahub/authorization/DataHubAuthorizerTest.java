@@ -808,6 +808,37 @@ public class DataHubAuthorizerTest {
   }
 
   @Test
+  public void testResourceResolvedOncePerRequestAcrossPrivilegeChecks() throws Exception {
+    // Mirrors the per-result privilege fan-out: a single resource is authorized for several
+    // privileges within one request. Sharing the request-scoped resolved-spec cache resolves the
+    // resource's domain exactly once instead of once per check, while every decision is unchanged.
+    // Without the shared cache each check re-resolves the domain (one getV2 per privilege).
+    EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_DOMAIN.toString());
+    Map<EntitySpec, ResolvedEntitySpec> requestCache = new HashMap<>();
+
+    for (String privilege : ImmutableList.of("CHILD_DOMAIN_PRIVILEGE", "PARENT_DOMAIN_PRIVILEGE")) {
+      assertEquals(
+          _dataHubAuthorizer
+              .authorize(
+                  new AuthorizationRequest(
+                      USER_WITH_DOMAIN_ACCESS.toString(),
+                      privilege,
+                      Optional.of(resourceSpec),
+                      Collections.emptyList()),
+                  requestCache)
+              .getType(),
+          AuthorizationResult.Type.ALLOW);
+    }
+
+    verify(_entityClient, times(1))
+        .getV2(
+            any(OperationContext.class),
+            eq("dataset"),
+            eq(RESOURCE_WITH_DOMAIN),
+            eq(Collections.singleton(DOMAINS_ASPECT_NAME)));
+  }
+
+  @Test
   public void testAuthorizationOnContainerWithPrivilegeIsAllowed() throws Exception {
     EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_CONTAINER.toString());
 
