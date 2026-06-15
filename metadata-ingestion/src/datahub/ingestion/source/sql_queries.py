@@ -4,7 +4,6 @@ import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from functools import partial
 from typing import Any, ClassVar, Iterable, List, Optional, Union, cast
 
 import smart_open
@@ -30,19 +29,23 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
-    auto_incremental_lineage,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     Source,
     SourceCapability,
     SourceReport,
 )
-from datahub.ingestion.api.source_helpers import auto_workunit, auto_workunit_reporter
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
+    AutoIncrementalLineageProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverReport
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -199,13 +202,10 @@ class SqlQueriesSource(Source):
     def get_report(self) -> SqlQueriesSourceReport:
         return self.report
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+    def get_allowed_workunit_processors(self):
         return [
-            partial(auto_workunit_reporter, self.get_report()),
-            partial(
-                auto_incremental_lineage,
-                self.config.incremental_lineage,
-            ),
+            AutoWorkunitsReporterProcessor,
+            AutoIncrementalLineageProcessor,
         ]
 
     def get_workunits_internal(

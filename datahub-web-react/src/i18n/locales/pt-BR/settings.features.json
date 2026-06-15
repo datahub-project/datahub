@@ -1,0 +1,21 @@
+{
+    "cloudLabel": "DataHub Cloud",
+    "docPropagation.assetLevelDescription": "Propagua nova documentação de ativos upstream para downstream com base em relacionamentos de lineage.",
+    "docPropagation.assetLevelTitle": "Propagação em Nível de Ativo",
+    "docPropagation.backfillButton": "Inicializar",
+    "docPropagation.backfillTitle": "Preencher documentação existente de colunas/ativos upstream para downstream",
+    "docPropagation.columnLevelDescription": "Propagua nova documentação de colunas upstream para downstream com base em relacionamentos de lineage em nível de coluna.",
+    "docPropagation.columnLevelTitle": "Propagação em Nível de Coluna",
+    "docPropagation.comingSoon": "Em breve!",
+    "docPropagation.description": "Propagua automaticamente a documentação de colunas e ativos upstream para downstream.",
+    "docPropagation.rollbackButton": "Reverter",
+    "docPropagation.rollbackTitle": "Reverter Alterações de Propagação",
+    "docPropagation.title": "Propagação de Documentação",
+    "docPropagation.updateError": "Falha ao atualizar as configurações de propagação de documentação",
+    "docPropagation.updateSuccess": "Configurações de propagação de documentação atualizadas com sucesso",
+    "learnMore": "Saiba mais",
+    "newLabel": "Novo!",
+    "onlyOnCloud": "Disponível apenas no DataHub Cloud",
+    "pageSubTitle": "Explore e configure recursos específicos",
+    "pageTitle": "Recursos"
+}

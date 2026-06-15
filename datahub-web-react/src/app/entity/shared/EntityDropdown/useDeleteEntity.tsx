@@ -27,7 +27,7 @@ function useDeleteEntity(
     skipWait?: boolean,
 ) {
     const [hasBeenDeleted, setHasBeenDeleted] = useState(false);
-    const { t } = useTranslation('entityV1.shared.entityDropdown');
+    const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToDeletedUrn } = useGlossaryEntityData();
@@ -45,7 +45,7 @@ function useDeleteEntity(
                 });
                 if (!hideMessage && !skipWait) {
                     message.loading({
-                        content: t('deleteEntity.deleting'),
+                        content: t('delete.loading'),
                         duration: 2,
                     });
                 }
@@ -68,7 +68,7 @@ function useDeleteEntity(
                         }
                         if (!hideMessage) {
                             message.success({
-                                content: t('deleteEntity.deletedSuccess', {
+                                content: t('delete.success', {
                                     entityName: entityRegistry.getEntityName(type),
                                 }),
                                 duration: 2,
@@ -80,18 +80,18 @@ function useDeleteEntity(
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: t('deleteEntity.deleteError', { message: e.message || '' }), duration: 3 });
+                message.error({ content: t('delete.error', { errorMessage: e.message || '' }), duration: 3 });
             });
     }
 
     function onDeleteEntity() {
         Modal.confirm({
-            title: t('deleteEntity.confirmTitle', {
-                name:
+            title: t('delete.confirmTitle', {
+                entityName:
                     (entityData && entityRegistry.getDisplayName(type, entityData)) ||
                     entityRegistry.getEntityName(type),
             }),
-            content: t('deleteEntity.confirmContent', { entityName: entityRegistry.getEntityName(type) }),
+            content: t('delete.confirmContent', { entityName: entityRegistry.getEntityName(type) }),
             onOk() {
                 handleDeleteEntity();
             },

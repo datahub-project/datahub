@@ -162,6 +162,7 @@ export const AnalyticsPage = () => {
                             <ChartGroup
                                 chartGroup={{ ...chartGroup, title: t('dataLandscapeSummary') }}
                                 key={chartGroup.title}
+                                testId="analytics-landscape-summary"
                             />
                         ))}
 

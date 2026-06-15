@@ -10,6 +10,7 @@ import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.messaging.KafkaMessagingEnabledCondition;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
+import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolver;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.TopicConvention;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +36,8 @@ public class SystemUpdateKafkaMessagingConfig {
 
   @Autowired private KafkaHealthChecker kafkaHealthChecker;
 
+  @Autowired private OutboundContextResolver outboundContextResolver;
+
   @Bean(name = "duheKafkaEventProducer")
   protected KafkaEventProducer duheKafkaEventProducer(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
@@ -48,7 +51,8 @@ public class SystemUpdateKafkaMessagingConfig {
             DataHubKafkaProducerFactory.buildProducerProperties(
                 duheSchemaRegistryConfig, kafkaConfiguration, properties),
             kafkaConfiguration.getProducer());
-    return new KafkaEventProducer(producer, topicConvention, kafkaHealthChecker, metricUtils);
+    return new KafkaEventProducer(
+        producer, topicConvention, kafkaHealthChecker, metricUtils, outboundContextResolver);
   }
 
   /**

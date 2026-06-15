@@ -119,6 +119,55 @@ public interface TimeseriesAspectService {
       @Nullable final SortCriterion sort);
 
   /**
+   * Retrieve Time-Series Aspects for a batch of entities in a single ES query using a {@code
+   * top_hits} aggregation. All URNs must share the same entityName, aspectName, time window, limit,
+   * filter, and sort — parameters that vary per-URN should fall back to the single-URN {@link
+   * #getAspectValues} path.
+   *
+   * <p>The default implementation fans out to {@link #getAspectValues} per URN. Override with the
+   * aggregation-based implementation for production performance.
+   *
+   * @param urns the set of URNs to fetch aspects for
+   * @param entityName the entity type shared by all URNs
+   * @param aspectName the timeseries aspect name
+   * @param startTimeMillis optional lower bound on timestampMillis (inclusive)
+   * @param endTimeMillis optional upper bound on timestampMillis (inclusive)
+   * @param limit maximum number of documents returned per URN
+   * @param sharedFilter optional additional filter applied uniformly across all URNs
+   * @param sort sort criterion; defaults to {@code @timestamp DESC} when null
+   * @return map from each input URN to its list of matching aspects; URNs with no docs map to an
+   *     empty list
+   */
+  @Nonnull
+  default Map<Urn, List<EnvelopedAspect>> batchGetAspectValues(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis,
+      int limit,
+      @Nullable Filter sharedFilter,
+      @Nullable SortCriterion sort) {
+    Map<Urn, List<EnvelopedAspect>> result = new java.util.HashMap<>();
+    for (Urn urn : urns) {
+      result.put(
+          urn,
+          getAspectValues(
+              opContext,
+              urn,
+              entityName,
+              aspectName,
+              startTimeMillis,
+              endTimeMillis,
+              limit,
+              sharedFilter,
+              sort));
+    }
+    return result;
+  }
+
+  /**
    * Returns the latest value for the given URNs and aspects
    *
    * @param opContext operation context

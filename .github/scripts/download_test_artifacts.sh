@@ -149,7 +149,7 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
 
     # List all artifacts for this run
     echo "Fetching artifact list..."
-    ARTIFACTS=$(gh api "repos/$REPOSITORY/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name | startswith("Test Results (smoke tests)")) | {name: .name, id: .id}')
+    ARTIFACTS=$(gh api --paginate "repos/$REPOSITORY/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name | startswith("Test Results (smoke tests)")) | {name: .name, id: .id}')
 
     if [[ -z "$ARTIFACTS" ]]; then
         echo "Warning: No test result artifacts found for run $run_id"

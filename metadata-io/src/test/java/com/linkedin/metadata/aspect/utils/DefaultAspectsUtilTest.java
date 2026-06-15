@@ -14,6 +14,7 @@ import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -37,7 +38,12 @@ public class DefaultAspectsUtilTest {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     server = EbeanTestUtils.createTestServer(DefaultAspectsUtilTest.class.getSimpleName());
     EbeanAspectDao aspectDao =
-        new EbeanAspectDao(server, EbeanConfiguration.testDefault, null, List.of(), null);
+        new EbeanAspectDao(
+            PrimaryStorageTestUtils.ebeanResolver(server),
+            EbeanConfiguration.testDefault,
+            null,
+            List.of(),
+            null);
     aspectDao.setConnectionValidated(true);
     EventProducer mockProducer = mock(EventProducer.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();

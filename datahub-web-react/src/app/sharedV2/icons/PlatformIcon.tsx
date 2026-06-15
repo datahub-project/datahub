@@ -20,6 +20,7 @@ type PlatformIconProps = {
     imageStyles?: CSSObject | undefined;
     className?: string;
     onError?: () => void;
+    dataTestId?: string;
 };
 
 const IconContainer = styled.div<{ background?: string; styles: CSSObject | undefined }>`
@@ -53,6 +54,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     imageStyles,
     className,
     onError,
+    dataTestId,
 }) => {
     const [background, setBackground] = useState<string | undefined>(undefined);
     const imgRef = useRef<HTMLImageElement>(null);
@@ -70,7 +72,13 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     }, [onError, setBackground, theme.colors.bgSurface]);
 
     return (
-        <IconContainer background={background} styles={styles} title={title} className={className}>
+        <IconContainer
+            background={background}
+            styles={styles}
+            title={title}
+            className={className}
+            data-testid={dataTestId}
+        >
             {logoUrl ? (
                 <PreviewImage
                     crossOrigin="anonymous"

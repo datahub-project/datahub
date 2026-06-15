@@ -211,6 +211,7 @@ const HistorySidebar = ({
             placement="right"
             closable={false}
             autoFocus={false}
+            data-testid="schema-blame-history-panel"
         >
             <DrawerContent>
                 <FieldHeaderWrapper>

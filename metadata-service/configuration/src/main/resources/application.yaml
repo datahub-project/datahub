@@ -309,6 +309,9 @@ timeseriesAspectService:
     concurrency: ${TIMESERIES_ASPECT_SERVICE_QUERY_CONCURRENCY:10} # parallel threads
     queueSize: ${TIMESERIES_ASPECT_SERVICE_QUERY_QUEUE_SIZE:500}
     threadKeepAlive: ${TIMESERIES_ASPECT_SERVICE_QUERY_THREAD_KEEP_ALIVE:60}
+  batchLoadEnabled: ${TIMESERIES_ASPECT_BATCH_LOAD_ENABLED:true} # use top_hits agg batch path; shared env var with featureFlags.timeseriesAspectBatchLoadEnabled
+  topHitsThreshold: ${TIMESERIES_ASPECT_SERVICE_TOP_HITS_THRESHOLD:500} # max docs per batch top_hits agg query (limit × URN batch size)
+  topHitsPerBucketLimit: ${TIMESERIES_ASPECT_SERVICE_TOP_HITS_PER_BUCKET_LIMIT:100} # per-bucket top_hits size; matches index.max_inner_result_window default — raise both together if larger per-entity batch windows are needed
   limit:
     results:
       max: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
@@ -430,6 +433,15 @@ ebean:
   cloudProvider: ${EBEAN_CLOUD_PROVIDER:auto} # auto, aws, gcp, or traditional
   batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
   queryKeysCountForBatch: ${EBEAN_QUERY_KEYS_COUNT_FOR_BATCH:375} # Chunk size for batch queries (default 375). Set to avoid large IN clauses that exceed range_optimizer_max_mem_size.
+  readPool:
+    enabled: ${EBEAN_READ_POOL_ENABLED:false}
+    url: ${EBEAN_READ_POOL_URL:${EBEAN_READ_REPLICA_URL:}}
+    minConnections: ${EBEAN_READ_POOL_MIN_CONNECTIONS:${EBEAN_MIN_CONNECTIONS:2}}
+    maxConnections: ${EBEAN_READ_POOL_MAX_CONNECTIONS:${EBEAN_MAX_CONNECTIONS:50}}
+    maxInactiveTimeSeconds: ${EBEAN_READ_POOL_MAX_INACTIVE_TIME_IN_SECS:${EBEAN_MAX_INACTIVE_TIME_IN_SECS:120}}
+    maxAgeMinutes: ${EBEAN_READ_POOL_MAX_AGE_MINUTES:${EBEAN_MAX_AGE_MINUTES:120}}
+    leakTimeMinutes: ${EBEAN_READ_POOL_LEAK_TIME_MINUTES:${EBEAN_LEAK_TIME_MINUTES:15}}
+    waitTimeoutMillis: ${EBEAN_READ_POOL_WAIT_TIMEOUT_MILLIS:${EBEAN_WAIT_TIMEOUT_MILLIS:1000}}
   # Only required if entityService.impl is cassandra
 cassandra:
   datasourceUsername: ${CASSANDRA_DATASOURCE_USERNAME:cassandra}
@@ -439,6 +451,11 @@ cassandra:
   datacenter: ${CASSANDRA_DATACENTER:datacenter1}
   keyspace: ${CASSANDRA_KEYSPACE:datahub}
   useSsl: ${CASSANDRA_USE_SSL:false}
+  readPool:
+    enabled: ${CASSANDRA_READ_POOL_ENABLED:false}
+    hosts: ${CASSANDRA_READ_POOL_HOSTS:${CASSANDRA_READ_REPLICA_HOSTS:}}
+    port: ${CASSANDRA_READ_POOL_PORT:${CASSANDRA_PORT:9042}}
+    datacenter: ${CASSANDRA_READ_POOL_DATACENTER:${CASSANDRA_DATACENTER:datacenter1}}
 
 # PostgreSQL optional SqlSetup (pgQueue).
 # postgres.schema: Ebean/metadata tables (default public). pgQueue uses postgres.pgQueue.schema only
@@ -1384,6 +1401,7 @@ featureFlags:
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
   showTestsInHealthIcon: ${SHOW_TESTS_IN_HEALTH_ICON:false} # If enabled, shows tests status in the health icon on entity pages
   i18nEnabled: ${I18N_ENABLED:false} # If enabled, internationalization (i18n) features are active
+  timeseriesAspectBatchLoadEnabled: ${TIMESERIES_ASPECT_BATCH_LOAD_ENABLED:true} # If enabled, TimeSeriesAspectResolver uses the DataLoader batch path; disable to revert to single-URN queries
   createSchemaVersionIndex: ${CREATE_SCHEMA_VERSION_INDEX:${ZDU_STAGE_10:false}} # Creates schemaVersionIndex on metadata_aspect_v2 for ZDU schema version queries
   aspectMigrationMutatorEnabled: ${ASPECT_MIGRATION_MUTATOR_ENABLED:${ZDU_STAGE_20:false}} # Populates AspectMigrationMutatorChain with registered mutators
 

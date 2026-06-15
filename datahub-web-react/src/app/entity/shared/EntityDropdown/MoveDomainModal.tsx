@@ -26,7 +26,7 @@ interface Props {
 
 function MoveDomainModal(props: Props) {
     const { onClose } = props;
-    const { t } = useTranslation('entityV1.shared.entityDropdown');
+    const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tf } = useTranslation('common.feedback');
     const { entityData } = useDomainsContext();
@@ -57,7 +57,7 @@ function MoveDomainModal(props: Props) {
                 handleMoveDomainComplete(domainUrn, newParentToUpdate);
                 setTimeout(() => {
                     message.success({
-                        content: t('moveModal.movedSuccess', {
+                        content: t('move.success', {
                             entityName: entityRegistry.getEntityName(EntityType.Domain),
                         }),
                         duration: 2,
@@ -67,7 +67,7 @@ function MoveDomainModal(props: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: t('moveModal.moveError', { message: e.message || '' }), duration: 3 });
+                message.error({ content: t('move.error', { errorMessage: e.message || '' }), duration: 3 });
             });
         onClose();
     }
@@ -93,11 +93,7 @@ function MoveDomainModal(props: Props) {
                 <Form.Item
                     label={
                         <Typography.Text strong>
-                            <Trans
-                                t={t}
-                                i18nKey="moveModal.moveToLabel"
-                                components={{ optional: <OptionalWrapper /> }}
-                            />
+                            <Trans t={t} i18nKey="move.toLabel" components={{ optional: <OptionalWrapper /> }} />
                         </Typography.Text>
                     }
                 >

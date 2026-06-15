@@ -38,6 +38,14 @@ export interface ApiMocker {
    * the flag is consistent across the UI.
    */
   setFeatureFlags(flags: Record<string, boolean>): Promise<void>;
+
+  /**
+   * Mock the batchGetStepStates operation to mark all requested step IDs as
+   * already seen. This prevents education/onboarding modals (e.g.
+   * CreateSourceEducationModal) from appearing during tests that don't
+   * exercise the onboarding flow.
+   */
+  suppressOnboardingModals(): Promise<void>;
 }
 
 // ── Implementation ────────────────────────────────────────────────────────────
@@ -198,6 +206,33 @@ export class PageApiMocker implements ApiMocker {
       }
 
       await route.fulfill({ response, json });
+    });
+  }
+
+  async suppressOnboardingModals(): Promise<void> {
+    await this.page.route('**/api/v2/graphql', async (route) => {
+      const postData = route.request().postDataJSON() as {
+        operationName?: string;
+        variables?: { input?: { ids?: string[] } };
+      } | null;
+
+      if (postData?.operationName !== 'batchGetStepStates') {
+        await route.fallback();
+        return;
+      }
+
+      const ids = postData.variables?.input?.ids ?? [];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            batchGetStepStates: {
+              results: ids.map((id) => ({ id, properties: [] })),
+            },
+          },
+        }),
+      });
     });
   }
 }

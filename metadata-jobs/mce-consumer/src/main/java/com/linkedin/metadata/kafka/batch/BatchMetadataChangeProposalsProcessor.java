@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -67,17 +68,53 @@ public class BatchMetadataChangeProposalsProcessor {
         kafkaThrottle, provider, consumerPauseSupport, mceConsumerGroupId);
   }
 
-  /** Used by {@link BatchMetadataChangeProposalsKafkaListener}, tests, and pgQueue batch poller. */
+  /**
+   * Default-context entry point — used by tests and pgQueue batch poller paths that haven't been
+   * sliced upstream. Equivalent to {@link #consume(OperationContext, List)} with the system
+   * context.
+   *
+   * <p>The Kafka listener entry ({@link BatchMetadataChangeProposalsKafkaListener}) splits the
+   * inbound batch into affinity slices and calls {@link #consume(OperationContext, List)} once per
+   * slice with that slice's representative context.
+   */
   public void consume(final List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
-    consume(
-        consumerRecords, consumerRecords.stream().map(InboundRecordProperties::fromKafka).toList());
+    consume(systemOperationContext, consumerRecords);
   }
 
   /**
+   * Entry point used by the affinity-aware Kafka listener. {@code sliceContext} is the
+   * representative {@link OperationContext} for this slice — it threads through the consume span,
+   * {@link SystemEntityClient#batchIngestProposals(OperationContext, java.util.List, boolean)}, and
+   * any failure handling.
+   */
+  public void consume(
+      @Nonnull final OperationContext sliceContext,
+      final List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
+    consume(
+        sliceContext,
+        consumerRecords,
+        consumerRecords.stream().map(InboundRecordProperties::fromKafka).toList());
+  }
+
+  /**
+   * pgQueue entry point — same shape as the legacy Kafka-only call. Per-record properties (queue
+   * lag) are supplied externally; the slice context defaults to the system context (pgQueue batches
+   * are sliced upstream in the poller if needed).
+   */
+  public void consume(
+      final List<ConsumerRecord<String, GenericRecord>> consumerRecords,
+      @Nullable final List<InboundRecordProperties> inboundProperties) {
+    consume(systemOperationContext, consumerRecords, inboundProperties);
+  }
+
+  /**
+   * @param sliceContext slice-level OperationContext used for downstream calls (spans,
+   *     batchIngestProposals, FMCP emission)
    * @param inboundProperties when non-null, same length as {@code consumerRecords}; per-record
    *     queue lag metadata for Kafka and pgQueue transports
    */
   public void consume(
+      @Nonnull final OperationContext sliceContext,
       final List<ConsumerRecord<String, GenericRecord>> consumerRecords,
       @Nullable final List<InboundRecordProperties> inboundProperties) {
 
@@ -130,14 +167,14 @@ public class BatchMetadataChangeProposalsProcessor {
     List<SystemMetadata> systemMetadataList =
         allMCPs.stream().map(MetadataChangeProposal::getSystemMetadata).toList();
 
-    systemOperationContext.withQueueSpan(
+    sliceContext.withQueueSpan(
         "consume",
         systemMetadataList,
         topicName,
         () -> {
           if (!allMCPs.isEmpty()) {
             // Now partition and process within the span
-            processInBatches(allMCPs);
+            processInBatches(sliceContext, allMCPs);
           } else {
             log.info("No valid MCPs to process after deserialization");
           }
@@ -151,9 +188,11 @@ public class BatchMetadataChangeProposalsProcessor {
   /**
    * Process MCPs in batches within the established span
    *
+   * @param sliceContext slice-level OperationContext used for downstream ingest + FMCP emission
    * @param allMCPs All MCPs to process
    */
-  private void processInBatches(List<MetadataChangeProposal> allMCPs) {
+  private void processInBatches(
+      @Nonnull OperationContext sliceContext, List<MetadataChangeProposal> allMCPs) {
     List<MetadataChangeProposal> currentBatch = new ArrayList<>();
     long currentBatchSize = 0;
     int totalProcessed = 0;
@@ -165,7 +204,7 @@ public class BatchMetadataChangeProposalsProcessor {
       if (!currentBatch.isEmpty()
           && currentBatchSize + mcpSize
               > provider.getMetadataChangeProposal().getConsumer().getBatch().getSize()) {
-        processBatch(currentBatch, currentBatchSize);
+        processBatch(sliceContext, currentBatch, currentBatchSize);
         totalProcessed += currentBatch.size();
         log.debug(
             "Processed batch of {} MCPs, total processed so far: {}/{}",
@@ -185,7 +224,7 @@ public class BatchMetadataChangeProposalsProcessor {
 
     // Process any remaining records in the final batch
     if (!currentBatch.isEmpty()) {
-      processBatch(currentBatch, currentBatchSize);
+      processBatch(sliceContext, currentBatch, currentBatchSize);
       totalProcessed += currentBatch.size();
       log.debug(
           "Processed final batch of {} MCPs, total processed: {}/{}",
@@ -196,11 +235,13 @@ public class BatchMetadataChangeProposalsProcessor {
   }
 
   /**
-   * Process a batch of MCPs
+   * Process a batch of MCPs under the supplied slice context.
    *
+   * @param sliceContext slice-level OperationContext used for ingest + FMCP emission
    * @param batch The MCPs to process
    */
-  private void processBatch(List<MetadataChangeProposal> batch, long batchBytes) {
+  private void processBatch(
+      @Nonnull OperationContext sliceContext, List<MetadataChangeProposal> batch, long batchBytes) {
     if (batch.isEmpty()) {
       return;
     }
@@ -211,7 +252,7 @@ public class BatchMetadataChangeProposalsProcessor {
         batchBytes);
 
     try {
-      List<String> urns = entityClient.batchIngestProposals(systemOperationContext, batch, false);
+      List<String> urns = entityClient.batchIngestProposals(sliceContext, batch, false);
 
       log.debug(
           "Successfully processed MCP event batch of size {} with urns: {}",
@@ -224,7 +265,7 @@ public class BatchMetadataChangeProposalsProcessor {
       currentSpan.setStatus(StatusCode.ERROR, throwable.getMessage());
       currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
 
-      kafkaProducer.produceFailedMetadataChangeProposal(systemOperationContext, batch, throwable);
+      kafkaProducer.produceFailedMetadataChangeProposal(sliceContext, batch, throwable);
     }
   }
 

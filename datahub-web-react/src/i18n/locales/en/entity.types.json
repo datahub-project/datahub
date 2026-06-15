@@ -310,6 +310,8 @@
     "user.namePlural": "People",
     "user.slackMemberIdHelp": "Find your member ID from the <icon></icon> menu in your Slack profile. More info <anchor>here.</anchor>",
     "user.slackMemberIdLabel": "Slack Member ID",
+    "user.tab.groups": "Groups",
+    "user.tab.ownerOf": "Owner Of",
     "user.teamLabel": "Team",
     "user.teamsHeading": "Teams",
     "user.titleRoleLabel": "Title/Role"

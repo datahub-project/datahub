@@ -1,14 +1,33 @@
 import { BADGE, defaultBadgesConfig } from '@geometricpanda/storybook-addon-badges';
-import React from 'react';
+import { ConfigProvider } from 'antd';
+// FYI: import of antd styles required to show components based on it correctly
+import 'antd/dist/antd.css';
+import React, { useEffect } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { ThemeProvider } from 'styled-components';
 
+import { LOCALE_MAP } from '../src/app/i18n/constants';
+import { isSupportedLanguage } from '../src/app/i18n/utils';
 import themes from '../src/conf/theme/themes';
+import dayjs from '../src/utils/dayjs';
 import DocTemplate from './DocTemplate.mdx';
 import i18n from './i18n';
 import './storybook-theme.css';
-// FYI: import of antd styles required to show components based on it correctly
-import 'antd/dist/antd.css';
+
+// Drives i18next, antd, and dayjs from the toolbar's selected locale — mirroring the app's
+// `I18nProvider`/`useLanguageSync` so antd components (e.g. DatePicker calendar labels) and
+// dayjs-formatted dates localize too, not just `t()` strings. i18next is mutated in an effect
+// so we touch the singleton after render rather than during it.
+const LocaleProvider = ({ locale, children }: { locale: string; children: React.ReactNode }) => {
+    const localeConfig = isSupportedLanguage(locale) ? LOCALE_MAP[locale] : LOCALE_MAP.en;
+    useEffect(() => {
+        if (i18n.language !== localeConfig.lang) {
+            i18n.changeLanguage(localeConfig.lang);
+        }
+        dayjs.locale(localeConfig.dayjs);
+    }, [localeConfig.lang, localeConfig.dayjs]);
+    return <ConfigProvider locale={localeConfig.antd}>{children}</ConfigProvider>;
+};
 
 const preview = {
     tags: ['!dev', 'autodocs'],
@@ -17,14 +36,29 @@ const preview = {
     //   (without it `theme` is empty and those reads throw "Cannot read properties of undefined").
     // - I18nextProvider: so `t()` / <Trans> render real strings instead of raw keys.
     decorators: [
-        (Story: React.ComponentType) => (
+        (Story: React.ComponentType, context: { globals: { locale?: string } }) => (
             <I18nextProvider i18n={i18n}>
-                <ThemeProvider theme={themes.themeV2}>
-                    <Story />
-                </ThemeProvider>
+                <LocaleProvider locale={context.globals.locale || 'en'}>
+                    <ThemeProvider theme={themes.themeV2}>
+                        <Story />
+                    </ThemeProvider>
+                </LocaleProvider>
             </I18nextProvider>
         ),
     ],
+    // Toolbar dropdown to switch the active language across all stories.
+    globalTypes: {
+        locale: {
+            name: 'Locale',
+            description: 'Active language',
+            defaultValue: 'en',
+            toolbar: {
+                icon: 'globe',
+                items: Object.values(LOCALE_MAP).map(({ lang, label }) => ({ value: lang, title: label })),
+                dynamicTitle: true,
+            },
+        },
+    },
     parameters: {
         previewTabs: {
             'storybook/docs/panel': { index: -1 },

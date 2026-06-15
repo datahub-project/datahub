@@ -1,6 +1,7 @@
 import re
 import unittest
 from typing import List, Optional
+from unittest import mock
 
 import pytest
 
@@ -9,12 +10,14 @@ import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.incremental_lineage_helper import (
-    auto_incremental_lineage,
     convert_dashboard_info_to_patch,
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.sink.file import write_metadata_file
+from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
+    AutoIncrementalLineageProcessor,
+)
 from datahub.testing import mce_helpers
 
 platform = "platform"
@@ -95,13 +98,13 @@ def test_incremental_table_lineage(tmp_path, pytestconfig):
     urn = make_dataset_urn(platform, "dataset1")
     aspect = base_table_lineage_aspect()
 
-    processed_wus = auto_incremental_lineage(
-        incremental_lineage=True,
-        stream=[
+    processor = AutoIncrementalLineageProcessor(mock.MagicMock())
+    processed_wus = processor.process(
+        [
             MetadataChangeProposalWrapper(
                 entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
             ).as_workunit()
-        ],
+        ]
     )
 
     write_metadata_file(
@@ -120,13 +123,13 @@ def test_incremental_table_lineage_empty_upstreams(tmp_path, pytestconfig):
         upstreams=[],
     )
 
-    processed_wus = auto_incremental_lineage(
-        incremental_lineage=True,
-        stream=[
+    processor = AutoIncrementalLineageProcessor(mock.MagicMock())
+    processed_wus = processor.process(
+        [
             MetadataChangeProposalWrapper(
                 entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
             ).as_workunit()
-        ],
+        ]
     )
 
     assert [wu.metadata for wu in processed_wus] == []
@@ -140,13 +143,13 @@ def test_incremental_column_lineage(tmp_path, pytestconfig):
     urn = make_dataset_urn(platform, "dataset1")
     aspect = base_cll_aspect()
 
-    processed_wus = auto_incremental_lineage(
-        incremental_lineage=True,
-        stream=[
+    processor = AutoIncrementalLineageProcessor(mock.MagicMock())
+    processed_wus = processor.process(
+        [
             MetadataChangeProposalWrapper(
                 entityUrn=urn, aspect=aspect, systemMetadata=system_metadata
             ).as_workunit()
-        ],
+        ]
     )
 
     write_metadata_file(
@@ -181,10 +184,8 @@ def test_incremental_lineage_pass_through(tmp_path, pytestconfig):
         systemMetadata=system_metadata,
     )
 
-    processed_wus = auto_incremental_lineage(
-        incremental_lineage=True,
-        stream=auto_workunit([dataset_mce, ownership]),
-    )
+    processor = AutoIncrementalLineageProcessor(mock.MagicMock())
+    processed_wus = processor.process(auto_workunit([dataset_mce, ownership]))
 
     write_metadata_file(
         test_file,

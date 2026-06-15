@@ -3,8 +3,8 @@ name: Nightly Docker Test
 # and if tests pass, tags them as nightly and daily for publishing
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 8 * * *" # Run at midnight Pacific time (8 AM UTC) every day
+  # schedule:
+  # - cron: "0 8 * * *" # Run at midnight Pacific time (8 AM UTC) every day
 
 concurrency:
   group: ${{ github.workflow }}
@@ -118,7 +118,7 @@ jobs:
         run: |
           run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
-          artifact_id=$(gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
+          artifact_id=$(gh api --paginate "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
           gh api "repos/datahub-project/datahub/actions/artifacts/${artifact_id}/zip" >"${{ github.workspace }}/build/build-metadata.zip"
           unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
           ls -l "${{ github.workspace }}/build/"
@@ -127,7 +127,7 @@ jobs:
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print |  jq -cr '.target[].tags[]' | grep ':quickstart' | tr '\n' ' ')"
+          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print | jq -cr '.target[].tags[]' | grep ':sha-' | sort -u | tr '\n' ' ')"
 
           echo "datahub_images=$images" >> "$GITHUB_OUTPUT"
 
@@ -225,7 +225,7 @@ jobs:
           echo "Looking for artifact: ${ARTIFACT_NAME}"
 
           # Query artifacts for this workflow run
-          ARTIFACT_ID=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+          ARTIFACT_ID=$(gh api --paginate "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
             --jq ".artifacts[] | select(.name == \"${ARTIFACT_NAME}\") | .id" | head -1)
 
           if [[ -z "$ARTIFACT_ID" ]]; then
@@ -367,7 +367,7 @@ jobs:
         run: |
           run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
-          artifact_id=$(gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
+          artifact_id=$(gh api --paginate "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
           gh api "repos/datahub-project/datahub/actions/artifacts/${artifact_id}/zip" >"${{ github.workspace }}/build/build-metadata.zip"
           unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
           ls -l "${{ github.workspace }}/build/"
@@ -376,7 +376,7 @@ jobs:
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print |  jq -cr '.target[].tags[]' | grep ':quickstart' | tr '\n' ' ')"
+          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print | jq -cr '.target[].tags[]' | grep ':sha-' | sort -u | tr '\n' ' ')"
 
           echo "datahub_images=$images" >> "$GITHUB_OUTPUT"
 
@@ -400,8 +400,8 @@ jobs:
                 echo "Failed to pull $image"
                 failed_pulls=$((failed_pulls + 1))
               else
-                # Re-tag the quickstart image with the nightly tag for smoke tests
-                newImage=${image/\:quickstart/\:${{ needs.setup.outputs.tag }}}
+                # Re-tag the sha image with the nightly tag for smoke tests
+                newImage="${image/:sha-???????/:${{ needs.setup.outputs.tag }}}"
                 echo "Tagging $image as $newImage"
                 docker tag "$image" "$newImage"
               fi
@@ -632,7 +632,7 @@ jobs:
         run: |
           run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
-          artifact_id=$(gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
+          artifact_id=$(gh api --paginate "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
           gh api "repos/datahub-project/datahub/actions/artifacts/${artifact_id}/zip" >"${{ github.workspace }}/build/build-metadata.zip"
           unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
           ls -l "${{ github.workspace }}/build/"
@@ -641,7 +641,7 @@ jobs:
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print |  jq -cr '.target[].tags[]' | grep ':quickstart' | tr '\n' ' ')"
+          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print | jq -cr '.target[].tags[]' | grep ':sha-' | sort -u | tr '\n' ' ')"
 
           echo "datahub_images=$images" >> "$GITHUB_OUTPUT"
 
@@ -676,7 +676,7 @@ jobs:
           eval "set -- ${{ steps.collect-images.outputs.datahub_images }}"
           for image do
             if [ -n "$image" ]; then
-              imageWithNightlyTag=${image/\:quickstart/\:${{ needs.setup.outputs.tag }}}
+              imageWithNightlyTag="${image/:sha-???????/:${{ needs.setup.outputs.tag }}}"
               echo "Tagging $image as $imageWithNightlyTag"
               if ! docker tag "$image" "$imageWithNightlyTag"; then
                 echo "Failed to tag $imageWithNightlyTag"
@@ -687,7 +687,7 @@ jobs:
                 failed_pushes=$((failed_pushes + 1))
               fi
               
-              imageWithDateTag=${image/\:quickstart/\:${{ needs.setup.outputs.date_tag }}}
+              imageWithDateTag="${image/:sha-???????/:${{ needs.setup.outputs.date_tag }}}"
               echo "Tagging $image as imageWithDateTag"
               if ! docker tag "$image" "$imageWithDateTag"; then
                 echo "Failed to tag imageWithDateTag"

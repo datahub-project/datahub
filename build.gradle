@@ -80,7 +80,8 @@ buildscript {
   // CVE-2026-1002; CVE-2026-6860 / GHSA-3g76-f9xq-8vp6 (SNI cache growth); fabric8 kubernetes-httpclient-vertx
   ext.vertxVersion = '4.5.27'
   // CVE-2026-41417 (netty-codec-http): 4.1.133+ or 4.2.13+; CVE-2026-42577 (netty-transport-native-epoll): 4.2.13+
-  ext.nettyVersion = '4.2.13.Final' // align all io.netty modules (excl. netty-tcnative line)
+  // CVE-2026-47691 (netty-resolver-dns): 4.1.135+ or 4.2.15+; CVE-2026-48059/50560 fixed in 4.2.15+
+  ext.nettyVersion = '4.2.15.Final' // align all io.netty modules (excl. netty-tcnative line)
   // CVE-2026-40542 / GHSA: SCRAM-SHA-256 authentication verification (httpclient5 5.6 → 5.6.1+)
   ext.httpClient5Version = '5.6.1'
   // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil); CVE-2026-0636 (bcprov fixed in 1.84+)
