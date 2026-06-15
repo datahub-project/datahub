@@ -3059,14 +3059,14 @@ ORDER by DataBaseName, TableName;
             raise NotImplementedError("Teradata only supports size-based candidates")
 
         size_limit_bytes = size_limit_gb * 1024**3
-        conn = inspector.bind  # inspect(conn) was used, so bind is the Connection
 
         try:
-            rows = self._retry_execute(
-                conn,
-                text(self.PROFILE_OVERSIZED_TABLES_QUERY),
-                {"schema": schema, "size_limit_bytes": size_limit_bytes},
-            ).fetchall()
+            with inspector.engine.connect() as conn:
+                rows = self._retry_execute(
+                    conn,
+                    text(self.PROFILE_OVERSIZED_TABLES_QUERY),
+                    {"schema": schema, "size_limit_bytes": size_limit_bytes},
+                ).fetchall()
         except Exception as e:
             # Sizing relies on SELECT access to DBC.TableSizeV, which locked-down
             # Teradata instances routinely withhold. Fall back to "no filtering"
