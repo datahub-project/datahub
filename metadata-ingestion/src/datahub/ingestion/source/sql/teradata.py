@@ -946,6 +946,9 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     num_database_tables_to_scan: TopKDict[str, int] = field(default_factory=TopKDict)
     num_database_views_to_scan: TopKDict[str, int] = field(default_factory=TopKDict)
 
+    # Tables excluded from profiling because their size exceeds
+    profiling_skipped_size_limit: TopKDict[str, int] = field(default_factory=TopKDict)
+
     # Global metadata extraction timing (single query for all databases)
     metadata_extraction_total_sec: float = 0.0
 
@@ -1438,12 +1441,16 @@ AND t.TableKind in ('T', 'V', 'Q', 'O')
 ORDER by DataBaseName, TableName;
 """.strip()
 
-    PROFILE_CANDIDATES_QUERY: str = """
+    # Returns only the tables whose total size is at or above the limit. We then
+    # subtract these from the full table list, so any table missing from
+    # DBC.TableSizeV (new/zero-perm tables, permission asymmetry) remains a
+    # profiling candidate (fail-open)
+    PROFILE_OVERSIZED_TABLES_QUERY: str = """
     SELECT TableName AS name
     FROM DBC.TableSizeV
     WHERE DatabaseName (NOT CASESPECIFIC) = :schema (NOT CASESPECIFIC)
     GROUP BY TableName
-    HAVING SUM(CurrentPerm) < :size_limit_bytes
+    HAVING SUM(CurrentPerm) >= :size_limit_bytes
     """.strip()
 
     def _build_tables_and_views_query(self) -> str:
@@ -3035,12 +3042,16 @@ ORDER by DataBaseName, TableName;
         threshold_time: Optional[datetime],
         schema: str,
     ) -> Optional[List[str]]:
-        """Return the tables in `schema` small enough to profile.
+        """Return the tables in `schema` eligible to profile (fail-open).
 
         Teradata can profile-scan a multi-GB table for a very long time, so we use
         DBC space accounting to skip tables above `profile_table_size_limit` (GB)
         before any profiling query is issued. Row-count filtering is not supported
         because Teradata has no cheap, reliable DBC row count without COLLECT STATS.
+
+        We start from the full table list and remove only the tables DBC reports as
+        oversized. Any table absent from DBC.TableSizeV (new/zero-perm tables or
+        permission asymmetry) is therefore treated as eligible
         """
         size_limit_gb = self.config.profiling.profile_table_size_limit
         if size_limit_gb is None:
@@ -3053,7 +3064,7 @@ ORDER by DataBaseName, TableName;
         try:
             rows = self._retry_execute(
                 conn,
-                text(self.PROFILE_CANDIDATES_QUERY),
+                text(self.PROFILE_OVERSIZED_TABLES_QUERY),
                 {"schema": schema, "size_limit_bytes": size_limit_bytes},
             ).fetchall()
         except Exception as e:
@@ -3073,16 +3084,21 @@ ORDER by DataBaseName, TableName;
             )
             return None
 
+        # Teradata object names are case-insensitive, and DBC casing may differ
+        # from what the dialect returns, so match case-insensitively.
+        oversized = {row.name.strip().lower() for row in rows}
         candidates = [
-            self.get_identifier(
-                schema=schema, entity=row.name.strip(), inspector=inspector
-            )
-            for row in rows
+            self.get_identifier(schema=schema, entity=table, inspector=inspector)
+            for table in inspector.get_table_names(schema)
+            if table.strip().lower() not in oversized
         ]
+        if oversized:
+            self.report.profiling_skipped_size_limit[schema] = len(oversized)
         logger.info(
-            "Profiling %d of the tables in %s (size limit %d GB).",
+            "Profiling %d tables in %s; skipped %d above the %d GB size limit.",
             len(candidates),
             schema,
+            len(oversized),
             size_limit_gb,
         )
         return candidates

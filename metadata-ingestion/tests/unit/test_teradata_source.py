@@ -4226,29 +4226,53 @@ class TestGenerateProfileCandidates:
         ):
             return TeradataSource(config, PipelineContext(run_id="test"))
 
-    def test_returns_under_limit_tables_and_converts_gb_to_bytes(self):
-        """Tables returned by DBC become candidates; the GB limit is converted to
-        bytes for the query and CHAR-padded table names are stripped."""
+    @staticmethod
+    def _oversized_rows(*names: str) -> MagicMock:
+        rows = []
+        for name in names:
+            row = MagicMock()
+            row.name = name
+            rows.append(row)
+        result = MagicMock()
+        result.fetchall.return_value = rows
+        return result
+
+    def test_excludes_only_oversized_tables_and_converts_gb_to_bytes(self):
+        """Candidates are the full table list minus the oversized tables DBC
+        reports; the GB limit is converted to bytes for the query."""
         source = self._source_with_size_limit(2)
 
-        row1 = MagicMock()
-        row1.name = "small_table "  # trailing pad must be stripped
-        row2 = MagicMock()
-        row2.name = "another"
-        result = MagicMock()
-        result.fetchall.return_value = [row1, row2]
+        # DBC reports one oversized table (CHAR-padded name must be stripped).
+        result = self._oversized_rows("big_table ")
+        inspector = MagicMock()
+        inspector.get_table_names.return_value = ["small_table", "big_table", "another"]
 
         with patch.object(
             source, "_retry_execute", return_value=result
         ) as mock_execute:
-            candidates = source.generate_profile_candidates(
-                MagicMock(), None, "myschema"
-            )
+            candidates = source.generate_profile_candidates(inspector, None, "myschema")
 
         assert candidates == ["myschema.small_table", "myschema.another"]
+        assert source.report.profiling_skipped_size_limit["myschema"] == 1
         params = mock_execute.call_args.args[2]
         assert params["schema"] == "myschema"
         assert params["size_limit_bytes"] == 2 * 1024**3
+
+    def test_table_missing_from_dbc_is_eligible(self):
+        """A table absent from DBC.TableSizeV (no size row) stays a candidate
+        (fail-open), rather than being silently dropped."""
+        source = self._source_with_size_limit(2)
+
+        # DBC reports nothing oversized, and "new_table" has no size row at all.
+        result = self._oversized_rows()
+        inspector = MagicMock()
+        inspector.get_table_names.return_value = ["new_table"]
+
+        with patch.object(source, "_retry_execute", return_value=result):
+            candidates = source.generate_profile_candidates(inspector, None, "myschema")
+
+        assert candidates == ["myschema.new_table"]
+        assert "myschema" not in source.report.profiling_skipped_size_limit
 
     def test_without_size_limit_raises_not_implemented(self):
         """No size limit -> base profiling falls back to all tables."""
