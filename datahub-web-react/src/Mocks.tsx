@@ -1138,6 +1138,7 @@ export const sampleTag = {
         description: 'sample tag description',
         colorHex: 'sample tag color',
     },
+    deprecation: null,
     autoRenderAspects: [],
 };
 

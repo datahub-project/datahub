@@ -5121,6 +5121,11 @@ type Tag implements Entity {
   ownership: Ownership
 
   """
+  The deprecation status of the Tag
+  """
+  deprecation: Deprecation
+
+  """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult

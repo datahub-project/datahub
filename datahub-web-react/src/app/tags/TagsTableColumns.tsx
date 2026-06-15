@@ -3,6 +3,8 @@ import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import { message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +18,7 @@ import { UnionType } from '@src/app/search/utils/constants';
 import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';
 import { navigateToSearchUrl } from '@src/app/search/utils/navigateToSearchUrl';
 import { useEntityRegistry, useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useGetTagQuery } from '@src/graphql/tag.generated';
 import { Entity, EntityType } from '@src/types.generated';
@@ -220,15 +223,50 @@ export const TagActionsColumn = React.memo(
         tagUrn,
         onEdit,
         onDelete,
+        onDeprecate,
         canManageTags,
     }: {
         tagUrn: string;
         onEdit: () => void;
         onDelete: () => void;
+        onDeprecate: () => void;
         canManageTags: boolean;
     }) => {
         const { t } = useTranslation('misc');
         const { t: tc } = useTranslation('common.actions');
+        const { t: te } = useTranslation('entity.shared.entityDropdown');
+        const { t: tf } = useTranslation('common.feedback');
+
+        const { data: tagData, refetch } = useGetTagQuery({
+            variables: { urn: tagUrn },
+            fetchPolicy: 'cache-first',
+        });
+        const isDeprecated = tagData?.tag?.deprecation?.deprecated ?? false;
+
+        const [batchUpdateDeprecation] = useBatchUpdateDeprecationMutation();
+
+        const handleUndeprecate = async () => {
+            message.loading({ content: tf('updating') });
+            try {
+                await batchUpdateDeprecation({
+                    variables: {
+                        input: {
+                            resources: [{ resourceUrn: tagUrn }],
+                            deprecated: false,
+                        },
+                    },
+                });
+                message.destroy();
+                message.success({ content: te('deprecation.updated'), duration: 2 });
+                refetch();
+            } catch (e: unknown) {
+                message.destroy();
+                if (e instanceof Error) {
+                    message.error({ content: te('deprecation.updateError', { errorMessage: e.message || '' }), duration: 2 });
+                }
+            }
+        };
+
         const menuItems = [
             {
                 type: 'item' as const,
@@ -249,6 +287,14 @@ export const TagActionsColumn = React.memo(
             },
             ...(canManageTags
                 ? [
+                      {
+                          type: 'item' as const,
+                          key: 'deprecate',
+                          title: isDeprecated ? te('deprecation.markUnDeprecated') : te('deprecation.markDeprecated'),
+                          icon: WarningCircle,
+                          onClick: isDeprecated ? handleUndeprecate : onDeprecate,
+                          'data-testid': 'action-deprecate',
+                      },
                       {
                           type: 'item' as const,
                           key: 'delete',
