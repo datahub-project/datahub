@@ -15,7 +15,7 @@
     "groups.createModal.name.label": "Name",
     "groups.createModal.name.placeholder": "A name for your group",
     "groups.createModal.name.validationError.empty": "Enter a Group name.",
-    "groups.createModal.name.validationError.tooLong": "Name must be 50 characters or less.",
+    "groups.createModal.name.validationError.tooLong": "Name must be 250 characters or less.",
     "groups.createModal.title": "Create new group",
     "groups.createOwnerError": "Failed to automatically add you as an owner of the group. Please add yourself as an owner manually.",
     "groups.createSuccess": "Created group!",
