@@ -38,8 +38,6 @@ class DremioGlossaryTerm:
 
 
 class DremioQuery:
-    affected_dataset: str
-
     def __init__(
         self,
         job_id: str,
@@ -47,17 +45,12 @@ class DremioQuery:
         submitted_ts: str,
         query: str,
         queried_datasets: str,
-        affected_datasets: Optional[str] = None,
     ):
         self.job_id = job_id
         self.username = username
         self.submitted_ts = self._get_submitted_ts(submitted_ts)
         self.query = self._get_query(query)
         self.queried_datasets = self._get_queried_datasets(queried_datasets)
-        if affected_datasets:
-            self.affected_dataset = affected_datasets
-        else:
-            self.affected_dataset = self._get_affected_tables()
 
     def get(self, attr):
         return getattr(self, attr, None)
@@ -72,9 +65,6 @@ class DremioQuery:
         return list(
             {dataset.strip() for dataset in queried_datasets.strip("[]").split(",")}
         )
-
-    def _get_affected_tables(self) -> str:
-        return ""
 
 
 class DremioDataset:
