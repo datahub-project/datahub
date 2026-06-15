@@ -3,7 +3,7 @@ import logging
 import threading
 import uuid
 from functools import partial
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple
 
 from dateutil import parser as dateutil_parser
 from pyiceberg.catalog import Catalog
@@ -160,7 +160,6 @@ class IcebergSource(StatefulIngestionSourceBase):
         self.stamping_processor = AutoSystemMetadata(
             self.ctx
         )  # single instance used only when processing namespaces
-        self.namespaces: List[Tuple[Identifier, str]] = []
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "IcebergSource":
@@ -230,43 +229,57 @@ class IcebergSource(StatefulIngestionSourceBase):
                 continue
             yield namespace
 
-    def _get_datasets(
-        self, catalog: Catalog, namespaces: Iterable[Tuple[Identifier, str]]
-    ) -> Iterable[Tuple[Identifier, str]]:
-        LOGGER.debug("Starting to retrieve tables")
-        tables_count = 0
-        for namespace, namespace_urn in namespaces:
-            try:
-                tables = catalog.list_tables(namespace)
-                tables_count += len(tables)
+    def _list_allowed_tables(
+        self, catalog: Catalog, namespace: Identifier
+    ) -> Optional[List[Identifier]]:
+        """List the tables in a namespace that pass ``table_pattern``.
+
+        Returns ``None`` if the namespace's tables could not be listed (the
+        failure is reported); otherwise returns the allowed table identifiers
+        (possibly empty). Tables rejected by ``table_pattern`` are reported as
+        dropped here, so they never reach dataset processing — and an empty
+        result lets the caller skip emitting an otherwise-empty namespace.
+        """
+        namespace_repr = ".".join(namespace)
+        try:
+            tables = catalog.list_tables(namespace)
+        except NoSuchNamespaceError as e:
+            self.report.warning(
+                title="No such namespace",
+                message="Skipping the missing namespace.",
+                context=namespace_repr,
+                exc=e,
+            )
+            return None
+        except RESTError as e:
+            self.report.warning(
+                title="Iceberg REST Server Error",
+                message="Iceberg REST Server returned error status when trying to list tables for a namespace, skipping it.",
+                context=namespace_repr,
+                exc=e,
+            )
+            return None
+        except Exception as e:
+            self.report.report_failure(
+                title="Error when processing a namespace",
+                message="Skipping the namespace due to errors while processing it.",
+                context=namespace_repr,
+                exc=e,
+            )
+            return None
+
+        self.report.report_listed_tables_for_namespace(namespace_repr, len(tables))
+        allowed_tables: List[Identifier] = []
+        for table in tables:
+            table_name = ".".join(table)
+            if self.config.table_pattern.allowed(table_name):
+                allowed_tables.append(table)
+            else:
+                self.report.report_dropped(table_name)
                 LOGGER.debug(
-                    f"Retrieved {len(tables)} tables for namespace: {namespace}, in total retrieved {tables_count}, first 10: {tables[:10]}"
+                    f"Skipping table {table_name} due to not being allowed by the config pattern"
                 )
-                self.report.report_listed_tables_for_namespace(
-                    ".".join(namespace), len(tables)
-                )
-                yield from [(table, namespace_urn) for table in tables]
-            except NoSuchNamespaceError as e:
-                self.report.warning(
-                    title="No such namespace",
-                    message="Skipping the missing namespace.",
-                    context=str(namespace),
-                    exc=e,
-                )
-            except RESTError as e:
-                self.report.warning(
-                    title="Iceberg REST Server Error",
-                    message="Iceberg REST Server returned error status when trying to list tables for a namespace, skipping it.",
-                    context=str(namespace),
-                    exc=e,
-                )
-            except Exception as e:
-                self.report.report_failure(
-                    title="Error when processing a namespace",
-                    message="Skipping the namespace due to errors while processing it.",
-                    context=str(namespace),
-                    exc=e,
-                )
+        return allowed_tables
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         thread_local = threading.local()
@@ -365,15 +378,9 @@ class IcebergSource(StatefulIngestionSourceBase):
         ) -> Iterable[MetadataWorkUnit]:
             try:
                 LOGGER.debug(f"Processing dataset for path {dataset_path}")
+                # table_pattern filtering already happened in _list_allowed_tables,
+                # so every dataset reaching here is one we intend to ingest.
                 dataset_name = ".".join(dataset_path)
-                if not self.config.table_pattern.allowed(dataset_name):
-                    # Dataset name is rejected by pattern, report as dropped.
-                    self.report.report_dropped(dataset_name)
-                    LOGGER.debug(
-                        f"Skipping table {dataset_name} due to not being allowed by the config pattern"
-                    )
-                    return
-
                 yield from _try_processing_dataset(
                     dataset_path, dataset_name, namespace_urn
                 )
@@ -396,7 +403,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             return
 
         try:
-            yield from self._process_namespaces()
+            dataset_args = yield from self._process_namespaces_and_collect_datasets()
         except Exception as e:
             self.report.report_failure(
                 title="Failed to list namespaces",
@@ -407,19 +414,55 @@ class IcebergSource(StatefulIngestionSourceBase):
 
         for wu in ThreadedIteratorExecutor.process(
             worker_func=_process_dataset,
-            args_list=[
-                (dataset_path, namespace_urn)
-                for dataset_path, namespace_urn in self._get_datasets(
-                    self.catalog, self.namespaces
-                )
-            ],
+            args_list=dataset_args,
             max_workers=self.config.processing_threads,
         ):
             yield wu
 
+    def _process_namespaces_and_collect_datasets(
+        self,
+    ) -> Generator[MetadataWorkUnit, None, List[Tuple[Identifier, str]]]:
+        """Emit namespace containers and collect the datasets to ingest.
+
+        A namespace container is emitted only when the namespace has at least one
+        table matching ``table_pattern`` (or ``ingest_empty_namespaces`` is set).
+        This prevents emitting metadata for thousands of unrelated namespaces when
+        ``table_pattern`` is narrow. Returns the ``(table, namespace_urn)`` pairs
+        whose datasets should be processed.
+        """
+        dataset_args: List[Tuple[Identifier, str]] = []
+        for namespace in self._get_namespaces(self.catalog):
+            allowed_tables = self._list_allowed_tables(self.catalog, namespace)
+            if (
+                allowed_tables is not None
+                and not allowed_tables
+                and not self.config.ingest_empty_namespaces
+            ):
+                # Successfully listed the namespace but none of its tables match
+                # table_pattern — skip it so we don't emit metadata for thousands
+                # of unrelated namespaces. (A listing failure, allowed_tables is
+                # None, still emits the container as before.)
+                LOGGER.debug(
+                    f"Skipping namespace {'.'.join(namespace)}: no tables match "
+                    "table_pattern and ingest_empty_namespaces is disabled"
+                )
+                continue
+            namespace_urn = yield from self._try_processing_namespace(namespace)
+            if namespace_urn is None:
+                # Namespace container emission failed; skip its datasets.
+                continue
+            if allowed_tables:
+                dataset_args.extend((table, namespace_urn) for table in allowed_tables)
+        return dataset_args
+
     def _try_processing_namespace(
         self, namespace: Identifier
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Generator[MetadataWorkUnit, None, Optional[str]]:
+        """Emit a namespace's container aspects and return its container URN.
+
+        Returns the namespace container URN on success, or ``None`` if the
+        namespace could not be processed (the failure is reported).
+        """
         namespace_repr = ".".join(namespace)
         try:
             LOGGER.debug(f"Processing namespace {namespace_repr}")
@@ -443,7 +486,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                         entityUrn=namespace_urn, aspect=aspect
                     ).as_workunit()
                 )
-            self.namespaces.append((namespace, namespace_urn))
+            return namespace_urn
         except NoSuchNamespaceError as e:
             self.report.report_warning(
                 title="Failed to retrieve namespace properties",
@@ -451,7 +494,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 context=namespace_repr,
                 exc=e,
             )
-            return
+            return None
         except RESTError as e:
             self.report.warning(
                 title="Iceberg REST Server Error",
@@ -459,6 +502,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 context=str(namespace),
                 exc=e,
             )
+            return None
         except Exception as e:
             self.report.report_failure(
                 title="Failed to process namespace",
@@ -466,13 +510,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 context=namespace_repr,
                 exc=e,
             )
-
-    def _process_namespaces(self) -> Iterable[MetadataWorkUnit]:
-        namespace_ids = self._get_namespaces(self.catalog)
-        for namespace in namespace_ids:
-            yield from self._try_processing_namespace(namespace)
-
-        LOGGER.debug("Namespaces ingestion completed")
+            return None
 
     def _create_iceberg_table_aspects(
         self, dataset_name: str, table: Table, namespace_urn: str

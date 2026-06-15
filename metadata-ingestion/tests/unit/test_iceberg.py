@@ -1240,7 +1240,8 @@ def test_proper_run_with_multiple_namespaces() -> None:
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-        # ingested 1 table (6 MCPs) and 2 namespaces (4 MCPs each), despite exception
+        # ingested 1 table (6 MCPs) and 2 namespaces (4 MCPs each) — the empty
+        # namespaceB is still cataloged by default (ingest_empty_namespaces=True)
         expected_wu_urns = [
             "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
         ] * MCPS_PER_TABLE + [
@@ -1256,6 +1257,59 @@ def test_proper_run_with_multiple_namespaces() -> None:
             urns,
             expected_wu_urns,
         )
+
+
+def test_empty_namespaces_skipped_when_opted_out() -> None:
+    # namespaceA has a matching table; namespaceB is empty. By default both are
+    # emitted (consistent with the SQL sources); setting ingest_empty_namespaces
+    # to False skips the empty namespaceB to avoid fan-out on large catalogs.
+    def _catalog() -> MockCatalog:
+        return MockCatalog(
+            {
+                "namespaceA": {
+                    "table1": lambda catalog: Table(
+                        identifier=("namespaceA", "table1"),
+                        metadata=TableMetadataV2(
+                            partition_specs=[PartitionSpec(spec_id=0)],
+                            location="s3://abcdefg/namespaceA/table1",
+                            last_column_id=0,
+                            schemas=[Schema(schema_id=0)],
+                            current_schema_id=0,
+                        ),
+                        metadata_location="s3://abcdefg/namespaceA/table1",
+                        io=PyArrowFileIO(),
+                        catalog=catalog,
+                    )
+                },
+                "namespaceB": {},
+            }
+        )
+
+    namespace_a_urn = "urn:li:container:390e031441265aae5b7b7ae8d51b0c1f"
+    namespace_b_urn = "urn:li:container:74727446a56420d80ff3b1abf2a18087"
+
+    def _emitted_urns(source: IcebergSource) -> set:
+        with patch(
+            "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+        ) as get_catalog:
+            get_catalog.return_value = _catalog()
+            return {
+                wu.metadata.entityUrn
+                for wu in source.get_workunits_internal()
+                if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            }
+
+    # Default (ingest_empty_namespaces=True): both namespaces are emitted.
+    default_urns = _emitted_urns(with_iceberg_source(processing_threads=1))
+    assert namespace_a_urn in default_urns
+    assert namespace_b_urn in default_urns
+
+    # Opt-out: the empty namespaceB is skipped.
+    opted_out_urns = _emitted_urns(
+        with_iceberg_source(processing_threads=1, ingest_empty_namespaces=False)
+    )
+    assert namespace_a_urn in opted_out_urns
+    assert namespace_b_urn not in opted_out_urns
 
 
 def test_filtering() -> None:

@@ -113,6 +113,18 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for namespaces to filter in ingestion.",
     )
+    ingest_empty_namespaces: bool = Field(
+        default=True,
+        description=(
+            "Whether to emit container entities for namespaces that contain no "
+            "tables matching `table_pattern`. When `True` (default), every namespace "
+            "allowed by `namespace_pattern` is cataloged, consistent with how the "
+            "SQL sources emit schema/database containers. Set to `False` to skip "
+            "namespaces that have no selected tables — useful for catalogs with "
+            "thousands of namespaces where a narrow `table_pattern` would otherwise "
+            "emit metadata for many unrelated namespaces."
+        ),
+    )
     user_ownership_property: Optional[str] = Field(
         default="owner",
         description="Iceberg table property to look for a `CorpUser` owner.  Can only hold a single user value.  If property has no value, no owner information will be emitted.",
