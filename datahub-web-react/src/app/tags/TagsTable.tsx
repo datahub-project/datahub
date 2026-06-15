@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { ManageTag } from '@app/tags/ManageTag';
+import { UpdateDeprecationModal } from '@app/entity/shared/EntityDropdown/UpdateDeprecationModal';
 import {
     TagActionsColumn,
     TagAppliedToColumn,
@@ -47,6 +48,9 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
 
     const [showEdit, setShowEdit] = useState(false);
     const [editingTag, setEditingTag] = useState('');
+
+    const [showDeprecationModal, setShowDeprecationModal] = useState(false);
+    const [deprecationTagUrn, setDeprecationTagUrn] = useState('');
 
     // Simplified state for delete confirmation modal
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -182,6 +186,10 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                                     message.error(t('tags.noDeletePermissionError'));
                                 }
                             }}
+                            onDeprecate={() => {
+                                setDeprecationTagUrn(record.entity.urn);
+                                setShowDeprecationModal(true);
+                            }}
                             canManageTags={canManageTags}
                         />
                     );
@@ -216,6 +224,14 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                     onClose={() => setShowEdit(false)}
                     onSave={refetch}
                     isModalOpen={showEdit}
+                />
+            )}
+
+            {showDeprecationModal && (
+                <UpdateDeprecationModal
+                    urns={[deprecationTagUrn]}
+                    onClose={() => setShowDeprecationModal(false)}
+                    refetch={refetch}
                 />
             )}
 
