@@ -3,15 +3,11 @@
  *
  * For every locale under src/i18n/locales (other than `en`) it reports three classes of drift:
  *
- *   1. Missing keys      — present in `en`, absent in the locale. The UI silently falls back to
- *                          English, so this is a WARNING by default (does not fail CI). Adding an
- *                          EN-only string in a PR should not be blocked on having translations yet.
- *   2. Extra keys/files  — present in the locale, absent in `en`. These are stale/dead weight left
- *                          behind by deleted or renamed EN keys. Classified as an ERROR.
- *   3. Placeholder drift — a key exists in both, but the `{{varName}}` interpolation variables in the
- *                          translation don't match EN. These break at runtime, so they're ERRORs.
- *
- * Errors only fail CI in `fail` mode (see I18N_PARITY_MODE below); otherwise they're reported only.
+ *   1. Missing keys      — present in `en`, absent in the locale (the UI falls back to English).
+ *   2. Extra keys/files  — present in the locale, absent in `en`: stale/dead weight left behind by
+ *                          deleted or renamed EN keys.
+ *   3. Placeholder drift — a key exists in both, but the `{{varName}}` interpolation variables in
+ *                          the translation don't match EN (these break at runtime).
  *
  * i18next pluralization is handled key-group-aware: a leaf like `rowCount_one` / `rowCount_other`
  * (and context+plural forms like `hiddenDependencies_downstream_one`) is grouped by stripping the
@@ -20,14 +16,13 @@
  * rules (e.g. pt-BR may need `_many` where EN has only `_one`/`_other`).
  *
  * Enforcement is controlled by the I18N_PARITY_MODE env var:
- *   - `warn` (default) — report everything but always exit 0 (never blocks CI).
- *   - `fail`           — exit 1 when there are errors (extra/stale keys, placeholder drift).
- * Missing keys are always warnings regardless of mode (the UI falls back to English).
+ *   - `warn` (default) — report every drift but always exit 0 (never blocks CI).
+ *   - `fail`           — exit 1 when there is ANY drift, including missing keys.
  *
  * Usage:
  *   node scripts/check-i18n-parity.mjs                 # check all non-EN locales (warn-only)
  *   node scripts/check-i18n-parity.mjs --lang de       # check a single locale
- *   I18N_PARITY_MODE=fail node scripts/check-i18n-parity.mjs   # block CI on errors
+ *   I18N_PARITY_MODE=fail node scripts/check-i18n-parity.mjs   # block CI on any drift
  */
 import { appendFileSync, existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import path from 'path';
@@ -44,10 +39,12 @@ const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
 const args = process.argv.slice(2);
 const langFilter = args.includes('--lang') ? args[args.indexOf('--lang') + 1] : null;
 
-// Whether errors should fail CI. Defaults to warn-only so EN-only PRs aren't blocked while
-// translations catch up; flip via `I18N_PARITY_MODE=fail` (in CI step env) to enforce.
+// Whether any drift should fail CI. Defaults to warn-only; flip via `I18N_PARITY_MODE=fail`.
 const mode = (process.env.I18N_PARITY_MODE || 'warn').toLowerCase();
 const enforce = ['fail', 'error', 'strict', 'true', '1'].includes(mode);
+// Every finding is drift that should be fixed, so it's always marked ❌ in the report/comment
+// regardless of mode. The mode only controls whether the run blocks (exit code + annotation level).
+const ICON = '❌';
 
 function loadFlat(filePath) {
     const flat = {};
@@ -84,44 +81,43 @@ function jsonFilesIn(dir) {
     return readdirSync(dir).filter((f) => f.endsWith('.json') && statSync(path.join(dir, f)).isFile());
 }
 
+function countByType(findings, type) {
+    return findings.filter((f) => f.type === type).length;
+}
+
 // Newlines in a workflow-command message must be encoded so the whole annotation stays on one line.
 function encodeAnnotation(message) {
     return message.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
 }
 
-// Emit one annotation per locale per severity so they appear on the run/PR checks page. One
-// annotation per (locale, severity) keeps us well under GitHub's per-run display cap. In warn-only
-// mode, errors are downgraded to warning-level annotations so a non-blocking run isn't shown with
-// red error markers on an otherwise-green check.
-function emitGithubAnnotations(perLocale, errorsBlock) {
+// Emit one annotation per locale so findings appear on the run/PR checks page without opening logs.
+// Severity follows the mode: in `fail` mode drift is an error, in `warn` mode it's a warning.
+function emitGithubAnnotations(perLocale) {
     if (process.env.GITHUB_ACTIONS !== 'true') return;
-    const errorLevel = errorsBlock ? 'error' : 'warning';
-    for (const { lang, langWarnings, langErrors } of perLocale) {
-        if (langWarnings.length > 0) {
-            const body = langWarnings.map((w) => `⚠️ ${w}`).join('\n');
-            console.log(`::warning title=i18n parity: ${lang} (${langWarnings.length})::${encodeAnnotation(body)}`);
-        }
-        if (langErrors.length > 0) {
-            const body = langErrors.map((e) => `❌ ${e}`).join('\n');
-            console.log(`::${errorLevel} title=i18n parity: ${lang} (${langErrors.length})::${encodeAnnotation(body)}`);
-        }
+    const level = enforce ? 'error' : 'warning';
+    for (const { lang, findings } of perLocale) {
+        if (findings.length === 0) continue;
+        const body = findings.map((f) => `${ICON} ${f.message}`).join('\n');
+        console.log(`::${level} title=i18n parity: ${lang} (${findings.length})::${encodeAnnotation(body)}`);
     }
 }
 
 // Build the markdown report shared by the job summary and the sticky PR comment.
-function buildSummaryMarkdown(perLocale, warnings, errors) {
+function buildSummaryMarkdown(perLocale, total) {
     const lines = ['## i18n locale parity', ''];
-    const status = errors > 0 ? '❌ failed' : warnings > 0 ? '⚠️ passed with warnings' : '✅ in sync';
-    lines.push(`**Status:** ${status} — ${warnings} warning(s), ${errors} error(s)`, '');
-    lines.push('| Locale | Missing (warn) | Errors |', '| --- | --- | --- |');
-    for (const { lang, langWarnings, langErrors } of perLocale) {
-        lines.push(`| ${lang} | ${langWarnings.length} | ${langErrors.length} |`);
+    const status = total === 0 ? '✅ in sync' : enforce ? '❌ failed' : '⚠️ drift detected (warn-only)';
+    lines.push(`**Status:** ${status} — ${total} issue(s) across ${perLocale.length} locale(s)`, '');
+    lines.push('| Locale | Missing | Stale | Placeholder |', '| --- | --- | --- | --- |');
+    for (const { lang, findings } of perLocale) {
+        lines.push(
+            `| ${lang} | ${countByType(findings, 'missing')} | ${countByType(findings, 'stale')} | ${countByType(findings, 'placeholder')} |`,
+        );
     }
     lines.push('');
 
-    for (const { lang, langWarnings, langErrors } of perLocale) {
-        if (langWarnings.length === 0 && langErrors.length === 0) continue;
-        const detail = [...langErrors.map((e) => `❌ ${e}`), ...langWarnings.map((w) => `⚠️ ${w}`)].join('\n');
+    for (const { lang, findings } of perLocale) {
+        if (findings.length === 0) continue;
+        const detail = findings.map((f) => `${ICON} ${f.message}`).join('\n');
         lines.push(`<details><summary>${lang}</summary>`, '', '```', detail, '```', '', '</details>', '');
     }
     return lines.join('\n');
@@ -129,14 +125,14 @@ function buildSummaryMarkdown(perLocale, warnings, errors) {
 
 // Render the report to the job summary page (visible on the run page without opening logs) and,
 // when there are findings, to a file the workflow turns into a sticky PR comment.
-function writeReports(perLocale, warnings, errors) {
-    const markdown = buildSummaryMarkdown(perLocale, warnings, errors);
+function writeReports(perLocale, total) {
+    const markdown = buildSummaryMarkdown(perLocale, total);
     if (process.env.GITHUB_STEP_SUMMARY) {
         appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n`);
     }
     // Only emit the comment file when there's something to report — absence signals "in sync" to
     // the workflow so it doesn't open a noisy comment on every PR.
-    if (process.env.I18N_PARITY_SUMMARY_FILE && warnings + errors > 0) {
+    if (process.env.I18N_PARITY_SUMMARY_FILE && total > 0) {
         appendFileSync(process.env.I18N_PARITY_SUMMARY_FILE, `${markdown}\n`);
     }
 }
@@ -152,19 +148,20 @@ if (languages.length === 0) {
     process.exit(0);
 }
 
-let totalWarnings = 0;
-let totalErrors = 0;
+let total = 0;
 const results = [];
 
 for (const lang of languages) {
     const langDir = path.join(localesDir, lang);
-    const langWarnings = [];
-    const langErrors = [];
+    const findings = [];
 
     // Whole namespace files that exist in the locale but not in EN are stale dead weight.
     const extraFiles = jsonFilesIn(langDir).filter((f) => !namespaces.includes(f));
     for (const f of extraFiles) {
-        langErrors.push(`${f} — file does not exist in "${BASE_LANG}" (stale, should be deleted)`);
+        findings.push({
+            type: 'stale',
+            message: `${f} — file does not exist in "${BASE_LANG}" (stale, should be deleted)`,
+        });
     }
 
     for (const nsFile of namespaces) {
@@ -173,8 +170,10 @@ for (const lang of languages) {
         const otherPath = path.join(langDir, nsFile);
 
         if (!existsSync(otherPath)) {
-            // Entire namespace untranslated — treated as missing keys (always a warning).
-            langWarnings.push(`${nsFile} — file missing entirely (${enKeys.length} untranslated key(s))`);
+            findings.push({
+                type: 'missing',
+                message: `${nsFile} — file missing entirely (${enKeys.length} untranslated key(s))`,
+            });
             continue;
         }
 
@@ -188,15 +187,17 @@ for (const lang of languages) {
         const extraGroups = [...otherGroups].filter((g) => !enGroups.has(g));
 
         if (missingGroups.length > 0) {
-            langWarnings.push(
-                `${nsFile} — ${missingGroups.length} missing key(s):\n${missingGroups.map((k) => `      - ${k}`).join('\n')}`,
-            );
+            findings.push({
+                type: 'missing',
+                message: `${nsFile} — ${missingGroups.length} missing key(s):\n${missingGroups.map((k) => `      - ${k}`).join('\n')}`,
+            });
         }
 
         if (extraGroups.length > 0) {
-            langErrors.push(
-                `${nsFile} — ${extraGroups.length} extra/stale key(s):\n${extraGroups.map((k) => `      - ${k}`).join('\n')}`,
-            );
+            findings.push({
+                type: 'stale',
+                message: `${nsFile} — ${extraGroups.length} extra/stale key(s):\n${extraGroups.map((k) => `      - ${k}`).join('\n')}`,
+            });
         }
 
         // Placeholder drift for keys present in both locales.
@@ -215,49 +216,45 @@ for (const lang of languages) {
             }
         }
         if (mismatches.length > 0) {
-            langErrors.push(`${nsFile} — ${mismatches.length} placeholder mismatch(es):\n${mismatches.join('\n')}`);
+            findings.push({
+                type: 'placeholder',
+                message: `${nsFile} — ${mismatches.length} placeholder mismatch(es):\n${mismatches.join('\n')}`,
+            });
         }
     }
 
     console.log(`\n──────── ${lang} ────────`);
-    if (langWarnings.length === 0 && langErrors.length === 0) {
+    if (findings.length === 0) {
         console.log('  ✅  in sync with en');
     }
-    for (const w of langWarnings) console.warn(`  ⚠️  ${w}`);
-    for (const e of langErrors) console.error(`  ❌  ${e}`);
+    for (const f of findings) {
+        (enforce ? console.error : console.warn)(`  ${ICON}  ${f.message}`);
+    }
 
-    results.push({ lang, langWarnings, langErrors });
-    totalWarnings += langWarnings.length;
-    totalErrors += langErrors.length;
+    results.push({ lang, findings });
+    total += findings.length;
 }
 
 // Surface results in the GitHub Actions UI (annotations + job summary) so they're visible on the
 // run/PR checks page without opening the raw job logs. No-ops when run outside Actions.
-emitGithubAnnotations(results, enforce);
-writeReports(results, totalWarnings, totalErrors);
+emitGithubAnnotations(results);
+writeReports(results, total);
 
 console.log(`\n────────────────────────`);
 console.log(`Locales checked: ${languages.join(', ')}`);
-console.log(`Mode: ${enforce ? 'fail' : 'warn'}   Warnings: ${totalWarnings}   Errors: ${totalErrors}`);
+console.log(`Mode: ${enforce ? 'fail' : 'warn'}   Issues: ${total}`);
 
-if (totalErrors > 0) {
-    if (enforce) {
-        console.error(
-            `\n❌  i18n parity check failed with ${totalErrors} error(s).` +
-                ` Fix extra/stale keys and placeholder mismatches above.`,
-        );
-        process.exit(1);
-    }
-    console.warn(
-        `\n⚠️  i18n parity found ${totalErrors} error(s) (extra/stale keys, placeholder drift),` +
-            ` reporting only. Set I18N_PARITY_MODE=fail to block CI on these.`,
-    );
-}
-
-if (totalWarnings > 0) {
-    console.warn(`\n⚠️  ${totalWarnings} missing-translation warning(s). Missing keys fall back to English.`);
-} else if (totalErrors === 0) {
+if (total === 0) {
     console.log('\n✅  All locales are in sync with en.');
+    process.exit(0);
 }
 
+if (enforce) {
+    console.error(`\n❌  i18n parity check failed with ${total} issue(s). Fix the drift above.`);
+    process.exit(1);
+}
+
+console.warn(
+    `\n⚠️  i18n parity found ${total} issue(s), reporting only. Set I18N_PARITY_MODE=fail to block CI on these.`,
+);
 process.exit(0);
