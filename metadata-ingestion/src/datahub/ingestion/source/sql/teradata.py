@@ -3109,13 +3109,35 @@ ORDER by DataBaseName, TableName;
             for table in inspector.get_table_names(schema)
             if table.strip().lower() not in oversized
         ]
-        if oversized:
-            self.report.profiling_skipped_size_limit[schema] += len(oversized)
+        # Per-table size skips are counted in is_dataset_eligible_for_profiling so
+        # the count reflects tables actually excluded (not raw DBC rows) and is not
+        # also double-counted into profiling_skipped_other by the base loop.
         logger.info(
-            "Profiling %d tables in %s; skipped %d above the %d GB size limit.",
+            "Profiling %d tables in %s; DBC reports %d table(s) above the %d GB size limit.",
             len(candidates),
             schema,
             len(oversized),
             size_limit_gb,
         )
         return candidates
+
+    def is_dataset_eligible_for_profiling(
+        self,
+        dataset_name: str,
+        schema: str,
+        inspector: Inspector,
+        profile_candidates: Optional[List[str]],
+    ) -> bool:
+        # Let the base apply table/profile pattern checks, but pass
+        # profile_candidates=None so it does NOT count size-excluded tables into the
+        # generic profiling_skipped_other bucket (which would double-count). We then
+        # attribute candidate misses to profiling_skipped_size_limit, since the
+        # Teradata candidate list is filtered solely by size.
+        if not super().is_dataset_eligible_for_profiling(
+            dataset_name, schema, inspector, profile_candidates=None
+        ):
+            return False
+        if profile_candidates is not None and dataset_name not in profile_candidates:
+            self.report.profiling_skipped_size_limit[schema] += 1
+            return False
+        return True

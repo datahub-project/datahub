@@ -4253,7 +4253,6 @@ class TestGenerateProfileCandidates:
             candidates = source.generate_profile_candidates(inspector, None, "myschema")
 
         assert candidates == ["myschema.small_table", "myschema.another"]
-        assert source.report.profiling_skipped_size_limit["myschema"] == 1
         params = mock_execute.call_args.args[2]
         assert params["schema"] == "myschema"
         assert params["size_limit_bytes"] == 2 * 1024**3
@@ -4288,7 +4287,6 @@ class TestGenerateProfileCandidates:
 
         assert candidates == []
         assert candidates is not None
-        assert source.report.profiling_skipped_size_limit["myschema"] == 1
 
     def test_oversized_match_is_case_insensitive(self):
         """DBC casing may differ from the dialect's table names, so an oversized
@@ -4306,7 +4304,6 @@ class TestGenerateProfileCandidates:
         assert candidates is not None
         assert len(candidates) == 1
         assert candidates[0].lower() == "myschema.smalltable"
-        assert source.report.profiling_skipped_size_limit["myschema"] == 1
 
     def test_empty_schema_returns_empty_list_not_none(self):
         """A schema with no tables yields [] (filtering applied, nothing to profile),
@@ -4345,3 +4342,20 @@ class TestGenerateProfileCandidates:
         # The warning should point at the DBC view so operators know what to grant;
         # match on a stable keyword rather than the full wording.
         assert any("DBC.TableSizeV" in w.message for w in source.report.warnings)
+
+    def test_eligibility_counts_size_skip_once_not_double_counted(self):
+        """A table excluded by the size-filtered candidate list is counted in
+        profiling_skipped_size_limit and NOT also in profiling_skipped_other."""
+        source = self._source_with_size_limit(1)
+        inspector = MagicMock()
+        candidates = ["myschema.small_table"]
+
+        assert source.is_dataset_eligible_for_profiling(
+            "myschema.small_table", "myschema", inspector, candidates
+        )
+        assert not source.is_dataset_eligible_for_profiling(
+            "myschema.big_table", "myschema", inspector, candidates
+        )
+
+        assert source.report.profiling_skipped_size_limit["myschema"] == 1
+        assert "myschema" not in source.report.profiling_skipped_other
