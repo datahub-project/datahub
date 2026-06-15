@@ -155,3 +155,11 @@ The relationship can also be removed:
 
     client._graph.emit(MetadataChangeProposalWrapper(entityUrn=child_urn, aspect=LogicalParentClass(parent=None)))
 ```
+
+## Authorization
+
+Linking or unlinking a physical dataset to a logical parent writes the [`LogicalParent`](../../../generated/metamodel/entities/dataset.md#logicalparent) aspect on the **child** dataset. Authorization requires **Edit Entity** on the **child dataset** being updated, not on the proposed parent URN.
+
+This applies to MCP ingestion, GraphQL (`setLogicalParent`), and OpenAPI relationship endpoints. Clearing a logical parent uses the same check on the child.
+
+See [Metadata Policies — derived authorization rules](../../../authorization/policies.md#derived-authorization-rules).
