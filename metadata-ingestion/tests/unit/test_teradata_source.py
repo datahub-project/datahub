@@ -4326,6 +4326,17 @@ class TestGenerateProfileCandidates:
         with pytest.raises(NotImplementedError):
             source.generate_profile_candidates(MagicMock(), None, "myschema")
 
+    def test_zero_size_limit_is_rejected_by_config(self):
+        """profile_table_size_limit: 0 would disable profiling for the whole
+        instance, so it must fail validation rather than silently do so."""
+        with pytest.raises(ValueError):
+            TeradataConfig.model_validate(
+                {
+                    **_base_config(),
+                    "profiling": {"profile_table_size_limit": 0},
+                }
+            )
+
     def test_query_failure_falls_back_to_no_filtering(self):
         """If sizing the tables fails (e.g. no SELECT on DBC.TableSizeV), return
         None so profiling proceeds for all tables instead of failing the run."""

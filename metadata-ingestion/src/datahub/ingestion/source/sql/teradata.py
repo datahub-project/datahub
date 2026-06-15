@@ -1148,6 +1148,19 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
             )
         return self
 
+    @model_validator(mode="after")
+    def _validate_profile_table_size_limit(self) -> "TeradataConfig":
+        # A value of 0 would make the DBC sizing query (SUM(CurrentPerm) >= 0) match
+        # every table, silently excluding the whole instance from profiling. Reject
+        # it so the misconfiguration fails fast; use null to disable size filtering.
+        size_limit = self.profiling.profile_table_size_limit
+        if size_limit is not None and size_limit <= 0:
+            raise ValueError(
+                "profile_table_size_limit must be greater than 0 GB (or null to disable "
+                f"size-based filtering); got {size_limit}."
+            )
+        return self
+
     use_dbc_columns_for_views: bool = Field(
         default=False,
         description=(
