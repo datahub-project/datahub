@@ -4274,6 +4274,39 @@ class TestGenerateProfileCandidates:
         assert candidates == ["myschema.new_table"]
         assert "myschema" not in source.report.profiling_skipped_size_limit
 
+    def test_all_tables_oversized_returns_empty_list_not_none(self):
+        """When every table exceeds the limit, return an empty candidate list
+        (profile nothing) -- distinct from None, which means "no filtering"."""
+        source = self._source_with_size_limit(1)
+
+        result = self._oversized_rows("big")
+        inspector = MagicMock()
+        inspector.get_table_names.return_value = ["big"]
+
+        with patch.object(source, "_retry_execute", return_value=result):
+            candidates = source.generate_profile_candidates(inspector, None, "myschema")
+
+        assert candidates == []
+        assert candidates is not None
+        assert source.report.profiling_skipped_size_limit["myschema"] == 1
+
+    def test_oversized_match_is_case_insensitive(self):
+        """DBC casing may differ from the dialect's table names, so an oversized
+        table is excluded even when the case differs; other tables stay eligible."""
+        source = self._source_with_size_limit(1)
+
+        # DBC reports the oversized table upper-cased; the dialect reports mixed case.
+        result = self._oversized_rows("BIGTABLE")
+        inspector = MagicMock()
+        inspector.get_table_names.return_value = ["BigTable", "SmallTable"]
+
+        with patch.object(source, "_retry_execute", return_value=result):
+            candidates = source.generate_profile_candidates(inspector, None, "myschema")
+
+        assert len(candidates) == 1
+        assert candidates[0].lower() == "myschema.smalltable"
+        assert source.report.profiling_skipped_size_limit["myschema"] == 1
+
     def test_without_size_limit_raises_not_implemented(self):
         """No size limit -> base profiling falls back to all tables."""
         source = self._source_with_size_limit(None)
