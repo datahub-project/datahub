@@ -241,11 +241,19 @@ class PlatformDetail(ConfigModel):
     database: Optional[str] = pydantic.Field(
         default=None,
         description="The database that all assets produced by this connector belong to. "
-        "For destinations, this defaults to the fivetran log config's database.",
+        "For destinations, this defaults to the fivetran log config's database. "
+        "Honored only for relational warehouses (`<platform>.<database>.<schema>.<table>`); "
+        "ignored for `iceberg`/`glue`, where the schema is the namespace (for `glue` a set "
+        "value is treated only as a legacy routing hint, not a URN segment).",
     )
     include_schema_in_urn: bool = pydantic.Field(
         default=True,
-        description="Include schema in the dataset URN. In some cases, the schema is not relevant to the dataset URN and Fivetran sets it to the source and destination table names in the connector.",
+        description="Whether to keep the schema segment in the dataset URN. Fivetran "
+        "reports every table as `<schema>.<table>`, but some target platforms have no "
+        "schema layer in their URN (e.g. Kafka, whose URN is just `<topic>`). Set False "
+        "to strip the leading schema segment so the emitted URN matches that platform's "
+        "naming. Leave True (the default) for warehouses and for `iceberg`/`glue`, where "
+        "the schema is a meaningful namespace.",
     )
     database_lowercase: bool = pydantic.Field(
         default=True,
@@ -255,7 +263,8 @@ class PlatformDetail(ConfigModel):
             "convention (and to preserve the long-standing Fivetran connector "
             "behaviour). Set False to keep the case Fivetran reports — useful "
             "when aligning with another DataHub source whose URN preserves "
-            "the database casing (e.g. some Glue or Iceberg setups). "
+            "the database casing. Only affects relational warehouses; "
+            "`iceberg`/`glue` carry no `database` segment. "
             "Schema and table segments are always passed through unchanged."
         ),
     )
