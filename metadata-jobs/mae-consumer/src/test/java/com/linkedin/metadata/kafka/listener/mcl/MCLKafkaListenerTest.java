@@ -9,6 +9,7 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.kafka.context.inbound.DefaultInboundBatchAffinityResolver;
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.trace.TraceServiceImpl;
@@ -94,7 +95,8 @@ public class MCLKafkaListenerTest {
         Arrays.asList(mockHook1, mockHook2),
         true, // fineGrainedLoggingEnabled
         aspectsToDrop,
-        new InboundContextResolver(Collections.emptyList()));
+        new InboundContextResolver(Collections.emptyList()),
+        new DefaultInboundBatchAffinityResolver());
 
     // Setup mock consumer record
     when(mockConsumerRecord.topic()).thenReturn(TEST_TOPIC);
@@ -372,7 +374,8 @@ public class MCLKafkaListenerTest {
         Arrays.asList(mockHook1, mockHook2),
         false, // fineGrainedLoggingEnabled = false
         new HashMap<>(),
-        new InboundContextResolver(Collections.emptyList()));
+        new InboundContextResolver(Collections.emptyList()),
+        new DefaultInboundBatchAffinityResolver());
 
     MetadataChangeLog event = createTestMCL(ChangeType.UPSERT);
 
@@ -535,7 +538,8 @@ public class MCLKafkaListenerTest {
         Arrays.asList(mockHook1, mockHook2),
         true,
         new HashMap<>(),
-        new InboundContextResolver(Collections.emptyList()));
+        new InboundContextResolver(Collections.emptyList()),
+        new DefaultInboundBatchAffinityResolver());
 
     MetadataChangeLog event = createTestMCL(ChangeType.UPSERT);
 

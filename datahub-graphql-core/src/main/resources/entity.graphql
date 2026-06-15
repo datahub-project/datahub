@@ -2792,6 +2792,11 @@ type GlossaryNode implements Entity {
   Executes a search on the children of this glossary node
   """
   glossaryChildrenSearch(input: ScrollAcrossEntitiesInput!): ScrollResults
+
+  """
+  The Domain associated with the glossary node
+  """
+  domain: DomainAssociation
 }
 
 """
@@ -11788,6 +11793,11 @@ type DomainAssociation {
   Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  Attribution for this domain association (who added it, when, and how)
+  """
+  attribution: MetadataAttribution
 }
 
 """
