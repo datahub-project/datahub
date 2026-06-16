@@ -387,6 +387,9 @@ class MatillionSource(StatefulIngestionSourceBase):
             env_name = key.environment_name
             pipeline_name = key.pipeline_name
             executions = pipeline_groups[key]
+            if env_name and not self.config.environment_patterns.allowed(env_name):
+                self.report.filtered_environments.append(env_name)
+                continue
             if not self.config.pipeline_patterns.allowed(pipeline_name):
                 self.report.filtered_pipelines.append(pipeline_name)
                 continue

@@ -6,6 +6,7 @@ from pydantic import SecretStr
 from requests.exceptions import ConnectionError, Timeout
 from requests_mock import Mocker
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import TestConnectionReport
@@ -743,6 +744,62 @@ def test_run_history_for_published_pipelines(
     else:
         assert not executions_mock.called
         assert not run_events
+
+
+def test_environment_patterns_filter_executions_discovery(
+    pipeline_context: PipelineContext,
+) -> None:
+    config = MatillionSourceConfig(
+        api_config=MatillionAPIConfig(
+            client_id=SecretStr("test_client_id"),
+            client_secret=SecretStr("test_client_secret"),
+            custom_base_url="http://test.com",
+        ),
+        include_unpublished_pipelines=True,
+        include_streaming_pipelines=False,
+        environment_patterns=AllowDenyPattern(allow=["Production"]),
+    )
+    source = MatillionSource(config, pipeline_context)
+
+    mock_projects = [MatillionProject(id="proj-1", name="Test Project")]
+    mock_environments = [
+        MatillionEnvironment(name="Production", default_agent_id="agent-1"),
+        MatillionEnvironment(name="Sandbox", default_agent_id="agent-2"),
+    ]
+    mock_executions = [
+        MatillionPipelineExecution(
+            pipeline_execution_id="exec-1",
+            project_id="proj-1",
+            environment_name="Sandbox",
+            pipeline_name="FOLDER/denied.orch.yaml",
+            status="SUCCESS",
+        )
+    ]
+
+    with (
+        patch.object(
+            source.api_client, "get_environments", return_value=mock_environments
+        ),
+        patch.object(source.api_client, "get_pipelines", return_value=[]),
+        patch.object(
+            source.api_client, "get_pipeline_executions", return_value=mock_executions
+        ),
+        patch.object(
+            source.api_client, "get_pipeline_execution_steps", return_value=[]
+        ),
+        patch.object(source.api_client, "get_schedules", return_value=[]),
+    ):
+        workunits = list(
+            source._discover_and_process_pipelines_from_executions(mock_projects)
+        )
+
+    assert "Sandbox" in source.report.filtered_environments
+    emitted_urns = [
+        wu.metadata.entityUrn or ""
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    ]
+    assert not any("denied.orch.yaml" in urn for urn in emitted_urns)
 
 
 @pytest.mark.parametrize(
