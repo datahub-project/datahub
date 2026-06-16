@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import auto
 from os.path import basename, dirname
 from pathlib import Path
-from typing import Any, Iterable, List, Optional, Union
+from typing import Any, Iterable, Optional, Union
 from urllib.parse import urlparse
 
 import jsonref
@@ -33,7 +33,7 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor.json_ref_patch import title_swapping_callback
 from datahub.ingestion.extractor.json_schema_util import (
@@ -43,7 +43,6 @@ from datahub.ingestion.extractor.json_schema_util import (
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -407,14 +406,6 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                         ),
                     ),
                 ).as_workunit()
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.uri_replace_pattern:

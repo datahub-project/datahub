@@ -32,7 +32,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -52,9 +51,6 @@ from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageEx
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -395,20 +391,6 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     def get_report(self) -> DataplexReport:
         """Return the ingestion report."""
         return self.report
-
-    def get_workunit_processors(self) -> list[Optional[MetadataWorkUnitProcessor]]:
-        """
-        Get workunit processors for stateful ingestion.
-
-        Returns processors for:
-        - Stale entity removal (deletion detection)
-        """
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main function to fetch and yield workunits for various Dataplex resources."""

@@ -5,7 +5,7 @@ import urllib
 from collections import defaultdict
 from dataclasses import dataclass, field
 from time import sleep
-from typing import Dict, Iterable, List, Optional, Set, Union
+from typing import Dict, Iterable, Optional, Set, Union
 
 import nest_asyncio
 from okta.client import Client as OktaClient
@@ -25,7 +25,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -230,14 +229,6 @@ class OktaSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = OktaSourceReport()
         self.okta_client = self._create_okta_client()
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Step 0: get or create the event loop

@@ -20,7 +20,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags
 from datahub.ingestion.source.aws.s3_util import (
@@ -42,9 +42,6 @@ from datahub.ingestion.source.excel.profiling import ExcelProfiler
 from datahub.ingestion.source.excel.report import ExcelSourceReport
 from datahub.ingestion.source.excel.util import gen_dataset_name
 from datahub.ingestion.source.s3.source import BrowsePath
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -158,14 +155,6 @@ class ExcelSource(StatefulIngestionSourceBase):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ExcelSource":
         config = ExcelSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     @staticmethod
     def uri_type(uri: str) -> Tuple[UriType, str]:

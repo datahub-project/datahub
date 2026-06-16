@@ -3,8 +3,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from functools import partial
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable
 
 from pydantic import Field
 
@@ -16,8 +15,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.gc.dataprocess_cleanup import (
     DataProcessCleanup,
@@ -33,6 +31,9 @@ from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
     SoftDeletedEntitiesCleanup,
     SoftDeletedEntitiesCleanupConfig,
     SoftDeletedEntitiesReport,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
 )
 
 logger = logging.getLogger(__name__)
@@ -131,8 +132,8 @@ class DataHubGcSource(Source):
         return cls(ctx, config)
 
     # auto_work_unit_report is overriden to disable a couple of automation like auto status aspect, etc. which is not needed her.
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [partial(auto_workunit_reporter, self.get_report())]
+    def get_allowed_workunit_processors(self):
+        return [AutoWorkunitsReporterProcessor]
 
     def get_workunits_internal(
         self,
