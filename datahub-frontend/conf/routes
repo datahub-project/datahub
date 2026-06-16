@@ -34,7 +34,6 @@ DELETE        /api/*path                                                      co
 PUT           /api/*path                                                      controllers.Application.proxy(path: String, request: Request)
 
 # Proxies API requests to the metadata service api
-GET           /openapi/v3/api-docs                                             controllers.Default.redirect(to = "/openapi/v3/api-docs/openapi-v3")
 GET           /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
 POST          /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
 DELETE        /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
