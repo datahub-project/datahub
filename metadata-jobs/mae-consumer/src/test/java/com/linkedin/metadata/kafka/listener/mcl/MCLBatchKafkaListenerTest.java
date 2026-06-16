@@ -7,6 +7,7 @@ import static org.testng.Assert.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.kafka.context.inbound.DefaultInboundBatchAffinityResolver;
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -76,7 +77,8 @@ public class MCLBatchKafkaListenerTest {
         Arrays.asList(mockHook1, mockHook2),
         false,
         aspectsToDrop,
-        new InboundContextResolver(Collections.emptyList()));
+        new InboundContextResolver(Collections.emptyList()),
+        new DefaultInboundBatchAffinityResolver());
   }
 
   @Test

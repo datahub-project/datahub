@@ -59,7 +59,8 @@ const deleteGlossary = (message) => {
   cy.waitTextVisible(message);
 };
 
-describe("glossary sidebar navigation test", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("glossary sidebar navigation test", () => {
   beforeEach(() => {
     Cypress.on("uncaught:exception", (err, runnable) => false);
     cy.login();

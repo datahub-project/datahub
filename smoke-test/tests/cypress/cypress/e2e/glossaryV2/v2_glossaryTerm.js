@@ -60,7 +60,8 @@ const enterKeyInSearchBox = (text) => {
     .type(`${text}{enter}`);
 };
 
-describe("glossaryTerm", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("glossaryTerm", () => {
   beforeEach(() => {
     cy.login();
     cy.skipIntroducePage();

@@ -10,6 +10,9 @@ fragment childGlossaryTerm on GlossaryTerm {
     displayProperties {
         ...displayPropertiesFields
     }
+    domain {
+        ...entityDomain
+    }
 }
 
 fragment glossaryNodeFields on GlossaryNode {
@@ -28,6 +31,9 @@ fragment glossaryNodeFields on GlossaryNode {
     }
     ownership {
         ...ownershipFields
+    }
+    domain {
+        ...entityDomain
     }
     parentNodes {
         ...parentNodesFields
