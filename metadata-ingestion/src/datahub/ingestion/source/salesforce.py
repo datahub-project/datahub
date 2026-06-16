@@ -511,7 +511,9 @@ class SalesforceApi:
 
         return customFields
 
-    def get_approximate_record_count(self, sObjectName: str) -> SObjectRecordCount:
+    def get_approximate_record_count(
+        self, sObjectName: str
+    ) -> Optional[SObjectRecordCount]:
         sObject_records_count_url = (
             f"{self.base_url}limits/recordCount?sObjects={sObjectName}"
         )
@@ -526,6 +528,17 @@ class SalesforceApi:
             )
         )
         sobject_record_counts = sObject_record_count_response.get("sObjects", [])
+        if not sobject_record_counts:
+            # Salesforce omits some objects (e.g. Contract in certain org
+            # configurations) from the recordCount response, returning an empty
+            # list. Degrade gracefully so profiling can still emit columnCount.
+            self.report.warning(
+                title="Record count unavailable",
+                message="Salesforce returned no record count for this object; "
+                "profiling will omit rowCount.",
+                context=sObjectName,
+            )
+            return None
         return sobject_record_counts[0]
 
 
@@ -617,7 +630,17 @@ class SalesforceSource(StatefulIngestionSourceBase):
             raise e
         else:
             for sObject in sObjects:
-                yield from self.get_salesforce_object_workunits(sObject)
+                try:
+                    yield from self.get_salesforce_object_workunits(sObject)
+                except Exception as e:
+                    # Guard the whole run: one object's unexpected failure
+                    # should be reported and skipped, not abort ingestion.
+                    self.report.warning(
+                        title="Failed to ingest Salesforce object",
+                        message="Skipping object due to an unexpected error.",
+                        context=sObject.get("QualifiedApiName"),
+                        exc=e,
+                    )
 
     def get_salesforce_object_workunits(
         self, sObject: EntityDefinition
@@ -868,7 +891,7 @@ class SalesforceSource(StatefulIngestionSourceBase):
 
         datasetProfile = DatasetProfileClass(
             timestampMillis=int(time.time() * 1000),
-            rowCount=sobject_record_count["count"],
+            rowCount=sobject_record_count["count"] if sobject_record_count else None,
             columnCount=self.fieldCounts[sObjectName],
         )
         yield MetadataChangeProposalWrapper(
