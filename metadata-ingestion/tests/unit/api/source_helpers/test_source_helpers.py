@@ -1,6 +1,7 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Union
+from unittest import mock
 
 import pytest
 import time_machine
@@ -9,17 +10,21 @@ import datahub.metadata.schema_classes as models
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
-    auto_patch_last_modified,
-)
 from datahub.ingestion.api.source_helpers import (
     auto_empty_dataset_usage_statistics,
-    auto_lowercase_urns,
-    auto_status_aspect,
     auto_workunit,
     create_dataset_props_patch_builder,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
+    AutoLowercaseUrnsProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_patch_last_modified import (
+    AutoPatchLastModifiedProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_status_aspect import (
+    AutoStatusAspectProcessor,
+)
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     OperationTypeClass,
@@ -96,7 +101,8 @@ def test_auto_status_aspect():
             )
         ),
     ]
-    assert list(auto_status_aspect(initial_wu)) == expected
+    processor = AutoStatusAspectProcessor.create(mock.MagicMock())
+    assert list(processor.process(initial_wu)) == expected
 
 
 def test_auto_lowercase_aspects():
@@ -165,10 +171,11 @@ def test_auto_lowercase_aspects():
             )
         ),
     ]
-    assert list(auto_lowercase_urns(mcws)) == expected
+    processor = AutoLowercaseUrnsProcessor(mock.MagicMock())
+    assert list(processor.process(mcws)) == expected
 
 
-@time_machine.travel("2023-01-02 00:00:00", tick=False)
+@time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture) -> None:
     has_urn = make_dataset_urn("my_platform", "has_aspect")
     empty_urn = make_dataset_urn("my_platform", "no_aspect")
@@ -203,7 +210,9 @@ def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture) -
         MetadataChangeProposalWrapper(
             entityUrn=empty_urn,
             aspect=models.DatasetUsageStatisticsClass(
-                timestampMillis=int(datetime(2023, 1, 1).timestamp() * 1000),
+                timestampMillis=int(
+                    datetime(2023, 1, 1, tzinfo=timezone.utc).timestamp() * 1000
+                ),
                 eventGranularity=models.TimeWindowSizeClass(
                     models.CalendarIntervalClass.DAY
                 ),
@@ -217,7 +226,7 @@ def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture) -
     ]
 
 
-@time_machine.travel("2023-01-02 00:00:00", tick=False)
+@time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_empty_dataset_usage_statistics_invalid_timestamp(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -315,7 +324,7 @@ def get_auto_generated_wu() -> List[MetadataWorkUnit]:
     return auto_generated_work_units
 
 
-@time_machine.travel("2023-01-02 00:00:00", tick=False)
+@time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_patch_last_modified_no_change():
     mcps = [
         MetadataChangeProposalWrapper(
@@ -328,12 +337,11 @@ def test_auto_patch_last_modified_no_change():
 
     expected = initial_wu
 
-    assert (
-        list(auto_patch_last_modified(initial_wu)) == expected
-    )  # There should be no change
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
+    assert list(processor.process(initial_wu)) == expected  # There should be no change
 
 
-@time_machine.travel("2023-01-02 00:00:00", tick=False)
+@time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_patch_last_modified_max_last_updated_timestamp():
     mcps = get_sample_mcps()
 
@@ -345,10 +353,11 @@ def test_auto_patch_last_modified_max_last_updated_timestamp():
 
     # work unit should contain a path of datasetProperties with lastModified set to max of operation.lastUpdatedTime
     # i.e., 20
-    assert list(auto_patch_last_modified(auto_workunit(mcps))) == expected
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
+    assert list(processor.process(auto_workunit(mcps))) == expected
 
 
-@time_machine.travel("2023-01-02 00:00:00", tick=False)
+@time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_patch_last_modified_multi_patch():
     mcps = get_sample_mcps()
 
@@ -369,10 +378,11 @@ def test_auto_patch_last_modified_multi_patch():
 
     # In this case, the final work units include two patch units: one originating from the source and
     # the other from auto_patch_last_modified.
-    assert list(auto_patch_last_modified(work_units)) == expected
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
+    assert list(processor.process(work_units)) == expected
 
 
-@time_machine.travel("2023-01-02 00:00:00", tick=False)
+@time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_patch_last_modified_last_modified_patch_exist():
     mcps = get_sample_mcps()
 
@@ -392,10 +402,11 @@ def test_auto_patch_last_modified_last_modified_patch_exist():
     # The input and output should align since the source is generating a patch for datasetProperties with the
     # lastModified attribute.
     # Therefore, `auto_patch_last_modified` should not create any additional patch.
-    assert list(auto_patch_last_modified(work_units)) == work_units
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
+    assert list(processor.process(work_units)) == work_units
 
 
-@time_machine.travel("2023-01-02 00:00:00", tick=False)
+@time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_patch_last_modified_last_modified_patch_not_exist():
     mcps = get_sample_mcps()
 
@@ -417,4 +428,5 @@ def test_auto_patch_last_modified_last_modified_patch_not_exist():
         *get_auto_generated_wu(),  # The output should include an additional patch for the `lastModified` attribute.
     ]
 
-    assert list(auto_patch_last_modified(work_units)) == expected
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
+    assert list(processor.process(work_units)) == expected

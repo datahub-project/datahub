@@ -18,7 +18,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
@@ -38,9 +37,6 @@ from datahub.ingestion.source.kafka_connect.consumer_group_analyzer import (
 from datahub.ingestion.source.kafka_connect.topic_cache import (
     ConfluentCloudTopicRetriever,
     KafkaTopicCache,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -885,14 +881,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         else:
             # No source identified - use target with unknown_source prefix
             return f"unknown_source.{lineage.target_dataset}"
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         for connector in self.get_connectors_manifest():

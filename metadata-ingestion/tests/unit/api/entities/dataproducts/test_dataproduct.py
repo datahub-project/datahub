@@ -10,7 +10,7 @@ from datahub.metadata.schema_classes import DomainPropertiesClass
 from datahub.testing.mce_helpers import check_golden_file
 from tests.test_helpers.graph_helpers import MockDataHubGraph
 
-FROZEN_TIME = "2023-04-14 07:00:00"
+FROZEN_TIME = "2023-04-14 07:00:00+00:00"
 
 
 @pytest.fixture
