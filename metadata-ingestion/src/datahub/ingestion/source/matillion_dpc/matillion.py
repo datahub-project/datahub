@@ -152,12 +152,11 @@ class MatillionSource(StatefulIngestionSourceBase):
         self._schedules_cache: Dict[str, list] = {}
         self._lineage_events_cache: Optional[List[Dict]] = None
 
-        # (project_id, base pipeline filename) -> full published pipeline paths.
-        # OpenLineage job names carry no folder, so this lets folder-scoped
-        # pipeline_patterns be applied to lineage jobs (see _lineage_pipeline_allowed).
-        self._published_paths_by_base: Dict[Tuple[str, str], List[str]] = defaultdict(
-            list
-        )
+        # (project_id, full pipeline path) -> environment name. Lets lineage reuse a
+        # discovered pipeline's DataFlow URN. The lineage namespace's environment is
+        # an opaque UUID that no API maps back to the name, so reconciliation ignores
+        # it and keys on the path, which lineage and discovery both report identically.
+        self._discovered_env_by_path: Dict[Tuple[str, str], str] = {}
 
         self.lineage_start_time: Optional[datetime] = None
         self.lineage_end_time: Optional[datetime] = None
@@ -305,9 +304,7 @@ class MatillionSource(StatefulIngestionSourceBase):
                         pipeline_name=pipeline.name,
                     )
                     published_pipelines_index[key] = pipeline
-                    self._published_paths_by_base[
-                        (project.id, extract_base_pipeline_name(pipeline.name))
-                    ].append(pipeline.name)
+                    self._discovered_env_by_path[(project.id, pipeline.name)] = env.name
                     logger.debug(
                         f"Indexed published pipeline: {pipeline.name} in {project.name}/{env.name}"
                     )
@@ -686,25 +683,15 @@ class MatillionSource(StatefulIngestionSourceBase):
                 f"Updated lineage checkpoint: {self.lineage_start_time.isoformat()} to {self.lineage_end_time.isoformat()}"
             )
 
-    def _lineage_pipeline_allowed(self, project_id: str, base_name: str) -> bool:
-        # Resolve the OpenLineage job to its published pipeline path(s) so folder-scoped
-        # pipeline_patterns apply to lineage exactly as they do to discovery. The job
-        # name carries no folder, so fall back to allowing when it can't be resolved.
-        full_paths = self._published_paths_by_base.get((project_id, base_name))
-        if not full_paths:
-            return True
-        return any(self.config.pipeline_patterns.allowed(path) for path in full_paths)
-
     def _generate_lineage_from_events(
         self, projects: List[MatillionProject]
     ) -> Iterable[MetadataWorkUnit]:
         """Emit lineage directly from OpenLineage job events.
 
-        The pipelines that actually move data (and carry dataset I/O in their
-        lineage events) are often child orchestrations invoked inside scheduled
-        pipelines, so they never appear in the execution-discovery results. This
-        pass keys lineage off the OpenLineage job identity itself rather than the
-        discovered/executed pipelines, so that lineage is captured regardless.
+        The OpenLineage ``job.name`` is the full pipeline path (folders included),
+        identical to the discovered published pipeline path. So lineage is filtered
+        on that path and, when it matches a discovered pipeline, attached to that
+        pipeline's DataFlow rather than to a separate bare-named flow.
         """
         all_events = self._fetch_lineage_events()
         if not all_events:
@@ -716,9 +703,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             if self.config.project_patterns.allowed(project.name)
         }
 
-        events_by_job: Dict[Tuple[str, Optional[str], str], List[Dict]] = defaultdict(
-            list
-        )
+        events_by_job: Dict[Tuple[str, str], List[Dict]] = defaultdict(list)
         for event_wrapper in all_events:
             event = event_wrapper.get("event", {})
             job = event.get("job", {})
@@ -739,34 +724,27 @@ class MatillionSource(StatefulIngestionSourceBase):
             if not job_name:
                 continue
 
-            events_by_job[
-                (job_namespace.project_id, job_namespace.environment_id, job_name)
-            ].append(event)
+            events_by_job[(job_namespace.project_id, job_name)].append(event)
 
         logger.info(
             f"Generating lineage from {len(events_by_job)} distinct Matillion jobs "
             f"across {len(all_events)} OpenLineage events"
         )
 
-        for (project_id, environment_id, job_name), events in events_by_job.items():
-            base_name = extract_base_pipeline_name(job_name)
-            if not self._lineage_pipeline_allowed(project_id, base_name):
-                self.report.filtered_pipelines.append(base_name)
+        for (project_id, full_path), events in events_by_job.items():
+            if not self.config.pipeline_patterns.allowed(full_path):
+                self.report.filtered_pipelines.append(full_path)
                 continue
 
             project = self._projects_cache.get(project_id) or MatillionProject(
                 id=project_id, name=project_id
             )
-            yield from self._emit_lineage_for_job(
-                project, environment_id, job_name, base_name, events
-            )
+            yield from self._emit_lineage_for_job(project, full_path, events)
 
     def _emit_lineage_for_job(
         self,
         project: MatillionProject,
-        environment_id: Optional[str],
-        job_name: str,
-        base_name: str,
+        full_path: str,
         events: List[Dict],
     ) -> Iterable[MetadataWorkUnit]:
         all_inputs: Dict[str, MatillionDatasetInfo] = {}
@@ -776,7 +754,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             try:
                 inputs, outputs, _ = self.openlineage_parser.parse_lineage_event(event)
             except (KeyError, ValueError, IndexError) as e:
-                logger.debug(f"Failed to parse lineage event for {job_name}: {e}")
+                logger.debug(f"Failed to parse lineage event for {full_path}: {e}")
                 continue
 
             sql_query = self.openlineage_parser.extract_sql_from_event(event)
@@ -806,50 +784,61 @@ class MatillionSource(StatefulIngestionSourceBase):
         if not all_inputs and not outputs_by_urn:
             return
 
-        flow_name = (
-            f"{project.id}.{environment_id}.{base_name}"
-            if environment_id
-            else f"{project.id}.{base_name}"
+        display_name = extract_base_pipeline_name(full_path)
+
+        # Reuse the discovered pipeline's DataFlow URN when the path matches, so the
+        # component lands under the foldered pipeline rather than a bare-named flow.
+        env_name = self._discovered_env_by_path.get((project.id, full_path))
+        environment = (
+            self._environments_cache.get(env_name) if env_name is not None else None
         )
-        custom_properties = {
-            "pipeline_name": base_name,
-            "project_id": project.id,
-            "discovered_from": "lineage_events",
-        }
-        if environment_id:
-            custom_properties["environment_id"] = environment_id
+        if env_name is not None:
+            flow_name = f"{project.id}.{env_name}.{full_path}"
+        else:
+            flow_name = f"{project.id}.{full_path}"
 
         dataflow = DataFlow(
             name=flow_name,
             platform=MATILLION_PLATFORM,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            display_name=base_name,
+            display_name=display_name,
             external_url=MATILLION_PIPELINE_OBSERVABILITY_URL.format(
-                pipeline_name=base_name
+                pipeline_name=full_path
             ),
-            custom_properties=custom_properties,
+            custom_properties={
+                "pipeline_name": full_path,
+                "project_id": project.id,
+                "discovered_from": "lineage_events",
+            },
             subtype=FlowContainerSubTypes.MATILLION_PIPELINE,
         )
-        yield from dataflow.as_workunits()
         pipeline_urn = str(dataflow.urn)
 
-        if self.config.extract_projects_to_containers:
-            self.container_handler.register_project(project)
-            yield from self.container_handler.emit_project_container(project)
-            yield from self.container_handler.add_pipeline_to_container(
-                pipeline_urn, project
-            )
+        # Discovery already emitted the DataFlow and container membership for a
+        # matched pipeline; only mint the flow when there is no discovered pipeline.
+        if env_name is None:
+            yield from dataflow.as_workunits()
+            if self.config.extract_projects_to_containers:
+                self.container_handler.register_project(project)
+                yield from self.container_handler.emit_project_container(project)
+                yield from self.container_handler.add_pipeline_to_container(
+                    pipeline_urn, project
+                )
 
         datajob = DataJob(
             name=flow_name,
             flow_urn=pipeline_urn,
-            display_name=base_name,
-            custom_properties={"job_name": job_name},
+            display_name=display_name,
+            custom_properties={"job_name": full_path},
             subtype=JobContainerSubTypes.MATILLION_COMPONENT,
         )
         yield from datajob.as_workunits()
         data_job_urn = str(datajob.urn)
+
+        yield from self._emit_data_job_browse_path(
+            data_job_urn, pipeline_urn, project, environment
+        )
 
         yield MetadataChangeProposalWrapper(
             entityUrn=data_job_urn,
@@ -872,7 +861,7 @@ class MatillionSource(StatefulIngestionSourceBase):
                 and output_urn in self._registered_urns
             ):
                 for sql_query in dict.fromkeys(accumulator.sql_queries):
-                    self._register_sql_query(job_name, sql_query, accumulator.info)
+                    self._register_sql_query(full_path, sql_query, accumulator.info)
 
             upstream_lineage = self.openlineage_parser.create_upstream_lineage(
                 list[MatillionDatasetInfo](accumulator.inputs.values()),

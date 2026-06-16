@@ -423,27 +423,117 @@ def test_lineage_emitted_from_events_for_unexecuted_child_pipeline(
     assert source.report.lineage_emitted == 1
 
 
-def test_lineage_pipeline_patterns_resolved_via_published_path(
+def _lineage_event(full_path: str) -> dict:
+    return {
+        "event": {
+            "job": {
+                "namespace": "matillion://proj-1.env-uuid-1",
+                "name": full_path,
+            },
+            "inputs": [
+                {
+                    "namespace": "salesforce://00D70000000KG1jEAG",
+                    "name": "Incident__c",
+                    "facets": {},
+                }
+            ],
+            "outputs": [
+                {
+                    "namespace": "snowflake://ACME-WAREHOUSE",
+                    "name": "RAW.SALESFORCE.INCIDENT_LND",
+                    "facets": {},
+                }
+            ],
+        }
+    }
+
+
+def _distinct_urns(workunits: list, prefix: str) -> list:
+    return sorted(
+        {
+            wu.metadata.entityUrn
+            for wu in workunits
+            if (getattr(wu.metadata, "entityUrn", "") or "").startswith(prefix)
+        }
+    )
+
+
+def _dataflow_workunit_urns(workunits: list) -> list:
+    return _distinct_urns(workunits, "urn:li:dataFlow:")
+
+
+def _datajob_workunit_urns(workunits: list) -> list:
+    return _distinct_urns(workunits, "urn:li:dataJob:")
+
+
+def test_lineage_pipeline_patterns_filter_on_full_path(
     config: MatillionSourceConfig, pipeline_context: PipelineContext
 ) -> None:
-    # OpenLineage job names are bare (no folder), so folder-scoped pipeline_patterns
-    # must be resolved against the published pipeline's full path, otherwise lineage
-    # would be silently dropped for users who scope by folder.
+    # job.name is the full pipeline path, so folder-scoped pipeline_patterns apply
+    # to it directly with no name resolution.
+    config.extract_projects_to_containers = False
     config.pipeline_patterns.allow = ["SOURCE_MAPPINGS/SALESFORCE/.*"]
     source = MatillionSource(config, pipeline_context)
-    source._published_paths_by_base[("proj-1", "OPPORTUNITY_SRC_ORCH NRT")] = [
-        "SOURCE_MAPPINGS/SALESFORCE/OPPORTUNITY_SRC_ORCH NRT.orch.yaml"
-    ]
-    source._published_paths_by_base[("proj-1", "AUDIT_LOG_ORCH")] = [
-        "DATA_SERVICES/AUDIT_LOG_ORCH.orch.yaml"
+    source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+    source._lineage_events_cache = [
+        _lineage_event("SOURCE_MAPPINGS/SALESFORCE/OPPORTUNITY_SRC_ORCH NRT.orch.yaml"),
+        _lineage_event("DATA_SERVICES/AUDIT_LOG_ORCH.orch.yaml"),
     ]
 
-    # Bare job name resolves to an allowed folder path
-    assert source._lineage_pipeline_allowed("proj-1", "OPPORTUNITY_SRC_ORCH NRT")
-    # Bare job name resolves to a folder path outside the allow-list
-    assert not source._lineage_pipeline_allowed("proj-1", "AUDIT_LOG_ORCH")
-    # Job that can't be resolved to a published pipeline falls back to allowed
-    assert source._lineage_pipeline_allowed("proj-1", "UNKNOWN_JOB")
+    projects = [MatillionProject(id="proj-1", name="Proj")]
+    workunits = list(source._generate_lineage_from_events(projects))
+
+    datajob_urns = _datajob_workunit_urns(workunits)
+    assert len(datajob_urns) == 1
+    assert "OPPORTUNITY_SRC_ORCH NRT" in datajob_urns[0]
+    assert "DATA_SERVICES/AUDIT_LOG_ORCH.orch.yaml" in source.report.filtered_pipelines
+
+
+def test_lineage_merges_into_discovered_pipeline(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    # When the lineage path matches a discovered published pipeline, the component
+    # attaches to that pipeline's DataFlow URN (env name + full path) and no
+    # separate bare-named flow is minted.
+    config.extract_projects_to_containers = False
+    full_path = "SOURCE_MAPPINGS/SALESFORCE/OPPORTUNITY_SRC_ORCH NRT.orch.yaml"
+    source = MatillionSource(config, pipeline_context)
+    source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+    source._environments_cache = {
+        "PROD-STABLE": MatillionEnvironment(name="PROD-STABLE")
+    }
+    source._discovered_env_by_path[("proj-1", full_path)] = "PROD-STABLE"
+    source._lineage_events_cache = [_lineage_event(full_path)]
+
+    projects = [MatillionProject(id="proj-1", name="Proj")]
+    workunits = list(source._generate_lineage_from_events(projects))
+
+    # No new DataFlow is emitted (discovery owns it); the component nests under the
+    # discovered flow URN, which carries the env name and the full folder path.
+    assert _dataflow_workunit_urns(workunits) == []
+    datajob_urns = _datajob_workunit_urns(workunits)
+    assert len(datajob_urns) == 1
+    assert f"proj-1.PROD-STABLE.{full_path}" in datajob_urns[0]
+
+
+def test_lineage_unmatched_emits_standalone_flow_with_full_path(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    # An unpublished lineage job (no discovered match) still emits with its full
+    # path so it lands in the right folder, just as its own DataFlow.
+    config.extract_projects_to_containers = False
+    full_path = "DATA_SERVICES/ADHOC/ONE_OFF_LOAD.orch.yaml"
+    source = MatillionSource(config, pipeline_context)
+    source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+    source._lineage_events_cache = [_lineage_event(full_path)]
+
+    projects = [MatillionProject(id="proj-1", name="Proj")]
+    workunits = list(source._generate_lineage_from_events(projects))
+
+    dataflow_urns = _dataflow_workunit_urns(workunits)
+    assert any(f"proj-1.{full_path}" in urn for urn in dataflow_urns)
+    datajob_urns = _datajob_workunit_urns(workunits)
+    assert any(full_path in urn for urn in datajob_urns)
 
 
 def _sql_lineage_event(with_column_lineage: bool) -> dict:
