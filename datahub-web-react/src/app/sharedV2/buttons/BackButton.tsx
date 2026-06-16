@@ -20,8 +20,8 @@ const StyledButton = styled(Button)`
     margin-top: 2px;
 
     &:hover {
-        color: ${(p) => p.theme.colors.iconBrand};
-        border-color: ${(p) => p.theme.colors.borderBrand};
+        color: ${(p) => p.theme.colors.iconBrand} !important;
+        border-color: ${(p) => p.theme.colors.borderBrand} !important;
     }
 `;
 

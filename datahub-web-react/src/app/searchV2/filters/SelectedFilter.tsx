@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
 import { CloseOutlined } from '@ant-design/icons';
+import { colors } from '@components';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -41,7 +42,7 @@ const Container = styled.div<{ $isCompact?: boolean }>`
     justify-content: center;
     font-size: 14px;
     margin-right: 8px;
-    background-color: ${SEARCH_COLORS.BACKGROUND_PURPLE};
+    background-color: ${colors.primary[100]};
 
     ${(props) =>
         props.$isCompact &&
