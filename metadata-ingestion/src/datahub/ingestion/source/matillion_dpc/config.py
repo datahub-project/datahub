@@ -93,12 +93,8 @@ class MatillionAPIConfig(ConfigModel):
     )
     request_timeout_sec: int = Field(
         default=DEFAULT_REQUEST_TIMEOUT_SEC,
-        description="Per-request timeout in seconds. The pipeline-executions and lineage "
-        "endpoints can be slow on busy instances, especially over wide time windows "
-        "(the lineage API paginates by offset, which degrades with depth). If you hit "
-        "timeouts, prefer narrowing start_time/end_time or enabling stateful ingestion "
-        "over setting a very large timeout, since failed requests are retried and a high "
-        "timeout multiplies the worst-case wait.",
+        description="Per-request timeout in seconds. On timeouts, prefer narrowing "
+        "start_time/end_time or enabling stateful ingestion over a large timeout.",
     )
 
     @field_validator("custom_base_url")
