@@ -1270,7 +1270,12 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
             "or lower still) if the ingestion process runs out of memory during lineage "
             "extraction; raise it to reduce round-trips when rows are small and network "
             "latency is high. Must be a positive integer (a batch size of 0 would fetch "
-            "no rows and stall the stream). Default is 5000."
+            "no rows and stall the stream). "
+            "NOTE: this only reduces memory when `use_server_side_cursors` is true (the "
+            "default). With client-side cursors the driver buffers the entire result set "
+            "in memory before this batching applies, so lowering the batch size will not "
+            "prevent out-of-memory errors in that mode — it only changes the Python "
+            "iteration chunk size. Default is 5000."
         ),
     )
 
