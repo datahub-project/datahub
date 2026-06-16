@@ -25,10 +25,12 @@ from datahub.ingestion.source.matillion_dpc.models import (
     MatillionEnvironment,
     MatillionPipeline,
     MatillionPipelineExecution,
+    MatillionPipelineExecutionStepResult,
     MatillionProject,
 )
 from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
+    DataProcessInstanceRunEventClass,
     UpstreamLineageClass,
 )
 
@@ -672,6 +674,75 @@ def test_execution_workunits_with_no_timestamps(
         workunits = list(source.get_workunits_internal())
 
     assert len(workunits) > 0
+
+
+@pytest.mark.parametrize("extract_run_history", [True, False])
+def test_run_history_for_published_pipelines(
+    pipeline_context: PipelineContext, extract_run_history: bool
+) -> None:
+    config = MatillionSourceConfig(
+        api_config=MatillionAPIConfig(
+            client_id=SecretStr("test_client_id"),
+            client_secret=SecretStr("test_client_secret"),
+            custom_base_url="http://test.com",
+        ),
+        include_unpublished_pipelines=False,
+        include_streaming_pipelines=False,
+        extract_run_history=extract_run_history,
+    )
+    source = MatillionSource(config, pipeline_context)
+
+    mock_projects = [MatillionProject(id="proj-1", name="Test Project")]
+    mock_environments = [
+        MatillionEnvironment(name="Production", default_agent_id="agent-1")
+    ]
+    mock_pipelines = [MatillionPipeline(name="FOLDER/published.orch.yaml")]
+    mock_executions = [
+        MatillionPipelineExecution(
+            pipeline_execution_id="exec-1",
+            project_id="proj-1",
+            environment_name="Production",
+            pipeline_name="FOLDER/published.orch.yaml",
+            status="SUCCESS",
+        )
+    ]
+    mock_steps = [
+        MatillionPipelineExecutionStepResult(
+            id="step-1",
+            name="Run SQL",
+            result={"status": "SUCCESS", "finishedAt": "2024-01-01T00:00:05Z"},
+        )
+    ]
+
+    executions_mock = MagicMock(return_value=mock_executions)
+    with (
+        patch.object(
+            source.api_client, "get_environments", return_value=mock_environments
+        ),
+        patch.object(source.api_client, "get_pipelines", return_value=mock_pipelines),
+        patch.object(source.api_client, "get_pipeline_executions", executions_mock),
+        patch.object(
+            source.api_client, "get_pipeline_execution_steps", return_value=mock_steps
+        ),
+        patch.object(source.api_client, "get_schedules", return_value=[]),
+    ):
+        workunits = list(
+            source._discover_and_process_pipelines_from_executions(mock_projects)
+        )
+
+    run_events = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DataProcessInstanceRunEventClass)
+    ]
+
+    if extract_run_history:
+        assert executions_mock.called
+        assert run_events, "Expected run history (DataProcessInstance) workunits"
+    else:
+        assert not executions_mock.called
+        assert not run_events
 
 
 @pytest.mark.parametrize(

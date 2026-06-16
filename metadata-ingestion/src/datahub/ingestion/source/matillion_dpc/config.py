@@ -303,6 +303,12 @@ class MatillionSourceConfig(
         "Disable this to only ingest published pipelines from the published-pipelines API.",
     )
 
+    extract_run_history: bool = Field(
+        default=False,
+        description="Emit run history (DataProcessInstances) for published pipelines by fetching "
+        "their executions in the time window. Implied when include_unpublished_pipelines is enabled.",
+    )
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Stateful ingestion configuration."
     )

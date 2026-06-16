@@ -261,6 +261,61 @@ class MatillionSource(StatefulIngestionSourceBase):
             )
             return []
 
+    def _group_executions_for_discovery(
+        self,
+    ) -> Dict[PipelineGroupKey, List[MatillionPipelineExecution]]:
+        all_executions = self._discover_executions()
+        self.report.executions_scanned += len(all_executions)
+        logger.info(f"Found {len(all_executions)} total executions")
+
+        pipeline_groups: Dict[PipelineGroupKey, List[MatillionPipelineExecution]] = (
+            defaultdict(list)
+        )
+        for execution in all_executions:
+            if not execution.project_id or not execution.pipeline_name:
+                continue
+            key = PipelineGroupKey(
+                project_id=execution.project_id,
+                environment_name=execution.environment_name,
+                pipeline_name=extract_base_pipeline_name(execution.pipeline_name),
+            )
+            pipeline_groups[key].append(execution)
+
+        logger.info(
+            f"Discovered {len(pipeline_groups)} unique pipelines from executions"
+        )
+        return pipeline_groups
+
+    def _published_pipeline_groups(
+        self, published_pipelines_index: Dict[PipelineGroupKey, MatillionPipeline]
+    ) -> Dict[PipelineGroupKey, List[MatillionPipelineExecution]]:
+        logger.info(
+            "Skipping unpublished pipeline discovery (include_unpublished_pipelines=False)"
+        )
+        pipeline_groups: Dict[PipelineGroupKey, List[MatillionPipelineExecution]] = {
+            key: [] for key in published_pipelines_index
+        }
+
+        if not self.config.extract_run_history:
+            return pipeline_groups
+
+        # Executions report the full path in pipelineName, so they key on the published
+        # pipeline directly; executions without a published match are dropped.
+        all_executions = self._discover_executions()
+        self.report.executions_scanned += len(all_executions)
+        for execution in all_executions:
+            if not execution.project_id or not execution.pipeline_name:
+                continue
+            key = PipelineGroupKey(
+                project_id=execution.project_id,
+                environment_name=execution.environment_name,
+                pipeline_name=execution.pipeline_name,
+            )
+            if key in pipeline_groups:
+                pipeline_groups[key].append(execution)
+
+        return pipeline_groups
+
     def _discover_and_process_pipelines_from_executions(
         self, projects: List[MatillionProject]
     ) -> Iterable[MetadataWorkUnit]:
@@ -322,36 +377,10 @@ class MatillionSource(StatefulIngestionSourceBase):
                             streaming_pipeline, project
                         )
 
-        pipeline_groups: Dict[PipelineGroupKey, List[MatillionPipelineExecution]] = {}
-
         if self.config.include_unpublished_pipelines:
-            all_executions = self._discover_executions()
-            self.report.executions_scanned += len(all_executions)
-            logger.info(f"Found {len(all_executions)} total executions")
-
-            pipeline_groups = defaultdict(list)
-
-            for execution in all_executions:
-                if not execution.project_id or not execution.pipeline_name:
-                    continue
-
-                normalized_name = extract_base_pipeline_name(execution.pipeline_name)
-                env_name = execution.environment_name
-                key = PipelineGroupKey(
-                    project_id=execution.project_id,
-                    environment_name=env_name,
-                    pipeline_name=normalized_name,
-                )
-                pipeline_groups[key].append(execution)
-
-            logger.info(
-                f"Discovered {len(pipeline_groups)} unique pipelines from executions"
-            )
+            pipeline_groups = self._group_executions_for_discovery()
         else:
-            logger.info(
-                "Skipping unpublished pipeline discovery (include_unpublished_pipelines=False)"
-            )
-            pipeline_groups = {key: [] for key in published_pipelines_index}
+            pipeline_groups = self._published_pipeline_groups(published_pipelines_index)
 
         for key in pipeline_groups:
             project_id = key.project_id

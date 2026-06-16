@@ -101,6 +101,19 @@ This is useful when:
 - You have many development/test pipelines that run but shouldn't be documented
 - You want to reduce ingestion time and API calls
 
+#### Run History (DataProcessInstances)
+
+Run history — per-execution `DataProcessInstance` entities with status and timing — is produced from the pipeline-executions API. When `include_unpublished_pipelines: true`, this happens automatically as part of discovery.
+
+When `include_unpublished_pipelines: false`, discovery only lists published pipelines and does **not** fetch executions, so no runs are emitted by default. To get run history for your published pipelines without also ingesting unpublished ones, enable:
+
+```yaml
+include_unpublished_pipelines: false
+extract_run_history: true
+```
+
+This fetches executions within the configured time window and attaches runs to the matching published pipelines. It is off by default because it calls the pipeline-executions and per-execution steps APIs, which are slower and degrade over wider time windows — pair it with a narrow `start_time` / `end_time` and stateful ingestion.
+
 #### Time Window and Incremental Ingestion
 
 Pipeline-execution discovery and lineage are bounded by `start_time` / `end_time`. If you do not set them, `end_time` defaults to now and `start_time` defaults to the start (00:00 UTC) of the previous day — i.e. at least the last 24 hours of jobs. Set `start_time` to backfill more history on the first run, especially if your pipelines do not run daily:
