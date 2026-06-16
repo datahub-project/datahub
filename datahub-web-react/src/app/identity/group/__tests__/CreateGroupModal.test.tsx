@@ -58,9 +58,7 @@ describe('CreateGroupModal name length', () => {
 
         fireEvent.change(input, { target: { value: 'a'.repeat(250) } });
 
-        expect(
-            screen.queryByText('groups.createModal.name.validationError.tooLong'),
-        ).not.toBeInTheDocument();
+        expect(screen.queryByText('groups.createModal.name.validationError.tooLong')).not.toBeInTheDocument();
     });
 
     it('rejects a name of 251 characters', () => {
@@ -69,9 +67,7 @@ describe('CreateGroupModal name length', () => {
 
         fireEvent.change(input, { target: { value: 'a'.repeat(251) } });
 
-        expect(
-            screen.getByText('groups.createModal.name.validationError.tooLong'),
-        ).toBeInTheDocument();
+        expect(screen.getByText('groups.createModal.name.validationError.tooLong')).toBeInTheDocument();
     });
 
     it('enforces maxLength=250 on the input element', () => {
