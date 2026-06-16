@@ -152,6 +152,13 @@ class MatillionSource(StatefulIngestionSourceBase):
         self._schedules_cache: Dict[str, list] = {}
         self._lineage_events_cache: Optional[List[Dict]] = None
 
+        # (project_id, base pipeline filename) -> full published pipeline paths.
+        # OpenLineage job names carry no folder, so this lets folder-scoped
+        # pipeline_patterns be applied to lineage jobs (see _lineage_pipeline_allowed).
+        self._published_paths_by_base: Dict[Tuple[str, str], List[str]] = defaultdict(
+            list
+        )
+
         self.lineage_start_time: Optional[datetime] = None
         self.lineage_end_time: Optional[datetime] = None
 
@@ -298,6 +305,9 @@ class MatillionSource(StatefulIngestionSourceBase):
                         pipeline_name=pipeline.name,
                     )
                     published_pipelines_index[key] = pipeline
+                    self._published_paths_by_base[
+                        (project.id, extract_base_pipeline_name(pipeline.name))
+                    ].append(pipeline.name)
                     logger.debug(
                         f"Indexed published pipeline: {pipeline.name} in {project.name}/{env.name}"
                     )
@@ -676,6 +686,15 @@ class MatillionSource(StatefulIngestionSourceBase):
                 f"Updated lineage checkpoint: {self.lineage_start_time.isoformat()} to {self.lineage_end_time.isoformat()}"
             )
 
+    def _lineage_pipeline_allowed(self, project_id: str, base_name: str) -> bool:
+        # Resolve the OpenLineage job to its published pipeline path(s) so folder-scoped
+        # pipeline_patterns apply to lineage exactly as they do to discovery. The job
+        # name carries no folder, so fall back to allowing when it can't be resolved.
+        full_paths = self._published_paths_by_base.get((project_id, base_name))
+        if not full_paths:
+            return True
+        return any(self.config.pipeline_patterns.allowed(path) for path in full_paths)
+
     def _generate_lineage_from_events(
         self, projects: List[MatillionProject]
     ) -> Iterable[MetadataWorkUnit]:
@@ -731,7 +750,7 @@ class MatillionSource(StatefulIngestionSourceBase):
 
         for (project_id, environment_id, job_name), events in events_by_job.items():
             base_name = extract_base_pipeline_name(job_name)
-            if not self.config.pipeline_patterns.allowed(base_name):
+            if not self._lineage_pipeline_allowed(project_id, base_name):
                 self.report.filtered_pipelines.append(base_name)
                 continue
 

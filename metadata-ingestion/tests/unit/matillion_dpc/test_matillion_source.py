@@ -423,6 +423,29 @@ def test_lineage_emitted_from_events_for_unexecuted_child_pipeline(
     assert source.report.lineage_emitted == 1
 
 
+def test_lineage_pipeline_patterns_resolved_via_published_path(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    # OpenLineage job names are bare (no folder), so folder-scoped pipeline_patterns
+    # must be resolved against the published pipeline's full path, otherwise lineage
+    # would be silently dropped for users who scope by folder.
+    config.pipeline_patterns.allow = ["SOURCE_MAPPINGS/SALESFORCE/.*"]
+    source = MatillionSource(config, pipeline_context)
+    source._published_paths_by_base[("proj-1", "OPPORTUNITY_SRC_ORCH NRT")] = [
+        "SOURCE_MAPPINGS/SALESFORCE/OPPORTUNITY_SRC_ORCH NRT.orch.yaml"
+    ]
+    source._published_paths_by_base[("proj-1", "AUDIT_LOG_ORCH")] = [
+        "DATA_SERVICES/AUDIT_LOG_ORCH.orch.yaml"
+    ]
+
+    # Bare job name resolves to an allowed folder path
+    assert source._lineage_pipeline_allowed("proj-1", "OPPORTUNITY_SRC_ORCH NRT")
+    # Bare job name resolves to a folder path outside the allow-list
+    assert not source._lineage_pipeline_allowed("proj-1", "AUDIT_LOG_ORCH")
+    # Job that can't be resolved to a published pipeline falls back to allowed
+    assert source._lineage_pipeline_allowed("proj-1", "UNKNOWN_JOB")
+
+
 def _sql_lineage_event(with_column_lineage: bool) -> dict:
     output_facets: dict = {}
     if with_column_lineage:
