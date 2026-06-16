@@ -1259,6 +1259,21 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         ),
     )
 
+    lineage_fetch_batch_size: int = Field(
+        default=5000,
+        ge=1000,
+        le=20000,
+        description=(
+            "Number of rows fetched per batch when streaming results from DBC.QryLogV "
+            "during lineage extraction. Each row can carry several KB of query_text, so "
+            "large values may cause significant memory spikes on installations with "
+            "multi-billion-row audit logs. Reduce this (e.g. to 1000–2000) when the "
+            "ingestion process runs out of memory during lineage; increase it (up to "
+            "20000) to reduce round-trips on installations where rows are small and "
+            "network latency is high. Default is 5000."
+        ),
+    )
+
 
 @platform_name("Teradata")
 @config_class(TeradataConfig)
@@ -2652,7 +2667,7 @@ ORDER by DataBaseName, TableName;
                     _mark_phase("awaiting_first_batch", query_index)
 
                     # Stream results in batches to avoid memory issues
-                    batch_size = 5000
+                    batch_size = self.config.lineage_fetch_batch_size
                     batch_count = 0
                     query_total_count = 0
 

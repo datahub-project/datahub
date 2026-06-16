@@ -2184,6 +2184,28 @@ class TestNewConfigDefaults:
                 }
             )
 
+    def test_lineage_fetch_batch_size_default(self) -> None:
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.lineage_fetch_batch_size == 5000
+
+    def test_lineage_fetch_batch_size_custom_accepted(self) -> None:
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "lineage_fetch_batch_size": 1000}
+        )
+        assert config.lineage_fetch_batch_size == 1000
+
+    def test_lineage_fetch_batch_size_rejects_below_minimum(self) -> None:
+        with pytest.raises(ValidationError):
+            TeradataConfig.model_validate(
+                {**_base_config(), "lineage_fetch_batch_size": 999}
+            )
+
+    def test_lineage_fetch_batch_size_rejects_above_maximum(self) -> None:
+        with pytest.raises(ValidationError):
+            TeradataConfig.model_validate(
+                {**_base_config(), "lineage_fetch_batch_size": 20001}
+            )
+
 
 class TestIncrementalColumnExtraction:
     """#1 — skip column extraction for tables unchanged since the watermark."""
