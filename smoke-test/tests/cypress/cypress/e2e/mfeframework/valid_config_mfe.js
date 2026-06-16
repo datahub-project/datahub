@@ -1,5 +1,6 @@
 const MFE_CONTAINER_CSS_SELECTOR = '[data-testid="mfe-configurable-container"]';
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("MFE YAML Config - Valid Config", () => {
   beforeEach(() => {
     cy.intercept("GET", "/mfe/config", {

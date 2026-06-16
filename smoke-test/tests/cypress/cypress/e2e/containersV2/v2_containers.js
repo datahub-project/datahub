@@ -1,3 +1,4 @@
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("containers", () => {
   it("can see elements inside the container", () => {
     cy.login();

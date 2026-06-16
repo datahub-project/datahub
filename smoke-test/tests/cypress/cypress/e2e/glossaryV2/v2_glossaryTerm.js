@@ -57,6 +57,7 @@ const enterKeyInSearchBox = (text) => {
     .type(`${text}{enter}`);
 };
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("glossaryTerm", () => {
   beforeEach(() => {
     cy.login();

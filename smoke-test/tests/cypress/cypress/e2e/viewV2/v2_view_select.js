@@ -3,6 +3,7 @@ function openViewEditDropDownAndClickId(data_id) {
   cy.clickOptionWithTestId(data_id);
 }
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("view select", () => {
   it("click view select, create view, clear view, make defaults, clear view", () => {
     cy.login();

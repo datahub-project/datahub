@@ -29,6 +29,7 @@ const downloadCsvFile = (filename) => {
   cy.ensureTextNotPresent("Creating CSV");
 };
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("download lineage results to .csv file", () => {
   beforeEach(() => {
     cy.on("uncaught:exception", (err, runnable) => false);

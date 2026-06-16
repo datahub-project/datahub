@@ -1,3 +1,4 @@
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("models", () => {
   // Add global error handling
   beforeEach(() => {

@@ -11,6 +11,7 @@ import {
   goToIngestionPage,
 } from "./utils";
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("run history tab in manage data sources", () => {
   beforeEach(() => {
     setIngestionRedesignFlags(true);

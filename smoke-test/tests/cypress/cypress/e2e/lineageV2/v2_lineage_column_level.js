@@ -8,6 +8,7 @@ const expandContractColumns = (asset) => {
     .click({ force: true });
 };
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("column-level lineage graph test", () => {
   it("navigate to lineage graph view and verify that column-level lineage is showing correctly", () => {
     cy.login();

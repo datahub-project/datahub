@@ -13,6 +13,7 @@ import {
 
 const testId = Math.floor(Math.random() * 100000);
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("run history tab in manage data sources", () => {
   const createdSources = [];
 

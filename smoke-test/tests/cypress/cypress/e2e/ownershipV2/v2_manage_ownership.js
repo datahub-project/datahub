@@ -1,3 +1,4 @@
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("manage ownership", () => {
   it("go to ownership types settings page, create, edit, make default, delete a ownership type", () => {
     const testOwnershipType = `Test Ownership Type ${Date.now()}`;

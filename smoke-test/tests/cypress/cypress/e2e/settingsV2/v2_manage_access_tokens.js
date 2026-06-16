@@ -2,6 +2,7 @@ import { aliasQuery, hasOperationName } from "../utils";
 
 const test_id = Math.floor(Math.random() * 100000);
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("manage access tokens", () => {
   before(() => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {

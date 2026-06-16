@@ -2,6 +2,7 @@ const urn =
   "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)";
 const datasetName = "cypress_health_test";
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("dataset health test", () => {
   it("go to dataset with failing assertions and active incidents and verify health of dataset", () => {
     cy.login();

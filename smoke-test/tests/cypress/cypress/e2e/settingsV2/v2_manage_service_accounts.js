@@ -1,5 +1,6 @@
 import { aliasQuery, hasOperationName, getUniqueTestId } from "../utils";
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("manage service accounts", () => {
   before(() => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {

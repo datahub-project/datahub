@@ -1,3 +1,4 @@
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("task runs", () => {
   it("can visit dataset with runs aspect and verify the task run is present", () => {
     cy.visit("/");

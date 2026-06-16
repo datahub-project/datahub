@@ -6,6 +6,7 @@ const TEST_DOMAIN_URN = "urn:li:domain:testing";
 const TEST_SUBDOMAIN_NAME = "Subdomain";
 const TEST_DATA_PRODUCT_NAME = "Testing";
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("summary tab - domain", () => {
   beforeEach(() => {
     utils.setSummaryTabFlags(true);

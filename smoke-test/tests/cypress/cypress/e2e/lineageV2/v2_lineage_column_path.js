@@ -25,6 +25,7 @@ const clickDownAndUpArrow = (asset) => {
     .click();
 };
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("column-Level lineage and impact analysis path test", () => {
   beforeEach(() => {
     cy.on("uncaught:exception", (err, runnable) => false);

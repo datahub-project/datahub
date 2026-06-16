@@ -30,6 +30,7 @@ const clickOnMoreOption = () => {
   cy.get('[data-testid="dropdown-menu-item"]').first().click();
 };
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("create announcement and link post", () => {
   beforeEach(() => {
     cy.setFeatureFlags((res) => {

@@ -6,6 +6,7 @@ const password = `password${number}`;
 const role = `role${number}`;
 const ingestion_source_name = `ingestion source ${number}`;
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("ingestion source creation flow", () => {
   beforeEach(() => {
     cy.setFeatureFlags((res) => {

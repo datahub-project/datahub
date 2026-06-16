@@ -1,6 +1,7 @@
 const urn =
   "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)";
 
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
 describe.skip("schema blame", () => {
   Cypress.on("uncaught:exception", (err, runnable) => false);
 
