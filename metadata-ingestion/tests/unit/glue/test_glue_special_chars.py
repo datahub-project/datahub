@@ -1,12 +1,16 @@
 """Tests for Glue ingestion with special characters in database/table names.
 
-Root cause: Glue allows / in names; UrnEncoder does not encode / so literal /
-ends up in the URN and breaks DataHub lookups. Fix: pre-encode / as %2F before
-URN construction.
+Root cause of reported issue: AllowDenyPattern treats allow entries as regexes.
+When a user configures database_pattern.allow with a literal database name that
+contains regex metacharacters like ( and ), the pattern does not match the
+literal name and the database is silently dropped.
 
-Pattern-matching root cause: AllowDenyPattern treats allow entries as regexes.
-Users must escape ( and ) when filtering by a literal database name.
-Engineering workaround: use raw__user-provided_\(upd/upo\)_framework.
+Engineering workaround: escape the metacharacters in the recipe, e.g.
+  raw__user-provided_\\(upd/upo\\)_framework
+
+Note: / in Glue names is NOT encoded in URNs — this is consistent with how
+other DataHub sources (e.g. S3) handle path separators. Literal / in the URN
+name field is intentional and expected.
 """
 
 from typing import Any, Dict, List, Tuple
@@ -75,58 +79,38 @@ SPECIAL_CHAR_IDS = [f"{db}.{tbl}" for db, tbl in SPECIAL_CHAR_CASES]
 
 @pytest.mark.parametrize("db_name,table_name", SPECIAL_CHAR_CASES, ids=SPECIAL_CHAR_IDS)
 def test_special_char_name_produces_workunits(db_name: str, table_name: str) -> None:
-    """Tables with special chars in names must produce workunits, not be silently dropped."""
+    """Tables with special chars in names must produce workunits with the default allow-all pattern."""
     source = _make_source()
     table = _make_table(db_name, table_name)
     workunits = list(source._gen_table_wu(table=table))
     assert workunits, f"No workunits produced for {db_name}.{table_name}"
 
 
-@pytest.mark.parametrize("db_name,table_name", SPECIAL_CHAR_CASES, ids=SPECIAL_CHAR_IDS)
-def test_special_char_name_urn_has_no_unencoded_slash(
-    db_name: str, table_name: str
-) -> None:
-    """The name field in a dataset URN must not contain a literal /."""
-    source = _make_source()
-    table = _make_table(db_name, table_name)
-    workunits = list(source._gen_table_wu(table=table))
-
-    for wu in workunits:
-        urn = wu.get_urn()
-        if not urn.startswith("urn:li:dataset:"):
-            continue
-        # URN format: urn:li:dataset:(urn:li:dataPlatform:glue,<name>,<env>)
-        # Strip the outer wrapper and extract the name component.
-        inner = urn[len("urn:li:dataset:(") : -1]
-        parts = inner.split(",")
-        if len(parts) >= 3:
-            # parts[0] = platform URN, parts[-1] = env, middle = name (may contain commas)
-            name_part = ",".join(parts[1:-1])
-            assert "/" not in name_part, (
-                f"Unencoded / in URN name '{name_part}' for {db_name}.{table_name}"
-            )
-
-
 def test_safe_name_urn_unchanged() -> None:
-    """Names with no special chars must produce the same URN as before this fix."""
+    """Names with no special chars must appear unmodified in the URN."""
     source = _make_source()
     table = _make_table("safe_db", "safe_table")
     workunits = list(source._gen_table_wu(table=table))
     dataset_urns = [wu.get_urn() for wu in workunits if "dataset" in wu.get_urn()]
-    assert any("safe_db.safe_table" in urn for urn in dataset_urns), (
-        "Safe names must appear unmodified in the URN"
-    )
+    assert any("safe_db.safe_table" in urn for urn in dataset_urns)
 
 
-def test_paren_name_still_encoded_as_before() -> None:
-    """Names with ( and ) must still encode them as %28/%29 (backward compat)."""
+def test_paren_name_encoded_in_urn() -> None:
+    """( and ) in names must be encoded as %28/%29 in the URN."""
     source = _make_source()
     table = _make_table("db_with_(parens)", "tbl")
     workunits = list(source._gen_table_wu(table=table))
     dataset_urns = [wu.get_urn() for wu in workunits if "dataset" in wu.get_urn()]
-    assert any("%28parens%29" in urn for urn in dataset_urns), (
-        "( and ) must be encoded as %28 and %29"
-    )
+    assert any("%28parens%29" in urn for urn in dataset_urns)
+
+
+def test_slash_in_name_passes_through_to_urn() -> None:
+    """/ in Glue names is left unencoded in the URN, consistent with S3 and other sources."""
+    source = _make_source()
+    table = _make_table("db/with/slashes", "tbl")
+    workunits = list(source._gen_table_wu(table=table))
+    dataset_urns = [wu.get_urn() for wu in workunits if "dataset" in wu.get_urn()]
+    assert any("db/with/slashes" in urn for urn in dataset_urns)
 
 
 def test_database_pattern_with_literal_parens_requires_escaping() -> None:
@@ -190,6 +174,4 @@ def test_default_pattern_ingests_special_char_database() -> None:
 
     assert workunits, "Table should be ingested with the default .* pattern"
     urns = [wu.get_urn() for wu in workunits]
-    assert any("glue" in urn for urn in urns), (
-        "At least one workunit URN should reference the glue platform"
-    )
+    assert any("glue" in urn for urn in urns)
