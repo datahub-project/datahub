@@ -91,7 +91,9 @@ class MatillionAPIConfig(ConfigModel):
         description="Custom OAuth2 token endpoint URL for VPC endpoints or on-premise installations.",
     )
     request_timeout_sec: int = Field(
-        default=30, description="Request timeout in seconds"
+        default=60,
+        description="Per-request timeout in seconds. The pipeline-executions and lineage "
+        "endpoints can be slow on busy instances, so this defaults higher than a typical API.",
     )
 
     @field_validator("custom_base_url")
@@ -300,15 +302,6 @@ class MatillionSourceConfig(
         "Disable this to only ingest published pipelines from the published-pipelines API.",
     )
 
-    max_pipeline_executions_to_scan: Optional[int] = Field(
-        default=10000,
-        description="Safety cap on the total number of pipeline executions fetched during unpublished "
-        "pipeline discovery. Discovery scrolls over the account's execution history (bounded by "
-        "`start_time`/`end_time`); on busy instances this can be very large, so this cap prevents the "
-        "run from hanging. Set to null to disable the cap and fetch all executions in the time window. "
-        "Only applies when `include_unpublished_pipelines` is true.",
-    )
-
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Stateful ingestion configuration."
     )
@@ -328,16 +321,5 @@ class MatillionSourceConfig(
                 f"max_executions_per_pipeline is set to {v}, which is quite high. "
                 f"This may result in many API calls and slower ingestion. "
                 f"Consider using a value below {MAX_EXECUTIONS_PER_PIPELINE_WARNING_THRESHOLD}."
-            )
-        return v
-
-    @field_validator("max_pipeline_executions_to_scan")
-    @classmethod
-    def validate_max_pipeline_executions_to_scan(
-        cls, v: Optional[int]
-    ) -> Optional[int]:
-        if v is not None and v <= 0:
-            raise ValueError(
-                "max_pipeline_executions_to_scan must be positive (or null to disable the cap)"
             )
         return v

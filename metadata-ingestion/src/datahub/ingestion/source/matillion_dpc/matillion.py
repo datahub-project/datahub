@@ -1,7 +1,8 @@
 import logging
 from collections import defaultdict
-from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from pydantic import ValidationError
 from requests import HTTPError, RequestException
@@ -32,6 +33,7 @@ from datahub.ingestion.source.matillion_dpc.config import (
     MatillionSourceReport,
 )
 from datahub.ingestion.source.matillion_dpc.constants import (
+    API_MAX_PAGE_SIZE,
     DPI_TYPE_BATCH_AD_HOC,
     DPI_TYPE_BATCH_SCHEDULED,
     MATILLION_DPI_OBSERVABILITY_URL,
@@ -40,6 +42,7 @@ from datahub.ingestion.source.matillion_dpc.constants import (
     MATILLION_PLATFORM,
     MATILLION_TO_DATAHUB_RESULT_TYPE,
     MATILLION_TRIGGER_SCHEDULE,
+    MAX_LINEAGE_DATE_RANGE_DAYS,
 )
 from datahub.ingestion.source.matillion_dpc.matillion_api import MatillionAPIClient
 from datahub.ingestion.source.matillion_dpc.matillion_container import (
@@ -59,6 +62,7 @@ from datahub.ingestion.source.matillion_dpc.matillion_utils import (
 )
 from datahub.ingestion.source.matillion_dpc.models import (
     ExecutionWithSteps,
+    MatillionColumnLineageInfo,
     MatillionDatasetInfo,
     MatillionEnvironment,
     MatillionPipeline,
@@ -95,6 +99,16 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _OutputLineageAccumulator:
+    """Accumulates upstream datasets and column lineage for one output dataset
+    across all OpenLineage events emitted by a single Matillion job."""
+
+    info: MatillionDatasetInfo
+    inputs: Dict[str, MatillionDatasetInfo] = field(default_factory=dict)
+    column_lineages: List[MatillionColumnLineageInfo] = field(default_factory=list)
 
 
 @platform_name("Matillion", id="matillion-dpc")
@@ -320,14 +334,12 @@ class MatillionSource(StatefulIngestionSourceBase):
             started_before = self.config.end_time.isoformat().replace("+00:00", "Z")
             logger.info(
                 f"Fetching pipeline executions for discovery "
-                f"(startedAfter={started_after}, startedBefore={started_before}, "
-                f"max={self.config.max_pipeline_executions_to_scan})"
+                f"(startedAfter={started_after}, startedBefore={started_before})"
             )
             self.report.report_api_call()
             all_executions = self.api_client.get_pipeline_executions(
                 started_after=started_after,
                 started_before=started_before,
-                max_results=self.config.max_pipeline_executions_to_scan,
             )
             self.report.executions_scanned += len(all_executions)
             logger.info(f"Found {len(all_executions)} total executions")
@@ -541,6 +553,8 @@ class MatillionSource(StatefulIngestionSourceBase):
 
         yield from self._discover_and_process_pipelines_from_executions(projects)
 
+        yield from self._generate_lineage_from_events(projects)
+
         yield from self._generate_sql_aggregator_workunits()
 
         self._update_lineage_state()
@@ -681,6 +695,187 @@ class MatillionSource(StatefulIngestionSourceBase):
                 f"Updated lineage checkpoint: {self.lineage_start_time.isoformat()} to {self.lineage_end_time.isoformat()}"
             )
 
+    @staticmethod
+    def _parse_job_namespace(namespace: str) -> Tuple[Optional[str], Optional[str]]:
+        """Matillion OpenLineage job namespaces encode the project and environment
+        as `matillion://<project_id>.<environment_id>`."""
+        remainder = namespace[len(MATILLION_NAMESPACE_PREFIX) :]
+        if not remainder:
+            return None, None
+        project_id, _, environment_id = remainder.partition(".")
+        return (project_id or None), (environment_id or None)
+
+    def _generate_lineage_from_events(
+        self, projects: List[MatillionProject]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit lineage directly from OpenLineage job events.
+
+        The pipelines that actually move data (and carry dataset I/O in their
+        lineage events) are often child orchestrations invoked inside scheduled
+        pipelines, so they never appear in the execution-discovery results. This
+        pass keys lineage off the OpenLineage job identity itself rather than the
+        discovered/executed pipelines, so that lineage is captured regardless.
+        """
+        all_events = self._fetch_lineage_events()
+        if not all_events:
+            return
+
+        allowed_project_ids = {
+            project.id
+            for project in projects
+            if self.config.project_patterns.allowed(project.name)
+        }
+
+        events_by_job: Dict[Tuple[str, Optional[str], str], List[Dict]] = defaultdict(
+            list
+        )
+        for event_wrapper in all_events:
+            event = event_wrapper.get("event", {})
+            job = event.get("job", {})
+            namespace = job.get("namespace", "")
+            if not namespace.startswith(MATILLION_NAMESPACE_PREFIX):
+                continue
+
+            project_id, environment_id = self._parse_job_namespace(namespace)
+            if not project_id:
+                continue
+            if allowed_project_ids and project_id not in allowed_project_ids:
+                continue
+
+            job_name = job.get("name", "")
+            if not job_name:
+                continue
+
+            events_by_job[(project_id, environment_id, job_name)].append(event)
+
+        logger.info(
+            f"Generating lineage from {len(events_by_job)} distinct Matillion jobs "
+            f"across {len(all_events)} OpenLineage events"
+        )
+
+        for (project_id, environment_id, job_name), events in events_by_job.items():
+            base_name = extract_base_pipeline_name(job_name)
+            if not self.config.pipeline_patterns.allowed(base_name):
+                self.report.filtered_pipelines.append(base_name)
+                continue
+
+            project = self._projects_cache.get(project_id) or MatillionProject(
+                id=project_id, name=project_id
+            )
+            yield from self._emit_lineage_for_job(
+                project, environment_id, job_name, base_name, events
+            )
+
+    def _emit_lineage_for_job(
+        self,
+        project: MatillionProject,
+        environment_id: Optional[str],
+        job_name: str,
+        base_name: str,
+        events: List[Dict],
+    ) -> Iterable[MetadataWorkUnit]:
+        all_inputs: Dict[str, MatillionDatasetInfo] = {}
+        outputs_by_urn: Dict[str, _OutputLineageAccumulator] = {}
+
+        for event in events:
+            try:
+                inputs, outputs, _ = self.openlineage_parser.parse_lineage_event(event)
+            except (KeyError, ValueError, IndexError) as e:
+                logger.debug(f"Failed to parse lineage event for {job_name}: {e}")
+                continue
+
+            for input_dataset in inputs:
+                all_inputs[make_dataset_urn_from_matillion_dataset(input_dataset)] = (
+                    input_dataset
+                )
+
+            for output_dataset in outputs:
+                output_urn = make_dataset_urn_from_matillion_dataset(output_dataset)
+                accumulator = outputs_by_urn.setdefault(
+                    output_urn, _OutputLineageAccumulator(info=output_dataset)
+                )
+                for input_dataset in inputs:
+                    accumulator.inputs[
+                        make_dataset_urn_from_matillion_dataset(input_dataset)
+                    ] = input_dataset
+                accumulator.column_lineages.extend(
+                    self.openlineage_parser.extract_column_lineage(
+                        event, output_dataset, inputs
+                    )
+                )
+
+        if not all_inputs and not outputs_by_urn:
+            return
+
+        flow_name = (
+            f"{project.id}.{environment_id}.{base_name}"
+            if environment_id
+            else f"{project.id}.{base_name}"
+        )
+        custom_properties = {
+            "pipeline_name": base_name,
+            "project_id": project.id,
+            "discovered_from": "lineage_events",
+        }
+        if environment_id:
+            custom_properties["environment_id"] = environment_id
+
+        dataflow = DataFlow(
+            name=flow_name,
+            platform=MATILLION_PLATFORM,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            display_name=base_name,
+            external_url=MATILLION_PIPELINE_OBSERVABILITY_URL.format(
+                pipeline_name=base_name
+            ),
+            custom_properties=custom_properties,
+            subtype=FlowContainerSubTypes.MATILLION_PIPELINE,
+        )
+        yield from dataflow.as_workunits()
+        pipeline_urn = str(dataflow.urn)
+
+        if self.config.extract_projects_to_containers:
+            self.container_handler.register_project(project)
+            yield from self.container_handler.emit_project_container(project)
+            yield from self.container_handler.add_pipeline_to_container(
+                pipeline_urn, project
+            )
+
+        datajob = DataJob(
+            name=flow_name,
+            flow_urn=pipeline_urn,
+            display_name=base_name,
+            custom_properties={"job_name": job_name},
+            subtype=JobContainerSubTypes.MATILLION_COMPONENT,
+        )
+        yield from datajob.as_workunits()
+        data_job_urn = str(datajob.urn)
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=data_job_urn,
+            aspect=DataJobInputOutputClass(
+                inputDatasets=sorted(all_inputs),
+                outputDatasets=sorted(outputs_by_urn),
+                inputDatajobs=[],
+            ),
+        ).as_workunit()
+
+        for output_urn, accumulator in outputs_by_urn.items():
+            upstream_lineage = self.openlineage_parser.create_upstream_lineage(
+                list[MatillionDatasetInfo](accumulator.inputs.values()),
+                accumulator.info,
+                accumulator.column_lineages,
+            )
+            if not upstream_lineage.upstreams:
+                continue
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=output_urn,
+                aspect=upstream_lineage,
+            ).as_workunit()
+            self.report.lineage_emitted += 1
+
     def _fetch_lineage_events(self) -> List[Dict]:
         if self._lineage_events_cache is not None:
             return self._lineage_events_cache
@@ -692,37 +887,57 @@ class MatillionSource(StatefulIngestionSourceBase):
         self.report.lineage_start_time = self.lineage_start_time
         self.report.lineage_end_time = self.lineage_end_time
 
-        generated_from = self.lineage_start_time.isoformat().replace("+00:00", "Z")
-        generated_before = self.lineage_end_time.isoformat().replace("+00:00", "Z")
-
         redundant_handler = getattr(self, "redundant_run_skip_handler", None)
         logger.info(
-            f"Fetching OpenLineage events from {generated_from} to {generated_before} "
+            f"Fetching OpenLineage events from "
+            f"{self.lineage_start_time.isoformat()} to {self.lineage_end_time.isoformat()} "
             f"(stateful: {redundant_handler is not None})"
         )
 
-        all_events = []
-        page = 0
+        all_events: List[Dict] = []
 
         try:
-            while True:
-                self.report.report_api_call()
-                events_page = self.api_client.get_lineage_events(
-                    generated_from, generated_before, page=page, size=100
+            # The lineage API rejects ranges wider than 31 days, so the window is
+            # fetched in sub-windows no larger than that.
+            window_start = self.lineage_start_time
+            chunk = timedelta(days=MAX_LINEAGE_DATE_RANGE_DAYS)
+
+            while window_start < self.lineage_end_time:
+                window_end = min(window_start + chunk, self.lineage_end_time)
+                generated_from = window_start.isoformat().replace("+00:00", "Z")
+                generated_before = window_end.isoformat().replace("+00:00", "Z")
+                logger.info(
+                    f"Fetching lineage events for window {generated_from} to {generated_before}"
                 )
 
-                if not events_page:
-                    break
+                chunk_event_count = 0
+                page = 0
+                while True:
+                    self.report.report_api_call()
+                    events_page = self.api_client.get_lineage_events(
+                        generated_from,
+                        generated_before,
+                        page=page,
+                        size=API_MAX_PAGE_SIZE,
+                    )
 
-                all_events.extend(events_page)
-                logger.debug(
-                    f"Fetched page {page} with {len(events_page)} events (total: {len(all_events)})"
+                    if not events_page:
+                        break
+
+                    all_events.extend(events_page)
+                    chunk_event_count += len(events_page)
+
+                    if len(events_page) < API_MAX_PAGE_SIZE:
+                        break
+
+                    page += 1
+
+                logger.info(
+                    f"Retrieved {chunk_event_count} lineage events for window "
+                    f"{generated_from} to {generated_before} (running total: {len(all_events)})"
                 )
 
-                if len(events_page) < 100:
-                    break
-
-                page += 1
+                window_start = window_end
 
         except Exception as e:
             logger.warning(f"Error fetching lineage events: {e}")

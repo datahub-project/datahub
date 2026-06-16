@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -5,6 +6,7 @@ from pydantic import SecretStr
 from requests.exceptions import ConnectionError
 from requests_mock import Mocker
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.source.matillion_dpc.config import (
@@ -23,6 +25,10 @@ from datahub.ingestion.source.matillion_dpc.models import (
     MatillionPipeline,
     MatillionPipelineExecution,
     MatillionProject,
+)
+from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
+    UpstreamLineageClass,
 )
 
 
@@ -261,13 +267,12 @@ def test_published_pipelines_emitted_when_unpublished_disabled(
     assert len(workunits) > 0
 
 
-def test_execution_discovery_bounded_by_time_window_and_cap(
+def test_execution_discovery_bounded_by_time_window(
     config: MatillionSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Unpublished discovery must bound the executions fetch by the configured
-    time window and the max_pipeline_executions_to_scan cap (CUS-9269)."""
+    start_time/end_time window rather than scrolling the whole account."""
     config.include_unpublished_pipelines = True
-    config.max_pipeline_executions_to_scan = 500
     source = MatillionSource(config, pipeline_context)
 
     mock_projects = [MatillionProject(id="proj-1", name="Test Project")]
@@ -284,9 +289,105 @@ def test_execution_discovery_bounded_by_time_window_and_cap(
 
     exec_mock.assert_called_once()
     _, kwargs = exec_mock.call_args
-    assert kwargs["max_results"] == 500
     assert kwargs["started_after"].endswith("Z")
     assert kwargs["started_before"].endswith("Z")
+
+
+def test_lineage_events_fetched_in_max_31_day_windows(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """A wide lineage window must be split into <=31-day sub-windows; the lineage
+    API rejects wider ranges with HTTP 400."""
+    config.end_time = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    config.start_time = config.end_time - timedelta(days=90)
+    source = MatillionSource(config, pipeline_context)
+
+    lineage_mock = MagicMock(return_value=[])
+    with patch.object(source.api_client, "get_lineage_events", lineage_mock):
+        events = source._fetch_lineage_events()
+
+    assert events == []
+    # 90 days split into 31-day chunks -> 3 requests
+    assert lineage_mock.call_count == 3
+    for call in lineage_mock.call_args_list:
+        args, _ = call
+        d_from = datetime.fromisoformat(args[0].replace("Z", "+00:00"))
+        d_before = datetime.fromisoformat(args[1].replace("Z", "+00:00"))
+        assert d_before - d_from <= timedelta(days=31)
+
+
+def test_lineage_emitted_from_events_for_unexecuted_child_pipeline(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """Lineage must be emitted from OpenLineage job events even when the job is a
+    child orchestration that never appears in execution discovery, keyed off the
+    job's own namespace/name rather than the executed pipeline names."""
+    config.extract_projects_to_containers = False
+    source = MatillionSource(config, pipeline_context)
+    source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+    source._lineage_events_cache = [
+        {
+            "event": {
+                "job": {
+                    "namespace": "matillion://proj-1.env-1",
+                    "name": "SOURCE_MAPPINGS/SFDC/INCIDENT_SRC_ORCH NRT.orch.yaml",
+                },
+                "inputs": [
+                    {
+                        "namespace": "salesforce://00D70000000KG1jEAG",
+                        "name": "Incident__c",
+                        "facets": {},
+                    }
+                ],
+                "outputs": [
+                    {
+                        "namespace": "snowflake://ACME-WAREHOUSE",
+                        "name": "RAW.SALESFORCE.INCIDENT_LND",
+                        "facets": {
+                            "columnLineage": {
+                                "fields": {
+                                    "ID": {
+                                        "inputFields": [
+                                            {
+                                                "namespace": "salesforce://00D70000000KG1jEAG",
+                                                "name": "Incident__c",
+                                                "field": "Id",
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                    }
+                ],
+            }
+        }
+    ]
+
+    projects = [MatillionProject(id="proj-1", name="Proj")]
+    workunits = list(source._generate_lineage_from_events(projects))
+
+    upstream_aspects = [
+        wu.metadata.aspect
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+    ]
+    assert len(upstream_aspects) == 1
+    upstream_urns = [u.dataset for u in upstream_aspects[0].upstreams]
+    assert any("salesforce" in urn for urn in upstream_urns)
+    assert upstream_aspects[0].fineGrainedLineages  # column lineage carried through
+
+    input_output_aspects = [
+        wu.metadata.aspect
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DataJobInputOutputClass)
+    ]
+    assert len(input_output_aspects) == 1
+    assert input_output_aspects[0].inputDatasets
+    assert input_output_aspects[0].outputDatasets
+    assert source.report.lineage_emitted == 1
 
 
 def test_execution_workunits_with_no_timestamps(

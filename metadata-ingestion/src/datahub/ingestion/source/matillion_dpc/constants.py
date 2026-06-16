@@ -39,6 +39,10 @@ API_RESPONSE_FIELD_SIZE = "size"
 # API pagination limits (per Matillion DPC API specification)
 API_MAX_PAGE_SIZE = 100
 
+# The lineage events endpoint rejects (HTTP 400) any date range wider than 31
+# days, so lineage fetches must be split into sub-windows no larger than this.
+MAX_LINEAGE_DATE_RANGE_DAYS = 31
+
 MATILLION_EU1_URL = "https://eu1.api.matillion.com/dpc"
 MATILLION_US1_URL = "https://us1.api.matillion.com/dpc"
 MATILLION_OAUTH_TOKEN_URL = "https://id.core.matillion.com/oauth/dpc/token"

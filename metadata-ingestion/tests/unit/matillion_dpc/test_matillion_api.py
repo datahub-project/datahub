@@ -229,33 +229,6 @@ def test_get_pipeline_executions(
     assert isinstance(executions[0], MatillionPipelineExecution)
 
 
-def test_get_pipeline_executions_respects_max_results(
-    api_client: MatillionAPIClient, requests_mock: Mocker
-) -> None:
-    """max_results caps total executions even when the API keeps returning a 'more' token.
-
-    Without the cap, an endlessly-paginating instance would hang the ingestion (CUS-9269).
-    """
-    # 'more' is always present, so pagination would otherwise loop forever.
-    requests_mock.get(
-        "http://test.com/v1/pipeline-executions",
-        json={
-            "results": [
-                {
-                    "pipelineExecutionId": "exec-1",
-                    "pipelineName": "pipe-1",
-                    "status": "SUCCESS",
-                }
-            ],
-            "more": "next-token",
-        },
-    )
-
-    executions = api_client.get_pipeline_executions(max_results=3, limit=1)
-
-    assert len(executions) == 3
-
-
 def test_pagination_multiple_pages(
     api_client: MatillionAPIClient, requests_mock: Mocker
 ) -> None:
