@@ -2,6 +2,7 @@ package io.datahubproject.openapi.v1.registry;
 
 import static io.datahubproject.test.metadata.context.TestOperationContexts.TEST_USER_AUTH;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
@@ -127,7 +128,7 @@ public class EntityRegistryControllerTest {
         .perform(
             get("/openapi/v1/registry/models/entity/specifications")
                 .param("start", "0")
-                .param("count", "100")
+                .param("count", "1000")
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.start", is(0)))
@@ -352,7 +353,47 @@ public class EntityRegistryControllerTest {
             get("/openapi/v1/registry/models/aspect/specifications/{aspectName}", TEST_ASPECT_NAME)
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.aspectAnnotation.name", is(TEST_ASPECT_NAME)));
+        .andExpect(jsonPath("$.aspectAnnotation.name", is(TEST_ASPECT_NAME)))
+        .andExpect(jsonPath("$.aspectAnnotation.schemaVersion", is(1)));
+  }
+
+  @Test
+  public void testGetAspectSpecByNameExposesSchemaVersion() throws Exception {
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIOperationsAuthorized(
+                    any(OperationContext.class), any(PoliciesConfig.Privilege.class)))
+        .thenReturn(true);
+
+    mockMvc
+        .perform(
+            get("/openapi/v1/registry/models/aspect/specifications/{aspectName}", "domains")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.aspectAnnotation.name", is("domains")))
+        .andExpect(jsonPath("$.aspectAnnotation.schemaVersion", is(2)));
+  }
+
+  @Test
+  public void testGetEntitySpecsExposesSearchGroup() throws Exception {
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIOperationsAuthorized(
+                    any(OperationContext.class), any(PoliciesConfig.Privilege.class)))
+        .thenReturn(true);
+
+    mockMvc
+        .perform(
+            get("/openapi/v1/registry/models/entity/specifications")
+                .param("count", "1000")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath(
+                "$.elements[?(@.name=='dataset')].entityAnnotation.searchGroup",
+                hasItem("primary")));
   }
 
   @Test
