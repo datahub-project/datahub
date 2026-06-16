@@ -16,7 +16,7 @@ from typing import (
     Set,
     Tuple,
 )
-from urllib.parse import quote as _urlquote, urlparse
+from urllib.parse import quote, urlparse
 
 import botocore.exceptions
 import yaml
@@ -180,7 +180,7 @@ def _glue_name_to_urn_part(name: str) -> str:
     # the entire name component so all URL-unsafe chars (/ included) become
     # percent-encoded before UrnEncoder runs (which then sees no reserved chars
     # and returns the pre-encoded string unchanged).
-    return _urlquote(name, safe="")
+    return quote(name, safe="")
 
 
 def _sanitize_jdbc_url(jdbc_url: str) -> str:
@@ -1746,10 +1746,9 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.report_table_dropped(full_table_name)
             return
 
-        urn_name = (
-            f"{_glue_name_to_urn_part(database_name)}"
-            f".{_glue_name_to_urn_part(table_name)}"
-        )
+        db_part = _glue_name_to_urn_part(database_name)
+        tbl_part = _glue_name_to_urn_part(table_name)
+        urn_name = f"{db_part}.{tbl_part}"
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=urn_name,
