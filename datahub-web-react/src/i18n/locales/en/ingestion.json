@@ -156,6 +156,8 @@
     "status.rolledBack": "Rolled Back",
     "status.rollingBack": "Rolling Back",
     "status.running": "Running",
+    "status.succeeded": "Succeeded",
+    "status.succeededWithWarnings": "Succeeded With Warnings",
     "status.success": "Success",
     "status.upForRetry": "Up for Retry"
 }

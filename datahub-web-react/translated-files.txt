@@ -11,6 +11,7 @@ src/app/homeV2/**/*.{ts,tsx}
 src/app/homeV3/**/*.{ts,tsx}
 src/app/identity/**/*.{ts,tsx}
 src/app/ingest/source/builder/IngestionSourceBuilderModal.tsx
+src/app/ingest/source/utils.ts
 src/app/ingestV2/*.{ts,tsx}
 src/app/ingestV2/executions/**/*.{ts,tsx}
 src/app/ingestV2/hooks/**/*.{ts,tsx}
