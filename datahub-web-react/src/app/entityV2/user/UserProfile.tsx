@@ -29,7 +29,7 @@ import { PageRoutes } from '@conf/Global';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '@graphql/user.generated';
-import { CorpGroup, EntityRelationship, EntityType } from '@types';
+import { EntityRelationship, EntityType } from '@types';
 
 interface Props {
     urn: string;
@@ -106,14 +106,9 @@ export default function UserProfile({ urn }: Props) {
 
     const corpUser = data?.corpUser;
 
-    // Filter out soft-deleted or orphaned groups that lack both info and editableProperties
     const userGroups: Array<EntityRelationship> =
-        corpUser?.groups?.relationships
-            ?.filter((relationship) => {
-                const group = relationship?.entity as CorpGroup | undefined;
-                return group?.info || group?.editableProperties;
-            })
-            ?.map((relationship) => relationship as EntityRelationship) || [];
+        corpUser?.groups?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
+    const totalRelationships = corpUser?.groups?.total || 0;
     const userRoles: Array<EntityRelationship> =
         corpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
 
@@ -134,7 +129,14 @@ export default function UserProfile({ urn }: Props) {
             {
                 name: t('user.tab.groups'),
                 path: TabType.Groups.toLocaleLowerCase(),
-                content: <UserGroups urn={urn} initialRelationships={userGroups} pageSize={GROUP_PAGE_SIZE} />,
+                content: (
+                    <UserGroups
+                        urn={urn}
+                        initialRelationships={userGroups}
+                        pageSize={GROUP_PAGE_SIZE}
+                        totalRelationships={totalRelationships}
+                    />
+                ),
                 display: {
                     enabled: () => userGroups?.length > 0,
                 },
