@@ -86,11 +86,19 @@ public class AuthorizationContext implements ContextInterface {
     return result;
   }
 
-  /** Share this session's resolved-spec cache with authorizers that support it. */
+  /**
+   * Run authorization, sharing this session's resolved-spec cache with authorizers that support it.
+   * A capability-advertising authorizer that returns no result (e.g. a partially stubbed test
+   * double) falls back to the standard {@link Authorizer#authorize(AuthorizationRequest)} path,
+   * which is behaviourally identical aside from the per-request spec cache.
+   */
   private AuthorizationResult runAuthorize(@Nonnull final AuthorizationRequest request) {
     if (authorizer instanceof ResourceSpecCachingAuthorizer) {
-      return ((ResourceSpecCachingAuthorizer) authorizer)
-          .authorize(request, sessionResourceSpecCache);
+      final AuthorizationResult result =
+          ((ResourceSpecCachingAuthorizer) authorizer).authorize(request, sessionResourceSpecCache);
+      if (result != null) {
+        return result;
+      }
     }
     return authorizer.authorize(request);
   }
