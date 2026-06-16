@@ -60,9 +60,11 @@ on:
         type: number
         default: 5
 
-  release:
-    types: [published]
-
+  workflow_run:
+    workflows:
+      - Nightly Docker Test
+    types:
+      - completed
 
 permissions:
   actions: write
