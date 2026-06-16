@@ -316,9 +316,20 @@ class MatillionSource(StatefulIngestionSourceBase):
         pipeline_groups: Dict[PipelineGroupKey, List[MatillionPipelineExecution]] = {}
 
         if self.config.include_unpublished_pipelines:
-            logger.info("Fetching pipeline executions for discovery")
+            started_after = self.config.start_time.isoformat().replace("+00:00", "Z")
+            started_before = self.config.end_time.isoformat().replace("+00:00", "Z")
+            logger.info(
+                f"Fetching pipeline executions for discovery "
+                f"(startedAfter={started_after}, startedBefore={started_before}, "
+                f"max={self.config.max_pipeline_executions_to_scan})"
+            )
             self.report.report_api_call()
-            all_executions = self.api_client.get_pipeline_executions(limit=100)
+            all_executions = self.api_client.get_pipeline_executions(
+                started_after=started_after,
+                started_before=started_before,
+                max_results=self.config.max_pipeline_executions_to_scan,
+            )
+            self.report.executions_scanned += len(all_executions)
             logger.info(f"Found {len(all_executions)} total executions")
 
             pipeline_groups = defaultdict(list)

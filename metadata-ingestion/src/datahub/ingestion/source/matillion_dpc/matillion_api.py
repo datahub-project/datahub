@@ -232,6 +232,7 @@ class MatillionAPIClient:
         endpoint: str,
         pagination_params: Optional[TokenPaginationParams] = None,
         additional_params: Optional[Dict[str, Any]] = None,
+        max_results: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         all_items = []
         params = pagination_params or TokenPaginationParams()
@@ -259,6 +260,17 @@ class MatillionAPIClient:
             logger.debug(
                 f"Fetched {len(items)} items from {endpoint} (total so far: {len(all_items)})"
             )
+
+            # Safety valve: stop scrolling once we've collected enough results.
+            # The pipeline-executions endpoint scrolls over the entire account's
+            # execution history, which can be unbounded on busy instances.
+            if max_results is not None and len(all_items) >= max_results:
+                logger.info(
+                    f"Reached max_results={max_results} for {endpoint}; "
+                    f"stopping pagination with {len(all_items)} items fetched"
+                )
+                all_items = all_items[:max_results]
+                break
 
             next_token = response.get("more")
             if not next_token or len(items) == 0:
@@ -304,11 +316,13 @@ class MatillionAPIClient:
         entity_name: str,
         pagination_params: Optional[TokenPaginationParams] = None,
         additional_params: Optional[Dict[str, Any]] = None,
+        max_results: Optional[int] = None,
     ) -> List[T]:
         response_data = self._make_token_paginated_request(
             endpoint,
             pagination_params=pagination_params,
             additional_params=additional_params,
+            max_results=max_results,
         )
         entities = []
 
@@ -344,11 +358,23 @@ class MatillionAPIClient:
         )
 
     def get_pipeline_executions(
-        self, pipeline_name: Optional[str] = None, limit: int = 10
+        self,
+        pipeline_name: Optional[str] = None,
+        project_id: Optional[str] = None,
+        started_after: Optional[str] = None,
+        started_before: Optional[str] = None,
+        limit: int = API_MAX_PAGE_SIZE,
+        max_results: Optional[int] = None,
     ) -> List[MatillionPipelineExecution]:
-        additional_params = {}
+        additional_params: Dict[str, Any] = {}
         if pipeline_name:
             additional_params["pipelineName"] = pipeline_name
+        if project_id:
+            additional_params["projectId"] = project_id
+        if started_after:
+            additional_params["startedAfter"] = started_after
+        if started_before:
+            additional_params["startedBefore"] = started_before
 
         return self._fetch_token_paginated_entities(
             API_ENDPOINT_PIPELINE_EXECUTIONS,
@@ -356,6 +382,7 @@ class MatillionAPIClient:
             "pipeline execution",
             pagination_params=TokenPaginationParams(limit=limit),
             additional_params=additional_params,
+            max_results=max_results,
         )
 
     def get_schedules(self, project_id: str) -> List[MatillionSchedule]:

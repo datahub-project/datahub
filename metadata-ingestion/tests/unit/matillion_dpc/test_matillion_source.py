@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import SecretStr
@@ -259,6 +259,34 @@ def test_published_pipelines_emitted_when_unpublished_disabled(
     assert source.report.pipelines_emitted == 2
     assert source.report.pipelines_scanned == 2
     assert len(workunits) > 0
+
+
+def test_execution_discovery_bounded_by_time_window_and_cap(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """Unpublished discovery must bound the executions fetch by the configured
+    time window and the max_pipeline_executions_to_scan cap (CUS-9269)."""
+    config.include_unpublished_pipelines = True
+    config.max_pipeline_executions_to_scan = 500
+    source = MatillionSource(config, pipeline_context)
+
+    mock_projects = [MatillionProject(id="proj-1", name="Test Project")]
+    exec_mock = MagicMock(return_value=[])
+
+    with (
+        patch.object(source.api_client, "get_projects", return_value=mock_projects),
+        patch.object(source.api_client, "get_environments", return_value=[]),
+        patch.object(source.api_client, "get_pipelines", return_value=[]),
+        patch.object(source.api_client, "get_streaming_pipelines", return_value=[]),
+        patch.object(source.api_client, "get_pipeline_executions", exec_mock),
+    ):
+        list(source._discover_and_process_pipelines_from_executions(mock_projects))
+
+    exec_mock.assert_called_once()
+    _, kwargs = exec_mock.call_args
+    assert kwargs["max_results"] == 500
+    assert kwargs["started_after"].endswith("Z")
+    assert kwargs["started_before"].endswith("Z")
 
 
 def test_execution_workunits_with_no_timestamps(
