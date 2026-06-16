@@ -2,6 +2,7 @@ package com.linkedin.metadata.authorization;
 
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.QUERY_SUBJECTS_ASPECT_NAME;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -307,6 +308,127 @@ public class EntityAspectAuthorizationUtilsTest {
     Domains domains = new Domains();
     domains.setDomains(new UrnArray(List.of(domainUrns)));
     return new Aspect(domains.data());
+  }
+
+  @Test
+  public void testFilterUnauthorizedToEditLogicalParent_emptyMap() {
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.filterUnauthorizedToEditLogicalParent(
+                mockAuthSession, Map.of())
+            .isEmpty());
+  }
+
+  @Test
+  public void testFilterUnauthorizedToEditLogicalParent_returnsUnauthorizedChildren() {
+    Urn child = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,child,PROD)");
+    Urn parent = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,parent,PROD)");
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorizedEntityUrns(
+                    eq(mockAuthSession), eq(UPDATE), eq(Set.of(child, parent))))
+        .thenReturn(false);
+
+    Set<Urn> unauthorized =
+        EntityAspectAuthorizationUtils.filterUnauthorizedToEditLogicalParent(
+            mockAuthSession, Map.of(child, Set.of(child, parent)));
+
+    Assert.assertEquals(unauthorized, Set.of(child));
+  }
+
+  @Test
+  public void testFilterUnauthorizedToManageDataProductMembership_emptyChangedAssets() {
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
+                OperationFingerprint.EMPTY, mockAuthSession, mockAspectRetriever, Map.of())
+            .isEmpty());
+  }
+
+  @Test
+  public void testIsAuthorizedToChangeDataProductMembership_emptyAssetsDenied() {
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.isAuthorizedToChangeDataProductMembership(
+            mockAuthSession, Set.of(DOMAIN_A), Set.of()));
+  }
+
+  @Test
+  public void testFilterViewableQueryEntities_emptyInput() {
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+                OperationFingerprint.EMPTY, mockAuthSession, mockAspectRetriever, List.of())
+            .isEmpty());
+  }
+
+  @Test
+  public void testFilterViewableQueryEntities_deniesQueryWithNoSubjects() {
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(Map.of(QUERY_URN, Map.of()));
+
+    Set<Urn> viewable =
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            OperationFingerprint.EMPTY, mockAuthSession, mockAspectRetriever, List.of(QUERY_URN));
+
+    Assert.assertTrue(viewable.isEmpty());
+  }
+
+  @Test
+  public void testFilterViewableQueryEntities_allowsViaCanViewEntityOnSubject() {
+    QuerySubjects querySubjects = new QuerySubjects();
+    QuerySubject subject = new QuerySubject();
+    subject.setEntity(SUBJECT_DATASET);
+    querySubjects.setSubjects(new QuerySubjectArray(subject));
+    Aspect subjectsAspect = new Aspect(querySubjects.data());
+
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(Map.of(QUERY_URN, Map.of(QUERY_SUBJECTS_ASPECT_NAME, subjectsAspect)));
+
+    authUtilMockedStatic
+        .when(() -> AuthUtil.canViewEntity(eq(mockAuthSession), eq(SUBJECT_DATASET)))
+        .thenReturn(true);
+
+    Set<Urn> viewable =
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            OperationFingerprint.EMPTY, mockAuthSession, mockAspectRetriever, List.of(QUERY_URN));
+
+    Assert.assertEquals(viewable, Set.of(QUERY_URN));
+  }
+
+  @Test
+  public void testCanViewQueryEntity_delegatesToFilterViewableQueryEntities() {
+    QuerySubjects querySubjects = new QuerySubjects();
+    QuerySubject subject = new QuerySubject();
+    subject.setEntity(SUBJECT_DATASET);
+    querySubjects.setSubjects(new QuerySubjectArray(subject));
+    Aspect subjectsAspect = new Aspect(querySubjects.data());
+
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(Map.of(QUERY_URN, Map.of(QUERY_SUBJECTS_ASPECT_NAME, subjectsAspect)));
+
+    authUtilMockedStatic
+        .when(() -> AuthUtil.canViewEntity(eq(mockAuthSession), eq(SUBJECT_DATASET)))
+        .thenReturn(true);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.canViewQueryEntity(
+            OperationFingerprint.EMPTY, mockAuthSession, mockAspectRetriever, QUERY_URN));
+  }
+
+  @Test
+  public void testIsQueryEntity() {
+    Assert.assertTrue(EntityAspectAuthorizationUtils.isQueryEntity(QUERY_URN));
+    Assert.assertFalse(EntityAspectAuthorizationUtils.isQueryEntity(ASSET_URN));
+  }
+
+  @Test
+  public void testResolveUniqueDomainUrns_nullDomains() {
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.resolveUniqueDomainUrns((Domains) null).isEmpty());
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.resolveUniqueDomainUrns((Aspect) null).isEmpty());
   }
 
   @Test

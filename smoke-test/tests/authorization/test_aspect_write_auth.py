@@ -1,5 +1,6 @@
 """
-E2E authorization smoke tests for AC-002 (logicalParent) and AC-003 (data product membership).
+E2E authorization smoke tests for logicalParent, data product membership,
+and data product rename via updateName.
 """
 
 import logging
@@ -94,6 +95,12 @@ mutation batchRemoveFromDataProducts($dataProductUrns: [String!]!, $resourceUrns
   batchRemoveFromDataProducts(
     input: { dataProductUrns: $dataProductUrns, resourceUrns: $resourceUrns }
   )
+}
+"""
+
+UPDATE_NAME_MUTATION = """
+mutation updateName($input: UpdateNameInput!) {
+  updateName(input: $input)
 }
 """
 
@@ -262,7 +269,7 @@ def _assert_graphql_auth_denied(res: dict) -> None:
 
 
 def test_set_logical_parent_denied_without_edit_entity_on_target():
-    """AC-002: cannot set logicalParent without EDIT_ENTITY on the target asset."""
+    """Cannot set logicalParent without EDIT_ENTITY on the target asset."""
     payload = {
         "query": SET_LOGICAL_PARENT_MUTATION,
         "variables": {
@@ -277,7 +284,7 @@ def test_set_logical_parent_denied_without_edit_entity_on_target():
 
 
 def test_set_logical_parent_denied_without_edit_entity_on_parent():
-    """AC-002: cannot set logicalParent without EDIT_ENTITY on the proposed parent."""
+    """Cannot set logicalParent without EDIT_ENTITY on the proposed parent."""
     admin_session = get_frontend_session()
     policy_urn = create_metadata_policy(
         admin_session,
@@ -305,7 +312,7 @@ def test_set_logical_parent_denied_without_edit_entity_on_parent():
 
 
 def test_set_logical_parent_allowed_with_edit_entity_on_target_and_parent(auth_session):
-    """AC-002: setLogicalParent succeeds when user has EDIT_ENTITY on child and parent."""
+    """SetLogicalParent succeeds when user has EDIT_ENTITY on child and parent."""
     admin_session = get_frontend_session()
     target_policy_urn = create_metadata_policy(
         admin_session,
@@ -342,7 +349,7 @@ def test_set_logical_parent_allowed_with_edit_entity_on_target_and_parent(auth_s
 
 
 def test_batch_set_data_product_denied_with_asset_side_privilege_only(auth_session):
-    """AC-003: batchSetDataProduct requires MANAGE_DATA_PRODUCTS on domain, not asset-side privilege."""
+    """BatchSetDataProduct requires MANAGE_DATA_PRODUCTS on domain, not asset-side privilege."""
     admin_session = get_frontend_session()
     policy_urn = create_metadata_policy(
         admin_session,
@@ -370,7 +377,7 @@ def test_batch_set_data_product_denied_with_asset_side_privilege_only(auth_sessi
 def test_batch_set_data_product_allowed_with_manage_data_products_on_domain(
     auth_session,
 ):
-    """AC-003: batchSetDataProduct succeeds with MANAGE_DATA_PRODUCTS on the data product domain."""
+    """BatchSetDataProduct succeeds with MANAGE_DATA_PRODUCTS on the data product domain."""
     admin_session = get_frontend_session()
     policy_urn = create_metadata_policy(
         admin_session,
@@ -398,7 +405,7 @@ def test_batch_set_data_product_allowed_with_manage_data_products_on_domain(
 def test_batch_set_data_product_allowed_cross_domain_with_manage_on_product_domain(
     auth_session,
 ):
-    """AC-003: product-side manage on product domain allows linking assets in a different domain."""
+    """Product-side manage on product domain allows linking assets in a different domain."""
     admin_session = get_frontend_session()
     policy_urn = create_metadata_policy(
         admin_session,
@@ -426,7 +433,7 @@ def test_batch_set_data_product_allowed_cross_domain_with_manage_on_product_doma
 def test_batch_add_to_data_products_allowed_with_asset_side_privilege_only(
     auth_session,
 ):
-    """AC-003: asset profile add succeeds with EDIT_ENTITY_DATA_PRODUCTS on the asset."""
+    """Asset profile add succeeds with EDIT_ENTITY_DATA_PRODUCTS on the asset."""
     admin_session = get_frontend_session()
     policy_urn = create_metadata_policy(
         admin_session,
@@ -465,7 +472,7 @@ def _seed_data_product_membership(graph_client, dataset_urn: str) -> None:
 def test_batch_unset_data_product_allowed_with_asset_side_privilege_only(
     auth_session, graph_client
 ):
-    """AC-003: asset profile remove succeeds with EDIT_ENTITY_DATA_PRODUCTS on the asset."""
+    """Asset profile remove succeeds with EDIT_ENTITY_DATA_PRODUCTS on the asset."""
     _seed_data_product_membership(graph_client, ASSET_SIDE_REMOVE_DATASET_URN)
 
     admin_session = get_frontend_session()
@@ -492,7 +499,7 @@ def test_batch_unset_data_product_allowed_with_asset_side_privilege_only(
 def test_batch_remove_from_data_products_allowed_with_asset_side_privilege_only(
     auth_session, graph_client
 ):
-    """AC-003: batchRemoveFromDataProducts succeeds with EDIT_ENTITY_DATA_PRODUCTS on the asset."""
+    """BatchRemoveFromDataProducts succeeds with EDIT_ENTITY_DATA_PRODUCTS on the asset."""
     _seed_data_product_membership(graph_client, ASSET_SIDE_REMOVE_DATASET_URN)
 
     admin_session = get_frontend_session()
@@ -517,3 +524,106 @@ def test_batch_remove_from_data_products_allowed_with_asset_side_privilege_only(
     assert res.get("data", {}).get("batchRemoveFromDataProducts") is True, res
 
     remove_policy(asset_policy_urn, admin_session)
+
+
+def test_update_data_product_name_denied_without_privilege():
+    """UpdateName requires MANAGE_DATA_PRODUCTS on domain or EDIT_ENTITY on product."""
+    payload = {
+        "query": UPDATE_NAME_MUTATION,
+        "variables": {
+            "input": {
+                "urn": DATA_PRODUCT_URN,
+                "name": f"Denied rename {_UNIQUE}",
+            }
+        },
+    }
+    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    _assert_graphql_auth_denied(res)
+
+
+def test_update_data_product_name_denied_with_asset_side_privilege_only(auth_session):
+    """UpdateName does not accept asset-side EDIT_ENTITY_DATA_PRODUCTS privilege."""
+    admin_session = get_frontend_session()
+    policy_urn = create_metadata_policy(
+        admin_session,
+        name=f"Test EDIT_ENTITY_DATA_PRODUCTS rename {_UNIQUE}",
+        description="Grant asset-side data product privilege only",
+        privileges=["EDIT_ENTITY_DATA_PRODUCTS"],
+        user_urn=TEST_USER_URN,
+        resource_urn=MEMBER_DATASET_URN,
+    )
+    wait_for_writes_to_sync()
+
+    payload = {
+        "query": UPDATE_NAME_MUTATION,
+        "variables": {
+            "input": {
+                "urn": DATA_PRODUCT_URN,
+                "name": f"Denied asset-side rename {_UNIQUE}",
+            }
+        },
+    }
+    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    _assert_graphql_auth_denied(res)
+
+    remove_policy(policy_urn, admin_session)
+
+
+def test_update_data_product_name_allowed_with_manage_data_products_on_domain(
+    auth_session,
+):
+    """UpdateName succeeds with MANAGE_DATA_PRODUCTS on the data product domain."""
+    admin_session = get_frontend_session()
+    policy_urn = create_metadata_policy(
+        admin_session,
+        name=f"Test MANAGE_DATA_PRODUCTS rename {_UNIQUE}",
+        description="Grant MANAGE_DATA_PRODUCTS on domain for rename",
+        privileges=["MANAGE_DATA_PRODUCTS"],
+        user_urn=TEST_USER_URN,
+        resource_urn=TEST_DOMAIN_URN,
+    )
+    wait_for_writes_to_sync()
+
+    payload = {
+        "query": UPDATE_NAME_MUTATION,
+        "variables": {
+            "input": {
+                "urn": DATA_PRODUCT_URN,
+                "name": f"Renamed via manage {_UNIQUE}",
+            }
+        },
+    }
+    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    assert res.get("data", {}).get("updateName") is True, res
+
+    remove_policy(policy_urn, admin_session)
+
+
+def test_update_data_product_name_allowed_with_edit_entity_on_data_product(
+    auth_session,
+):
+    """UpdateName succeeds with EDIT_ENTITY on the data product itself."""
+    admin_session = get_frontend_session()
+    policy_urn = create_metadata_policy(
+        admin_session,
+        name=f"Test EDIT_ENTITY data product rename {_UNIQUE}",
+        description="Grant EDIT_ENTITY on data product for rename",
+        privileges=["EDIT_ENTITY"],
+        user_urn=TEST_USER_URN,
+        resource_urn=DATA_PRODUCT_URN,
+    )
+    wait_for_writes_to_sync()
+
+    payload = {
+        "query": UPDATE_NAME_MUTATION,
+        "variables": {
+            "input": {
+                "urn": DATA_PRODUCT_URN,
+                "name": f"Renamed via edit entity {_UNIQUE}",
+            }
+        },
+    }
+    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    assert res.get("data", {}).get("updateName") is True, res
+
+    remove_policy(policy_urn, admin_session)

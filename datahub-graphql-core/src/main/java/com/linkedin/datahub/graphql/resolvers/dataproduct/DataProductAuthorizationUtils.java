@@ -67,14 +67,6 @@ public class DataProductAuthorizationUtils {
     return isAuthorizedToManageDataProductsOnAnyDomain(context, domains);
   }
 
-  /**
-   * @deprecated Use {@link #isAuthorizedToManageDataProductsOnAnyDomain}.
-   */
-  public static boolean isAuthorizedToManageDataProductsOnAllDomains(
-      @Nonnull QueryContext context, @Nullable Domains domains) {
-    return isAuthorizedToManageDataProductsOnAnyDomain(context, domains);
-  }
-
   public static boolean isAuthorizedToEditDataProduct(
       @Nonnull QueryContext context, Urn dataProductUrn) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =

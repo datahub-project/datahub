@@ -57,6 +57,30 @@ public class IngestProposalExceptionUtilsTest {
     assertTrue(graphQLException instanceof AuthorizationException);
   }
 
+  @Test
+  public void testWrapsNonRuntimeExceptionWithOperationDescription() {
+    Exception checked = new Exception("checked failure");
+
+    RuntimeException graphQLException =
+        IngestProposalExceptionUtils.toGraphQLException("Failed to ingest proposal", checked);
+
+    assertFalse(graphQLException instanceof AuthorizationException);
+    assertEquals(graphQLException.getMessage(), "Failed to ingest proposal");
+    assertEquals(graphQLException.getCause(), checked);
+  }
+
+  @Test
+  public void testMapsValidationMessageContainingUnauthorized() {
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
+    collection.addException(mockItem(), "User is unauthorized to update name");
+
+    ValidationException validationException = new ValidationException(collection);
+    RuntimeException graphQLException =
+        IngestProposalExceptionUtils.toGraphQLException(validationException);
+
+    assertTrue(graphQLException instanceof AuthorizationException);
+  }
+
   private static BatchItem mockItem() {
     BatchItem item = Mockito.mock(BatchItem.class);
     when(item.getChangeType()).thenReturn(ChangeType.UPSERT);

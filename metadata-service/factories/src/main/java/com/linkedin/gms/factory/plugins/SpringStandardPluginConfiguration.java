@@ -458,14 +458,6 @@ public class SpringStandardPluginConfiguration {
   @ConditionalOnProperty(
       name = "metadataChangeProposal.validation.privilegeConstraints.enabled",
       havingValue = "true")
-  public AspectPayloadValidator privilegeConstraintsValidator() {
-    return tagPrivilegeConstraintsValidator();
-  }
-
-  @Bean
-  @ConditionalOnProperty(
-      name = "metadataChangeProposal.validation.privilegeConstraints.enabled",
-      havingValue = "true")
   public AspectPayloadValidator tagPrivilegeConstraintsValidator() {
     return new TagPrivilegeConstraintsValidator()
         .setConfig(

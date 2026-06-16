@@ -6,6 +6,7 @@ import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 import com.codahale.metrics.MetricRegistry;
+import com.google.common.annotations.VisibleForTesting;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -53,9 +54,24 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
   @Named("authorizerChain")
   private Authorizer _authorizer;
 
-    @Inject
-    @Named("systemOperationContext")
-    private OperationContext systemOperationContext;
+  @Inject
+  @Named("systemOperationContext")
+  private OperationContext systemOperationContext;
+
+  @VisibleForTesting
+  void setEntityService(EntityService<?> entityService) {
+    this._entityService = entityService;
+  }
+
+  @VisibleForTesting
+  void setAuthorizer(Authorizer authorizer) {
+    this._authorizer = authorizer;
+  }
+
+  @VisibleForTesting
+  void setSystemOperationContext(OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+  }
 
   /** Retrieves the value for an entity that is made up of latest versions of specified aspects. */
   @RestMethod.Get

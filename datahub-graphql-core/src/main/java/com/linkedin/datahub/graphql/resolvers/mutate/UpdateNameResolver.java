@@ -327,6 +327,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
           _entityService);
 
       return true;
+    } catch (AuthorizationException e) {
+      throw e;
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to perform update against input %s", input), e);

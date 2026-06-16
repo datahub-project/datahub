@@ -85,7 +85,7 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
     try {
       _dataProductService.batchUnsetDataProduct(context.getOperationContext(), resourceUrns);
     } catch (Exception e) {
-      throw new RuntimeException(
+      throw IngestProposalExceptionUtils.toGraphQLException(
           String.format(
               "Failed to batch unset data product for resources with urns %s!", resourceUrns),
           e);

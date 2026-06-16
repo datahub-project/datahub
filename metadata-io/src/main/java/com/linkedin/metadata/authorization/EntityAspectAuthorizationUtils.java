@@ -179,19 +179,6 @@ public final class EntityAspectAuthorizationUtils {
   }
 
   /**
-   * @deprecated Use {@link #isAuthorizedToChangeDataProductMembership(AuthorizationSession, Set,
-   *     Set)}.
-   */
-  @Deprecated
-  public static boolean isAuthorizedToManageDataProductMembership(
-      @Nonnull AuthorizationSession session,
-      @Nonnull Set<Urn> productDomainUrns,
-      @Nonnull Set<Urn> changedAssetUrns,
-      @Nonnull Map<Urn, Set<Urn>> assetDomainUrnsByAsset) {
-    return isAuthorizedToChangeDataProductMembership(session, productDomainUrns, changedAssetUrns);
-  }
-
-  /**
    * Returns the unique domain URNs associated with a {@link Domains} aspect, preferring {@code
    * domainAssociations} and falling back to the legacy {@code domains} array.
    */
@@ -239,14 +226,6 @@ public final class EntityAspectAuthorizationUtils {
       }
     }
     return false;
-  }
-
-  /**
-   * @deprecated Prefer {@link #isAuthorizedToManageDataProductsOnAnyDomain} for product manage.
-   */
-  public static boolean isAuthorizedToManageDataProductsOnAllDomains(
-      @Nonnull AuthorizationSession session, @Nonnull Collection<Urn> domainUrns) {
-    return isAuthorizedToManageDataProductsOnAnyDomain(session, domainUrns);
   }
 
   private static boolean isAuthorizedToManageDataProductsOnDomain(

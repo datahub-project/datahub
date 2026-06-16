@@ -1,5 +1,5 @@
 """
-E2E authorization smoke tests for AC-003 Query entity read visibility (subject-derived).
+E2E authorization smoke tests for Query entity read visibility (subject-derived).
 
 Requires ``VIEW_AUTHORIZATION_ENABLED=true`` on GMS; skipped when view authorization is off.
 """
@@ -149,7 +149,7 @@ def _fetch_query_entity(email: str, password: str) -> dict:
 
 
 def test_query_entity_hidden_without_subject_view():
-    """AC-003 read: Query entity SQL not returned without VIEW_ENTITY_PAGE on subject dataset."""
+    """Query entity SQL not returned without VIEW_ENTITY_PAGE on subject dataset."""
     res = _fetch_query_entity(TEST_USER_EMAIL, TEST_USER_PASSWORD)
     entity = (res.get("data") or {}).get("entity")
     if entity is None:
@@ -160,7 +160,7 @@ def test_query_entity_hidden_without_subject_view():
 
 
 def test_query_entity_visible_with_subject_view(auth_session):
-    """AC-003 read: Query entity SQL visible when user can view subject dataset."""
+    """Query entity SQL visible when user can view subject dataset."""
     admin_session = get_frontend_session()
     policy_urn = create_metadata_policy(
         admin_session,
@@ -181,7 +181,7 @@ def test_query_entity_visible_with_subject_view(auth_session):
 
 
 def test_query_entity_visible_with_edit_queries_on_subject(auth_session):
-    """AC-003 read: Query entity SQL visible when user can edit queries on subject dataset."""
+    """Query entity SQL visible when user can edit queries on subject dataset."""
     admin_session = get_frontend_session()
     policy_urn = create_metadata_policy(
         admin_session,
