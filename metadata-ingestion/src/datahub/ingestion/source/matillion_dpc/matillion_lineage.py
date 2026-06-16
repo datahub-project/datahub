@@ -151,6 +151,8 @@ class OpenLineageParser:
                 namespace=namespace,
                 platform_instance=info.platform_instance,
                 env=info.env,
+                database=info.database,
+                default_schema=info.default_schema,
             )
 
             logger.debug(

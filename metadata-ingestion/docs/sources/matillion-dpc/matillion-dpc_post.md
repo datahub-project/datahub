@@ -101,6 +101,24 @@ This is useful when:
 - You have many development/test pipelines that run but shouldn't be documented
 - You want to reduce ingestion time and API calls
 
+#### Time Window and Incremental Ingestion
+
+Pipeline-execution discovery and lineage are bounded by `start_time` / `end_time`. If you do not set `start_time`, the connector looks back one day from `end_time`. Set `start_time` to backfill more history on the first run, especially if your pipelines do not run daily:
+
+```yaml
+start_time: "2024-01-01T00:00:00Z" # absolute
+# start_time: "-30d"                # or relative to end_time
+```
+
+Enable stateful ingestion so subsequent runs only fetch new lineage instead of re-reading the whole window:
+
+```yaml
+stateful_ingestion:
+  enabled: true
+```
+
+**Lineage endpoint performance**: the Matillion lineage events API paginates by offset and gets progressively slower the further back it reads. Wide time windows therefore both increase total runtime and make individual requests more likely to time out. Lineage requests are automatically split into sub-windows of at most 31 days (the API's hard limit per request), but each sub-window still pages through its full result set. Prefer a narrower window plus stateful ingestion over a single very large backfill, and only raise `api_config.request_timeout_sec` when a genuinely large window is unavoidable (a high timeout multiplies the worst-case wait, since failed requests are retried).
+
 ### Limitations
 
 - SQL parsing for column-level lineage requires a DataHub graph connection and schema information in OpenLineage events. Unsupported SQL dialects or complex queries are skipped with a warning.
@@ -123,13 +141,15 @@ Enable `parse_sql_for_lineage: true` (requires DataHub graph connection).
 1. Adjust `start_time` to query further back in time if needed
 2. Verify API permissions for Pipeline Executions API
 
-#### Performance Issues
+#### Performance Issues or Request Timeouts
 
-1. Reduce time window by adjusting `start_time` (e.g., only last 7 days instead of 30)
+The lineage events endpoint paginates by offset and slows down the further back in time it reads, so wide windows are the most common cause of slow runs and `request_timeout_sec` timeouts. In order of preference:
+
+1. Narrow the time window by adjusting `start_time` (e.g., last 7 days instead of 30) and enable `stateful_ingestion` so later runs stay incremental.
 2. Use filtering patterns to reduce scope:
    - `project_patterns` to filter projects
    - `environment_patterns` to filter environments
    - `pipeline_patterns` to filter pipelines
    - `streaming_pipeline_patterns` to filter streaming pipelines
-3. Disable `include_streaming_pipelines` if not needed
-4. Increase `api_config.request_timeout_sec` if needed
+3. Disable `include_streaming_pipelines` if not needed.
+4. As a last resort, raise `api_config.request_timeout_sec`. Keep it as low as practical — failed requests are retried, so a very high timeout multiplies the worst-case wait on a slow endpoint.

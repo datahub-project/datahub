@@ -61,6 +61,14 @@ DEFAULT_REQUEST_TIMEOUT_SEC = 30
 MAX_REQUEST_TIMEOUT_WARNING_THRESHOLD = 300
 MAX_EXECUTIONS_PER_PIPELINE_WARNING_THRESHOLD = 100
 
+# Surfaced in the ingestion report when a slow Matillion endpoint times out, so
+# users know how to recover rather than just seeing an opaque timeout.
+API_TIMEOUT_TUNING_GUIDANCE = (
+    "Increase api_config.request_timeout_sec, narrow the start_time/end_time window, "
+    "or enable stateful_ingestion for incremental runs. Avoid setting a very large "
+    "timeout, since failed requests are retried and a high timeout multiplies the wait."
+)
+
 # Platform-related constants
 # Maps platform identifiers from various sources (connection types, OpenLineage namespaces)
 # to DataHub platform names

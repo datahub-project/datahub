@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import SecretStr
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError, Timeout
 from requests_mock import Mocker
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -17,6 +17,7 @@ from datahub.ingestion.source.matillion_dpc.config import (
 from datahub.ingestion.source.matillion_dpc.matillion import MatillionSource
 from datahub.ingestion.source.matillion_dpc.matillion_utils import (
     extract_base_pipeline_name,
+    make_dataset_urn_from_matillion_dataset,
     match_pipeline_name,
     normalize_pipeline_name,
 )
@@ -293,6 +294,38 @@ def test_execution_discovery_bounded_by_time_window(
     assert kwargs["started_before"].endswith("Z")
 
 
+def test_execution_discovery_survives_timeout(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """A timeout while discovering pipelines from executions must degrade
+    gracefully (report a warning, no executions) rather than aborting ingestion,
+    so published pipelines are still emitted."""
+    config.include_unpublished_pipelines = True
+    source = MatillionSource(config, pipeline_context)
+
+    mock_projects = [MatillionProject(id="proj-1", name="Test Project")]
+
+    with (
+        patch.object(source.api_client, "get_projects", return_value=mock_projects),
+        patch.object(source.api_client, "get_environments", return_value=[]),
+        patch.object(source.api_client, "get_pipelines", return_value=[]),
+        patch.object(source.api_client, "get_streaming_pipelines", return_value=[]),
+        patch.object(
+            source.api_client,
+            "get_pipeline_executions",
+            side_effect=Timeout("read timed out"),
+        ),
+    ):
+        # Must not raise despite the timeout.
+        list(source._discover_and_process_pipelines_from_executions(mock_projects))
+
+    assert source.report.executions_scanned == 0
+    assert any(
+        "pipeline-executions-timeout" in str(warning)
+        for warning in source.report.warnings
+    )
+
+
 def test_lineage_events_fetched_in_max_31_day_windows(
     config: MatillionSourceConfig, pipeline_context: PipelineContext
 ) -> None:
@@ -388,6 +421,103 @@ def test_lineage_emitted_from_events_for_unexecuted_child_pipeline(
     assert input_output_aspects[0].inputDatasets
     assert input_output_aspects[0].outputDatasets
     assert source.report.lineage_emitted == 1
+
+
+def _sql_lineage_event(with_column_lineage: bool) -> dict:
+    output_facets: dict = {}
+    if with_column_lineage:
+        output_facets["columnLineage"] = {
+            "fields": {
+                "ID": {
+                    "inputFields": [
+                        {
+                            "namespace": "snowflake://ACME",
+                            "name": "DB.SCH.SRC",
+                            "field": "ID",
+                        }
+                    ]
+                }
+            }
+        }
+    return {
+        "event": {
+            "job": {
+                "namespace": "matillion://proj-1.env-1",
+                "name": "TRANSFORM.tran.yaml",
+                "facets": {
+                    "sql": {"query": "INSERT INTO DB.SCH.TGT SELECT * FROM DB.SCH.SRC"}
+                },
+            },
+            "inputs": [
+                {"namespace": "snowflake://ACME", "name": "DB.SCH.SRC", "facets": {}}
+            ],
+            "outputs": [
+                {
+                    "namespace": "snowflake://ACME",
+                    "name": "DB.SCH.TGT",
+                    "facets": output_facets,
+                }
+            ],
+        }
+    }
+
+
+def _registered_output_urn(source: MatillionSource, event: dict) -> str:
+    output_dict = event["event"]["outputs"][0]
+    output_info = source.openlineage_parser._extract_dataset_info(output_dict, "output")
+    assert output_info is not None
+    return make_dataset_urn_from_matillion_dataset(output_info)
+
+
+def test_sql_gapfill_registers_query_when_no_column_lineage(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """When OpenLineage carries a SQL query but no column lineage for a known
+    output, the SQL is handed to the aggregator to parse additional lineage."""
+    config.extract_projects_to_containers = False
+    source = MatillionSource(config, pipeline_context)
+    source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+
+    event = _sql_lineage_event(with_column_lineage=False)
+    source._lineage_events_cache = [event]
+    # Mark the output as already present in DataHub so gap-fill is allowed.
+    source._registered_urns.add(_registered_output_urn(source, event))
+
+    with patch.object(source, "_register_sql_query") as mock_register:
+        list(
+            source._generate_lineage_from_events(
+                [MatillionProject(id="proj-1", name="Proj")]
+            )
+        )
+
+    mock_register.assert_called_once()
+    assert (
+        mock_register.call_args.args[1]
+        == "INSERT INTO DB.SCH.TGT SELECT * FROM DB.SCH.SRC"
+    )
+
+
+def test_sql_gapfill_skipped_when_column_lineage_present(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """OpenLineage column lineage takes precedence: SQL parsing is not invoked for
+    outputs that already have column-level lineage, avoiding clobbering."""
+    config.extract_projects_to_containers = False
+    source = MatillionSource(config, pipeline_context)
+    source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+
+    event = _sql_lineage_event(with_column_lineage=True)
+    source._lineage_events_cache = [event]
+    source._registered_urns.add(_registered_output_urn(source, event))
+
+    with patch.object(source, "_register_sql_query") as mock_register:
+        list(
+            source._generate_lineage_from_events(
+                [MatillionProject(id="proj-1", name="Proj")]
+            )
+        )
+
+    mock_register.assert_not_called()
 
 
 def test_execution_workunits_with_no_timestamps(

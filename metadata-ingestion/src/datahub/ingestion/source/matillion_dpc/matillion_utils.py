@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from typing import Dict, Optional
 
 from datahub.emitter.mce_builder import (
@@ -28,6 +29,31 @@ PIPELINE_FILE_SUFFIXES = [".orch.yaml", ".tran.yaml", ".yaml", ".yml"]
 
 
 # Standalone utility functions
+
+
+def parse_iso_timestamp(timestamp_str: str) -> datetime:
+    """Parse an ISO timestamp, tolerating Matillion's non-standard microsecond precision.
+
+    The Matillion API sometimes returns timestamps with fewer than 6 microsecond
+    digits (e.g. "2026-02-02T22:53:51.41235+00:00"), which `fromisoformat` rejects,
+    so the fractional part is padded/truncated to exactly 6 digits first.
+    """
+    normalized = timestamp_str.replace("Z", "+00:00")
+
+    if "." in normalized and "+" in normalized:
+        parts = normalized.split(".")
+        if len(parts) == 2:
+            microseconds_and_tz = parts[1]
+            if "+" in microseconds_and_tz:
+                microseconds, tz = microseconds_and_tz.split("+")
+                microseconds = microseconds.ljust(6, "0")[:6]
+                normalized = f"{parts[0]}.{microseconds}+{tz}"
+            elif "-" in microseconds_and_tz:
+                microseconds, tz = microseconds_and_tz.rsplit("-", 1)
+                microseconds = microseconds.ljust(6, "0")[:6]
+                normalized = f"{parts[0]}.{microseconds}-{tz}"
+
+    return datetime.fromisoformat(normalized)
 
 
 def extract_base_pipeline_name(job_name: str) -> str:

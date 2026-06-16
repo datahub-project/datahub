@@ -11,6 +11,7 @@ from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.matillion_dpc.constants import (
+    DEFAULT_REQUEST_TIMEOUT_SEC,
     MATILLION_EU1_URL,
     MATILLION_US1_URL,
     MAX_EXECUTIONS_PER_PIPELINE_WARNING_THRESHOLD,
@@ -91,9 +92,13 @@ class MatillionAPIConfig(ConfigModel):
         description="Custom OAuth2 token endpoint URL for VPC endpoints or on-premise installations.",
     )
     request_timeout_sec: int = Field(
-        default=60,
+        default=DEFAULT_REQUEST_TIMEOUT_SEC,
         description="Per-request timeout in seconds. The pipeline-executions and lineage "
-        "endpoints can be slow on busy instances, so this defaults higher than a typical API.",
+        "endpoints can be slow on busy instances, especially over wide time windows "
+        "(the lineage API paginates by offset, which degrades with depth). If you hit "
+        "timeouts, prefer narrowing start_time/end_time or enabling stateful ingestion "
+        "over setting a very large timeout, since failed requests are retried and a high "
+        "timeout multiplies the worst-case wait.",
     )
 
     @field_validator("custom_base_url")
