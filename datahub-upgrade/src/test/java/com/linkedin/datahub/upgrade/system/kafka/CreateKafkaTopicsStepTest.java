@@ -696,6 +696,77 @@ public class CreateKafkaTopicsStepTest {
   }
 
   @Test
+  public void testReconcileEmitsChangedDiffWhenBrokerValueDiffers() throws Exception {
+    // Broker returns a different value than declared - exercises the
+    // "~ key: old -> new" diff branch and the totalChanged accumulator.
+    kafkaConfiguration.getSetup().setReconcileExistingTopicConfigs(true);
+
+    CreateKafkaTopicsStep spyStep = spy(step);
+    AdminClient mockAdminClient = mock(AdminClient.class);
+
+    Set<String> existingTopics = new HashSet<>();
+    existingTopics.add("DataHubUpgradeHistory_v1");
+    ListTopicsResult mockListTopicsResult = mock(ListTopicsResult.class);
+    KafkaFuture<Set<String>> listTopicsFuture = mock(KafkaFuture.class);
+    when(listTopicsFuture.get()).thenReturn(existingTopics);
+    when(mockListTopicsResult.names()).thenReturn(listTopicsFuture);
+    when(mockAdminClient.listTopics()).thenReturn(mockListTopicsResult);
+
+    TopicDescription mockDescription = mock(TopicDescription.class);
+    TopicPartitionInfo partition = mock(TopicPartitionInfo.class);
+    when(mockDescription.partitions()).thenReturn(Arrays.asList(partition));
+    Map<String, TopicDescription> descMap = new HashMap<>();
+    descMap.put("DataHubUpgradeHistory_v1", mockDescription);
+    DescribeTopicsResult mockDescribeResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<Map<String, TopicDescription>> descFuture = mock(KafkaFuture.class);
+    when(descFuture.get()).thenReturn(descMap);
+    when(mockDescribeResult.allTopicNames()).thenReturn(descFuture);
+    when(mockAdminClient.describeTopics(anyList())).thenReturn(mockDescribeResult);
+
+    // Broker holds retention.ms=604800000 but yaml declares -1
+    ConfigResource topicResource =
+        new ConfigResource(ConfigResource.Type.TOPIC, "DataHubUpgradeHistory_v1");
+    Map<ConfigResource, Config> brokerConfigs = new HashMap<>();
+    brokerConfigs.put(
+        topicResource, new Config(Arrays.asList(new ConfigEntry("retention.ms", "604800000"))));
+    DescribeConfigsResult mockDescribeConfigsResult = mock(DescribeConfigsResult.class);
+    KafkaFuture<Map<ConfigResource, Config>> describeConfigsFuture = mock(KafkaFuture.class);
+    when(describeConfigsFuture.get()).thenReturn(brokerConfigs);
+    when(mockDescribeConfigsResult.all()).thenReturn(describeConfigsFuture);
+    when(mockAdminClient.describeConfigs(any(Collection.class)))
+        .thenReturn(mockDescribeConfigsResult);
+
+    AlterConfigsResult mockAlterResult = mock(AlterConfigsResult.class);
+    KafkaFuture<Void> alterFuture = mock(KafkaFuture.class);
+    when(alterFuture.get()).thenReturn(null);
+    when(mockAlterResult.all()).thenReturn(alterFuture);
+    when(mockAdminClient.incrementalAlterConfigs(any(Map.class))).thenReturn(mockAlterResult);
+
+    doReturn(mockAdminClient).when(spyStep).createAdminClient();
+
+    Map<String, TopicsConfiguration.TopicConfiguration> topics = new HashMap<>();
+    TopicsConfiguration.TopicConfiguration topicConfig =
+        new TopicsConfiguration.TopicConfiguration();
+    topicConfig.setName("DataHubUpgradeHistory_v1");
+    topicConfig.setPartitions(1);
+    topicConfig.setReplicationFactor(1);
+    topicConfig.setEnabled(true);
+    Map<String, String> configProps = new HashMap<>();
+    configProps.put("retention.ms", "-1");
+    topicConfig.setConfigProperties(configProps);
+    topics.put("datahubUpgradeHistory", topicConfig);
+    kafkaConfiguration.setTopics(topics);
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    UpgradeStepResult result = spyStep.executable().apply(mockContext);
+
+    assertNotNull(result);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(mockAdminClient, times(1)).describeConfigs(any(Collection.class));
+    verify(mockAdminClient, times(1)).incrementalAlterConfigs(any(Map.class));
+  }
+
+  @Test
   public void testReconcileNoOpWhenBrokerAlreadyAligned() throws Exception {
     // When broker already holds the declared value, describeConfigs is consulted
     // but incrementalAlterConfigs must NOT be invoked.
