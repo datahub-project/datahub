@@ -303,7 +303,7 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                             >
                                 <CreateButton
                                     variant="filled"
-                                    color="violet"
+                                    color="primary"
                                     isCircle
                                     icon={{ icon: Plus }}
                                     data-testid="create-glossary-button"
