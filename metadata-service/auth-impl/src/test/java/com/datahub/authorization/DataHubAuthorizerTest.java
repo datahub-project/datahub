@@ -796,8 +796,40 @@ public class DataHubAuthorizerTest {
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
 
-    // even though two domain-based policies are applicable, the domain resolver should be invoked
-    // only once
+    // The user does not match the actors of either domain-scoped policy, so the policy engine
+    // short-circuits on the actor check and never resolves the resource's domain. Resolving the
+    // domain for a policy that cannot apply to the requester would be wasted work.
+    verify(_entityClient, times(0))
+        .getV2(
+            any(OperationContext.class),
+            eq("dataset"),
+            eq(RESOURCE_WITH_DOMAIN),
+            eq(Collections.singleton(DOMAINS_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testResourceResolvedOncePerRequestAcrossPrivilegeChecks() throws Exception {
+    // Mirrors the per-result privilege fan-out: a single resource is authorized for several
+    // privileges within one request. Sharing the request-scoped resolved-spec cache resolves the
+    // resource's domain exactly once instead of once per check, while every decision is unchanged.
+    // Without the shared cache each check re-resolves the domain (one getV2 per privilege).
+    EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_DOMAIN.toString());
+    Map<EntitySpec, ResolvedEntitySpec> requestCache = new HashMap<>();
+
+    for (String privilege : ImmutableList.of("CHILD_DOMAIN_PRIVILEGE", "PARENT_DOMAIN_PRIVILEGE")) {
+      assertEquals(
+          _dataHubAuthorizer
+              .authorize(
+                  new AuthorizationRequest(
+                      USER_WITH_DOMAIN_ACCESS.toString(),
+                      privilege,
+                      Optional.of(resourceSpec),
+                      Collections.emptyList()),
+                  requestCache)
+              .getType(),
+          AuthorizationResult.Type.ALLOW);
+    }
+
     verify(_entityClient, times(1))
         .getV2(
             any(OperationContext.class),
@@ -909,21 +941,23 @@ public class DataHubAuthorizerTest {
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
 
-    // even though two container-based policies are applicable, the container resolver should be
-    // invoked only once one hop per container in hierarchy
-    verify(_entityClient, times(1))
+    // The user does not match the actors of either container-scoped policy, so the policy engine
+    // short-circuits on the actor check and never resolves the resource's container hierarchy.
+    // Walking the container parents for a policy that cannot apply to the requester would be wasted
+    // work.
+    verify(_entityClient, times(0))
         .getV2(
             any(OperationContext.class),
             eq("dataset"),
             eq(RESOURCE_WITH_CONTAINER),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
-    verify(_entityClient, times(1))
+    verify(_entityClient, times(0))
         .getV2(
             any(OperationContext.class),
             eq("container"),
             eq(CHILD_CONTAINER_URN),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
-    verify(_entityClient, times(1))
+    verify(_entityClient, times(0))
         .getV2(
             any(OperationContext.class),
             eq("container"),
