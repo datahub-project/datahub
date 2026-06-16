@@ -103,7 +103,7 @@ This is useful when:
 
 #### Time Window and Incremental Ingestion
 
-Pipeline-execution discovery and lineage are bounded by `start_time` / `end_time`. If you do not set `start_time`, the connector looks back one day from `end_time`. Set `start_time` to backfill more history on the first run, especially if your pipelines do not run daily:
+Pipeline-execution discovery and lineage are bounded by `start_time` / `end_time`. If you do not set them, `end_time` defaults to now and `start_time` defaults to the start (00:00 UTC) of the previous day — i.e. at least the last 24 hours of jobs. Set `start_time` to backfill more history on the first run, especially if your pipelines do not run daily:
 
 ```yaml
 start_time: "2024-01-01T00:00:00Z" # absolute
