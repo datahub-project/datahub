@@ -46,6 +46,9 @@ class EnsureAspectSizeProcessorReport(WorkunitProcessorReport):
     """Tracks how many workunits had each aspect type truncated."""
 
     num_truncations_by_aspect: Dict[str, int] = field(default_factory=dict)
+    # Number of schemaMetadata aspects whose platformSchema blob was dropped
+    # wholesale (a coarser, more drastic truncation than dropping fields).
+    num_platform_schema_drops: int = 0
 
 
 class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorReport]):
@@ -164,6 +167,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
                 message="Dataset schema contained too much data and would have caused ingestion to fail",
                 context=f"Raw platform schema was removed from schema for {dataset_urn} due to aspect size constraints",
             )
+            self.report.num_platform_schema_drops += 1
             non_fields_size = self._schema_size_without_fields(schema)
             truncated = True
 

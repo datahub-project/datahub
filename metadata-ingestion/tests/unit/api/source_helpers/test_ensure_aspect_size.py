@@ -483,6 +483,7 @@ def test_ensure_schema_metadata_drops_oversized_raw_schema(processor):
     assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
         "Aspect exceeded acceptable size"
     )
+    assert processor.report.num_platform_schema_drops == 1
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
@@ -524,6 +525,7 @@ def test_ensure_schema_metadata_drops_oversized_non_other_platform_schema(proces
     assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
         "Aspect exceeded acceptable size"
     )
+    assert processor.report.num_platform_schema_drops == 1
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
