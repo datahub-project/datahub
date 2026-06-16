@@ -7,7 +7,6 @@ import patchy.api
 import sqlglot
 import sqlglot.expressions
 import sqlglot.lineage
-import sqlglot.optimizer.scope
 
 from datahub.utilities.is_pytest import is_pytest_running
 from datahub.utilities.unified_diff import apply_diff
@@ -25,7 +24,6 @@ from datahub.utilities.unified_diff import apply_diff
 # With sqlglot[c] (C tokenizer), patchy works for pure-Python functions but fails on those
 # compiled by mypyc to .so extensions. For compiled targets we use alternative strategies:
 # - __deepcopy__ in expression_core.py: wrapper function
-# - Scope.traverse in optimizer/scope.py: full Python reimplementation
 # - lineage.lineage / lineage.to_node: load lineage.py as a pure-Python module and patch that
 
 _DEBUG_PATCHER = is_pytest_running()
@@ -73,47 +71,6 @@ def _deepcopy_wrapper(
 
     datahub.utilities.cooperative_timeout.cooperate()
     return _original_deepcopy(self, memo)
-
-
-def _patch_scope_traverse() -> None:
-    # Circular scope dependencies can happen in somewhat specific circumstances
-    # due to our usage of sqlglot.
-    # See https://github.com/tobymao/sqlglot/pull/4244
-    #
-    # In sqlglot[c] v30+, Scope.traverse is mypyc-compiled and cannot be patched
-    # with patchy. We reimplement it entirely in pure Python with cycle detection.
-    import itertools
-
-    from sqlglot.errors import OptimizeError
-    from sqlglot.optimizer.scope import Scope
-
-    def _traverse_with_cycle_detection(
-        self: Scope,
-    ) -> t.Iterator[Scope]:
-        stack = [self]
-        seen_scopes: t.Set[int] = set()
-        result = []
-        while stack:
-            scope = stack.pop()
-
-            # Scopes aren't hashable, so we use id(scope) instead.
-            if id(scope) in seen_scopes:
-                raise OptimizeError(f"Scope {scope} has a circular scope dependency")
-            seen_scopes.add(id(scope))
-
-            result.append(scope)
-            stack.extend(
-                itertools.chain(
-                    scope.cte_scopes,
-                    scope.union_scopes,
-                    scope.table_scopes,
-                    scope.subquery_scopes,
-                )
-            )
-
-        yield from reversed(result)
-
-    sqlglot.optimizer.scope.Scope.traverse = _traverse_with_cycle_detection  # type: ignore
 
 
 def _patch_lineage() -> None:
@@ -220,7 +177,6 @@ def _patch_lineage() -> None:
 # Apply patches
 
 sqlglot.expressions.Expression.__deepcopy__ = _deepcopy_wrapper  # type: ignore
-_patch_scope_traverse()
 _patch_lineage()
 
 SQLGLOT_PATCHED = True
