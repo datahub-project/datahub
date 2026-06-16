@@ -1261,16 +1261,16 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
 
     lineage_fetch_batch_size: int = Field(
         default=5000,
-        ge=1000,
-        le=20000,
+        gt=0,
         description=(
             "Number of rows fetched per batch when streaming results from DBC.QryLogV "
             "during lineage extraction. Each row can carry several KB of query_text, so "
-            "large values may cause significant memory spikes on installations with "
-            "multi-billion-row audit logs. Reduce this (e.g. to 1000–2000) when the "
-            "ingestion process runs out of memory during lineage; increase it (up to "
-            "20000) to reduce round-trips on installations where rows are small and "
-            "network latency is high. Default is 5000."
+            "larger values increase peak memory usage while smaller values increase the "
+            "number of round-trips to the database. Lower this (e.g. to a few hundred, "
+            "or lower still) if the ingestion process runs out of memory during lineage "
+            "extraction; raise it to reduce round-trips when rows are small and network "
+            "latency is high. Must be a positive integer (a batch size of 0 would fetch "
+            "no rows and stall the stream). Default is 5000."
         ),
     )
 

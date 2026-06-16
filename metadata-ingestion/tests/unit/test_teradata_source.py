@@ -1194,7 +1194,7 @@ class TestLineageQuerySeparation:
                 mock_entries = [MagicMock(query_text=f"SELECT {i}") for i in range(7)]
 
                 mock_result = MagicMock()
-                # Simulate batching with batch_size=5 (hardcoded in the method)
+                # Two non-empty batches then an empty batch to terminate the stream.
                 mock_result.fetchmany.side_effect = [
                     mock_entries[:5],  # First batch (5 items)
                     mock_entries[5:],  # Second batch (2 items)
@@ -1220,13 +1220,39 @@ class TestLineageQuerySeparation:
                     # Should return all 7 entries
                     assert len(entries) == 7
 
-                    # Verify fetchmany was called with the right batch size (5000 is hardcoded)
+                    # Default batch size (5000) is requested from the cursor.
                     calls = mock_result.fetchmany.call_args_list
                     for call in calls:
                         if call[0]:  # If positional args
                             assert call[0][0] == 5000
                         else:  # If keyword args
                             assert call[1].get("size", 5000) == 5000
+
+    def test_lineage_batch_size_is_passed_to_fetchmany(self) -> None:
+        """The configured lineage_fetch_batch_size must be the size requested from
+        the cursor on each fetch.
+
+        This is the behavior the option exists to control: a memory-constrained
+        operator lowers the value to pull fewer (potentially multi-KB) rows per
+        round-trip. The test fails if the config is ever disconnected from the
+        fetch loop.
+        """
+        custom_batch_size = 1234
+        source = _create_source_patched({"lineage_fetch_batch_size": custom_batch_size})
+
+        mock_result = MagicMock()
+        mock_engine = MagicMock()
+        with (
+            patch.object(source, "_make_lineage_queries", return_value=["query1"]),
+            patch.object(source, "get_metadata_engine", return_value=mock_engine),
+            patch.object(
+                source, "_execute_with_cursor_fallback", return_value=mock_result
+            ),
+            patch.object(source, "_retry_fetchmany", return_value=[]) as mock_fetch,
+        ):
+            list(source._fetch_lineage_entries_chunked())
+
+        mock_fetch.assert_called_once_with(mock_result, custom_batch_size)
 
     def test_end_to_end_separate_queries_integration(self):
         """Test end-to-end integration of separate queries in the aggregator flow."""
@@ -2182,28 +2208,6 @@ class TestNewConfigDefaults:
                     "column_extraction_watermark": "2024-06-01T00:00:00",
                     "column_extraction_days_back": 3,
                 }
-            )
-
-    def test_lineage_fetch_batch_size_default(self) -> None:
-        config = TeradataConfig.model_validate(_base_config())
-        assert config.lineage_fetch_batch_size == 5000
-
-    def test_lineage_fetch_batch_size_custom_accepted(self) -> None:
-        config = TeradataConfig.model_validate(
-            {**_base_config(), "lineage_fetch_batch_size": 1000}
-        )
-        assert config.lineage_fetch_batch_size == 1000
-
-    def test_lineage_fetch_batch_size_rejects_below_minimum(self) -> None:
-        with pytest.raises(ValidationError):
-            TeradataConfig.model_validate(
-                {**_base_config(), "lineage_fetch_batch_size": 999}
-            )
-
-    def test_lineage_fetch_batch_size_rejects_above_maximum(self) -> None:
-        with pytest.raises(ValidationError):
-            TeradataConfig.model_validate(
-                {**_base_config(), "lineage_fetch_batch_size": 20001}
             )
 
 
