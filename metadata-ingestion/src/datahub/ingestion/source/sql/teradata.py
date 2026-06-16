@@ -2656,6 +2656,8 @@ ORDER by DataBaseName, TableName;
 
                 total_count_all_queries = 0
 
+                # Stream results in batches to avoid memory issues
+                batch_size = self.config.lineage_fetch_batch_size
                 for query_index, query in enumerate(queries, 1):
                     logger.info(
                         f"Executing lineage query {query_index}/{len(queries)} for time range {self.config.start_time} to {self.config.end_time} with {cursor_type} cursor..."
@@ -2666,8 +2668,6 @@ ORDER by DataBaseName, TableName;
                     result = self._execute_with_cursor_fallback(conn, query)
                     _mark_phase("awaiting_first_batch", query_index)
 
-                    # Stream results in batches to avoid memory issues
-                    batch_size = self.config.lineage_fetch_batch_size
                     batch_count = 0
                     query_total_count = 0
 
