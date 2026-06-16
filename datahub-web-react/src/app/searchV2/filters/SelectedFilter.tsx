@@ -41,7 +41,7 @@ const Container = styled.div<{ $isCompact?: boolean }>`
     justify-content: center;
     font-size: 14px;
     margin-right: 8px;
-    background-color: ${SEARCH_COLORS.BACKGROUND_PURPLE};
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
 
     ${(props) =>
         props.$isCompact &&
