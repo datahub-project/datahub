@@ -20,6 +20,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.policy.DataHubPolicyInfo;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.metadata.exception.OperationContextException;
 import io.datahubproject.metadata.exception.TraceException;
@@ -688,6 +689,8 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
         boolean skipCache,
         boolean enforceExistenceEnabled) {
       final Urn actorUrn = UrnUtils.getUrn(sessionAuthentication.getActor().toUrnStr());
+      final Set<DataHubPolicyInfo> policyInfoSet =
+          this.authorizationContext.getAuthorizer().getActorPolicies(actorUrn);
       final ActorContext sessionActor =
           ActorContext.builder()
               .authentication(sessionAuthentication)
@@ -697,7 +700,8 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
                           .getAuthentication()
                           .getActor()
                           .equals(sessionAuthentication.getActor()))
-              .policyInfoSet(this.authorizationContext.getAuthorizer().getActorPolicies(actorUrn))
+              .policyInfoSet(policyInfoSet)
+              .actorPoliciesByPrivilege(ActorContext.indexPoliciesByPrivilege(policyInfoSet))
               .groupMembership(this.authorizationContext.getAuthorizer().getActorGroups(actorUrn))
               .enforceExistenceEnabled(enforceExistenceEnabled)
               .build();

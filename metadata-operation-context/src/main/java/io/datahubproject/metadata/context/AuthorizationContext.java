@@ -54,7 +54,8 @@ public class AuthorizationContext implements ContextInterface {
             actorContext.getActorUrn().toString(),
             privilege,
             Optional.ofNullable(resourceSpec),
-            Collections.emptyList());
+            Collections.emptyList(),
+            actorContext.getActorPoliciesByPrivilege());
     // Graphql CompletableFutures causes a recursive exception, we avoid computeIfAbsent and do work
     // outside a blocking function
     AuthorizationResult result = sessionAuthorizationCache.get(request);
@@ -75,7 +76,8 @@ public class AuthorizationContext implements ContextInterface {
             actorContext.getActorUrn().toString(),
             privilege,
             Optional.ofNullable(resourceSpec),
-            subResources);
+            subResources,
+            actorContext.getActorPoliciesByPrivilege());
     // Graphql CompletableFutures causes a recursive exception, we avoid computeIfAbsent and do work
     // outside a blocking function
     AuthorizationResult result = sessionAuthorizationCache.get(request);

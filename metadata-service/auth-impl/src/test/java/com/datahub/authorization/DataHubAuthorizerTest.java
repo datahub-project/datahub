@@ -46,6 +46,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
+import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -800,6 +801,58 @@ public class DataHubAuthorizerTest {
     // short-circuits on the actor check and never resolves the resource's domain. Resolving the
     // domain for a policy that cannot apply to the requester would be wasted work.
     verify(_entityClient, times(0))
+        .getV2(
+            any(OperationContext.class),
+            eq("dataset"),
+            eq(RESOURCE_WITH_DOMAIN),
+            eq(Collections.singleton(DOMAINS_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testAuthorizationWithActorScopedPolicyMapExcludesDecoyPolicies() throws Exception {
+    // Session actor policies exclude domain-scoped policies for users not on the actor filter.
+    // Passing that index on the request must skip evaluating decoy policies that remain in the
+    // global privilege index.
+    EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_DOMAIN.toString());
+    Urn unauthorizedUser = UrnUtils.getUrn("urn:li:corpuser:unauthorizedUser");
+    Map<String, List<RecordTemplate>> actorPoliciesByPrivilege =
+        ActorContext.indexPoliciesByPrivilege(
+            _dataHubAuthorizer.getActorPolicies(unauthorizedUser));
+
+    AuthorizationRequest request =
+        new AuthorizationRequest(
+            unauthorizedUser.toString(),
+            "PARENT_DOMAIN_PRIVILEGE",
+            Optional.of(resourceSpec),
+            Collections.emptyList(),
+            actorPoliciesByPrivilege);
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
+    verify(_entityClient, times(0))
+        .getV2(
+            any(OperationContext.class),
+            eq("dataset"),
+            eq(RESOURCE_WITH_DOMAIN),
+            eq(Collections.singleton(DOMAINS_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testAuthorizationWithActorScopedPolicyMapAllowsMatchingPolicy() throws Exception {
+    EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_DOMAIN.toString());
+    Map<String, List<RecordTemplate>> actorPoliciesByPrivilege =
+        ActorContext.indexPoliciesByPrivilege(
+            _dataHubAuthorizer.getActorPolicies(USER_WITH_DOMAIN_ACCESS));
+
+    AuthorizationRequest request =
+        new AuthorizationRequest(
+            USER_WITH_DOMAIN_ACCESS.toString(),
+            "CHILD_DOMAIN_PRIVILEGE",
+            Optional.of(resourceSpec),
+            Collections.emptyList(),
+            actorPoliciesByPrivilege);
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+    verify(_entityClient, times(1))
         .getV2(
             any(OperationContext.class),
             eq("dataset"),
