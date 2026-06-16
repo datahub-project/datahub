@@ -83,6 +83,8 @@ interface Props {
      * parent entity (or `null` when the user clears the selection). Lets callers read the
      * parent's `displayProperties.colorHex` etc. without having to refetch the entity. */
     onSelectParent?: (parent: GlossaryNode | null) => void;
+    /** Field label rendered above the picker (forwarded to SimpleSelect's `label`). */
+    label?: string;
 }
 
 const AUTOCOMPLETE_LIMIT = 10;
@@ -96,7 +98,7 @@ const AUTOCOMPLETE_LIMIT = 10;
  * act as non-selectable headers above term leaves), so we override the disabled set to only
  * include synthetic loading placeholders.
  */
-function NodeParentSelect({ selectedParentUrn, setSelectedParentUrn, isMoving, onSelectParent }: Props) {
+function NodeParentSelect({ selectedParentUrn, setSelectedParentUrn, isMoving, onSelectParent, label }: Props) {
     const { t } = useTranslation('entity.shared.entityDropdown');
     const entityRegistry = useEntityRegistry();
     const generateColor = useGenerateGlossaryColorFromPalette();
@@ -178,13 +180,13 @@ function NodeParentSelect({ selectedParentUrn, setSelectedParentUrn, isMoving, o
             ? entityRegistry.getDisplayName(cached.type, cached)
             : deriveGlossaryLabelFromUrn(selectedParentUrn);
         // `getDisplayName` can fall back to the URN; guard so chips never read `urn:li:…`.
-        const label =
+        const fallbackLabel =
             rawLabel && !rawLabel.startsWith('urn:') ? rawLabel : deriveGlossaryLabelFromUrn(selectedParentUrn);
         return [
             ...allOptions,
             {
                 value: selectedParentUrn,
-                label,
+                label: fallbackLabel,
                 entity: cached,
                 color: cached?.displayProperties?.colorHex || generateColor(selectedParentUrn),
             },
@@ -277,6 +279,7 @@ function NodeParentSelect({ selectedParentUrn, setSelectedParentUrn, isMoving, o
 
     return (
         <SimpleSelect
+            label={label}
             showSearch
             showClear
             onSearchChange={handleSearch}

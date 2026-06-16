@@ -99,15 +99,19 @@ const HeaderIconsWrapper = styled.span`
     margin-right: 8px;
 `;
 
-const ClickableIconWrapper = styled.div`
-    cursor: pointer;
+const IconWrapper = styled.div<{ $clickable: boolean }>`
     margin-right: 12px;
     border-radius: 10px;
-    transition: opacity 0.15s ease;
+    ${(props) =>
+        props.$clickable &&
+        `
+        cursor: pointer;
+        transition: opacity 0.15s ease;
 
-    &:hover {
-        opacity: 0.85;
-    }
+        &:hover {
+            opacity: 0.85;
+        }
+    `}
 `;
 
 type Props = {
@@ -192,8 +196,15 @@ export const DefaultEntityHeader = ({
                                         platforms={platforms as DataPlatform[]}
                                     />
                                 </HeaderIconsWrapper>
-                                {(isIconEditable || isColorEditable) && (
-                                    <ClickableIconWrapper onClick={() => setShowIconPicker(true)}>
+                                {(isGlossaryEntity || isDomainEntity) && (
+                                    <IconWrapper
+                                        $clickable={!!(isIconEditable || isColorEditable)}
+                                        onClick={
+                                            isIconEditable || isColorEditable
+                                                ? () => setShowIconPicker(true)
+                                                : undefined
+                                        }
+                                    >
                                         {isGlossaryEntity ? (
                                             <GlossaryColoredIcon
                                                 color={resolvedCurrentColor || ''}
@@ -203,7 +214,7 @@ export const DefaultEntityHeader = ({
                                         ) : (
                                             <DomainColoredIcon domain={entityData as Domain} />
                                         )}
-                                    </ClickableIconWrapper>
+                                    </IconWrapper>
                                 )}
                                 {showIconPicker && (
                                     <IconColorPicker

@@ -1,5 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components/macro';
 
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
@@ -61,7 +61,7 @@ function GlossaryBrowser(props: Props) {
         selectedUrns,
     } = props;
 
-    const { urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { urnsToUpdate, setUrnsToUpdate, nodeToNewEntity, setNodeToNewEntity } = useGlossaryEntityData();
 
     const {
         data: nodesData,
@@ -75,12 +75,66 @@ function GlossaryBrowser(props: Props) {
     } = useGetRootGlossaryTermsQuery({ skip: !!rootTerms });
     const loading = nodesLoading || termsLoading;
 
-    const displayedNodes = rootNodes || nodesData?.getRootGlossaryNodes?.nodes || [];
-    const displayedTerms = rootTerms || termsData?.getRootGlossaryTerms?.terms || [];
+    // Stabilize via useMemo so dependent useMemos/useEffects don't re-run on every render —
+    // the `||` fallback to `[]` would otherwise produce a fresh array reference each call.
+    const fetchedNodes = useMemo(
+        () => rootNodes || nodesData?.getRootGlossaryNodes?.nodes || [],
+        [rootNodes, nodesData],
+    );
+    const fetchedTerms = useMemo(
+        () => rootTerms || termsData?.getRootGlossaryTerms?.terms || [],
+        [rootTerms, termsData],
+    );
+
+    // Optimistic root entries: when CreateGlossaryEntityModal creates a top-level term/term-group,
+    // it stashes the new entity in `nodeToNewEntity[ROOT_NODES]` / `nodeToNewEntity[ROOT_TERMS]`.
+    // The backend's `getRootGlossaryNodes` / `getRootGlossaryTerms` resolvers rely on a search
+    // index that lags behind the mutation by several seconds, so the post-create refetch often
+    // returns the list WITHOUT the new entity. Without this optimistic prepend the user sees
+    // "created" but no sidebar entry until the index catches up (sometimes >5s, sometimes never
+    // until they refresh). Cleared as soon as the refetched data contains the URN — see effects
+    // below — so we don't accumulate stale entries if a creation actually failed downstream.
+    const optimisticRootNode = nodeToNewEntity[ROOT_NODES] as GlossaryNodeFragment | undefined;
+    const optimisticRootTerm = nodeToNewEntity[ROOT_TERMS] as ChildGlossaryTermFragment | undefined;
+
+    const displayedNodes = useMemo(() => {
+        if (!optimisticRootNode) return fetchedNodes;
+        if (fetchedNodes.some((n) => n.urn === optimisticRootNode.urn)) return fetchedNodes;
+        return [optimisticRootNode, ...fetchedNodes];
+    }, [fetchedNodes, optimisticRootNode]);
+
+    const displayedTerms = useMemo(() => {
+        if (!optimisticRootTerm) return fetchedTerms;
+        if (fetchedTerms.some((t) => t.urn === optimisticRootTerm.urn)) return fetchedTerms;
+        return [optimisticRootTerm, ...fetchedTerms];
+    }, [fetchedTerms, optimisticRootTerm]);
 
     const entityRegistry = useEntityRegistry();
-    const sortedNodes = displayedNodes.sort((nodeA, nodeB) => sortGlossaryNodes(entityRegistry, nodeA, nodeB));
-    const sortedTerms = displayedTerms.sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA, termB));
+    const sortedNodes = displayedNodes.slice().sort((nodeA, nodeB) => sortGlossaryNodes(entityRegistry, nodeA, nodeB));
+    const sortedTerms = displayedTerms.slice().sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA, termB));
+
+    // Drop the optimistic root entry once the canonical fetched data contains the URN, so
+    // displayedNodes flips from `[optimistic, ...fetchedNodes]` to plain `fetchedNodes` (which
+    // now carries the real server-side fields like childrenCount, parentNodes, etc.).
+    useEffect(() => {
+        if (optimisticRootNode && fetchedNodes.some((n) => n.urn === optimisticRootNode.urn)) {
+            setNodeToNewEntity((prev) => {
+                const next = { ...prev };
+                delete next[ROOT_NODES];
+                return next;
+            });
+        }
+    }, [optimisticRootNode, fetchedNodes, setNodeToNewEntity]);
+
+    useEffect(() => {
+        if (optimisticRootTerm && fetchedTerms.some((t) => t.urn === optimisticRootTerm.urn)) {
+            setNodeToNewEntity((prev) => {
+                const next = { ...prev };
+                delete next[ROOT_TERMS];
+                return next;
+            });
+        }
+    }, [optimisticRootTerm, fetchedTerms, setNodeToNewEntity]);
 
     useEffect(() => {
         if (refreshBrowser) {

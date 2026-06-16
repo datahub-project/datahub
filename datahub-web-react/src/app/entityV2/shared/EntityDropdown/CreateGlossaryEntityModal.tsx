@@ -3,7 +3,7 @@ import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import DOMPurify from 'dompurify';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Trans, useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
@@ -28,16 +28,6 @@ const Field = styled.div`
     &:last-child {
         margin-bottom: 0;
     }
-`;
-
-const FieldLabel = styled.div`
-    display: flex;
-    gap: 6px;
-    align-items: baseline;
-`;
-
-const OptionalHint = styled(Text).attrs({ type: 'span', weight: 'normal' })`
-    color: ${(p) => p.theme.colors.textTertiary};
 `;
 
 const HelperText = styled(Text).attrs({ type: 'p' })`
@@ -203,19 +193,26 @@ function CreateGlossaryEntityModal(props: Props) {
                     );
                     refetch();
                     if (isInGlossaryContext) {
-                        // either refresh this current glossary node or the root nodes or root terms
                         const nodeToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
                         updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
-                        if (selectedParentUrn && newEntityUrn) {
+                        if (newEntityUrn) {
                             // Carry the picked color into the optimistic sidebar entry so the new
                             // node renders with the correct color immediately. Without this, the
                             // sidebar falls back to the inherited parent color and only corrects
                             // itself once the search index refetch catches up — which is racy.
+                            //
+                            // We key by `nodeToUpdate` (parent URN for nested creates, ROOT_NODES /
+                            // ROOT_TERMS for root creates) so the corresponding sidebar consumer
+                            // (`useGlossaryChildren` for nested, `GlossaryBrowser` for root) can pick
+                            // it up. Root creation NEEDS this because `getRootGlossaryNodes` /
+                            // `getRootGlossaryTerms` rely on a search index that lags behind the
+                            // mutation — without an optimistic entry the new node is invisible
+                            // until the index catches up, sometimes >5s later.
                             const optimisticDisplayProperties =
                                 showColorPicker && colorWasPicked ? { colorHex: selectedColor } : null;
                             setNodeToNewEntity((currData) => ({
                                 ...currData,
-                                [selectedParentUrn]: {
+                                [nodeToUpdate]: {
                                     urn: newEntityUrn,
                                     type: entityType,
                                     properties: {
@@ -241,6 +238,7 @@ function CreateGlossaryEntityModal(props: Props) {
     return (
         <Modal
             title={t('createGlossary.title', { entityName })}
+            width={720}
             buttons={[
                 {
                     text: tc('cancel'),
@@ -272,12 +270,8 @@ function CreateGlossaryEntityModal(props: Props) {
                 />
             </Field>
             <Field>
-                <FieldLabel>
-                    <Text weight="bold">
-                        <Trans t={t} i18nKey="createGlossary.parentLabel" components={{ optional: <OptionalHint /> }} />
-                    </Text>
-                </FieldLabel>
                 <NodeParentSelect
+                    label={`${t('parent', { defaultValue: 'Parent' })} ${tcl('optional')}`}
                     selectedParentUrn={selectedParentUrn}
                     setSelectedParentUrn={setSelectedParentUrn}
                     onSelectParent={(parent) =>
@@ -290,19 +284,11 @@ function CreateGlossaryEntityModal(props: Props) {
                 />
             </Field>
             <Field>
-                <FieldLabel>
-                    <Text weight="bold">
-                        <Trans
-                            t={t}
-                            i18nKey="createGlossary.documentationLabel"
-                            components={{ optional: <OptionalHint /> }}
-                        />
-                    </Text>
-                </FieldLabel>
                 <EditorContainer>
                     <Editor
                         content={documentation}
                         onChange={setDocumentation}
+                        placeholder={t('createGlossary.addDocumentation')}
                         dataTestId="create-glossary-documentation-editor"
                         hideBorder
                     />
@@ -310,11 +296,8 @@ function CreateGlossaryEntityModal(props: Props) {
             </Field>
             {showColorPicker && (
                 <Field>
-                    <FieldLabel>
-                        <Text weight="bold">{tcl('color')}</Text>
-                        <OptionalHint>{tcl('optional')}</OptionalHint>
-                    </FieldLabel>
                     <ColorPicker
+                        label={`${tcl('color')} ${tcl('optional')}`}
                         // Until the user picks a color, the picker tracks the parent's color
                         // (so a child inherits its group's identity by default). Once they pick,
                         // `colorWasPicked` locks the picker to their choice regardless of any

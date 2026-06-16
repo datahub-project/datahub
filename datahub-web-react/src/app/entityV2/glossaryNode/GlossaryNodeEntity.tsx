@@ -30,6 +30,7 @@ import { useGetGlossaryNodeQuery } from '@graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.EDIT_GLOSSARY,
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
     EntityMenuItems.CLONE,
@@ -76,8 +77,6 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 entityType={EntityType.GlossaryNode}
                 useEntityQuery={useGetGlossaryNodeQuery}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
-                isNameEditable
-                isColorEditable
                 tabs={this.getProfileTabs()}
                 sidebarSections={this.getSidebarSections()}
                 // NOTE: Hiding this for now as we've moved the actions to the content of ChildrenTab.tsx

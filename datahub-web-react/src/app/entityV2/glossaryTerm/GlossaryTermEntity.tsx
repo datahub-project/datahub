@@ -38,6 +38,7 @@ import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '@graphql/glossary
 import { EntityType, GlossaryTerm, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.EDIT_GLOSSARY,
     EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
@@ -90,8 +91,6 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 useEntityQuery={useGetGlossaryTermQuery as any}
                 headerActionItems={new Set([EntityActionItem.BATCH_ADD_GLOSSARY_TERM])}
                 headerDropdownItems={headerDropdownItems}
-                isNameEditable
-                isColorEditable
                 tabs={this.getProfileTabs()}
                 sidebarSections={this.getSidebarSections()}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
