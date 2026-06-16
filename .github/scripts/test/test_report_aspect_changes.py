@@ -1249,6 +1249,135 @@ def test_main_routes_two_hop_transitive_aspect_to_transitive_section(
     assert "bumped with NO structural change" not in text
 
 
+# ---------------------------------------------------------------------------
+# Transitive BFS seed filtering — must match bump_schema_versions semantics:
+# a non-aspect edit seeds the transitive bump BFS iff it is NOT comment-only
+# (comments/whitespace stripped via bsv.normalize_pdl_for_compare). Created and
+# deleted files count as real changes.
+# ---------------------------------------------------------------------------
+
+
+def _seed_window(monkeypatch, changed, contents, reached):
+    """Drive _classify_window with mocked git/file plumbing.
+
+    changed:   list of changed paths (changed_pdls return)
+    contents:  {path: (base_text, head_text)} — "" means absent at that ref
+    reached:   {source_path: {aspect_path, ...}} for the transitive BFS spy
+    Returns (findings_by_basename, captured_seed_sources).
+    """
+    captured: dict[str, list[str]] = {}
+
+    def fake_file_at(ref, path):
+        pair = contents.get(path)
+        if pair is None:
+            return None
+        return pair[0] if ref == "BASE" else pair[1]
+
+    def spy_per_source(sources):
+        captured["sources"] = list(sources)
+        return {s: set(reached.get(s, set())) for s in sources if s in reached}
+
+    monkeypatch.setattr(rac, "changed_pdls", lambda base, head: list(changed))
+    monkeypatch.setattr(rac, "file_at", fake_file_at)
+    monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
+    monkeypatch.setattr(rac, "pr_numbers_for_file", lambda *a: [])
+    monkeypatch.setattr(rac, "last_author_for_file", lambda *a: None)
+    monkeypatch.setattr(rac, "latest_commit_date_for_file", lambda *a: None)
+    monkeypatch.setattr(rac, "find_transitive_aspects_per_source", spy_per_source)
+    monkeypatch.setattr(
+        rac, "upstream_attribution_for_transitive", lambda sources, head, base: ([], None, None)
+    )
+    findings = rac._classify_window("BASE", "HEAD")
+    import os
+    return {os.path.basename(f.path): f for f in findings}, captured.get("sources", [])
+
+
+_D = "metadata-models/src/main/pegasus/com/linkedin/x"
+
+
+def test_comment_only_nonaspect_does_not_seed_transitive_bump(monkeypatch):
+    """A comment/doc-only edit to a non-aspect record must NOT seed the BFS,
+    while a real structural change to a sibling still does.
+
+    Matches bump_schema_versions.is_comment_only_change: the canonical form
+    (comments stripped, whitespace collapsed) is unchanged, so the edit is
+    dropped from the seed and the aspect that references it is not flagged.
+    """
+    comment = f"{_D}/CommentOnly.pdl"
+    real = f"{_D}/RealChange.pdl"
+    aspect_c = f"{_D}/AspectViaComment.pdl"
+    aspect_r = f"{_D}/AspectViaReal.pdl"
+    by, sources = _seed_window(
+        monkeypatch,
+        changed=[comment, real],
+        contents={
+            comment: (
+                "record CommentOnly {\n  x: string\n}",
+                "record CommentOnly {\n  /** new doc */\n  x: string\n}",
+            ),
+            real: (
+                "record RealChange {\n  y: string\n}",
+                "record RealChange {\n  y: string\n  z: optional string\n}",
+            ),
+            aspect_c: ('@Aspect = {"name": "c", "schemaVersion": 3}\nrecord A { a: string }',) * 2,
+            aspect_r: ('@Aspect = {"name": "r", "schemaVersion": 3}\nrecord B { b: string }',) * 2,
+        },
+        reached={comment: {aspect_c}, real: {aspect_r}},
+    )
+    # Comment-only excluded from the seed; structural sibling kept.
+    assert sources == [real]
+    assert "AspectViaComment.pdl" not in by
+    assert by["AspectViaReal.pdl"].bump_status == rac.BUMP_NEEDED
+
+
+def test_noncomment_nonstructural_change_seeds_transitive_bump(monkeypatch):
+    """Parity guard with the bumper: a NON-comment change that analyze_file does
+    not model as structural (here, a field default-value change) must STILL seed
+    the BFS, because bsv.normalize_pdl_for_compare sees a real diff.
+
+    This is the case the previous has_structural-based filter got wrong: it
+    dropped default/includes/annotation changes that the actual bumper bumps on.
+    """
+    default = f"{_D}/DefaultChange.pdl"
+    aspect = f"{_D}/AspectViaDefault.pdl"
+    by, sources = _seed_window(
+        monkeypatch,
+        changed=[default],
+        contents={
+            default: (
+                'record DefaultChange {\n  mode: string = "ENABLED"\n}',
+                'record DefaultChange {\n  mode: string = "DISABLED"\n}',
+            ),
+            aspect: ('@Aspect = {"name": "d", "schemaVersion": 5}\nrecord D { d: string }',) * 2,
+        },
+        reached={default: {aspect}},
+    )
+    # has_structural is False (analyze_file doesn't model defaults), but the
+    # change is NOT comment-only, so it must still seed the BFS like the bumper.
+    assert by["DefaultChange.pdl"].has_structural is False
+    assert sources == [default]
+    assert by["AspectViaDefault.pdl"].bump_status == rac.BUMP_NEEDED
+
+
+def test_deleted_nonaspect_seeds_transitive_bump(monkeypatch):
+    """A deleted non-aspect record is a real change (one ref empty), so it is
+    NOT comment-only and still seeds the BFS — consistent with the bumper, which
+    never silently drops removed files."""
+    deleted = f"{_D}/Deleted.pdl"
+    aspect = f"{_D}/AspectViaDeleted.pdl"
+    by, sources = _seed_window(
+        monkeypatch,
+        changed=[deleted],
+        contents={
+            deleted: ("record Deleted {\n  z: string\n}", ""),  # gone at head
+            aspect: ('@Aspect = {"name": "dl", "schemaVersion": 4}\nrecord E { e: string }',) * 2,
+        },
+        reached={deleted: {aspect}},
+    )
+    assert sources == [deleted]
+    assert by["AspectViaDeleted.pdl"].bump_status == rac.BUMP_NEEDED
+
+
 def test_pr_numbers_for_file_returns_all_prs_in_window(monkeypatch):
     """When multiple PRs touch a file in base..head, ALL get returned."""
     log_output = (

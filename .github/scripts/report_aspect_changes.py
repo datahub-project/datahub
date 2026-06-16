@@ -1429,6 +1429,26 @@ def _render_mutator_section(mutators: list[dict]) -> list[str]:
     return out
 
 
+def _is_comment_only_change(path: str, base: str, head: str) -> bool:
+    """True if path's only diff between base and head is comments/whitespace.
+
+    Mirrors bump_schema_versions.is_comment_only_change so the report and the
+    actual bumper agree on which non-aspect edits cascade a schemaVersion bump.
+    The only difference is that this compares two git refs (the report's base
+    and head) rather than the working tree, reusing bsv.normalize_pdl_for_compare
+    (strip comments + collapse whitespace) for the canonical form.
+
+    A created or deleted file (one side empty) is a real change, not
+    comment-only — consistent with the bumper, which never silently drops
+    new/removed files.
+    """
+    old = file_at(base, path)
+    new = file_at(head, path)
+    if not old or not new:
+        return False
+    return bsv.normalize_pdl_for_compare(old) == bsv.normalize_pdl_for_compare(new)
+
+
 def _classify_window(base: str, head: str) -> list[FileFinding]:
     """Run the full classification for a single base..head window.
 
@@ -1440,7 +1460,17 @@ def _classify_window(base: str, head: str) -> list[FileFinding]:
     findings = [analyze_file(p_, base, head) for p_ in paths]
 
     direct_set = set(paths)
-    non_aspect_changed = [f.path for f in findings if not f.is_aspect]
+    # Drop non-aspect records whose only change is comments/whitespace from the
+    # transitive BFS seed: a doc-comment edit carries no schema semantics, so it
+    # must not cascade a schemaVersion bump into aspects that reference it. This
+    # reuses bump_schema_versions' normalize-and-compare so the report classifies
+    # comment-only edits exactly as the bumper does — a real (non-comment) change
+    # to a field default, includes clause, annotation, etc. still seeds the BFS.
+    non_aspect_changed = [
+        f.path
+        for f in findings
+        if not f.is_aspect and not _is_comment_only_change(f.path, base, head)
+    ]
     if not non_aspect_changed:
         return findings
 
