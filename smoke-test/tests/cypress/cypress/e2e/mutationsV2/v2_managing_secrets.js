@@ -1,4 +1,5 @@
-describe("managing secrets for ingestion creation", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("managing secrets for ingestion creation", () => {
   beforeEach(() => {
     cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
