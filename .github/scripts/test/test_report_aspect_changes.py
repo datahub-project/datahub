@@ -629,7 +629,12 @@ def test_upstream_attribution_dedupes_prs_across_sources(monkeypatch):
 
 
 def test_aggregate_per_pr_verdict_priority_order():
-    """Highest-priority verdict wins: spurious > needed > done > bump_not_needed."""
+    """Highest-priority verdict wins: needed > spurious > done > bump_not_needed.
+
+    An *unreconciled* bump_needed outranks bump_spurious: a needed bump is a
+    release-blocking, silent-migration hazard, while a spurious bump is merely
+    informational. A coexisting spurious slice must never mask the blocker.
+    """
     assert (
             rac._aggregate_per_pr_verdict(
                 [
@@ -638,7 +643,7 @@ def test_aggregate_per_pr_verdict_priority_order():
                     {"bump_status": rac.BUMP_NEEDED},
                 ]
             )
-            == rac.BUMP_SPURIOUS
+            == rac.BUMP_NEEDED
     )
     assert (
             rac._aggregate_per_pr_verdict(
@@ -712,6 +717,54 @@ def test_aggregator_returns_needed_when_some_needed_slices_unreconciled():
         },
         {"pr": "C", "bump_status": rac.BUMP_NEEDED},  # not in catch_up_for_prs
     ]
+    assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_NEEDED
+
+
+def test_aggregator_unreconciled_needed_outranks_earlier_spurious_bump():
+    """Regression (MonitorSuiteInfo): an EARLIER spurious bump must not mask a
+    LATER, genuinely-unreconciled bump_needed.
+
+    Real case behind this test: a v1.1.0 release catch-up bump (no schema
+    change in its own commit) landed as a duplicate commit inside the report
+    window — because the same bump shipped on both the cloud release branch
+    (#9687) and acryl-main (#9684) — so it surfaces as a BUMP_SPURIOUS slice.
+    A *later* PR (#9814) then made a real transitive change (the
+    EntityChangeType enum grew) with no accompanying bump → BUMP_NEEDED.
+
+    A bump can only pay debt for changes that preceded it (catch-up flows
+    oldest→newest), so the earlier spurious bump cannot pre-pay #9814's change.
+    The file therefore genuinely needs a bump and must land in bump_needed, not
+    bump_spurious.
+    """
+    entries = [
+        {"pr": "9684", "date": "2026-05-19", "bump_status": rac.BUMP_SPURIOUS},
+        {"pr": "9814", "date": "2026-05-26", "bump_status": rac.BUMP_NEEDED},
+    ]
+    # Run the real reconciliation pipeline: catch-up must NOT reconcile the
+    # later needed against the earlier spurious bump.
+    rac._apply_catchup_reclassification(entries)
+    assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_NEEDED
+
+
+def test_aggregator_direct_change_needed_not_masked_by_earlier_spurious_bump():
+    """Regression (AssertionRunEvent): a later DIRECT schema change shipped
+    without a bump must not be hidden by an earlier spurious bump.
+
+    Real slices behind this test: an earlier spurious schemaVersion bump
+    (#9658, 4→5, no change in that commit) precedes PR #9696, which ADDED an
+    optional field (`executedQuery`) to the aspect without bumping. The added
+    field is a genuine, unreconciled bump_needed and must surface — a bump only
+    pays debt for changes that preceded it, so the earlier spurious bump cannot
+    cover #9696's later change. This is the higher-stakes variant of the masking
+    bug: a direct, unbumped field addition is exactly the silent-migration
+    hazard the report exists to flag.
+    """
+    entries = [
+        {"pr": None, "date": "2026-05-21", "bump_status": rac.BUMP_NEEDED},  # transitive via BoundsValueSpace
+        {"pr": "9658", "date": "2026-05-21", "bump_status": rac.BUMP_SPURIOUS},  # 4→5, no change in slice
+        {"pr": "9696", "date": "2026-05-28", "bump_status": rac.BUMP_NEEDED},  # added executedQuery, no bump
+    ]
+    rac._apply_catchup_reclassification(entries)
     assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_NEEDED
 
 

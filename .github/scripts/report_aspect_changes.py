@@ -1790,14 +1790,23 @@ def _aggregate_per_pr_verdict(entries: list[dict]) -> str:
     """Reduce a list of per-PR-slice verdicts to a single cumulative status,
     honoring catch-up reconciliation.
 
-    Priority order (highest wins): bump_spurious > bump_needed > bump_done >
+    Priority order (highest wins): bump_needed > bump_spurious > bump_done >
     bump_not_needed. A BUMP_NEEDED entry is **ignored** when its PR appears
     in any later slice's `catch_up_for_prs` — that NEEDED slice has already
     been reconciled by a catch-up bump and is no longer an unpaid debt.
 
-    The cumulative bucket therefore follows the per-PR truth: a file lands
-    in `bump_spurious` whenever any slice has an unreconciled spurious bump,
-    even if cumulative-diff math would call the window `bump_done`.
+    An *unreconciled* BUMP_NEEDED outranks BUMP_SPURIOUS: a needed bump is a
+    release-blocking, silent-migration hazard, whereas a spurious bump is only
+    informational. Catch-up reconciliation flows oldest→newest, so a slice that
+    is still BUMP_SPURIOUS after reclassification paid no debt — it cannot have
+    covered the unreconciled change (a bump only pays for changes that preceded
+    it). Surfacing the file as bump_needed is therefore both correct and the
+    safe failure mode; the spurious slice is still listed in the per-PR
+    breakdown for the reviewer. This avoids the false-negative where a duplicate
+    release bump landing inside the window (e.g. the same v1.1.0 bump shipped on
+    both the cloud branch and acryl-main) masks a later transitive bump_needed.
+
+    The cumulative bucket therefore follows the per-PR truth.
     """
     paid_prs: set[str] = set()
     for e in entries:
@@ -1808,10 +1817,10 @@ def _aggregate_per_pr_verdict(entries: list[dict]) -> str:
         e["bump_status"] == BUMP_NEEDED and e.get("pr") not in paid_prs for e in entries
     )
     has_done = any(e["bump_status"] == BUMP_DONE for e in entries)
-    if has_spurious:
-        return BUMP_SPURIOUS
     if has_unreconciled_needed:
         return BUMP_NEEDED
+    if has_spurious:
+        return BUMP_SPURIOUS
     if has_done:
         return BUMP_DONE
     return BUMP_NOT_NEEDED
