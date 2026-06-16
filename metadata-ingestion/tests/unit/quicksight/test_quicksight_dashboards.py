@@ -2,13 +2,13 @@ from typing import Any, Dict, List, Optional, Type, TypeVar
 from unittest import mock
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.quicksight.processors.containers import (
+from datahub.ingestion.source.quicksight.extractors.containers import (
     QuickSightNamespaceKey,
 )
-from datahub.ingestion.source.quicksight.processors.dashboards import (
-    DashboardsProcessor,
+from datahub.ingestion.source.quicksight.extractors.dashboards import (
+    DashboardsExtractor,
 )
-from datahub.ingestion.source.quicksight.processors.enrichment import AssetEnricher
+from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
 from datahub.ingestion.source.quicksight.quicksight_config import (
     QuickSightSourceConfig,
 )
@@ -44,12 +44,12 @@ def _enricher(api: mock.MagicMock, report: QuickSightSourceReport) -> AssetEnric
 
 def _processor(
     api: mock.MagicMock, config_dict: Optional[Dict[str, Any]] = None
-) -> DashboardsProcessor:
+) -> DashboardsExtractor:
     config = QuickSightSourceConfig.model_validate(
         {"aws_region": "us-east-1", **(config_dict or {})}
     )
     report = QuickSightSourceReport()
-    return DashboardsProcessor(
+    return DashboardsExtractor(
         config,
         report,
         api,
@@ -116,7 +116,7 @@ def test_dashboard_links_to_source_analysis():
     info = _aspect(workunits, DashboardInfoClass)
     assert info is not None
     assert [e.destinationUrn for e in (info.dashboards or [])] == [
-        "urn:li:dashboard:(quicksight,an-1)"
+        "urn:li:dashboard:(quicksight,064369473231.an-1)"
     ]
 
 

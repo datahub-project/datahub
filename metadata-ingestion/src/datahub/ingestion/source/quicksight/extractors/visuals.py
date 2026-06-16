@@ -18,6 +18,7 @@ from datahub.ingestion.source.quicksight.quicksight_urn import (
     PLATFORM,
     chart_id_from_visual,
     id_from_arn,
+    make_asset_name,
     make_dataset_urn,
 )
 from datahub.sdk.chart import Chart
@@ -117,7 +118,7 @@ class VisualsExtractor:
 
         chart = Chart(
             platform=PLATFORM,
-            name=chart_id,
+            name=make_asset_name(self.api.aws_account_id, chart_id),
             platform_instance=self.config.platform_instance,
             display_name=title,
             subtype=visual_type,

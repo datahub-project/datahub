@@ -5,11 +5,11 @@ from botocore.exceptions import ClientError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.quicksight.processors.containers import ParentResolver
-from datahub.ingestion.source.quicksight.processors.data_sources import (
+from datahub.ingestion.source.quicksight.extractors.containers import ParentResolver
+from datahub.ingestion.source.quicksight.extractors.data_sources import (
     ResolvedDataSource,
 )
-from datahub.ingestion.source.quicksight.processors.enrichment import AssetEnricher
+from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
 from datahub.ingestion.source.quicksight.quicksight_api import QuickSightAPI
 from datahub.ingestion.source.quicksight.quicksight_config import (
     QuickSightSourceConfig,
@@ -25,7 +25,10 @@ from datahub.ingestion.source.quicksight.quicksight_lineage import (
 from datahub.ingestion.source.quicksight.quicksight_report import (
     QuickSightSourceReport,
 )
-from datahub.ingestion.source.quicksight.quicksight_urn import PLATFORM
+from datahub.ingestion.source.quicksight.quicksight_urn import (
+    PLATFORM,
+    make_asset_name,
+)
 from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -39,7 +42,7 @@ logger = logging.getLogger(__name__)
 _FILE_DATASET_ERROR_CODE = "InvalidParameterValueException"
 
 
-class DataSetsProcessor:
+class DataSetsExtractor:
     """Emits a Dataset per QuickSight dataset (``QuickSight Dataset`` subtype)
     with schema from ``OutputColumns`` and upstream/column lineage derived from
     the dataset's ``PhysicalTableMap``.
@@ -104,7 +107,7 @@ class DataSetsProcessor:
         parent = self.parent_resolver(data_set_id)
         dataset = Dataset(
             platform=PLATFORM,
-            name=f"{self.api.aws_account_id}.{data_set_id}",
+            name=make_asset_name(self.api.aws_account_id, data_set_id),
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             display_name=name,

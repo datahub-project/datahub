@@ -1,13 +1,13 @@
 from typing import Any, Dict, List, Optional
 from unittest import mock
 
-from datahub.ingestion.source.quicksight.processors.containers import (
+from datahub.ingestion.source.quicksight.extractors.containers import (
     QuickSightNamespaceKey,
 )
-from datahub.ingestion.source.quicksight.processors.data_sources import (
-    DataSourcesProcessor,
+from datahub.ingestion.source.quicksight.extractors.data_sources import (
+    DataSourcesExtractor,
 )
-from datahub.ingestion.source.quicksight.processors.enrichment import AssetEnricher
+from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
 from datahub.ingestion.source.quicksight.quicksight_config import (
     QuickSightSourceConfig,
 )
@@ -42,12 +42,12 @@ def _enricher(api: mock.MagicMock, report: QuickSightSourceReport) -> AssetEnric
 
 def _processor(
     api: mock.MagicMock, config_dict: Optional[Dict[str, Any]] = None
-) -> DataSourcesProcessor:
+) -> DataSourcesExtractor:
     config = QuickSightSourceConfig.model_validate(
         {"aws_region": "us-east-1", **(config_dict or {})}
     )
     report = QuickSightSourceReport()
-    return DataSourcesProcessor(
+    return DataSourcesExtractor(
         config,
         report,
         api,
@@ -127,7 +127,7 @@ def test_data_source_pattern_filters_out_disallowed_sources():
 
 
 def test_connection_parameters_flattened_into_properties():
-    props = DataSourcesProcessor._connection_properties(
+    props = DataSourcesExtractor._connection_properties(
         {"DataSourceParameters": {"AthenaParameters": {"WorkGroup": "primary"}}}
     )
     assert props["AthenaParameters.WorkGroup"] == "primary"

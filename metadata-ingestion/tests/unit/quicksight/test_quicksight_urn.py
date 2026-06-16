@@ -25,8 +25,13 @@ def test_dataset_urn_includes_platform_instance():
 
 
 def test_dashboard_urn_uses_quicksight_platform():
-    urn = make_dashboard_urn("dash-1", None)
-    assert urn == "urn:li:dashboard:(quicksight,dash-1)"
+    urn = make_dashboard_urn("064369473231", "dash-1", None)
+    assert urn == "urn:li:dashboard:(quicksight,064369473231.dash-1)"
+
+
+def test_dashboard_urn_includes_platform_instance():
+    urn = make_dashboard_urn("064369473231", "dash-1", "prod-account")
+    assert "prod-account.064369473231.dash-1" in urn
 
 
 def test_chart_id_prefixes_parent_for_bare_visual_ids():

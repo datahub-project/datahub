@@ -36,26 +36,45 @@ def id_from_arn(arn: str) -> str:
     return arn.split("/")[-1]
 
 
+def make_asset_name(account_id: str, asset_id: str) -> str:
+    """Qualify a QuickSight asset id with its owning AWS account id.
+
+    QuickSight ids are only unique within a single (account, region); two AWS
+    accounts can legitimately reuse the same id. Every asset URN (datasets, data
+    sources, dashboards, analyses, and charts) therefore embeds the account id in
+    its name so distinct assets don't silently collapse onto the same URN when
+    ingested without a distinct ``platform_instance``.
+
+    Note: DataHub Dashboard/Chart URNs have no ``env`` field (unlike Dataset), so
+    separating two *environments* of the same account still requires a distinct
+    ``platform_instance`` — a model constraint shared by all BI connectors.
+    """
+    return f"{account_id}.{asset_id}"
+
+
 def make_dataset_urn(
     account_id: str, dataset_id: str, platform_instance: Optional[str], env: str
 ) -> str:
     return builder.make_dataset_urn_with_platform_instance(
         platform=PLATFORM,
-        name=f"{account_id}.{dataset_id}",
+        name=make_asset_name(account_id, dataset_id),
         platform_instance=platform_instance,
         env=env,
     )
 
 
-def make_dashboard_urn(asset_id: str, platform_instance: Optional[str]) -> str:
+def make_dashboard_urn(
+    account_id: str, asset_id: str, platform_instance: Optional[str]
+) -> str:
     """Build a Dashboard URN for a QuickSight analysis or dashboard.
 
     Both analyses and dashboards map to DataHub Dashboard entities; the URN is
-    ``(quicksight, {id})`` with the platform instance folded in when configured.
+    ``(quicksight, {account_id}.{id})`` with the platform instance folded in when
+    configured.
     """
     return DashboardUrn.create_from_ids(
         platform=PLATFORM,
-        name=asset_id,
+        name=make_asset_name(account_id, asset_id),
         platform_instance=platform_instance,
     ).urn()
 

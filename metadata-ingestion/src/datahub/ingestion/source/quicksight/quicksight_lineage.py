@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Tuple
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.quicksight.processors.data_sources import (
+from datahub.ingestion.source.quicksight.extractors.data_sources import (
     ResolvedDataSource,
 )
 from datahub.ingestion.source.quicksight.quicksight_config import (

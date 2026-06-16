@@ -4,7 +4,7 @@ from botocore.exceptions import ClientError
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.quicksight.processors.enrichment import AssetEnricher
+from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
 from datahub.ingestion.source.quicksight.quicksight_api import QuickSightAPI
 from datahub.ingestion.source.quicksight.quicksight_config import (
     QuickSightSourceConfig,
@@ -23,7 +23,7 @@ from datahub.sdk.container import Container
 
 # Resolves an asset id to its parent container as a fully-built ``Container``
 # (folder / namespace), or ``None`` for the platform root. Implemented by
-# ``ContainersProcessor.parent_for``. A ``Container`` (not a ``ContainerKey``) is
+# ``ContainersExtractor.parent_for``. A ``Container`` (not a ``ContainerKey``) is
 # returned so the SDK derives each asset's BrowsePathsV2 as the parent's full
 # path + the folder — giving correct nesting at arbitrary folder depth, which a
 # static ``ContainerKey`` inheritance chain cannot express.
@@ -81,7 +81,7 @@ def _graceful_code(error: Exception) -> Optional[str]:
     return None
 
 
-class ContainersProcessor:
+class ContainersExtractor:
     """Emits the QuickSight container hierarchy.
 
     Following the Glue / Redshift / PowerBI / Informatica convention, the owning

@@ -4,11 +4,11 @@ from unittest import mock
 from botocore.exceptions import ClientError
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.quicksight.processors.analyses import AnalysesProcessor
-from datahub.ingestion.source.quicksight.processors.containers import (
+from datahub.ingestion.source.quicksight.extractors.analyses import AnalysesExtractor
+from datahub.ingestion.source.quicksight.extractors.containers import (
     QuickSightNamespaceKey,
 )
-from datahub.ingestion.source.quicksight.processors.enrichment import AssetEnricher
+from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
 from datahub.ingestion.source.quicksight.quicksight_config import (
     QuickSightSourceConfig,
 )
@@ -42,12 +42,12 @@ def _enricher(api: mock.MagicMock, report: QuickSightSourceReport) -> AssetEnric
 
 def _processor(
     api: mock.MagicMock, config_dict: Optional[Dict[str, Any]] = None
-) -> AnalysesProcessor:
+) -> AnalysesExtractor:
     config = QuickSightSourceConfig.model_validate(
         {"aws_region": "us-east-1", **(config_dict or {})}
     )
     report = QuickSightSourceReport()
-    return AnalysesProcessor(
+    return AnalysesExtractor(
         config,
         report,
         api,

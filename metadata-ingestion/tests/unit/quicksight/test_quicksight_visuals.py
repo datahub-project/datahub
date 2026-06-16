@@ -2,10 +2,10 @@ from typing import Any, Dict, List, Optional
 from unittest import mock
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.quicksight.processors.containers import (
+from datahub.ingestion.source.quicksight.extractors.containers import (
     QuickSightNamespaceKey,
 )
-from datahub.ingestion.source.quicksight.processors.visuals import VisualsExtractor
+from datahub.ingestion.source.quicksight.extractors.visuals import VisualsExtractor
 from datahub.ingestion.source.quicksight.quicksight_config import (
     QuickSightSourceConfig,
 )
@@ -102,8 +102,8 @@ def test_extract_emits_one_chart_per_visual_with_type_and_lineage():
     )
 
     assert chart_urns == [
-        "urn:li:chart:(quicksight,dash-1_v1)",
-        "urn:li:chart:(quicksight,dash-1_v2)",
+        "urn:li:chart:(quicksight,064369473231.dash-1_v1)",
+        "urn:li:chart:(quicksight,064369473231.dash-1_v2)",
     ]
     kpi = _chart_info(workunits, "dash-1_v1")
     assert kpi is not None
@@ -130,7 +130,7 @@ def test_empty_visual_is_skipped():
         PARENT_ID, definition, _parent_container()
     )
 
-    assert chart_urns == ["urn:li:chart:(quicksight,dash-1_v1)"]
+    assert chart_urns == ["urn:li:chart:(quicksight,064369473231.dash-1_v1)"]
     assert "dash-1/v-empty (EmptyVisual)" in extractor.report.charts.dropped_entities
 
 
@@ -154,7 +154,7 @@ def test_visual_id_already_prefixed_is_not_doubled():
 
     _, chart_urns = extractor.extract(PARENT_ID, definition, _parent_container())
 
-    assert chart_urns == ["urn:li:chart:(quicksight,dash-1_sheet-1_v1)"]
+    assert chart_urns == ["urn:li:chart:(quicksight,064369473231.dash-1_sheet-1_v1)"]
 
 
 def test_visual_without_dataset_identifier_has_no_inputs():

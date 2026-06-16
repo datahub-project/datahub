@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -12,30 +12,29 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     TestableSource,
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.quicksight.processors.analyses import (
-    AnalysesProcessor,
+from datahub.ingestion.source.quicksight.extractors.analyses import (
+    AnalysesExtractor,
 )
-from datahub.ingestion.source.quicksight.processors.containers import (
-    ContainersProcessor,
+from datahub.ingestion.source.quicksight.extractors.containers import (
+    ContainersExtractor,
 )
-from datahub.ingestion.source.quicksight.processors.dashboards import (
-    DashboardsProcessor,
+from datahub.ingestion.source.quicksight.extractors.dashboards import (
+    DashboardsExtractor,
 )
-from datahub.ingestion.source.quicksight.processors.data_sets import (
-    DataSetsProcessor,
+from datahub.ingestion.source.quicksight.extractors.data_sets import (
+    DataSetsExtractor,
 )
-from datahub.ingestion.source.quicksight.processors.data_sources import (
-    DataSourcesProcessor,
+from datahub.ingestion.source.quicksight.extractors.data_sources import (
+    DataSourcesExtractor,
     ResolvedDataSource,
 )
-from datahub.ingestion.source.quicksight.processors.enrichment import AssetEnricher
-from datahub.ingestion.source.quicksight.processors.users_groups import (
-    UsersGroupsProcessor,
+from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
+from datahub.ingestion.source.quicksight.extractors.users_groups import (
+    UsersGroupsExtractor,
 )
 from datahub.ingestion.source.quicksight.quicksight_api import QuickSightAPI
 from datahub.ingestion.source.quicksight.quicksight_config import (
@@ -43,9 +42,6 @@ from datahub.ingestion.source.quicksight.quicksight_config import (
 )
 from datahub.ingestion.source.quicksight.quicksight_report import (
     QuickSightSourceReport,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -86,7 +82,7 @@ class QuickSightSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report = QuickSightSourceReport()
         self.api = QuickSightAPI(self.config, self.report)
-        # ARN -> ResolvedDataSource, populated by DataSourcesProcessor and
+        # ARN -> ResolvedDataSource, populated by DataSourcesExtractor and
         # consumed by the lineage extractor.
         self.data_source_map: Dict[str, ResolvedDataSource] = {}
 
@@ -94,14 +90,6 @@ class QuickSightSource(StatefulIngestionSourceBase, TestableSource):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "QuickSightSource":
         config = QuickSightSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         logger.info(
@@ -116,30 +104,30 @@ class QuickSightSource(StatefulIngestionSourceBase, TestableSource):
 
         # Containers first so the (optional) Namespace -> Folder hierarchy and
         # folder-membership map exist before assets reference their parent.
-        containers_processor = ContainersProcessor(
+        containers_extractor = ContainersExtractor(
             self.config, self.report, self.api, enricher
         )
-        yield from containers_processor.get_workunits()
+        yield from containers_extractor.get_workunits()
         # Resolves each asset's parent: its QuickSight folder when foldered, else
         # the namespace container (if enabled) or the platform root. Must run
         # after the containers processor above has built the folder map.
-        parent_for = containers_processor.parent_for
+        parent_for = containers_extractor.parent_for
 
         # Data sources double as both Dataset entities and the ARN -> platform
         # map consumed by the lineage extractor.
-        data_sources_processor = DataSourcesProcessor(
+        data_sources_extractor = DataSourcesExtractor(
             self.config,
             self.report,
             self.api,
             parent_resolver=parent_for,
             enricher=enricher,
         )
-        yield from data_sources_processor.get_workunits()
-        self.data_source_map = data_sources_processor.data_source_map
+        yield from data_sources_extractor.get_workunits()
+        self.data_source_map = data_sources_extractor.data_source_map
 
         # Datasets carry schema (from OutputColumns) and the upstream/column
         # lineage resolved against the data source map built above.
-        data_sets_processor = DataSetsProcessor(
+        data_sets_extractor = DataSetsExtractor(
             self.config,
             self.report,
             self.api,
@@ -148,34 +136,34 @@ class QuickSightSource(StatefulIngestionSourceBase, TestableSource):
             data_source_map=self.data_source_map,
             enricher=enricher,
         )
-        yield from data_sets_processor.get_workunits()
+        yield from data_sets_extractor.get_workunits()
 
         # Analyses and dashboards both map to DataHub Dashboard entities; their
         # inputDatasets edges make the QuickSight Datasets show downstream lineage.
-        analyses_processor = AnalysesProcessor(
+        analyses_extractor = AnalysesExtractor(
             self.config,
             self.report,
             self.api,
             parent_resolver=parent_for,
             enricher=enricher,
         )
-        yield from analyses_processor.get_workunits()
+        yield from analyses_extractor.get_workunits()
 
-        dashboards_processor = DashboardsProcessor(
+        dashboards_extractor = DashboardsExtractor(
             self.config,
             self.report,
             self.api,
             parent_resolver=parent_for,
             enricher=enricher,
         )
-        yield from dashboards_processor.get_workunits()
+        yield from dashboards_extractor.get_workunits()
 
         # Identity last (opt-in). Users/groups are independent of the asset graph,
         # so ordering only affects when their workunits appear in the stream.
-        users_groups_processor = UsersGroupsProcessor(
+        users_groups_extractor = UsersGroupsExtractor(
             self.config, self.report, self.api
         )
-        yield from users_groups_processor.get_workunits()
+        yield from users_groups_extractor.get_workunits()
 
     def get_report(self) -> QuickSightSourceReport:
         return self.report

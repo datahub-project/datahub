@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 from unittest import mock
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.quicksight.processors.data_sources import (
+from datahub.ingestion.source.quicksight.extractors.data_sources import (
     ResolvedDataSource,
 )
 from datahub.ingestion.source.quicksight.quicksight_config import (

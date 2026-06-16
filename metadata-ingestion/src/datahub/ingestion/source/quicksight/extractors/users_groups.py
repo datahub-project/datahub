@@ -36,7 +36,7 @@ def _is_graceful(error: Exception) -> bool:
     )
 
 
-class UsersGroupsProcessor:
+class UsersGroupsExtractor:
     """Emits QuickSight users and groups as DataHub ``CorpUser`` / ``CorpGroup``
     entities, plus each user's group memberships.
 

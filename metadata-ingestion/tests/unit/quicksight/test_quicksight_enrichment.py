@@ -3,7 +3,7 @@ from unittest import mock
 
 from botocore.exceptions import ClientError
 
-from datahub.ingestion.source.quicksight.processors.enrichment import AssetEnricher
+from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
 from datahub.ingestion.source.quicksight.quicksight_config import (
     QuickSightSourceConfig,
 )

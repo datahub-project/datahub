@@ -2,8 +2,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from unittest import mock
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.quicksight.processors.users_groups import (
-    UsersGroupsProcessor,
+from datahub.ingestion.source.quicksight.extractors.users_groups import (
+    UsersGroupsExtractor,
 )
 from datahub.ingestion.source.quicksight.quicksight_config import (
     QuickSightSourceConfig,
@@ -20,11 +20,11 @@ from datahub.metadata.schema_classes import (
 
 def _processor(
     api: mock.MagicMock, config_dict: Optional[Dict[str, Any]] = None
-) -> UsersGroupsProcessor:
+) -> UsersGroupsExtractor:
     config = QuickSightSourceConfig.model_validate(
         {"aws_region": "us-east-1", **(config_dict or {})}
     )
-    return UsersGroupsProcessor(config, QuickSightSourceReport(), api)
+    return UsersGroupsExtractor(config, QuickSightSourceReport(), api)
 
 
 def _aspects(

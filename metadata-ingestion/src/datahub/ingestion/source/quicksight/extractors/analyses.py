@@ -3,9 +3,9 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from botocore.exceptions import ClientError
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.quicksight.processors.containers import ParentResolver
-from datahub.ingestion.source.quicksight.processors.enrichment import AssetEnricher
-from datahub.ingestion.source.quicksight.processors.visuals import VisualsExtractor
+from datahub.ingestion.source.quicksight.extractors.containers import ParentResolver
+from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
+from datahub.ingestion.source.quicksight.extractors.visuals import VisualsExtractor
 from datahub.ingestion.source.quicksight.quicksight_api import QuickSightAPI
 from datahub.ingestion.source.quicksight.quicksight_config import (
     QuickSightSourceConfig,
@@ -17,13 +17,14 @@ from datahub.ingestion.source.quicksight.quicksight_report import (
 from datahub.ingestion.source.quicksight.quicksight_urn import (
     PLATFORM,
     id_from_arn,
+    make_asset_name,
     make_dataset_urn,
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dashboard import Dashboard
 
 
-class AnalysesProcessor:
+class AnalysesExtractor:
     """Emits each QuickSight Analysis as a DataHub Dashboard entity (``Analysis``
     subtype) with ``inputDatasets`` lineage to the QuickSight Datasets it reads.
 
@@ -91,7 +92,7 @@ class AnalysesProcessor:
 
         dashboard = Dashboard(
             platform=PLATFORM,
-            name=analysis_id,
+            name=make_asset_name(self.api.aws_account_id, analysis_id),
             platform_instance=self.config.platform_instance,
             display_name=name,
             subtype=SUBTYPE_ANALYSIS,

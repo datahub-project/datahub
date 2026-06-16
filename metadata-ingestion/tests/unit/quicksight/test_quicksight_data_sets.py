@@ -4,11 +4,11 @@ from unittest import mock
 from botocore.exceptions import ClientError
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.quicksight.processors.containers import (
+from datahub.ingestion.source.quicksight.extractors.containers import (
     QuickSightNamespaceKey,
 )
-from datahub.ingestion.source.quicksight.processors.data_sets import DataSetsProcessor
-from datahub.ingestion.source.quicksight.processors.enrichment import AssetEnricher
+from datahub.ingestion.source.quicksight.extractors.data_sets import DataSetsExtractor
+from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
 from datahub.ingestion.source.quicksight.quicksight_config import (
     QuickSightSourceConfig,
 )
@@ -46,12 +46,12 @@ def _enricher(api: mock.MagicMock, report: QuickSightSourceReport) -> AssetEnric
 
 def _processor(
     api: mock.MagicMock, config_dict: Optional[Dict[str, Any]] = None
-) -> DataSetsProcessor:
+) -> DataSetsExtractor:
     config = QuickSightSourceConfig.model_validate(
         {"aws_region": "us-east-1", **(config_dict or {})}
     )
     report = QuickSightSourceReport()
-    return DataSetsProcessor(
+    return DataSetsExtractor(
         config,
         report,
         api,
@@ -70,7 +70,7 @@ def _mock_api(summaries: List[Dict[str, Any]]) -> mock.MagicMock:
 
 
 def test_build_schema_maps_column_types():
-    fields = DataSetsProcessor._build_schema(
+    fields = DataSetsExtractor._build_schema(
         [
             {"Name": "id", "Type": "INTEGER"},
             {"Name": "region", "Type": "STRING"},

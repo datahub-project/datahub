@@ -3,9 +3,9 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from botocore.exceptions import ClientError
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.quicksight.processors.containers import ParentResolver
-from datahub.ingestion.source.quicksight.processors.enrichment import AssetEnricher
-from datahub.ingestion.source.quicksight.processors.visuals import VisualsExtractor
+from datahub.ingestion.source.quicksight.extractors.containers import ParentResolver
+from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
+from datahub.ingestion.source.quicksight.extractors.visuals import VisualsExtractor
 from datahub.ingestion.source.quicksight.quicksight_api import QuickSightAPI
 from datahub.ingestion.source.quicksight.quicksight_config import (
     QuickSightSourceConfig,
@@ -17,6 +17,7 @@ from datahub.ingestion.source.quicksight.quicksight_report import (
 from datahub.ingestion.source.quicksight.quicksight_urn import (
     PLATFORM,
     id_from_arn,
+    make_asset_name,
     make_dashboard_urn,
     make_dataset_urn,
 )
@@ -24,7 +25,7 @@ from datahub.sdk.container import Container
 from datahub.sdk.dashboard import Dashboard
 
 
-class DashboardsProcessor:
+class DashboardsExtractor:
     """Emits each QuickSight Dashboard as a DataHub Dashboard entity
     (``Dashboard`` subtype) with ``inputDatasets`` lineage, and links it back to
     the source Analysis it was published from (via ``Version.SourceEntityArn``)
@@ -89,7 +90,7 @@ class DashboardsProcessor:
 
         dashboard = Dashboard(
             platform=PLATFORM,
-            name=dashboard_id,
+            name=make_asset_name(self.api.aws_account_id, dashboard_id),
             platform_instance=self.config.platform_instance,
             display_name=name,
             subtype=SUBTYPE_DASHBOARD,
@@ -131,7 +132,11 @@ class DashboardsProcessor:
         if ":analysis/" not in source_arn:
             return []
         return [
-            make_dashboard_urn(id_from_arn(source_arn), self.config.platform_instance)
+            make_dashboard_urn(
+                self.api.aws_account_id,
+                id_from_arn(source_arn),
+                self.config.platform_instance,
+            )
         ]
 
     def _describe(self, dashboard_id: str) -> Dict[str, Any]:

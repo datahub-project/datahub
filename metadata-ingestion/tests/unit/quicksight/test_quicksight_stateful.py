@@ -157,4 +157,4 @@ def test_quicksight_stateful_ingestion_removes_stale_dashboard(
         stale = list(
             state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2)
         )
-        assert stale == ["urn:li:dashboard:(quicksight,dash-remove)"]
+        assert stale == ["urn:li:dashboard:(quicksight,064369473231.dash-remove)"]
