@@ -100,6 +100,7 @@ export const DEFAULT_APP_CONFIG = {
         contextDocumentsEnabled: false,
         hideLineageInSearchCards: false,
         glossaryBasedPoliciesEnabled: false,
+        denyPoliciesEnabled: false,
         multipleDataProductsPerAsset: false,
         showTestsInHealthIcon: false,
         i18nEnabled: false,

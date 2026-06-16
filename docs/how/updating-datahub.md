@@ -114,6 +114,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Authorization / Access Policies)** Added an `effect` field (`ALLOW` / `DENY`) to access policies. `DENY` policies explicitly revoke privileges and take precedence over `ALLOW` policies for the same privilege. The field is additive and backward-compatible — existing policies have no `effect` set and are evaluated as `ALLOW`, so behavior is unchanged on upgrade. Creation of `DENY` policies is gated behind the `denyPoliciesEnabled` feature flag (`DENY_POLICIES_ENABLED`, default `false`); the Deny option is hidden in the policy builder until the flag is enabled.
+
 - #17376: **(Ingestion / Hex)** Major in-place upgrade of the `hex` connector: upstream lineage (table-level and column-level), Project → Component links, run history (`lastRefreshed`), and optional AI context documents are now extracted directly from Hex REST APIs — no external CLI, warehouse-side ingestion dependency, or query-tag scraping required. See the [Hex connector docs](https://docs.datahub.com/docs/generated/ingestion/sources/hex) for the new `include_lineage`, `use_queried_tables_lineage`, `connection_platform_map`, and `include_context_documents` options.
 
 - **(Ingestion / dbt)** dbt test assertion entities now emit an `ownership` aspect when the dbt test node has explicit owner metadata (`meta.owner` / `config.meta.owner`).

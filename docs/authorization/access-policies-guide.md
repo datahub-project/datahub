@@ -4,6 +4,13 @@
 
 Access Policies define who can do what to which resources. In conjunction with [Roles](./roles.md), Access Policies determine what users are allowed to do on DataHub.
 
+Every policy has an **effect**:
+
+- **Allow** (default) — grants the selected privileges to the matched actors.
+- **Deny** — explicitly blocks the selected privileges for the matched actors, taking precedence over any Allow policy.
+
+See [Policy Effects](./policies.md#policy-effects-allow-vs-deny) for a detailed explanation of how Allow and Deny policies interact.
+
 ## Policy Types
 
 There are 2 types of Access Policy within DataHub:
@@ -75,15 +82,17 @@ To begin building a new Policy, click **Create new Policy**.
 
 ### Creating a Platform Policy
 
-#### Step 1. Provide a Name & Description
+#### Step 1. Provide a Name, Description & Effect
 
-In the first step, we select the **Platform** Policy type, and define a name and description for the new Policy.
+In the first step, we select the **Platform** Policy type, define a name and description for the new Policy, and choose the **Effect**.
 
 Good Policy names describe the high-level purpose of the Policy. For example, a Policy named
 "View DataHub Analytics - Data Governance Team" would be a great way to describe a Platform
 Policy which grants abilities to view DataHub's Analytics view to anyone on the Data Governance team.
 
-You can optionally provide a text description to add richer details about the purpose of the Policy.
+You can optionally provide a text description to add richer detail about the purpose of the Policy.
+
+The **Effect** selector controls whether the policy grants (**Allow**) or blocks (**Deny**) access. Leave it as **Allow** for standard permissive policies.
 
 #### Step 2: Configure Privileges
 
@@ -116,15 +125,17 @@ To do so, simply search and select the Users or Groups that the Policy should ap
 
 ### Creating a Metadata Policy
 
-#### Step 1. Provide a Name & Description
+#### Step 1. Provide a Name, Description & Effect
 
-In the first step, we select the **Metadata** Policy, and define a name and description for the new Policy.
+In the first step, we select the **Metadata** Policy type, define a name and description for the new Policy, and choose the **Effect**.
 
 Good Policy names describe the high-level purpose of the Policy. For example, a Policy named
 "Full Dataset Edit Privileges - Data Platform Engineering" would be a great way to describe a Metadata
 Policy which grants all abilities to edit Dataset Metadata to anyone in the "Data Platform" group.
 
 You can optionally provide a text description to add richer detail about the purpose of the Policy.
+
+Set **Effect** to **Deny** if this policy should explicitly block the selected privileges rather than grant them. See [Policy Effects](./policies.md#policy-effects-allow-vs-deny) for guidance on when to use Deny policies.
 
 #### Step 2: Configure Privileges
 

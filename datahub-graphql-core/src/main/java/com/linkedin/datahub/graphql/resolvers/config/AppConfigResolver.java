@@ -287,6 +287,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setHideLineageInSearchCards(_featureFlags.isHideLineageInSearchCards())
             .setMultipleDataProductsPerAsset(_featureFlags.isMultipleDataProductsPerAsset())
             .setGlossaryBasedPoliciesEnabled(_featureFlags.isGlossaryBasedPoliciesEnabled())
+            .setDenyPoliciesEnabled(_featureFlags.isDenyPoliciesEnabled())
             .setShowTestsInHealthIcon(_featureFlags.isShowTestsInHealthIcon())
             .setI18nEnabled(_featureFlags.isI18nEnabled())
             .build();

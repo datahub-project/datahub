@@ -865,6 +865,11 @@ type FeatureFlagsConfig {
   glossaryBasedPoliciesEnabled: Boolean!
 
   """
+  If enabled, allows DENY-effect access policies to be created.
+  """
+  denyPoliciesEnabled: Boolean!
+
+  """
   If enabled, shows the context documents feature in the sidebar.
   """
   contextDocumentsEnabled: Boolean!

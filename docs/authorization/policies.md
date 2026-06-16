@@ -125,6 +125,58 @@ with the policy as well as `3. owners of the entity`. This means that Alice _OR_
 the targeted resource(s) will be included in the policy.
 :::
 
+## Policy Effects (Allow vs. Deny)
+
+Every policy has an **effect** that determines whether it grants or blocks access:
+
+- **Allow** (default): the policy grants the listed privileges to the matched actors. All existing policies created before this feature was introduced are treated as `ALLOW`.
+- **Deny**: the policy explicitly blocks the listed privileges for the matched actors. A `DENY` match takes precedence over any `ALLOW` match, regardless of how many other policies would otherwise grant access.
+
+### Evaluation Order
+
+When an actor attempts an action, DataHub evaluates policies in the following order:
+
+1. **DENY policies are evaluated first.** If any active DENY policy matches the actor, resource, and privilege, access is refused immediately — no further evaluation occurs.
+2. **ALLOW policies are evaluated next.** If at least one active ALLOW policy matches, access is granted.
+3. If neither a DENY nor an ALLOW policy matches, access is refused by default.
+
+The system actor (the internal `datahub` root account) is always allowed and bypasses all policy evaluation.
+
+### When to Use Deny Policies
+
+Deny policies are useful for carving out exceptions from a broad Allow policy without restructuring every existing policy. Common use cases:
+
+- **Block a specific user from a broad grant** — e.g., allow all Engineers to edit Tags, but block a specific contractor.
+- **Protect sensitive assets** — deny all editing privileges on a specific high-sensitivity dataset, even for users who would otherwise have edit rights via another policy.
+
+:::note
+Deny policies affect all API surfaces equally (GraphQL, REST, and the DataHub UI). Removing or deactivating a Deny policy restores the access that underlying Allow policies would grant.
+:::
+
+### Example: Deny a Specific User
+
+```graphql
+mutation {
+  createPolicy(
+    input: {
+      type: METADATA
+      name: "Block contractor from editing tags"
+      state: ACTIVE
+      effect: DENY
+      description: "Contractor accounts must not edit tags on any dataset"
+      privileges: ["EDIT_ENTITY_TAGS"]
+      actors: {
+        users: ["urn:li:corpuser:contractor@example.com"]
+        resourceOwners: false
+        allUsers: false
+        allGroups: false
+      }
+      resources: { allResources: true, resources: [], filter: { criteria: [] } }
+    }
+  )
+}
+```
+
 ## Managing Policies
 
 Policies can be managed on the page **Settings > Permissions > Policies** page. The `Policies` tab will only

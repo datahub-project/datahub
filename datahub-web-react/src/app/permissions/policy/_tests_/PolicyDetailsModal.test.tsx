@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 
 import PolicyDetailsModal from '@app/permissions/policy/PolicyDetailsModal';
 
-import { EntityType, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
+import { EntityType, Policy, PolicyEffect, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
 
 // Mock the hooks
 vi.mock('@app/useEntityRegistry', () => ({
@@ -48,6 +48,7 @@ const mockPolicy: Omit<Policy, 'urn'> = {
     editable: true,
     description: 'A test policy',
     state: PolicyState.Active,
+    effect: PolicyEffect.Allow,
     privileges: ['view'],
     resources: {
         filter: {
@@ -190,5 +191,43 @@ describe('PolicyDetailsModal', () => {
         // Check the ownership types section
         expect(screen.getByText('Applies to Owners')).toBeInTheDocument();
         expect(screen.getByText('Technical Owner')).toBeInTheDocument();
+    });
+
+    it('displays Effect section with blue tag for Allow policy', () => {
+        render(
+            <BrowserRouter>
+                <PolicyDetailsModal
+                    policy={mockPolicy}
+                    open
+                    onClose={() => {}}
+                    privileges={[{ type: 'view', name: 'View' }]}
+                />
+            </BrowserRouter>,
+        );
+
+        expect(screen.getByText('Effect')).toBeInTheDocument();
+        const effectTag = screen.getByText(PolicyEffect.Allow);
+        expect(effectTag).toBeInTheDocument();
+        expect(effectTag.closest('.ant-tag')).toHaveClass('ant-tag-blue');
+    });
+
+    it('displays Effect section with orange tag for Deny policy', () => {
+        const denyPolicy: Omit<Policy, 'urn'> = { ...mockPolicy, effect: PolicyEffect.Deny };
+
+        render(
+            <BrowserRouter>
+                <PolicyDetailsModal
+                    policy={denyPolicy}
+                    open
+                    onClose={() => {}}
+                    privileges={[{ type: 'view', name: 'View' }]}
+                />
+            </BrowserRouter>,
+        );
+
+        expect(screen.getByText('Effect')).toBeInTheDocument();
+        const effectTag = screen.getByText(PolicyEffect.Deny);
+        expect(effectTag).toBeInTheDocument();
+        expect(effectTag.closest('.ant-tag')).toHaveClass('ant-tag-red');
     });
 });
