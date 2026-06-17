@@ -2537,25 +2537,25 @@ class TestBuildPatternFilter:
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB"]),
                 "col",
-                "UPPER(col) RLIKE 'PROD_DB'",
+                "UPPER(col) RLIKE '(?:PROD_DB)'",
                 id="single_allow_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB", "ANALYTICS_DB"]),
                 "col",
-                "(UPPER(col) RLIKE 'PROD_DB' OR UPPER(col) RLIKE 'ANALYTICS_DB')",
+                "UPPER(col) RLIKE '(?:PROD_DB)|(?:ANALYTICS_DB)'",
                 id="multiple_allow_patterns",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["Prod_DB"], ignoreCase=False),
                 "col",
-                "col RLIKE 'Prod_DB'",
+                "col RLIKE '(?:Prod_DB)'",
                 id="case_sensitive_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_.*", "DEV_.*"]),
                 "col",
-                "(UPPER(col) RLIKE 'PROD_.*' OR UPPER(col) RLIKE 'DEV_.*')",
+                "UPPER(col) RLIKE '(?:PROD_.*)|(?:DEV_.*)'",
                 id="regex_allow_patterns",
             ),
             pytest.param(
@@ -2573,13 +2573,13 @@ class TestBuildPatternFilter:
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB"], deny=[".*_TEMP"]),
                 "col",
-                "UPPER(col) RLIKE 'PROD_DB' AND UPPER(col) NOT RLIKE '.*_TEMP'",
+                "UPPER(col) RLIKE '(?:PROD_DB)' AND UPPER(col) NOT RLIKE '.*_TEMP'",
                 id="allow_and_deny_combined",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_.*"], deny=["PROD_TEMP", ".*_ARCHIVE"]),
                 "col",
-                "UPPER(col) RLIKE 'PROD_.*' AND (UPPER(col) NOT RLIKE 'PROD_TEMP' AND UPPER(col) NOT RLIKE '.*_ARCHIVE')",
+                "UPPER(col) RLIKE '(?:PROD_.*)' AND (UPPER(col) NOT RLIKE 'PROD_TEMP' AND UPPER(col) NOT RLIKE '.*_ARCHIVE')",
                 id="single_allow_multiple_deny",
             ),
             pytest.param(
@@ -2603,19 +2603,19 @@ class TestBuildPatternFilter:
             pytest.param(
                 AllowDenyPattern(allow=["DB'NAME"]),
                 "col",
-                "UPPER(col) RLIKE 'DB''NAME'",
+                "UPPER(col) RLIKE '(?:DB''NAME)'",
                 id="sql_injection_protection_single_quote",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB"]),
                 "database_name",
-                "UPPER(database_name) RLIKE 'PROD_DB'",
+                "UPPER(database_name) RLIKE '(?:PROD_DB)'",
                 id="database_column_expression",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.PUBLIC.TABLE"]),
                 "CONCAT(table_catalog, '.', table_schema, '.', table_name)",
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.TABLE'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(?:PROD_DB.PUBLIC.TABLE)'",
                 id="fqn_column_expression",
             ),
         ],
@@ -2644,12 +2644,12 @@ class TestBuildDatabaseFilter:
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB"]),
-                "UPPER(database_name) RLIKE 'PROD_DB'",
+                "UPPER(database_name) RLIKE '(?:PROD_DB)'",
                 id="single_database",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_.*"], deny=[".*_TEMP"]),
-                "UPPER(database_name) RLIKE 'PROD_.*' AND UPPER(database_name) NOT RLIKE '.*_TEMP'",
+                "UPPER(database_name) RLIKE '(?:PROD_.*)' AND UPPER(database_name) NOT RLIKE '.*_TEMP'",
                 id="pattern_with_deny",
             ),
             pytest.param(
@@ -2711,8 +2711,7 @@ class TestGetDatabasesQueryWithFilter:
         assert len(parsed) == 1
 
         # Verify filter components are present
-        assert "RLIKE 'PROD_.*'" in query
-        assert "RLIKE 'DEV_.*'" in query
+        assert "RLIKE '(?:PROD_.*)|(?:DEV_.*)'" in query
         assert "NOT RLIKE '.*_TEMP'" in query
         assert "NOT RLIKE '.*_BACKUP'" in query
 
@@ -2741,70 +2740,70 @@ class TestBuildSchemaFilter:
                 AllowDenyPattern(allow=["PUBLIC"]),
                 "PROD_DB",
                 False,
-                "UPPER(schema_name) RLIKE 'PUBLIC'",
+                "UPPER(schema_name) RLIKE '(?:PUBLIC)'",
                 id="fqn_false_single_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PUBLIC", "ANALYTICS"]),
                 "PROD_DB",
                 False,
-                "(UPPER(schema_name) RLIKE 'PUBLIC' OR UPPER(schema_name) RLIKE 'ANALYTICS')",
+                "UPPER(schema_name) RLIKE '(?:PUBLIC)|(?:ANALYTICS)'",
                 id="fqn_false_multiple_patterns",
             ),
             pytest.param(
                 AllowDenyPattern(allow=[".*_STAGING"]),
                 "PROD_DB",
                 False,
-                "UPPER(schema_name) RLIKE '.*_STAGING'",
+                "UPPER(schema_name) RLIKE '(?:.*_STAGING)'",
                 id="fqn_false_regex_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.PUBLIC"]),
                 "PROD_DB",
                 True,
-                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.PUBLIC'",
+                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE '(?:PROD_DB.PUBLIC)'",
                 id="fqn_true_single_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.PUBLIC", "PROD_DB.ANALYTICS"]),
                 "PROD_DB",
                 True,
-                "(UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.PUBLIC' OR UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.ANALYTICS')",
+                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE '(?:PROD_DB.PUBLIC)|(?:PROD_DB.ANALYTICS)'",
                 id="fqn_true_multiple_patterns",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB\\..*_STAGING"]),
                 "PROD_DB",
                 True,
-                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB\\\\..*_STAGING'",
+                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE '(?:PROD_DB\\\\..*_STAGING)'",
                 id="fqn_true_regex_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["Public"], ignoreCase=False),
                 "PROD_DB",
                 False,
-                "schema_name RLIKE 'Public'",
+                "schema_name RLIKE '(?:Public)'",
                 id="case_sensitive_fqn_false",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["Prod_DB.Public"], ignoreCase=False),
                 "Prod_DB",
                 True,
-                "CONCAT('Prod_DB', '.', schema_name) RLIKE 'Prod_DB.Public'",
+                "CONCAT('Prod_DB', '.', schema_name) RLIKE '(?:Prod_DB.Public)'",
                 id="case_sensitive_fqn_true",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PUBLIC"], deny=[".*_TEMP"]),
                 "PROD_DB",
                 False,
-                "UPPER(schema_name) RLIKE 'PUBLIC' AND UPPER(schema_name) NOT RLIKE '.*_TEMP'",
+                "UPPER(schema_name) RLIKE '(?:PUBLIC)' AND UPPER(schema_name) NOT RLIKE '.*_TEMP'",
                 id="allow_and_deny_fqn_false",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["TEST'DB.PUBLIC"]),
                 "TEST'DB",
                 True,
-                "UPPER(CONCAT('TEST''DB', '.', schema_name)) RLIKE 'TEST''DB.PUBLIC'",
+                "UPPER(CONCAT('TEST''DB', '.', schema_name)) RLIKE '(?:TEST''DB.PUBLIC)'",
                 id="sql_injection_protection_db_name",
             ),
         ],
@@ -2863,8 +2862,7 @@ class TestSchemasForDatabaseQueryWithFilter:
 
         # Verify FQN filter components are present
         assert "CONCAT" in query
-        assert "RLIKE 'TEST_DB.PUBLIC'" in query
-        assert "RLIKE 'TEST_DB.ANALYTICS'" in query
+        assert "RLIKE '(?:TEST_DB.PUBLIC)|(?:TEST_DB.ANALYTICS)'" in query
 
 
 class TestBuildTableFilter:
@@ -2885,31 +2883,31 @@ class TestBuildTableFilter:
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.PUBLIC.CUSTOMERS"]),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.CUSTOMERS'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(?:PROD_DB.PUBLIC.CUSTOMERS)'",
                 id="single_table_fqn",
             ),
             pytest.param(
                 AllowDenyPattern(
                     allow=["PROD_DB.PUBLIC.CUSTOMERS", "PROD_DB.PUBLIC.ORDERS"]
                 ),
-                "(UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.CUSTOMERS' OR UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.ORDERS')",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(?:PROD_DB.PUBLIC.CUSTOMERS)|(?:PROD_DB.PUBLIC.ORDERS)'",
                 id="multiple_tables_fqn",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB\\.PUBLIC\\.CUSTOMER_.*"]),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB\\\\.PUBLIC\\\\.CUSTOMER_.*'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(?:PROD_DB\\\\.PUBLIC\\\\.CUSTOMER_.*)'",
                 id="regex_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(
                     allow=["PROD_DB\\.PUBLIC\\..*"], deny=[".*_TEMP$", ".*_BACKUP$"]
                 ),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB\\\\.PUBLIC\\\\..*' AND (UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_TEMP$' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_BACKUP$')",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(?:PROD_DB\\\\.PUBLIC\\\\..*)' AND (UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_TEMP$' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_BACKUP$')",
                 id="allow_with_deny",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["Prod_DB.Public.Table"], ignoreCase=False),
-                "CONCAT(table_catalog, '.', table_schema, '.', table_name) RLIKE 'Prod_DB.Public.Table'",
+                "CONCAT(table_catalog, '.', table_schema, '.', table_name) RLIKE '(?:Prod_DB.Public.Table)'",
                 id="case_sensitive",
             ),
         ],
@@ -2938,19 +2936,19 @@ class TestBuildViewFilter:
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.REPORTING.V_CUSTOMERS"]),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING.V_CUSTOMERS'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(?:PROD_DB.REPORTING.V_CUSTOMERS)'",
                 id="single_view_fqn",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.REPORTING.V_.*"]),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING.V_.*'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(?:PROD_DB.REPORTING.V_.*)'",
                 id="view_regex_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(
                     allow=["PROD_DB.REPORTING..*"], deny=[".*_DEPRECATED$"]
                 ),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING..*' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_DEPRECATED$'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(?:PROD_DB.REPORTING..*)' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_DEPRECATED$'",
                 id="view_allow_with_deny",
             ),
         ],
