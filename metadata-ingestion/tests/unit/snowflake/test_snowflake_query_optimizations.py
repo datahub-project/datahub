@@ -2,12 +2,17 @@
 
 Covers:
 - _build_pattern_filter exact-FQN detection: RLIKE OR-chain → IN clause
+- paginate_query_values_segment_by_byte_budget: byte-budget IN-clause paging
+- columns_for_schema_in_template: IN-clause column query template
 """
 
 import pytest
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    SnowflakeQuery,
+    paginate_query_values_segment_by_byte_budget,
+)
 
 FQN_EXPR = "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name))"
 
@@ -168,3 +173,100 @@ class TestBuildPatternFilterSecurity:
     def test_none_pattern_returns_empty_string(self):
         result = SnowflakeQuery._build_pattern_filter(None, FQN_EXPR)
         assert result == ""
+
+
+# ---------------------------------------------------------------------------
+# paginate_query_values_segment_by_byte_budget
+# ---------------------------------------------------------------------------
+
+_TMPL = "SELECT x FROM t WHERE name IN ({in_values})"
+
+
+class TestPaginateQueryValuesByByteBudget:
+    def test_small_list_yields_single_query(self):
+        names = ["TABLE_A", "TABLE_B", "TABLE_C"]
+        pages = list(paginate_query_values_segment_by_byte_budget(_TMPL, names))
+        assert len(pages) == 1
+        assert "'TABLE_A'" in pages[0]
+        assert "'TABLE_B'" in pages[0]
+        assert "'TABLE_C'" in pages[0]
+
+    def test_oversized_list_pages_correctly(self):
+        # Budget so small that only one name fits per page.
+        names = ["A", "B", "C"]
+        tiny_budget = len(_TMPL.replace("{in_values}", "'A'").encode()) + 1
+        pages = list(
+            paginate_query_values_segment_by_byte_budget(_TMPL, names, tiny_budget)
+        )
+        assert len(pages) == 3
+        for page, name in zip(pages, names, strict=False):
+            assert f"'{name}'" in page
+
+    def test_single_quote_escaped_in_output(self):
+        names = ["O'BRIEN"]
+        pages = list(paginate_query_values_segment_by_byte_budget(_TMPL, names))
+        assert len(pages) == 1
+        assert "O''BRIEN" in pages[0]
+
+    def test_empty_names_yields_nothing(self):
+        pages = list(paginate_query_values_segment_by_byte_budget(_TMPL, []))
+        assert pages == []
+
+    def test_each_page_within_budget(self):
+        budget = 200
+        names = [f"TABLE_{i:04d}" for i in range(50)]
+        pages = list(paginate_query_values_segment_by_byte_budget(_TMPL, names, budget))
+        for page in pages:
+            assert len(page.encode()) <= budget
+
+
+# ---------------------------------------------------------------------------
+# columns_for_schema_in_template
+# ---------------------------------------------------------------------------
+
+
+class TestColumnsForSchemaInTemplate:
+    def test_template_contains_in_values_placeholder(self):
+        tmpl = SnowflakeQuery.columns_for_schema_in_template("MY_SCHEMA", "MY_DB")
+        assert "{in_values}" in tmpl
+
+    def test_template_contains_schema_and_db(self):
+        tmpl = SnowflakeQuery.columns_for_schema_in_template("MY_SCHEMA", "MY_DB")
+        assert "MY_SCHEMA" in tmpl
+        assert "MY_DB" in tmpl
+
+    def test_template_selects_expected_columns(self):
+        tmpl = SnowflakeQuery.columns_for_schema_in_template("S", "D")
+        for col in (
+            "TABLE_CATALOG",
+            "TABLE_SCHEMA",
+            "TABLE_NAME",
+            "COLUMN_NAME",
+            "ORDINAL_POSITION",
+            "DATA_TYPE",
+        ):
+            assert col in tmpl
+
+    def test_substituted_template_is_valid_sql(self):
+        tmpl = SnowflakeQuery.columns_for_schema_in_template("MY_SCHEMA", "MY_DB")
+        sql = tmpl.format(in_values="'TABLE_A', 'TABLE_B'")
+        assert "IN ('TABLE_A', 'TABLE_B')" in sql
+        assert "{in_values}" not in sql
+
+    def test_schema_name_with_single_quote_is_escaped(self):
+        tmpl = SnowflakeQuery.columns_for_schema_in_template("O'BRIEN_SCHEMA", "MY_DB")
+        assert "O''BRIEN_SCHEMA" in tmpl
+        assert "O'BRIEN_SCHEMA'" not in tmpl.replace("O''BRIEN_SCHEMA", "")
+
+    def test_db_name_with_single_quote_is_escaped(self):
+        tmpl = SnowflakeQuery.columns_for_schema_in_template("MY_SCHEMA", "O'BRIEN_DB")
+        assert "O''BRIEN_DB" in tmpl
+
+    def test_template_used_with_paginator_produces_valid_sql(self):
+        tmpl = SnowflakeQuery.columns_for_schema_in_template("MY_SCHEMA", "MY_DB")
+        names = [f"TABLE_{i}" for i in range(5)]
+        pages = list(paginate_query_values_segment_by_byte_budget(tmpl, names))
+        assert len(pages) == 1
+        assert "table_name IN (" in pages[0]
+        assert "'TABLE_0'" in pages[0]
+        assert "'TABLE_4'" in pages[0]

@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import AbstractSet, List, Optional
+from typing import AbstractSet, Iterable, Iterator, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
@@ -14,6 +14,44 @@ logger = logging.getLogger(__name__)
 
 SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
+
+# Snowflake's recommended per-query byte ceiling for retryable queries.
+SNOWFLAKE_MAX_QUERY_BYTES = 1_000_000
+
+
+def paginate_query_values_segment_by_byte_budget(
+    template: str,
+    names: Iterable[str],
+    max_bytes: int = SNOWFLAKE_MAX_QUERY_BYTES,
+) -> Iterator[str]:
+    """Yield complete SQL strings by paging IN-clause values under *max_bytes*.
+
+    ``template`` must contain exactly one ``{in_values}`` placeholder, which
+    receives a comma-separated list of single-quoted, SQL-escaped names.  Each
+    page's final SQL (after substituting ``{in_values}``) stays below
+    *max_bytes*.  Byte cost per entry is measured post-escape plus a 2-byte
+    separator (``', '``).
+    """
+    base_cost = len(template.encode()) - len("{in_values}".encode())
+    budget = max_bytes - base_cost
+
+    page: List[str] = []
+    used = 0
+
+    for name in names:
+        escaped = name.replace("'", "''")
+        entry = f"'{escaped}'"
+        cost = len(entry.encode()) + (2 if page else 0)  # ", " separator
+        if page and used + cost > budget:
+            yield template.format(in_values=", ".join(page))
+            page = []
+            used = 0
+        page.append(entry)
+        used += len(entry.encode()) + (2 if len(page) > 1 else 0)
+
+    if page:
+        yield template.format(in_values=", ".join(page))
+
 
 # Snowflake unquoted-identifier names — single segments (``DB``, ``MY_SHARE``)
 # or dot-qualified (``ORG.PROVIDER.LISTING``).
@@ -764,6 +802,37 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         return (
             "\nUNION ALL\n".join(selects)
             + """\nORDER BY table_name, ordinal_position"""
+        )
+
+    @staticmethod
+    def columns_for_schema_in_template(schema_name: str, db_name: str) -> str:
+        """Return a SQL template with an ``{in_values}`` placeholder.
+
+        Pass to ``paginate_query_values_segment_by_byte_budget`` to generate
+        one or more complete queries that filter ``table_name IN (...)`` rather
+        than ``AND TRUE`` or ``LIKE 'prefix%'``.
+        """
+        escaped_schema = schema_name.replace("'", "''")
+        escaped_db = db_name.replace("'", "''")
+        return (
+            f"SELECT\n"
+            f'  table_catalog AS "TABLE_CATALOG",\n'
+            f'  table_schema AS "TABLE_SCHEMA",\n'
+            f'  table_name AS "TABLE_NAME",\n'
+            f'  column_name AS "COLUMN_NAME",\n'
+            f'  ordinal_position AS "ORDINAL_POSITION",\n'
+            f'  is_nullable AS "IS_NULLABLE",\n'
+            f'  data_type AS "DATA_TYPE",\n'
+            f'  comment AS "COMMENT",\n'
+            f'  character_maximum_length AS "CHARACTER_MAXIMUM_LENGTH",\n'
+            f'  numeric_precision AS "NUMERIC_PRECISION",\n'
+            f'  numeric_scale AS "NUMERIC_SCALE",\n'
+            f'  column_default AS "COLUMN_DEFAULT",\n'
+            f'  is_identity AS "IS_IDENTITY"\n'
+            f'FROM "{escaped_db}".information_schema.columns\n'
+            f"WHERE table_schema='{escaped_schema}'"
+            f" AND table_name IN ({{in_values}})\n"
+            f"ORDER BY table_name, ordinal_position"
         )
 
     @staticmethod
