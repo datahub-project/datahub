@@ -23,7 +23,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -46,9 +45,6 @@ from datahub.ingestion.source.sharepoint.sharepoint_report import SharePointSour
 from datahub.ingestion.source.sharepoint.sharepoint_schema import (
     SCHEMA_INFERRABLE_EXTENSIONS,
     infer_schema,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -204,9 +200,6 @@ class SharePointSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report = SharePointSourceReport()
         self.client = SharePointClient(auth=config.auth, hostname=config.site.hostname)
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, ctx
-        )
 
         if config.uses_document():
             self.document_builder = DocumentEntityBuilder(
@@ -233,12 +226,6 @@ class SharePointSource(StatefulIngestionSourceBase, TestableSource):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SharePointSource":
         config = SharePointSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self._emit_platform_info()
