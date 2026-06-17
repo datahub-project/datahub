@@ -155,10 +155,16 @@ fragment documentSidebarFields on Document {
     urn
     type
     subType
+    platform {
+        ...platformFields
+    }
     info {
         title
         status {
             state
+        }
+        source {
+            sourceType
         }
         created {
             time
