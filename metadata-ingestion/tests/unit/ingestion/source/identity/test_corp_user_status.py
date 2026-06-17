@@ -90,7 +90,18 @@ def test_corpuser_generate_mcp_emits_corp_user_status():
     user = CorpUser(id="test.user", display_name="Test User", email="test@example.com")
     mcps = list(user.generate_mcp())
     aspect_names = [mcp.aspectName for mcp in mcps if hasattr(mcp, "aspectName")]
+    assert "corpUserInfo" in aspect_names
     assert "corpUserStatus" in aspect_names
     status_mcp = next(mcp for mcp in mcps if mcp.aspectName == "corpUserStatus")
     assert isinstance(status_mcp.aspect, CorpUserStatusClass)
     assert status_mcp.aspect.status == CORP_USER_STATUS_ACTIVE
+
+
+def test_corpuser_editable_path_does_not_emit_corp_user_status():
+    from datahub.api.entities.corpuser.corpuser import CorpUser
+
+    user = CorpUser(id="test.user", slack="@test.user")
+    mcps = list(user.generate_mcp())
+    aspect_names = [mcp.aspectName for mcp in mcps if hasattr(mcp, "aspectName")]
+    assert "corpUserInfo" not in aspect_names
+    assert "corpUserStatus" not in aspect_names

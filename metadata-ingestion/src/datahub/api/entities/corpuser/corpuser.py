@@ -131,17 +131,17 @@ class CorpUser(ConfigModel):
             )
             yield mcp
 
+            yield MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=make_corp_user_status_aspect(CORP_USER_STATUS_ACTIVE),
+            )
+
         for group_membership in self.generate_group_membership_aspect():
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=str(self.urn),
                 aspect=group_membership,
             )
             yield mcp
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=self.urn,
-            aspect=make_corp_user_status_aspect(CORP_USER_STATUS_ACTIVE),
-        )
 
         # Finally emit status
         yield MetadataChangeProposalWrapper(

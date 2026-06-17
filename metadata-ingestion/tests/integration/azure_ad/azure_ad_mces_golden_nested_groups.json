@@ -76,7 +76,7 @@
                     "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
                         "status": "ACTIVE",
                         "lastModified": {
-                            "time": 1629813600000,
+                            "time": 1629795600000,
                             "actor": "urn:li:corpuser:datahub"
                         }
                     }
@@ -151,7 +151,7 @@
                     "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
                         "status": "ACTIVE",
                         "lastModified": {
-                            "time": 1629813600000,
+                            "time": 1629795600000,
                             "actor": "urn:li:corpuser:datahub"
                         }
                     }
@@ -226,7 +226,7 @@
                     "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
                         "status": "ACTIVE",
                         "lastModified": {
-                            "time": 1629813600000,
+                            "time": 1629795600000,
                             "actor": "urn:li:corpuser:datahub"
                         }
                     }
@@ -301,7 +301,7 @@
                     "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
                         "status": "ACTIVE",
                         "lastModified": {
-                            "time": 1629813600000,
+                            "time": 1629795600000,
                             "actor": "urn:li:corpuser:datahub"
                         }
                     }
@@ -376,7 +376,7 @@
                     "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
                         "status": "ACTIVE",
                         "lastModified": {
-                            "time": 1629813600000,
+                            "time": 1629795600000,
                             "actor": "urn:li:corpuser:datahub"
                         }
                     }

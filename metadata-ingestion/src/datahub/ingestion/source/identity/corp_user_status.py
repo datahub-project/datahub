@@ -1,6 +1,11 @@
-from typing import Any, Callable, Dict, Optional
+"""Helpers for dual-writing the corpUserStatus aspect alongside corpUserInfo.
 
-from okta.models import User, UserStatus
+Migration rules:
+- Only emit corpUserStatus on paths that already emit corpUserInfo.
+- Never introduce corpUserInfo on sources or code paths that omitted it on master.
+"""
+
+from typing import Any, Callable, Dict, Optional
 
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.metadata.schema_classes import AuditStampClass, CorpUserStatusClass
@@ -11,13 +16,8 @@ INGESTION_ACTOR = "urn:li:corpuser:datahub"
 
 AD_ACCOUNT_DISABLE_FLAG = 0x2  # USER_ACCOUNT_CONTROL_ACCOUNTDISABLE
 
-OKTA_SUSPENDED_STATUSES = frozenset(
-    {
-        UserStatus.SUSPENDED,
-        UserStatus.DEPROVISIONED,
-        UserStatus.LOCKED_OUT,
-    }
-)
+# String values match okta.models.UserStatus without importing the optional okta package.
+OKTA_SUSPENDED_STATUSES = frozenset({"SUSPENDED", "DEPROVISIONED", "LOCKED_OUT"})
 
 LDAP_DISABLED_INDICATORS = frozenset({"true", "1", "yes", "disabled"})
 
@@ -66,7 +66,7 @@ def _default_get_attr(attrs: Dict[str, Any], key: str) -> Optional[str]:
     return value.decode() if isinstance(value, bytes) else str(value)
 
 
-def derive_corp_user_status_from_okta(okta_user: User) -> str:
+def derive_corp_user_status_from_okta(okta_user: Any) -> str:
     if okta_user.status in OKTA_SUSPENDED_STATUSES:
         return CORP_USER_STATUS_SUSPENDED
     return CORP_USER_STATUS_ACTIVE

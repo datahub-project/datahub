@@ -135,7 +135,7 @@
                     "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
                         "status": "SUSPENDED",
                         "lastModified": {
-                            "time": 1586865600000,
+                            "time": 1586847600000,
                             "actor": "urn:li:corpuser:datahub"
                         }
                     }
@@ -217,7 +217,7 @@
                     "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
                         "status": "ACTIVE",
                         "lastModified": {
-                            "time": 1586865600000,
+                            "time": 1586847600000,
                             "actor": "urn:li:corpuser:datahub"
                         }
                     }
@@ -301,7 +301,7 @@
                     "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
                         "status": "SUSPENDED",
                         "lastModified": {
-                            "time": 1586865600000,
+                            "time": 1586847600000,
                             "actor": "urn:li:corpuser:datahub"
                         }
                     }
@@ -385,7 +385,7 @@
                     "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
                         "status": "ACTIVE",
                         "lastModified": {
-                            "time": 1586865600000,
+                            "time": 1586847600000,
                             "actor": "urn:li:corpuser:datahub"
                         }
                     }
@@ -464,7 +464,7 @@
                     "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
                         "status": "SUSPENDED",
                         "lastModified": {
-                            "time": 1586865600000,
+                            "time": 1586847600000,
                             "actor": "urn:li:corpuser:datahub"
                         }
                     }
@@ -545,7 +545,7 @@
                     "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
                         "status": "ACTIVE",
                         "lastModified": {
-                            "time": 1586865600000,
+                            "time": 1586847600000,
                             "actor": "urn:li:corpuser:datahub"
                         }
                     }
