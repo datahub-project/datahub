@@ -47,15 +47,11 @@ MATILLION_EU1_URL = "https://eu1.api.matillion.com/dpc"
 MATILLION_US1_URL = "https://us1.api.matillion.com/dpc"
 MATILLION_OAUTH_TOKEN_URL = "https://id.core.matillion.com/oauth/dpc/token"
 
-API_PATH_SUFFIX = "/dpc"
-
 # OAuth2 configuration
 OAUTH_GRANT_TYPE = "client_credentials"
 OAUTH_AUDIENCE = "https://api.matillion.com"
 OAUTH_TOKEN_EXPIRY_SECONDS = 1800  # 30 minutes
 OAUTH_TOKEN_REFRESH_BUFFER_SECONDS = 300  # Refresh 5 minutes before expiry
-UI_PATH_PIPELINES = "pipelines"
-UI_PATH_STREAMING_PIPELINES = "streaming-pipelines"
 
 DEFAULT_REQUEST_TIMEOUT_SEC = 30
 MAX_REQUEST_TIMEOUT_WARNING_THRESHOLD = 300
@@ -118,8 +114,12 @@ TWO_TIER_PLATFORMS = {
 # to match DataHub connector behavior (e.g., Snowflake's convert_urns_to_lowercase)
 LOWERCASE_FIELD_PLATFORMS = {"snowflake"}
 
-# Matillion UI URL patterns
-MATILLION_PIPELINE_OBSERVABILITY_URL = "https://app.matillion.com/observability-dashboard?timeFrame=*&search={pipeline_name}"
+# Matillion Data Productivity Cloud console (Maia) deep links. The console is a
+# single global host (app.matillion.com); the account is selected at login and is
+# not part of the URL, so these links are fully derivable without configuration.
+MATILLION_PIPELINE_OBSERVABILITY_URL = (
+    "https://app.matillion.com/observability-dashboard?search={pipeline_name}"
+)
 MATILLION_DPI_OBSERVABILITY_URL = (
     "https://app.matillion.com/observability-dashboard/pipeline/{execution_id}"
 )

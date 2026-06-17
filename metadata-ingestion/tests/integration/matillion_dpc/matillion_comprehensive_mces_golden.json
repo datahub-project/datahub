@@ -211,12 +211,11 @@
                 "project_id": "proj-1",
                 "pipeline_type": "streaming"
             },
-            "externalUrl": "http://localhost:8080/api/streaming-pipelines/Postgres CDC Stream",
             "name": "Postgres CDC Stream"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200875,
+        "lastObserved": 1704067200421,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -306,13 +305,13 @@
                 "environment_name": "Production",
                 "is_published": "true"
             },
-            "externalUrl": "https://app.matillion.com/observability-dashboard?timeFrame=*&search=Data Integration Pipeline",
+            "externalUrl": "https://app.matillion.com/observability-dashboard?search=Data+Integration+Pipeline",
             "name": "Data Integration Pipeline",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200876,
+        "lastObserved": 1704067200425,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -544,13 +543,13 @@
                 "environment_name": "Production",
                 "is_published": "false"
             },
-            "externalUrl": "https://app.matillion.com/observability-dashboard?timeFrame=*&search=Child ETL Pipeline",
+            "externalUrl": "https://app.matillion.com/observability-dashboard?search=Child+ETL+Pipeline",
             "name": "Child ETL Pipeline",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200118,
+        "lastObserved": 1704067200432,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }

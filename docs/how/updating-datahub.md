@@ -132,6 +132,7 @@ Requirements:
   - **Environment-scoped lineage:** lineage jobs whose environment cannot be resolved (not published and not seen in execution history) are now skipped rather than emitted as flows floating under the bare project. Enabling `extract_run_history` (or `include_unpublished_pipelines`) helps resolve environments for unpublished child orchestrations. A `lineage_jobs_skipped_no_environment` report counter records skips.
   - **Run history at both levels:** per-execution `DataProcessInstance` entities are now emitted for the pipeline (DataFlow) as well as each component (DataJob), populating the "Runs" tab at both levels.
   - **New `extract_run_history` flag** (default `false`): emit run history for published pipelines without also discovering unpublished ones (implied when `include_unpublished_pipelines` is enabled).
+  - **Fixed external links:** pipeline and run links now point at the Data Productivity Cloud (Maia) console (`app.matillion.com`) with a valid query, instead of an invalid `timeFrame` filter. Streaming pipelines, which have no dedicated console deep-link, no longer emit a link built from the API host that did not resolve.
   - **New `include_dependent_pipelines` flag** (default `true`, preserves prior behavior): when disabled, child pipelines that appear only in lineage events (and were not discovered as project pipelines) are no longer created as their own DataFlows/DataJobs; lineage for discovered pipelines is unaffected.
 
 ## v1.6.0

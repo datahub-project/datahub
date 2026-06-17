@@ -2,6 +2,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Tuple
+from urllib.parse import quote_plus
 
 from pydantic import ValidationError
 from requests import HTTPError, RequestException
@@ -489,7 +490,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             custom_properties["is_published"] = "false"
 
         external_url = MATILLION_PIPELINE_OBSERVABILITY_URL.format(
-            pipeline_name=pipeline_name
+            pipeline_name=quote_plus(pipeline_name)
         )
 
         dataflow = DataFlow(
@@ -862,7 +863,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             env=self.config.env,
             display_name=display_name,
             external_url=MATILLION_PIPELINE_OBSERVABILITY_URL.format(
-                pipeline_name=full_path
+                pipeline_name=quote_plus(full_path)
             ),
             custom_properties={
                 "pipeline_name": full_path,
