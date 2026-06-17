@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import bson
 import pytest
+from pydantic import ValidationError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -532,12 +533,12 @@ def test_mongodb_system_collections_included_when_opted_in(
     )
 
 
-def test_default_emits_mongodb_platform_urns(mock_mongo_client, pipeline_context):
+def test_default_emits_mongodb_platform(mock_mongo_client, pipeline_context):
     """
     Test that the default configuration emits mongodb platform URNs.
 
-    Without setting emit_as_documentdb, dataset URNs and SchemaMetadata.platform
-    must carry the mongodb data-platform URN to preserve backward compatibility.
+    Without overriding platform, dataset URNs and SchemaMetadata.platform must
+    carry the mongodb data-platform URN to preserve backward compatibility.
     """
     mock_mongo_client.list_database_names.return_value = ["mydb"]
 
@@ -569,17 +570,12 @@ def test_default_emits_mongodb_platform_urns(mock_mongo_client, pipeline_context
     assert len(schema_metadata_aspects) == 1
     assert schema_metadata_aspects[0].platform == "urn:li:dataPlatform:mongodb"
 
-    # Default configuration is fully coherent — no warning should be surfaced.
-    assert not any(
-        "emit_as_documentdb" in (w.title or "") for w in source.report.warnings
-    )
 
-
-def test_emit_as_documentdb_with_aws_hosting_uses_documentdb_platform(
+def test_platform_documentdb_with_aws_hosting_uses_documentdb_platform(
     mock_mongo_client, pipeline_context
 ):
     """
-    Test that emit_as_documentdb + AWS_DOCUMENTDB hosting flips the platform.
+    Test that platform=documentdb + hostingEnvironment=AWS_DOCUMENTDB flips the platform.
 
     Dataset URNs and SchemaMetadata.platform must both carry the documentdb
     data-platform URN.
@@ -599,7 +595,7 @@ def test_emit_as_documentdb_with_aws_hosting_uses_documentdb_platform(
     config = MongoDBConfig(
         connect_uri="mongodb://localhost:27017",
         enableSchemaInference=True,
-        emit_as_documentdb=True,
+        platform="documentdb",
         hostingEnvironment=HostingEnvironment.AWS_DOCUMENTDB,
     )
     source = MongoDBSource(ctx=pipeline_context, config=config)
@@ -616,17 +612,12 @@ def test_emit_as_documentdb_with_aws_hosting_uses_documentdb_platform(
     assert len(schema_metadata_aspects) == 1
     assert schema_metadata_aspects[0].platform == "urn:li:dataPlatform:documentdb"
 
-    # When both flags are coherent, no warning is surfaced.
-    assert not any(
-        "emit_as_documentdb" in (w.title or "") for w in source.report.warnings
-    )
 
-
-def test_emit_as_documentdb_with_platform_instance_propagates_to_all_urns(
+def test_platform_documentdb_with_platform_instance_propagates_to_all_urns(
     mock_mongo_client, pipeline_context
 ):
     """
-    Test that emit_as_documentdb flows through to the DataPlatformInstance aspect.
+    Test that platform=documentdb flows through to the DataPlatformInstance aspect.
 
     DataPlatformInstance is only emitted when platform_instance is configured,
     so this is the only path that exercises self.platform inside
@@ -645,7 +636,7 @@ def test_emit_as_documentdb_with_platform_instance_propagates_to_all_urns(
     config = MongoDBConfig(
         connect_uri="mongodb://localhost:27017",
         enableSchemaInference=False,
-        emit_as_documentdb=True,
+        platform="documentdb",
         hostingEnvironment=HostingEnvironment.AWS_DOCUMENTDB,
         platform_instance="prod-docdb",
     )
@@ -676,13 +667,13 @@ def test_emit_as_documentdb_with_platform_instance_propagates_to_all_urns(
     }
 
 
-def test_aws_documentdb_hosting_without_emit_flag_stays_mongodb(
+def test_aws_documentdb_hosting_without_platform_override_stays_mongodb(
     mock_mongo_client, pipeline_context
 ):
     """
     Test that AWS_DOCUMENTDB hosting alone does not flip the platform.
 
-    Without the explicit emit_as_documentdb opt-in, DocumentDB users keep
+    Without the explicit platform=documentdb opt-in, DocumentDB users keep
     receiving mongodb URNs for backward compatibility.
     """
     mock_mongo_client.list_database_names.return_value = ["mydb"]
@@ -699,7 +690,6 @@ def test_aws_documentdb_hosting_without_emit_flag_stays_mongodb(
         connect_uri="mongodb://localhost:27017",
         enableSchemaInference=False,
         hostingEnvironment=HostingEnvironment.AWS_DOCUMENTDB,
-        # emit_as_documentdb left at default (False)
     )
     source = MongoDBSource(ctx=pipeline_context, config=config)
     assert source.platform == "mongodb"
@@ -711,47 +701,17 @@ def test_aws_documentdb_hosting_without_emit_flag_stays_mongodb(
         "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.users,PROD)"
     }
 
-    # No misconfiguration → no warning.
-    assert not any(
-        "emit_as_documentdb" in (w.title or "") for w in source.report.warnings
-    )
 
-
-def test_emit_as_documentdb_without_aws_hosting_is_noop_and_warns(
-    mock_mongo_client, pipeline_context
-):
+def test_platform_documentdb_without_aws_hosting_rejected_at_parse_time():
     """
-    Test that emit_as_documentdb without AWS_DOCUMENTDB hosting is a no-op.
+    Test that platform=documentdb without AWS_DOCUMENTDB hosting is rejected.
 
-    The platform stays mongodb and the source surfaces a warning in its
-    ingestion report so the misconfiguration is visible to the user.
+    The model validator fails loud at config parse time rather than silently
+    emitting mongodb URNs at runtime, so the misconfiguration is caught before
+    ingestion starts.
     """
-    mock_mongo_client.list_database_names.return_value = ["mydb"]
-
-    mock_database = MagicMock()
-    mock_mongo_client.__getitem__.return_value = mock_database
-    mock_database.list_collection_names.return_value = ["users"]
-
-    mock_collection = MagicMock()
-    mock_database.__getitem__.return_value = mock_collection
-    mock_collection.aggregate.return_value = []
-
-    config = MongoDBConfig(
-        connect_uri="mongodb://localhost:27017",
-        enableSchemaInference=False,
-        emit_as_documentdb=True,
-        # hostingEnvironment left at default (SELF_HOSTED)
-    )
-    source = MongoDBSource(ctx=pipeline_context, config=config)
-    # Platform stays mongodb — flag is a no-op without the gating condition.
-    assert source.platform == "mongodb"
-
-    workunits = list(source.get_workunits_internal())
-
-    dataset_urns = get_dataset_urns(workunits)
-    assert dataset_urns == {
-        "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.users,PROD)"
-    }
-
-    # Misconfiguration → warning surfaced in source report.
-    assert any("emit_as_documentdb" in (w.title or "") for w in source.report.warnings)
+    with pytest.raises(ValidationError):
+        MongoDBConfig(
+            connect_uri="mongodb://localhost:27017",
+            platform="documentdb",
+        )
