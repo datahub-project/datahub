@@ -18,8 +18,16 @@
 import { test } from '../../fixtures/base-test';
 import { StatsTabPage } from '../../pages/stats-v2/stats-tab.page';
 import { ChangeHistoryChart } from '../../pages/stats-v2/change-history-chart.page';
-import { getSampleProfile } from '../../helpers/stats-mock-helper';
+import { getSampleProfile } from '../../factories/mock-responses/stats';
 import { TIMEOUTS } from '../../utils/constants';
+import {
+  TEST_DATASET_URN,
+  DEFAULT_PRIVILEGES,
+  OPERATION_TYPES,
+  CUSTOM_OPERATION_PREFIX,
+  CUSTOM_OPERATION_TYPE,
+  CUSTOM_OPERATION_DISPLAY,
+} from './stats-constants';
 
 // Helper to get start of day and subtract days
 const getStartOfDay = (daysAgo = 0): number => {
@@ -37,15 +45,7 @@ const getDateString = (daysAgo = 0): string => {
 };
 
 const TEST_DATA = {
-  DATASET_URN: 'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_stats_test,PROD)',
-} as const;
-
-const DEFAULT_PRIVILEGES = {
-  __typename: 'DatasetPrivileges',
-  canViewDatasetProfile: true,
-  canViewDatasetUsage: true,
-  canViewDatasetOperations: true,
-  canEditDatasetProperties: true,
+  DATASET_URN: TEST_DATASET_URN,
 } as const;
 
 test.use({ featureName: 'stats-v2' });
@@ -58,10 +58,7 @@ test.describe('Change History Calendar', () => {
     statsPage = new StatsTabPage(page, logger, logDir);
     historyHelper = new ChangeHistoryChart(page, logger, logDir);
     await apiMock.setFeatureFlags({ showStatsTabRedesign: true });
-
-    // Force-close any open drawers from previous tests
     await historyHelper.forceCloseDrawer();
-    await page.waitForTimeout(TIMEOUTS.QUICK);
   });
 
   test('should be available when there are some data', async ({ apiMock }) => {
@@ -248,7 +245,7 @@ test.describe('Change History Calendar', () => {
             totalDrops: 1,
             totalCustoms: 1,
             totalOperations: 7,
-            customOperationsMap: [{ key: 'custom_type', value: 1 }],
+            customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
           },
         },
       },
@@ -271,7 +268,7 @@ test.describe('Change History Calendar', () => {
             totalDrops: 1,
             totalCustoms: 1,
             totalOperations: 7,
-            customOperationsMap: [{ key: 'custom_type', value: 1 }],
+            customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
           },
           buckets: [
             { bucket: today, aggregations: { totalCreates: 1 } },
@@ -282,7 +279,7 @@ test.describe('Change History Calendar', () => {
             { bucket: getStartOfDay(5), aggregations: { totalDrops: 1 } },
             {
               bucket: getStartOfDay(7),
-              aggregations: { totalCustoms: 1, customOperationsMap: [{ key: 'custom_type', value: 1 }] },
+              aggregations: { totalCustoms: 1, customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }] },
             },
           ],
         },
@@ -292,17 +289,16 @@ test.describe('Change History Calendar', () => {
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
     await statsPage.verifyChangeHistoryChartIsVisible();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     // Test days 0-7 matching Cypress test exactly
     const daysWithOperations = [
-      { offset: 0, expectedOp: 'operation-CREATE', expectedCount: '1' },
-      { offset: 1, expectedOp: 'operation-UPDATE', expectedCount: '1' },
-      { offset: 2, expectedOp: 'operation-DELETE', expectedCount: '1' },
-      { offset: 3, expectedOp: 'operation-INSERT', expectedCount: '1' },
-      { offset: 4, expectedOp: 'operation-ALTER', expectedCount: '1' },
-      { offset: 5, expectedOp: 'operation-DROP', expectedCount: '1' },
-      { offset: 7, expectedOp: 'operation-custom_custom_type', expectedCount: '1' },
+      { offset: 0, expectedOp: OPERATION_TYPES.CREATE, expectedCount: '1' },
+      { offset: 1, expectedOp: OPERATION_TYPES.UPDATE, expectedCount: '1' },
+      { offset: 2, expectedOp: OPERATION_TYPES.DELETE, expectedCount: '1' },
+      { offset: 3, expectedOp: OPERATION_TYPES.INSERT, expectedCount: '1' },
+      { offset: 4, expectedOp: OPERATION_TYPES.ALTER, expectedCount: '1' },
+      { offset: 5, expectedOp: OPERATION_TYPES.DROP, expectedCount: '1' },
+      { offset: 7, expectedOp: `${CUSTOM_OPERATION_PREFIX}${CUSTOM_OPERATION_TYPE}`, expectedCount: '1' },
     ];
 
     for (const { offset, expectedOp, expectedCount } of daysWithOperations) {
@@ -403,7 +399,7 @@ test.describe('Change History Calendar', () => {
             totalDrops: 1,
             totalCustoms: 1,
             totalOperations: 7,
-            customOperationsMap: [{ key: 'custom_type', value: 1 }],
+            customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
           },
         },
       },
@@ -425,7 +421,7 @@ test.describe('Change History Calendar', () => {
             totalDrops: 1,
             totalCustoms: 1,
             totalOperations: 7,
-            customOperationsMap: [{ key: 'custom_type', value: 1 }],
+            customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
           },
           buckets: [
             { bucket: today, aggregations: { totalCreates: 1 } },
@@ -436,7 +432,7 @@ test.describe('Change History Calendar', () => {
             { bucket: getStartOfDay(5), aggregations: { totalDrops: 1 } },
             {
               bucket: getStartOfDay(7),
-              aggregations: { totalCustoms: 1, customOperationsMap: [{ key: 'custom_type', value: 1 }] },
+              aggregations: { totalCustoms: 1, customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }] },
             },
           ],
         },
@@ -446,15 +442,13 @@ test.describe('Change History Calendar', () => {
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
     await statsPage.verifyChangeHistoryChartIsVisible();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     // ──────────────────────────────────────────────────────────
     // TOGGLE: Turn OFF all 6 operation types (matching Cypress test)
     // ──────────────────────────────────────────────────────────
-    const typesSelect = page.getByTestId('types-select');
 
     // Open dropdown
-    await typesSelect.click({ timeout: TIMEOUTS.SHORT });
+    await historyHelper.typesSelect.click({ timeout: TIMEOUTS.SHORT });
     await page.waitForTimeout(TIMEOUTS.QUICK);
 
     // Toggle all 6 standard operation types OFF
@@ -464,7 +458,7 @@ test.describe('Change History Calendar', () => {
     }
 
     // Close dropdown by clicking it again
-    await typesSelect.click({ timeout: TIMEOUTS.SHORT });
+    await historyHelper.typesSelect.click({ timeout: TIMEOUTS.SHORT });
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
@@ -476,7 +470,7 @@ test.describe('Change History Calendar', () => {
       await historyHelper.hoverDay(dayDateStr);
 
       // BEHAVIOR CHECK: After filtering all types, these days should have no operations
-      const popover = page.getByTestId(`day-popover-${dayDateStr}`);
+      const popover = historyHelper.getDayPopover(dayDateStr);
       if ((await popover.count()) > 0) {
         const noOpsMsg = popover.getByTestId('no-changes-this-day');
         if ((await noOpsMsg.count()) === 0) {
@@ -496,7 +490,7 @@ test.describe('Change History Calendar', () => {
       throw new Error(`Day -7 popover should be visible after filtering`);
     }
 
-    const customOp = day7Popover.getByTestId('operation-custom_custom_type');
+    const customOp = day7Popover.getByTestId(`${CUSTOM_OPERATION_PREFIX}${CUSTOM_OPERATION_TYPE}`);
     if ((await customOp.count()) === 0) {
       throw new Error('Day -7 should show custom_custom_type operation after filtering standard types');
     }
@@ -574,7 +568,7 @@ test.describe('Change History Calendar', () => {
             totalDrops: 1,
             totalCustoms: 1,
             totalOperations: 7,
-            customOperationsMap: [{ key: 'custom_type', value: 1 }],
+            customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
           },
         },
       },
@@ -596,7 +590,7 @@ test.describe('Change History Calendar', () => {
             totalDrops: 1,
             totalCustoms: 1,
             totalOperations: 7,
-            customOperationsMap: [{ key: 'custom_type', value: 1 }],
+            customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
           },
           buckets: [
             { bucket: today, aggregations: { totalCreates: 1 } },
@@ -607,7 +601,7 @@ test.describe('Change History Calendar', () => {
             { bucket: getStartOfDay(5), aggregations: { totalDrops: 1 } },
             {
               bucket: getStartOfDay(7),
-              aggregations: { totalCustoms: 1, customOperationsMap: [{ key: 'custom_type', value: 1 }] },
+              aggregations: { totalCustoms: 1, customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }] },
             },
           ],
         },
@@ -617,17 +611,16 @@ test.describe('Change History Calendar', () => {
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
     await statsPage.verifyChangeHistoryChartIsVisible();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     // ──────────────────────────────────────────────────────────
     // TOGGLE: Click the custom_custom_type summary pill to filter
     // ──────────────────────────────────────────────────────────
-    const customPill = historyHelper.getSummaryPill('custom_custom_type');
+    const customPill = historyHelper.getSummaryPill(CUSTOM_OPERATION_DISPLAY);
     if ((await customPill.count()) === 0) {
       throw new Error('Custom summary pill should exist to test pill filtering');
     }
 
-    await historyHelper.toggleSummaryPill('custom_custom_type');
+    await historyHelper.toggleSummaryPill(CUSTOM_OPERATION_DISPLAY);
     await page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     // ──────────────────────────────────────────────────────────
@@ -658,7 +651,7 @@ test.describe('Change History Calendar', () => {
       throw new Error(`Day -7 popover should be visible after custom pill toggle`);
     }
 
-    const customOp = day7Popover.getByTestId('operation-custom_custom_type');
+    const customOp = day7Popover.getByTestId(`${CUSTOM_OPERATION_PREFIX}${CUSTOM_OPERATION_TYPE}`);
     if ((await customOp.count()) === 0) {
       throw new Error('Day -7 should show custom_custom_type operation after custom pill toggle');
     }
@@ -744,7 +737,7 @@ test.describe('Change History Calendar', () => {
             totalDrops: 1,
             totalCustoms: 1,
             totalOperations: 7,
-            customOperationsMap: [{ key: 'custom_type', value: 1 }],
+            customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
           },
         },
       },
@@ -869,7 +862,7 @@ test.describe('Change History Calendar', () => {
                 totalDrops: 0,
                 totalCustoms: 1,
                 totalOperations: 1,
-                customOperationsMap: [{ key: 'custom_type', value: 1 }],
+                customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
               },
               __typename: 'OperationsAggregation',
             },

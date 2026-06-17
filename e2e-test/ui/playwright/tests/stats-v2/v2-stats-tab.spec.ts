@@ -4,20 +4,21 @@
  * Comprehensive tests for the statistics tab V2 redesign.
  * Tests tab enable/disable state, accessibility attributes, visibility, and content rendering.
  *
- * Uses fixture data from tests/stats-v2/fixtures/data.json:
+ * Fixture Reference: tests/stats-v2/fixtures/data.json defines the test dataset schema:
  * - Test dataset: urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_stats_test,PROD)
+ * - Tests use inline GraphQL mocks (apiMock) rather than loading the fixture directly
  *
  * Test Scope: Tab state logic, visibility, permissions, content rendering, accessibility
  * Migrated from: smoke-test/tests/cypress/cypress/e2e/statsTabV2/statsTab.js
  */
 
-import { expect, Page } from '@playwright/test';
-import { test } from '../../fixtures/base-test';
+import { test, expect } from '../../fixtures/base-test';
 import { StatsTabPage } from '../../pages/stats-v2/stats-tab.page';
-import { getSampleProfile, getSampleUsageStats } from '../../helpers/stats-mock-helper';
+import { getSampleProfile, getSampleUsageStats } from '../../factories/mock-responses/stats';
+import { TEST_DATASET_URN } from './stats-constants';
 
 const TEST_DATA = {
-  DATASET_URN: 'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_stats_test,PROD)',
+  DATASET_URN: TEST_DATASET_URN,
 } as const;
 
 const mockDatasetResponse = (overrides?: Record<string, unknown>) => ({
@@ -47,8 +48,6 @@ const mockDatasetResponse = (overrides?: Record<string, unknown>) => ({
   },
 });
 
-const getStatsTab = (page: Page) => page.getByRole('tab', { name: 'Stats' });
-
 test.use({ featureName: 'stats-v2' });
 
 test.describe('Stats Tab V2 - Tab Enable/Disable State', () => {
@@ -61,15 +60,14 @@ test.describe('Stats Tab V2 - Tab Enable/Disable State', () => {
 
   test('should be disabled when entity has no latestFullTableProfile, latestPartitionProfile or usageStats', async ({
     apiMock,
-    page,
   }) => {
     await apiMock.mockGraphQL('getDataset', mockDatasetResponse());
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
 
-    await expect(getStatsTab(page)).toHaveAttribute('aria-disabled', 'true');
+    await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-disabled', 'true');
   });
 
-  test('should be enabled when entity has latestFullTableProfile', async ({ apiMock, page }) => {
+  test('should be enabled when entity has latestFullTableProfile', async ({ apiMock }) => {
     const sampleProfile = getSampleProfile(Date.now());
     await apiMock.mockGraphQL(
       'getDataset',
@@ -79,10 +77,10 @@ test.describe('Stats Tab V2 - Tab Enable/Disable State', () => {
     );
 
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
-    await expect(getStatsTab(page)).toHaveAttribute('aria-disabled', 'false');
+    await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-disabled', 'false');
   });
 
-  test('should be enabled when entity has latestPartitionProfile', async ({ apiMock, page }) => {
+  test('should be enabled when entity has latestPartitionProfile', async ({ apiMock }) => {
     const sampleProfile = getSampleProfile(Date.now());
     await apiMock.mockGraphQL(
       'getDataset',
@@ -92,10 +90,10 @@ test.describe('Stats Tab V2 - Tab Enable/Disable State', () => {
     );
 
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
-    await expect(getStatsTab(page)).toHaveAttribute('aria-disabled', 'false');
+    await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-disabled', 'false');
   });
 
-  test('should be enabled when entity has usageStats', async ({ apiMock, page }) => {
+  test('should be enabled when entity has usageStats', async ({ apiMock }) => {
     const sampleUsageStats = getSampleUsageStats(Date.now());
     await apiMock.mockGraphQL(
       'getDataset',
@@ -105,7 +103,7 @@ test.describe('Stats Tab V2 - Tab Enable/Disable State', () => {
     );
 
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
-    await expect(getStatsTab(page)).toHaveAttribute('aria-disabled', 'false');
+    await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-disabled', 'false');
   });
 });
 
@@ -125,10 +123,10 @@ test.describe('Stats Tab V2 - Tab Interaction', () => {
     );
   });
 
-  test('should be clickable', async ({ page }) => {
+  test('should be clickable', async () => {
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
     await statsPage.clickStatsTab();
 
-    await expect(getStatsTab(page)).toHaveAttribute('aria-selected', 'true');
+    await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-selected', 'true');
   });
 });

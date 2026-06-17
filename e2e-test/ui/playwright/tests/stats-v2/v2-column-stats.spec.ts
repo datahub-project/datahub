@@ -13,10 +13,11 @@
 
 import { test } from '../../fixtures/base-test';
 import { StatsTabPage } from '../../pages/stats-v2/stats-tab.page';
-import { getSampleProfile, getSchemaMetadata, getExpectedColumnStats } from '../../helpers/stats-mock-helper';
+import { getSampleProfile, getSchemaMetadata, getExpectedColumnStats } from '../../factories/mock-responses/stats';
+import { TEST_DATASET_URN } from './stats-constants';
 
 const TEST_DATA = {
-  DATASET_URN: 'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_stats_test,PROD)',
+  DATASET_URN: TEST_DATASET_URN,
   COLUMNS: {
     USER_ID: 'user_id',
     USER_NAME: 'user_name',
@@ -37,9 +38,6 @@ test.describe('Column Statistics Table', () => {
   test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
     statsPage = new StatsTabPage(page, logger, logDir);
     expectedStats = getExpectedColumnStats();
-
-    // Feature flag is already enabled by default in test environment - not needed
-    // await apiMock.setFeatureFlags({ showStatsTabRedesign: true });
 
     const timestamp = Date.now();
     const sampleProfile = getSampleProfile(timestamp);
