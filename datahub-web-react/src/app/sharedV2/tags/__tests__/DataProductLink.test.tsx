@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
+import { ThemeProvider } from 'styled-components';
 
 import { DataProductLink } from '@app/sharedV2/tags/DataProductLink';
 import themeV2 from '@conf/theme/themeV2';
-import { ThemeProvider } from 'styled-components';
 
 import { EntityType } from '@types';
 
