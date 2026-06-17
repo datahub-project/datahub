@@ -21,6 +21,12 @@ SNOWFLAKE_OBJECT_NAME_RE = re.compile(
     r"^[A-Za-z_][A-Za-z0-9_$]*(\.[A-Za-z_][A-Za-z0-9_$]*)*$"
 )
 
+# An allow-pattern that contains only Snowflake unquoted identifier characters
+# and dots (FQN separators), terminated by a '$' anchor. No other regex
+# metacharacters. Such patterns can be lowered to a faster IN clause rather
+# than an OR-chain of RLIKE predicates.
+_EXACT_FQN_PATTERN_RE = re.compile(r"^[A-Za-z0-9_$.]+\$$")
+
 
 def create_deny_regex_sql_filter(
     deny_pattern: List[str], filter_cols: List[str]
@@ -92,6 +98,22 @@ class SnowflakeQuery:
         conditions: List[str] = []
 
         has_allow_all = ".*" in pattern.allow
+
+        # Optimization: when every allow pattern is an exact FQN literal (only
+        # unquoted-identifier chars and FQN-separator dots, terminated by '$') and
+        # there are no deny patterns, replace the OR-chain of RLIKE predicates with
+        # a single IN clause. IN uses a hash lookup per row; RLIKE OR-chains compile
+        # each regex independently and scale super-linearly with clause count.
+        if (
+            not has_allow_all
+            and pattern.allow
+            and not pattern.deny
+            and all(_EXACT_FQN_PATTERN_RE.match(p) for p in pattern.allow)
+        ):
+            in_values = ", ".join(
+                "'" + transform(p[:-1]).replace("'", "''") + "'" for p in pattern.allow
+            )
+            return f"{col_expr} IN ({in_values})"
 
         if not has_allow_all and pattern.allow:
             allow_conditions: List[str] = []
