@@ -20,7 +20,6 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
-import com.linkedin.policy.DataHubPolicyInfo;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.metadata.exception.OperationContextException;
 import io.datahubproject.metadata.exception.TraceException;
@@ -421,7 +420,7 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   @Override
   public AuthorizationResult authorize(
       @Nonnull String privilege, @Nullable EntitySpec resourceSpec) {
-    return authorizationContext.authorize(getSessionActorContext(), privilege, resourceSpec);
+    return authorizationContext.authorize(this, getSessionActorContext(), privilege, resourceSpec);
   }
 
   public AuthorizationResult authorize(
@@ -429,7 +428,7 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
       @Nullable EntitySpec resourceSpec,
       @Nonnull Collection<EntitySpec> subResources) {
     return authorizationContext.authorize(
-        getSessionActorContext(), privilege, resourceSpec, subResources);
+        this, getSessionActorContext(), privilege, resourceSpec, subResources);
   }
 
   @Nullable
@@ -688,24 +687,26 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
         @Nonnull Authentication sessionAuthentication,
         boolean skipCache,
         boolean enforceExistenceEnabled) {
-      final Urn actorUrn = UrnUtils.getUrn(sessionAuthentication.getActor().toUrnStr());
-      final Set<DataHubPolicyInfo> policyInfoSet =
-          this.authorizationContext.getAuthorizer().getActorPolicies(actorUrn);
-      final ActorContext sessionActor =
+      final Authentication systemAuthentication = systemAuthenticationOrNull();
+      final ActorContext provisionalActor =
           ActorContext.builder()
               .authentication(sessionAuthentication)
-              .systemAuth(
-                  this.systemActorContext != null
-                      && this.systemActorContext
-                          .getAuthentication()
-                          .getActor()
-                          .equals(sessionAuthentication.getActor()))
-              .policyInfoSet(policyInfoSet)
-              .actorPoliciesByPrivilege(ActorContext.indexPoliciesByPrivilege(policyInfoSet))
-              .groupMembership(this.authorizationContext.getAuthorizer().getActorGroups(actorUrn))
+              .systemAuth(ActorContext.isSystemSession(sessionAuthentication, systemAuthentication))
               .enforceExistenceEnabled(enforceExistenceEnabled)
               .build();
+      final OperationContext provisionalContext = build(provisionalActor, skipCache);
+      final ActorContext sessionActor =
+          this.authorizationContext.buildSessionActor(
+              provisionalContext,
+              sessionAuthentication,
+              systemAuthentication,
+              enforceExistenceEnabled);
       return build(sessionActor, skipCache);
+    }
+
+    @Nullable
+    private Authentication systemAuthenticationOrNull() {
+      return this.systemActorContext != null ? this.systemActorContext.getAuthentication() : null;
     }
 
     @Nonnull

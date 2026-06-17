@@ -9,7 +9,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertNotNull;
 
-import com.datahub.authentication.group.GroupService;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataplatforminstance.DataPlatformInstanceType;
 import com.linkedin.datahub.graphql.types.knowledge.DocumentType;
@@ -34,7 +33,6 @@ public class DocumentResolversTest {
   private GraphClient mockGraphClient;
   private EntityRegistry mockEntityRegistry;
   private com.linkedin.metadata.timeline.TimelineService mockTimelineService;
-  private GroupService mockGroupService;
   private DocumentResolvers resolvers;
 
   @BeforeMethod
@@ -48,7 +46,6 @@ public class DocumentResolversTest {
     mockGraphClient = mock(GraphClient.class);
     mockEntityRegistry = mock(EntityRegistry.class);
     mockTimelineService = mock(com.linkedin.metadata.timeline.TimelineService.class);
-    mockGroupService = mock(GroupService.class);
 
     resolvers =
         new DocumentResolvers(
@@ -61,8 +58,7 @@ public class DocumentResolversTest {
             mockEntityService,
             mockGraphClient,
             mockEntityRegistry,
-            mockTimelineService,
-            mockGroupService);
+            mockTimelineService);
   }
 
   @Test
