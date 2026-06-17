@@ -76,7 +76,8 @@ public class HealthCheckPoller {
   public void poll() {
     try {
       // Poll cluster health
-      ClusterHealthResponse clusterHealth = indexBuilder.getClusterHealth();
+      // TODO(opcontext-pr6): widen caller — HealthCheckPoller.poll needs opContext threaded in
+      ClusterHealthResponse clusterHealth = indexBuilder.getClusterHealth(null);
 
       // Compute health signals from heap and rejection metrics
       HealthSignals signals = computeHealthSignals();
@@ -217,7 +218,8 @@ public class HealthCheckPoller {
 
     try {
       // Single consolidated call to get both heap and rejection metrics in one API call
-      OpenSearchJvmInfo.NodeMetrics metrics = indexBuilder.getJvminfo().getDataNodeMetrics();
+      // TODO(opcontext-pr6): widen caller — HealthCheckPoller needs opContext threaded in
+      OpenSearchJvmInfo.NodeMetrics metrics = indexBuilder.getJvminfo().getDataNodeMetrics(null);
       heapMap = metrics.getHeapMap();
       rejMap = metrics.getRejectionMap();
     } catch (Exception e) {

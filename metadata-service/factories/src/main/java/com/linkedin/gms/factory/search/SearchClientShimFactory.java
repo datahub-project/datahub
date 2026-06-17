@@ -10,6 +10,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUt
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es7CompatibilitySearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
@@ -42,6 +43,14 @@ public class SearchClientShimFactory {
   @Autowired
   @Qualifier("elasticSearchSSLContext")
   private SSLContext elasticSearchSSLContext;
+
+  // TODO(opcontext-pr6): system context is the only available context at Spring bean construction
+  // time — there is no per-event request yet. Wired here so that the auto-detect engine-version
+  // probe in SearchClientShimUtil can pass a real context (never null) to the shim, avoiding NPEs
+  // in any downstream decorator (e.g. cloud EnrichingShim).
+  @Autowired
+  @Qualifier("systemOperationContext")
+  private OperationContext systemOperationContext;
 
   /**
    * Create the SearchClientShim bean. This can be configured to either: (1) auto-detect the search
@@ -131,7 +140,12 @@ public class SearchClientShimFactory {
     SearchClientShim<?> shim;
     if (shimAutoDetectEngine) {
       log.info("Auto-detecting search engine type for shim");
-      shim = SearchClientShimUtil.createShimWithAutoDetection(configBuilder.build(), objectMapper);
+      // Pass systemOperationContext so the engine-version probe inside auto-detect has a real
+      // OperationFingerprint to thread through any decorator (e.g. cloud EnrichingShim). Passing
+      // null here would NPE downstream.
+      shim =
+          SearchClientShimUtil.createShimWithAutoDetection(
+              configBuilder.build(), objectMapper, systemOperationContext);
     } else {
       // Parse the configured engine type
       SearchClientShim.SearchEngineType engineType = parseEngineType(shimEngineType);

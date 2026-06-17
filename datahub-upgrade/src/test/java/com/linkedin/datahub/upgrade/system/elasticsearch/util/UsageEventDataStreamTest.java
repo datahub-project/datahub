@@ -2,11 +2,14 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +40,9 @@ import org.testng.annotations.Test;
  */
 @Slf4j
 public class UsageEventDataStreamTest {
+
+  private static final OperationContext OP_CONTEXT =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   private static final int HTTP_PORT = 9200;
   private static final Duration STARTUP_TIMEOUT = Duration.ofMinutes(3);
@@ -103,7 +109,7 @@ public class UsageEventDataStreamTest {
     Mockito.doReturn(searchClient).when(esComponents).getSearchClient();
 
     log.info("Test environment ready:");
-    log.info("  ES version: {}", searchClient.getEngineVersion());
+    log.info("  ES version: {}", searchClient.getEngineVersion(OperationFingerprint.EMPTY));
     log.info("  Engine type: {}", searchClient.getEngineType());
   }
 
@@ -150,18 +156,18 @@ public class UsageEventDataStreamTest {
     try {
       // 1. Create ILM policy
       log.info("Step 1: Creating ILM policy: {}", policyName);
-      UsageEventIndexUtils.createIlmPolicy(esComponents, policyName);
+      UsageEventIndexUtils.createIlmPolicy(OP_CONTEXT, esComponents, policyName);
       assertTrue(ilmPolicyExists(policyName), "ILM policy should exist after creation");
 
       // 2. Create index template with data_stream configuration
       log.info("Step 2: Creating index template: {}", templateName);
       UsageEventIndexUtils.createIndexTemplate(
-          esComponents, templateName, policyName, 1, 0, testPrefix);
+          OP_CONTEXT, esComponents, templateName, policyName, 1, 0, testPrefix);
       assertTrue(templateExists(templateName), "Template should exist after creation");
 
       // 3. Create data stream - this should use the proper data stream API
       log.info("Step 3: Creating data stream: {}", dataStreamName);
-      UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+      UsageEventIndexUtils.createDataStream(OP_CONTEXT, esComponents, dataStreamName);
 
       // 4. Verify the data stream was created
       assertTrue(dataStreamExists(dataStreamName), "Data stream should exist after creation");
@@ -200,18 +206,18 @@ public class UsageEventDataStreamTest {
     try {
       // Setup
       log.info("Setting up ILM policy and template");
-      UsageEventIndexUtils.createIlmPolicy(esComponents, policyName);
+      UsageEventIndexUtils.createIlmPolicy(OP_CONTEXT, esComponents, policyName);
       UsageEventIndexUtils.createIndexTemplate(
-          esComponents, templateName, policyName, 1, 0, testPrefix);
+          OP_CONTEXT, esComponents, templateName, policyName, 1, 0, testPrefix);
 
       // Create data stream first time
       log.info("Creating data stream (first time)");
-      UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+      UsageEventIndexUtils.createDataStream(OP_CONTEXT, esComponents, dataStreamName);
       assertTrue(dataStreamExists(dataStreamName), "Data stream should exist after first creation");
 
       // Create data stream second time - should not throw exception
       log.info("Creating data stream (second time - should be idempotent)");
-      UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+      UsageEventIndexUtils.createDataStream(OP_CONTEXT, esComponents, dataStreamName);
       assertTrue(
           dataStreamExists(dataStreamName), "Data stream should still exist after second creation");
 
@@ -245,14 +251,14 @@ public class UsageEventDataStreamTest {
       // Simulate the full workflow from CreateUsageEventIndicesStep
       log.info("Running full workflow (simulating CreateUsageEventIndicesStep):");
       log.info("  1. Create ILM policy");
-      UsageEventIndexUtils.createIlmPolicy(esComponents, policyName);
+      UsageEventIndexUtils.createIlmPolicy(OP_CONTEXT, esComponents, policyName);
 
       log.info("  2. Create index template with data_stream config");
       UsageEventIndexUtils.createIndexTemplate(
-          esComponents, templateName, policyName, 1, 0, prefix);
+          OP_CONTEXT, esComponents, templateName, policyName, 1, 0, prefix);
 
       log.info("  3. Create data stream (this is where PFP-2428 was failing)");
-      UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+      UsageEventIndexUtils.createDataStream(OP_CONTEXT, esComponents, dataStreamName);
 
       // Verify everything was created
       assertTrue(dataStreamExists(dataStreamName), "Data stream should exist");
@@ -262,7 +268,7 @@ public class UsageEventDataStreamTest {
       log.info("  4. Verify data stream metadata");
       RawResponse response =
           searchClient.performLowLevelRequest(
-              new Request("GET", "/_data_stream/" + dataStreamName));
+              OperationFingerprint.EMPTY, new Request("GET", "/_data_stream/" + dataStreamName));
       assertEquals(
           response.getStatusLine().getStatusCode(),
           200,
@@ -297,10 +303,10 @@ public class UsageEventDataStreamTest {
     try {
       // Setup
       log.info("Setting up data stream");
-      UsageEventIndexUtils.createIlmPolicy(esComponents, policyName);
+      UsageEventIndexUtils.createIlmPolicy(OP_CONTEXT, esComponents, policyName);
       UsageEventIndexUtils.createIndexTemplate(
-          esComponents, templateName, policyName, 1, 0, testPrefix);
-      UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+          OP_CONTEXT, esComponents, templateName, policyName, 1, 0, testPrefix);
+      UsageEventIndexUtils.createDataStream(OP_CONTEXT, esComponents, dataStreamName);
 
       // Write a test document to the data stream
       log.info("Writing test document to data stream");
@@ -308,7 +314,8 @@ public class UsageEventDataStreamTest {
           "{\"@timestamp\": \"2024-01-20T10:00:00Z\", \"type\": \"test\", \"message\": \"test data\"}";
       Request indexRequest = new Request("POST", "/" + dataStreamName + "/_doc");
       indexRequest.setJsonEntity(testDoc);
-      RawResponse indexResponse = searchClient.performLowLevelRequest(indexRequest);
+      RawResponse indexResponse =
+          searchClient.performLowLevelRequest(OperationFingerprint.EMPTY, indexRequest);
 
       assertEquals(
           indexResponse.getStatusLine().getStatusCode(),
@@ -329,7 +336,8 @@ public class UsageEventDataStreamTest {
   private boolean ilmPolicyExists(String policyName) {
     try {
       RawResponse response =
-          searchClient.performLowLevelRequest(new Request("GET", "/_ilm/policy/" + policyName));
+          searchClient.performLowLevelRequest(
+              OperationFingerprint.EMPTY, new Request("GET", "/_ilm/policy/" + policyName));
       return response.getStatusLine().getStatusCode() == 200;
     } catch (Exception e) {
       return false;
@@ -340,7 +348,7 @@ public class UsageEventDataStreamTest {
     try {
       RawResponse response =
           searchClient.performLowLevelRequest(
-              new Request("GET", "/_index_template/" + templateName));
+              OperationFingerprint.EMPTY, new Request("GET", "/_index_template/" + templateName));
       return response.getStatusLine().getStatusCode() == 200;
     } catch (Exception e) {
       return false;
@@ -351,7 +359,7 @@ public class UsageEventDataStreamTest {
     try {
       RawResponse response =
           searchClient.performLowLevelRequest(
-              new Request("GET", "/_data_stream/" + dataStreamName));
+              OperationFingerprint.EMPTY, new Request("GET", "/_data_stream/" + dataStreamName));
       return response.getStatusLine().getStatusCode() == 200;
     } catch (Exception e) {
       log.debug("Data stream {} does not exist: {}", dataStreamName, e.getMessage());
@@ -363,7 +371,7 @@ public class UsageEventDataStreamTest {
     try {
       RawResponse response =
           searchClient.performLowLevelRequest(
-              new Request("GET", "/_data_stream/" + dataStreamName));
+              OperationFingerprint.EMPTY, new Request("GET", "/_data_stream/" + dataStreamName));
       if (response.getStatusLine().getStatusCode() == 200) {
         // If we can query it via _data_stream API, it's a data stream
         return true;
@@ -377,7 +385,7 @@ public class UsageEventDataStreamTest {
   private void cleanupDataStream(String dataStreamName) {
     try {
       Request request = new Request("DELETE", "/_data_stream/" + dataStreamName);
-      searchClient.performLowLevelRequest(request);
+      searchClient.performLowLevelRequest(OperationFingerprint.EMPTY, request);
       log.debug("Cleaned up data stream: {}", dataStreamName);
     } catch (Exception e) {
       log.debug("Error cleaning up data stream {}: {}", dataStreamName, e.getMessage());
@@ -387,7 +395,7 @@ public class UsageEventDataStreamTest {
   private void cleanupTemplate(String templateName) {
     try {
       Request request = new Request("DELETE", "/_index_template/" + templateName);
-      searchClient.performLowLevelRequest(request);
+      searchClient.performLowLevelRequest(OperationFingerprint.EMPTY, request);
       log.debug("Cleaned up template: {}", templateName);
     } catch (Exception e) {
       log.debug("Error cleaning up template {}: {}", templateName, e.getMessage());
@@ -397,7 +405,7 @@ public class UsageEventDataStreamTest {
   private void cleanupIlmPolicy(String policyName) {
     try {
       Request request = new Request("DELETE", "/_ilm/policy/" + policyName);
-      searchClient.performLowLevelRequest(request);
+      searchClient.performLowLevelRequest(OperationFingerprint.EMPTY, request);
       log.debug("Cleaned up ILM policy: {}", policyName);
     } catch (Exception e) {
       log.debug("Error cleaning up ILM policy {}: {}", policyName, e.getMessage());

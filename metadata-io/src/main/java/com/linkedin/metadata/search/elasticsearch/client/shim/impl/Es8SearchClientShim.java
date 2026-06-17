@@ -79,6 +79,7 @@ import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.TransportOptions;
 import co.elastic.clients.transport.rest_client.RestClientOptions;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -459,7 +460,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public SearchResponse search(
-      @Nonnull SearchRequest searchRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull SearchRequest searchRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     SearchSourceBuilder searchSourceBuilder = searchRequest.source();
     Map<String, Aggregation> aggregationMap =
         convertAggregations(searchSourceBuilder.aggregations());
@@ -698,7 +702,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public SearchResponse scroll(
-      @Nonnull SearchScrollRequest searchScrollRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull SearchScrollRequest searchScrollRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     throw new UnsupportedOperationException("Scroll is unused, not implemented for ES8 Shim.");
   }
@@ -706,14 +712,19 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public ClearScrollResponse clearScroll(
-      @Nonnull ClearScrollRequest clearScrollRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ClearScrollRequest clearScrollRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     throw new UnsupportedOperationException("Scroll is unused, not implemented for ES8 Shim.");
   }
 
   @Nonnull
   @Override
-  public CountResponse count(@Nonnull CountRequest countRequest, @Nonnull RequestOptions options)
+  public CountResponse count(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CountRequest countRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.core.CountRequest esCountRequest =
         new co.elastic.clients.elasticsearch.core.CountRequest.Builder()
@@ -771,7 +782,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public ExplainResponse explain(
-      @Nonnull ExplainRequest explainRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ExplainRequest explainRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     co.elastic.clients.elasticsearch.core.ExplainRequest esExplainRequest =
         new co.elastic.clients.elasticsearch.core.ExplainRequest.Builder()
             .id(explainRequest.id())
@@ -792,7 +806,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   // Document operations
   @Nonnull
   @Override
-  public GetResponse getDocument(@Nonnull GetRequest getRequest, @Nonnull RequestOptions options)
+  public GetResponse getDocument(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetRequest getRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.core.GetRequest esGetRequest =
         new co.elastic.clients.elasticsearch.core.GetRequest.Builder()
@@ -811,7 +828,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public IndexResponse indexDocument(
-      @Nonnull IndexRequest indexRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull IndexRequest indexRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     co.elastic.clients.elasticsearch.core.IndexRequest<JsonNode> esIndexRequest =
         new co.elastic.clients.elasticsearch.core.IndexRequest.Builder<JsonNode>()
             .index(indexRequest.index())
@@ -832,7 +852,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public DeleteResponse deleteDocument(
-      @Nonnull DeleteRequest deleteRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteRequest deleteRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     co.elastic.clients.elasticsearch.core.DeleteRequest esDeleteRequest =
         new co.elastic.clients.elasticsearch.core.DeleteRequest.Builder()
             .id(deleteRequest.id())
@@ -854,7 +877,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public BulkByScrollResponse deleteByQuery(
-      @Nonnull DeleteByQueryRequest deleteByQueryRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteByQueryRequest deleteByQueryRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.core.DeleteByQueryRequest esDeleteByQueryRequest =
         convertDeleteByQueryRequest(deleteByQueryRequest, true);
@@ -899,7 +924,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public CreatePitResponse createPit(
-      @Nonnull CreatePitRequest createPitRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CreatePitRequest createPitRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     OpenPointInTimeRequest esCreatePitRequest =
         new OpenPointInTimeRequest.Builder()
@@ -936,7 +963,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public DeletePitResponse deletePit(
-      @Nonnull DeletePitRequest deletePitRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeletePitRequest deletePitRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     List<String> pitIds = deletePitRequest.getPitIds();
     List<DeletePitInfo> deletePitInfos = new ArrayList<>();
@@ -969,7 +998,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public CreateIndexResponse createIndex(
-      @Nonnull CreateIndexRequest createIndexRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CreateIndexRequest createIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.indices.CreateIndexRequest esCreateIndexRequest =
         new co.elastic.clients.elasticsearch.indices.CreateIndexRequest.Builder()
@@ -994,7 +1025,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public GetIndexResponse getIndex(GetIndexRequest getIndexRequest, RequestOptions options)
+  public GetIndexResponse getIndex(
+      @Nonnull OperationFingerprint opContext,
+      GetIndexRequest getIndexRequest,
+      RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.indices.GetIndexRequest esGetIndexRequest =
         new co.elastic.clients.elasticsearch.indices.GetIndexRequest.Builder()
@@ -1082,7 +1116,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public ResizeResponse cloneIndex(ResizeRequest resizeRequest, RequestOptions options)
+  public ResizeResponse cloneIndex(
+      @Nonnull OperationFingerprint opContext, ResizeRequest resizeRequest, RequestOptions options)
       throws IOException {
     CloneIndexRequest esCloneIndexRequest =
         new CloneIndexRequest.Builder()
@@ -1100,7 +1135,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public AcknowledgedResponse deleteIndex(
-      @Nonnull DeleteIndexRequest deleteIndexRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteIndexRequest deleteIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.indices.DeleteIndexRequest esDeleteIndexRequest =
         new co.elastic.clients.elasticsearch.indices.DeleteIndexRequest.Builder()
@@ -1120,7 +1157,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Override
   public boolean indexExists(
-      @Nonnull GetIndexRequest getIndexRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetIndexRequest getIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.indices.ExistsRequest esIndexRequest =
         new co.elastic.clients.elasticsearch.indices.ExistsRequest.Builder()
@@ -1132,7 +1171,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public AcknowledgedResponse putIndexMapping(
-      @Nonnull PutMappingRequest putMappingRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull PutMappingRequest putMappingRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     Map<String, Object> mappings =
         objectMapper.readValue(putMappingRequest.source().utf8ToString(), new TypeReference<>() {});
@@ -1175,7 +1216,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public GetMappingsResponse getIndexMapping(
-      @Nonnull GetMappingsRequest getMappingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetMappingsRequest getMappingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     GetMappingRequest esGetMappingRequest =
         new GetMappingRequest.Builder().index(Arrays.asList(getMappingsRequest.indices())).build();
@@ -1191,7 +1234,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public GetSettingsResponse getIndexSettings(
-      @Nonnull GetSettingsRequest getSettingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetSettingsRequest getSettingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     GetIndicesSettingsRequest esGetSettingRequest =
         new GetIndicesSettingsRequest.Builder()
@@ -1218,7 +1263,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public AcknowledgedResponse updateIndexSettings(
-      @Nonnull UpdateSettingsRequest updateSettingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull UpdateSettingsRequest updateSettingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     PutIndicesSettingsRequest esPutSettingsRequest =
         new PutIndicesSettingsRequest.Builder()
@@ -1237,7 +1284,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public RefreshResponse refreshIndex(
-      @Nonnull RefreshRequest refreshRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull RefreshRequest refreshRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     co.elastic.clients.elasticsearch.indices.RefreshRequest esRefreshRequest =
         new co.elastic.clients.elasticsearch.indices.RefreshRequest.Builder()
             .index(
@@ -1257,7 +1307,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public GetAliasesResponse getIndexAliases(
-      @Nonnull GetAliasesRequest getAliasesRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetAliasesRequest getAliasesRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     GetAliasRequest esGetAliasRequest =
         new GetAliasRequest.Builder()
@@ -1292,7 +1344,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public AcknowledgedResponse updateIndexAliases(
-      IndicesAliasesRequest indicesAliasesRequest, RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      IndicesAliasesRequest indicesAliasesRequest,
+      RequestOptions options)
+      throws IOException {
     UpdateAliasesRequest esUpdateAliasesRequest =
         new UpdateAliasesRequest.Builder()
             .actions(
@@ -1322,7 +1377,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public AnalyzeResponse analyzeIndex(AnalyzeRequest request, RequestOptions options)
+  public AnalyzeResponse analyzeIndex(
+      @Nonnull OperationFingerprint opContext, AnalyzeRequest request, RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.indices.AnalyzeRequest esAnalyzeRequest =
         new co.elastic.clients.elasticsearch.indices.AnalyzeRequest.Builder()
@@ -1346,7 +1402,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public ClusterGetSettingsResponse getClusterSettings(
-      ClusterGetSettingsRequest clusterGetSettingsRequest, RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      ClusterGetSettingsRequest clusterGetSettingsRequest,
+      RequestOptions options)
       throws IOException {
     GetClusterSettingsRequest esGetClusterSettingsRequest =
         new GetClusterSettingsRequest.Builder()
@@ -1372,7 +1430,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public ClusterUpdateSettingsResponse putClusterSettings(
-      ClusterUpdateSettingsRequest clusterUpdateSettingsRequest, RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      ClusterUpdateSettingsRequest clusterUpdateSettingsRequest,
+      RequestOptions options)
       throws IOException {
     throw new UnsupportedOperationException(
         "Not implemented currently due to no usages for the ES8 shim.");
@@ -1381,14 +1441,18 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public ClusterHealthResponse clusterHealth(
-      ClusterHealthRequest healthRequest, RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      ClusterHealthRequest healthRequest,
+      RequestOptions options)
+      throws IOException {
     throw new UnsupportedOperationException(
         "Not implemented currently due to no usages for the ES8 shim.");
   }
 
   @Nonnull
   @Override
-  public ListTasksResponse listTasks(ListTasksRequest request, RequestOptions options)
+  public ListTasksResponse listTasks(
+      @Nonnull OperationFingerprint opContext, ListTasksRequest request, RequestOptions options)
       throws IOException {
     ListRequest esListRequest = new ListRequest.Builder().detailed(request.getDetailed()).build();
     ListResponse esListResponse = withTransportOptions(options).tasks().list(esListRequest);
@@ -1401,7 +1465,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public Optional<GetTaskResponse> getTask(GetTaskRequest request, RequestOptions options)
+  public Optional<GetTaskResponse> getTask(
+      @Nonnull OperationFingerprint opContext, GetTaskRequest request, RequestOptions options)
       throws IOException {
     String taskId = request.getNodeId() + ":" + request.getTaskId();
     GetTasksRequest esGetTaskRequest =
@@ -1492,9 +1557,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public String getEngineVersion() throws IOException {
+  public String getEngineVersion(@Nonnull OperationFingerprint opContext) throws IOException {
     try {
-      Map<String, String> clusterInfo = getClusterInfo();
+      Map<String, String> clusterInfo = getClusterInfo(opContext);
       return clusterInfo.getOrDefault("version", "unknown");
     } catch (Exception e) {
       log.warn("Failed to get engine version", e);
@@ -1504,7 +1569,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public Map<String, String> getClusterInfo() throws IOException {
+  public Map<String, String> getClusterInfo(@Nonnull OperationFingerprint opContext)
+      throws IOException {
     try {
       // Use the info() API to get cluster information
       InfoResponse info = client.info();
@@ -1546,7 +1612,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public RawResponse performLowLevelRequest(Request request) throws IOException {
+  public RawResponse performLowLevelRequest(
+      @Nonnull OperationFingerprint opContext, Request request) throws IOException {
     Response esResponse =
         ElasticsearchRestClientAdapter.performRequest(
             ((RestClientTransport) client._transport()).restClient(),
@@ -1562,7 +1629,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public BulkByScrollResponse updateByQuery(
-      UpdateByQueryRequest updateByQueryRequest, RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull UpdateByQueryRequest updateByQueryRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     co.elastic.clients.elasticsearch.core.UpdateByQueryRequest esUpdateByQueryRequest =
         new co.elastic.clients.elasticsearch.core.UpdateByQueryRequest.Builder()
             .index(Arrays.asList(updateByQueryRequest.indices()))
@@ -1628,7 +1698,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public String submitDeleteByQueryTask(
-      DeleteByQueryRequest deleteByQueryRequest, RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteByQueryRequest deleteByQueryRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     DeleteByQueryResponse deleteByQueryResponse =
         withTransportOptions(options)
             .deleteByQuery(convertDeleteByQueryRequest(deleteByQueryRequest, false));
@@ -1637,7 +1710,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public String submitReindexTask(ReindexRequest reindexRequest, RequestOptions options)
+  public String submitReindexTask(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ReindexRequest reindexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
 
     Query query = null;
@@ -1945,7 +2021,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) throws IOException {
+  public KnnSearchResponse searchKnn(
+      @Nonnull OperationFingerprint opContext, @Nonnull KnnSearchRequest request)
+      throws IOException {
     Map<String, Object> body = Es8KnnQueryBuilder.build(request);
 
     // The ES8 typed client treats a comma-joined index string as a single index name and
@@ -2008,7 +2086,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   @Override
-  public void indexEmbeddings(@Nonnull EmbeddingBatch batch) throws IOException {
+  public void indexEmbeddings(
+      @Nonnull OperationFingerprint opContext, @Nonnull EmbeddingBatch batch) throws IOException {
     Map<String, Object> document = buildEmbeddingsDocument(batch);
 
     co.elastic.clients.elasticsearch.core.IndexRequest<Map<String, Object>> req =

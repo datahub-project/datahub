@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -50,15 +51,19 @@ public class IndexRoleUtilsTest {
     String roleName = "test_role";
     String prefix = "test_";
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK"));
 
     // Act
-    IndexRoleUtils.createElasticsearchCloudRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createElasticsearchCloudRole(operationContext, esComponents, roleName, prefix);
 
     // Assert
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -67,15 +72,19 @@ public class IndexRoleUtilsTest {
     String roleName = "existing_role";
     String prefix = "test_";
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(409, "Conflict"));
 
     // Act
-    IndexRoleUtils.createElasticsearchCloudRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createElasticsearchCloudRole(operationContext, esComponents, roleName, prefix);
 
     // Assert
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -84,7 +93,9 @@ public class IndexRoleUtilsTest {
     String roleName = "existing_role";
     String prefix = "test_";
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -92,10 +103,12 @@ public class IndexRoleUtilsTest {
         .thenReturn(createStatusLine(409, "Conflict"));
 
     // Act
-    IndexRoleUtils.createElasticsearchCloudRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createElasticsearchCloudRole(operationContext, esComponents, roleName, prefix);
 
     // Assert
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -104,7 +117,9 @@ public class IndexRoleUtilsTest {
     String roleName = "test_role";
     String prefix = "test_";
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -112,7 +127,7 @@ public class IndexRoleUtilsTest {
         .thenReturn(createStatusLine(500, "Internal Server Error"));
 
     // Act
-    IndexRoleUtils.createElasticsearchCloudRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createElasticsearchCloudRole(operationContext, esComponents, roleName, prefix);
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -122,12 +137,14 @@ public class IndexRoleUtilsTest {
     String prefix = "test_";
 
     // Mock 5 consecutive failures to trigger retry exhaustion
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(400, "Bad Request"));
 
     // Act
-    IndexRoleUtils.createElasticsearchCloudRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createElasticsearchCloudRole(operationContext, esComponents, roleName, prefix);
   }
 
   // ==================== Elasticsearch Cloud User Tests ====================
@@ -141,17 +158,21 @@ public class IndexRoleUtilsTest {
     String prefix = "test_";
 
     // Mock successful role creation
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK"));
 
     // Act
-    IndexRoleUtils.createElasticsearchCloudUser(esComponents, roleName, username, password, prefix);
+    IndexRoleUtils.createElasticsearchCloudUser(
+        operationContext, esComponents, roleName, username, password, prefix);
 
     // Assert
     // Should make 2 calls: one for role creation, one for user creation
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -163,7 +184,9 @@ public class IndexRoleUtilsTest {
     String prefix = "test_";
 
     // Mock role already exists (409), then successful user creation
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse)
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
@@ -171,11 +194,13 @@ public class IndexRoleUtilsTest {
         .thenReturn(createStatusLine(200, "OK"));
 
     // Act
-    IndexRoleUtils.createElasticsearchCloudUser(esComponents, roleName, username, password, prefix);
+    IndexRoleUtils.createElasticsearchCloudUser(
+        operationContext, esComponents, roleName, username, password, prefix);
 
     // Assert
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -187,12 +212,15 @@ public class IndexRoleUtilsTest {
     String prefix = "test_";
 
     // Mock role creation failure
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(400, "Bad Request"));
 
     // Act
-    IndexRoleUtils.createElasticsearchCloudUser(esComponents, roleName, username, password, prefix);
+    IndexRoleUtils.createElasticsearchCloudUser(
+        operationContext, esComponents, roleName, username, password, prefix);
   }
 
   // ==================== AWS OpenSearch Role Tests ====================
@@ -203,15 +231,19 @@ public class IndexRoleUtilsTest {
     String roleName = "test_role";
     String prefix = "test_";
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createAwsOpenSearchRole(operationContext, esComponents, roleName, prefix);
 
     // Assert
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -220,15 +252,19 @@ public class IndexRoleUtilsTest {
     String roleName = "existing_role";
     String prefix = "test_";
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(409, "Conflict"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createAwsOpenSearchRole(operationContext, esComponents, roleName, prefix);
 
     // Assert
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -237,7 +273,9 @@ public class IndexRoleUtilsTest {
     String roleName = "existing_role";
     String prefix = "test_";
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -245,10 +283,12 @@ public class IndexRoleUtilsTest {
         .thenReturn(createStatusLine(409, "Conflict"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createAwsOpenSearchRole(operationContext, esComponents, roleName, prefix);
 
     // Assert
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -257,7 +297,9 @@ public class IndexRoleUtilsTest {
     String roleName = "test_role";
     String prefix = "test_";
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -265,7 +307,7 @@ public class IndexRoleUtilsTest {
         .thenReturn(createStatusLine(500, "Internal Server Error"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createAwsOpenSearchRole(operationContext, esComponents, roleName, prefix);
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -275,12 +317,14 @@ public class IndexRoleUtilsTest {
     String prefix = "test_";
 
     // Mock 5 consecutive failures to trigger retry exhaustion
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(400, "Bad Request"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createAwsOpenSearchRole(operationContext, esComponents, roleName, prefix);
   }
 
   // ==================== AWS OpenSearch User Tests ====================
@@ -293,18 +337,21 @@ public class IndexRoleUtilsTest {
     String password = "test_password";
 
     // Mock successful user creation only (role should be created separately)
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK")); // PUT user
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null, operationContext);
 
     // Assert
     // Should make calls for user creation
     Mockito.verify(searchClient, Mockito.atLeast(1))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -315,19 +362,22 @@ public class IndexRoleUtilsTest {
     String password = "test_password";
 
     // Mock user already exists (409)
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(createStatusLine(409, "Conflict")); // PUT user - already exists
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null, operationContext);
 
     // Assert
     // User creation attempted
     Mockito.verify(searchClient, Mockito.atLeast(1))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   // ==================== AWS OpenSearch Role Mapping Tests ====================
@@ -338,15 +388,20 @@ public class IndexRoleUtilsTest {
     String roleName = "test_role";
     String iamRoleArn = "arn:aws:iam::123456789012:role/test-role";
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchRoleMapping(esComponents, roleName, iamRoleArn);
+    IndexRoleUtils.createAwsOpenSearchRoleMapping(
+        operationContext, esComponents, roleName, iamRoleArn);
 
     // Assert
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -355,15 +410,20 @@ public class IndexRoleUtilsTest {
     String roleName = "existing_role";
     String iamRoleArn = "arn:aws:iam::123456789012:role/test-role";
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(409, "Conflict"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchRoleMapping(esComponents, roleName, iamRoleArn);
+    IndexRoleUtils.createAwsOpenSearchRoleMapping(
+        operationContext, esComponents, roleName, iamRoleArn);
 
     // Assert
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -372,7 +432,9 @@ public class IndexRoleUtilsTest {
     String roleName = "test_role";
     String iamRoleArn = "arn:aws:iam::123456789012:role/test-role";
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -380,7 +442,8 @@ public class IndexRoleUtilsTest {
         .thenReturn(createStatusLine(500, "Internal Server Error"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchRoleMapping(esComponents, roleName, iamRoleArn);
+    IndexRoleUtils.createAwsOpenSearchRoleMapping(
+        operationContext, esComponents, roleName, iamRoleArn);
   }
 
   // ==================== Retry Logic Tests ====================
@@ -392,7 +455,9 @@ public class IndexRoleUtilsTest {
     String prefix = "test_";
 
     // Mock transient failure (400) followed by success (200)
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse)
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
@@ -400,12 +465,13 @@ public class IndexRoleUtilsTest {
         .thenReturn(createStatusLine(200, "OK"));
 
     // Act
-    IndexRoleUtils.createElasticsearchCloudRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createElasticsearchCloudRole(operationContext, esComponents, roleName, prefix);
 
     // Assert
     // Should retry once and succeed on second attempt
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -415,7 +481,9 @@ public class IndexRoleUtilsTest {
     String prefix = "test_";
 
     // Mock transient failure (400) followed by conflict (409)
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse)
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
@@ -423,12 +491,13 @@ public class IndexRoleUtilsTest {
         .thenReturn(createStatusLine(409, "Conflict"));
 
     // Act
-    IndexRoleUtils.createElasticsearchCloudRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createElasticsearchCloudRole(operationContext, esComponents, roleName, prefix);
 
     // Assert
     // Should retry once and succeed on second attempt (409 is considered success)
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   // ==================== Endpoint Verification Tests ====================
@@ -439,16 +508,19 @@ public class IndexRoleUtilsTest {
     String roleName = "test_role";
     String prefix = "test_";
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK"));
 
     // Act
-    IndexRoleUtils.createElasticsearchCloudRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createElasticsearchCloudRole(operationContext, esComponents, roleName, prefix);
 
     // Assert
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request.getMethod().equals("PUT")
@@ -461,16 +533,19 @@ public class IndexRoleUtilsTest {
     String roleName = "test_role";
     String prefix = "test_";
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createAwsOpenSearchRole(operationContext, esComponents, roleName, prefix);
 
     // Assert
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request.getMethod().equals("PUT")
@@ -486,7 +561,9 @@ public class IndexRoleUtilsTest {
     String prefix = "test_";
 
     // Mock ResponseException with 409 status in the outer catch block
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -494,10 +571,12 @@ public class IndexRoleUtilsTest {
         .thenReturn(createStatusLine(409, "Conflict"));
 
     // Act
-    IndexRoleUtils.createElasticsearchCloudRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createElasticsearchCloudRole(operationContext, esComponents, roleName, prefix);
 
     // Assert - Should handle 409 gracefully without throwing exception
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -507,7 +586,9 @@ public class IndexRoleUtilsTest {
     String prefix = "test_";
 
     // Mock ResponseException with 500 status in the outer catch block
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -515,7 +596,7 @@ public class IndexRoleUtilsTest {
         .thenReturn(createStatusLine(500, "Internal Server Error"));
 
     // Act
-    IndexRoleUtils.createElasticsearchCloudRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createElasticsearchCloudRole(operationContext, esComponents, roleName, prefix);
   }
 
   @Test
@@ -527,7 +608,9 @@ public class IndexRoleUtilsTest {
     String roleName = "test_role";
 
     // Mock ResponseException with 409 status in the outer catch block
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -536,11 +619,12 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createElasticsearchCloudUser(
-        esComponents, roleName, username, password, "test_");
+        operationContext, esComponents, roleName, username, password, "test_");
 
     // Assert - Should handle 409 gracefully without throwing exception
     Mockito.verify(searchClient, Mockito.atLeast(1))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -552,7 +636,9 @@ public class IndexRoleUtilsTest {
     String roleName = "test_role";
 
     // Mock ResponseException with 500 status in the outer catch block
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -561,7 +647,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createElasticsearchCloudUser(
-        esComponents, roleName, username, password, "test_");
+        operationContext, esComponents, roleName, username, password, "test_");
   }
 
   @Test
@@ -571,7 +657,9 @@ public class IndexRoleUtilsTest {
     String prefix = "test_";
 
     // Mock ResponseException with 409 status in the outer catch block
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -579,10 +667,12 @@ public class IndexRoleUtilsTest {
         .thenReturn(createStatusLine(409, "Conflict"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createAwsOpenSearchRole(operationContext, esComponents, roleName, prefix);
 
     // Assert - Should handle 409 gracefully without throwing exception
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -592,7 +682,9 @@ public class IndexRoleUtilsTest {
     String prefix = "test_";
 
     // Mock ResponseException with 500 status in the outer catch block
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -600,7 +692,7 @@ public class IndexRoleUtilsTest {
         .thenReturn(createStatusLine(500, "Internal Server Error"));
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchRole(esComponents, roleName, prefix);
+    IndexRoleUtils.createAwsOpenSearchRole(operationContext, esComponents, roleName, prefix);
   }
 
   @Test
@@ -611,7 +703,9 @@ public class IndexRoleUtilsTest {
     String roleName = "test_role";
 
     // Mock ResponseException with 409 status in the outer catch block
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -620,11 +714,12 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null, operationContext);
 
     // Assert - Should handle 409 gracefully without throwing exception
     Mockito.verify(searchClient, Mockito.atLeast(1))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -635,7 +730,9 @@ public class IndexRoleUtilsTest {
     String roleName = "test_role";
 
     // Mock ResponseException with 500 status in the outer catch block
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -644,7 +741,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null, operationContext);
   }
 
   // ==================== IAM-Only Authentication Tests ====================
@@ -659,18 +756,21 @@ public class IndexRoleUtilsTest {
     String prefix = "test_";
 
     // Mock successful user creation only (role should be created separately)
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK")); // PUT user
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        esComponents, username, password, roleName, iamRoleArn, operationContext);
+        operationContext, esComponents, username, password, roleName, iamRoleArn, operationContext);
 
     // Assert
     // Should make calls for user creation
     Mockito.verify(searchClient, Mockito.atLeast(1))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -683,18 +783,21 @@ public class IndexRoleUtilsTest {
     String prefix = "test_";
 
     // Mock successful user creation only (role should be created separately)
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK")); // PUT user
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        esComponents, username, password, roleName, iamRoleArn, operationContext);
+        operationContext, esComponents, username, password, roleName, iamRoleArn, operationContext);
 
     // Assert
     // Should make calls for user creation
     Mockito.verify(searchClient, Mockito.atLeast(1))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -707,18 +810,21 @@ public class IndexRoleUtilsTest {
     String prefix = "test_";
 
     // Mock successful user creation only (role should be created separately)
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK")); // PUT user
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        esComponents, username, password, roleName, iamRoleArn, operationContext);
+        operationContext, esComponents, username, password, roleName, iamRoleArn, operationContext);
 
     // Assert
     // Should make calls for user creation
     Mockito.verify(searchClient, Mockito.atLeast(1))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   // ==================== AWS OpenSearch User Error Logging Tests ====================
@@ -733,7 +839,9 @@ public class IndexRoleUtilsTest {
     // Mock error response with response body
     org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(400, "Bad Request"));
     Mockito.when(rawResponse.getEntity()).thenReturn(mockEntity);
@@ -748,7 +856,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null, operationContext);
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -763,7 +871,9 @@ public class IndexRoleUtilsTest {
         Mockito.mock(org.opensearch.client.Response.class);
     org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse()).thenReturn(mockResponse);
     Mockito.when(mockResponse.getStatusLine())
@@ -779,7 +889,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null, operationContext);
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -792,7 +902,9 @@ public class IndexRoleUtilsTest {
     org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
 
     // Mock retryable error (400) returned repeatedly
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(400, "Bad Request"));
     Mockito.when(rawResponse.getEntity()).thenReturn(mockEntity);
@@ -807,7 +919,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null, operationContext);
   }
 
   // ==================== AWS OpenSearch Role Mapping Error Logging Tests ====================
@@ -821,7 +933,9 @@ public class IndexRoleUtilsTest {
     // Mock error response with response body
     org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(400, "Bad Request"));
     Mockito.when(rawResponse.getEntity()).thenReturn(mockEntity);
@@ -835,7 +949,8 @@ public class IndexRoleUtilsTest {
     }
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchRoleMapping(esComponents, roleName, iamRoleArn);
+    IndexRoleUtils.createAwsOpenSearchRoleMapping(
+        operationContext, esComponents, roleName, iamRoleArn);
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -850,7 +965,9 @@ public class IndexRoleUtilsTest {
         Mockito.mock(org.opensearch.client.Response.class);
     org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse()).thenReturn(mockResponse);
     Mockito.when(mockResponse.getStatusLine())
@@ -865,7 +982,8 @@ public class IndexRoleUtilsTest {
     }
 
     // Act
-    IndexRoleUtils.createAwsOpenSearchRoleMapping(esComponents, roleName, iamRoleArn);
+    IndexRoleUtils.createAwsOpenSearchRoleMapping(
+        operationContext, esComponents, roleName, iamRoleArn);
   }
 
   // ==================== Response Body Extraction Tests ====================
@@ -878,14 +996,16 @@ public class IndexRoleUtilsTest {
     String password = "test_password";
 
     // Mock error response without entity
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(400, "Bad Request"));
     // No entity set, so extractResponseBody should return "No response body"
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null, operationContext);
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -898,7 +1018,9 @@ public class IndexRoleUtilsTest {
     // Mock error response with entity that throws exception on read
     org.apache.http.HttpEntity mockEntity = Mockito.mock(org.apache.http.HttpEntity.class);
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine()).thenReturn(createStatusLine(400, "Bad Request"));
     Mockito.when(rawResponse.getEntity()).thenReturn(mockEntity);
@@ -912,7 +1034,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null, operationContext);
   }
 
   // ==================== Helper Methods ====================

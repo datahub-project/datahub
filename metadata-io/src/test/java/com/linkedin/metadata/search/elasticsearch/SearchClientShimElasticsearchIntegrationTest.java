@@ -3,9 +3,12 @@ package com.linkedin.metadata.search.elasticsearch;
 import static org.testng.Assert.*;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import java.io.IOException;
@@ -98,6 +101,9 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
   @Autowired private GenericContainer<?> elasticsearchContainer;
   @Autowired private SearchClientShim<?> searchClientShim;
 
+  private static final OperationContext OP_CONTEXT =
+      TestOperationContexts.systemContextNoSearchAuthorization();
+
   @Test
   public void testShimCreation() {
     // Test native client access
@@ -112,7 +118,7 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
   @Test
   public void testClusterInfo() throws IOException {
 
-    Map<String, String> clusterInfo = searchClientShim.getClusterInfo();
+    Map<String, String> clusterInfo = searchClientShim.getClusterInfo(OperationFingerprint.EMPTY);
     assertNotNull(clusterInfo);
 
     assertTrue(clusterInfo.containsKey("version"));
@@ -130,7 +136,7 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
   @Test
   public void testEngineVersion() throws IOException {
 
-    String version = searchClientShim.getEngineVersion();
+    String version = searchClientShim.getEngineVersion(OperationFingerprint.EMPTY);
     assertNotNull(version);
     assertNotEquals(version, "unknown");
     assertTrue(
@@ -167,19 +173,23 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     // Test index creation
     CreateIndexRequest createRequest = new CreateIndexRequest(TEST_INDEX);
     CreateIndexResponse createResponse =
-        searchClientShim.createIndex(createRequest, RequestOptions.DEFAULT);
+        searchClientShim.createIndex(
+            OperationFingerprint.EMPTY, createRequest, RequestOptions.DEFAULT);
     assertNotNull(createResponse);
     assertTrue(createResponse.isAcknowledged());
 
     // Test index exists
     GetIndexRequest getRequest = new GetIndexRequest(TEST_INDEX);
-    boolean exists = searchClientShim.indexExists(getRequest, RequestOptions.DEFAULT);
+    boolean exists =
+        searchClientShim.indexExists(
+            OperationFingerprint.EMPTY, getRequest, RequestOptions.DEFAULT);
     assertTrue(exists);
 
     // Test refreshIndex
     RefreshRequest refreshRequest = new RefreshRequest(TEST_INDEX);
     RefreshResponse refreshResponse =
-        searchClientShim.refreshIndex(refreshRequest, RequestOptions.DEFAULT);
+        searchClientShim.refreshIndex(
+            OperationFingerprint.EMPTY, refreshRequest, RequestOptions.DEFAULT);
     assertNotNull(refreshResponse);
   }
 
@@ -193,7 +203,8 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     searchSourceBuilder.query(QueryBuilders.matchAllQuery());
     searchRequest.source(searchSourceBuilder);
 
-    SearchResponse searchResponse = searchClientShim.search(searchRequest, RequestOptions.DEFAULT);
+    SearchResponse searchResponse =
+        searchClientShim.search(OP_CONTEXT, searchRequest, RequestOptions.DEFAULT);
     assertNotNull(searchResponse);
     assertNotNull(searchResponse.getHits());
 
@@ -223,16 +234,18 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     // Test index document
     IndexRequest indexRequest = new IndexRequest(TEST_INDEX).id(docId).source(document);
     IndexResponse indexResponse =
-        searchClientShim.indexDocument(indexRequest, RequestOptions.DEFAULT);
+        searchClientShim.indexDocument(OP_CONTEXT, indexRequest, RequestOptions.DEFAULT);
     assertNotNull(indexResponse);
     assertEquals(indexResponse.getId(), docId);
 
     // Refresh to make document searchable
-    searchClientShim.refreshIndex(new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
 
     // Test get document
     GetRequest getRequest = new GetRequest(TEST_INDEX, docId);
-    GetResponse getResponse = searchClientShim.getDocument(getRequest, RequestOptions.DEFAULT);
+    GetResponse getResponse =
+        searchClientShim.getDocument(OP_CONTEXT, getRequest, RequestOptions.DEFAULT);
     assertNotNull(getResponse);
     assertTrue(getResponse.isExists());
     assertEquals(getResponse.getId(), docId);
@@ -241,14 +254,14 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     // Test delete document
     DeleteRequest deleteRequest = new DeleteRequest(TEST_INDEX, docId);
     DeleteResponse deleteResponse =
-        searchClientShim.deleteDocument(deleteRequest, RequestOptions.DEFAULT);
+        searchClientShim.deleteDocument(OP_CONTEXT, deleteRequest, RequestOptions.DEFAULT);
     assertNotNull(deleteResponse);
     assertEquals(deleteResponse.getId(), docId);
 
     // Verify deletion
     GetRequest verifyRequest = new GetRequest(TEST_INDEX, docId);
     GetResponse verifyResponse =
-        searchClientShim.getDocument(verifyRequest, RequestOptions.DEFAULT);
+        searchClientShim.getDocument(OP_CONTEXT, verifyRequest, RequestOptions.DEFAULT);
     assertFalse(verifyResponse.isExists());
   }
 
@@ -262,13 +275,15 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
           new IndexRequest(TEST_INDEX)
               .id("count-doc-" + i)
               .source("field", "value" + i, "counter", i);
-      searchClientShim.indexDocument(indexRequest, RequestOptions.DEFAULT);
+      searchClientShim.indexDocument(OP_CONTEXT, indexRequest, RequestOptions.DEFAULT);
     }
-    searchClientShim.refreshIndex(new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
 
     // Test count
     CountRequest countRequest = new CountRequest(TEST_INDEX);
-    CountResponse countResponse = searchClientShim.count(countRequest, RequestOptions.DEFAULT);
+    CountResponse countResponse =
+        searchClientShim.count(OP_CONTEXT, countRequest, RequestOptions.DEFAULT);
     assertNotNull(countResponse);
     assertTrue(countResponse.getCount() >= 5);
     assertEquals(countResponse.getFailedShards(), 0);
@@ -282,14 +297,15 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     String docId = "explain-doc";
     IndexRequest indexRequest =
         new IndexRequest(TEST_INDEX).id(docId).source("title", "Explain Test", "score", 100);
-    searchClientShim.indexDocument(indexRequest, RequestOptions.DEFAULT);
-    searchClientShim.refreshIndex(new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
+    searchClientShim.indexDocument(OP_CONTEXT, indexRequest, RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
 
     // Test explain
     ExplainRequest explainRequest = new ExplainRequest(TEST_INDEX, docId);
     explainRequest.query(QueryBuilders.termQuery("title", "explain"));
     ExplainResponse explainResponse =
-        searchClientShim.explain(explainRequest, RequestOptions.DEFAULT);
+        searchClientShim.explain(OP_CONTEXT, explainRequest, RequestOptions.DEFAULT);
     assertNotNull(explainResponse);
     assertTrue(explainResponse.hasExplanation());
   }
@@ -304,9 +320,10 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
           new IndexRequest(TEST_INDEX)
               .id("agg-doc-" + i)
               .source("category", i % 3 == 0 ? "A" : i % 3 == 1 ? "B" : "C", "value", i * 10);
-      searchClientShim.indexDocument(indexRequest, RequestOptions.DEFAULT);
+      searchClientShim.indexDocument(OP_CONTEXT, indexRequest, RequestOptions.DEFAULT);
     }
-    searchClientShim.refreshIndex(new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
 
     // Search with aggregation
     SearchRequest searchRequest = new SearchRequest(TEST_INDEX);
@@ -318,7 +335,8 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     sourceBuilder.aggregation(aggregation);
     searchRequest.source(sourceBuilder);
 
-    SearchResponse searchResponse = searchClientShim.search(searchRequest, RequestOptions.DEFAULT);
+    SearchResponse searchResponse =
+        searchClientShim.search(OP_CONTEXT, searchRequest, RequestOptions.DEFAULT);
     assertNotNull(searchResponse);
     assertNotNull(searchResponse.getAggregations());
     assertNotNull(searchResponse.getAggregations().get("categories"));
@@ -333,8 +351,9 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
         new IndexRequest(TEST_INDEX)
             .id("highlight-doc")
             .source("text", "The quick brown fox jumps over the lazy dog");
-    searchClientShim.indexDocument(indexRequest, RequestOptions.DEFAULT);
-    searchClientShim.refreshIndex(new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
+    searchClientShim.indexDocument(OP_CONTEXT, indexRequest, RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
 
     // Search with highlighting
     SearchRequest searchRequest = new SearchRequest(TEST_INDEX);
@@ -347,7 +366,8 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     sourceBuilder.size(10);
     searchRequest.source(sourceBuilder);
 
-    SearchResponse searchResponse = searchClientShim.search(searchRequest, RequestOptions.DEFAULT);
+    SearchResponse searchResponse =
+        searchClientShim.search(OP_CONTEXT, searchRequest, RequestOptions.DEFAULT);
     assertNotNull(searchResponse);
     assertTrue(searchResponse.getHits().getTotalHits().value > 0);
   }
@@ -362,9 +382,10 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
           new IndexRequest(TEST_INDEX)
               .id("sort-doc-" + i)
               .source("score", i * 10, "name", "Document " + i);
-      searchClientShim.indexDocument(indexRequest, RequestOptions.DEFAULT);
+      searchClientShim.indexDocument(OP_CONTEXT, indexRequest, RequestOptions.DEFAULT);
     }
-    searchClientShim.refreshIndex(new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
 
     // Search with sorting
     SearchRequest searchRequest = new SearchRequest(TEST_INDEX);
@@ -374,7 +395,8 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     sourceBuilder.size(50);
     searchRequest.source(sourceBuilder);
 
-    SearchResponse searchResponse = searchClientShim.search(searchRequest, RequestOptions.DEFAULT);
+    SearchResponse searchResponse =
+        searchClientShim.search(OP_CONTEXT, searchRequest, RequestOptions.DEFAULT);
     assertNotNull(searchResponse);
     assertTrue(searchResponse.getHits().getTotalHits().value >= 5);
     assertEquals(searchResponse.getHits().getHits()[0].getId(), "explain-doc");
@@ -390,8 +412,9 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
         new IndexRequest(TEST_INDEX)
             .id("source-filter-doc")
             .source("field1", "value1", "field2", "value2", "field3", "value3");
-    searchClientShim.indexDocument(indexRequest, RequestOptions.DEFAULT);
-    searchClientShim.refreshIndex(new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
+    searchClientShim.indexDocument(OP_CONTEXT, indexRequest, RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
 
     // Search with source filtering
     SearchRequest searchRequest = new SearchRequest(TEST_INDEX);
@@ -403,7 +426,8 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     sourceBuilder.fetchSource(new String[] {"field1", "field3"}, new String[] {"field2"});
     searchRequest.source(sourceBuilder);
 
-    SearchResponse searchResponse = searchClientShim.search(searchRequest, RequestOptions.DEFAULT);
+    SearchResponse searchResponse =
+        searchClientShim.search(OP_CONTEXT, searchRequest, RequestOptions.DEFAULT);
     assertNotNull(searchResponse);
     assertTrue(searchResponse.getHits().getHits().length > 0);
     Map<String, Object> source = searchResponse.getHits().getAt(0).getSourceAsMap();
@@ -421,9 +445,10 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
           new IndexRequest(TEST_INDEX)
               .id("delete-query-doc-" + i)
               .source("type", "deletable", "value", i);
-      searchClientShim.indexDocument(indexRequest, RequestOptions.DEFAULT);
+      searchClientShim.indexDocument(OP_CONTEXT, indexRequest, RequestOptions.DEFAULT);
     }
-    searchClientShim.refreshIndex(new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
 
     // Delete by query
     DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest(TEST_INDEX);
@@ -431,7 +456,7 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     deleteByQueryRequest.setRefresh(true);
 
     BulkByScrollResponse response =
-        searchClientShim.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
+        searchClientShim.deleteByQuery(OP_CONTEXT, deleteByQueryRequest, RequestOptions.DEFAULT);
     assertNotNull(response);
     assertTrue(response.getDeleted() > 0);
   }
@@ -446,9 +471,10 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
           new IndexRequest(TEST_INDEX)
               .id("update-query-doc-" + i)
               .source("status", "pending", "value", i);
-      searchClientShim.indexDocument(indexRequest, RequestOptions.DEFAULT);
+      searchClientShim.indexDocument(OP_CONTEXT, indexRequest, RequestOptions.DEFAULT);
     }
-    searchClientShim.refreshIndex(new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
 
     // Update by query
     UpdateByQueryRequest updateByQueryRequest = new UpdateByQueryRequest(TEST_INDEX);
@@ -462,7 +488,7 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     updateByQueryRequest.setRefresh(true);
 
     BulkByScrollResponse response =
-        searchClientShim.updateByQuery(updateByQueryRequest, RequestOptions.DEFAULT);
+        searchClientShim.updateByQuery(OP_CONTEXT, updateByQueryRequest, RequestOptions.DEFAULT);
     assertNotNull(response);
     assertEquals(response.getUpdated(), 3);
   }
@@ -479,14 +505,16 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
             "{\"properties\":{\"title\":{\"type\":\"text\"},\"count\":{\"type\":\"integer\"}}}",
             true));
     CreateIndexResponse createResponse =
-        searchClientShim.createIndex(createRequest, RequestOptions.DEFAULT);
+        searchClientShim.createIndex(
+            OperationFingerprint.EMPTY, createRequest, RequestOptions.DEFAULT);
     assertTrue(createResponse.isAcknowledged());
 
     // Get mapping
     GetMappingsRequest getMappingsRequest = new GetMappingsRequest();
     getMappingsRequest.indices(TEST_INDEX_2);
     GetMappingsResponse getMappingsResponse =
-        searchClientShim.getIndexMapping(getMappingsRequest, RequestOptions.DEFAULT);
+        searchClientShim.getIndexMapping(
+            OperationFingerprint.EMPTY, getMappingsRequest, RequestOptions.DEFAULT);
     assertNotNull(getMappingsResponse);
     assertNotNull(getMappingsResponse.mappings().get(TEST_INDEX_2));
 
@@ -495,14 +523,16 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     putMappingRequest.source(
         "{\"properties\":{\"newField\":{\"type\":\"keyword\"}}}", XContentType.JSON);
     AcknowledgedResponse putMappingResponse =
-        searchClientShim.putIndexMapping(putMappingRequest, RequestOptions.DEFAULT);
+        searchClientShim.putIndexMapping(
+            OperationFingerprint.EMPTY, putMappingRequest, RequestOptions.DEFAULT);
     assertTrue(putMappingResponse.isAcknowledged());
 
     // Validate mapping update
     GetMappingsRequest getMappingsRequest2 = new GetMappingsRequest();
     getMappingsRequest.indices(TEST_INDEX_2);
     GetMappingsResponse getMappingsResponse2 =
-        searchClientShim.getIndexMapping(getMappingsRequest2, RequestOptions.DEFAULT);
+        searchClientShim.getIndexMapping(
+            OperationFingerprint.EMPTY, getMappingsRequest2, RequestOptions.DEFAULT);
     assertNotNull(getMappingsResponse2);
     assertNotNull(getMappingsResponse.mappings().get(TEST_INDEX_2));
     assertNotNull(
@@ -523,7 +553,8 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     GetSettingsRequest getSettingsRequest = new GetSettingsRequest();
     getSettingsRequest.indices(TEST_INDEX);
     GetSettingsResponse getSettingsResponse =
-        searchClientShim.getIndexSettings(getSettingsRequest, RequestOptions.DEFAULT);
+        searchClientShim.getIndexSettings(
+            OperationFingerprint.EMPTY, getSettingsRequest, RequestOptions.DEFAULT);
     assertNotNull(getSettingsResponse);
     assertNotNull(getSettingsResponse.getIndexToSettings().get(TEST_INDEX));
 
@@ -532,12 +563,14 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     Settings settings = Settings.builder().put("index.refresh_interval", "2s").build();
     updateSettingsRequest.settings(settings);
     AcknowledgedResponse updateResponse =
-        searchClientShim.updateIndexSettings(updateSettingsRequest, RequestOptions.DEFAULT);
+        searchClientShim.updateIndexSettings(
+            OperationFingerprint.EMPTY, updateSettingsRequest, RequestOptions.DEFAULT);
     assertTrue(updateResponse.isAcknowledged());
 
     // Verify update
     GetSettingsResponse verifyResponse =
-        searchClientShim.getIndexSettings(getSettingsRequest, RequestOptions.DEFAULT);
+        searchClientShim.getIndexSettings(
+            OperationFingerprint.EMPTY, getSettingsRequest, RequestOptions.DEFAULT);
     Settings indexSettings = verifyResponse.getIndexToSettings().get(TEST_INDEX);
     assertEquals(indexSettings.get("index.refresh_interval"), "2s");
   }
@@ -553,14 +586,16 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     aliasesRequest.addAliasAction(aliasAction);
 
     AcknowledgedResponse createAliasResponse =
-        searchClientShim.updateIndexAliases(aliasesRequest, RequestOptions.DEFAULT);
+        searchClientShim.updateIndexAliases(
+            OperationFingerprint.EMPTY, aliasesRequest, RequestOptions.DEFAULT);
     assertTrue(createAliasResponse.isAcknowledged());
 
     // Get aliases
     GetAliasesRequest getAliasesRequest = new GetAliasesRequest();
     getAliasesRequest.indices(TEST_INDEX);
     GetAliasesResponse getAliasesResponse =
-        searchClientShim.getIndexAliases(getAliasesRequest, RequestOptions.DEFAULT);
+        searchClientShim.getIndexAliases(
+            OperationFingerprint.EMPTY, getAliasesRequest, RequestOptions.DEFAULT);
     assertNotNull(getAliasesResponse);
     assertTrue(getAliasesResponse.getAliases().containsKey(TEST_INDEX));
     assertTrue(
@@ -574,7 +609,8 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     removeAliasRequest.addAliasAction(removeAction);
 
     AcknowledgedResponse removeAliasResponse =
-        searchClientShim.updateIndexAliases(removeAliasRequest, RequestOptions.DEFAULT);
+        searchClientShim.updateIndexAliases(
+            OperationFingerprint.EMPTY, removeAliasRequest, RequestOptions.DEFAULT);
     assertTrue(removeAliasResponse.isAcknowledged());
   }
 
@@ -586,7 +622,8 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
         AnalyzeRequest.withGlobalAnalyzer("standard", TEST_INDEX, "The quick brown fox");
 
     AnalyzeResponse analyzeResponse =
-        searchClientShim.analyzeIndex(analyzeRequest, RequestOptions.DEFAULT);
+        searchClientShim.analyzeIndex(
+            OperationFingerprint.EMPTY, analyzeRequest, RequestOptions.DEFAULT);
     assertNotNull(analyzeResponse);
     assertNotNull(analyzeResponse.getTokens());
     assertTrue(analyzeResponse.getTokens().size() > 0);
@@ -606,25 +643,30 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(TEST_INDEX);
     Settings settings = Settings.builder().put("index.blocks.write", true).build();
     updateSettingsRequest.settings(settings);
-    searchClientShim.updateIndexSettings(updateSettingsRequest, RequestOptions.DEFAULT);
+    searchClientShim.updateIndexSettings(
+        OperationFingerprint.EMPTY, updateSettingsRequest, RequestOptions.DEFAULT);
 
     // Clone the index
     ResizeRequest resizeRequest = new ResizeRequest(CLONE_INDEX, TEST_INDEX);
     ResizeResponse resizeResponse =
-        searchClientShim.cloneIndex(resizeRequest, RequestOptions.DEFAULT);
+        searchClientShim.cloneIndex(
+            OperationFingerprint.EMPTY, resizeRequest, RequestOptions.DEFAULT);
     assertNotNull(resizeResponse);
     assertTrue(resizeResponse.isAcknowledged());
 
     // Verify clone exists
     GetIndexRequest getRequest = new GetIndexRequest(CLONE_INDEX);
-    boolean exists = searchClientShim.indexExists(getRequest, RequestOptions.DEFAULT);
+    boolean exists =
+        searchClientShim.indexExists(
+            OperationFingerprint.EMPTY, getRequest, RequestOptions.DEFAULT);
     assertTrue(exists);
 
     // Clean up - remove write block
     UpdateSettingsRequest removeBlockRequest = new UpdateSettingsRequest(TEST_INDEX);
     Settings removeBlockSettings = Settings.builder().put("index.blocks.write", false).build();
     removeBlockRequest.settings(removeBlockSettings);
-    searchClientShim.updateIndexSettings(removeBlockRequest, RequestOptions.DEFAULT);
+    searchClientShim.updateIndexSettings(
+        OperationFingerprint.EMPTY, removeBlockRequest, RequestOptions.DEFAULT);
   }
 
   @Test(dependsOnMethods = {"testCloneIndexOperation", "testAliasOperations"})
@@ -634,12 +676,15 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     // Delete the clone index
     DeleteIndexRequest deleteRequest = new DeleteIndexRequest(CLONE_INDEX);
     AcknowledgedResponse deleteResponse =
-        searchClientShim.deleteIndex(deleteRequest, RequestOptions.DEFAULT);
+        searchClientShim.deleteIndex(
+            OperationFingerprint.EMPTY, deleteRequest, RequestOptions.DEFAULT);
     assertTrue(deleteResponse.isAcknowledged());
 
     // Verify deletion
     GetIndexRequest getRequest = new GetIndexRequest(CLONE_INDEX);
-    boolean exists = searchClientShim.indexExists(getRequest, RequestOptions.DEFAULT);
+    boolean exists =
+        searchClientShim.indexExists(
+            OperationFingerprint.EMPTY, getRequest, RequestOptions.DEFAULT);
     assertFalse(exists);
   }
 
@@ -650,27 +695,31 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     // Create source index with documents
     String sourceIndex = "reindex-source";
     CreateIndexRequest createSourceRequest = new CreateIndexRequest(sourceIndex);
-    searchClientShim.createIndex(createSourceRequest, RequestOptions.DEFAULT);
+    searchClientShim.createIndex(
+        OperationFingerprint.EMPTY, createSourceRequest, RequestOptions.DEFAULT);
 
     // Index some documents
     for (int i = 0; i < 3; i++) {
       IndexRequest indexRequest =
           new IndexRequest(sourceIndex).id("reindex-doc-" + i).source("field", "value" + i);
-      searchClientShim.indexDocument(indexRequest, RequestOptions.DEFAULT);
+      searchClientShim.indexDocument(OP_CONTEXT, indexRequest, RequestOptions.DEFAULT);
     }
-    searchClientShim.refreshIndex(new RefreshRequest(sourceIndex), RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(sourceIndex), RequestOptions.DEFAULT);
 
     // Create destination index
     String destIndex = "reindex-dest";
     CreateIndexRequest createDestRequest = new CreateIndexRequest(destIndex);
-    searchClientShim.createIndex(createDestRequest, RequestOptions.DEFAULT);
+    searchClientShim.createIndex(
+        OperationFingerprint.EMPTY, createDestRequest, RequestOptions.DEFAULT);
 
     // Submit reindex task
     ReindexRequest reindexRequest = new ReindexRequest();
     reindexRequest.setSourceIndices(sourceIndex);
     reindexRequest.setDestIndex(destIndex);
 
-    String taskId = searchClientShim.submitReindexTask(reindexRequest, RequestOptions.DEFAULT);
+    String taskId =
+        searchClientShim.submitReindexTask(OP_CONTEXT, reindexRequest, RequestOptions.DEFAULT);
     assertNotNull(taskId);
 
     GetTaskResponse getTaskResponse;
@@ -682,6 +731,7 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
         getTaskResponse =
             searchClientShim
                 .getTask(
+                    OperationFingerprint.EMPTY,
                     new GetTaskRequest(taskId1.getNodeId(), taskId1.getId()),
                     RequestOptions.DEFAULT)
                 .orElse(null);
@@ -690,14 +740,18 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     }
 
     // Verify documents were copied
-    searchClientShim.refreshIndex(new RefreshRequest(destIndex), RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(destIndex), RequestOptions.DEFAULT);
     CountRequest countRequest = new CountRequest(destIndex);
-    CountResponse countResponse = searchClientShim.count(countRequest, RequestOptions.DEFAULT);
+    CountResponse countResponse =
+        searchClientShim.count(OP_CONTEXT, countRequest, RequestOptions.DEFAULT);
     assertTrue(countResponse.getCount() > 0);
 
     // Clean up
-    searchClientShim.deleteIndex(new DeleteIndexRequest(sourceIndex), RequestOptions.DEFAULT);
-    searchClientShim.deleteIndex(new DeleteIndexRequest(destIndex), RequestOptions.DEFAULT);
+    searchClientShim.deleteIndex(
+        OperationFingerprint.EMPTY, new DeleteIndexRequest(sourceIndex), RequestOptions.DEFAULT);
+    searchClientShim.deleteIndex(
+        OperationFingerprint.EMPTY, new DeleteIndexRequest(destIndex), RequestOptions.DEFAULT);
   }
 
   @Test(dependsOnMethods = "testIndexOperations")
@@ -720,16 +774,16 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
       String docId = "bulk-doc-" + i;
       IndexRequest indexRequest =
           new IndexRequest(TEST_INDEX).id(docId).source("bulk_field", "bulk_value_" + i);
-      searchClientShim.addBulk(docId, indexRequest);
+      searchClientShim.addBulk(OP_CONTEXT, docId, indexRequest);
     }
 
     // Add an update request
     UpdateRequest updateRequest = new UpdateRequest(TEST_INDEX, "bulk-doc-0").doc("updated", true);
-    searchClientShim.addBulk("bulk-doc-0", updateRequest);
+    searchClientShim.addBulk(OP_CONTEXT, "bulk-doc-0", updateRequest);
 
     // Add a delete request
     DeleteRequest deleteRequest = new DeleteRequest(TEST_INDEX, "bulk-doc-1");
-    searchClientShim.addBulk("bulk-doc-1", deleteRequest);
+    searchClientShim.addBulk(OP_CONTEXT, "bulk-doc-1", deleteRequest);
 
     // Flush and close bulk processor
     searchClientShim.flushBulkProcessor();
@@ -737,17 +791,19 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     searchClientShim.closeBulkProcessor();
 
     // Verify bulk operations
-    searchClientShim.refreshIndex(new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
 
     // Check that document was updated
     GetRequest getUpdatedDoc = new GetRequest(TEST_INDEX, "bulk-doc-0");
-    GetResponse getResponse = searchClientShim.getDocument(getUpdatedDoc, RequestOptions.DEFAULT);
+    GetResponse getResponse =
+        searchClientShim.getDocument(OP_CONTEXT, getUpdatedDoc, RequestOptions.DEFAULT);
     assertTrue(getResponse.getSourceAsMap().containsKey("updated"));
 
     // Check that document was deleted
     GetRequest getDeletedDoc = new GetRequest(TEST_INDEX, "bulk-doc-1");
     GetResponse deletedResponse =
-        searchClientShim.getDocument(getDeletedDoc, RequestOptions.DEFAULT);
+        searchClientShim.getDocument(OP_CONTEXT, getDeletedDoc, RequestOptions.DEFAULT);
     assertFalse(deletedResponse.isExists());
   }
 
@@ -761,9 +817,10 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
           new IndexRequest(TEST_INDEX)
               .id("page-doc-" + i)
               .source("page_num", i, "content", "Document number " + i);
-      searchClientShim.indexDocument(indexRequest, RequestOptions.DEFAULT);
+      searchClientShim.indexDocument(OP_CONTEXT, indexRequest, RequestOptions.DEFAULT);
     }
-    searchClientShim.refreshIndex(new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
 
     // First page
     SearchRequest firstPageRequest = new SearchRequest(TEST_INDEX);
@@ -774,7 +831,7 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     firstPageRequest.source(firstPageBuilder);
 
     SearchResponse firstPageResponse =
-        searchClientShim.search(firstPageRequest, RequestOptions.DEFAULT);
+        searchClientShim.search(OP_CONTEXT, firstPageRequest, RequestOptions.DEFAULT);
     assertNotNull(firstPageResponse);
     assertEquals(firstPageResponse.getHits().getHits().length, 5);
 
@@ -787,7 +844,7 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     secondPageRequest.source(secondPageBuilder);
 
     SearchResponse secondPageResponse =
-        searchClientShim.search(secondPageRequest, RequestOptions.DEFAULT);
+        searchClientShim.search(OP_CONTEXT, secondPageRequest, RequestOptions.DEFAULT);
     assertNotNull(secondPageResponse);
     assertEquals(secondPageResponse.getHits().getHits().length, 5);
   }
@@ -798,6 +855,7 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
 
     // Index varied documents
     searchClientShim.indexDocument(
+        OP_CONTEXT,
         new IndexRequest(TEST_INDEX)
             .id("complex-1")
             .source(
@@ -805,18 +863,21 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
         RequestOptions.DEFAULT);
 
     searchClientShim.indexDocument(
+        OP_CONTEXT,
         new IndexRequest(TEST_INDEX)
             .id("complex-2")
             .source("status", "inactive", "priority", 3, "tags", Arrays.asList("low")),
         RequestOptions.DEFAULT);
 
     searchClientShim.indexDocument(
+        OP_CONTEXT,
         new IndexRequest(TEST_INDEX)
             .id("complex-3")
             .source("status", "active", "priority", 8, "tags", Arrays.asList("critical")),
         RequestOptions.DEFAULT);
 
-    searchClientShim.refreshIndex(new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
 
     // Complex bool query
     SearchRequest searchRequest = new SearchRequest(TEST_INDEX);
@@ -827,7 +888,8 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
             .filter(QueryBuilders.rangeQuery("priority").gte(5)));
     searchRequest.source(sourceBuilder);
 
-    SearchResponse searchResponse = searchClientShim.search(searchRequest, RequestOptions.DEFAULT);
+    SearchResponse searchResponse =
+        searchClientShim.search(OP_CONTEXT, searchRequest, RequestOptions.DEFAULT);
     assertNotNull(searchResponse);
     assertTrue(searchResponse.getHits().getTotalHits().value >= 2);
   }
@@ -841,7 +903,8 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     request.addParameter("wait_for_status", "yellow");
     request.addParameter("timeout", "5s");
 
-    RawResponse response = searchClientShim.performLowLevelRequest(request);
+    RawResponse response =
+        searchClientShim.performLowLevelRequest(OperationFingerprint.EMPTY, request);
     assertNotNull(response);
     assertNotNull(response.getEntity());
 
@@ -858,7 +921,8 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
             + "    ]\n"
             + " }";
     request2.setJsonEntity(jsonBody);
-    RawResponse response2 = searchClientShim.performLowLevelRequest(request2);
+    RawResponse response2 =
+        searchClientShim.performLowLevelRequest(OperationFingerprint.EMPTY, request2);
 
     assertNotNull(response2);
     assertEquals(response.getStatusLine().getStatusCode(), 200);
@@ -870,18 +934,21 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
 
     // Index documents with different relevance
     searchClientShim.indexDocument(
+        OP_CONTEXT,
         new IndexRequest(TEST_INDEX)
             .id("score-1")
             .source("title", "elasticsearch search engine", "boost", 10),
         RequestOptions.DEFAULT);
 
     searchClientShim.indexDocument(
+        OP_CONTEXT,
         new IndexRequest(TEST_INDEX)
             .id("score-2")
             .source("title", "random unrelated content", "boost", 1),
         RequestOptions.DEFAULT);
 
-    searchClientShim.refreshIndex(new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
 
     // Search with min score
     SearchRequest searchRequest = new SearchRequest(TEST_INDEX);
@@ -890,7 +957,8 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     sourceBuilder.minScore(0.5f);
     searchRequest.source(sourceBuilder);
 
-    SearchResponse searchResponse = searchClientShim.search(searchRequest, RequestOptions.DEFAULT);
+    SearchResponse searchResponse =
+        searchClientShim.search(OP_CONTEXT, searchRequest, RequestOptions.DEFAULT);
     assertNotNull(searchResponse);
     // Only high-scoring documents should be returned
     assertTrue(searchResponse.getHits().getTotalHits().value >= 0);
@@ -904,9 +972,10 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     for (int i = 0; i < 100; i++) {
       IndexRequest indexRequest =
           new IndexRequest(TEST_INDEX).id("terminate-doc-" + i).source("counter", i);
-      searchClientShim.indexDocument(indexRequest, RequestOptions.DEFAULT);
+      searchClientShim.indexDocument(OP_CONTEXT, indexRequest, RequestOptions.DEFAULT);
     }
-    searchClientShim.refreshIndex(new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
+    searchClientShim.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(TEST_INDEX), RequestOptions.DEFAULT);
 
     // Search with terminate after
     SearchRequest searchRequest = new SearchRequest(TEST_INDEX);
@@ -915,7 +984,8 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     sourceBuilder.terminateAfter(10);
     searchRequest.source(sourceBuilder);
 
-    SearchResponse searchResponse = searchClientShim.search(searchRequest, RequestOptions.DEFAULT);
+    SearchResponse searchResponse =
+        searchClientShim.search(OP_CONTEXT, searchRequest, RequestOptions.DEFAULT);
     assertNotNull(searchResponse);
     // Should terminate early
     assertNotNull(searchResponse.isTerminatedEarly());

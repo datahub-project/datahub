@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
@@ -34,9 +35,9 @@ public class Es7CompatibilitySearchClientShim extends OpenSearch2SearchClientShi
 
   @Nonnull
   @Override
-  public String getEngineVersion() throws IOException {
+  public String getEngineVersion(@Nonnull OperationFingerprint opContext) throws IOException {
     try {
-      Map<String, String> clusterInfo = getClusterInfo();
+      Map<String, String> clusterInfo = getClusterInfo(opContext);
       return clusterInfo.getOrDefault("version", "unknown");
     } catch (Exception e) {
       log.warn("Failed to get engine version", e);
@@ -46,7 +47,8 @@ public class Es7CompatibilitySearchClientShim extends OpenSearch2SearchClientShi
 
   @Nonnull
   @Override
-  public Map<String, String> getClusterInfo() throws IOException {
+  public Map<String, String> getClusterInfo(@Nonnull OperationFingerprint opContext)
+      throws IOException {
     try {
       // Use the info() API to get cluster information
       org.opensearch.client.core.MainResponse info = getNativeClient().info(RequestOptions.DEFAULT);
@@ -90,7 +92,8 @@ public class Es7CompatibilitySearchClientShim extends OpenSearch2SearchClientShi
 
   @Nonnull
   @Override
-  public KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) {
+  public KnnSearchResponse searchKnn(
+      @Nonnull OperationFingerprint opContext, @Nonnull KnnSearchRequest request) {
     throw new UnsupportedOperationException(
         "Semantic search requires Elasticsearch 8.18+; this cluster is on 7.x compatibility mode");
   }
@@ -102,7 +105,8 @@ public class Es7CompatibilitySearchClientShim extends OpenSearch2SearchClientShi
   }
 
   @Override
-  public void indexEmbeddings(@Nonnull EmbeddingBatch batch) {
+  public void indexEmbeddings(
+      @Nonnull OperationFingerprint opContext, @Nonnull EmbeddingBatch batch) {
     throw new UnsupportedOperationException(
         "Semantic search requires Elasticsearch 8.18+; this cluster is on 7.x compatibility mode");
   }

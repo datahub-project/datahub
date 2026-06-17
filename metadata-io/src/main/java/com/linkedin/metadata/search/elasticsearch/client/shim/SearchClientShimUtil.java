@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim;
 
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es7CompatibilitySearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
@@ -434,6 +435,11 @@ public class SearchClientShimUtil {
    * Auto-detect the search engine type by connecting to the cluster and examining the version. This
    * is useful when you want to automatically adapt to the target environment.
    *
+   * <p>Production callers should use the 3-arg overload that accepts an {@link
+   * OperationFingerprint} (typically the {@code systemOperationContext} bean). This 2-arg form is
+   * retained for test convenience and delegates with {@link OperationFingerprint#EMPTY}; passing
+   * {@code null} would NPE in any downstream shim decorator (e.g. cloud {@code EnrichingShim}).
+   *
    * @param config Base configuration with connection parameters (engine type will be overridden)
    * @return A SearchClientShim implementation suitable for the detected engine type
    * @throws IOException if there's an error detecting the engine type or creating the client
@@ -441,7 +447,30 @@ public class SearchClientShimUtil {
   @Nonnull
   public static SearchClientShim<?> createShimWithAutoDetection(
       @Nonnull ShimConfiguration config, ObjectMapper objectMapper) throws IOException {
-    SearchEngineType detectedType = detectEngineType(config, objectMapper);
+    // TODO(opcontext-pr6): test-convenience overload — uses OperationFingerprint.EMPTY because
+    // tests run outside Spring and have no systemOperationContext bean. Production code MUST use
+    // the 3-arg overload below to avoid NPEs in downstream decorators.
+    return createShimWithAutoDetection(config, objectMapper, OperationFingerprint.EMPTY);
+  }
+
+  /**
+   * Production variant: auto-detect the search engine type using a supplied {@link
+   * OperationFingerprint}. At startup the only available context is {@code systemOperationContext}
+   * — pass that bean from the Spring factory; never pass {@code null}.
+   *
+   * @param config Base configuration with connection parameters (engine type will be overridden)
+   * @param objectMapper Jackson mapper for the ES8 client construction
+   * @param opContext Per-event context if available; at bootstrap, the system context bean
+   * @return A SearchClientShim implementation suitable for the detected engine type
+   * @throws IOException if there's an error detecting the engine type or creating the client
+   */
+  @Nonnull
+  public static SearchClientShim<?> createShimWithAutoDetection(
+      @Nonnull ShimConfiguration config,
+      ObjectMapper objectMapper,
+      @Nonnull OperationFingerprint opContext)
+      throws IOException {
+    SearchEngineType detectedType = detectEngineType(config, objectMapper, opContext);
 
     log.info("Auto-detected search engine type: {}", detectedType);
 
@@ -457,12 +486,18 @@ public class SearchClientShimUtil {
    * This method tries different client types in order of preference until one succeeds.
    *
    * @param config Base configuration with connection parameters
+   * @param opContext Operation context for the engine-version probe; at startup this is the {@code
+   *     systemOperationContext} bean. Never {@code null} — see {@link
+   *     #createShimWithAutoDetection(ShimConfiguration, ObjectMapper, OperationFingerprint)}.
    * @return The detected SearchEngineType
    * @throws IOException if unable to detect the engine type
    */
   @Nonnull
   private static SearchEngineType detectEngineType(
-      @Nonnull ShimConfiguration config, ObjectMapper objectMapper) throws IOException {
+      @Nonnull ShimConfiguration config,
+      ObjectMapper objectMapper,
+      @Nonnull OperationFingerprint opContext)
+      throws IOException {
     List<String> failures = new ArrayList<>();
     String endpoint = config.getHost() + ":" + config.getPort();
 
@@ -474,7 +509,10 @@ public class SearchClientShimUtil {
               .build();
 
       try (SearchClientShim<?> testShim = new OpenSearch2SearchClientShim(testConfig)) {
-        String version = testShim.getEngineVersion();
+        // TODO(opcontext-pr6): cannot use per-event opContext — detectEngineType runs at
+        // Spring bean construction before any request exists. Caller supplies
+        // systemOperationContext (production) or OperationFingerprint.EMPTY (test).
+        String version = testShim.getEngineVersion(opContext);
 
         if (version != null && version.startsWith("2.")) {
           return SearchEngineType.OPENSEARCH_2;
@@ -495,7 +533,10 @@ public class SearchClientShimUtil {
               .build();
 
       try (SearchClientShim<?> testShim = new Es7CompatibilitySearchClientShim(testConfig)) {
-        String version = testShim.getEngineVersion();
+        // TODO(opcontext-pr6): cannot use per-event opContext — detectEngineType runs at
+        // Spring bean construction before any request exists. Caller supplies
+        // systemOperationContext (production) or OperationFingerprint.EMPTY (test).
+        String version = testShim.getEngineVersion(opContext);
 
         if (version != null && version.startsWith("7.")) {
           return SearchEngineType.ELASTICSEARCH_7;
@@ -516,7 +557,10 @@ public class SearchClientShimUtil {
               .build();
 
       try (SearchClientShim<?> testShim = new Es8SearchClientShim(testConfig, objectMapper)) {
-        String version = testShim.getEngineVersion();
+        // TODO(opcontext-pr6): cannot use per-event opContext — detectEngineType runs at
+        // Spring bean construction before any request exists. Caller supplies
+        // systemOperationContext (production) or OperationFingerprint.EMPTY (test).
+        String version = testShim.getEngineVersion(opContext);
 
         if (version != null && version.startsWith("8.")) {
           return SearchEngineType.ELASTICSEARCH_8;

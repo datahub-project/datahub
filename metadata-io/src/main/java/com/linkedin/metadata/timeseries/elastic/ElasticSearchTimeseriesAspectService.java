@@ -245,10 +245,11 @@ public class ElasticSearchTimeseriesAspectService
             pair -> {
               try {
                 return indexBuilder.buildReindexState(
+                    opContext,
                     indexConvention.getTimeseriesAspectIndexName(
                         pair.getFirst().getName(), pair.getSecond().getName()),
                     MappingsBuilder.getMappings(pair.getSecond()),
-                    Collections.emptyMap());
+                    Collections.<String, Object>emptyMap());
               } catch (IOException e) {
                 log.error(
                     "Issue while building timeseries field index for entity {} aspect {}",
@@ -261,7 +262,10 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   public String reindexAsync(
-      String index, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options)
+      @Nonnull OperationContext opContext,
+      String index,
+      @Nullable QueryBuilder filterQuery,
+      BatchWriteOperationsOptions options)
       throws Exception {
     Optional<Pair<String, String>> entityAndAspect = indexConvention.getEntityAndAspectName(index);
     if (entityAndAspect.isEmpty()) {
@@ -282,11 +286,12 @@ public class ElasticSearchTimeseriesAspectService
     }
     ReindexConfig config =
         indexBuilder.buildReindexState(
+            opContext,
             index,
             MappingsBuilder.getMappings(
                 entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName)),
-            Collections.emptyMap());
-    return indexBuilder.reindexInPlaceAsync(index, filterQuery, options, config);
+            Collections.<String, Object>emptyMap());
+    return indexBuilder.reindexInPlaceAsync(opContext, index, filterQuery, options, config);
   }
 
   @Override
@@ -295,7 +300,7 @@ public class ElasticSearchTimeseriesAspectService
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
       try {
-        indexBuilder.buildIndex(config);
+        indexBuilder.buildIndex(opContext, config);
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -328,7 +333,7 @@ public class ElasticSearchTimeseriesAspectService
     // Route by docId — see ESGraphWriteDAO#upsertDocument. Defensive here (timeseries
     // docIds are per-messageId and rarely collide), but consistent with the rest of
     // the bulk-write paths.
-    bulkProcessor.add(docId, updateRequest);
+    bulkProcessor.add(opContext, docId, updateRequest);
   }
 
   @Override
@@ -338,7 +343,8 @@ public class ElasticSearchTimeseriesAspectService
       String indicesPattern =
           opContext.getSearchContext().getIndexConvention().getAllTimeseriesAspectIndicesPattern();
       RawResponse r =
-          searchClient.performLowLevelRequest(new Request("GET", "/" + indicesPattern + "/_stats"));
+          searchClient.performLowLevelRequest(
+              opContext, new Request("GET", "/" + indicesPattern + "/_stats"));
       JsonNode body = new ObjectMapper().readTree(r.getEntity().getContent());
       body.get("indices")
           .fields()
@@ -394,7 +400,7 @@ public class ElasticSearchTimeseriesAspectService
     countRequest.query(filterQueryBuilder);
     countRequest.indices(indexName);
     try {
-      CountResponse resp = searchClient.count(countRequest, RequestOptions.DEFAULT);
+      CountResponse resp = searchClient.count(opContext, countRequest, RequestOptions.DEFAULT);
       return resp.getCount();
     } catch (IOException e) {
       log.error("Count query failed:", e);
@@ -476,7 +482,7 @@ public class ElasticSearchTimeseriesAspectService
           SearchHits hits;
           try {
             final SearchResponse searchResponse =
-                searchClient.search(searchRequest, RequestOptions.DEFAULT);
+                searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
             hits = searchResponse.getHits();
           } catch (Exception e) {
             log.error("Search query failed:", e);
@@ -610,7 +616,8 @@ public class ElasticSearchTimeseriesAspectService
 
       log.debug("Batch timeseries search request: {}", searchRequest);
       try {
-        SearchResponse response = searchClient.search(searchRequest, RequestOptions.DEFAULT);
+        SearchResponse response =
+            searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
         ParsedTerms terms = response.getAggregations().get("urn_buckets");
         for (Terms.Bucket bucket : terms.getBuckets()) {
           Urn urn = UrnUtils.getUrn(bucket.getKeyAsString());
@@ -811,6 +818,7 @@ public class ElasticSearchTimeseriesAspectService
     final Optional<DeleteAspectValuesResult> result =
         bulkProcessor
             .deleteByQuery(
+                opContext,
                 filterQueryBuilder,
                 false,
                 timeseriesAspectServiceConfig.getLimit().getResults().getApiDefault(),
@@ -857,7 +865,8 @@ public class ElasticSearchTimeseriesAspectService
             ? TimeValue.timeValueSeconds(options.getTimeoutSeconds())
             : null;
     final Optional<String> result =
-        bulkProcessor.deleteByQueryAsync(filterQueryBuilder, false, batchSize, timeout, indexName);
+        bulkProcessor.deleteByQueryAsync(
+            opContext, filterQueryBuilder, false, batchSize, timeout, indexName);
 
     if (result.isPresent()) {
       return result.get();
@@ -887,7 +896,7 @@ public class ElasticSearchTimeseriesAspectService
             opContext,
             queryFilterRewriteChain);
     try {
-      return this.reindexAsync(indexName, filterQueryBuilder, options);
+      return this.reindexAsync(opContext, indexName, filterQueryBuilder, options);
     } catch (Exception e) {
       log.error("Async reindex failed");
       throw new ESQueryException("Async reindex failed", e);
@@ -1050,7 +1059,7 @@ public class ElasticSearchTimeseriesAspectService
 
             // Execute search
             SearchResponse searchResponse =
-                searchClient.search(searchRequest, RequestOptions.DEFAULT);
+                searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
             SearchHits hits = searchResponse.getHits();
 
             if (hits.getTotalHits() != null
@@ -1119,7 +1128,7 @@ public class ElasticSearchTimeseriesAspectService
         "scrollAspects_search",
         () -> {
           try {
-            return searchClient.search(searchRequest, RequestOptions.DEFAULT);
+            return searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);

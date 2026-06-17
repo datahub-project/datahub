@@ -202,7 +202,8 @@ public class ElasticSearchServiceTest {
   public void testAppendRunId_DualWriteToSemanticIndex() {
     // Setup: Create a mock that supports indexExists check
     ESWriteDAO mockEsWriteDAOWithIndex = mock(ESWriteDAO.class);
-    when(mockEsWriteDAOWithIndex.indexExists(any(String.class))).thenReturn(true);
+    when(mockEsWriteDAOWithIndex.indexExists(any(OperationContext.class), any(String.class)))
+        .thenReturn(true);
 
     ElasticSearchService serviceWithSemanticIndex =
         new ElasticSearchService(
@@ -246,6 +247,7 @@ public class ElasticSearchServiceTest {
 
     verify(mockEsWriteDAOWithIndex)
         .applyScriptUpdateByIndexName(
+            any(OperationContext.class),
             indexNameCaptor.capture(),
             docIdCaptor.capture(),
             scriptSourceCaptor.capture(),
@@ -264,7 +266,8 @@ public class ElasticSearchServiceTest {
   public void testAppendRunId_SkipsSemanticIndexWhenNotExists() {
     // Setup: Create a mock where semantic index does not exist
     ESWriteDAO mockEsWriteDAONoSemanticIndex = mock(ESWriteDAO.class);
-    when(mockEsWriteDAONoSemanticIndex.indexExists(any(String.class))).thenReturn(false);
+    when(mockEsWriteDAONoSemanticIndex.indexExists(any(OperationContext.class), any(String.class)))
+        .thenReturn(false);
 
     ElasticSearchService serviceWithoutSemanticIndex =
         new ElasticSearchService(
@@ -295,6 +298,7 @@ public class ElasticSearchServiceTest {
     // Verify semantic index update was NOT called (since index doesn't exist)
     verify(mockEsWriteDAONoSemanticIndex, never())
         .applyScriptUpdateByIndexName(
+            any(OperationContext.class),
             any(String.class),
             any(String.class),
             any(String.class),

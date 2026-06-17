@@ -868,9 +868,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     ComparableVersion finalRegistryVersion1 = registryVersion;
     return RestliUtils.toTask(systemOperationContext,
         () -> {
+          final Authentication auth = AuthenticationContext.getAuthentication();
+          OperationContext opContext = OperationContext.asSession(
+                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                          "deleteAll", List.of()), authorizer, auth, true);
+
           RollbackResponse response = new RollbackResponse();
           List<AspectRowSummary> aspectRowsToDelete =
               systemMetadataService.findByRegistry(
+                  opContext,
                   finalRegistryName,
                   finalRegistryVersion.toString(),
                   false,
@@ -882,11 +888,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               aspectRowsToDelete.stream()
                   .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
                   .keySet();
-
-          final Authentication auth = AuthenticationContext.getAuthentication();
-          OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                          "deleteAll", urns), authorizer, auth, true);
 
           if (!isAPIAuthorizedEntityUrns(
                   opContext,

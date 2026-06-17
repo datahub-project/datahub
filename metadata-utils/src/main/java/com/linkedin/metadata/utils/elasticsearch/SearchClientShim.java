@@ -1,5 +1,6 @@
 package com.linkedin.metadata.utils.elasticsearch;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -158,134 +159,208 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
   ShimConfiguration getShimConfiguration();
 
   // Core search operations
+  //
+  // Data-plane methods take an {@link OperationFingerprint} as their first argument so the wrapper
+  // layer (e.g. cloud's EnrichingShim) can hand it to its registered enrichers without changing
+  // what the raw impls do. The raw impls (Es8/OpenSearch2/Es7Compatibility/FaultInjecting) ignore
+  // the context — they remain pure adapters over the native client. Per-event routing, tenant
+  // filtering, doc-field stamping, etc. is decoration applied at the wrapper layer.
   @Nonnull
-  SearchResponse search(@Nonnull SearchRequest searchRequest, @Nonnull RequestOptions options)
+  SearchResponse search(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull SearchRequest searchRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
   SearchResponse scroll(
-      @Nonnull SearchScrollRequest searchScrollRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull SearchScrollRequest searchScrollRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
   ClearScrollResponse clearScroll(
-      @Nonnull ClearScrollRequest clearScrollRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ClearScrollRequest clearScrollRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
-  CountResponse count(@Nonnull CountRequest countRequest, @Nonnull RequestOptions options)
+  CountResponse count(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CountRequest countRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
-  ExplainResponse explain(@Nonnull ExplainRequest explainRequest, @Nonnull RequestOptions options)
+  ExplainResponse explain(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ExplainRequest explainRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   // Document operations
   @Nonnull
-  GetResponse getDocument(@Nonnull GetRequest getRequest, @Nonnull RequestOptions options)
+  GetResponse getDocument(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetRequest getRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
-  IndexResponse indexDocument(@Nonnull IndexRequest indexRequest, @Nonnull RequestOptions options)
+  IndexResponse indexDocument(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull IndexRequest indexRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
   DeleteResponse deleteDocument(
-      @Nonnull DeleteRequest deleteRequest, @Nonnull RequestOptions options) throws IOException;
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteRequest deleteRequest,
+      @Nonnull RequestOptions options)
+      throws IOException;
 
   @Nonnull
   BulkByScrollResponse deleteByQuery(
-      @Nonnull DeleteByQueryRequest deleteByQueryRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteByQueryRequest deleteByQueryRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
   CreatePitResponse createPit(
-      @Nonnull CreatePitRequest createPitRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CreatePitRequest createPitRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
   DeletePitResponse deletePit(
-      @Nonnull DeletePitRequest deletePitRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeletePitRequest deletePitRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   // Index management operations
   @Nonnull
   CreateIndexResponse createIndex(
-      @Nonnull CreateIndexRequest createIndexRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CreateIndexRequest createIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
-  GetIndexResponse getIndex(GetIndexRequest getIndexRequest, RequestOptions options)
+  GetIndexResponse getIndex(
+      @Nonnull OperationFingerprint opContext,
+      GetIndexRequest getIndexRequest,
+      RequestOptions options)
       throws IOException;
 
   @Nonnull
-  ResizeResponse cloneIndex(ResizeRequest resizeRequest, RequestOptions options) throws IOException;
+  ResizeResponse cloneIndex(
+      @Nonnull OperationFingerprint opContext, ResizeRequest resizeRequest, RequestOptions options)
+      throws IOException;
 
   @Nonnull
   AcknowledgedResponse deleteIndex(
-      @Nonnull DeleteIndexRequest deleteIndexRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteIndexRequest deleteIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
-  boolean indexExists(@Nonnull GetIndexRequest getIndexRequest, @Nonnull RequestOptions options)
+  boolean indexExists(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetIndexRequest getIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
   AcknowledgedResponse putIndexMapping(
-      @Nonnull PutMappingRequest putMappingRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull PutMappingRequest putMappingRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
   GetMappingsResponse getIndexMapping(
-      @Nonnull GetMappingsRequest getMappingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetMappingsRequest getMappingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
   GetSettingsResponse getIndexSettings(
-      @Nonnull GetSettingsRequest getSettingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetSettingsRequest getSettingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
   AcknowledgedResponse updateIndexSettings(
-      @Nonnull UpdateSettingsRequest updateSettingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull UpdateSettingsRequest updateSettingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
   RefreshResponse refreshIndex(
-      @Nonnull RefreshRequest refreshRequest, @Nonnull RequestOptions options) throws IOException;
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull RefreshRequest refreshRequest,
+      @Nonnull RequestOptions options)
+      throws IOException;
 
   @Nonnull
   GetAliasesResponse getIndexAliases(
-      @Nonnull GetAliasesRequest getAliasesRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetAliasesRequest getAliasesRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   @Nonnull
   AcknowledgedResponse updateIndexAliases(
-      IndicesAliasesRequest indicesAliasesRequest, RequestOptions options) throws IOException;
+      @Nonnull OperationFingerprint opContext,
+      IndicesAliasesRequest indicesAliasesRequest,
+      RequestOptions options)
+      throws IOException;
 
   @Nonnull
-  AnalyzeResponse analyzeIndex(AnalyzeRequest request, RequestOptions options) throws IOException;
+  AnalyzeResponse analyzeIndex(
+      @Nonnull OperationFingerprint opContext, AnalyzeRequest request, RequestOptions options)
+      throws IOException;
 
   // Cluster operations
   @Nonnull
   ClusterGetSettingsResponse getClusterSettings(
-      ClusterGetSettingsRequest clusterGetSettingsRequest, RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      ClusterGetSettingsRequest clusterGetSettingsRequest,
+      RequestOptions options)
       throws IOException;
 
   @Nonnull
   ClusterUpdateSettingsResponse putClusterSettings(
-      ClusterUpdateSettingsRequest clusterUpdateSettingsRequest, RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      ClusterUpdateSettingsRequest clusterUpdateSettingsRequest,
+      RequestOptions options)
       throws IOException;
 
   @Nonnull
-  ClusterHealthResponse clusterHealth(ClusterHealthRequest healthRequest, RequestOptions options)
+  ClusterHealthResponse clusterHealth(
+      @Nonnull OperationFingerprint opContext,
+      ClusterHealthRequest healthRequest,
+      RequestOptions options)
       throws IOException;
 
   // Async Task operations
   @Nonnull
-  ListTasksResponse listTasks(ListTasksRequest request, RequestOptions options) throws IOException;
+  ListTasksResponse listTasks(
+      @Nonnull OperationFingerprint opContext, ListTasksRequest request, RequestOptions options)
+      throws IOException;
 
   @Nonnull
-  Optional<GetTaskResponse> getTask(GetTaskRequest request, RequestOptions options)
+  Optional<GetTaskResponse> getTask(
+      @Nonnull OperationFingerprint opContext, GetTaskRequest request, RequestOptions options)
       throws IOException;
 
   // Metadata and introspection
@@ -303,10 +378,10 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
   Map<String, String> partialNgramConfig();
 
   @Nonnull
-  String getEngineVersion() throws IOException;
+  String getEngineVersion(@Nonnull OperationFingerprint opContext) throws IOException;
 
   @Nonnull
-  Map<String, String> getClusterInfo() throws IOException;
+  Map<String, String> getClusterInfo(@Nonnull OperationFingerprint opContext) throws IOException;
 
   /** Check if the client supports a specific API feature */
   boolean supportsFeature(@Nonnull String feature);
@@ -316,18 +391,28 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
    * likely candidate for removal.
    */
   @Nonnull
-  RawResponse performLowLevelRequest(Request request) throws IOException;
-
-  @Nonnull
-  BulkByScrollResponse updateByQuery(
-      UpdateByQueryRequest updateByQueryRequest, RequestOptions options) throws IOException;
-
-  @Nonnull
-  String submitDeleteByQueryTask(DeleteByQueryRequest deleteByQueryRequest, RequestOptions options)
+  RawResponse performLowLevelRequest(@Nonnull OperationFingerprint opContext, Request request)
       throws IOException;
 
   @Nonnull
-  String submitReindexTask(ReindexRequest reindexRequest, RequestOptions options)
+  BulkByScrollResponse updateByQuery(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull UpdateByQueryRequest updateByQueryRequest,
+      @Nonnull RequestOptions options)
+      throws IOException;
+
+  @Nonnull
+  String submitDeleteByQueryTask(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteByQueryRequest deleteByQueryRequest,
+      @Nonnull RequestOptions options)
+      throws IOException;
+
+  @Nonnull
+  String submitReindexTask(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ReindexRequest reindexRequest,
+      @Nonnull RequestOptions options)
       throws IOException;
 
   // Bulk operations
@@ -349,7 +434,10 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
       int numRetries,
       int threadCount);
 
-  void addBulk(String urn, DocWriteRequest<?> writeRequest);
+  void addBulk(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull String urn,
+      @Nonnull DocWriteRequest<?> writeRequest);
 
   void flushBulkProcessor();
 
@@ -357,7 +445,9 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
 
   // -- Semantic search operations --------------------------------------------------
 
-  default KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) throws IOException {
+  default KnnSearchResponse searchKnn(
+      @Nonnull OperationFingerprint opContext, @Nonnull KnnSearchRequest request)
+      throws IOException {
     throw new UnsupportedOperationException(
         "searchKnn not supported by " + getEngineType() + " shim");
   }
@@ -367,7 +457,8 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
         "createSemanticIndex not supported by " + getEngineType() + " shim");
   }
 
-  default void indexEmbeddings(@Nonnull EmbeddingBatch batch) throws IOException {
+  default void indexEmbeddings(
+      @Nonnull OperationFingerprint opContext, @Nonnull EmbeddingBatch batch) throws IOException {
     throw new UnsupportedOperationException(
         "indexEmbeddings not supported by " + getEngineType() + " shim");
   }
