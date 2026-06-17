@@ -98,7 +98,7 @@ describe('useScheduleStepSubtitle', () => {
 
         const { result } = renderHook(() => useScheduleStepSubtitle());
 
-        expect(result.current).toBe('Configure how often DataHub syncs metadata from undefined.');
+        expect(result.current).toBe('Configure how often DataHub syncs metadata from this source.');
     });
 
     it('handles null sourceDisplayName gracefully', async () => {
@@ -120,6 +120,6 @@ describe('useScheduleStepSubtitle', () => {
 
         const { result } = renderHook(() => useScheduleStepSubtitle());
 
-        expect(result.current).toBe('Configure how often DataHub syncs metadata from null.');
+        expect(result.current).toBe('Configure how often DataHub syncs metadata from this source.');
     });
 });

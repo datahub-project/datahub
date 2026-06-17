@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.OpenSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2KnnQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexMapper;
@@ -528,6 +529,23 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Override
   public SearchEngineType getEngineType() {
     return engineType;
+  }
+
+  /**
+   * OpenSearch 2.x and Elasticsearch 7.17 (via {@link Es7CompatibilitySearchClientShim}, which
+   * extends this class) persist {@code doc_values: false} on {@code search_as_you_type} fields, so
+   * the authored mapping must include it to round-trip cleanly against {@code GetMapping}.
+   */
+  public static final Map<String, String> PARTIAL_NGRAM_CONFIG =
+      ImmutableMap.of(
+          "type", "search_as_you_type",
+          "max_shingle_size", "4",
+          "doc_values", "false");
+
+  @Nonnull
+  @Override
+  public Map<String, String> partialNgramConfig() {
+    return PARTIAL_NGRAM_CONFIG;
   }
 
   @Nonnull

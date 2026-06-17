@@ -1,6 +1,7 @@
 import OutputIcon from '@mui/icons-material/Output';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -41,6 +42,7 @@ const LoadMoreButton = styled(Card)`
 const COUNT = 10;
 
 export const OutputPortsSection = () => {
+    const { t } = useTranslation('entity.types');
     const theme = useTheme();
     const [additionalResults, setAdditionalResults] = useState<SearchResult[]>([]);
     const [hasFetchedNewData, setHasFetchedNewData] = useState(false);
@@ -53,7 +55,7 @@ export const OutputPortsSection = () => {
             query: '*',
             start: 0,
             count: COUNT,
-            filters: [{ field: OUTPUT_PORTS_FIELD, value: 'true' }], // we use this filter hardcoded in list data product assets resolver
+            filters: [{ field: OUTPUT_PORTS_FIELD, values: ['true'] }], // we use this filter hardcoded in list data product assets resolver
         },
     };
 
@@ -91,7 +93,7 @@ export const OutputPortsSection = () => {
             <StyledHeaderWrapper>
                 <SummaryTabHeaderTitle
                     icon={<OutputIcon style={{ fontSize: 16, color: theme.colors.textSecondary }} />}
-                    title={`Output Ports (${numResults})`}
+                    title={t('dataProduct.outputPortsCountTitle', { count: numResults })}
                 />
             </StyledHeaderWrapper>
             <StyledHorizontalList>
@@ -103,7 +105,7 @@ export const OutputPortsSection = () => {
                 {showLoadMoreButton && (
                     <LoadMoreButton onClick={loadMore}>
                         <RefreshIcon style={{ marginRight: 4 }} />
-                        Load more
+                        {t('dataProduct.loadMore')}
                     </LoadMoreButton>
                 )}
                 {/* KEEPING THIS COMMENTED UNTIL DESIGN IS READY FOR OUTPUT PORT */}

@@ -89,6 +89,11 @@ type Document implements Entity {
   type: EntityType!
 
   """
+  The timestamp of the last time this Document was ingested
+  """
+  lastIngested: Long
+
+  """
   Information about the Document
   """
   info: DocumentInfo

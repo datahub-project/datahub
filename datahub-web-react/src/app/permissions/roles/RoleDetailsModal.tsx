@@ -1,5 +1,6 @@
 import { Avatar, Heading, Modal, Pill, Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -35,6 +36,7 @@ const PillsContainer = styled.div`
 `;
 
 export default function RoleDetailsModal({ role, open, onClose }: Props) {
+    const { t } = useTranslation('settings.permissions');
     const entityRegistry = useEntityRegistry();
 
     const castedRole = role as any;
@@ -89,7 +91,7 @@ export default function RoleDetailsModal({ role, open, onClose }: Props) {
             <PolicyContainer>
                 <Section>
                     <Heading type="h5" size="sm" weight="bold">
-                        Description
+                        {t('column.description')}
                     </Heading>
                     <Text color="gray" size="md">
                         {role?.description}
@@ -98,7 +100,7 @@ export default function RoleDetailsModal({ role, open, onClose }: Props) {
                 {userAvatars.length > 0 && (
                     <Section>
                         <Heading type="h5" size="sm" weight="bold">
-                            Users
+                            {t('usersLabel')}
                         </Heading>
                         {renderAvatarPills(userAvatars)}
                     </Section>
@@ -106,14 +108,14 @@ export default function RoleDetailsModal({ role, open, onClose }: Props) {
                 {groupAvatars.length > 0 && (
                     <Section>
                         <Heading type="h5" size="sm" weight="bold">
-                            Groups
+                            {t('groupsLabel')}
                         </Heading>
                         {renderAvatarPills(groupAvatars)}
                     </Section>
                 )}
                 <Section>
                     <Heading type="h5" size="sm" weight="bold">
-                        Associated Policies
+                        {t('associatedPoliciesLabel')}
                     </Heading>
                     <PillsContainer>
                         {policies.map((policy) => (

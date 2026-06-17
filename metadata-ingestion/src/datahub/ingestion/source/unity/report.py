@@ -27,6 +27,7 @@ class UnityCatalogReport(SQLSourceReport):
     metastores: EntityFilterReport = EntityFilterReport.field(type="metastore")
     catalogs: EntityFilterReport = EntityFilterReport.field(type="catalog")
     schemas: EntityFilterReport = EntityFilterReport.field(type="schema")
+    # Metric views also count as tables so soft-delete keeps tracking them.
     tables: EntityFilterReport = EntityFilterReport.field(type="table/view")
     table_profiles: EntityFilterReport = EntityFilterReport.field(type="table profile")
     notebooks: EntityFilterReport = EntityFilterReport.field(type="notebook")
@@ -34,6 +35,7 @@ class UnityCatalogReport(SQLSourceReport):
     ml_model_versions: EntityFilterReport = EntityFilterReport.field(
         type="ml_model_version"
     )
+    metric_views: EntityFilterReport = EntityFilterReport.field(type="metric_view")
 
     hive_metastore_catalog_found: Optional[bool] = None
 
@@ -70,6 +72,21 @@ class UnityCatalogReport(SQLSourceReport):
     num_ml_models_missing_name: int = 0
     num_columns_missing_name: int = 0
     num_queries_missing_info: int = 0
+    num_metric_views_yaml_parse_failures: int = 0
+    num_metric_views_yaml_shape_invalid: int = 0
+    num_metric_views_no_parseable_sources: int = 0
+    num_metric_views_expr_parse_failures: int = 0
+    num_metric_view_joins_skipped: int = 0
+    num_metric_view_unresolved_qualifiers: int = 0
+    num_metric_view_unparseable_sources: int = 0
+    num_metric_view_skipped_dim_measure_entries: int = 0
+    num_metric_view_expr_empty_tree: int = 0
+    num_metric_view_unresolved_measure_refs: int = 0
+    num_metric_view_display_name_truncated: int = 0
+    num_metric_view_synonyms_overflow: int = 0
+    num_metric_view_synonyms_truncated: int = 0
+    num_metric_view_synonyms_dropped_invalid: int = 0
+    num_metric_view_format_unknown_subkeys: int = 0
 
     # Platform resource repository for automatic cache statistics via SupportsAsObj
     tag_urn_resolver_cache: Optional["UnityCatalogPlatformResourceRepository"] = None

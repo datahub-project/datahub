@@ -8,8 +8,8 @@ This source extracts the following:
 - Sigma Datasets as Datahub Datasets.
 - Pages as Datahub dashboards and elements present inside pages as charts.
 - Sigma Data Models as Containers, with each element as a Dataset
-  inside the Container (opt-in via `ingest_data_models: true`; default
-  `false`). `UpstreamLineage` is emitted on each DM element Dataset for
+  inside the Container (`ingest_data_models` defaults to `true`; set it
+  to `false` to skip Data Model ingestion). `UpstreamLineage` is emitted on each DM element Dataset for
   intra-DM, cross-DM, and external (warehouse / Sigma Dataset) upstream
   references. Workbook-to-DM connections are emitted as `ChartInfo.inputs`
   on the workbook chart entity (not as `UpstreamLineage` on the DM element
@@ -44,8 +44,8 @@ This source extracts the following:
     `data_model_element_cross_dm_upstreams*\*`counters); the aggregate`data_model_element_upstreams_unresolved`
     is retained for dashboards that already read it. Re-run with
     broader patterns to materialize them.
-  - Setting `ingest_data_models: true` issues `/dataModels/{id}/elements`
-    and `/columns` calls per DM unconditionally, but the per-DM
+  - When `ingest_data_models` is enabled, `/dataModels/{id}/elements`
+    and `/columns` calls are issued per DM unconditionally, but the per-DM
     `/lineage` call is gated on `extract_lineage: true`. If you opt out
     of lineage at the workbook surface, the DM connector also stops
     hitting any `/lineage` endpoint — DM Containers, element Datasets,
@@ -106,6 +106,14 @@ Before running ingestion, ensure network connectivity to the source, valid authe
 
 1. Refer [doc](https://help.sigmacomputing.com/docs/generate-api-client-credentials) to generate an API client credentials.
 2. Provide the generated Client ID and Secret in Recipe.
+3. The API client must have read access to `/v2/connections` so the connector can
+   build its connection registry at startup. Existing credentials that pre-date
+   this requirement may need to be regenerated or have their scope expanded.
+   If the call fails (e.g. the token lacks the required scope), the ingest
+   continues with an empty registry and a warning is recorded in the run
+   report — typically `Sigma paginated endpoint aborted` for transport or
+   permission failures, or `Sigma Connection registry build failed` for
+   unexpected errors during registry construction.
 
 We have observed issues with the Sigma API, where certain API endpoints do not return the expected results, even when the user is an admin. In those cases, a workaround is to manually add the user associated with the Client ID/Secret to each workspace with missing metadata.
 Empty workspaces are listed in the ingestion report in the logs with the key `empty_workspaces`.

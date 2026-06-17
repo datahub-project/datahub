@@ -122,8 +122,8 @@ query getDomainEntitySummary($urn: String!) {
             orFilters: [
                 {
                     and: [
-                        { field: "_entityType", values: ["DATA_PRODUCT"], value: "DATA_PRODUCT", negated: true }
-                        { field: "domains", values: [$urn], value: $urn }
+                        { field: "_entityType", values: ["DATA_PRODUCT"], negated: true }
+                        { field: "domains", values: [$urn] }
                     ]
                 }
             ]

@@ -48,13 +48,11 @@ public class CreateViewResolverTest {
                   ImmutableList.of(
                       new FacetFilterInput(
                           "test1",
-                          null,
                           ImmutableList.of("value1", "value2"),
                           false,
                           FilterOperator.EQUAL),
                       new FacetFilterInput(
                           "test2",
-                          null,
                           ImmutableList.of("value1", "value2"),
                           true,
                           FilterOperator.IN)))));

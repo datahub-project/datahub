@@ -2,6 +2,7 @@ import { MoreOutlined } from '@ant-design/icons';
 import { useApolloClient } from '@apollo/client';
 import { Dropdown, Modal, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -60,6 +61,8 @@ export const ViewDropdownMenu = ({
     onClickPreview,
     onClickDelete,
 }: Props) => {
+    const { t } = useTranslation('entity.views');
+    const { t: tc } = useTranslation('common.actions');
     const userContext = useUserContext();
     const client = useApolloClient();
 
@@ -101,7 +104,7 @@ export const ViewDropdownMenu = ({
             .catch((_) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to make this your default view. An unexpected error occurred.`,
+                    content: t('updateDefaultErrorLegacy'),
                     duration: 3,
                 });
             });
@@ -138,7 +141,7 @@ export const ViewDropdownMenu = ({
             .catch((_) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to make this your organization's default view. An unexpected error occurred.`,
+                    content: t('updateOrgDefaultErrorLegacy'),
                     duration: 3,
                 });
             });
@@ -188,13 +191,13 @@ export const ViewDropdownMenu = ({
                             selectedViewUrn: undefined,
                         });
                     }
-                    message.success({ content: 'Removed View!', duration: 2 });
+                    message.success({ content: t('deleteSuccessLegacy'), duration: 2 });
                 }
             })
             .catch(() => {
                 message.destroy();
                 message.error({
-                    content: `Failed to delete View. An unexpected error occurred.`,
+                    content: t('deleteErrorLegacy'),
                     duration: 3,
                 });
             });
@@ -205,13 +208,13 @@ export const ViewDropdownMenu = ({
             onClickDelete?.();
         } else {
             Modal.confirm({
-                title: `Confirm Remove ${view.name}`,
-                content: `Are you sure you want to remove this View?`,
+                title: t('deleteConfirm.title', { name: view.name }),
+                content: t('deleteConfirm.content'),
                 onOk() {
                     deleteView(view.urn);
                 },
                 onCancel() {},
-                okText: 'Yes',
+                okText: tc('yes'),
                 maskClosable: true,
                 closable: true,
             });

@@ -10,7 +10,11 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 DataHub provides the ability to use **Roles** to manage permissions.
 
-:::tip **Roles** are the recommended way to manage permissions on DataHub. This should suffice for most use cases, but advanced users can use **Policies** if needed.
+:::tip
+**Roles** are the recommended way to manage permissions on DataHub. This should suffice for most use cases, but advanced users can use **Policies** if needed.
+:::
+
+When [view-based access control](./policies.md#designing-policies-for-view-based-access-control) is enabled, **Admin**, **Editor**, and **Reader** roles override view-based policy restrictions — users with any role can see all entities. See [Roles and VBAC](./policies.md#roles-and-vbac) in the Policies Guide.
 
 ## Roles Setup, Prerequisites, and Permissions
 
@@ -22,7 +26,9 @@ The out-of-the-box Roles represent the most common types of DataHub users. Curre
 | Editor    | Can read and edit all metadata. Cannot take administrative actions.                     |
 | Reader    | Can read all metadata. Cannot edit anything by default, or take administrative actions. |
 
-:::note To manage roles, including viewing roles, or editing a user's role, you must either be an **Admin**, or have the **Manage Policies** privilege.
+:::note
+To manage roles, including viewing roles, or editing a user's role, you must either be an **Admin**, or have the **Manage Policies** privilege.
+:::
 
 ## Using Roles
 

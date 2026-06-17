@@ -139,23 +139,55 @@ public class PolicyEngine {
       return new PolicyEvaluationResult(policy.getDisplayName(), false, "Inactive Policy");
     }
 
-    // If the resource is not in scope, deny the request.
+    final DataHubActorFilter actorFilter = policy.getActors();
+
+    // Applicability is (actor matches) AND (resource matches), so check order never changes the
+    // decision -- only the work done before short-circuiting. Resolving the resource scope can
+    // trigger expensive, uncached lookups (e.g. the recursive domain/container hierarchy), whereas
+    // the user/group/role actor predicates are resource-independent and memoized per request.
+    // Evaluate those first so a policy that cannot apply to the actor skips resource resolution.
+    final boolean actorMatchesIgnoringOwnership =
+        isUserMatch(resolvedActorSpec, actorFilter)
+            || isGroupMatch(resolvedActorSpec, actorFilter, context)
+            || isRoleMatch(opContext, resolvedActorSpec, actorFilter, context);
+
+    if (actorMatchesIgnoringOwnership) {
+      return evaluateResourceScope(policy, resource, subResources);
+    }
+
+    if (!actorFilter.isResourceOwners()) {
+      return new PolicyEvaluationResult(policy.getDisplayName(), false, "Actor did not match");
+    }
+
+    // Resource ownership is the only actor predicate that needs the resource. Resolve the resource
+    // scope first so a non-matching resource short-circuits before the ownership lookup, keeping
+    // ownership policies exactly as cheap as the original ordering.
+    final PolicyEvaluationResult resourceResult =
+        evaluateResourceScope(policy, resource, subResources);
+    if (!resourceResult.isGranted()) {
+      return resourceResult;
+    }
+
+    if (isOwnerMatch(opContext, resolvedActorSpec, actorFilter, resource, context)) {
+      return new PolicyEvaluationResult(policy.getDisplayName(), true, "Policy is applicable");
+    }
+    return new PolicyEvaluationResult(policy.getDisplayName(), false, "Actor did not match");
+  }
+
+  /**
+   * Returns an applicable result iff the resource and any sub-resources are in the policy's scope.
+   */
+  private PolicyEvaluationResult evaluateResourceScope(
+      final DataHubPolicyInfo policy,
+      final Optional<ResolvedEntitySpec> resource,
+      final List<ResolvedEntitySpec> subResources) {
     if (!isResourceMatch(policy.getType(), policy.getResources(), resource)) {
       return new PolicyEvaluationResult(policy.getDisplayName(), false, "Resource does not match");
     }
-
     if (!isSubResourceAllowed(policy.getResources(), subResources)) {
       return new PolicyEvaluationResult(policy.getDisplayName(), false, "SubResource not allowed.");
     }
-
-    // If the actor does not match, deny the request.
-    boolean isActorMatched =
-        isActorMatch(opContext, resolvedActorSpec, policy.getActors(), resource, context);
-    if (isActorMatched) {
-      return new PolicyEvaluationResult(policy.getDisplayName(), true, "Policy is applicable");
-    } else {
-      return new PolicyEvaluationResult(policy.getDisplayName(), false, "Actor did not match");
-    }
+    return new PolicyEvaluationResult(policy.getDisplayName(), true, "Policy is applicable");
   }
 
   public PolicyGrantedPrivileges getGrantedPrivileges(

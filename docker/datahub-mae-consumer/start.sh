@@ -147,10 +147,10 @@ if [[ ${SKIP_KAFKA_CHECK:-false} != true ]]; then
     datahub_wait_tcp "$kb"
   done
 fi
-if [[ ${SKIP_ELASTICSEARCH_CHECK:-false} != true ]]; then
+if datahub_should_wait_elasticsearch; then
   datahub_wait_http "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT" "$ELASTICSEARCH_AUTH_HEADER"
 fi
-if [[ ${GRAPH_SERVICE_IMPL:-} != elasticsearch ]] && [[ ${SKIP_NEO4J_CHECK:-false} != true ]]; then
+if [[ ${GRAPH_SERVICE_IMPL:-} == neo4j ]] && [[ ${SKIP_NEO4J_CHECK:-false} != true ]]; then
   datahub_wait_endpoint "$NEO4J_HOST"
 fi
 if [[ "${KAFKA_SCHEMAREGISTRY_URL:-}" && ${SKIP_SCHEMA_REGISTRY_CHECK:-false} != true ]]; then

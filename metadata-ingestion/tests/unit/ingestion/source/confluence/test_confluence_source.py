@@ -8,7 +8,10 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.confluence.confluence_config import (
     ConfluenceSourceConfig,
 )
-from datahub.ingestion.source.confluence.confluence_source import ConfluenceSource
+from datahub.ingestion.source.confluence.confluence_source import (
+    EXTRACTION_ALGO_VERSION,
+    ConfluenceSource,
+)
 
 
 @pytest.fixture
@@ -206,7 +209,11 @@ def test_extract_text_from_page(
     page = {
         "id": "12345",
         "title": "Test Page",
-        "body": {"storage": {"value": "<p>This is <strong>test</strong> content.</p>"}},
+        "body": {
+            "storage": {
+                "value": "<h2>Section</h2><p>This is <strong>test</strong> content.</p>"
+            }
+        },
     }
 
     with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
@@ -214,8 +221,10 @@ def test_extract_text_from_page(
         text = source._extract_text_from_page(page)
 
         assert "Test Page" in text
+        assert "## Section" in text
         assert "test" in text.lower()
         assert "content" in text
+        assert "<" not in text
 
 
 def test_extract_parent_urn_with_parent(
@@ -902,3 +911,204 @@ def test_max_documents_limit_reached_flag(
             list(source._create_document_entity(page, {"12345"}, set()))
 
     assert source.report.num_documents_limit_reached is True
+
+
+def _make_page_with_timestamps(created_date: str, modified_date: str) -> dict:
+    return {
+        "id": "12345",
+        "title": "Test Page",
+        "body": {
+            "storage": {
+                "value": "<p>This is enough content to pass the minimum text length filter.</p>"
+            }
+        },
+        "ancestors": [],
+        "space": {"key": "TEST", "name": "Test Space"},
+        "_links": {"webui": "/spaces/TEST/pages/12345"},
+        "version": {"when": modified_date},
+        "history": {"createdDate": created_date},
+    }
+
+
+def test_created_time_read_from_history(
+    cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """created_time must come from history.createdDate, not default to ingestion time."""
+    import datetime
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import DocumentInfoClass
+
+    page = _make_page_with_timestamps(
+        created_date="2024-03-15T10:00:00.000Z",
+        modified_date="2025-06-20T12:00:00.000Z",
+    )
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_confluence.return_value = MagicMock()
+        source = ConfluenceSource(cloud_config, pipeline_context)
+        source.chunking_source.embedding_model = None
+
+        with patch.object(
+            source.chunking_source,
+            "_chunk_elements",
+            return_value=[
+                {"text": "Content here for testing.", "type": "NarrativeText"}
+            ],
+        ):
+            wus = list(source._create_document_entity(page, {"12345"}, set()))
+
+    doc_info = next(
+        (
+            wu.metadata.aspect
+            for wu in wus
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, DocumentInfoClass)
+        ),
+        None,
+    )
+    assert doc_info is not None
+
+    assert doc_info.created is not None
+    created_dt = datetime.datetime.fromtimestamp(
+        doc_info.created.time / 1000, tz=datetime.timezone.utc
+    )
+    assert created_dt.year == 2024
+    assert created_dt.month == 3
+
+    assert doc_info.lastModified is not None
+    modified_dt = datetime.datetime.fromtimestamp(
+        doc_info.lastModified.time / 1000, tz=datetime.timezone.utc
+    )
+    assert modified_dt.year == 2025
+    assert modified_dt.month == 6
+
+
+def test_missing_history_does_not_crash(
+    cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """Source must not crash when API response lacks a history field."""
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import DocumentInfoClass
+
+    page = {
+        "id": "12345",
+        "title": "Test Page",
+        "body": {
+            "storage": {
+                "value": "<p>This is enough content to pass the minimum text length filter.</p>"
+            }
+        },
+        "ancestors": [],
+        "space": {"key": "TEST", "name": "Test Space"},
+        "_links": {"webui": "/spaces/TEST/pages/12345"},
+        "version": {"when": "2025-01-01T00:00:00.000Z"},
+        # no "history" key
+    }
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_confluence.return_value = MagicMock()
+        source = ConfluenceSource(cloud_config, pipeline_context)
+        source.chunking_source.embedding_model = None
+
+        with patch.object(
+            source.chunking_source,
+            "_chunk_elements",
+            return_value=[
+                {"text": "Content here for testing.", "type": "NarrativeText"}
+            ],
+        ):
+            wus = list(source._create_document_entity(page, {"12345"}, set()))
+
+    assert any(
+        isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DocumentInfoClass)
+        for wu in wus
+    )
+
+
+def test_content_hash_in_custom_properties(
+    cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """Document custom_properties must include content_hash and extraction_algo_version.
+
+    The content_hash is read by DocumentChunkingSource to decide whether to
+    re-embed a document. Bumping EXTRACTION_ALGO_VERSION changes the hash even
+    if the raw page body is unchanged, forcing a full re-ingest after algorithm
+    improvements.
+    """
+    import hashlib
+    import json
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import DocumentInfoClass
+
+    page = {
+        "id": "99999",
+        "title": "Hash Test Page",
+        "body": {
+            "storage": {
+                "value": "<p>Some content that is long enough to pass the minimum length filter for testing purposes.</p>"
+            }
+        },
+        "ancestors": [],
+        "space": {"key": "HS", "name": "Hash Space"},
+        "_links": {"webui": "/spaces/HS/pages/99999"},
+        "version": {"when": "2025-01-01T00:00:00.000Z"},
+    }
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_confluence.return_value = MagicMock()
+        source = ConfluenceSource(cloud_config, pipeline_context)
+        source.chunking_source.embedding_model = None
+
+        with patch.object(
+            source.chunking_source,
+            "_chunk_elements",
+            return_value=[{"text": "Some content here.", "type": "NarrativeText"}],
+        ):
+            wus = list(source._create_document_entity(page, {"99999"}, set()))
+
+    # Find the DocumentInfo aspect (carries custom_properties)
+    props_aspect = None
+    for wu in wus:
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
+            wu.metadata.aspect, DocumentInfoClass
+        ):
+            props_aspect = wu.metadata.aspect
+            break
+
+    assert props_aspect is not None, "DocumentInfoClass aspect not found"
+    custom_props = props_aspect.customProperties
+    assert custom_props is not None
+
+    # content_hash must be a 64-char SHA-256 hex string
+    assert "content_hash" in custom_props
+    assert len(custom_props["content_hash"]) == 64
+
+    # extraction_algo_version must match the module constant
+    assert "extraction_algo_version" in custom_props
+    assert custom_props["extraction_algo_version"] == EXTRACTION_ALGO_VERSION
+
+    # Verify the hash is deterministic: same body + same version → same hash
+    raw_body = "<p>Some content that is long enough to pass the minimum length filter for testing purposes.</p>"
+    expected_hash = hashlib.sha256(
+        json.dumps(
+            {"body": raw_body, "algo_version": EXTRACTION_ALGO_VERSION}, sort_keys=True
+        ).encode("utf-8")
+    ).hexdigest()
+    assert custom_props["content_hash"] == expected_hash
+
+    # Verify bumping algo_version changes the hash (cache busting works)
+    different_hash = hashlib.sha256(
+        json.dumps({"body": raw_body, "algo_version": "999"}, sort_keys=True).encode(
+            "utf-8"
+        )
+    ).hexdigest()
+    assert different_hash != expected_hash

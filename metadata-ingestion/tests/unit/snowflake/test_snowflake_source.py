@@ -584,6 +584,10 @@ def test_test_connection_capability_all_success(mock_connect):
             SourceCapability.DATA_PROFILING,
             SourceCapability.DESCRIPTIONS,
             SourceCapability.LINEAGE_COARSE,
+            SourceCapability.LINEAGE_FINE,
+            SourceCapability.USAGE_STATS,
+            SourceCapability.OPERATION_CAPTURE,
+            SourceCapability.TAGS,
         ],
     )
 
@@ -809,6 +813,83 @@ def test_snowsight_privatelink_external_urls():
     assert (
         table_url
         == "https://app.snowflake.com/us-east-1/test_acct/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TEST_TABLE/"
+    )
+
+
+def test_snowsight_base_url_override_normalises_trailing_slash():
+    builder = SnowsightUrlBuilder(
+        account_locator="ignored",
+        region="aws_us_east_1",
+        privatelink=True,
+        base_url_override="https://app.us-east-1.privatelink.snowflakecomputing.com",
+    )
+    assert (
+        builder.snowsight_base_url
+        == "https://app.us-east-1.privatelink.snowflakecomputing.com/"
+    )
+
+
+def test_snowsight_base_url_override_keeps_existing_trailing_slash():
+    builder = SnowsightUrlBuilder(
+        account_locator="ignored",
+        region="aws_us_east_1",
+        privatelink=True,
+        base_url_override="https://app.us-east-1.privatelink.snowflakecomputing.com/",
+    )
+    assert (
+        builder.snowsight_base_url
+        == "https://app.us-east-1.privatelink.snowflakecomputing.com/"
+    )
+
+
+def test_snowsight_base_url_override_used_for_all_entity_urls():
+    override = "https://app-myorg-myacct.privatelink.snowflakecomputing.com/"
+    builder = SnowsightUrlBuilder(
+        account_locator="ignored_locator",
+        region="aws_us_east_1",
+        privatelink=True,
+        base_url_override=override,
+    )
+
+    assert (
+        builder.get_external_url_for_database("DB") == f"{override}#/data/databases/DB/"
+    )
+    assert (
+        builder.get_external_url_for_schema("SCH", "DB")
+        == f"{override}#/data/databases/DB/schemas/SCH/"
+    )
+    assert (
+        builder.get_external_url_for_table(
+            "T", "SCH", "DB", domain=SnowflakeObjectDomain.TABLE
+        )
+        == f"{override}#/data/databases/DB/schemas/SCH/table/T/"
+    )
+    assert (
+        builder.get_external_url_for_streamlit("APP", "SCH", "DB")
+        == f"{override}#/streamlit-apps/DB.SCH.APP"
+    )
+
+
+def test_snowflake_config_rejects_non_http_snowsight_base_url():
+    with pytest.raises(ValueError, match="must start with http"):
+        SnowflakeV2Config(
+            account_id="ab12345",
+            username="u",
+            password="p",
+            snowsight_base_url="app.example.privatelink.snowflakecomputing.com",
+        )
+
+
+def test_snowflake_config_accepts_https_snowsight_base_url():
+    cfg = SnowflakeV2Config(
+        account_id="ab12345",
+        username="u",
+        password="p",
+        snowsight_base_url="https://app.us-east-1.privatelink.snowflakecomputing.com/",
+    )
+    assert (
+        cfg.snowsight_base_url
+        == "https://app.us-east-1.privatelink.snowflakecomputing.com/"
     )
 
 

@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 from click import ClickException
 
@@ -67,37 +69,191 @@ def test_quickstart_version_config_stable():
     assert execution_plan == expected
 
 
+def test_quickstart_no_version_does_not_prompt():
+    with mock.patch("datahub.cli.quickstart_versioning.click.confirm") as mock_confirm:
+        example_version_mapper.get_quickstart_execution_plan(None)
+        example_version_mapper.get_quickstart_execution_plan("default")
+    mock_confirm.assert_not_called()
+
+
 def test_quickstart_forced_stable():
-    example_version_mapper.quickstart_version_map["default"] = QuickstartExecutionPlan(
-        composefile_git_ref="v1.2.0",
-        docker_tag="head",
-        mysql_tag="8.2",
+    version_mapper = QuickstartVersionMappingConfig.model_validate(
+        {
+            "quickstart_version_map": {
+                **example_version_mapper.quickstart_version_map,
+                "default": {
+                    "composefile_git_ref": "v1.2.0",
+                    "docker_tag": "head",
+                    "mysql_tag": "8.2",
+                },
+            }
+        }
     )
-    execution_plan = example_version_mapper.get_quickstart_execution_plan(None)
+    execution_plan = version_mapper.get_quickstart_execution_plan(None)
     expected = QuickstartExecutionPlan(
-        docker_tag="head",
+        docker_tag="quickstart",
         composefile_git_ref="v1.2.0",
         mysql_tag="8.2",
     )
     assert execution_plan == expected
 
 
-def test_quickstart_forced_not_a_version_tag():
-    """
-    If the user specifies a version that is not in the version mapping, we should still use the default version for checking.
-
-    This is because the user may be using a version of datahub that is not in the version mapping. Which is most likely
-    a recent change, otherwise it should be on an older version of datahub.
-    """
-    execution_plan = example_version_mapper.get_quickstart_execution_plan(
-        "NOT A VERSION"
+def test_quickstart_head_maps_to_quickstart_docker_tag():
+    version_mapper = QuickstartVersionMappingConfig.model_validate(
+        {
+            "quickstart_version_map": {
+                "head": {
+                    "composefile_git_ref": "master",
+                    "docker_tag": "quickstart",
+                    "mysql_tag": "8.2",
+                },
+            },
+        }
     )
-    expected = QuickstartExecutionPlan(
-        docker_tag="NOT A VERSION",
-        composefile_git_ref="NOT A VERSION",
+    with mock.patch("datahub.cli.quickstart_versioning.click.confirm") as mock_confirm:
+        execution_plan = version_mapper.get_quickstart_execution_plan("head")
+    mock_confirm.assert_not_called()
+    assert execution_plan == QuickstartExecutionPlan(
+        docker_tag="quickstart",
+        composefile_git_ref="master",
         mysql_tag="8.2",
     )
-    assert execution_plan == expected
+
+
+def test_quickstart_head_missing_from_map_prompts_master_quickstart():
+    version_mapper = QuickstartVersionMappingConfig.model_validate(
+        {
+            "quickstart_version_map": {
+                "default": {
+                    "composefile_git_ref": "v1.5.0.6",
+                    "docker_tag": "v1.5.0.6",
+                    "mysql_tag": "8.2",
+                },
+            },
+        }
+    )
+    with (
+        mock.patch(
+            "datahub.cli.quickstart_versioning.sys.stdin.isatty", return_value=True
+        ),
+        mock.patch(
+            "datahub.cli.quickstart_versioning.click.confirm", return_value=True
+        ) as mock_confirm,
+    ):
+        execution_plan = version_mapper.get_quickstart_execution_plan("head")
+    mock_confirm.assert_called_once()
+    assert execution_plan == QuickstartExecutionPlan(
+        docker_tag="quickstart",
+        composefile_git_ref="master",
+        mysql_tag="8.2",
+    )
+
+
+def test_quickstart_head_missing_from_map_rejected_on_no():
+    version_mapper = QuickstartVersionMappingConfig.model_validate(
+        {
+            "quickstart_version_map": {
+                "default": {
+                    "composefile_git_ref": "v1.5.0.6",
+                    "docker_tag": "v1.5.0.6",
+                    "mysql_tag": "8.2",
+                },
+            },
+        }
+    )
+    with (
+        mock.patch(
+            "datahub.cli.quickstart_versioning.sys.stdin.isatty", return_value=True
+        ),
+        mock.patch(
+            "datahub.cli.quickstart_versioning.click.confirm", return_value=False
+        ),
+        pytest.raises(ClickException, match="Aborted"),
+    ):
+        version_mapper.get_quickstart_execution_plan("head")
+
+
+def test_quickstart_sha_tag_passthrough():
+    version_mapper = QuickstartVersionMappingConfig.model_validate(
+        {
+            "quickstart_version_map": {
+                "default": example_version_mapper.quickstart_version_map["default"]
+            }
+        }
+    )
+    with mock.patch("datahub.cli.quickstart_versioning.click.confirm") as mock_confirm:
+        execution_plan = version_mapper.get_quickstart_execution_plan("sha-abc1234")
+    mock_confirm.assert_not_called()
+    assert execution_plan.docker_tag == "sha-abc1234"
+    assert execution_plan.composefile_git_ref == "sha-abc1234"
+
+
+def test_quickstart_semver_not_in_map_does_not_prompt():
+    with mock.patch("datahub.cli.quickstart_versioning.click.confirm") as mock_confirm:
+        execution_plan = example_version_mapper.get_quickstart_execution_plan("v9.9.9")
+    mock_confirm.assert_not_called()
+    assert execution_plan == QuickstartExecutionPlan(
+        docker_tag="v9.9.9",
+        composefile_git_ref="v9.9.9",
+        mysql_tag="8.2",
+    )
+
+
+def test_quickstart_unrecognized_version_prompts_default_on_yes():
+    with (
+        mock.patch(
+            "datahub.cli.quickstart_versioning.sys.stdin.isatty", return_value=True
+        ),
+        mock.patch(
+            "datahub.cli.quickstart_versioning.click.confirm", return_value=True
+        ) as mock_confirm,
+    ):
+        execution_plan = example_version_mapper.get_quickstart_execution_plan(
+            "NOT A VERSION"
+        )
+    mock_confirm.assert_called_once()
+    assert execution_plan == QuickstartExecutionPlan(
+        docker_tag="quickstart",
+        composefile_git_ref="master",
+        mysql_tag="8.2",
+    )
+
+
+def test_quickstart_unrecognized_version_rejected_on_no():
+    with (
+        mock.patch(
+            "datahub.cli.quickstart_versioning.sys.stdin.isatty", return_value=True
+        ),
+        mock.patch(
+            "datahub.cli.quickstart_versioning.click.confirm", return_value=False
+        ),
+        pytest.raises(ClickException, match="Aborted"),
+    ):
+        example_version_mapper.get_quickstart_execution_plan("NOT A VERSION")
+
+
+def test_quickstart_unrecognized_version_accept_flag_skips_prompt():
+    with mock.patch("datahub.cli.quickstart_versioning.click.confirm") as mock_confirm:
+        execution_plan = example_version_mapper.get_quickstart_execution_plan(
+            "NOT A VERSION",
+            accept_version_default=True,
+        )
+    mock_confirm.assert_not_called()
+    assert execution_plan == QuickstartExecutionPlan(
+        docker_tag="quickstart",
+        composefile_git_ref="master",
+        mysql_tag="8.2",
+    )
+
+
+def test_quickstart_unrecognized_version_non_interactive_aborts():
+    with (
+        mock.patch(
+            "datahub.cli.quickstart_versioning.sys.stdin.isatty", return_value=False
+        ),
+        pytest.raises(ClickException, match="non-interactive"),
+    ):
+        example_version_mapper.get_quickstart_execution_plan("NOT A VERSION")
 
 
 def test_quickstart_get_older_version():
@@ -109,9 +265,7 @@ def test_quickstart_version_older_than_v1_2_0_uses_commit_hash():
     """
     Test that versions older than v1.2.0 get their composefile_git_ref set to the specific commit hash
     that contains the profiles based resolved compose file.
-    This exercises line 168 in quickstart_versioning.py.
     """
-    # Create a version mapping with a version older than v1.2.0
     version_mapper = QuickstartVersionMappingConfig.model_validate(
         {
             "quickstart_version_map": {
@@ -127,7 +281,7 @@ def test_quickstart_version_older_than_v1_2_0_uses_commit_hash():
     execution_plan = version_mapper.get_quickstart_execution_plan("v1.1.0")
     expected = QuickstartExecutionPlan(
         docker_tag="v1.1.0",
-        composefile_git_ref="21726bc3341490f4182b904626c793091ac95edd",  # This should be the commit hash from line 168
+        composefile_git_ref="21726bc3341490f4182b904626c793091ac95edd",
         mysql_tag="8.2",
     )
     assert execution_plan == expected

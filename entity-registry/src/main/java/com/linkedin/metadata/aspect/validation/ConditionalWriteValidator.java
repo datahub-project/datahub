@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.validation;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
 import com.linkedin.common.urn.Urn;
@@ -69,7 +70,9 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
 
@@ -89,7 +92,7 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
                     ChangeMCP::getUrn,
                     Collectors.mapping(ChangeMCP::getAspectName, Collectors.toSet())));
     final Map<Urn, Map<String, SystemAspect>> resolvedData =
-        aspectRetriever.getLatestSystemAspects(missingDataUrnAspects);
+        aspectRetriever.getLatestSystemAspects(operationContext, missingDataUrnAspects);
 
     for (ChangeMCP item : applicableMCPs) {
       // Validate aspect version precondition
@@ -218,6 +221,7 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();

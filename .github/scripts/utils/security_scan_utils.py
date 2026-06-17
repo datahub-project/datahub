@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 import json
 import os
 import re
@@ -762,7 +763,6 @@ def issue_pairs_cve_or_pkg(created: list[tuple[str, str, str]]) -> set[tuple[str
             _, vid_j, pkg_j = created[j]
             if vid_i == vid_j or (bool(pkg_i) and bool(pkg_j) and pkg_i == pkg_j):
                 union(i, j)
-    from collections import defaultdict
 
     comp: dict[int, list[str]] = defaultdict(list)
     for i in range(n):
@@ -777,3 +777,47 @@ def issue_pairs_cve_or_pkg(created: list[tuple[str, str, str]]) -> set[tuple[str
                 a, b = members[i], members[j]
                 out.add(undirected_pair_key(a, b))
     return out
+
+
+SECURITY_SCAN_SUMMARY_SCHEMA_VERSION = 1
+
+
+def write_security_scan_summary_json(
+    path: Path,
+    *,
+    created_issue_records: list[dict[str, Any]],
+    created_count: int,
+    updated_count: int,
+    run_url: str,
+    scan_ref_kind: str,
+    scan_ref_name: str,
+    commit_sha: str,
+    docker_tag: str,
+    severity_levels: str,
+) -> None:
+    """Write grouped-by-vulnerability summary JSON for ``--output-summary-json`` (CI / integrations)."""
+    by_vid: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for rec in created_issue_records:
+        vid = rec["vulnerability_id"]
+        entry = {k: v for k, v in rec.items() if k != "vulnerability_id"}
+        by_vid[vid].append(entry)
+    for vid_key in by_vid:
+        by_vid[vid_key].sort(
+            key=lambda x: (x.get("identifier") or "", x.get("repo_scope") or "")
+        )
+    ordered = {k: by_vid[k] for k in sorted(by_vid.keys())}
+    payload: dict[str, Any] = {
+        "schema_version": SECURITY_SCAN_SUMMARY_SCHEMA_VERSION,
+        "created_issue_count": created_count,
+        "updated_existing_count": updated_count,
+        "created_issues_by_vulnerability_id": ordered,
+        "run_url": run_url,
+        "scan_ref": {"kind": scan_ref_kind, "name": scan_ref_name},
+        "docker_tag": docker_tag,
+        "severity_levels": severity_levels,
+        "github_sha": commit_sha,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )

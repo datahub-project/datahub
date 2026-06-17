@@ -26,6 +26,7 @@ import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
 import com.linkedin.entity.EntitiesDoDeleteReferencesRequestBuilder;
 import com.linkedin.entity.EntitiesDoDeleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoExistsRequestBuilder;
+import com.linkedin.entity.EntitiesDoFilterExistingUrnsRequestBuilder;
 import com.linkedin.entity.EntitiesDoFilterRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
 import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
@@ -46,6 +47,7 @@ import com.linkedin.entity.EntitiesVersionedV2RequestBuilders;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityArray;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.FilterExistingUrnsRequest;
 import com.linkedin.entity.RunsDoRollbackRequestBuilder;
 import com.linkedin.entity.RunsRequestBuilders;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
@@ -89,6 +91,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -969,6 +972,30 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .urnParam(urn.toString())
             .includeSoftDeleteParam(includeSoftDeleted);
     return sendClientRequest(requestBuilder, opContext).getEntity();
+  }
+
+  @Override
+  @Nonnull
+  public Set<Urn> filterExistingUrns(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns)
+      throws RemoteInvocationException {
+    if (urns.isEmpty()) {
+      return Collections.emptySet();
+    }
+
+    FilterExistingUrnsRequest request =
+        new FilterExistingUrnsRequest()
+            .setUrns(
+                new StringArray(urns.stream().map(Urn::toString).collect(Collectors.toList())));
+
+    EntitiesDoFilterExistingUrnsRequestBuilder requestBuilder =
+        ENTITIES_REQUEST_BUILDERS.actionFilterExistingUrns().requestParam(request);
+    StringArray existingUrnStrs = sendClientRequest(requestBuilder, opContext).getEntity();
+    Set<Urn> existing = new HashSet<>();
+    for (String urnStr : existingUrnStrs) {
+      existing.add(UrnUtils.getUrn(urnStr));
+    }
+    return existing;
   }
 
   /**

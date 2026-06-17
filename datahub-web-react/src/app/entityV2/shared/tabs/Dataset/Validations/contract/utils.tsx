@@ -5,6 +5,7 @@ import {
     ExclamationCircleFilled,
     StopOutlined,
 } from '@ant-design/icons';
+import i18next from 'i18next';
 import React from 'react';
 
 import { AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
@@ -38,40 +39,40 @@ export const getContractSummaryIcon = (
 
 export const getContractSummaryTitle = (state: DataContractState, summary: AssertionStatusSummary) => {
     if (state === DataContractState.Pending) {
-        return 'This contract is pending implementation';
+        return i18next.t('entity.profile.validations:contractStatus.pending');
     }
     if (summary.total === 0) {
-        return 'This contract has not yet been validated';
+        return i18next.t('entity.profile.validations:contractStatus.noAssertionsRun');
     }
     if (summary.passing === summary.total) {
-        return 'This dataset is meeting its contract';
+        return i18next.t('entity.profile.validations:contractStatus.passing');
     }
     if (summary.failing > 0) {
-        return 'This dataset is not meeting its contract';
+        return i18next.t('entity.profile.validations:contractStatus.failing');
     }
     if (summary.erroring > 0) {
-        return 'Unable to determine contract status';
+        return i18next.t('entity.profile.validations:contractStatus.erroring');
     }
-    return 'This contract has not yet been validated';
+    return i18next.t('entity.profile.validations:contractStatus.noAssertionsDefault');
 };
 
 export const getContractSummaryMessage = (state: DataContractState, summary: AssertionStatusSummary) => {
     if (state === DataContractState.Pending) {
-        return 'This may take some time. Come back later!';
+        return i18next.t('entity.profile.validations:contractMessage.pending');
     }
     if (summary.total === 0) {
-        return 'No contract assertions have been run yet';
+        return i18next.t('entity.profile.validations:contractMessage.noAssertionsRun');
     }
     if (summary.passing === summary.total) {
-        return 'All contract assertions are passing';
+        return i18next.t('entity.profile.validations:contractMessage.allPassing');
     }
     if (summary.failing > 0) {
-        return 'Some contract assertions are failing';
+        return i18next.t('entity.profile.validations:contractMessage.failing');
     }
     if (summary.erroring > 0) {
-        return 'Some contract assertions are completing with errors';
+        return i18next.t('entity.profile.validations:contractMessage.erroring');
     }
-    return 'No contract assertions have been run yet';
+    return i18next.t('entity.profile.validations:contractMessage.noAssertionsDefault');
 };
 
 /**
@@ -109,6 +110,16 @@ export const getDataContractCategoryFromAssertion = (assertion: Assertion) => {
         return DataContractCategoryType.SCHEMA;
     }
     return DataContractCategoryType.DATA_QUALITY;
+};
+
+export const getDataContractCategoryLabel = (category: DataContractCategoryType): string => {
+    const labels: Record<DataContractCategoryType, () => string> = {
+        [DataContractCategoryType.FRESHNESS]: () => i18next.t('entity.profile.validations:contractCategory.freshness'),
+        [DataContractCategoryType.SCHEMA]: () => i18next.t('entity.profile.validations:contractCategory.schema'),
+        [DataContractCategoryType.DATA_QUALITY]: () =>
+            i18next.t('entity.profile.validations:contractCategory.dataQuality'),
+    };
+    return labels[category]?.() ?? category;
 };
 
 export const DATA_QUALITY_ASSERTION_TYPES = new Set([

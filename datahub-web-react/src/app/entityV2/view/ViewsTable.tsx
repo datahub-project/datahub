@@ -1,5 +1,6 @@
 import { Table, Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { AlignmentOptions } from '@components/theme/config';
 
@@ -22,22 +23,24 @@ type ViewsTableProps = {
  * This component renders a table of Views.
  */
 export const ViewsTable = ({ views, onEditView }: ViewsTableProps) => {
+    const { t } = useTranslation('entity.views');
+
     const tableColumns = [
         {
-            title: 'Name',
+            title: t('table.name'),
             dataIndex: 'name',
             key: 'name',
             width: '25%',
             render: (record) => <NameColumn name={record.name} record={record} onEditView={onEditView} />,
         },
         {
-            title: 'Description',
+            title: t('table.description'),
             dataIndex: 'description',
             key: 'description',
             render: (record) => <DescriptionColumn description={record.description} />,
         },
         {
-            title: 'Type',
+            title: t('table.type'),
             dataIndex: 'viewType',
             key: 'viewType',
             width: '10%',
@@ -65,7 +68,7 @@ export const ViewsTable = ({ views, onEditView }: ViewsTableProps) => {
         return (
             <EmptyContainer>
                 <Text size="md" weight="bold">
-                    No results!
+                    {t('emptyNoResults')}
                 </Text>
             </EmptyContainer>
         );

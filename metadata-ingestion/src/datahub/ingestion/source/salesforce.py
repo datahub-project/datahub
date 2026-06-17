@@ -32,14 +32,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -558,6 +557,10 @@ class SalesforceApi:
     description="Enabled by default",
 )
 @capability(
+    capability_name=SourceCapability.OPERATION_CAPTURE,
+    description="Enabled by default from Salesforce object created and last modified timestamps",
+)
+@capability(
     capability_name=SourceCapability.LINEAGE_COARSE,
     description="Extract table-level lineage for Salesforce objects",
     subtype_modifier=[
@@ -573,14 +576,6 @@ class SalesforceSource(StatefulIngestionSourceBase):
         self.report: SalesforceSourceReport = SalesforceSourceReport()
         self.platform: str = "salesforce"
         self.fieldCounts: Dict[str, int] = {}
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:

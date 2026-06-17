@@ -43,6 +43,7 @@ export default interface ColorTheme {
     iconInformation: string;
     iconSuccess: string;
     iconWarning: string;
+    iconOnFillBrand: string;
     buttonFillBrand: string;
     buttonFillFocus: string;
     buttonSurfaceBrandFocus: string;
@@ -63,6 +64,7 @@ export default interface ColorTheme {
     borderError: string;
     borderSuccess: string;
     borderWarning: string;
+    borderWhite: string;
     // Interactive states: Hover
     textHover: string;
     iconHover: string;

@@ -2,10 +2,14 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.util.List;
+import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -29,6 +33,8 @@ public class IndexUtilsTest {
     MockitoAnnotations.openMocks(this);
     Mockito.when(esComponents.getSearchClient()).thenReturn(searchClient);
     Mockito.when(operationContext.getObjectMapper()).thenReturn(objectMapper);
+    // getAllReindexConfigs maintains a static cache across calls
+    IndexUtils.clearReindexConfigCache();
   }
 
   @Test
@@ -271,5 +277,96 @@ public class IndexUtilsTest {
 
     // Act
     IndexUtils.loadResourceAsString(resourcePath);
+  }
+
+  @Test
+  public void testGetIndicesNeedingReindexOrBuild_IncludesNonExistingIndex() throws IOException {
+    // Fresh-install case: index has never been created. The filter must pick it up so
+    // BuildIndicesIncrementalStep creates it on first boot, even though there is nothing
+    // to reindex from.
+    ReindexConfig newIndex = Mockito.mock(ReindexConfig.class);
+    Mockito.when(newIndex.exists()).thenReturn(false);
+    Mockito.when(newIndex.requiresReindex()).thenReturn(false);
+    Mockito.when(newIndex.name()).thenReturn("new_index");
+
+    ElasticSearchIndexed service = Mockito.mock(ElasticSearchIndexed.class);
+    Mockito.when(service.buildReindexConfigs(Mockito.any(), Mockito.any()))
+        .thenReturn(List.of(newIndex));
+
+    List<ReindexConfig> result =
+        IndexUtils.getIndicesNeedingReindexOrBuild(operationContext, List.of(service), Set.of());
+
+    Assert.assertEquals(result.size(), 1);
+    Assert.assertEquals(result.get(0).name(), "new_index");
+  }
+
+  @Test
+  public void testGetIndicesNeedingReindexOrBuild_IncludesExistingRequiringReindex()
+      throws IOException {
+    ReindexConfig existing = Mockito.mock(ReindexConfig.class);
+    Mockito.when(existing.exists()).thenReturn(true);
+    Mockito.when(existing.requiresReindex()).thenReturn(true);
+    Mockito.when(existing.name()).thenReturn("existing_index");
+
+    ElasticSearchIndexed service = Mockito.mock(ElasticSearchIndexed.class);
+    Mockito.when(service.buildReindexConfigs(Mockito.any(), Mockito.any()))
+        .thenReturn(List.of(existing));
+
+    List<ReindexConfig> result =
+        IndexUtils.getIndicesNeedingReindexOrBuild(operationContext, List.of(service), Set.of());
+
+    Assert.assertEquals(result.size(), 1);
+    Assert.assertEquals(result.get(0).name(), "existing_index");
+  }
+
+  @Test
+  public void testGetIndicesNeedingReindexOrBuild_ExcludesExistingNotRequiringReindex()
+      throws IOException {
+    // Steady state: index exists and is in sync — no work needed.
+    ReindexConfig unchanged = Mockito.mock(ReindexConfig.class);
+    Mockito.when(unchanged.exists()).thenReturn(true);
+    Mockito.when(unchanged.requiresReindex()).thenReturn(false);
+    Mockito.when(unchanged.name()).thenReturn("unchanged_index");
+
+    ElasticSearchIndexed service = Mockito.mock(ElasticSearchIndexed.class);
+    Mockito.when(service.buildReindexConfigs(Mockito.any(), Mockito.any()))
+        .thenReturn(List.of(unchanged));
+
+    List<ReindexConfig> result =
+        IndexUtils.getIndicesNeedingReindexOrBuild(operationContext, List.of(service), Set.of());
+
+    Assert.assertTrue(result.isEmpty());
+  }
+
+  @Test
+  public void testGetIndicesNeedingReindexOrBuild_MixedConfigsPartitionedCorrectly()
+      throws IOException {
+    // A realistic fresh-install scenario where some indices need creation, some need
+    // reindex, and some are already up to date. Only the first two should be returned.
+    ReindexConfig newIndex = Mockito.mock(ReindexConfig.class);
+    Mockito.when(newIndex.exists()).thenReturn(false);
+    Mockito.when(newIndex.requiresReindex()).thenReturn(false);
+    Mockito.when(newIndex.name()).thenReturn("new_index");
+
+    ReindexConfig needsReindex = Mockito.mock(ReindexConfig.class);
+    Mockito.when(needsReindex.exists()).thenReturn(true);
+    Mockito.when(needsReindex.requiresReindex()).thenReturn(true);
+    Mockito.when(needsReindex.name()).thenReturn("needs_reindex");
+
+    ReindexConfig upToDate = Mockito.mock(ReindexConfig.class);
+    Mockito.when(upToDate.exists()).thenReturn(true);
+    Mockito.when(upToDate.requiresReindex()).thenReturn(false);
+    Mockito.when(upToDate.name()).thenReturn("up_to_date");
+
+    ElasticSearchIndexed service = Mockito.mock(ElasticSearchIndexed.class);
+    Mockito.when(service.buildReindexConfigs(Mockito.any(), Mockito.any()))
+        .thenReturn(List.of(newIndex, needsReindex, upToDate));
+
+    List<ReindexConfig> result =
+        IndexUtils.getIndicesNeedingReindexOrBuild(operationContext, List.of(service), Set.of());
+
+    Assert.assertEquals(result.size(), 2);
+    Assert.assertEquals(result.get(0).name(), "new_index");
+    Assert.assertEquals(result.get(1).name(), "needs_reindex");
   }
 }

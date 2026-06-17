@@ -1,5 +1,6 @@
 import { Button } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import StructuredPropertyInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyInput';
@@ -14,7 +15,7 @@ const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;
     justify-content: space-between;
     height: min-content;
-    ${(props) => props.displayBulkStyles && `color: white;`}
+    ${(props) => props.displayBulkStyles && `color: ${props.theme.colors.textOnFillDefault};`}
 `;
 
 const PromptTitle = styled.div<{ displayBulkStyles?: boolean }>`
@@ -27,11 +28,11 @@ const PromptTitle = styled.div<{ displayBulkStyles?: boolean }>`
 const RequiredText = styled.span<{ displayBulkStyles?: boolean }>`
     font-size: 12px;
     margin-left: 4px;
-    color: #a8071a;
+    color: ${(props) => props.theme.colors.textError};
     ${(props) =>
         props.displayBulkStyles &&
         `
-        color: #FFCCC7;
+        color: ${props.theme.colors.textOnFillError};
         margin-left: 8px;
     `}
 `;
@@ -76,6 +77,8 @@ export default function StructuredPropertyPrompt({
     field,
     optimisticCompletedTimestamp,
 }: Props) {
+    const { t } = useTranslation('entity.form');
+    const { t: tc } = useTranslation('common.actions');
     const {
         hasEdited,
         selectedValues,
@@ -102,9 +105,9 @@ export default function StructuredPropertyPrompt({
             <PromptWrapper>
                 <PromptInputWrapper>
                     <PromptTitle>
-                        {promptNumber !== undefined && <>{promptNumber}. </>}
+                        {promptNumber !== undefined && t('promptNumberPrefix', { number: promptNumber })}
                         {displayName}
-                        {prompt.required && <RequiredText>required</RequiredText>}
+                        {prompt.required && <RequiredText>{t('required')}</RequiredText>}
                     </PromptTitle>
                     {description && <PromptSubTitle>{description}</PromptSubTitle>}
                     <InputSection>
@@ -123,7 +126,7 @@ export default function StructuredPropertyPrompt({
             </PromptWrapper>
             {(showSaveButton || showConfirmButton) && (
                 <StyledButton type="primary" onClick={submitStructuredPropertyResponse}>
-                    {showSaveButton ? 'Save' : 'Confirm'}
+                    {showSaveButton ? tc('save') : tc('confirm')}
                 </StyledButton>
             )}
         </>

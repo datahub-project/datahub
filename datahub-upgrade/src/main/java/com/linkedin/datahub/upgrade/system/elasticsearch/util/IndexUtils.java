@@ -74,6 +74,20 @@ public class IndexUtils {
         .collect(Collectors.toList());
   }
 
+  public static List<ReindexConfig> getIndicesNeedingReindexOrBuild(
+      OperationContext opContext,
+      List<ElasticSearchIndexed> services,
+      Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties)
+      throws IOException {
+    final List<ReindexConfig> reindexConfigs =
+        getAllReindexConfigs(opContext, services, structuredProperties);
+
+    // Get indices to update
+    return reindexConfigs.stream()
+        .filter(reindexConfig -> !reindexConfig.exists() || reindexConfig.requiresReindex())
+        .collect(Collectors.toList());
+  }
+
   public static List<ReindexConfig> getAllReindexConfigs(
       OperationContext opContext,
       List<ElasticSearchIndexed> elasticSearchIndexedList,

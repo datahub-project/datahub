@@ -66,26 +66,27 @@ export class IncidentsPage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.createIncidentBtn = page.locator('[data-testid="create-incident-btn-main"]');
-    this.createIncidentBtnWithSiblings = page.locator('[data-testid="create-incident-btn-main-with-siblings"]');
-    this.incidentNameInput = page.locator('[data-testid="incident-name-input"]');
+    this.createIncidentBtn = page.getByTestId('create-incident-btn-main');
+    this.createIncidentBtnWithSiblings = page.getByTestId('create-incident-btn-main-with-siblings');
+    this.incidentNameInput = page.getByTestId('incident-name-input');
     // remirror-editor is the rich text editor used for incident description
+    // eslint-disable-next-line playwright/no-raw-locators -- Remirror editor CSS class; no data-testid or ARIA role on the editor element
     this.descriptionEditor = page.locator('.remirror-editor');
-    this.categorySelectTrigger = page.locator('[data-testid="category-select-input-type"]');
-    this.categoryOptionsList = page.locator('[data-testid="category-options-list"]');
-    this.prioritySelectTrigger = page.locator('[data-testid="priority-select-input-type"]');
-    this.priorityOptionsList = page.locator('[data-testid="priority-options-list"]');
-    this.stageSelectTrigger = page.locator('[data-testid="stage-select-input-type"]');
-    this.stageOptionsList = page.locator('[data-testid="stage-options-list"]');
-    this.statusSelectTrigger = page.locator('[data-testid="status-select-input-type"]');
-    this.statusOptionsList = page.locator('[data-testid="status-options-list"]');
-    this.assigneesSelectTrigger = page.locator('[data-testid="incident-assignees-select-input-type"]');
-    this.assigneesOptionsList = page.locator('[data-testid="incident-assignees-options-list"]');
-    this.formContainer = page.locator('[data-testid="incident-editor-form-container"]');
-    this.saveButton = page.locator('[data-testid="incident-create-button"]');
-    this.editIncidentIcon = page.locator('[data-testid="edit-incident-icon"]');
-    this.filterBase = page.locator('[data-testid="filter-base"]');
-    this.drawerHeaderTitle = page.locator('[data-testid="drawer-header-title"]');
+    this.categorySelectTrigger = page.getByTestId('category-select-input-type');
+    this.categoryOptionsList = page.getByTestId('category-options-list');
+    this.prioritySelectTrigger = page.getByTestId('priority-select-input-type');
+    this.priorityOptionsList = page.getByTestId('priority-options-list');
+    this.stageSelectTrigger = page.getByTestId('stage-select-input-type');
+    this.stageOptionsList = page.getByTestId('stage-options-list');
+    this.statusSelectTrigger = page.getByTestId('status-select-input-type');
+    this.statusOptionsList = page.getByTestId('status-options-list');
+    this.assigneesSelectTrigger = page.getByTestId('incident-assignees-select-input-type');
+    this.assigneesOptionsList = page.getByTestId('incident-assignees-options-list');
+    this.formContainer = page.getByTestId('incident-editor-form-container');
+    this.saveButton = page.getByTestId('incident-create-button');
+    this.editIncidentIcon = page.getByTestId('edit-incident-icon');
+    this.filterBase = page.getByTestId('filter-base');
+    this.drawerHeaderTitle = page.getByTestId('drawer-header-title');
   }
 
   async navigateToKafkaDatasetIncidents(): Promise<void> {
@@ -127,7 +128,7 @@ export class IncidentsPage extends BasePage {
 
       // Also wait for the linked assets cell to show a positive count so that the
       // edit form's `resourceUrns` field is pre-populated and the submit button is enabled.
-      const assetsCell = row.locator('[data-testid="incident-linked-assets"]');
+      const assetsCell = row.getByTestId('incident-linked-assets');
       const assetsCellText = await assetsCell.textContent().catch(() => '0');
       const assetCount = parseInt(assetsCellText?.trim() || '0', 10);
       if (assetCount > 0) {
@@ -149,15 +150,15 @@ export class IncidentsPage extends BasePage {
   }
 
   getIncidentRow(incidentTitle: string): Locator {
-    return this.page.locator(`[data-testid="incident-row-${incidentTitle}"]`);
+    return this.page.getByTestId(`incident-row-${incidentTitle}`);
   }
 
   getIncidentNameBadge(incidentTitle: string): Locator {
-    return this.page.locator(`[data-testid="${incidentTitle}"]`);
+    return this.page.getByTestId(incidentTitle);
   }
 
   getIncidentGroup(priority: string): Locator {
-    return this.page.locator(`[data-testid="incident-group-${priority}"]`);
+    return this.page.getByTestId(`incident-group-${priority}`);
   }
 
   /**
@@ -176,7 +177,7 @@ export class IncidentsPage extends BasePage {
     const group = this.getIncidentGroup(priority);
     // Wait for the group row to appear in the DOM before checking its state.
     await group.waitFor({ state: 'attached', timeout: 15000 });
-    const collapsedIcon = group.locator('[data-testid="group-header-collapsed-icon"]');
+    const collapsedIcon = group.getByTestId('group-header-collapsed-icon');
     const isCollapsed = await collapsedIcon.isVisible().catch(() => false);
     if (isCollapsed) {
       await collapsedIcon.click({ force: true });
@@ -189,6 +190,7 @@ export class IncidentsPage extends BasePage {
   async clickCreateIncidentBtn(): Promise<void> {
     // Wait for loading state to clear before trying to click.
     // The button cycles through data-testid="create-incident-btn-loading" → "create-incident-btn-main".
+    // eslint-disable-next-line playwright/no-raw-locators -- CSS :not() with data-testid prefix match; no getByTestId equivalent
     await this.page
       .locator('[data-testid^="create-incident-btn"]:not([data-testid="create-incident-btn-loading"])')
       .waitFor({ state: 'visible', timeout: 15000 });
@@ -204,6 +206,7 @@ export class IncidentsPage extends BasePage {
 
   /** Select the first sibling option from the AntD dropdown that appears after clicking the siblings button. */
   async selectFirstSiblingFromDropdown(): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design dropdown menu item CSS class; no data-testid available
     const firstItem = this.page.locator('.ant-dropdown-menu-item').first();
     // Ant Design renders dropdown menu items asynchronously after the trigger click;
     // the items are not in the DOM until the dropdown animation completes.
@@ -241,7 +244,7 @@ export class IncidentsPage extends BasePage {
   async selectDropdownOptionByValue(trigger: Locator, optionsList: Locator, optionValue: string): Promise<void> {
     await trigger.scrollIntoViewIfNeeded();
     await trigger.click();
-    const option = optionsList.locator(`[data-testid="option-${optionValue}"]`);
+    const option = optionsList.getByTestId(`option-${optionValue}`);
     await option.waitFor({ state: 'visible', timeout: 10000 });
     await option.scrollIntoViewIfNeeded();
     await option.click({ force: true });
@@ -289,7 +292,7 @@ export class IncidentsPage extends BasePage {
         await this.selectDropdownOption(this.stageSelectTrigger, this.stageOptionsList, stage);
       }
       const confirmed = await this.stageSelectTrigger
-        .locator(`[title="${stage}"]`)
+        .getByTitle(stage)
         .isVisible()
         .catch(() => false);
       if (confirmed) return;
@@ -322,7 +325,7 @@ export class IncidentsPage extends BasePage {
     await this.statusSelectTrigger.click();
     const statusValue = STATUS_LABEL_TO_VALUE[status];
     const option = statusValue
-      ? this.statusOptionsList.locator(`[data-testid="option-${statusValue}"]`)
+      ? this.statusOptionsList.getByTestId(`option-${statusValue}`)
       : this.statusOptionsList.getByText(status, { exact: true });
     await option.waitFor({ state: 'visible', timeout: 10000 });
     await option.scrollIntoViewIfNeeded();
@@ -332,12 +335,14 @@ export class IncidentsPage extends BasePage {
   async selectFirstAssignee(): Promise<void> {
     await this.assigneesSelectTrigger.scrollIntoViewIfNeeded();
     await this.assigneesSelectTrigger.click();
-    const firstLabel = this.assigneesOptionsList.locator('label').first();
-    // Ant Design Select renders options asynchronously after the trigger click;
-    // the option list is not in the DOM until the open animation completes.
-    await firstLabel.waitFor({ state: 'visible', timeout: 10000 });
-    await firstLabel.scrollIntoViewIfNeeded();
-    await firstLabel.click({ force: true });
+    // The OptionList renders OptionLabel divs with data-testid="option-{value}".
+    // The inner StyledCheckbox <input> may be hidden (visually hidden but in DOM).
+    // Click the parent OptionLabel div which is always visible and handles the click.
+    // eslint-disable-next-line playwright/no-raw-locators -- data-testid prefix match ([data-testid^="option-"]); getByTestId requires exact match
+    const firstOption = this.assigneesOptionsList.locator('[data-testid^="option-"]').first();
+    await firstOption.waitFor({ state: 'visible', timeout: 15000 });
+    await firstOption.scrollIntoViewIfNeeded();
+    await firstOption.click({ force: true });
   }
 
   /** Click outside of the form dropdowns to dismiss them before submitting. */
@@ -361,7 +366,7 @@ export class IncidentsPage extends BasePage {
   }
 
   childOption(status: string): Locator {
-    return this.page.locator(`[data-testid="child-option-${status}"]`);
+    return this.page.getByTestId(`child-option-${status}`);
   }
 
   async filterByStatus(status: string): Promise<void> {
@@ -373,7 +378,7 @@ export class IncidentsPage extends BasePage {
     // The NestedSelect renders parent categories collapsed by default.
     // The status options live under the "state" parent — expand it first so that
     // the child option elements are rendered in the DOM before we try to click.
-    const stateParent = this.page.locator('[data-testid="parent-option-state"]');
+    const stateParent = this.page.getByTestId('parent-option-state');
     await stateParent.waitFor({ state: 'visible', timeout: 10000 });
     const childOption = this.childOption(status);
     const childVisible = await childOption.isVisible().catch(() => false);
@@ -427,21 +432,21 @@ export class IncidentsPage extends BasePage {
 
   async expectIncidentRowStage(incidentTitle: string, stage: string): Promise<void> {
     const row = this.getIncidentRow(incidentTitle);
-    await expect(row.locator('[data-testid="incident-stage"]')).toContainText(stage);
+    await expect(row.getByTestId('incident-stage')).toContainText(stage);
   }
 
   async expectIncidentRowCategory(incidentTitle: string, category: string): Promise<void> {
     const row = this.getIncidentRow(incidentTitle);
-    await expect(row.locator('[data-testid="incident-category"]')).toContainText(category);
+    await expect(row.getByTestId('incident-category')).toContainText(category);
   }
 
   async expectResolveButtonContains(incidentTitle: string, text: string): Promise<void> {
     const row = this.getIncidentRow(incidentTitle);
-    await expect(row.locator('[data-testid="incident-resolve-button-container"]')).toContainText(text);
+    await expect(row.getByTestId('incident-resolve-button-container')).toContainText(text);
   }
 
   async expectResolveButtonVisible(incidentTitle: string): Promise<void> {
     const row = this.getIncidentRow(incidentTitle);
-    await expect(row.locator('[data-testid="incident-resolve-button-container"]')).toBeVisible();
+    await expect(row.getByTestId('incident-resolve-button-container')).toBeVisible();
   }
 }

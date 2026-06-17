@@ -381,7 +381,8 @@ public class ESIndexBuilder {
                 structPropConfig.isEnabled()
                     && structPropConfig.isSystemUpdateEnabled()
                     && !copyStructuredPropertyMappings)
-            .version(gitVersion.getVersion());
+            .version(gitVersion.getVersion())
+            .settingsComparisonShim(searchClient);
 
     Map<String, Object> baseSettings = new HashMap<>(settings);
     baseSettings.put(NUMBER_OF_SHARDS, indexConfig.getNumShards());

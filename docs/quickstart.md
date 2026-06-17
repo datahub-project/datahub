@@ -32,6 +32,20 @@ Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 12GB disk space.
 ## Install the DataHub CLI
 
 <Tabs>
+<TabItem value="brew" label="Homebrew">
+
+```bash
+brew install datahub-project/tap/datahub
+datahub version
+```
+
+Homebrew manages an isolated Python environment for `datahub`, so there's no venv to activate. The formula installs the **core CLI only** — to add ingestion connectors, install them into the brew-managed environment:
+
+```bash
+"$(brew --prefix datahub)/libexec/bin/pip" install 'acryl-datahub[snowflake,bigquery]'
+```
+
+</TabItem>
 <TabItem value="pip" label="pip">
 
 ```bash
@@ -208,11 +222,13 @@ datahub docker quickstart --version v1.2.0
 ```
 
 You can see the releases available on the [github releases](https://github.com/datahub-project/datahub/releases) page
-You can also specify `head` as the version to get the latest development version on the master branch.
+You can also specify `head` or `quickstart` as the version to get the latest coordinated development images from `master` (compose from `master`, images tagged `quickstart`). For a specific commit build, use `sha-<short_sha>` (registry-only, not a git tag).
+
+If you pass an unrecognized `--version` that is not a release tag (for example a typo), the CLI prompts before falling back to the default quickstart configuration. Omitting `--version` uses the default without prompting. Release-like tags (`v1.2.0`) and `sha-*` tags are used as-is without prompting. For scripts, pass `--accept-version-default` to accept the suggested configuration without an interactive prompt.
 
 ### Customize installation
 
-If you would like to customize the DataHub installation further, please download the [docker-compose.yaml](https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml) used by the cli tool, modify it as necessary and deploy DataHub by passing the downloaded docker-compose file:
+If you would like to customize the DataHub installation further, please download the [docker-compose file](https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose.quickstart-profile.yml) used by the CLI tool, modify it as necessary and deploy DataHub by passing the downloaded docker-compose file:
 
 ```bash
 datahub docker quickstart --quickstart-compose-file <path to compose file>

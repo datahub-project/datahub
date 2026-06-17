@@ -2486,6 +2486,64 @@ class TestRequestsSessionConfig:
         assert type(emitter._session.get_adapter("https://example.com")) is HTTPAdapter
         assert type(emitter._session.get_adapter("http://example.com")) is HTTPAdapter
 
+    def test_client_cert_unset_leaves_session_cert_none(self):
+        """No client cert configured -> requests.Session.cert stays at its default (None)."""
+        session = RequestsSessionConfig().build_session()
+        assert session.cert is None
+
+    def test_client_cert_only_sets_session_cert_to_string(self):
+        """Single combined-PEM path is passed through as a string."""
+        session = RequestsSessionConfig(
+            client_certificate_path="/etc/certs/combined.pem"
+        ).build_session()
+        assert session.cert == "/etc/certs/combined.pem"
+
+    def test_client_cert_and_key_sets_session_cert_to_tuple(self):
+        """Separate cert and key paths are passed to requests as a (cert, key) tuple."""
+        session = RequestsSessionConfig(
+            client_certificate_path="/etc/certs/client.crt",
+            client_key_path="/etc/certs/client.key",
+        ).build_session()
+        assert session.cert == ("/etc/certs/client.crt", "/etc/certs/client.key")
+
+    def test_client_key_without_cert_is_ignored(self):
+        """A key without a cert is meaningless; session.cert stays None."""
+        session = RequestsSessionConfig(
+            client_key_path="/etc/certs/client.key"
+        ).build_session()
+        assert session.cert is None
+
+
+class TestClientCertEnvFallback:
+    def test_session_config_env_vars_picked_up(self, monkeypatch):
+        monkeypatch.setenv("DATAHUB_CLIENT_CERT_PATH", "/env/client.crt")
+        monkeypatch.setenv("DATAHUB_CLIENT_KEY_PATH", "/env/client.key")
+        session = RequestsSessionConfig().build_session()
+        assert session.cert == ("/env/client.crt", "/env/client.key")
+
+    def test_session_config_no_env_vars_leaves_cert_unset(self, monkeypatch):
+        monkeypatch.delenv("DATAHUB_CLIENT_CERT_PATH", raising=False)
+        monkeypatch.delenv("DATAHUB_CLIENT_KEY_PATH", raising=False)
+        session = RequestsSessionConfig().build_session()
+        assert session.cert is None
+
+    def test_session_config_explicit_path_overrides_env(self, monkeypatch):
+        monkeypatch.setenv("DATAHUB_CLIENT_CERT_PATH", "/env/client.crt")
+        monkeypatch.setenv("DATAHUB_CLIENT_KEY_PATH", "/env/client.key")
+        session = RequestsSessionConfig(
+            client_certificate_path="/explicit/client.crt",
+            client_key_path="/explicit/client.key",
+        ).build_session()
+        assert session.cert == ("/explicit/client.crt", "/explicit/client.key")
+
+    def test_rest_emitter_picks_up_env_vars(self, monkeypatch):
+        """DataHubRestEmitter builds RequestsSessionConfig internally, so env
+        vars should reach session.cert through the same fallback."""
+        monkeypatch.setenv("DATAHUB_CLIENT_CERT_PATH", "/env/client.crt")
+        monkeypatch.setenv("DATAHUB_CLIENT_KEY_PATH", "/env/client.key")
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        assert emitter._session.cert == ("/env/client.crt", "/env/client.key")
+
 
 class TestDataHubGraphTcpKeepalive:
     """Regression tests covering tcp_keepalive propagation from a RestEmitter
@@ -2524,6 +2582,39 @@ class TestDataHubGraphTcpKeepalive:
         assert isinstance(
             graph._session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
         )
+
+
+class TestTcpKeepaliveModuleDefaultResolution:
+    """DataHubRestEmitter.__init__ resolves an unset `tcp_keepalive` arg via
+    `get_or_else(arg, _DEFAULT_TCP_KEEPALIVE)`, where the module constant is
+    seeded from DATAHUB_REST_SINK_DEFAULT_TCP_KEEPALIVE at import. We patch
+    the constant directly to verify the resolution; the env-var -> constant
+    mapping is covered separately in tests/unit/configuration/test_env_vars.py.
+    """
+
+    @pytest.mark.parametrize(
+        "module_default,explicit_arg,expected_keepalive",
+        [
+            (True, None, True),  # default applies when arg omitted
+            (False, None, False),  # default applies when arg omitted
+            (True, False, False),  # explicit False wins over True default
+            (False, True, True),  # explicit True wins over False default
+        ],
+    )
+    def test_emitter_keepalive_resolution(
+        self, module_default, explicit_arg, expected_keepalive
+    ):
+        from datahub.emitter import rest_emitter
+
+        kwargs = {} if explicit_arg is None else {"tcp_keepalive": explicit_arg}
+        with patch.object(rest_emitter, "_DEFAULT_TCP_KEEPALIVE", module_default):
+            emitter = DataHubRestEmitter("http://localhost:8080", **kwargs)
+
+        adapter = emitter._session.get_adapter("https://example.com")
+        if expected_keepalive:
+            assert isinstance(adapter, _KeepAliveHTTPAdapter)
+        else:
+            assert type(adapter) is HTTPAdapter
 
 
 class TestWeightedRetry:

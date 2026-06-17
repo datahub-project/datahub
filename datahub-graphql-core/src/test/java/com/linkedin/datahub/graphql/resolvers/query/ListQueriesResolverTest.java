@@ -156,7 +156,6 @@ public class ListQueriesResolverTest {
       andConditions.add(
           new FacetFilterInput(
               ListQueriesResolver.QUERY_SOURCE_FIELD,
-              null,
               ImmutableList.of(source.toString()),
               false,
               FilterOperator.EQUAL));
@@ -165,7 +164,6 @@ public class ListQueriesResolverTest {
       andConditions.add(
           new FacetFilterInput(
               ListQueriesResolver.QUERY_ENTITIES_FIELD,
-              null,
               ImmutableList.of(entityUrn),
               false,
               FilterOperator.EQUAL));

@@ -123,11 +123,11 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
     final List<FacetFilterInput> andConditions = new ArrayList<>();
     andConditions.add(
         new FacetFilterInput(
-            CREATOR_URN_FIELD, null, ImmutableList.of(creatorUrn), false, FilterOperator.EQUAL));
+            CREATOR_URN_FIELD, ImmutableList.of(creatorUrn), false, FilterOperator.EQUAL));
     if (viewType != null) {
       andConditions.add(
           new FacetFilterInput(
-              VIEW_TYPE_FIELD, null, ImmutableList.of(viewType), false, FilterOperator.EQUAL));
+              VIEW_TYPE_FIELD, ImmutableList.of(viewType), false, FilterOperator.EQUAL));
     }
     filterCriteria.setAnd(andConditions);
 

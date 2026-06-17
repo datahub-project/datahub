@@ -52,6 +52,7 @@ export const DocumentTreeContext = React.createContext<DocumentTreeContextType |
 export const useDocumentTree = () => {
     const context = useContext(DocumentTreeContext);
     if (!context) {
+        /* untranslated-text -- developer-facing error for hook misuse, not user-visible */
         throw new Error('useDocumentTree must be used within DocumentTreeProvider');
     }
     return context;
