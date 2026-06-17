@@ -116,7 +116,7 @@ export function FileDragAndDropArea({ onFilesUpload, className }: Props) {
             >
                 <InnerContainer>
                     <IconContainer onDragLeave={(e) => e.stopPropagation()}>
-                        <Icon icon={UploadSimple} color="primary" size="2xl" />
+                        <Icon icon={UploadSimple} color="iconBrand" size="2xl" />
                     </IconContainer>
                     <ActionTextContainer>
                         <Text size="sm" weight="semiBold">

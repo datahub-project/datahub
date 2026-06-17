@@ -926,7 +926,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         .produceMetadataChangeLog(
             any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
     verify(_mockProducer, times(0))
-        .produceMetadataChangeProposal(Mockito.eq(entityUrn), Mockito.eq(gmce));
+        .produceMetadataChangeProposal(
+            any(OperationContext.class), Mockito.eq(entityUrn), Mockito.eq(gmce));
   }
 
   @Test

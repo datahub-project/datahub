@@ -160,9 +160,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       // Process update events
       List<MCLItem> updateEvents =
           urnEvents.stream()
-              .filter(
-                  event ->
-                      UPDATE_CHANGE_TYPES.contains(event.getMetadataChangeLog().getChangeType()))
+              .filter(e -> UPDATE_CHANGE_TYPES.contains(e.getMetadataChangeLog().getChangeType()))
               .collect(Collectors.toList());
 
       if (!updateEvents.isEmpty()) {
@@ -192,7 +190,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       // Process delete events
       List<MCLItem> deleteEvents =
           urnEvents.stream()
-              .filter(event -> event.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
+              .filter(e -> e.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
               .collect(Collectors.toList());
 
       for (MCLItem deleteEvent : deleteEvents) {
@@ -246,6 +244,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       return;
     }
 
+    // Coalesced branch: last-write-wins for non-timeseries aspects.
     MCLItem survivor = aspectEvents.get(aspectEvents.size() - 1);
     // Use the oldest predecessor's previousRecordTemplate as the diff baseline, since that is
     // what ES actually had before the batch began. Otherwise the diff would compare against the

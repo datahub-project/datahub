@@ -14,6 +14,8 @@ DataHub provides the ability to use **Roles** to manage permissions.
 **Roles** are the recommended way to manage permissions on DataHub. This should suffice for most use cases, but advanced users can use **Policies** if needed.
 :::
 
+When [view-based access control](./policies.md#designing-policies-for-view-based-access-control) is enabled, **Admin**, **Editor**, and **Reader** roles override view-based policy restrictions — users with any role can see all entities. See [Roles and VBAC](./policies.md#roles-and-vbac) in the Policies Guide.
+
 ## Roles Setup, Prerequisites, and Permissions
 
 The out-of-the-box Roles represent the most common types of DataHub users. Currently, the supported Roles are **Admin**, **Editor** and **Reader**.

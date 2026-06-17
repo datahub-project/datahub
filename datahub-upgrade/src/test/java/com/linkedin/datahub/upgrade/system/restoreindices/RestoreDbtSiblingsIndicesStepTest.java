@@ -57,15 +57,14 @@ public class RestoreDbtSiblingsIndicesStepTest {
 
   @Test
   public void testIsOptional() {
-    RestoreDbtSiblingsIndicesStep step =
-        new RestoreDbtSiblingsIndicesStep(mockEntityService, true, 0);
+    RestoreDbtSiblingsIndicesStep step = new RestoreDbtSiblingsIndicesStep(mockEntityService, true);
     assertTrue(step.isOptional());
   }
 
   @Test
   public void testSkipsWhenDisabled() {
     RestoreDbtSiblingsIndicesStep step =
-        new RestoreDbtSiblingsIndicesStep(mockEntityService, false, 0);
+        new RestoreDbtSiblingsIndicesStep(mockEntityService, false);
     assertTrue(step.skip(mockUpgradeContext));
     verify(mockEntityService, never()).exists(any(), any(Urn.class), anyString(), anyBoolean());
   }
@@ -79,8 +78,7 @@ public class RestoreDbtSiblingsIndicesStepTest {
             eq(true)))
         .thenReturn(true);
 
-    RestoreDbtSiblingsIndicesStep step =
-        new RestoreDbtSiblingsIndicesStep(mockEntityService, true, 0);
+    RestoreDbtSiblingsIndicesStep step = new RestoreDbtSiblingsIndicesStep(mockEntityService, true);
     assertTrue(step.skip(mockUpgradeContext));
   }
 
@@ -93,8 +91,7 @@ public class RestoreDbtSiblingsIndicesStepTest {
             eq(true)))
         .thenReturn(false);
 
-    RestoreDbtSiblingsIndicesStep step =
-        new RestoreDbtSiblingsIndicesStep(mockEntityService, true, 0);
+    RestoreDbtSiblingsIndicesStep step = new RestoreDbtSiblingsIndicesStep(mockEntityService, true);
     assertFalse(step.skip(mockUpgradeContext));
   }
 
@@ -112,8 +109,7 @@ public class RestoreDbtSiblingsIndicesStepTest {
     when(mockEntityRegistry.getEntitySpec(Constants.DATASET_ENTITY_NAME))
         .thenReturn(mockEntitySpec);
 
-    RestoreDbtSiblingsIndicesStep step =
-        new RestoreDbtSiblingsIndicesStep(mockEntityService, true, 0);
+    RestoreDbtSiblingsIndicesStep step = new RestoreDbtSiblingsIndicesStep(mockEntityService, true);
     UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
@@ -134,8 +130,7 @@ public class RestoreDbtSiblingsIndicesStepTest {
   public void testFailureHandling() throws Exception {
     when(mockEntityService.listUrns(any(), anyString(), anyInt(), anyInt()))
         .thenThrow(new RuntimeException("Test exception"));
-    RestoreDbtSiblingsIndicesStep step =
-        new RestoreDbtSiblingsIndicesStep(mockEntityService, true, 0);
+    RestoreDbtSiblingsIndicesStep step = new RestoreDbtSiblingsIndicesStep(mockEntityService, true);
     UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
     verify(mockEntityService, times(1)).deleteUrn(eq(mockOpContext), eq(SIBLING_UPGRADE_URN));
