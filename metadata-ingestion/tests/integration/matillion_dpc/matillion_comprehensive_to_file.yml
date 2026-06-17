@@ -5,7 +5,6 @@ source:
       client_id: "test_client_id"
       client_secret: "test_client_secret"
       custom_base_url: "http://localhost:8080/api"
-      console_url: "https://test-account.us1.matillion.com"
     env: "PROD"
     max_executions_per_pipeline: 10
     include_streaming_pipelines: true

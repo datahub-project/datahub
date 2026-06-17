@@ -11,14 +11,14 @@
                 "env": "PROD",
                 "project_id": "proj-1"
             },
-            "externalUrl": "https://test-account.us1.matillion.com/projects/proj-1/branches",
+            "externalUrl": "https://app.matillion.com/projects/proj-1/branches",
             "name": "Analytics Project",
             "description": "Main analytics project",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200701,
+        "lastObserved": 1704067200891,
         "runId": "matillion-test",
         "lastRunId": "no-run-id-provided"
     }

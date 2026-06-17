@@ -91,14 +91,6 @@ class MatillionAPIConfig(ConfigModel):
         default=None,
         description="Custom OAuth2 token endpoint URL for VPC endpoints or on-premise installations.",
     )
-    console_url: Optional[str] = Field(
-        default=None,
-        description="Base URL of your Data Productivity Cloud console UI, used to build "
-        "clickable external links on emitted entities (e.g. https://your-account.us1.matillion.com). "
-        "The console is served from an account-specific subdomain (the host you see in the browser "
-        "when using Designer/Observability), which cannot be derived from the API. When unset, no "
-        "external links are emitted.",
-    )
     request_timeout_sec: int = Field(
         default=DEFAULT_REQUEST_TIMEOUT_SEC,
         description="Per-request timeout in seconds. On timeouts, prefer narrowing "
@@ -146,18 +138,6 @@ class MatillionAPIConfig(ConfigModel):
                 "For VPC endpoints or on-premise installations, you likely need both."
             )
 
-        return v.removesuffix("/")
-
-    @field_validator("console_url")
-    @classmethod
-    def validate_console_url(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return v
-        v = v.strip()
-        if not v:
-            raise ValueError("console_url cannot be empty")
-        if not (v.startswith("http://") or v.startswith("https://")):
-            raise ValueError("console_url must start with http:// or https://")
         return v.removesuffix("/")
 
     def get_base_url(self) -> str:

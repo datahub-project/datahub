@@ -7,10 +7,6 @@ from datahub.ingestion.source.matillion_dpc.config import (
 )
 from datahub.ingestion.source.matillion_dpc.matillion_utils import (
     MatillionUrnBuilder,
-    build_execution_url,
-    build_pipeline_observability_url,
-    build_project_url,
-    build_streaming_pipeline_url,
     extract_folder_segments,
 )
 from datahub.ingestion.source.matillion_dpc.models import (
@@ -98,30 +94,6 @@ def test_make_environment_container_urn(urn_builder: MatillionUrnBuilder) -> Non
 )
 def test_extract_folder_segments(job_name: str, expected: list) -> None:
     assert extract_folder_segments(job_name) == expected
-
-
-def test_console_url_builders_none_when_unset() -> None:
-    assert build_project_url(None, "proj-1") is None
-    assert build_pipeline_observability_url(None, "a/b/c.orch.yaml") is None
-    assert build_execution_url(None, "exec-1") is None
-    assert build_streaming_pipeline_url(None, "sp-1") is None
-
-
-def test_console_url_builders_encode_dynamic_values() -> None:
-    base = "https://acct.us1.matillion.com"
-    assert build_project_url(base, "proj-1") == f"{base}/projects/proj-1/branches"
-    # Slashes and spaces in the pipeline path must be query-encoded so the link resolves.
-    assert build_pipeline_observability_url(base, "ingest/load orders.orch.yaml") == (
-        f"{base}/observability-dashboard?timeFrame=*"
-        "&search=ingest%2Fload+orders.orch.yaml"
-    )
-    assert (
-        build_execution_url(base, "exec-1")
-        == f"{base}/observability-dashboard/pipeline/exec-1"
-    )
-    assert (
-        build_streaming_pipeline_url(base, "sp-1") == f"{base}/streaming-pipelines/sp-1"
-    )
 
 
 @pytest.mark.parametrize(

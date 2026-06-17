@@ -11,14 +11,14 @@
                 "env": "PROD",
                 "project_id": "proj-1"
             },
-            "externalUrl": "https://test-account.us1.matillion.com/projects/proj-1/branches",
+            "externalUrl": "https://app.matillion.com/projects/proj-1/branches",
             "name": "CDC Project",
             "description": "CDC streaming project",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200111,
+        "lastObserved": 1704067200058,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -206,12 +206,12 @@
                 "project_id": "proj-1",
                 "pipeline_type": "streaming"
             },
-            "externalUrl": "https://test-account.us1.matillion.com/streaming-pipelines/MySQL%20to%20Snowflake%20CDC",
+            "externalUrl": "http://localhost:8080/api/streaming-pipelines/MySQL to Snowflake CDC",
             "name": "MySQL to Snowflake CDC"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200112,
+        "lastObserved": 1704067200448,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }

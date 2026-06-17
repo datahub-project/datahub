@@ -11,14 +11,14 @@
                 "env": "PROD",
                 "project_id": "proj-1"
             },
-            "externalUrl": "https://test-account.us1.matillion.com/projects/proj-1/branches",
+            "externalUrl": "https://app.matillion.com/projects/proj-1/branches",
             "name": "Full Feature Project",
             "description": "Project with all features",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200123,
+        "lastObserved": 1704067200059,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -211,12 +211,12 @@
                 "project_id": "proj-1",
                 "pipeline_type": "streaming"
             },
-            "externalUrl": "https://test-account.us1.matillion.com/streaming-pipelines/Postgres%20CDC%20Stream",
+            "externalUrl": "http://localhost:8080/api/streaming-pipelines/Postgres CDC Stream",
             "name": "Postgres CDC Stream"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200126,
+        "lastObserved": 1704067200875,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -306,13 +306,13 @@
                 "environment_name": "Production",
                 "is_published": "true"
             },
-            "externalUrl": "https://test-account.us1.matillion.com/observability-dashboard?timeFrame=*&search=Data+Integration+Pipeline",
+            "externalUrl": "https://app.matillion.com/observability-dashboard?timeFrame=*&search=Data Integration Pipeline",
             "name": "Data Integration Pipeline",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200127,
+        "lastObserved": 1704067200876,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -544,13 +544,13 @@
                 "environment_name": "Production",
                 "is_published": "false"
             },
-            "externalUrl": "https://test-account.us1.matillion.com/observability-dashboard?timeFrame=*&search=Child+ETL+Pipeline",
+            "externalUrl": "https://app.matillion.com/observability-dashboard?timeFrame=*&search=Child ETL Pipeline",
             "name": "Child ETL Pipeline",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200134,
+        "lastObserved": 1704067200118,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -781,7 +781,7 @@
                 "project_id": "proj-1",
                 "started_at": "2024-01-01T00:00:00+00:00"
             },
-            "externalUrl": "https://test-account.us1.matillion.com/observability-dashboard/pipeline/exec-1",
+            "externalUrl": "https://app.matillion.com/observability-dashboard/pipeline/exec-1",
             "name": "Data Integration Pipeline-exec-1",
             "type": "BATCH_AD_HOC",
             "created": {
@@ -791,7 +791,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200131,
+        "lastObserved": 1704067200160,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -886,7 +886,7 @@
                 "started_at": "2024-01-01T00:00:00Z",
                 "finished_at": "2024-01-01T00:02:00Z"
             },
-            "externalUrl": "https://test-account.us1.matillion.com/observability-dashboard/pipeline/exec-1",
+            "externalUrl": "https://app.matillion.com/observability-dashboard/pipeline/exec-1",
             "name": "Data Integration Pipeline-Extract Data-exec-1",
             "type": "BATCH_AD_HOC",
             "created": {
@@ -896,7 +896,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200132,
+        "lastObserved": 1704067200613,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -963,7 +963,7 @@
                 "child_pipeline_id": "child-exec-1",
                 "child_pipeline_name": "Child ETL Pipeline"
             },
-            "externalUrl": "https://test-account.us1.matillion.com/observability-dashboard/pipeline/exec-1",
+            "externalUrl": "https://app.matillion.com/observability-dashboard/pipeline/exec-1",
             "name": "Data Integration Pipeline-Transform Data-exec-1",
             "type": "BATCH_AD_HOC",
             "created": {
@@ -973,7 +973,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200132,
+        "lastObserved": 1704067200613,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1073,7 +1073,7 @@
                 "started_at": "2024-01-01T00:02:30Z",
                 "finished_at": "2024-01-01T00:03:00Z"
             },
-            "externalUrl": "https://test-account.us1.matillion.com/observability-dashboard/pipeline/child-exec-1",
+            "externalUrl": "https://app.matillion.com/observability-dashboard/pipeline/child-exec-1",
             "name": "Child ETL Pipeline-Child Extract-child-ex",
             "type": "BATCH_AD_HOC",
             "created": {
@@ -1083,7 +1083,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200136,
+        "lastObserved": 1704067200617,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1226,7 +1226,7 @@
                 "started_at": "2024-01-01T00:04:00Z",
                 "finished_at": "2024-01-01T00:05:00Z"
             },
-            "externalUrl": "https://test-account.us1.matillion.com/observability-dashboard/pipeline/exec-1",
+            "externalUrl": "https://app.matillion.com/observability-dashboard/pipeline/exec-1",
             "name": "Data Integration Pipeline-Load Data-exec-1",
             "type": "BATCH_AD_HOC",
             "created": {
@@ -1236,7 +1236,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200133,
+        "lastObserved": 1704067200614,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1390,7 +1390,7 @@
                 "project_id": "proj-1",
                 "started_at": "2024-01-01T00:02:30+00:00"
             },
-            "externalUrl": "https://test-account.us1.matillion.com/observability-dashboard/pipeline/child-exec-1",
+            "externalUrl": "https://app.matillion.com/observability-dashboard/pipeline/child-exec-1",
             "name": "Child ETL Pipeline-child-ex",
             "type": "BATCH_AD_HOC",
             "created": {
@@ -1400,7 +1400,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200136,
+        "lastObserved": 1704067200165,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1582,7 +1582,7 @@
                 "started_at": "2024-01-01T00:03:00Z",
                 "finished_at": "2024-01-01T00:03:30Z"
             },
-            "externalUrl": "https://test-account.us1.matillion.com/observability-dashboard/pipeline/child-exec-1",
+            "externalUrl": "https://app.matillion.com/observability-dashboard/pipeline/child-exec-1",
             "name": "Child ETL Pipeline-Child Transform-child-ex",
             "type": "BATCH_AD_HOC",
             "created": {
@@ -1592,7 +1592,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200137,
+        "lastObserved": 1704067200618,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
