@@ -9,13 +9,25 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
 import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import PropagationDetails from '@app/entity/shared/propagation/PropagationDetails';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 
 import { UpdateDatasetMutation } from '@graphql/dataset.generated';
 import { StringMapEntry } from '@types';
+
+// Legacy V1 decorative colors. The diff-highlight greens/reds and the edit-icon green are
+// visually distinct from the semantic theme tokens (bgSurfaceSuccess/Error, iconSuccess would
+// render a much paler / different shade), so they are preserved verbatim to keep the original
+// appearance of this deprecated component.
+/* eslint-disable rulesdir/no-hardcoded-colors -- (legacy-color) preserve original V1 appearance; semantic tokens differ visually */
+const EDIT_ICON_TWO_TONE_COLOR = '#52c41a';
+const DIFF_ADDED_BG = '#b7eb8f99';
+const DIFF_ADDED_BG_HOVER = '#b7eb8faa';
+const DIFF_REMOVED_BG = '#ffa39e99';
+const DIFF_REMOVED_BG_HOVER = '#ffa39eaa';
+const EDITED_LABEL_COLOR = 'rgba(150, 150, 150, 0.5)';
+/* eslint-enable rulesdir/no-hardcoded-colors */
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -52,17 +64,18 @@ const DescriptionContainer = styled.div`
         display: block;
     }
     & ins.diff {
-        background-color: #b7eb8f99;
+        background-color: ${DIFF_ADDED_BG};
         text-decoration: none;
         &:hover {
-            background-color: #b7eb8faa;
+            background-color: ${DIFF_ADDED_BG_HOVER};
         }
     }
     & del.diff {
-        background-color: #ffa39e99;
+        background-color: ${DIFF_REMOVED_BG};
         text-decoration: line-through;
+        /* original V1 selector typo ("&: hover") preserved intentionally to avoid changing rendered behavior */
         &: hover {
-            background-color: #ffa39eaa;
+            background-color: ${DIFF_REMOVED_BG_HOVER};
         }
     }
 `;
@@ -70,7 +83,7 @@ const EditedLabel = styled(Typography.Text)`
     position: absolute;
     right: -10px;
     top: -15px;
-    color: rgba(150, 150, 150, 0.5);
+    color: ${EDITED_LABEL_COLOR};
     font-style: italic;
 `;
 
@@ -89,7 +102,7 @@ const StyledViewer = styled(Editor)`
 
 const AttributeDescription = styled.div`
     margin-top: 8px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const StyledAttributeViewer = styled(Editor)`
@@ -97,7 +110,7 @@ const StyledAttributeViewer = styled(Editor)`
     display: block;
     .remirror-editor.ProseMirror {
         padding: 0;
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 
@@ -175,7 +188,7 @@ export default function DescriptionField({
 
     const EditButton =
         (isSchemaEditable && description && (
-            <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />
+            <EditIcon twoToneColor={EDIT_ICON_TWO_TONE_COLOR} onClick={() => setShowAddModal(true)} />
         )) ||
         undefined;
 
