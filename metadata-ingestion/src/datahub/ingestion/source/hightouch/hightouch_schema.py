@@ -69,7 +69,6 @@ class HightouchSchemaHandler:
             schema_data = model.query_schema
 
             if isinstance(schema_data, str):
-                logger.debug(f"Model {model.id}: Parsing query_schema from JSON string")
                 try:
                     schema_data = json.loads(schema_data)
                 except json.JSONDecodeError as e:
@@ -82,9 +81,6 @@ class HightouchSchemaHandler:
             columns = None
             if isinstance(schema_data, list):
                 columns = schema_data
-                logger.debug(
-                    f"Model {model.id}: Schema is a direct list with {len(columns)} columns"
-                )
             elif isinstance(schema_data, dict):
                 columns = (
                     schema_data.get("columns")
@@ -92,15 +88,6 @@ class HightouchSchemaHandler:
                     or schema_data.get("schema")
                     or schema_data.get("properties")
                 )
-                if columns:
-                    logger.debug(
-                        f"Model {model.id}: Extracted {len(columns) if isinstance(columns, list) else '?'} "
-                        f"columns from dict"
-                    )
-                else:
-                    logger.debug(
-                        f"Model {model.id}: Schema dict keys: {list(schema_data.keys())}"
-                    )
             else:
                 logger.warning(
                     f"Model {model.id}: Unexpected query_schema type: {type(schema_data).__name__}"
@@ -108,7 +95,6 @@ class HightouchSchemaHandler:
                 return None
 
             if not columns:
-                logger.debug(f"Model {model.id}: No columns found in schema")
                 return None
 
             if not isinstance(columns, list):
@@ -118,11 +104,8 @@ class HightouchSchemaHandler:
                 return None
 
             schema_fields = []
-            for idx, col in enumerate(columns):
+            for col in columns:
                 if not isinstance(col, dict):
-                    logger.debug(
-                        f"Model {model.id}: Skipping non-dict column at index {idx}"
-                    )
                     continue
 
                 name = self._get_first_value(
@@ -151,20 +134,11 @@ class HightouchSchemaHandler:
                             name=str(name), type=str(data_type), description=description
                         )
                     )
-                else:
-                    logger.debug(
-                        f"Model {model.id}: Skipping incomplete column at index {idx} "
-                        f"(name={name}, type={data_type})"
-                    )
 
             if schema_fields:
-                logger.info(
-                    f"Model {model.id} ({model.name}): Successfully parsed {len(schema_fields)} schema fields"
-                )
                 self.report.report_model_schemas_emitted()
                 return schema_fields
             else:
-                logger.debug(f"Model {model.id}: No valid schema fields found")
                 self.report.report_model_schemas_skipped("no_valid_fields")
                 return None
 
@@ -219,9 +193,6 @@ class HightouchSchemaHandler:
                 )
             )
 
-        logger.debug(
-            f"Created schema with {len(schema_fields)} fields from referencedColumns"
-        )
         self.report.schemas_from_referenced_columns += 1
 
         return schema_fields
@@ -254,21 +225,11 @@ class HightouchSchemaHandler:
                 )
 
             if not upstream_urn:
-                logger.debug(
-                    f"Model {model.id} ({model.slug}): Cannot determine upstream URN for schema fetching"
-                )
                 return None
-
-            logger.debug(
-                f"Model {model.id} ({model.slug}): Fetching schema from DataHub for upstream table {upstream_urn}"
-            )
 
             schema_metadata = self.graph.get_schema_metadata(str(upstream_urn))
 
             if not schema_metadata or not schema_metadata.fields:
-                logger.debug(
-                    f"Model {model.id} ({model.slug}): No schema found in DataHub for {upstream_urn}"
-                )
                 self.report.report_model_schema_datahub_not_found(model.slug)
                 return None
 
@@ -282,9 +243,6 @@ class HightouchSchemaHandler:
                     )
                 )
 
-            logger.info(
-                f"Model {model.id} ({model.slug}): Fetched {len(schema_fields)} fields from DataHub upstream table {upstream_urn}"
-            )
             self.report.report_model_schema_from_datahub()
 
             return schema_fields
@@ -306,7 +264,6 @@ class HightouchSchemaHandler:
         urn: str,
         aggregator: SqlParsingAggregator,
         registered_urns: Set[str],
-        urn_description: str = "table",
     ) -> bool:
         if urn in registered_urns:
             return False
@@ -319,9 +276,6 @@ class HightouchSchemaHandler:
             if schema_metadata and schema_metadata.fields:
                 aggregator.register_schema(urn, schema_metadata)
                 registered_urns.add(urn)
-                logger.debug(
-                    f"Preloaded schema for {urn_description} {urn} ({len(schema_metadata.fields)} fields)"
-                )
                 return True
         except (AttributeError, TypeError) as e:
             logger.error(
@@ -358,16 +312,12 @@ class HightouchSchemaHandler:
             upstream_urn = str(
                 self.urn_builder.make_upstream_table_urn(table_name, source)
             )
-            self.fetch_and_register_schema(
-                upstream_urn, aggregator, registered_urns, "upstream table"
-            )
+            self.fetch_and_register_schema(upstream_urn, aggregator, registered_urns)
 
         if model.raw_sql and model.query_type == "raw_sql":
             sql_table_urns = extract_table_urns_fn(model, source)
             for table_urn in sql_table_urns:
-                self.fetch_and_register_schema(
-                    table_urn, aggregator, registered_urns, "SQL-referenced table"
-                )
+                self.fetch_and_register_schema(table_urn, aggregator, registered_urns)
 
     def preload_sync_schemas(
         self,
@@ -397,7 +347,7 @@ class HightouchSchemaHandler:
             return
 
         model_urn = str(self.urn_builder.make_model_urn(model, source))
-        self.fetch_and_register_schema(model_urn, aggregator, registered_urns, "model")
+        self.fetch_and_register_schema(model_urn, aggregator, registered_urns)
 
         destination = get_destination(sync.destination_id)
         if not destination:
@@ -405,9 +355,7 @@ class HightouchSchemaHandler:
 
         outlet_urn = str(get_outlet_urn_for_sync(sync, destination))
         if outlet_urn:
-            self.fetch_and_register_schema(
-                outlet_urn, aggregator, registered_urns, "destination"
-            )
+            self.fetch_and_register_schema(outlet_urn, aggregator, registered_urns)
 
     def preload_schemas_for_sql_parsing(
         self,
@@ -423,10 +371,8 @@ class HightouchSchemaHandler:
         get_outlet_urn_for_sync: Callable,
     ) -> None:
         if not self.graph:
-            logger.debug("No DataHub graph available - skipping schema preloading")
             return
 
-        logger.info("Preloading schemas from DataHub for SQL parsing")
         registered_urns.clear()
 
         for model in models:
@@ -457,7 +403,3 @@ class HightouchSchemaHandler:
                 get_aggregator_for_platform,
                 get_outlet_urn_for_sync,
             )
-
-        logger.debug(
-            f"Preloaded {len(registered_urns)} schemas from DataHub for SQL parsing"
-        )

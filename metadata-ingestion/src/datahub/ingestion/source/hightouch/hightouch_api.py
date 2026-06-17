@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Any, Dict, List, Optional, Type, TypeVar
 
@@ -21,7 +20,6 @@ from datahub.ingestion.source.hightouch.constants import (
     API_RESPONSE_FIELD_DATA,
     API_RESPONSE_FIELD_HAS_MORE,
     ENTITY_NAME_CONTRACT,
-    ENTITY_NAME_CONTRACT_RUN,
     ENTITY_NAME_DESTINATION,
     ENTITY_NAME_MODEL,
     ENTITY_NAME_SOURCE,
@@ -42,7 +40,6 @@ from datahub.ingestion.source.hightouch.constants import (
 )
 from datahub.ingestion.source.hightouch.models import (
     HightouchContract,
-    HightouchContractRun,
     HightouchDestination,
     HightouchFieldMapping,
     HightouchModel,
@@ -91,14 +88,11 @@ class HightouchAPIClient:
         url = f"{self.config.base_url}/{endpoint}"
 
         try:
-            logger.debug(f"Making {method} request to {url} with kwargs: {kwargs}")
             response = self.session.request(
                 method, url, timeout=self.config.request_timeout_sec, **kwargs
             )
             response.raise_for_status()
-            result = response.json()
-            logger.debug(f"API response from {endpoint}: {json.dumps(result)}")
-            return result
+            return response.json()
         except requests.exceptions.RequestException as e:
             logger.error(f"Error making request to {url}: {e}")
             raise
@@ -120,8 +114,6 @@ class HightouchAPIClient:
         while True:
             request_params["offset"] = offset
 
-            logger.debug(f"Fetching {endpoint} with offset={offset}, limit={limit}")
-
             response = self._make_request(
                 HTTP_METHOD_GET, endpoint, params=request_params
             )
@@ -129,16 +121,9 @@ class HightouchAPIClient:
             items = response.get(API_RESPONSE_FIELD_DATA, [])
             all_items.extend(items)
 
-            logger.debug(
-                f"Fetched {len(items)} items from {endpoint} (total so far: {len(all_items)})"
-            )
-
             has_more = response.get(API_RESPONSE_FIELD_HAS_MORE, False)
 
             if not has_more or len(items) == 0:
-                logger.info(
-                    f"Completed fetching {endpoint}: {len(all_items)} total items"
-                )
                 break
 
             offset += len(items)
@@ -263,49 +248,11 @@ class HightouchAPIClient:
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
                 logger.warning(
-                    "Contracts endpoint not found (404). This feature may not be available "
+                    "Contracts endpoint not found (404). Event Contracts may not be enabled "
                     "for your Hightouch account/plan. Skipping contract ingestion."
                 )
                 return []
             raise
-
-    def get_contract_by_id(self, contract_id: str) -> Optional[HightouchContract]:
-        return self._fetch_entity_by_id(
-            API_ENDPOINT_CONTRACTS, contract_id, HightouchContract, ENTITY_NAME_CONTRACT
-        )
-
-    def get_contract_runs(
-        self, contract_id: str, limit: int = 10
-    ) -> List[HightouchContractRun]:
-        try:
-            response = self._make_request(
-                HTTP_METHOD_GET,
-                f"{API_ENDPOINT_CONTRACTS}/{contract_id}/runs",
-                params={"limit": limit},
-            )
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
-                logger.warning(
-                    f"Contract runs endpoint not found (404) for contract {contract_id}. "
-                    "This contract may not exist or the feature may not be available. "
-                    "Returning empty list."
-                )
-                return []
-            raise
-
-        runs = []
-
-        for run_data in response.get(API_RESPONSE_FIELD_DATA, []):
-            try:
-                run = HightouchContractRun.model_validate(run_data)
-                runs.append(run)
-            except ValidationError as e:
-                logger.warning(
-                    f"Failed to parse {ENTITY_NAME_CONTRACT_RUN}: {e}, data: {run_data}"
-                )
-                continue
-
-        return runs
 
     def extract_field_mappings(
         self, sync: HightouchSync
@@ -334,10 +281,6 @@ class HightouchAPIClient:
             dest = mapping.get("to")
 
             if not source or not dest:
-                logger.debug(
-                    f"Sync {sync.id}: Skipping incomplete mapping at index {i} "
-                    f"(from={source}, to={dest})"
-                )
                 continue
 
             if not isinstance(source, str) or not isinstance(dest, str):
@@ -358,7 +301,4 @@ class HightouchAPIClient:
                 )
             )
 
-        logger.debug(
-            f"Extracted {len(field_mappings)} field mappings for sync {sync.id}"
-        )
         return field_mappings

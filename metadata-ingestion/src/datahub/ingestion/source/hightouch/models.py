@@ -135,37 +135,32 @@ class HightouchFieldMapping(BaseModel):
 
 
 class HightouchColumnPair(BaseModel):
-    """Represents a matched column pair between source and destination."""
-
     source_field: str
     destination_field: str
+
+
+class HightouchContractEvent(_HightouchBaseModel):
+    type: str
+    json_schema: Dict[str, Any] = Field(default_factory=dict, alias="schema")
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    version: Optional[str] = None
+    on_schema_violation: Optional[str] = Field(default=None, alias="onSchemaViolation")
+    on_undeclared_fields: Optional[str] = Field(
+        default=None, alias="onUndeclaredFields"
+    )
 
 
 class HightouchContract(_HightouchBaseModel):
     id: str
     name: str
-    workspace_id: str = Field(alias="workspaceId")
-    source_id: Optional[str] = Field(default=None, alias="sourceId")
-    model_id: Optional[str] = Field(default=None, alias="modelId")
-    created_at: datetime = Field(alias="createdAt")
-    updated_at: datetime = Field(alias="updatedAt")
+    slug: Optional[str] = None
     description: Optional[str] = None
-    enabled: bool = True
-    rules: Optional[Dict[str, Any]] = None
-    severity: Optional[str] = None
-
-
-class HightouchContractRun(_HightouchBaseModel):
-    id: str
-    contract_id: str = Field(alias="contractId")
-    status: str
-    created_at: datetime = Field(alias="createdAt")
-    started_at: Optional[datetime] = Field(default=None, alias="startedAt")
-    finished_at: Optional[datetime] = Field(default=None, alias="finishedAt")
-    error: Optional[Union[str, Dict[str, Any]]] = None
-    total_rows_checked: Optional[int] = Field(default=None, alias="totalRowsChecked")
-    rows_passed: Optional[int] = Field(default=None, alias="rowsPassed")
-    rows_failed: Optional[int] = Field(default=None, alias="rowsFailed")
+    workspace_id: Optional[str] = Field(default=None, alias="workspaceId")
+    on_undeclared_schema: Optional[str] = Field(
+        default=None, alias="onUndeclaredSchema"
+    )
+    events: List[HightouchContractEvent] = Field(default_factory=list)
 
 
 class HightouchDestinationLineageInfo(BaseModel):

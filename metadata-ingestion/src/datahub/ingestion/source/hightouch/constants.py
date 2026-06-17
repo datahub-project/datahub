@@ -27,9 +27,6 @@ API_RESPONSE_FIELD_HAS_MORE = "hasMore"
 CONTAINER_TYPE_MODELS = "Models"
 CONTAINER_TYPE_SYNCS = "Syncs"
 
-# Assertion types
-ASSERTION_TYPE_HIGHTOUCH_CONTRACT = "hightouch_contract"
-
 # API endpoints
 API_ENDPOINT_WORKSPACES = "workspaces"
 API_ENDPOINT_SOURCES = "sources"
@@ -48,7 +45,6 @@ ENTITY_NAME_SYNC = "sync"
 ENTITY_NAME_SYNC_RUN = "sync run"
 ENTITY_NAME_USER = "user"
 ENTITY_NAME_CONTRACT = "contract"
-ENTITY_NAME_CONTRACT_RUN = "contract run"
 
 # Mapping of Hightouch source types to DataHub platform names
 # Reference: https://hightouch.com/docs/getting-started/concepts/#sources

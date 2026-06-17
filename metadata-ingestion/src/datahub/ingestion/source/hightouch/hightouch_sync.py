@@ -135,9 +135,6 @@ class HightouchSyncHandler:
                             dest_table = value.get("from") or value.get("name")
 
                         if dest_table:
-                            logger.debug(
-                                f"Found destination table '{dest_table}' using key '{key}'"
-                            )
                             break
 
         if not dest_table:

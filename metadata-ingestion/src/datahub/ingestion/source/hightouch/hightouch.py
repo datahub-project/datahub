@@ -12,7 +12,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceReport,
     StructuredLogCategory,
     TestConnectionReport,
@@ -29,11 +28,11 @@ from datahub.ingestion.source.hightouch.constants import (
     KNOWN_SOURCE_PLATFORM_MAPPING,
 )
 from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
-from datahub.ingestion.source.hightouch.hightouch_assertion import (
-    HightouchAssertionsHandler,
-)
 from datahub.ingestion.source.hightouch.hightouch_container import (
     HightouchContainerHandler,
+)
+from datahub.ingestion.source.hightouch.hightouch_contract import (
+    HightouchContractHandler,
 )
 from datahub.ingestion.source.hightouch.hightouch_lineage import (
     HightouchLineageHandler,
@@ -50,9 +49,6 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchUser,
 )
 from datahub.ingestion.source.hightouch.urn_builder import HightouchUrnBuilder
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -92,25 +88,14 @@ class HightouchSource(StatefulIngestionSourceBase):
         self.report = HightouchSourceReport()
         self.api_client = HightouchAPIClient(self.config.api_config)
 
-        self.graph: Optional[DataHubGraph] = None
-        if ctx.graph:
-            self.graph = ctx.graph
-            logger.info(
-                "DataHub graph client available - will fetch schemas from DataHub when possible"
-            )
-        else:
-            logger.debug(
-                "No DataHub graph connection - schema fetching from DataHub disabled"
-            )
+        self.graph: Optional[DataHubGraph] = ctx.graph
 
         self._sources_cache: Dict[str, HightouchSourceConnection] = {}
         self._models_cache: Dict[str, HightouchModel] = {}
         self._destinations_cache: Dict[str, HightouchDestination] = {}
         self._users_cache: Dict[str, HightouchUser] = {}
-        self._registered_urns: Set[str] = set()  # Track URNs with loaded schemas
-        self._model_schema_fields_cache: Dict[
-            str, List[SchemaFieldClass]
-        ] = {}  # Cache normalized schema fields
+        self._registered_urns: Set[str] = set()
+        self._model_schema_fields_cache: Dict[str, List[SchemaFieldClass]] = {}
 
         self._urn_builder = HightouchUrnBuilder(
             config=self.config,
@@ -163,31 +148,20 @@ class HightouchSource(StatefulIngestionSourceBase):
             get_destination=self._get_destination,
         )
 
-        self._assertions_handler = HightouchAssertionsHandler(
+        self._contract_handler = HightouchContractHandler(
             config=self.config,
             report=self.report,
-            api_client=self.api_client,
-            urn_builder=self._urn_builder,
-            get_model=self._get_model,
-            get_source=self._get_source,
         )
 
     def _get_aggregator_for_platform(
         self, source_platform: PlatformDetail
     ) -> Optional[SqlParsingAggregator]:
-        # Returns None if platform unknown; SQL parsing is optional
         platform = source_platform.platform
         if not platform:
-            logger.debug("No platform specified, skipping SQL aggregator creation")
             return None
 
         if platform not in self._sql_aggregators:
             try:
-                logger.info(
-                    f"Creating SQL parsing aggregator for platform: {platform} "
-                    f"(instance: {source_platform.platform_instance}, env: {source_platform.env})"
-                )
-
                 self._sql_aggregators[platform] = SqlParsingAggregator(
                     platform=platform,
                     platform_instance=source_platform.platform_instance,
@@ -326,14 +300,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         source = self._get_source(model.source_id)
         yield from self._model_handler.get_model_workunits(model, source)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def test_connection(self) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
@@ -351,8 +317,6 @@ class HightouchSource(StatefulIngestionSourceBase):
     def get_workunits_internal(
         self,
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
-        logger.info("Starting Hightouch metadata extraction")
-
         yield from self._container_handler.emit_models_container()
         yield from self._container_handler.emit_syncs_container()
 
@@ -360,19 +324,15 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         self.report.report_api_call()
         syncs = self.api_client.get_syncs()
-        logger.info(f"Found {len(syncs)} syncs")
 
         filtered_syncs = [
             sync for sync in syncs if self.config.sync_patterns.allowed(sync.slug)
         ]
 
-        logger.info(f"Processing {len(filtered_syncs)} syncs after filtering")
-
         all_models = []
         if self.config.emit_models_as_datasets:
             self.report.report_api_call()
             all_models = self.api_client.get_models()
-            logger.info(f"Found {len(all_models)} models total")
 
         if self.graph and (filtered_syncs or all_models):
             self._schema_handler.preload_schemas_for_sql_parsing(
@@ -403,18 +363,12 @@ class HightouchSource(StatefulIngestionSourceBase):
                 )
 
         if self.config.emit_models_as_datasets and all_models:
-            logger.info("Processing standalone models")
-
             standalone_models = [
                 model
                 for model in all_models
                 if model.id not in emitted_model_ids
                 and self.config.model_patterns.allowed(model.name)
             ]
-
-            logger.info(
-                f"Processing {len(standalone_models)} standalone models after filtering"
-            )
 
             for model in standalone_models:
                 try:
@@ -428,54 +382,31 @@ class HightouchSource(StatefulIngestionSourceBase):
                     )
 
         if self.config.include_contracts:
-            logger.info("Fetching event contracts")
             self.report.report_api_call()
             contracts = self.api_client.get_contracts()
-            logger.info(f"Found {len(contracts)} contracts")
-
-            yield from self._assertions_handler.get_assertion_workunits(
+            yield from self._contract_handler.get_contract_workunits(
                 contracts=contracts
             )
 
         if self._destination_lineage:
-            logger.info(
-                f"Emitting consolidated lineage for {len(self._destination_lineage)} destination(s)"
-            )
             yield from self._lineage_handler.emit_all_destination_lineage()
 
-        if self._sql_aggregators:
-            active_aggregators = {
-                platform: aggregator
-                for platform, aggregator in self._sql_aggregators.items()
-                if aggregator is not None
-            }
-
-            if active_aggregators:
-                logger.info(
-                    f"Generating lineage from {len(active_aggregators)} SQL aggregator(s)"
+        active_aggregators = {
+            platform: aggregator
+            for platform, aggregator in self._sql_aggregators.items()
+            if aggregator is not None
+        }
+        for platform, aggregator in active_aggregators.items():
+            try:
+                for mcp in aggregator.gen_metadata():
+                    yield mcp.as_workunit()
+            except Exception as e:
+                logger.warning(
+                    f"Failed to generate metadata from {platform} aggregator: {e}",
+                    exc_info=True,
                 )
-                for platform, aggregator in active_aggregators.items():
-                    logger.info(f"Generating lineage from {platform} aggregator")
-                    try:
-                        for mcp in aggregator.gen_metadata():
-                            yield mcp.as_workunit()
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to generate metadata from {platform} aggregator: {e}",
-                            exc_info=True,
-                        )
-                    finally:
-                        try:
-                            aggregator.close()
-                        except Exception as e:
-                            logger.debug(f"Error closing {platform} aggregator: {e}")
-            else:
-                logger.info(
-                    "No active SQL aggregators - SQL-based lineage enrichment was not available. "
-                    "Basic known lineage was still emitted."
-                )
-        else:
-            logger.debug("No SQL aggregators created - SQL parsing was not used")
+            finally:
+                aggregator.close()
 
     def get_report(self) -> SourceReport:
         return self.report

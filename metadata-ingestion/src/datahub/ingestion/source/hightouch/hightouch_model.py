@@ -122,11 +122,6 @@ class HightouchModelHandler:
             model, source, sql_table_urns
         )
 
-        if upstream_field_casing:
-            logger.debug(
-                f"Using upstream field casing for model {model.slug}: {len(upstream_field_casing)} fields mapped"
-            )
-
         schema_field_classes: List[SchemaFieldClass] = []
         for field in schema_fields:
             normalized_name = normalize_column_name(field.name)
@@ -140,11 +135,6 @@ class HightouchModelHandler:
                     description=field.description,
                     isPartOfKey=field.is_primary_key,
                 )
-            )
-
-        if schema_field_classes:
-            logger.debug(
-                f"Final schema for model {model.slug}: {[f.fieldPath for f in schema_field_classes]}"
             )
 
         return schema_field_classes
@@ -179,7 +169,6 @@ class HightouchModelHandler:
                     fields=schema_field_classes,
                 ),
             )
-            logger.debug(f"Registered model schema for {model.slug} with aggregator")
         except (AttributeError, TypeError) as e:
             logger.error(
                 f"Programming error registering schema for {model.slug}: {type(e).__name__}: {e}",
@@ -217,7 +206,6 @@ class HightouchModelHandler:
         custom_properties["upstream_table"] = table_name
         custom_properties["source_table_urn"] = str(upstream_urn)
 
-        logger.debug(f"Set direct upstream lineage for table model {model.slug}")
         return upstream_urn
 
     def generate_model_dataset(
@@ -406,9 +394,6 @@ class HightouchModelHandler:
             )
 
             if sql_result.in_tables:
-                logger.debug(
-                    f"Extracted {len(sql_result.in_tables)} table references from SQL in model {model.slug}"
-                )
                 return [str(urn) for urn in sql_result.in_tables]
         except (AttributeError, TypeError, KeyError) as e:
             logger.error(

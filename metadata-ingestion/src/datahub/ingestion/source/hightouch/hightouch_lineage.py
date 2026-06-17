@@ -93,48 +93,28 @@ class HightouchLineageHandler:
 
             upstream_urn = self.urn_builder.make_upstream_table_urn(table_name, source)
             if not upstream_urn:
-                logger.debug(
-                    f"Could not generate upstream URN for table model {model.slug} (table_name={table_name})"
-                )
                 return {}
 
-        # For SQL models (raw_sql, custom, dbt, etc.), use SQL-parsed table URNs if exactly one table is referenced
+        # For SQL models (raw_sql, custom, dbt, etc.), upstream casing only makes
+        # sense when the SQL references exactly one table.
         elif sql_table_urns:
             if len(sql_table_urns) == 1:
                 upstream_urn = sql_table_urns[0]
-                logger.debug(
-                    f"Using SQL-parsed upstream URN for model {model.slug} (query_type={model.query_type}): {upstream_urn}"
-                )
             else:
-                logger.debug(
-                    f"Skipping upstream casing for model {model.slug} (query_type={model.query_type}): "
-                    f"model references {len(sql_table_urns)} tables (need exactly 1)"
-                )
                 return {}
         else:
             return {}
 
         try:
-            logger.debug(
-                f"Fetching upstream schema for model {model.slug} from URN: {upstream_urn}"
-            )
             upstream_schema = self.graph.get_schema_metadata(str(upstream_urn))
             if not upstream_schema or not upstream_schema.fields:
-                logger.debug(
-                    f"No upstream schema found for {upstream_urn} for model {model.slug}"
-                )
                 return {}
 
-            # Create mapping: normalized field name -> actual upstream field name
             field_casing_map: Dict[str, str] = {}
             for field in upstream_schema.fields:
                 normalized = normalize_column_name(field.fieldPath)
                 field_casing_map[normalized] = field.fieldPath
 
-            logger.debug(
-                f"Fetched {len(field_casing_map)} field casings from upstream table {upstream_urn} "
-                f"for model {model.slug}. Field mapping: {field_casing_map}"
-            )
             return field_casing_map
 
         except (AttributeError, TypeError) as e:
@@ -165,24 +145,17 @@ class HightouchLineageHandler:
             upstream_schema = self.graph.get_schema_metadata(upstream_table_urn)
 
             if not upstream_schema or not upstream_schema.fields:
-                logger.debug(
-                    f"No upstream schema found for {upstream_table_urn}, skipping column lineage"
-                )
                 return []
 
             if not model_schema_fields:
-                logger.debug(
-                    f"No model schema fields provided for {model_urn}, skipping column lineage"
-                )
                 return []
 
             upstream_fields = {f.fieldPath: f for f in upstream_schema.fields}
             model_fields = {f.fieldPath: f for f in model_schema_fields}
 
-            # For table models, columns map 1:1 from upstream to model
-            # Use fuzzy matching to handle casing differences (e.g., Snowflake lowercasing)
+            # For table models, columns map 1:1 from upstream to model. Fuzzy match
+            # to handle casing differences (e.g. Snowflake lowercasing).
             for model_field_path in model_fields:
-                # Try to find matching upstream field using normalization
                 matched_upstream_field = None
                 normalized_model_field = normalize_column_name(model_field_path)
 
@@ -192,9 +165,6 @@ class HightouchLineageHandler:
                         == normalized_model_field
                     ):
                         matched_upstream_field = upstream_field_path
-                        logger.debug(
-                            f"Matched model field '{model_field_path}' to upstream field '{upstream_field_path}'"
-                        )
                         break
 
                 if matched_upstream_field:
@@ -212,15 +182,6 @@ class HightouchLineageHandler:
                             ],
                         )
                     )
-                else:
-                    logger.debug(
-                        f"No matching upstream field found for model field '{model_field_path}'"
-                    )
-
-            if fine_grained_lineages:
-                logger.debug(
-                    f"Generated {len(fine_grained_lineages)} column lineage edges for table model {model.slug}"
-                )
 
         except (AttributeError, TypeError, KeyError) as e:
             logger.error(
@@ -249,16 +210,10 @@ class HightouchLineageHandler:
     ) -> None:
         source_platform = get_platform_for_source_fn(source)
         if not source_platform.platform:
-            logger.debug(
-                f"No platform mapping for source {source.type}, skipping lineage registration"
-            )
             return
 
         aggregator = get_aggregator_for_platform_fn(source_platform)
         if not aggregator:
-            logger.debug(
-                f"No SQL aggregator for platform {source_platform.platform}, skipping lineage registration"
-            )
             return
 
         if model.query_type == "table" and model.name:
@@ -275,21 +230,13 @@ class HightouchLineageHandler:
             upstream_urn = self.urn_builder.make_upstream_table_urn(table_name, source)
 
             try:
+                # Column-level lineage for table models is emitted directly in
+                # _emit_model_aspects via the UpstreamLineage aspect with
+                # fineGrainedLineages, so we only register table-level lineage here.
                 aggregator.add_known_lineage_mapping(
                     upstream_urn=str(upstream_urn),
                     downstream_urn=model_urn,
                     lineage_type=DatasetLineageTypeClass.COPY,
-                )
-                logger.debug(
-                    f"Registered known lineage: {upstream_urn} -> {model_urn} (table reference) "
-                    f"on platform {source_platform.platform}"
-                )
-
-                # Column-level lineage for table models is emitted directly in _emit_model_aspects
-                # via the UpstreamLineage aspect with fineGrainedLineages, so no need to register
-                # it separately with the SQL aggregator
-                logger.debug(
-                    f"Table model {model.slug} will have column lineage emitted directly via UpstreamLineage aspect"
                 )
 
             except (AttributeError, TypeError) as e:
@@ -319,10 +266,6 @@ class HightouchLineageHandler:
                     default_schema=None,
                 )
                 self.report.sql_parsing_successes += 1
-                logger.debug(
-                    f"Registered view definition for model {model.id} in aggregator "
-                    f"for platform {source_platform.platform}"
-                )
             except (AttributeError, TypeError) as e:
                 logger.error(
                     f"Programming error registering view definition for {model.id}: {type(e).__name__}: {e}",
@@ -330,9 +273,6 @@ class HightouchLineageHandler:
                 )
                 raise
             except Exception as e:
-                logger.debug(
-                    f"Error registering view definition for model {model.id}: {e}"
-                )
                 self.report.sql_parsing_failures += 1
                 self.report.warning(
                     title="View definition registration error",
@@ -368,9 +308,6 @@ class HightouchLineageHandler:
             for schema_field in model_schema:
                 if normalize_column_name(schema_field) == normalized_source:
                     validated_source = schema_field
-                    logger.debug(
-                        f"Fuzzy matched source field '{source_field}' to schema field '{schema_field}'"
-                    )
                     break
 
         if dest_schema:
@@ -378,9 +315,6 @@ class HightouchLineageHandler:
             for schema_field in dest_schema:
                 if normalize_column_name(schema_field) == normalized_dest:
                     validated_dest = schema_field
-                    logger.debug(
-                        f"Fuzzy matched destination field '{destination_field}' to schema field '{schema_field}'"
-                    )
                     break
 
         return HightouchColumnPair(
@@ -466,10 +400,6 @@ class HightouchLineageHandler:
 
         if fine_grained_lineages:
             self.report.column_lineage_emitted += len(fine_grained_lineages)
-            logger.debug(
-                f"Generated {len(fine_grained_lineages)} column lineage mappings "
-                f"for sync {sync.slug}"
-            )
 
         return fine_grained_lineages
 
@@ -519,12 +449,6 @@ class HightouchLineageHandler:
                     ),
                 ).as_workunit()
 
-                logger.info(
-                    f"Emitted consolidated upstream lineage for destination {destination_urn}: "
-                    f"{len(upstreams)} upstream(s), "
-                    f"{len(fine_grained_lineages) if fine_grained_lineages else 0} fine-grained lineage(s)"
-                )
-
     def emit_sibling_aspects(
         self, model_urn: str, source_table_urn: str
     ) -> Iterable[MetadataWorkUnit]:
@@ -537,8 +461,8 @@ class HightouchLineageHandler:
             ),
         ).as_workunit()
 
-        # Only emit sibling aspect on source table if it was preloaded (exists in DataHub)
-        # This prevents creating ghost entities with no useful metadata
+        # Only emit a sibling aspect on the source table if it was preloaded (i.e.
+        # it exists in DataHub), to avoid creating ghost entities.
         if source_table_urn in self._registered_urns:
             yield MetadataChangeProposalWrapper(
                 entityUrn=source_table_urn,
@@ -547,10 +471,3 @@ class HightouchLineageHandler:
                     siblings=[model_urn],
                 ),
             ).as_workunit()
-            logger.debug(
-                f"Emitted bidirectional sibling relationship: {model_urn} (primary) <-> {source_table_urn} (secondary)"
-            )
-        else:
-            logger.debug(
-                f"Emitted sibling aspect on {model_urn} only - source table {source_table_urn} not in registered URNs (prevents ghost entity creation)"
-            )

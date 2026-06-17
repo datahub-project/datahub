@@ -89,7 +89,7 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     sync_runs_scanned: int = 0
     contracts_scanned: int = 0
     contracts_emitted: int = 0
-    contract_runs_scanned: int = 0
+    contract_events_emitted: int = 0
     filtered_syncs: LossyList[str] = dataclasses.field(default_factory=LossyList)
     filtered_models: LossyList[str] = dataclasses.field(default_factory=LossyList)
     filtered_contracts: LossyList[str] = dataclasses.field(default_factory=LossyList)
@@ -135,8 +135,8 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     def report_contracts_emitted(self, count: int = 1) -> None:
         self.contracts_emitted += count
 
-    def report_contract_runs_scanned(self, count: int = 1) -> None:
-        self.contract_runs_scanned += count
+    def report_contract_events_emitted(self, count: int = 1) -> None:
+        self.contract_events_emitted += count
 
     def report_syncs_dropped(self, sync: str) -> None:
         self.filtered_syncs.append(sync)
@@ -209,13 +209,8 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
 
     include_contracts: bool = Field(
         default=True,
-        description="Whether to ingest Event Contracts as DataHub Assertions. "
-        "Event Contracts are data quality validation rules that Hightouch enforces.",
-    )
-
-    max_contract_runs_per_contract: int = Field(
-        default=10,
-        description="Maximum number of contract validation runs to ingest per contract.",
+        description="Whether to ingest Hightouch Event Contracts. Each event in a "
+        "contract is emitted as a dataset with its JSON Schema and enforcement rules.",
     )
 
     contract_patterns: AllowDenyPattern = Field(
@@ -258,11 +253,4 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
                 f"This may result in many API calls and slower ingestion. "
                 f"Consider using a value below {Constant.MAX_SYNC_RUNS_WARNING_THRESHOLD}."
             )
-        return v
-
-    @field_validator("max_contract_runs_per_contract")
-    @classmethod
-    def validate_max_contract_runs(cls, v: int) -> int:
-        if v < 0:
-            raise ValueError("max_contract_runs_per_contract must be non-negative")
         return v

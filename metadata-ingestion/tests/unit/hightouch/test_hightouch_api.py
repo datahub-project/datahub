@@ -316,25 +316,6 @@ def test_get_contracts_404_handling(mock_request):
     assert contracts == []
 
 
-@patch("requests.Session.request")
-def test_get_contract_runs_404_handling(mock_request):
-    mock_response = Mock()
-    mock_response.status_code = 404
-
-    http_error = requests.exceptions.HTTPError("404 Client Error")
-    http_error.response = mock_response
-    mock_response.raise_for_status.side_effect = http_error
-
-    mock_request.return_value = mock_response
-
-    config = HightouchAPIConfig(api_key="test")
-    client = HightouchAPIClient(config)
-
-    runs = client.get_contract_runs(contract_id="contract_1", limit=10)
-
-    assert runs == []
-
-
 def test_field_mapping_model():
     mapping = HightouchFieldMapping(
         source_field="user_id",

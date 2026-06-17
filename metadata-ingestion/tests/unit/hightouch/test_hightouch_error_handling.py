@@ -426,17 +426,6 @@ class TestHightouchConfigValidation:
 
         assert "max_sync_runs_per_sync must be non-negative" in str(exc_info.value)
 
-    def test_negative_max_contract_runs(self):
-        with pytest.raises(ValidationError) as exc_info:
-            HightouchSourceConfig(
-                api_config={"api_key": "test_key"},
-                max_contract_runs_per_contract=-1,
-            )
-
-        assert "max_contract_runs_per_contract must be non-negative" in str(
-            exc_info.value
-        )
-
     def test_invalid_request_timeout(self):
         with pytest.raises(ValidationError) as exc_info:
             HightouchSourceConfig(

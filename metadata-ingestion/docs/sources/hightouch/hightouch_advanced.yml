@@ -47,11 +47,11 @@ source:
     max_sync_runs_per_sync: 10
 
     # ============================================
-    # Data Quality Contracts
+    # Event Contracts
     # ============================================
-    # Ingest Event Contracts as DataHub Assertions
+    # Ingest Hightouch Event Contracts. Each event in a contract is emitted as a
+    # dataset carrying the event's JSON Schema and enforcement rules.
     include_contracts: true
-    max_contract_runs_per_contract: 10
 
     # ============================================
     # Filtering Patterns
