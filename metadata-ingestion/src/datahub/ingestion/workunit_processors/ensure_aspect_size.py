@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -13,10 +13,20 @@ from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessorReport,
 )
 from datahub.metadata.schema_classes import (
+    BinaryJsonSchemaClass,
     DatasetProfileClass,
+    EspressoSchemaClass,
+    KafkaSchemaClass,
+    KeyValueSchemaClass,
+    MySqlDDLClass,
+    OracleDDLClass,
+    OrcSchemaClass,
+    OtherSchemaClass,
+    PrestoDDLClass,
     QueryPropertiesClass,
     QuerySubjectsClass,
     SchemaFieldClass,
+    SchemalessClass,
     SchemaMetadataClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
@@ -32,6 +42,24 @@ QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES = int(
     )
 )
 QUERY_STATEMENT_TRUNCATION_BUFFER = 100
+
+# Maps each platformSchema union variant to its raw schema-content string field(s)
+# — the large source-format dump we shed when an aspect is oversized. Only these
+# fields are blanked; small markers on the same record (e.g. KafkaSchema's
+# documentSchemaType="AVRO") are intentionally left intact. Schemaless carries no
+# content. An unrecognized variant is logged and left untouched.
+_PLATFORM_SCHEMA_RAW_FIELDS: Dict[type, Tuple[str, ...]] = {
+    OtherSchemaClass: ("rawSchema",),
+    PrestoDDLClass: ("rawSchema",),
+    MySqlDDLClass: ("tableSchema",),
+    OracleDDLClass: ("tableSchema",),
+    OrcSchemaClass: ("schema",),
+    BinaryJsonSchemaClass: ("schema",),
+    KafkaSchemaClass: ("documentSchema", "keySchema"),
+    EspressoSchemaClass: ("documentSchema", "tableSchema"),
+    KeyValueSchemaClass: ("keySchema", "valueSchema"),
+    SchemalessClass: (),
+}
 
 
 @dataclass
@@ -127,21 +155,28 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
     def _drop_platform_schema(self, schema: SchemaMetadataClass) -> bool:
         """Blank the raw platform-schema string(s) on the aspect's platformSchema.
 
-        ``platformSchema`` holds an opaque, source-format dump of the schema —
-        ``rawSchema`` / ``documentSchema`` / ``tableSchema`` / ``keySchema`` /
-        ``valueSchema`` depending on the union variant. It is the least valuable
-        part of the aspect (``fields`` carry the structured, queryable metadata),
-        so we shed it before trimming fields. Every string member is blanked, so
-        this covers all platformSchema variants generically — not just
-        ``OtherSchema``. Returns ``True`` if any content was cleared.
+        ``platformSchema`` holds an opaque, source-format dump of the schema and
+        is the least valuable part of the aspect (``fields`` carry the structured,
+        queryable metadata), so we shed it before trimming fields. We clear only
+        the known schema-content field(s) for each union variant
+        (``_PLATFORM_SCHEMA_RAW_FIELDS``), leaving small markers such as
+        ``KafkaSchema.documentSchemaType`` intact. An unrecognized variant is
+        logged and left untouched. Returns ``True`` if any content was cleared.
         """
         platform_schema = schema.platformSchema
         if platform_schema is None:
             return False
+        raw_fields = _PLATFORM_SCHEMA_RAW_FIELDS.get(type(platform_schema))
+        if raw_fields is None:
+            logger.info(
+                "Unrecognized platformSchema variant %s; leaving its raw schema untrimmed",
+                type(platform_schema).__name__,
+            )
+            return False
         cleared = False
-        for key, value in platform_schema._inner_dict.items():
-            if isinstance(value, str) and value:
-                platform_schema._inner_dict[key] = ""
+        for field_name in raw_fields:
+            if getattr(platform_schema, field_name, None):
+                setattr(platform_schema, field_name, "")
                 cleared = True
         return cleared
 

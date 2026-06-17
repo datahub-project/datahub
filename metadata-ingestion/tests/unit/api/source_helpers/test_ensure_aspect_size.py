@@ -505,7 +505,8 @@ def test_ensure_schema_metadata_drops_oversized_non_other_platform_schema(proces
         platform="kafka",
         hash="ABCDE1234567890",
         platformSchema=KafkaSchemaClass(
-            documentSchema="a" * (processor.schema_size_constraint + 100000)
+            documentSchema="a" * (processor.schema_size_constraint + 100000),
+            documentSchemaType="AVRO",
         ),
         fields=fields,
     )
@@ -517,6 +518,9 @@ def test_ensure_schema_metadata_drops_oversized_non_other_platform_schema(proces
     assert isinstance(schema.platformSchema, KafkaSchemaClass)
     assert schema.platformSchema.documentSchema == "", (
         "Oversized platform schema was not dropped"
+    )
+    assert schema.platformSchema.documentSchemaType == "AVRO", (
+        "Type marker must be preserved — only the schema blob should be blanked"
     )
     assert len(schema.fields) == 5, (
         "Fields should be retained once the oversized platform schema is dropped"
