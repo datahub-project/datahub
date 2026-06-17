@@ -1,5 +1,4 @@
 import dataclasses
-import functools
 import json
 import logging
 import re
@@ -58,14 +57,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.incremental_ownership_helper import (
-    auto_incremental_ownership,
-)
-from datahub.ingestion.api.incremental_properties_helper import (
-    auto_incremental_properties,
-)
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -80,9 +72,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
     SourceCapabilityModifier,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -482,20 +471,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def create(cls, config_dict, ctx):
         config = UnityCatalogSourceConfig.model_validate(config_dict)
         return cls(ctx=ctx, config=config)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_ownership, self.config.incremental_ownership
-            ),
-            functools.partial(
-                auto_incremental_properties, self.config.incremental_properties
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage("Ingestion Setup"):

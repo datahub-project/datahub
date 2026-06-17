@@ -280,7 +280,7 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOMAIN,
             ChangeOperation.ADD,
             domainUrn.toString(),
-            ImmutableMap.of("domainUrn", domainUrn.toString()),
+            ImmutableMap.of("domainUrn", domainUrn.toString(), "context", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -311,7 +311,7 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOMAIN,
             ChangeOperation.REMOVE,
             domainUrn.toString(),
-            ImmutableMap.of("domainUrn", domainUrn.toString()),
+            ImmutableMap.of("domainUrn", domainUrn.toString(), "context", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);

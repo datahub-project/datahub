@@ -34,7 +34,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -45,7 +44,6 @@ from datahub.ingestion.source.schema_inference.object import (
     construct_schema,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulIngestionConfigBase,
     StatefulStaleMetadataRemovalConfig,
@@ -326,14 +324,6 @@ class MongoDBSource(StatefulIngestionSourceBase):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "MongoDBSource":
         config = MongoDBConfig.model_validate(config_dict)
         return cls(ctx, config)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_pymongo_type_string(
         self, field_type: Union[Type, str], collection_name: str

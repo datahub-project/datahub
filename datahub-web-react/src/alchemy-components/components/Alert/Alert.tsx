@@ -40,7 +40,7 @@ export const VARIANT_BUTTON_COLOR_MAP: Record<AlertVariant, ColorOptions> = {
     error: 'red',
     warning: 'yellow',
     info: 'blue',
-    brand: 'violet',
+    brand: 'primary',
     unknown: 'gray',
 };
 

@@ -8,12 +8,14 @@ import static com.linkedin.metadata.Constants.MDC_ENTITY_URN;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.kafka.context.inbound.InboundBatchAffinityResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.listener.AbstractKafkaListener;
 import com.linkedin.metadata.trace.TraceServiceImpl;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import java.io.IOException;
@@ -129,10 +131,11 @@ public class MCLBatchKafkaListener
   @Override
   public void consumeBatch(
       @Nonnull final List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
-    List<MetadataChangeLog> allMCLs = new ArrayList<>(consumerRecords.size());
-    String topicName = null;
+    if (consumerRecords.isEmpty()) {
+      return;
+    }
 
-    // Convert all records to MCLs
+    // Per-record inbound queue-lag metric — process-level attribution, not per-slice.
     for (ConsumerRecord<String, GenericRecord> consumerRecord : consumerRecords) {
       systemOperationContext
           .getMetricUtils()
@@ -146,40 +149,55 @@ public class MCLBatchKafkaListener
                       consumerRecord.timestamp(),
                       MetricUtils.MESSAGING_SYSTEM_KAFKA,
                       null));
-
-      final GenericRecord record = consumerRecord.value();
-
-      if (topicName == null) {
-        topicName = consumerRecord.topic();
-      }
-
-      try {
-        MetadataChangeLog mcl = convertRecord(record);
-
-        // Apply filtering logic
-        if (!shouldSkipProcessing(mcl)) {
-          allMCLs.add(mcl);
-        } else {
-          log.info("Skipping MCL event: {}", mcl);
-        }
-      } catch (IOException e) {
-        log.error("Unrecoverable message deserialization error", e);
-      }
     }
+    final String topicName = consumerRecords.get(0).topic();
 
-    // Process all MCLs in batches
-    if (!allMCLs.isEmpty()) {
-      processBatchWithHooks(allMCLs, topicName);
-    } else {
-      log.info("No valid MCLs to process after deserialization");
+    // Partition the inbound batch into affinity slices. In OSS the default resolver returns a
+    // single slice carrying the system context. Deployments that need to dispatch portions of the
+    // batch independently register their own InboundBatchAffinityResolver bean (single-bean,
+    // @ConditionalOnMissingBean shadows the OSS default).
+    final List<InboundBatchAffinityResolver.Slice<GenericRecord>> slices =
+        batchAffinityResolver.partition(consumerRecords, consumerGroupId, systemOperationContext);
+    log.debug(
+        "Partitioned batch of {} records into {} slice(s)", consumerRecords.size(), slices.size());
+
+    for (InboundBatchAffinityResolver.Slice<GenericRecord> slice : slices) {
+
+      // Decode + filter within the slice — failures are logged and dropped, same as the prior
+      // single-call shape.
+      List<MetadataChangeLog> mcls = new ArrayList<>(slice.records().size());
+      for (ConsumerRecord<String, GenericRecord> consumerRecord : slice.records()) {
+        try {
+          MetadataChangeLog mcl = convertRecord(consumerRecord.value());
+          if (!shouldSkipProcessing(mcl)) {
+            mcls.add(mcl);
+          } else {
+            log.info("Skipping MCL event: {}", mcl);
+          }
+        } catch (IOException e) {
+          log.error("Unrecoverable message deserialization error", e);
+        }
+      }
+
+      if (mcls.isEmpty()) {
+        log.info("No valid MCLs to process in slice after deserialization");
+        continue;
+      }
+
+      processBatchWithHooks(slice.context(), mcls, topicName);
     }
   }
 
-  /** Process a batch of MCLs with all registered hooks. */
-  // TODO(opcontext-batch-followup): Refactor to make each event use its own OperationContext for
-  // isolation
-  private void processBatchWithHooks(List<MetadataChangeLog> mcls, String topicName) {
-    systemOperationContext.withQueueSpan(
+  /**
+   * Process a single slice of MCLs with all registered hooks under the slice's representative
+   * {@link OperationContext}. Callers must guarantee the {@code mcls} share an operational
+   * identity; {@link #consumeBatch} does this via {@link #batchAffinityResolver}.
+   */
+  private void processBatchWithHooks(
+      @Nonnull OperationContext sliceContext,
+      @Nonnull List<MetadataChangeLog> mcls,
+      String topicName) {
+    sliceContext.withQueueSpan(
         "consume",
         mcls.stream().map(MetadataChangeLog::getSystemMetadata).collect(Collectors.toList()),
         topicName,
@@ -190,17 +208,19 @@ public class MCLBatchKafkaListener
           for (MetadataChangeLogHook hook : hooks) {
             final String hookName = hook.getClass().getSimpleName();
 
-            systemOperationContext.withSpan(
+            sliceContext.withSpan(
                 hookName,
                 () -> {
                   log.debug("Invoking hook {} for batch of {} MCLs", hookName, mcls.size());
                   try {
                     // Always call invokeBatch - hooks that don't support batch processing
                     // will fall back to individual processing via the default implementation
-                    hook.invokeBatch(systemOperationContext, mcls);
+                    hook.invokeBatch(sliceContext, mcls);
 
-                    // Update metrics
-                    systemOperationContext
+                    // Update metrics — attribute under the slice context so deployments with
+                    // affinity-aware resolvers get per-slice counters; in the default case this
+                    // is the system context and behavior matches today.
+                    sliceContext
                         .getMetricUtils()
                         .ifPresent(
                             metricUtils -> {
@@ -209,7 +229,7 @@ public class MCLBatchKafkaListener
                             });
                   } catch (Exception e) {
                     // Just skip this hook and continue - "at most once" processing
-                    systemOperationContext
+                    sliceContext
                         .getMetricUtils()
                         .ifPresent(
                             metricUtils ->
@@ -231,7 +251,7 @@ public class MCLBatchKafkaListener
                 MetricUtils.name(this.getClass(), hookName + "_batch_latency"));
           }
 
-          systemOperationContext
+          sliceContext
               .getMetricUtils()
               .ifPresent(
                   metricUtils ->
