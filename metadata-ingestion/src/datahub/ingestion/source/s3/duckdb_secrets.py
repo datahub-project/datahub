@@ -40,8 +40,10 @@ def build_s3_secret_sql(aws: AwsConnectionConfig) -> str:
         # scheme so urlparse gives us a usable netloc.
         url = aws.aws_endpoint_url
         if "://" not in url:
-            parsed = urlparse(f"http://{url}")
-            use_ssl = False  # no scheme → assume plain HTTP
+            # No scheme → secure by default (USE_SSL true). Callers wanting a
+            # plaintext endpoint must opt in explicitly with an http:// URL.
+            parsed = urlparse(f"https://{url}")
+            use_ssl = True
         else:
             parsed = urlparse(url)
             use_ssl = parsed.scheme == "https"

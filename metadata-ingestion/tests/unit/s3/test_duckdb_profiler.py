@@ -113,6 +113,23 @@ def test_close_removes_tempdir():
     assert not os.path.isdir(tmpdir)
 
 
+def test_tempdir_removed_on_gc_without_close():
+    """The temp dir must be cleaned up even when close() is never called (e.g. a
+    crash mid-profile) — the weakref finalizer runs on garbage collection."""
+    import gc
+
+    profiler = DuckDBProfiler(
+        aws_config=None,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+    )
+    tmpdir = profiler._tmpdir
+    assert os.path.isdir(tmpdir)
+    del profiler
+    gc.collect()
+    assert not os.path.isdir(tmpdir)
+
+
 def test_path_and_ext_partitioned_appends_glob(tmp_path):
     """For a partitioned table, _path_and_ext must return a /**/*.<ext> glob."""
     folder = Folder(
@@ -325,6 +342,46 @@ def test_non_s3_platform_does_not_create_s3_secret():
     # _secrets_done must remain False (the guard was never tripped).
     assert profiler._secrets_done is False
     profiler.close()
+
+
+def test_s3_credential_chain_loads_aws_extension():
+    """Role/instance-profile S3 (no explicit keys) emits `PROVIDER credential_chain`,
+    which lives in the `aws` extension — so that extension must be loaded too."""
+    profiler = DuckDBProfiler(
+        aws_config=AwsConnectionConfig(aws_region="us-east-1"),  # no keys
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+        platform="s3",
+    )
+    conn = MagicMock()
+    profiler._ensure_s3_secret(conn)
+    profiler.close()
+    sqls = [str(c[0][0]) for c in conn.execute.call_args_list]
+    assert any("INSTALL aws" in s and "LOAD aws" in s for s in sqls)
+    assert any("PROVIDER credential_chain" in s for s in sqls)
+    assert "aws" in profiler._loaded_extensions
+
+
+def test_s3_explicit_keys_does_not_load_aws_extension():
+    """With explicit keys, httpfs alone suffices — the `aws` extension (needed only
+    for credential_chain) must not be loaded."""
+    aws = AwsConnectionConfig(
+        aws_access_key_id="AKIA_EXAMPLE",
+        aws_secret_access_key="secret_example",
+        aws_region="us-east-1",
+    )
+    profiler = DuckDBProfiler(
+        aws_config=aws,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+        platform="s3",
+    )
+    conn = MagicMock()
+    profiler._ensure_s3_secret(conn)
+    profiler.close()
+    sqls = [str(c[0][0]) for c in conn.execute.call_args_list]
+    assert not any("INSTALL aws" in s for s in sqls)
+    assert "aws" not in profiler._loaded_extensions
 
 
 def _make_nested_parquet(tmp: str) -> str:

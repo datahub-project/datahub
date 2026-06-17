@@ -57,7 +57,9 @@ def test_s3_secret_with_http_endpoint():
     assert "USE_SSL true" not in sql
 
 
-def test_s3_secret_with_schemeless_endpoint():
+def test_s3_secret_with_schemeless_endpoint_defaults_to_ssl():
+    """A scheme-less endpoint is secure by default (USE_SSL true); plaintext must
+    be requested explicitly via an http:// URL."""
     aws = AwsConnectionConfig(
         aws_access_key_id="AKIA_EXAMPLE",
         aws_secret_access_key="secret_example",
@@ -65,8 +67,8 @@ def test_s3_secret_with_schemeless_endpoint():
     )
     sql = build_s3_secret_sql(aws)
     assert "ENDPOINT 'minio.example.com:9000'" in sql
-    assert "USE_SSL false" in sql
-    assert "USE_SSL true" not in sql
+    assert "USE_SSL true" in sql
+    assert "USE_SSL false" not in sql
 
 
 def test_s3_secret_rejects_endpoint_without_host():

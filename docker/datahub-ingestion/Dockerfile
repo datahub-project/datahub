@@ -191,18 +191,28 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private 
     && datahub --version
 RUN rm -rf $HOME/.config/uv
 
-# Pre-install the DuckDB extensions used by data lake profiling: httpfs (remote
-# object-store reads) and avro (Avro files), into a fixed, version-keyed
-# extension directory. Build-time has network access and buildx runs this on the
-# target platform, so the correct per-platform binary is baked in. DuckDB stores
-# them under <dir>/v<duckdb-version>/<platform>/, so a future duckdb bump rebuilds
-# this layer (it depends on the install above) and re-populates the matching
-# version dir. At runtime the profiler reads DATAHUB_DUCKDB_EXTENSION_DIRECTORY,
+# Pre-install the DuckDB extensions used by data lake profiling into a fixed,
+# version-keyed extension directory. The set is declared explicitly in
+# DATAHUB_DUCKDB_BAKE_EXTENSIONS:
+#   - httpfs: remote object-store reads (S3 / GCS-over-S3)
+#   - avro:   Avro files
+#   - aws:    the `credential_chain` provider for instance-profile/role-based S3
+# (Azure/abs remote profiling is not wired, so no `azure` extension is baked.)
+#
+# Build-time has network access and buildx runs this on the target platform, so
+# the correct per-platform binary is baked in. DuckDB stores them under
+# <dir>/v<duckdb-version>/<platform>/. duckdb is pinned via build-constraints and
+# this layer depends on the install above, so a duckdb bump rebuilds it and
+# re-populates the matching version dir. If a deployment somehow runs a different
+# duckdb than was baked, the profiler self-heals at runtime — it falls back to
+# INSTALL (a download) and only fails, with actionable guidance, when the network
+# is unavailable. At runtime the profiler reads DATAHUB_DUCKDB_EXTENSION_DIRECTORY,
 # loads from this directory, and never downloads — so profiling works in
 # air-gapped deployments of this image with no extra configuration.
 ENV DATAHUB_DUCKDB_EXTENSION_DIRECTORY=$HOME/.duckdb-extensions
-RUN python -c "import os, duckdb; d = os.environ['DATAHUB_DUCKDB_EXTENSION_DIRECTORY']; os.makedirs(d, exist_ok=True); conn = duckdb.connect(); conn.execute(\"SET extension_directory='\" + d + \"'\"); [conn.execute(f'INSTALL {ext}') for ext in ('httpfs', 'avro')]; conn.close()" \
-    && echo "Baked DuckDB profiling extensions (httpfs, avro) into $DATAHUB_DUCKDB_EXTENSION_DIRECTORY"
+ENV DATAHUB_DUCKDB_BAKE_EXTENSIONS="httpfs avro aws"
+RUN python -c "import os, duckdb; d = os.environ['DATAHUB_DUCKDB_EXTENSION_DIRECTORY']; exts = os.environ['DATAHUB_DUCKDB_BAKE_EXTENSIONS'].split(); os.makedirs(d, exist_ok=True); conn = duckdb.connect(); conn.execute(\"SET extension_directory='\" + d + \"'\"); [conn.execute('INSTALL ' + ext) for ext in exts]; conn.close()" \
+    && echo "Baked DuckDB profiling extensions ($DATAHUB_DUCKDB_BAKE_EXTENSIONS) into $DATAHUB_DUCKDB_EXTENSION_DIRECTORY"
 
 FROM add-code-locked AS final-locked
 

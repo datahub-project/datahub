@@ -4,6 +4,7 @@ import logging
 import os
 import shutil
 import tempfile
+import weakref
 from typing import TYPE_CHECKING, Iterable, Optional, Set
 
 import sqlalchemy as sa
@@ -78,6 +79,12 @@ class DuckDBProfiler:
         self.platform = platform
         self._tmpdir = tempfile.mkdtemp(prefix="datahub-duckdb-profile-")
         self._db_path = os.path.join(self._tmpdir, "profile.duckdb")
+        # Remove the temp dir even if close() is never called (uncaught
+        # exception, GC, interpreter exit). finalize() is idempotent, so an
+        # explicit close() simply triggers it early.
+        self._finalizer = weakref.finalize(
+            self, shutil.rmtree, self._tmpdir, ignore_errors=True
+        )
         self._engine: Optional[sa.engine.Engine] = None
         self._secrets_done = False
         self._loaded_extensions: Set[str] = set()
@@ -142,18 +149,18 @@ class DuckDBProfiler:
         self._loaded_extensions.add(extension)
 
     def _ensure_s3_secret(self, conn: sa.engine.Connection) -> None:
-        """Create the DuckDB S3 secret for credentialed remote reads (once).
-
-        Must run after all extensions are loaded: a failed extension `LOAD`
-        triggers a `rollback()` that would otherwise discard the secret.
-        """
-        if (
-            not self._secrets_done
-            and self.aws_config is not None
-            and self.platform == "s3"
-        ):
-            conn.execute(sa.text(build_s3_secret_sql(self.aws_config)))
-            self._secrets_done = True
+        """Create the DuckDB S3 secret for credentialed remote reads (once)."""
+        if self._secrets_done or self.aws_config is None or self.platform != "s3":
+            return
+        aws = self.aws_config
+        has_explicit_keys = bool(aws.aws_access_key_id and aws.aws_secret_access_key)
+        if not has_explicit_keys:
+            # Without explicit keys the secret uses `PROVIDER credential_chain`
+            # (resolve from the ambient AWS chain: instance profile, role, env,
+            # ~/.aws). That provider lives in the `aws` extension, not httpfs.
+            self._load_extension(conn, "aws")
+        conn.execute(sa.text(build_s3_secret_sql(aws)))
+        self._secrets_done = True
 
     def _ensure_format_extension(self, conn: sa.engine.Connection, ext: str) -> None:
         """Load the DuckDB extension required for a file format (e.g. avro)."""
@@ -368,4 +375,4 @@ class DuckDBProfiler:
         if self._engine is not None:
             self._engine.dispose()
             self._engine = None
-        shutil.rmtree(self._tmpdir, ignore_errors=True)
+        self._finalizer()  # idempotent; removes the temp dir
