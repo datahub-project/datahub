@@ -2,6 +2,7 @@ import { EditOutlined } from '@ant-design/icons';
 import { FetchResult } from '@apollo/client';
 import { Button, Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -133,6 +134,9 @@ export default function DescriptionField({
     isPropagated,
     sourceDetail,
 }: Props) {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
     const [showAddModal, setShowAddModal] = useState(false);
     const overLimit = removeMarkdown(description).length > 80;
     const isSchemaEditable = React.useContext(SchemaEditableContext) && !isReadOnly;
@@ -152,15 +156,19 @@ export default function DescriptionField({
     };
 
     const onUpdateModal = async (desc: string | null) => {
-        message.loading({ content: 'Updating...' });
+        message.loading({ content: tf('updating') });
         try {
             await onUpdate(desc || '');
             message.destroy();
-            message.success({ content: 'Updated!', duration: 2 });
+            message.success({ content: tf('updated'), duration: 2 });
             sendAnalytics();
         } catch (e: unknown) {
             message.destroy();
-            if (e instanceof Error) message.error({ content: `Update Failed! \n ${e.message || ''}`, duration: 2 });
+            if (e instanceof Error)
+                message.error({
+                    content: t('dataset.updateDescriptionError', { error: e.message || '' }),
+                    duration: 2,
+                });
         }
         onCloseModal();
     };
@@ -187,7 +195,7 @@ export default function DescriptionField({
                                         handleExpanded(false);
                                     }}
                                 >
-                                    Read Less
+                                    {tc('readLess')}
                                 </ReadLessText>
                             )}
                             {EditButton}
@@ -209,7 +217,7 @@ export default function DescriptionField({
                                             handleExpanded(true);
                                         }}
                                     >
-                                        Read More
+                                        {tc('readMore')}
                                     </Typography.Link>
                                 </>
                             }
@@ -221,11 +229,11 @@ export default function DescriptionField({
                     </DescriptionWrapper>
                 </>
             )}
-            {isEdited && <EditedLabel>(edited)</EditedLabel>}
+            {isEdited && <EditedLabel>{t('dataset.editedLabel')}</EditedLabel>}
             {showAddModal && (
                 <div>
                     <UpdateDescriptionModal
-                        title={description ? 'Update description' : 'Add description'}
+                        title={description ? t('dataset.updateDescriptionTitle') : t('dataset.addDescriptionTitle')}
                         description={description}
                         original={original || ''}
                         onClose={onCloseModal}
@@ -236,7 +244,7 @@ export default function DescriptionField({
             )}
             {showAddDescription && (
                 <AddNewDescription type="text" onClick={() => setShowAddModal(true)}>
-                    + Add Description
+                    {t('dataset.addDescriptionButton')}
                 </AddNewDescription>
             )}
             <AttributeDescription>
@@ -256,7 +264,7 @@ export default function DescriptionField({
                                             }
                                         }}
                                     >
-                                        Read Less
+                                        {tc('readLess')}
                                     </ReadLessText>
                                 )}
                             </ExpandedActions>
@@ -276,7 +284,7 @@ export default function DescriptionField({
                                             }
                                         }}
                                     >
-                                        Read More
+                                        {tc('readMore')}
                                     </Typography.Link>
                                 </>
                             }
