@@ -33,6 +33,19 @@ def _escape_sql_string_literal(value: str) -> str:
     return value.replace("\\", "\\\\").replace("'", "''")
 
 
+def _escape_sql_literal_for_format_template(value: str) -> str:
+    """SQL-escape *value* (see :func:`_escape_sql_string_literal`) AND double any
+    ``{``/``}`` so it survives a later ``str.format()`` pass unchanged.
+
+    Used for identifiers embedded in a template that still carries an
+    ``{in_values}`` placeholder filled later via ``str.format()``. Without the
+    brace doubling, a literal brace in the identifier would be read as a format
+    field — e.g. a schema named ``{in_values}`` could displace the IN list, or a
+    stray ``{`` could crash ``.format()`` with KeyError/ValueError.
+    """
+    return _escape_sql_string_literal(value).replace("{", "{{").replace("}", "}}")
+
+
 def paginate_in_clause_values_by_byte_budget(
     template: str,
     names: Iterable[str],
@@ -850,19 +863,10 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         one or more complete queries that filter ``table_name IN (...)`` rather
         than ``AND TRUE`` or ``LIKE 'prefix%'``.
         """
-        # Escape for the SQL string literal (backslash + quote), then double any
-        # curly braces so the later ``template.format(in_values=...)`` call in
-        # ``paginate_in_clause_values_by_byte_budget`` treats brace
-        # characters in the identifier as literals rather than format fields
-        # (a schema named ``{in_values}`` would otherwise displace the IN list).
-        escaped_schema = (
-            _escape_sql_string_literal(schema_name)
-            .replace("{", "{{")
-            .replace("}", "}}")
-        )
-        escaped_db = (
-            _escape_sql_string_literal(db_name).replace("{", "{{").replace("}", "}}")
-        )
+        # Identifiers are embedded now, but {in_values} is filled later via
+        # str.format(), so escape for both the SQL literal and the format pass.
+        escaped_schema = _escape_sql_literal_for_format_template(schema_name)
+        escaped_db = _escape_sql_literal_for_format_template(db_name)
         return textwrap.dedent(f"""\
             SELECT
               table_catalog AS "TABLE_CATALOG",
