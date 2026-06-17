@@ -32,7 +32,7 @@
     "deprecation.markUnTooltip": "Marcar este {{entityName}} como no obsoleto",
     "deprecation.modalTitle": "Establecer como obsoleto",
     "deprecation.noteLabel": "Nota",
-    "deprecation.ok": "Aceptar",
+    "deprecation.ok": "Descontinuar",
     "deprecation.reasonLabel": "Motivo",
     "deprecation.reasonPlaceholder": "Añadir motivo",
     "deprecation.replacementLabel": "Reemplazo",

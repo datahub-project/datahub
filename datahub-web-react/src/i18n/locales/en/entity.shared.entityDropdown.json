@@ -32,7 +32,7 @@
     "deprecation.markUnTooltip": "Mark this {{entityName}} as un-deprecated",
     "deprecation.modalTitle": "Set as Deprecated",
     "deprecation.noteLabel": "Note",
-    "deprecation.ok": "Ok",
+    "deprecation.ok": "Deprecate",
     "deprecation.reasonLabel": "Reason",
     "deprecation.reasonPlaceholder": "Add Reason",
     "deprecation.replacementLabel": "Replacement",

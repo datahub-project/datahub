@@ -78,7 +78,10 @@ describe('Tag (sharedV2)', () => {
     it('does not render deprecation icon when deprecated=false', () => {
         renderTag({
             ...baseTag,
-            tag: { ...baseTag.tag, deprecation: { deprecated: false, note: null, actor: null, decommissionTime: null } },
+            tag: {
+                ...baseTag.tag,
+                deprecation: { deprecated: false, note: null, actor: null, decommissionTime: null },
+            },
         });
         expect(screen.queryByTestId('deprecation-icon')).not.toBeInTheDocument();
     });
