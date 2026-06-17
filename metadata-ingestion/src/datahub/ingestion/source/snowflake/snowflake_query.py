@@ -20,6 +20,19 @@ SHOW_STREAM_MAX_PAGE_SIZE = 10000
 SNOWFLAKE_MAX_QUERY_BYTES = 1_000_000
 
 
+def _escape_sql_string_literal(value: str) -> str:
+    """Escape a value for embedding inside a single-quoted SQL string literal.
+
+    Snowflake string literals (default session settings) treat BOTH ``\\`` and
+    ``'`` as escape mechanisms: ``\\'`` is a literal quote and ``\\\\`` a literal
+    backslash, so a lone backslash consumes the following character — including a
+    closing quote. Backslashes must therefore be doubled FIRST, then single
+    quotes, otherwise a trailing backslash (or ``\\'``) in an attacker-controlled
+    object/schema name breaks out of the literal and injects SQL.
+    """
+    return value.replace("\\", "\\\\").replace("'", "''")
+
+
 def paginate_query_values_segment_by_byte_budget(
     template: str,
     names: Iterable[str],
@@ -40,8 +53,7 @@ def paginate_query_values_segment_by_byte_budget(
     used = 0
 
     for name in names:
-        escaped = name.replace("'", "''")
-        entry = f"'{escaped}'"
+        entry = f"'{_escape_sql_string_literal(name)}'"
         cost = len(entry.encode()) + (2 if page else 0)  # ", " separator
         if page and used + cost > budget:
             yield template.format(in_values=", ".join(page))
@@ -60,11 +72,18 @@ SNOWFLAKE_OBJECT_NAME_RE = re.compile(
     r"^[A-Za-z_][A-Za-z0-9_$]*(\.[A-Za-z_][A-Za-z0-9_$]*)*$"
 )
 
-# An allow-pattern that contains only Snowflake unquoted identifier characters
-# and dots (FQN separators), terminated by a '$' anchor. No other regex
-# metacharacters. Such patterns can be lowered to a faster IN clause rather
-# than an OR-chain of RLIKE predicates.
-_EXACT_FQN_PATTERN_RE = re.compile(r"^[A-Za-z0-9_$.]+\$$")
+# Allow-patterns containing only Snowflake unquoted-identifier chars (letters,
+# digits, underscores, dollar signs) and FQN-separator dots, terminated by a
+# '$' regex anchor. No other metacharacters. Patterns in this subset are
+# trivially valid non-capturing groups, so _make_composable can skip the
+# re.compile validation step for them.
+#
+# Note: Snowflake unquoted identifiers are [A-Za-z_][A-Za-z0-9_$]* (no digit
+# start, no dots). This regex is slightly broader — it admits digit-initial
+# patterns and uses '.' as an FQN separator — which is intentional: it
+# characterises patterns that are composable without re.compile validation,
+# not patterns that are syntactically valid Snowflake identifiers.
+_SNOWFLAKE_SAFE_LITERAL_SUBSET_RE = re.compile(r"^[A-Za-z0-9_$.]+\$$")
 
 
 def _make_composable(pattern: str) -> Optional[str]:
@@ -75,6 +94,10 @@ def _make_composable(pattern: str) -> Optional[str]:
     alternation context (e.g., ``TABLE(unclosed``).
     """
     wrapped = f"(?:{pattern})"
+    # Fast path: safe-literal-subset patterns are trivially valid non-capturing
+    # groups — skip re.compile for the common exact-literal case.
+    if _SNOWFLAKE_SAFE_LITERAL_SUBSET_RE.match(pattern):
+        return wrapped
     try:
         re.compile(wrapped)
     except re.error:
@@ -153,22 +176,6 @@ class SnowflakeQuery:
 
         has_allow_all = ".*" in pattern.allow
 
-        # Optimization: when every allow pattern is an exact FQN literal (only
-        # unquoted-identifier chars and FQN-separator dots, terminated by '$') and
-        # there are no deny patterns, replace the OR-chain of RLIKE predicates with
-        # a single IN clause. IN uses a hash lookup per row; RLIKE OR-chains compile
-        # each regex independently and scale super-linearly with clause count.
-        if (
-            not has_allow_all
-            and pattern.allow
-            and not pattern.deny
-            and all(_EXACT_FQN_PATTERN_RE.match(p) for p in pattern.allow)
-        ):
-            in_values = ", ".join(
-                "'" + transform(p[:-1]).replace("'", "''") + "'" for p in pattern.allow
-            )
-            return f"{col_expr} IN ({in_values})"
-
         if not has_allow_all and pattern.allow:
             composable: List[str] = []
             for p in pattern.allow:
@@ -183,11 +190,16 @@ class SnowflakeQuery:
                 else:
                     composable.append(wrapped)
             if composable:
-                # Emit a single RLIKE alternation. Benchmarks show this matches
-                # IN-clause speed (~5s for 500 patterns) vs OR-chain (~30s).
+                # Single RLIKE alternation: ~5s for 500 patterns vs OR-chain ~30s.
                 combined = "|".join(composable)
-                sql_escaped = combined.replace("\\", "\\\\").replace("'", "''")
+                sql_escaped = _escape_sql_string_literal(combined)
                 conditions.append(f"{col_expr} RLIKE '{sql_escaped}'")
+            else:
+                # Allow patterns were provided but none could be composed. Fail
+                # CLOSED (match nothing) rather than emitting no condition — an
+                # empty filter would allow everything, silently widening an
+                # allow-list scoped away from sensitive objects.
+                conditions.append("FALSE")
 
         if pattern.deny:
             deny_conditions: List[str] = []
@@ -834,8 +846,19 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         one or more complete queries that filter ``table_name IN (...)`` rather
         than ``AND TRUE`` or ``LIKE 'prefix%'``.
         """
-        escaped_schema = schema_name.replace("'", "''")
-        escaped_db = db_name.replace("'", "''")
+        # Escape for the SQL string literal (backslash + quote), then double any
+        # curly braces so the later ``template.format(in_values=...)`` call in
+        # ``paginate_query_values_segment_by_byte_budget`` treats brace
+        # characters in the identifier as literals rather than format fields
+        # (a schema named ``{in_values}`` would otherwise displace the IN list).
+        escaped_schema = (
+            _escape_sql_string_literal(schema_name)
+            .replace("{", "{{")
+            .replace("}", "}}")
+        )
+        escaped_db = (
+            _escape_sql_string_literal(db_name).replace("{", "{{").replace("}", "}}")
+        )
         return textwrap.dedent(f"""\
             SELECT
               table_catalog AS "TABLE_CATALOG",

@@ -1,12 +1,10 @@
 """Tests for Snowflake query performance optimizations.
 
 Covers:
-- _build_pattern_filter exact-FQN detection: RLIKE OR-chain → IN clause
+- _build_pattern_filter: composition of allow patterns into a single RLIKE alternation
 - paginate_query_values_segment_by_byte_budget: byte-budget IN-clause paging
 - columns_for_schema_in_template: IN-clause column query template
 """
-
-import re as _re
 
 import pytest
 
@@ -20,86 +18,13 @@ FQN_EXPR = "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name))"
 
 
 # ---------------------------------------------------------------------------
-# _build_pattern_filter — exact-FQN optimization
-# ---------------------------------------------------------------------------
-
-
-class TestBuildPatternFilterExactFqn:
-    def test_exact_patterns_produce_in_clause(self):
-        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE_A$", "DB.SCHEMA.TABLE_B$"])
-        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert "IN (" in result
-        assert "RLIKE" not in result
-        assert f"UPPER({FQN_EXPR})" in result
-        assert "'DB.SCHEMA.TABLE_A'" in result
-        assert "'DB.SCHEMA.TABLE_B'" in result
-
-    def test_exact_patterns_case_sensitive(self):
-        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE$"], ignoreCase=False)
-        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert "IN (" in result
-        assert "RLIKE" not in result
-        assert result.startswith(FQN_EXPR + " IN (")
-
-    def test_exact_patterns_ignore_case_uppercases_values(self):
-        pattern = AllowDenyPattern(allow=["db.schema.my_table$"], ignoreCase=True)
-        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert "'DB.SCHEMA.MY_TABLE'" in result
-
-    def test_wildcard_pattern_falls_back_to_rlike(self):
-        pattern = AllowDenyPattern(allow=["DB.SCHEMA.*$"])
-        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert "RLIKE" in result
-        assert "IN (" not in result
-
-    def test_mixed_exact_and_wildcard_falls_back_to_rlike(self):
-        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE_A$", "DB.SCHEMA.TABLE_.*"])
-        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert "RLIKE" in result
-        assert "IN (" not in result
-
-    def test_deny_pattern_prevents_in_clause_optimization(self):
-        pattern = AllowDenyPattern(
-            allow=["DB.SCHEMA.TABLE_A$"], deny=["DB.SCHEMA.SECRET.*"]
-        )
-        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert "RLIKE" in result
-
-    def test_allow_all_returns_empty_string(self):
-        pattern = AllowDenyPattern(allow=[".*"])
-        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert result == ""
-
-    def test_single_exact_pattern_produces_in_clause(self):
-        pattern = AllowDenyPattern(allow=["MYDB.MYSCHEMA.MYTABLE$"])
-        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert "IN (" in result
-        assert "RLIKE" not in result
-
-    def test_dollar_sign_in_name_is_valid_exact_pattern(self):
-        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE$1$"])
-        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert "IN (" in result
-        assert "'DB.SCHEMA.TABLE$1'" in result
-
-    def test_large_exact_pattern_list_produces_in_clause(self):
-        names = [f"DB.SCHEMA.TABLE_{i}$" for i in range(500)]
-        pattern = AllowDenyPattern(allow=names)
-        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert "IN (" in result
-        assert "RLIKE" not in result
-        assert "'DB.SCHEMA.TABLE_0'" in result
-        assert "'DB.SCHEMA.TABLE_499'" in result
-
-
-# ---------------------------------------------------------------------------
-# Security and correctness: exact-pattern boundary and SQL escaping
+# Security and correctness: SQL escaping and RLIKE quoting
 # ---------------------------------------------------------------------------
 
 
 class TestBuildPatternFilterSecurity:
-    """Verify that dangerous characters never reach the IN clause path, and that
-    the RLIKE fallback path produces valid SQL regardless of pattern content."""
+    """Verify that all allow patterns go through RLIKE and produce correctly
+    quoted SQL regardless of pattern content — no injection path exists."""
 
     @pytest.mark.parametrize(
         "pattern",
@@ -118,14 +43,13 @@ class TestBuildPatternFilterSecurity:
             "DB.SCHEMA.TABLE{2}$",
         ],
     )
-    def test_dangerous_patterns_fall_through_to_rlike(self, pattern):
+    def test_all_patterns_use_rlike(self, pattern):
         result = SnowflakeQuery._build_pattern_filter(
             AllowDenyPattern(allow=[pattern]), FQN_EXPR
         )
         assert "RLIKE" in result, (
             f"Expected RLIKE for pattern {pattern!r}, got: {result}"
         )
-        assert "IN (" not in result
 
     def test_single_quote_in_rlike_pattern_is_doubled(self):
         pattern = AllowDenyPattern(allow=["DB.SCHEMA.O'BRIEN_TABLE$"])
@@ -141,31 +65,24 @@ class TestBuildPatternFilterSecurity:
         assert "RLIKE" in result
         assert "\\\\" in result
 
-    def test_trailing_dollar_stripped_from_in_value(self):
+    def test_exact_literal_dollar_anchor_kept_in_rlike(self):
         pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE$"])
         result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert "IN (" in result
-        assert "'DB.SCHEMA.TABLE'" in result
-        assert "'DB.SCHEMA.TABLE$'" not in result
+        assert "RLIKE" in result
+        assert "DB.SCHEMA.TABLE$" in result
 
-    def test_ignore_case_false_preserves_case_in_in_clause(self):
+    def test_ignore_case_false_preserves_case_in_rlike(self):
         pattern = AllowDenyPattern(allow=["Db.Schema.MyTable$"], ignoreCase=False)
         result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert "IN (" in result
-        assert "'Db.Schema.MyTable'" in result
+        assert "RLIKE" in result
+        assert "Db.Schema.MyTable" in result
 
-    def test_ignore_case_true_uppercases_in_clause_values(self):
+    def test_ignore_case_true_uppercases_rlike_pattern(self):
         pattern = AllowDenyPattern(allow=["Db.Schema.MyTable$"], ignoreCase=True)
         result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert "IN (" in result
-        assert "'DB.SCHEMA.MYTABLE'" in result
+        assert "RLIKE" in result
+        assert "DB.SCHEMA.MYTABLE" in result
         assert "Db" not in result
-
-    def test_dot_in_exact_pattern_used_literally_in_in_clause(self):
-        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE$"])
-        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert "IN (" in result
-        assert "'DB.SCHEMA.TABLE'" in result
 
     def test_empty_allow_list_returns_false(self):
         pattern = AllowDenyPattern(allow=[])
@@ -209,17 +126,19 @@ class TestBuildPatternFilterComposition:
         assert "(?:DB.SCHEMA.OTHER" in result
         assert "unclosed" not in result
 
-    def test_all_unbalanced_skipped_yields_empty(self):
+    def test_all_unbalanced_skipped_fails_closed(self):
         pattern = AllowDenyPattern(allow=["TABLE(bad1", "TABLE(bad2"])
         result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        # Both skipped → no allow condition; empty string means no SQL filter
-        assert result == ""
+        # All allow patterns dropped → must fail CLOSED (match nothing), not emit
+        # an empty filter that would allow everything.
+        assert result == "FALSE"
 
     def test_bare_open_paren_at_end_is_noncomposable(self):
         # "TABLE(" — the inner ( is closed by our wrapper's ), leaving (?:... unclosed
         pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE("])
         result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
-        assert result == ""
+        # Sole allow pattern dropped → fail closed.
+        assert result == "FALSE"
 
     def test_backslash_escaped_paren_is_composable(self):
         # \) in regex means literal ')' (escaped), so (?:TABLE\)) is a valid closed group
@@ -241,6 +160,41 @@ class TestBuildPatternFilterComposition:
         result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
         assert "RLIKE" in result
         assert "DB.SCHEMA.*_PROD" in result
+
+    def test_exact_literal_patterns_compose_to_single_rlike(self):
+        # Exact-literal patterns (no metacharacters beyond '$') go through the
+        # fast path in _make_composable and emerge as a single RLIKE alternation.
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE_A$", "DB.SCHEMA.TABLE_B$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert " OR " not in result
+        assert "(?:DB.SCHEMA.TABLE_A$)" in result
+        assert "(?:DB.SCHEMA.TABLE_B$)" in result
+
+    def test_exact_literal_with_deny_still_composes(self):
+        # Adding a deny pattern no longer gates the IN-clause path (removed);
+        # allow patterns still compose into a single RLIKE alternation.
+        pattern = AllowDenyPattern(
+            allow=["DB.SCHEMA.TABLE_A$"], deny=["DB.SCHEMA.SECRET.*"]
+        )
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert " OR " not in result
+
+    def test_large_exact_literal_list_is_single_rlike(self):
+        names = [f"DB.SCHEMA.TABLE_{i}$" for i in range(500)]
+        pattern = AllowDenyPattern(allow=names)
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert " OR " not in result
+        assert "(?:DB.SCHEMA.TABLE_0$)" in result
+        assert "(?:DB.SCHEMA.TABLE_499$)" in result
+
+    def test_dollar_sign_in_name_is_composable(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE$1$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "(?:DB.SCHEMA.TABLE$1$)" in result
 
 
 # ---------------------------------------------------------------------------
@@ -456,34 +410,72 @@ class TestColumnsForSchemaInTemplate:
 # Helpers for IN-clause adversarial tests
 # ---------------------------------------------------------------------------
 
-_IN_VALUE_RE = _re.compile(r"'((?:[^']|'')*)'")
+
+def _parse_snowflake_string_literals(body: str) -> list:
+    """Parse comma-separated single-quoted literals using Snowflake's REAL
+    escaping rules — BOTH ``''`` and backslash escapes.
+
+    A ``''``-only oracle (the obvious-looking regex ``'((?:[^']|'')*)'``) is
+    WRONG for Snowflake: by default ``\\'`` is an escaped quote and a trailing
+    backslash consumes the closing quote. Using the wrong oracle makes a
+    backslash injection appear to "round-trip" cleanly. Raises ``ValueError``
+    on an unterminated literal, which is the signature of an injection breakout.
+    """
+    values: list = []
+    i, n = 0, len(body)
+    while i < n:
+        while i < n and body[i] in ", \t\n":
+            i += 1
+        if i >= n:
+            break
+        assert body[i] == "'", f"expected opening quote at {i}: {body[i:]!r}"
+        i += 1
+        chars: list = []
+        terminated = False
+        while i < n:
+            c = body[i]
+            if c == "\\":
+                if i + 1 >= n:
+                    raise ValueError("dangling backslash escaped the closing quote")
+                chars.append(body[i + 1])
+                i += 2
+                continue
+            if c == "'":
+                if i + 1 < n and body[i + 1] == "'":
+                    chars.append("'")
+                    i += 2
+                    continue
+                i += 1
+                terminated = True
+                break
+            chars.append(c)
+            i += 1
+        if not terminated:
+            raise ValueError(f"unterminated literal (recovered {''.join(chars)!r})")
+        values.append("".join(chars))
+    return values
 
 
 def _parse_in_values(sql: str) -> list:
-    """Extract SQL-unescaped values from the IN (...) clause.
-
-    Uses the quoted-value regex rather than searching for ')' — names may
-    contain ')' themselves (e.g. ``%(injection)s``), which would fool a naive
-    find(')') search.
-    """
+    """Extract Snowflake-unescaped values from the IN (...) clause."""
     idx = sql.find("IN (")
     assert idx != -1, f"No IN clause in: {sql!r}"
-    after_in = sql[idx + 4 :]
-    return [m.group(1).replace("''", "'") for m in _IN_VALUE_RE.finditer(after_in)]
+    body = sql[idx + 4 : sql.rfind(")")]
+    return _parse_snowflake_string_literals(body)
 
 
-def _in_clause_has_no_bare_quotes(sql: str) -> bool:
-    """After collapsing '' pairs, no bare single quote should remain inside
-    any IN value — which would indicate a string literal that wasn't closed."""
+def _in_clause_is_well_formed(sql: str) -> bool:
+    """True iff every IN-clause literal is properly terminated under Snowflake's
+    real escaping rules (no backslash breakout)."""
     idx = sql.find("IN (")
     if idx == -1:
         return True
-    after_in = sql[idx + 4 :]
-    # Collapse escaped '' pairs; remaining ' are only structural delimiters.
-    # Each value contributes exactly 2 structural quotes (open + close).
-    collapsed = after_in.replace("''", "\x00")
-    # Count bare quotes: should be exactly 2 per value (even total).
-    return collapsed.count("'") % 2 == 0
+    body = sql[idx + 4 : sql.rfind(")")]
+    try:
+        _parse_snowflake_string_literals(body)
+        return True
+    except (ValueError, AssertionError):
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -544,15 +536,16 @@ class TestPaginatorAdversarialNames:
         assert recovered == _ADVERSARIAL_NAMES
 
     def test_adversarial_names_no_bare_quotes(self):
-        """No bare single quote should appear inside any IN value after escaping."""
+        """Every IN-clause literal must be properly terminated under Snowflake's
+        real escaping rules (backslash + quote)."""
         pages = list(
             paginate_query_values_segment_by_byte_budget(
                 _PAGINATOR_TMPL, _ADVERSARIAL_NAMES
             )
         )
         for page in pages:
-            assert _in_clause_has_no_bare_quotes(page), (
-                f"Bare quote found in IN clause: {page!r}"
+            assert _in_clause_is_well_formed(page), (
+                f"Malformed/unterminated literal in IN clause: {page!r}"
             )
 
     @pytest.mark.parametrize("attack", _ADVERSARIAL_NAMES)
@@ -593,14 +586,15 @@ class TestPaginatorAdversarialNames:
 # ---------------------------------------------------------------------------
 
 
-_SCHEMA_IN_WHERE_RE = _re.compile(r"WHERE table_schema='((?:[^']|'')*)'")
-
-
-def _extract_schema_from_template(tmpl: str) -> str:
-    """SQL-unescape the schema name embedded in the WHERE clause."""
-    m = _SCHEMA_IN_WHERE_RE.search(tmpl)
-    assert m, f"No schema WHERE clause in: {tmpl!r}"
-    return m.group(1).replace("''", "'")
+def _extract_schema_from_sql(sql: str) -> str:
+    """Snowflake-unescape the schema name embedded in the WHERE clause of a
+    final (post-format) query. Backslash-aware, so a backslash that escaped the
+    closing quote surfaces as a parse error rather than a silently-wrong value.
+    """
+    idx = sql.find("table_schema=")
+    assert idx != -1, f"No schema WHERE clause in: {sql!r}"
+    body = sql[idx + len("table_schema=") :].split("\n", 1)[0].strip()
+    return _parse_snowflake_string_literals(body)[0]
 
 
 class TestColumnsTemplateAdversarialNames:
@@ -622,14 +616,15 @@ class TestColumnsTemplateAdversarialNames:
     )
     def test_adversarial_schema_names_round_trip(self, schema, db):
         tmpl = SnowflakeQuery.columns_for_schema_in_template(schema, db)
-        # Placeholder must survive intact — if it were missing the paginator
-        # would raise KeyError on str.format().
-        assert "{in_values}" in tmpl, (
-            f"Template placeholder was corrupted for schema={schema!r} db={db!r}"
+        # Brace chars in the identifier must not break the later str.format()
+        # (no KeyError/IndexError/ValueError) and the real placeholder must
+        # resolve to exactly the supplied IN list, not the identifier.
+        sql = tmpl.format(in_values="'PLACEHOLDER'")
+        assert _parse_in_values(sql) == ["PLACEHOLDER"], (
+            f"IN placeholder corrupted for schema={schema!r} db={db!r}: {sql!r}"
         )
-        # Round-trip the schema name: SQL-unescaping it must recover the original.
-        # If a quote escaped the SQL string, the recovered value would differ.
-        recovered = _extract_schema_from_template(tmpl)
+        # Round-trip the schema name under Snowflake's real escaping rules.
+        recovered = _extract_schema_from_sql(sql)
         assert recovered == schema, (
             f"Schema name did not round-trip: expected {schema!r}, got {recovered!r}"
         )
@@ -643,7 +638,7 @@ class TestColumnsTemplateAdversarialNames:
         assert len(pages) == 1
         sql = pages[0]
         # Schema name must be safely embedded — round-trip proves no escape
-        recovered_schema = _extract_schema_from_template(sql)
+        recovered_schema = _extract_schema_from_sql(sql)
         assert recovered_schema == schema
         # Table names in the IN clause must be unaffected
         recovered_names = _parse_in_values(sql)
