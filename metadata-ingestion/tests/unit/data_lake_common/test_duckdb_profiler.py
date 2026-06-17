@@ -9,9 +9,9 @@ import duckdb
 import sqlalchemy as sa
 
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.data_lake_common.duckdb_profiler import DuckDBProfiler
+from datahub.ingestion.source.data_lake_common.duckdb_secrets import build_s3_secret_sql
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
-from datahub.ingestion.source.s3.duckdb_profiler import DuckDBProfiler
-from datahub.ingestion.source.s3.duckdb_secrets import build_s3_secret_sql
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.s3.source import Folder, TableData
 from datahub.metadata.schema_classes import DatasetProfileClass

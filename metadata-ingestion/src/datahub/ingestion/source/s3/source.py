@@ -280,7 +280,9 @@ class S3Source(StatefulIngestionSourceBase):
                     for config_flag in profiling_flags_to_report
                 },
             )
-            from datahub.ingestion.source.s3.duckdb_profiler import DuckDBProfiler
+            from datahub.ingestion.source.data_lake_common.duckdb_profiler import (
+                DuckDBProfiler,
+            )
 
             self.profiler = DuckDBProfiler(
                 aws_config=config.aws_config,

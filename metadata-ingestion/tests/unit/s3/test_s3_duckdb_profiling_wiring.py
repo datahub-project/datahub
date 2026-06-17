@@ -12,7 +12,7 @@ from typing import List
 import duckdb
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.s3.duckdb_profiler import DuckDBProfiler
+from datahub.ingestion.source.data_lake_common.duckdb_profiler import DuckDBProfiler
 from datahub.ingestion.source.s3.source import S3Source
 from datahub.metadata.schema_classes import DatasetProfileClass
 

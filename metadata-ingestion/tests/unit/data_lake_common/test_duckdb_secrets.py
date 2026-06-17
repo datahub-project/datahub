@@ -1,7 +1,7 @@
 import pytest
 
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-from datahub.ingestion.source.s3.duckdb_secrets import build_s3_secret_sql
+from datahub.ingestion.source.data_lake_common.duckdb_secrets import build_s3_secret_sql
 
 
 def test_s3_secret_with_explicit_keys():

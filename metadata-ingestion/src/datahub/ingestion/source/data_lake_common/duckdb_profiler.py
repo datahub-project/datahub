@@ -5,7 +5,7 @@ import os
 import shutil
 import tempfile
 import weakref
-from typing import TYPE_CHECKING, Iterable, Optional, Set
+from typing import TYPE_CHECKING, Iterable, Optional, Protocol, Set
 
 import sqlalchemy as sa
 
@@ -15,16 +15,37 @@ if TYPE_CHECKING:
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.data_lake_common.duckdb_secrets import (
+    build_s3_secret_sql,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import ProfilerRequest
-from datahub.ingestion.source.s3.duckdb_secrets import build_s3_secret_sql
-from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
 
 logger = logging.getLogger(__name__)
+
+
+class _ProfilerReport(Protocol):
+    """Minimal report surface the profiler needs.
+
+    Declared structurally rather than importing a concrete source report, so
+    this module lives in ``data_lake_common`` without depending on any specific
+    source package (s3/abs/gcs/...). The data-lake source reports satisfy it.
+    """
+
+    def report_warning(
+        self,
+        message: str,
+        *,
+        context: Optional[str] = ...,
+        exc: Optional[BaseException] = ...,
+    ) -> None: ...
+
+    def report_file_dropped(self, file: str) -> None: ...
+
 
 _REMOTE_SCHEMES = (
     "s3://",
@@ -69,7 +90,7 @@ class DuckDBProfiler:
     def __init__(
         self,
         aws_config: Optional[AwsConnectionConfig],
-        report: DataLakeSourceReport,
+        report: _ProfilerReport,
         profiling_config: GEProfilingConfig,
         platform: str = "s3",
     ) -> None:
