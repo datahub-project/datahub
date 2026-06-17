@@ -5,6 +5,7 @@ from unittest.mock import Mock
 
 import time_machine
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.salesforce import SalesforceConfig, SalesforceSource
 from datahub.metadata.schema_classes import DatasetProfileClass
@@ -302,11 +303,14 @@ def test_profiling_with_empty_record_count(mock_sdk):
     profiles = [
         wu.metadata.aspect
         for wu in workunits
-        if isinstance(getattr(wu.metadata, "aspect", None), DatasetProfileClass)
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DatasetProfileClass)
     ]
     assert len(profiles) == 1, "Expected a profile to still be emitted"
-    assert profiles[0].rowCount is None, "rowCount should be omitted when unavailable"
-    assert profiles[0].columnCount is not None, "columnCount should still be set"
+    profile = profiles[0]
+    assert isinstance(profile, DatasetProfileClass)
+    assert profile.rowCount is None, "rowCount should be omitted when unavailable"
+    assert profile.columnCount is not None, "columnCount should still be set"
 
     assert len(source.report.warnings) > 0, (
         "A warning should be recorded for the missing record count"
