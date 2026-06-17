@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Optional
 from pydantic import Field, SecretStr
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
-from datahub.emitter.token_provider import TokenProvider
+from datahub.emitter.token_provider import TokenProvider, TokenResult
 
 if TYPE_CHECKING:
     from azure.core.credentials import TokenCredential
@@ -54,8 +54,11 @@ class AzureEntraTokenProvider(TokenProvider):
                 client_id=config.client_id,
             )
 
-    def get_token(self) -> str:
-        return self._credential.get_token(self._scope).token
+    def get_token(self) -> TokenResult:
+        # azure-identity's AccessToken carries expires_on (absolute epoch
+        # seconds), so we never decode the token to learn its expiry.
+        access_token = self._credential.get_token(self._scope)
+        return TokenResult(access_token.token, float(access_token.expires_on))
 
     @classmethod
     def create(cls, config: Optional[dict]) -> "AzureEntraTokenProvider":

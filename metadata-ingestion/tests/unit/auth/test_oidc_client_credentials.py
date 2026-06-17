@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from datahub.configuration.common import ConfigurationError
@@ -19,10 +21,24 @@ def test_fetches_access_token(requests_mock):
             "scope": "datahub",
         }
     )
-    assert provider.get_token() == "at-123"
+    result = provider.get_token()
+    assert result.token == "at-123"
+    # expires_at derived from `expires_in`, not from decoding the token.
+    assert result.expires_at is not None
+    assert time.time() + 3000 < result.expires_at <= time.time() + 3600
     body = requests_mock.last_request.text
     assert "grant_type=client_credentials" in body
     assert "scope=datahub" in body
+
+
+def test_missing_expires_in_yields_no_expiry(requests_mock):
+    requests_mock.post("http://idp/token", json={"access_token": "at-123"})
+    provider = OidcClientCredentialsTokenProvider.create(
+        {"token_endpoint": "http://idp/token", "client_id": "c", "client_secret": "s"}
+    )
+    result = provider.get_token()
+    assert result.token == "at-123"
+    assert result.expires_at is None
 
 
 def test_error_response_raises(requests_mock):

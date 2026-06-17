@@ -168,6 +168,29 @@ class TestConfigUtils:
             assert config.server == "http://localhost:8080"
             assert config.token == "test-token"
 
+    def test_load_client_config_with_auth_passes_through_oauth_refresh(self):
+        """A machine-flow `auth:` config has no stored `oauth:` section, so the
+        PKCE token refresh (added in #17868) is a no-op and `auth` flows through
+        untouched. Guards the coexistence of the two OAuth config paths."""
+        test_config = {
+            "gms": {
+                "server": "http://localhost:8080",
+                "auth": {"type": "static", "config": {"token": "abc"}},
+            }
+        }
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(config_utils, "_should_skip_config", return_value=False),
+            patch.object(config_utils, "_ensure_datahub_config"),
+            patch.object(
+                config_utils, "get_raw_client_config", return_value=test_config
+            ),
+        ):
+            config = load_client_config()
+            assert config.token is None
+            assert config.auth is not None
+            assert config.auth.type == "static"
+
     def test_load_client_config_missing(self):
         """Test loading client config when missing."""
         # When skip config is true and no env variables

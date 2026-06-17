@@ -5,7 +5,7 @@ from typing import Optional
 from pydantic import Field
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
-from datahub.emitter.token_provider import TokenProvider
+from datahub.emitter.token_provider import TokenProvider, TokenResult
 
 DEFAULT_K8S_TOKEN_FILE = "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
 
@@ -32,10 +32,13 @@ class K8sProjectedTokenProvider(TokenProvider):
     def __init__(self, config: K8sProjectedTokenProviderConfig) -> None:
         self._token_file = config.token_file
 
-    def get_token(self) -> str:
+    def get_token(self) -> TokenResult:
+        # No token-endpoint response to read an expiry from, and we don't decode
+        # the JWT. Report expires_at=None: the caching layer re-reads the file
+        # each call (a cheap tmpfs read), so kubelet rotation is picked up.
         try:
             with open(self._token_file) as f:
-                return f.read().strip()
+                return TokenResult(f.read().strip())
         except OSError as e:
             raise ConfigurationError(
                 f"Could not read projected service-account token at "

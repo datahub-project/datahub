@@ -14,7 +14,10 @@ def _install_fake_azure_identity(monkeypatch):
             self.kwargs = kwargs
 
         def get_token(self, scope):
-            return types.SimpleNamespace(token=f"tok-for-{scope}")
+            # Mirrors azure.core.credentials.AccessToken(token, expires_on).
+            return types.SimpleNamespace(
+                token=f"tok-for-{scope}", expires_on=1893456000
+            )
 
     fake.ClientSecretCredential = _Cred  # type: ignore[attr-defined]
     fake.WorkloadIdentityCredential = _Cred  # type: ignore[attr-defined]
@@ -30,7 +33,10 @@ def test_workload_identity_when_no_secret(monkeypatch):
     provider = AzureEntraTokenProvider.create(
         {"tenant_id": "t", "client_id": "c", "scope": "api://x/.default"}
     )
-    assert provider.get_token() == "tok-for-api://x/.default"
+    result = provider.get_token()
+    assert result.token == "tok-for-api://x/.default"
+    # expires_at comes straight from azure-identity's expires_on.
+    assert result.expires_at == 1893456000.0
 
 
 def test_missing_extra_raises(monkeypatch):

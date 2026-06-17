@@ -8,16 +8,19 @@ def test_reads_token_file_and_strips(tmp_path):
     f = tmp_path / "token"
     f.write_text("  jwt-token\n")
     provider = K8sProjectedTokenProvider.create({"token_file": str(f)})
-    assert provider.get_token() == "jwt-token"
+    result = provider.get_token()
+    assert result.token == "jwt-token"
+    # No JWT decoding: the projected provider reports no expiry.
+    assert result.expires_at is None
 
 
 def test_rereads_on_each_call(tmp_path):
     f = tmp_path / "token"
     f.write_text("first")
     provider = K8sProjectedTokenProvider.create({"token_file": str(f)})
-    assert provider.get_token() == "first"
+    assert provider.get_token().token == "first"
     f.write_text("second")  # kubelet rotates the file
-    assert provider.get_token() == "second"
+    assert provider.get_token().token == "second"
 
 
 def test_missing_file_raises_configuration_error(tmp_path):

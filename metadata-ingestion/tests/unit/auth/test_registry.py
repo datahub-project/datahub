@@ -12,7 +12,7 @@ def test_static_provider_resolves_and_wraps_in_caching():
     auth = AuthConfig(type="static", config={"token": "abc"})
     provider = build_token_provider(auth)
     assert isinstance(provider, CachingTokenProvider)
-    assert provider.get_token() == "abc"
+    assert provider.get_token().token == "abc"
 
 
 def test_unknown_type_raises_configuration_error():

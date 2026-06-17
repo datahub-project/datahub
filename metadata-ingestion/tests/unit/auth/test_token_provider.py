@@ -7,31 +7,22 @@ from datahub.emitter.token_provider import (
     StaticTokenProvider,
     TokenProvider,
     TokenProviderAuth,
+    TokenResult,
 )
 
 
-def _jwt_with_exp(exp_epoch: int) -> str:
-    # Unsigned-looking JWT: header.payload.sig — only the payload is parsed.
-    import base64
-    import json
-
-    def b64(d: dict) -> str:
-        raw = json.dumps(d).encode()
-        return base64.urlsafe_b64encode(raw).decode().rstrip("=")
-
-    return f"{b64({'alg': 'RS256'})}.{b64({'exp': exp_epoch})}.sig"
-
-
 def test_static_token_provider_returns_token():
-    assert StaticTokenProvider("abc").get_token() == "abc"
+    result = StaticTokenProvider("abc").get_token()
+    assert result.token == "abc"
+    assert result.expires_at is None
 
 
 def test_caching_provider_caches_until_refresh_buffer():
     calls = []
 
-    def fetch() -> str:
+    def fetch() -> TokenResult:
         calls.append(1)
-        return _jwt_with_exp(int(time.time()) + 3600)
+        return TokenResult("t", time.time() + 3600)
 
     provider = CachingTokenProvider(fetch, refresh_buffer_seconds=300)
     provider.get_token()
@@ -40,27 +31,24 @@ def test_caching_provider_caches_until_refresh_buffer():
 
 
 def test_caching_provider_refetches_when_within_buffer():
-    def fetch() -> str:
-        return _jwt_with_exp(int(time.time()) + 100)  # expires inside 300s buffer
-
     calls = []
 
-    def counting_fetch() -> str:
+    def fetch() -> TokenResult:
         calls.append(1)
-        return fetch()
+        return TokenResult("t", time.time() + 100)  # expires inside 300s buffer
 
-    provider = CachingTokenProvider(counting_fetch, refresh_buffer_seconds=300)
+    provider = CachingTokenProvider(fetch, refresh_buffer_seconds=300)
     provider.get_token()
     provider.get_token()
     assert len(calls) == 2  # always stale -> re-fetch
 
 
-def test_caching_provider_refetches_when_exp_unparseable():
+def test_caching_provider_refetches_when_expiry_unknown():
     calls = []
 
-    def fetch() -> str:
+    def fetch() -> TokenResult:
         calls.append(1)
-        return "not-a-jwt"
+        return TokenResult("t")  # no expiry reported
 
     provider = CachingTokenProvider(fetch)
     provider.get_token()
@@ -71,9 +59,9 @@ def test_caching_provider_refetches_when_exp_unparseable():
 def test_caching_provider_invalidate_forces_refetch():
     calls = []
 
-    def fetch() -> str:
+    def fetch() -> TokenResult:
         calls.append(1)
-        return _jwt_with_exp(int(time.time()) + 3600)
+        return TokenResult("t", time.time() + 3600)
 
     provider = CachingTokenProvider(fetch)
     provider.get_token()
@@ -87,8 +75,8 @@ class _SeqProvider(TokenProvider):
         self._tokens = list(tokens)
         self.invalidated = 0
 
-    def get_token(self) -> str:
-        return self._tokens[min(self.invalidated, len(self._tokens) - 1)]
+    def get_token(self) -> TokenResult:
+        return TokenResult(self._tokens[min(self.invalidated, len(self._tokens) - 1)])
 
     def invalidate(self) -> None:
         self.invalidated += 1

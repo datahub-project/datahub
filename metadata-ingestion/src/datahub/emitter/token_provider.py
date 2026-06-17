@@ -1,20 +1,33 @@
 from __future__ import annotations
 
-import base64
-import json
 import logging
 import threading
 import time
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Callable, Optional
 
 import requests
 
 logger = logging.getLogger(__name__)
 
-# JWTs are refreshed this many seconds before their 'exp' to avoid presenting a
-# token that expires mid-flight on a long-running ingestion task.
+# Tokens are refreshed this many seconds before they expire to avoid presenting a
+# credential that expires mid-flight on a long-running ingestion task.
 DEFAULT_REFRESH_BUFFER_SECONDS = 300
+
+
+@dataclass(frozen=True)
+class TokenResult:
+    """A bearer token plus the expiry reported by the issuing provider.
+
+    `expires_at` is absolute epoch seconds, taken from the OAuth token response
+    (e.g. `expires_in`, or azure-identity's `expires_on`) — never decoded from
+    the token itself, which is opaque to the client (RFC 6749). `None` means the
+    provider does not report an expiry, so the token is re-fetched on each call.
+    """
+
+    token: str
+    expires_at: Optional[float] = None
 
 
 class TokenProvider(ABC):
@@ -26,7 +39,7 @@ class TokenProvider(ABC):
     """
 
     @abstractmethod
-    def get_token(self) -> str: ...
+    def get_token(self) -> TokenResult: ...
 
     @classmethod
     def create(cls, config: Optional[dict]) -> "TokenProvider":
@@ -41,8 +54,8 @@ class StaticTokenProvider(TokenProvider):
     def __init__(self, token: str) -> None:
         self._token = token
 
-    def get_token(self) -> str:
-        return self._token
+    def get_token(self) -> TokenResult:
+        return TokenResult(self._token)
 
     @classmethod
     def create(cls, config: Optional[dict]) -> "StaticTokenProvider":
@@ -63,50 +76,32 @@ class CachingTokenProvider(TokenProvider):
 
     def __init__(
         self,
-        fetch: Callable[[], str],
+        fetch: Callable[[], TokenResult],
         *,
         refresh_buffer_seconds: int = DEFAULT_REFRESH_BUFFER_SECONDS,
     ) -> None:
         self._fetch = fetch
         self._refresh_buffer_seconds = refresh_buffer_seconds
         self._lock = threading.Lock()
-        self._token: Optional[str] = None
-        self._expires_at: Optional[float] = None
+        self._cached: Optional[TokenResult] = None
 
-    def get_token(self) -> str:
+    def get_token(self) -> TokenResult:
         with self._lock:
-            if self._token is not None and not self._is_stale():
-                return self._token
-            token = self._fetch()
-            self._token = token
-            self._expires_at = self._parse_exp(token)
-            return token
+            if self._cached is not None and not self._is_stale(self._cached):
+                return self._cached
+            self._cached = self._fetch()
+            return self._cached
 
     def invalidate(self) -> None:
         with self._lock:
-            self._token = None
-            self._expires_at = None
+            self._cached = None
 
-    def _is_stale(self) -> bool:
-        # Unknown expiry -> always re-fetch. Underlying providers (azure-identity,
-        # a projected-token file read) do their own cheap caching, so this is safe.
-        if self._expires_at is None:
+    def _is_stale(self, cached: TokenResult) -> bool:
+        # No reported expiry -> always re-fetch. The underlying acquisition is
+        # cheap (a projected-token file read, or azure-identity's own caching).
+        if cached.expires_at is None:
             return True
-        return time.time() >= (self._expires_at - self._refresh_buffer_seconds)
-
-    @staticmethod
-    def _parse_exp(token: str) -> Optional[float]:
-        # Best-effort parse of the JWT 'exp' WITHOUT verifying the signature — we
-        # are the client; GMS verifies. On any failure return None (re-fetch each call).
-        try:
-            payload_b64 = token.split(".")[1]
-            payload_b64 += "=" * (-len(payload_b64) % 4)
-            payload = json.loads(base64.urlsafe_b64decode(payload_b64))
-            exp = payload.get("exp")
-            return float(exp) if exp is not None else None
-        except Exception:
-            logger.debug("Could not parse 'exp' from token; will re-fetch each call")
-            return None
+        return time.time() >= (cached.expires_at - self._refresh_buffer_seconds)
 
 
 class TokenProviderAuth(requests.auth.AuthBase):
@@ -123,7 +118,7 @@ class TokenProviderAuth(requests.auth.AuthBase):
 
     def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
         self._thread_local.retried = False
-        request.headers["Authorization"] = f"Bearer {self._provider.get_token()}"
+        request.headers["Authorization"] = f"Bearer {self._provider.get_token().token}"
         if self._retry_on_401:
             request.register_hook("response", self._handle_401)
         return request
@@ -142,7 +137,7 @@ class TokenProviderAuth(requests.auth.AuthBase):
         _ = response.content
         response.close()
         prepared = response.request.copy()
-        prepared.headers["Authorization"] = f"Bearer {self._provider.get_token()}"
+        prepared.headers["Authorization"] = f"Bearer {self._provider.get_token().token}"
         new_response = response.connection.send(prepared, **kwargs)  # type: ignore[attr-defined]
         new_response.history.append(response)
         new_response.request = prepared
