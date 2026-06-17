@@ -26,10 +26,10 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
     SnowflakeQueriesExtractorConfig,
 )
 from datahub.ingestion.source.snowflake.snowflake_query import (
-    _SNOWFLAKE_SAFE_LITERAL_SUBSET_RE,
+    _PLAIN_LITERAL_PATTERN_RE,
     SnowflakeQuery,
     _make_composable,
-    paginate_query_values_segment_by_byte_budget,
+    paginate_in_clause_values_by_byte_budget,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeFilter,
@@ -3077,7 +3077,7 @@ class TestViewsForDatabaseQueryWithFilter:
 # ===========================================================================
 # Query-optimization unit tests (merged from test_snowflake_query_optimizations.py):
 #   _build_pattern_filter composition/security, _make_composable fast path,
-#   paginate_query_values_segment_by_byte_budget, columns_for_schema_in_template
+#   paginate_in_clause_values_by_byte_budget, columns_for_schema_in_template
 # ===========================================================================
 
 FQN_EXPR = "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name))"
@@ -3376,7 +3376,7 @@ class TestBuildPatternFilterAdversarial:
 
 
 # ---------------------------------------------------------------------------
-# paginate_query_values_segment_by_byte_budget
+# paginate_in_clause_values_by_byte_budget
 # ---------------------------------------------------------------------------
 
 _TMPL = "SELECT x FROM t WHERE name IN ({in_values})"
@@ -3385,7 +3385,7 @@ _TMPL = "SELECT x FROM t WHERE name IN ({in_values})"
 class TestPaginateQueryValuesByByteBudget:
     def test_small_list_yields_single_query(self):
         names = ["TABLE_A", "TABLE_B", "TABLE_C"]
-        pages = list(paginate_query_values_segment_by_byte_budget(_TMPL, names))
+        pages = list(paginate_in_clause_values_by_byte_budget(_TMPL, names))
         assert len(pages) == 1
         assert "'TABLE_A'" in pages[0]
         assert "'TABLE_B'" in pages[0]
@@ -3396,7 +3396,7 @@ class TestPaginateQueryValuesByByteBudget:
         names = ["A", "B", "C"]
         tiny_budget = len(_TMPL.replace("{in_values}", "'A'").encode()) + 1
         pages = list(
-            paginate_query_values_segment_by_byte_budget(_TMPL, names, tiny_budget)
+            paginate_in_clause_values_by_byte_budget(_TMPL, names, tiny_budget)
         )
         assert len(pages) == 3
         for page, name in zip(pages, names, strict=False):
@@ -3404,20 +3404,87 @@ class TestPaginateQueryValuesByByteBudget:
 
     def test_single_quote_escaped_in_output(self):
         names = ["O'BRIEN"]
-        pages = list(paginate_query_values_segment_by_byte_budget(_TMPL, names))
+        pages = list(paginate_in_clause_values_by_byte_budget(_TMPL, names))
         assert len(pages) == 1
         assert "O''BRIEN" in pages[0]
 
     def test_empty_names_yields_nothing(self):
-        pages = list(paginate_query_values_segment_by_byte_budget(_TMPL, []))
+        pages = list(paginate_in_clause_values_by_byte_budget(_TMPL, []))
         assert pages == []
 
     def test_each_page_within_budget(self):
-        budget = 200
+        max_bytes = 200
         names = [f"TABLE_{i:04d}" for i in range(50)]
-        pages = list(paginate_query_values_segment_by_byte_budget(_TMPL, names, budget))
+        pages = list(paginate_in_clause_values_by_byte_budget(_TMPL, names, max_bytes))
         for page in pages:
-            assert len(page.encode()) <= budget
+            assert len(page.encode()) <= max_bytes
+
+    def test_all_values_preserved_in_order_across_pages(self):
+        # The core correctness property: with >1 value per page and several pages,
+        # every name appears exactly once, in order, with none dropped or
+        # duplicated at the page boundaries.
+        names = [f"T{i:02d}" for i in range(25)]
+        one_entry = len("'T00'".encode())
+        max_bytes = (
+            len(_TMPL.replace("{in_values}", "").encode()) + 3 * one_entry + 2 * 2
+        )  # room for ~3 entries + 2 separators per page
+        pages = list(paginate_in_clause_values_by_byte_budget(_TMPL, names, max_bytes))
+        assert len(pages) > 1  # genuinely paged, not one big page
+        recovered = [v for page in pages for v in _parse_in_values(page)]
+        assert recovered == names
+
+    def test_value_too_large_for_budget_is_emitted_whole(self):
+        # A single escaped value that exceeds max_bytes cannot be split, so it is
+        # emitted alone on a page that intentionally exceeds the limit (documented
+        # behavior) — never dropped or truncated.
+        big = "X" * 100
+        pages = list(
+            paginate_in_clause_values_by_byte_budget(_TMPL, [big], max_bytes=50)
+        )
+        assert len(pages) == 1
+        assert _parse_in_values(pages[0]) == [big]
+        assert len(pages[0].encode()) > 50  # over budget, as documented
+
+    def test_oversized_value_does_not_drop_neighbours(self):
+        # An oversized value between two normal ones must not swallow or drop its
+        # neighbours; all three survive, the big one on its own page.
+        names = ["SMALL_A", "X" * 100, "SMALL_B"]
+        pages = list(
+            paginate_in_clause_values_by_byte_budget(_TMPL, names, max_bytes=60)
+        )
+        recovered = [v for page in pages for v in _parse_in_values(page)]
+        assert recovered == names
+
+    def test_boundary_exact_fit_vs_one_byte_over(self):
+        names = ["AA", "BB"]
+        fits = len(_TMPL.replace("{in_values}", "'AA', 'BB'").encode())
+        # Exactly enough bytes for both values -> one page.
+        assert (
+            len(list(paginate_in_clause_values_by_byte_budget(_TMPL, names, fits))) == 1
+        )
+        # One byte short -> forced split into two pages.
+        assert (
+            len(list(paginate_in_clause_values_by_byte_budget(_TMPL, names, fits - 1)))
+            == 2
+        )
+
+    def test_byte_budget_counts_utf8_bytes_not_chars(self):
+        # 'ü' is two UTF-8 bytes. The budget is measured in bytes, so a page must
+        # not exceed max_bytes even when values contain multibyte characters
+        # (a char-based count would overshoot).
+        names = ["Tü", "Tü", "Tü"]
+        max_bytes = len(_TMPL.replace("{in_values}", "'Tü', 'Tü'").encode())
+        pages = list(paginate_in_clause_values_by_byte_budget(_TMPL, names, max_bytes))
+        for page in pages:
+            assert len(page.encode()) <= max_bytes
+        recovered = [v for page in pages for v in _parse_in_values(page)]
+        assert recovered == names
+
+    def test_accepts_one_shot_generator_input(self):
+        names = (f"T{i}" for i in range(5))  # consumed in a single pass
+        pages = list(paginate_in_clause_values_by_byte_budget(_TMPL, names))
+        recovered = [v for page in pages for v in _parse_in_values(page)]
+        assert recovered == [f"T{i}" for i in range(5)]
 
 
 # ---------------------------------------------------------------------------
@@ -3465,7 +3532,7 @@ class TestColumnsForSchemaInTemplate:
     def test_template_used_with_paginator_produces_valid_sql(self):
         tmpl = SnowflakeQuery.columns_for_schema_in_template("MY_SCHEMA", "MY_DB")
         names = [f"TABLE_{i}" for i in range(5)]
-        pages = list(paginate_query_values_segment_by_byte_budget(tmpl, names))
+        pages = list(paginate_in_clause_values_by_byte_budget(tmpl, names))
         assert len(pages) == 1
         assert "table_name IN (" in pages[0]
         assert "'TABLE_0'" in pages[0]
@@ -3604,7 +3671,7 @@ class TestPaginatorAdversarialNames:
     def test_adversarial_names_round_trip(self):
         """SQL-unescaping the paginator output must recover every original name."""
         pages = list(
-            paginate_query_values_segment_by_byte_budget(
+            paginate_in_clause_values_by_byte_budget(
                 _PAGINATOR_TMPL, _ADVERSARIAL_NAMES
             )
         )
@@ -3617,7 +3684,7 @@ class TestPaginatorAdversarialNames:
         """Every IN-clause literal must be properly terminated under Snowflake's
         real escaping rules (backslash + quote)."""
         pages = list(
-            paginate_query_values_segment_by_byte_budget(
+            paginate_in_clause_values_by_byte_budget(
                 _PAGINATOR_TMPL, _ADVERSARIAL_NAMES
             )
         )
@@ -3630,7 +3697,7 @@ class TestPaginatorAdversarialNames:
     def test_single_adversarial_name_round_trips(self, attack):
         """Each adversarial name in isolation must round-trip correctly."""
         pages = list(
-            paginate_query_values_segment_by_byte_budget(_PAGINATOR_TMPL, [attack])
+            paginate_in_clause_values_by_byte_budget(_PAGINATOR_TMPL, [attack])
         )
         assert len(pages) == 1
         recovered = _parse_in_values(pages[0])
@@ -3641,9 +3708,7 @@ class TestPaginatorAdversarialNames:
     def test_name_that_is_only_quotes_round_trips(self):
         # A table named literally "'''" (three single quotes) via Snowflake quoting
         name = "'''"
-        pages = list(
-            paginate_query_values_segment_by_byte_budget(_PAGINATOR_TMPL, [name])
-        )
+        pages = list(paginate_in_clause_values_by_byte_budget(_PAGINATOR_TMPL, [name]))
         recovered = _parse_in_values(pages[0])
         assert recovered == [name]
 
@@ -3651,9 +3716,7 @@ class TestPaginatorAdversarialNames:
         # If {in_values} appears in a table name, str.format() in the template
         # must not try to substitute it — the name is data, not a format key.
         name = "{in_values}"
-        pages = list(
-            paginate_query_values_segment_by_byte_budget(_PAGINATOR_TMPL, [name])
-        )
+        pages = list(paginate_in_clause_values_by_byte_budget(_PAGINATOR_TMPL, [name]))
         assert len(pages) == 1
         recovered = _parse_in_values(pages[0])
         assert recovered == [name]
@@ -3715,7 +3778,7 @@ class TestColumnsTemplateAdversarialNames:
         schema, db = "O'BRIEN; DROP TABLE t; --", "MY_DB"
         tmpl = SnowflakeQuery.columns_for_schema_in_template(schema, db)
         names = ["ORDERS", "CUSTOMERS"]
-        pages = list(paginate_query_values_segment_by_byte_budget(tmpl, names))
+        pages = list(paginate_in_clause_values_by_byte_budget(tmpl, names))
         assert len(pages) == 1
         sql = pages[0]
         # Schema name must be safely embedded — round-trip proves no escape
@@ -3731,7 +3794,7 @@ class TestColumnsTemplateAdversarialNames:
 # ---------------------------------------------------------------------------
 #
 # _make_composable wraps a pattern in (?:...) and, for patterns matching
-# _SNOWFLAKE_SAFE_LITERAL_SUBSET_RE, returns it WITHOUT the re.compile validation
+# _PLAIN_LITERAL_PATTERN_RE, returns it WITHOUT the re.compile validation
 # every other pattern goes through. Skipping validation is only safe because that
 # subset admits no SQL-quote, backslash, or regex group/alternation metacharacter.
 # These tests pin that contract so any future loosening of the subset (or of the
@@ -3782,7 +3845,7 @@ class TestMakeComposableFastPath:
     def test_subset_regex_rejects_dangerous_characters(self, ch):
         """If the subset ever admits a SQL-literal breaker or a regex
         group/alternation metacharacter, skipping re.compile becomes unsafe."""
-        assert not _SNOWFLAKE_SAFE_LITERAL_SUBSET_RE.match(f"DB.T{ch}ABLE$"), (
+        assert not _PLAIN_LITERAL_PATTERN_RE.match(f"DB.T{ch}ABLE$"), (
             f"subset regex now admits {ch!r} — re.compile skip is unsafe"
         )
 
@@ -3794,7 +3857,7 @@ class TestMakeComposableFastPath:
         for length in range(1, 5):
             for combo in itertools.product("AZ09_$.", repeat=length):
                 p = "".join(combo) + "$"
-                if not _SNOWFLAKE_SAFE_LITERAL_SUBSET_RE.match(p):
+                if not _PLAIN_LITERAL_PATTERN_RE.match(p):
                     continue
                 wrapped = _make_composable(p)
                 assert wrapped is not None
@@ -3840,7 +3903,7 @@ class TestMakeComposableFastPath:
     def test_quotey_subsetlike_pattern_routes_through_escaping(self):
         """``A'$`` resembles a safe literal but contains a quote, so it must NOT
         take the validation-skip fast path, and its quote must be doubled."""
-        assert not _SNOWFLAKE_SAFE_LITERAL_SUBSET_RE.match("A'$")
+        assert not _PLAIN_LITERAL_PATTERN_RE.match("A'$")
         result = SnowflakeQuery._build_pattern_filter(
             AllowDenyPattern(allow=["A'$"]), FQN_EXPR
         )

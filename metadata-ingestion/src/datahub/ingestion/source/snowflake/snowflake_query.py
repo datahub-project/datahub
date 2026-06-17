@@ -33,7 +33,7 @@ def _escape_sql_string_literal(value: str) -> str:
     return value.replace("\\", "\\\\").replace("'", "''")
 
 
-def paginate_query_values_segment_by_byte_budget(
+def paginate_in_clause_values_by_byte_budget(
     template: str,
     names: Iterable[str],
     max_bytes: int = SNOWFLAKE_MAX_QUERY_BYTES,
@@ -41,10 +41,15 @@ def paginate_query_values_segment_by_byte_budget(
     """Yield complete SQL strings by paging IN-clause values under *max_bytes*.
 
     ``template`` must contain exactly one ``{in_values}`` placeholder, which
-    receives a comma-separated list of single-quoted, SQL-escaped names.  Each
-    page's final SQL (after substituting ``{in_values}``) stays below
-    *max_bytes*.  Byte cost per entry is measured post-escape plus a 2-byte
-    separator (``', '``).
+    receives a comma-separated list of single-quoted, SQL-escaped names. Byte
+    cost per entry is measured post-escape plus a 2-byte separator (``', '``).
+
+    Each emitted page's final SQL stays at or below *max_bytes* — EXCEPT when a
+    single escaped value plus the fixed template overhead already exceeds it: a
+    value cannot be split, so it is emitted alone on a page that may exceed the
+    limit. Callers must therefore size *max_bytes* well above the largest single
+    value (Snowflake identifiers are capped at 255 chars, far under the default
+    budget, so this does not arise in normal use).
     """
     base_cost = len(template.encode()) - len("{in_values}".encode())
     budget = max_bytes - base_cost
@@ -83,7 +88,7 @@ SNOWFLAKE_OBJECT_NAME_RE = re.compile(
 # patterns and uses '.' as an FQN separator — which is intentional: it
 # characterises patterns that are composable without re.compile validation,
 # not patterns that are syntactically valid Snowflake identifiers.
-_SNOWFLAKE_SAFE_LITERAL_SUBSET_RE = re.compile(r"^[A-Za-z0-9_$.]+\$$")
+_PLAIN_LITERAL_PATTERN_RE = re.compile(r"^[A-Za-z0-9_$.]+\$$")
 
 
 def _make_composable(pattern: str) -> Optional[str]:
@@ -96,7 +101,7 @@ def _make_composable(pattern: str) -> Optional[str]:
     wrapped = f"(?:{pattern})"
     # Fast path: safe-literal-subset patterns are trivially valid non-capturing
     # groups — skip re.compile for the common exact-literal case.
-    if _SNOWFLAKE_SAFE_LITERAL_SUBSET_RE.match(pattern):
+    if _PLAIN_LITERAL_PATTERN_RE.match(pattern):
         return wrapped
     try:
         re.compile(wrapped)
@@ -841,13 +846,13 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     def columns_for_schema_in_template(schema_name: str, db_name: str) -> str:
         """Return a SQL template with an ``{in_values}`` placeholder.
 
-        Pass to ``paginate_query_values_segment_by_byte_budget`` to generate
+        Pass to ``paginate_in_clause_values_by_byte_budget`` to generate
         one or more complete queries that filter ``table_name IN (...)`` rather
         than ``AND TRUE`` or ``LIKE 'prefix%'``.
         """
         # Escape for the SQL string literal (backslash + quote), then double any
         # curly braces so the later ``template.format(in_values=...)`` call in
-        # ``paginate_query_values_segment_by_byte_budget`` treats brace
+        # ``paginate_in_clause_values_by_byte_budget`` treats brace
         # characters in the identifier as literals rather than format fields
         # (a schema named ``{in_values}`` would otherwise displace the IN list).
         escaped_schema = (

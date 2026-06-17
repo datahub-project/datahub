@@ -28,7 +28,7 @@ from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeCon
 from datahub.ingestion.source.snowflake.snowflake_query import (
     SHOW_COMMAND_MAX_PAGE_SIZE,
     SnowflakeQuery,
-    paginate_query_values_segment_by_byte_budget,
+    paginate_in_clause_values_by_byte_budget,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
@@ -1642,7 +1642,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             for prefix_group in object_batch:
                 if prefix_group.names:
                     all_queries.extend(
-                        paginate_query_values_segment_by_byte_budget(
+                        paginate_in_clause_values_by_byte_budget(
                             template, prefix_group.names
                         )
                     )
