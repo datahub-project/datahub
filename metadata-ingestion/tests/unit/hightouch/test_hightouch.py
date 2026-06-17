@@ -5,6 +5,7 @@ import pytest
 import requests
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.hightouch.config import (
@@ -39,10 +40,13 @@ from datahub.sdk.dataset import Dataset
 def _aspects_of_type(workunits, aspect_type):
     aspects = []
     for wu in workunits:
-        if isinstance(wu, MetadataWorkUnit):
-            aspect = wu.metadata.aspect
-            if isinstance(aspect, aspect_type):
-                aspects.append(aspect)
+        if not isinstance(wu, MetadataWorkUnit):
+            continue
+        mcp = wu.metadata
+        if isinstance(mcp, MetadataChangeProposalWrapper) and isinstance(
+            mcp.aspect, aspect_type
+        ):
+            aspects.append(mcp.aspect)
     return aspects
 
 
