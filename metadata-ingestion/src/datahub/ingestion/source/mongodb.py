@@ -320,7 +320,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
     config: MongoDBConfig
     report: MongoDBSourceReport
     mongo_client: MongoClient
-    platform: str
+    platform: Literal["mongodb", "documentdb"]
 
     def __init__(self, ctx: PipelineContext, config: MongoDBConfig):
         super().__init__(config, ctx)
