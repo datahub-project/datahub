@@ -273,12 +273,12 @@ Profiling is computed with **DuckDB** via the SQLAlchemy profiler — no Java or
 
 Supported formats for profiling: Parquet, CSV/TSV, JSON/JSONL, and Avro (Parquet, CSV, and JSON readers are statically bundled in the DuckDB wheel).
 
-DuckDB loads two extensions at runtime: `httpfs` (for reading remote `s3://` objects) and `avro` (only when profiling Avro files). By default these are downloaded from DuckDB's extension repository on first use and cached afterwards (one-time network access).
+DuckDB loads extensions at runtime: `httpfs` (for reading remote `s3://` objects), `avro` (only when profiling Avro files), and `aws` (only for instance-profile/role-based S3 credentials, i.e. when no explicit keys are configured). By default these are downloaded from DuckDB's extension repository on first use and cached afterwards (one-time network access).
 
 **Air-gapped deployments** have two options:
 
-- **Docker:** the official `datahub-ingestion` image (full variant) pre-installs `httpfs` and `avro` at build time for its platform, so profiling works offline with no extra configuration.
-- **pip / custom installs:** pre-stage the `.duckdb_extension` binaries (matching your DuckDB version and platform) and set `profiling.duckdb_extension_directory` to that directory. When that option is set, DuckDB loads extensions from there and never attempts a download (so it won't hang on a blocked network); if a required extension is missing the affected table is skipped with an actionable warning.
+- **Docker:** the official `datahub-ingestion` image (full variant) pre-installs `httpfs`, `avro`, and `aws` at build time for its platform, so profiling works offline with no extra configuration.
+- **pip / custom installs:** pre-stage the `.duckdb_extension` binaries (matching your DuckDB version and platform) and set `profiling.duckdb_extension_directory` to that directory. A correctly staged binary then loads with no network access. Note this is **not** a hard offline switch: if a required binary is missing or does not match your DuckDB version/platform, DuckDB still attempts to download it, and the affected table is skipped with an actionable warning only if that download also fails.
 
 :::note
 

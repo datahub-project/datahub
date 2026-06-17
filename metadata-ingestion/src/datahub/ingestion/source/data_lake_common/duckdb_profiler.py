@@ -41,10 +41,18 @@ class _ProfilerReport(Protocol):
         message: str,
         *,
         context: Optional[str] = ...,
+        title: Optional[str] = ...,
         exc: Optional[BaseException] = ...,
     ) -> None: ...
 
-    def report_file_dropped(self, file: str) -> None: ...
+    def report_failure(
+        self,
+        message: str,
+        *,
+        context: Optional[str] = ...,
+        title: Optional[str] = ...,
+        exc: Optional[BaseException] = ...,
+    ) -> None: ...
 
 
 _REMOTE_SCHEMES = (
@@ -345,16 +353,21 @@ class DuckDBProfiler:
             # in the on-disk database and visible to any subsequent connection.
 
             # Reflect the table to check if max_number_of_fields_to_profile will
-            # silently drop columns.  Report via the DataLake report so operators
-            # can see the drop in the run summary even when report_dropped_profiles
-            # is False (the default).
+            # silently drop columns, and surface a warning so operators see it in
+            # the run summary even when report_dropped_profiles is False (default).
             max_fields = self.profiling_config.max_number_of_fields_to_profile
             if max_fields is not None:
                 reflected = sa.Table(
                     table_name, sa.MetaData(), autoload_with=engine, schema=None
                 )
                 if len(reflected.columns) > max_fields:
-                    self.report.report_file_dropped(dataset_urn)
+                    self.report.report_warning(
+                        "Table has more columns than "
+                        f"max_number_of_fields_to_profile ({max_fields}); some "
+                        "columns were dropped from the profile.",
+                        context=dataset_urn,
+                        title="Profile columns truncated",
+                    )
 
             profiler = SQLAlchemyProfiler(
                 conn=engine,
@@ -383,12 +396,21 @@ class DuckDBProfiler:
                 exc=e,
             )
         finally:
-            # Fold any warnings from the profiler-local report into the main
-            # DataLake report so operators see them in the run summary.
+            # Fold the profiler-local report's entries into the main DataLake
+            # report so operators see them in the run summary. Preserve the
+            # `title` (category) and forward failures as failures, not warnings,
+            # so error-level entries are not silently downgraded or dropped.
             for entry in profiler_report.warnings:
                 self.report.report_warning(
                     entry.message,
                     context=", ".join(entry.context) if entry.context else None,
+                    title=entry.title,
+                )
+            for entry in profiler_report.failures:
+                self.report.report_failure(
+                    entry.message,
+                    context=", ".join(entry.context) if entry.context else None,
+                    title=entry.title,
                 )
 
     def close(self) -> None:

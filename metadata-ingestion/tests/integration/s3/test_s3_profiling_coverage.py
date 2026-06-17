@@ -436,7 +436,8 @@ class TestS3ProfilingCoverage:
 
         This covers:
         - Field limiting logic
-        - report_file_dropped call
+        - Column truncation surfaces a warning (the file is still profiled with
+          fewer columns, so it must NOT be marked as filtered/not-ingested).
         """
         import pandas as pd
 
@@ -462,10 +463,15 @@ class TestS3ProfilingCoverage:
 
         workunits = list(source.get_workunits())
         assert len(source.report.failures) == 0
-        assert len(source.report.warnings) == 0
-
         assert len(workunits) > 0
-        assert source.report.number_of_files_filtered > 0
+
+        # Truncating columns emits a warning (not report_file_dropped, which would
+        # wrongly count the file as filtered out).
+        assert any(
+            "max_number_of_fields_to_profile" in w.message
+            for w in source.report.warnings
+        )
+        assert source.report.number_of_files_filtered == 0
 
     def test_profiling_with_table_level_only(self, tmp_path: Path) -> None:
         """Test profiling with profile_table_level_only enabled.

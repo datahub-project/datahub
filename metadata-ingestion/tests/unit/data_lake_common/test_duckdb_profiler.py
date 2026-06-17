@@ -384,6 +384,71 @@ def test_s3_explicit_keys_does_not_load_aws_extension():
     assert "aws" not in profiler._loaded_extensions
 
 
+def test_remote_s3_profiling_loads_httpfs_before_creating_secret():
+    """For an s3:// path, httpfs must be loaded before the CREATE SECRET runs.
+
+    A regression that reordered these (secret before httpfs) would break remote
+    profiling silently, and moto can't serve DuckDB's httpfs range requests, so
+    this ordering is only guarded here at the unit level with a mock connection.
+    """
+    aws = AwsConnectionConfig(
+        aws_access_key_id="AKIA_EXAMPLE",
+        aws_secret_access_key="secret_example",
+        aws_region="us-east-1",
+    )
+    profiler = DuckDBProfiler(
+        aws_config=aws,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+        platform="s3",
+    )
+    executed: list = []
+    conn = MagicMock()
+
+    def _record_execute(stmt, *a, **k):
+        executed.append(str(stmt))
+        return MagicMock()
+
+    conn.execute.side_effect = _record_execute
+    engine = MagicMock()
+    engine.begin.return_value.__enter__.return_value = conn
+    engine.begin.return_value.__exit__.return_value = False
+    profiler._engine = engine
+
+    # Profiling itself fails on the mock (DESCRIBE returns a non-iterable), which
+    # is caught and reported — but httpfs + the secret have already been issued,
+    # which is all this test asserts.
+    list(
+        profiler.get_table_profile(
+            _table_data("s3://bucket/data.parquet"),
+            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/data.parquet,PROD)",
+        )
+    )
+    profiler.close()
+
+    httpfs_idx = next(i for i, s in enumerate(executed) if "LOAD httpfs" in s)
+    secret_idx = next(
+        i for i, s in enumerate(executed) if "CREATE OR REPLACE SECRET" in s
+    )
+    assert httpfs_idx < secret_idx
+
+
+def test_max_fields_truncation_reports_warning(tmp_path):
+    """When a table has more columns than max_number_of_fields_to_profile, the
+    drop must surface as a run-summary warning (not silently)."""
+    parquet = _make_parquet(str(tmp_path))  # 2 columns: num, txt
+    cfg = GEProfilingConfig(enabled=True, max_number_of_fields_to_profile=1)
+    report = DataLakeSourceReport()
+    profiler = DuckDBProfiler(aws_config=None, report=report, profiling_config=cfg)
+    list(
+        profiler.get_table_profile(
+            _table_data(parquet), "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"
+        )
+    )
+    profiler.close()
+    assert any("max_number_of_fields_to_profile" in t for t in _warning_texts(report))
+
+
 def _make_nested_parquet(tmp: str) -> str:
     path = os.path.join(tmp, "nested.parquet")
     con = duckdb.connect()

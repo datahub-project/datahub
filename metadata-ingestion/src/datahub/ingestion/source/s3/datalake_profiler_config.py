@@ -37,13 +37,17 @@ class DataLakeProfilerConfig(GEProfilingConfig):
     duckdb_extension_directory: Optional[str] = Field(
         default_factory=lambda: os.environ.get(DUCKDB_EXTENSION_DIRECTORY_ENV),
         description=(
-            "Directory DuckDB loads extensions from. DuckDB profiling needs the "
-            "`httpfs` extension for remote (s3/gcs/abs) reads and `avro` for Avro "
-            "files; by default these are downloaded on first use, which fails in "
-            "air-gapped environments. Pre-stage the `.duckdb_extension` binaries "
-            "in this directory (DuckDB stores them version/platform-keyed under "
-            "`<dir>/v<version>/<platform>/`) to load them offline. When set, "
-            "downloads are disabled. Defaults to the "
+            "Directory DuckDB loads extensions from. DuckDB profiling uses the "
+            "`httpfs` extension for remote (s3/gcs/abs) reads, `avro` for Avro "
+            "files, and `aws` for instance-profile/role-based S3 credentials; by "
+            "default these are downloaded on first use, which fails in air-gapped "
+            "environments. Pre-stage the `.duckdb_extension` binaries in this "
+            "directory (DuckDB stores them version/platform-keyed under "
+            "`<dir>/v<version>/<platform>/`); a correctly staged binary then loads "
+            "with no network access. This is not a hard offline switch: if a "
+            "required binary is missing or does not match this DuckDB "
+            "version/platform, DuckDB still attempts to download it (and the table "
+            "is skipped with a warning if that download fails). Defaults to the "
             f"`{DUCKDB_EXTENSION_DIRECTORY_ENV}` environment variable, which the "
             "datahub-ingestion image points at a build-time-baked location."
         ),

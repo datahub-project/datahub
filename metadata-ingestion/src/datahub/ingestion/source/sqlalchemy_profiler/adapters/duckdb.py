@@ -3,7 +3,7 @@
 import logging
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
@@ -21,10 +21,15 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 logger = logging.getLogger(__name__)
 
 
+# A SUMMARIZE min/max after _convert_bound: numeric for numeric columns,
+# otherwise the original VARCHAR (DATE/TIMESTAMP/BOOLEAN/strings), or None.
+_Bound = Optional[Union[int, float, str]]
+
+
 @dataclass(frozen=True)
 class _ColumnSummary:
-    min: Any  # post-conversion: int | float | str | None
-    max: Any
+    min: _Bound
+    max: _Bound
     avg: Optional[float]
     std: Optional[float]
     q50: Optional[float]
@@ -47,10 +52,11 @@ _INTEGER_TYPE_PREFIXES = (
 _FLOAT_TYPE_PREFIXES = ("DECIMAL", "NUMERIC", "DOUBLE", "FLOAT", "REAL")
 
 
-def _convert_bound(value: Any, column_type: Optional[str]) -> Any:
+def _convert_bound(value: Any, column_type: Optional[str]) -> _Bound:
     """Convert a SUMMARIZE min/max (always VARCHAR) to a numeric Python type for
     numeric columns, so downstream arithmetic (e.g. histogram bucketing) works.
-    Non-numeric columns (VARCHAR, DATE, TIMESTAMP, BOOLEAN) are left as-is."""
+    Non-numeric columns (VARCHAR, DATE, TIMESTAMP, BOOLEAN) are left as-is.
+    ``value`` is Any because it is a raw value off the DB cursor."""
     if value is None:
         return None
     t = (column_type or "").upper()
@@ -115,7 +121,17 @@ class DuckDBAdapter(PlatformAdapter):
         try:
             self._run_summarize(context, conn)
         except Exception as e:
+            # Fall back to per-column SQL (still correct, just slower). Surface a
+            # warning — deduped by title — so a systematic SUMMARIZE failure is
+            # visible in the run summary instead of silently degrading on every
+            # table.
             logger.debug(f"DuckDB SUMMARIZE failed for {context.pretty_name}: {e}")
+            self.report.warning(
+                message="Falling back to per-column profiling queries.",
+                title="DuckDB SUMMARIZE fast-path unavailable",
+                context=context.pretty_name,
+                exc=e,
+            )
             self._summary = {}
             self._row_count = None
         return context
@@ -125,6 +141,7 @@ class DuckDBAdapter(PlatformAdapter):
         identifier = self.quote_identifier(context.get_table_identifier())
         rows = conn.execute(sa.text(f"SUMMARIZE {identifier}")).fetchall()
         summary: Dict[str, _ColumnSummary] = {}
+        row_counts: List[int] = []
         for row in rows:
             m = row._mapping
             name = m["column_name"]
@@ -144,8 +161,12 @@ class DuckDBAdapter(PlatformAdapter):
                 ),
                 non_null=round(count * (1.0 - null_pct / 100.0)),
             )
-            self._row_count = count
+            row_counts.append(count)
         self._summary = summary
+        # SUMMARIZE reports `count` per column; for a materialized table these are
+        # all the table row count. Take the max as the authoritative value rather
+        # than whichever column was parsed last.
+        self._row_count = max(row_counts) if row_counts else None
 
     @staticmethod
     def _to_float(value: Any) -> Optional[float]:
