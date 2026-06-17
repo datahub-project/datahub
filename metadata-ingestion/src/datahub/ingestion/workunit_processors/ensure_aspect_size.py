@@ -13,10 +13,20 @@ from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessorReport,
 )
 from datahub.metadata.schema_classes import (
+    BinaryJsonSchemaClass,
     DatasetProfileClass,
+    EspressoSchemaClass,
+    KafkaSchemaClass,
+    KeyValueSchemaClass,
+    MySqlDDLClass,
+    OracleDDLClass,
+    OrcSchemaClass,
+    OtherSchemaClass,
+    PrestoDDLClass,
     QueryPropertiesClass,
     QuerySubjectsClass,
     SchemaFieldClass,
+    SchemalessClass,
     SchemaMetadataClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
@@ -127,64 +137,115 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
     def _drop_platform_schema(self, schema: SchemaMetadataClass) -> bool:
         """Blank the raw platform-schema string(s) on the aspect's platformSchema.
 
-        ``platformSchema`` holds an opaque, source-format dump of the schema —
-        ``rawSchema`` / ``documentSchema`` / ``tableSchema`` / ``keySchema`` /
-        ``valueSchema`` depending on the union variant. It is the least valuable
-        part of the aspect (``fields`` carry the structured, queryable metadata),
-        so we shed it before trimming fields. Every string member is blanked, so
-        this covers all platformSchema variants generically — not just
-        ``OtherSchema``. Returns ``True`` if any content was cleared.
+        ``platformSchema`` holds an opaque, source-format dump of the schema and
+        is the least valuable part of the aspect (``fields`` carry the structured,
+        queryable metadata), so we shed it before trimming fields. Each union
+        variant is handled explicitly so the type checker verifies the field
+        names — a model change surfaces as a mypy error rather than a silent
+        no-op. Small markers such as ``KafkaSchema.documentSchemaType`` are left
+        intact. An unrecognized variant is warned about and left untouched.
+        Returns ``True`` if any content was cleared.
         """
-        platform_schema = schema.platformSchema
-        if platform_schema is None:
+        ps = schema.platformSchema
+        if ps is None or isinstance(ps, SchemalessClass):
             return False
-        cleared = False
-        for key, value in platform_schema._inner_dict.items():
-            if isinstance(value, str) and value:
-                platform_schema._inner_dict[key] = ""
+        # Direct attribute access (not getattr/setattr) so mypy verifies each
+        # field name against the model.
+        if isinstance(ps, (OtherSchemaClass, PrestoDDLClass)):
+            if ps.rawSchema:
+                ps.rawSchema = ""
+                return True
+            return False
+        if isinstance(ps, (MySqlDDLClass, OracleDDLClass)):
+            if ps.tableSchema:
+                ps.tableSchema = ""
+                return True
+            return False
+        if isinstance(ps, (OrcSchemaClass, BinaryJsonSchemaClass)):
+            if ps.schema:
+                ps.schema = ""
+                return True
+            return False
+        if isinstance(ps, KafkaSchemaClass):
+            cleared = False
+            if ps.documentSchema:
+                ps.documentSchema = ""
                 cleared = True
-        return cleared
+            if ps.keySchema:
+                ps.keySchema = ""
+                cleared = True
+            return cleared
+        if isinstance(ps, EspressoSchemaClass):
+            cleared = False
+            if ps.documentSchema:
+                ps.documentSchema = ""
+                cleared = True
+            if ps.tableSchema:
+                ps.tableSchema = ""
+                cleared = True
+            return cleared
+        if isinstance(ps, KeyValueSchemaClass):
+            cleared = False
+            if ps.keySchema:
+                ps.keySchema = ""
+                cleared = True
+            if ps.valueSchema:
+                ps.valueSchema = ""
+                cleared = True
+            return cleared
+        self.ctx.source_report.warning(
+            title="Unrecognized platformSchema variant",
+            message="Don't know how to trim the raw schema for this platformSchema "
+            "variant, so it was left untouched and the aspect may still exceed the "
+            "size limit. The variant likely needs a branch in _drop_platform_schema.",
+            context=type(ps).__name__,
+        )
+        return False
 
     def ensure_schema_metadata_size(
         self, dataset_urn: str, schema: SchemaMetadataClass
     ) -> None:
-        # Budget against the full serialized aspect, not just the fields list:
-        # the platformSchema blob (and other top-level content) is emitted too.
-        truncated = False
-        non_fields_size = self._schema_size_without_fields(schema)
-
-        # If the non-field content alone exceeds the budget, the platformSchema
-        # blob is the culprit and the least valuable content. Drop it BEFORE
-        # trimming fields (which carry the metadata users query), then re-measure.
-        # Otherwise the field budget would start already-oversized and reject
-        # every field while the aspect stays over the limit.
+        # Fast path: if the whole aspect already fits, there's nothing to trim.
         if (
-            non_fields_size >= self.schema_size_constraint
-            and self._drop_platform_schema(schema)
+            len(json.dumps(pre_json_transform(schema.to_obj())))
+            < self.schema_size_constraint
         ):
+            return
+
+        # Over budget. Shed the least-valuable content first — the platformSchema
+        # blob (an opaque source-format dump) — so we keep as many fields (the
+        # structured, queryable metadata) as possible. Only after that do we trim
+        # fields, and only if they still don't fit. This keeps "fields > raw
+        # platform schema" even when neither part is individually over the limit
+        # (e.g. a ~half-schema / ~half-fields aspect).
+        truncated = False
+        if self._drop_platform_schema(schema):
             self.ctx.source_report.warning(
                 title="Schema truncated due to size constraint",
                 message="Dataset schema contained too much data and would have caused ingestion to fail",
                 context=f"Raw platform schema was removed from schema for {dataset_urn} due to aspect size constraints",
             )
             self.report.num_platform_schema_drops += 1
-            non_fields_size = self._schema_size_without_fields(schema)
             truncated = True
 
-        total_fields_size = non_fields_size
+        total_fields_size = self._schema_size_without_fields(schema)
         accepted_fields: List[SchemaFieldClass] = []
         for schema_field in schema.fields:
             field_size = len(json.dumps(pre_json_transform(schema_field.to_obj())))
             if total_fields_size + field_size < self.schema_size_constraint:
                 accepted_fields.append(schema_field)
                 total_fields_size += field_size
-            else:
-                self.ctx.source_report.warning(
-                    title="Schema truncated due to size constraint",
-                    message="Dataset schema contained too much data and would have caused ingestion to fail",
-                    context=f"Field {schema_field.fieldPath} was removed from schema for {dataset_urn} due to aspect size constraints",
-                )
-        if truncated or len(accepted_fields) < len(schema.fields):
+
+        dropped_field_count = len(schema.fields) - len(accepted_fields)
+        if dropped_field_count:
+            # Report a single warning per entity with the dropped count, rather
+            # than one warning per dropped field.
+            self.ctx.source_report.warning(
+                title="Schema truncated due to size constraint",
+                message="Dataset schema contained too much data and would have caused ingestion to fail; some fields were dropped",
+                context=f"Dropped {dropped_field_count} of {len(schema.fields)} fields from schema for {dataset_urn} due to aspect size constraints",
+            )
+        if truncated or dropped_field_count:
             self._record_truncation("schemaMetadata")
         schema.fields = accepted_fields
 
