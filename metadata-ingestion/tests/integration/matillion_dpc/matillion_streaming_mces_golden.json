@@ -264,16 +264,12 @@
                 {
                     "id": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
                     "urn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f"
-                },
-                {
-                    "id": "urn:li:dataFlow:(matillion,CDC Project.a04b086dec9c11e04694560c90426346,PROD)",
-                    "urn": "urn:li:dataFlow:(matillion,CDC Project.a04b086dec9c11e04694560c90426346,PROD)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200449,
+        "lastObserved": 1704067200137,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }

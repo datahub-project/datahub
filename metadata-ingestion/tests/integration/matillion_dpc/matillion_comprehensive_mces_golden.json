@@ -264,16 +264,12 @@
                 {
                     "id": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
                     "urn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f"
-                },
-                {
-                    "id": "urn:li:dataFlow:(matillion,Full Feature Project.04005189488d010ae94c9bc624351f84,PROD)",
-                    "urn": "urn:li:dataFlow:(matillion,Full Feature Project.04005189488d010ae94c9bc624351f84,PROD)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200875,
+        "lastObserved": 1704067200155,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -370,16 +366,12 @@
                 {
                     "id": "urn:li:container:709029303555c6af1711e8a33aeaad86",
                     "urn": "urn:li:container:709029303555c6af1711e8a33aeaad86"
-                },
-                {
-                    "id": "urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD)",
-                    "urn": "urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200101,
+        "lastObserved": 1704067200157,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -440,6 +432,22 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200610,
+        "runId": "matillion-comprehensive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD),proj-1.Production.Data Integration Pipeline.Extract Data)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:709029303555c6af1711e8a33aeaad86"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200158,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -551,6 +559,22 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD),proj-1.Production.Data Integration Pipeline.Transform Data)",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:709029303555c6af1711e8a33aeaad86"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200158,
+        "runId": "matillion-comprehensive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD),proj-1.Production.Data Integration Pipeline.Transform Data)",
+    "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
@@ -604,16 +628,12 @@
                 {
                     "id": "urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD)",
                     "urn": "urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD)"
-                },
-                {
-                    "id": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD),proj-1.Production.Data Integration Pipeline.Extract Data)",
-                    "urn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD),proj-1.Production.Data Integration Pipeline.Extract Data)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200610,
+        "lastObserved": 1704067200158,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -630,6 +650,22 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200106,
+        "runId": "matillion-comprehensive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD),proj-1.Production.Data Integration Pipeline.Load Data)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:709029303555c6af1711e8a33aeaad86"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200159,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -653,16 +689,12 @@
                 {
                     "id": "urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD)",
                     "urn": "urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD)"
-                },
-                {
-                    "id": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD),proj-1.Production.Data Integration Pipeline.Transform Data)",
-                    "urn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD),proj-1.Production.Data Integration Pipeline.Transform Data)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200611,
+        "lastObserved": 1704067200159,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -682,16 +714,12 @@
                 {
                     "id": "urn:li:container:709029303555c6af1711e8a33aeaad86",
                     "urn": "urn:li:container:709029303555c6af1711e8a33aeaad86"
-                },
-                {
-                    "id": "urn:li:dataFlow:(matillion,proj-1.Production.Child ETL Pipeline,PROD)",
-                    "urn": "urn:li:dataFlow:(matillion,proj-1.Production.Child ETL Pipeline,PROD)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200106,
+        "lastObserved": 1704067200163,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -734,6 +762,53 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200612,
+        "runId": "matillion-comprehensive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ce3626807d83130b9b498095bab68593",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "execution_id": "exec-1",
+                "pipeline_name": "Data Integration Pipeline",
+                "status": "SUCCESS",
+                "environment_name": "Production",
+                "project_id": "proj-1",
+                "started_at": "2024-01-01T00:00:00+00:00"
+            },
+            "externalUrl": "https://app.matillion.com/observability-dashboard/pipeline/exec-1",
+            "name": "Data Integration Pipeline-exec-1",
+            "type": "BATCH_AD_HOC",
+            "created": {
+                "time": 1704067200000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200160,
+        "runId": "matillion-comprehensive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ce3626807d83130b9b498095bab68593",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200160,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1032,16 +1107,12 @@
                 {
                     "id": "urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD)",
                     "urn": "urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD)"
-                },
-                {
-                    "id": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD),proj-1.Production.Data Integration Pipeline.Load Data)",
-                    "urn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Data Integration Pipeline,PROD),proj-1.Production.Data Integration Pipeline.Load Data)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200612,
+        "lastObserved": 1704067200160,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1121,6 +1192,22 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Child ETL Pipeline,PROD),proj-1.Production.Child ETL Pipeline.Child Extract)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:709029303555c6af1711e8a33aeaad86"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200163,
+        "runId": "matillion-comprehensive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:1cc10d790c5403015eae40e8e4347f30",
     "changeType": "UPSERT",
@@ -1166,6 +1253,22 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200619,
+        "runId": "matillion-comprehensive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Child ETL Pipeline,PROD),proj-1.Production.Child ETL Pipeline.Child Transform)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:709029303555c6af1711e8a33aeaad86"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200164,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1230,16 +1333,12 @@
                 {
                     "id": "urn:li:dataFlow:(matillion,proj-1.Production.Child ETL Pipeline,PROD)",
                     "urn": "urn:li:dataFlow:(matillion,proj-1.Production.Child ETL Pipeline,PROD)"
-                },
-                {
-                    "id": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Child ETL Pipeline,PROD),proj-1.Production.Child ETL Pipeline.Child Extract)",
-                    "urn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Child ETL Pipeline,PROD),proj-1.Production.Child ETL Pipeline.Child Extract)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200616,
+        "lastObserved": 1704067200164,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1272,6 +1371,53 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200618,
+        "runId": "matillion-comprehensive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:92183bc7655a6ed9b35680fd2abe0ca5",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "execution_id": "child-exec-1",
+                "pipeline_name": "Child ETL Pipeline",
+                "status": "SUCCESS",
+                "environment_name": "Production",
+                "project_id": "proj-1",
+                "started_at": "2024-01-01T00:02:30+00:00"
+            },
+            "externalUrl": "https://app.matillion.com/observability-dashboard/pipeline/child-exec-1",
+            "name": "Child ETL Pipeline-child-ex",
+            "type": "BATCH_AD_HOC",
+            "created": {
+                "time": 1704067350000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200165,
+        "runId": "matillion-comprehensive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:92183bc7655a6ed9b35680fd2abe0ca5",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataFlow:(matillion,proj-1.Production.Child ETL Pipeline,PROD)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200165,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1470,16 +1616,12 @@
                 {
                     "id": "urn:li:dataFlow:(matillion,proj-1.Production.Child ETL Pipeline,PROD)",
                     "urn": "urn:li:dataFlow:(matillion,proj-1.Production.Child ETL Pipeline,PROD)"
-                },
-                {
-                    "id": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Child ETL Pipeline,PROD),proj-1.Production.Child ETL Pipeline.Child Transform)",
-                    "urn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Child ETL Pipeline,PROD),proj-1.Production.Child ETL Pipeline.Child Transform)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200617,
+        "lastObserved": 1704067200164,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1585,6 +1727,38 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200619,
+        "runId": "matillion-comprehensive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ce3626807d83130b9b498095bab68593",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200168,
+        "runId": "matillion-comprehensive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:92183bc7655a6ed9b35680fd2abe0ca5",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200168,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
