@@ -47,7 +47,7 @@ QUERY_STATEMENT_TRUNCATION_BUFFER = 100
 # — the large source-format dump we shed when an aspect is oversized. Only these
 # fields are blanked; small markers on the same record (e.g. KafkaSchema's
 # documentSchemaType="AVRO") are intentionally left intact. Schemaless carries no
-# content. An unrecognized variant is logged and left untouched.
+# content. An unrecognized variant is warned about and left untouched.
 _PLATFORM_SCHEMA_RAW_FIELDS: Dict[type, Tuple[str, ...]] = {
     OtherSchemaClass: ("rawSchema",),
     PrestoDDLClass: ("rawSchema",),
@@ -161,16 +161,19 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         the known schema-content field(s) for each union variant
         (``_PLATFORM_SCHEMA_RAW_FIELDS``), leaving small markers such as
         ``KafkaSchema.documentSchemaType`` intact. An unrecognized variant is
-        logged and left untouched. Returns ``True`` if any content was cleared.
+        warned about and left untouched. Returns ``True`` if any content was cleared.
         """
         platform_schema = schema.platformSchema
         if platform_schema is None:
             return False
         raw_fields = _PLATFORM_SCHEMA_RAW_FIELDS.get(type(platform_schema))
         if raw_fields is None:
-            logger.info(
-                "Unrecognized platformSchema variant %s; leaving its raw schema untrimmed",
-                type(platform_schema).__name__,
+            self.ctx.source_report.warning(
+                title="Unrecognized platformSchema variant",
+                message="Don't know how to trim the raw schema for this platformSchema "
+                "variant, so it was left untouched and the aspect may still exceed the "
+                "size limit. The variant likely needs adding to _PLATFORM_SCHEMA_RAW_FIELDS.",
+                context=type(platform_schema).__name__,
             )
             return False
         cleared = False
