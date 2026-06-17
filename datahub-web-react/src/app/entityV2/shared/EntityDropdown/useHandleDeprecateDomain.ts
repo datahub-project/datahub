@@ -1,10 +1,11 @@
 import { useDomainsContext } from '@app/domainV2/DomainsContext';
 
-import { EntityType } from '@types';
+import { Entity, EntityType } from '@types';
 
 export type DeprecationFormData = {
     note?: string | null;
     decommissionTime?: number | null;
+    replacement?: Entity | null;
 };
 
 export function useHandleDeprecateDomain(urn: string) {
@@ -21,6 +22,7 @@ export function useHandleDeprecateDomain(urn: string) {
                       note: formData?.note ?? null,
                       actor: null,
                       decommissionTime: formData?.decommissionTime ?? null,
+                      replacement: formData?.replacement ?? null,
                   }
                 : null,
         });

@@ -1343,6 +1343,9 @@ fragment entityDomain on DomainAssociation {
         displayProperties {
             ...displayPropertiesFields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     associatedUrn
     attribution {
@@ -1397,6 +1400,9 @@ fragment entityDataProduct on Entity {
                                 name
                             }
                         }
+                    }
+                    deprecation {
+                        ...deprecationFields
                     }
                 }
             }

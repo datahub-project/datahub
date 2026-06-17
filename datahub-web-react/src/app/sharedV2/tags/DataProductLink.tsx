@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import PillRemoveIcon from '@app/sharedV2/icons/PillRemoveIcon';
@@ -62,6 +63,14 @@ function DataProductContent({ dataProduct, name, closable, onClose, tagStyle, fo
         <StyledTag style={tagStyle} fontSize={fontSize}>
             <IconWrapper>{entityRegistry.getIcon(EntityType.DataProduct, 16, IconStyleType.ACCENT)}</IconWrapper>
             {displayName}
+            {dataProduct.deprecation && dataProduct.deprecation.deprecated && (
+                <DeprecationIcon
+                    urn={dataProduct.urn}
+                    deprecation={dataProduct.deprecation}
+                    showUndeprecate={false}
+                    showText={false}
+                />
+            )}
             {closable && <RemoveIcon onClick={onClose} />}
         </StyledTag>
     );

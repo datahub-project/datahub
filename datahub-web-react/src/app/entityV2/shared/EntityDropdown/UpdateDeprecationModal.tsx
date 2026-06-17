@@ -19,11 +19,12 @@ import dayjs from '@utils/dayjs';
 
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
-import { ResourceRefInput, SubResourceType } from '@types';
+import { Entity, ResourceRefInput, SubResourceType } from '@types';
 
 type DeprecationModalResult = {
     note?: string | null;
     decommissionTime?: number | null;
+    replacement?: Entity | null;
 };
 
 type Props = {
@@ -103,6 +104,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
         refetch?.({
             note: formData.note ?? null,
             decommissionTime: formData.decommissionTime && formData.decommissionTime.unix() * 1000,
+            replacement: replacementData?.entities?.[0] ?? null,
         });
         handleClose();
     };

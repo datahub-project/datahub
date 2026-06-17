@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import PillRemoveIcon from '@app/sharedV2/icons/PillRemoveIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -66,6 +67,9 @@ function DomainContent({
         <StyledTag style={tagStyle} fontSize={fontSize} data-testid={`domain-${displayName}`}>
             <DomainColoredIcon domain={domain} size={iconSize || 24} fontSize={iconFontSize ?? 16} />
             {displayName}
+            {domain.deprecation && domain.deprecation.deprecated && (
+                <DeprecationIcon urn={domain.urn} deprecation={domain.deprecation} showUndeprecate={false} showText={false} />
+            )}
             {closable && <RemoveIcon onClick={onClose} />}
         </StyledTag>
     );
