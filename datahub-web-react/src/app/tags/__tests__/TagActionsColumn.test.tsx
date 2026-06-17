@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { TagActionsColumn } from '@app/tags/TagsTableColumns';
 import themeV2 from '@conf/theme/themeV2';
 
+import { useGetTagQuery } from '@src/graphql/tag.generated';
+
 // Mock Apollo hooks so no ApolloProvider is needed
 vi.mock('@src/graphql/tag.generated', () => ({
     useGetTagQuery: vi.fn(() => ({
@@ -98,5 +100,17 @@ describe('TagActionsColumn', () => {
 
         fireEvent.click(screen.getByTestId('action-delete'));
         expect(onDelete).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows "Mark as un-deprecated" when the tag is already deprecated', () => {
+        vi.mocked(useGetTagQuery).mockReturnValueOnce({
+            data: { tag: { deprecation: { deprecated: true } } },
+            refetch: vi.fn(),
+        } as any);
+
+        renderWithTheme(<TagActionsColumn {...defaultProps} />);
+
+        const btn = screen.getByTestId('action-deprecate');
+        expect(btn.textContent).toMatch(/un-deprecat/i);
     });
 });

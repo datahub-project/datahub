@@ -12,6 +12,7 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
 import { getTagColor } from '@app/tags/utils';
 import { UnionType } from '@src/app/search/utils/constants';
@@ -52,6 +53,12 @@ const ColorDotContainer = styled.div`
     align-items: center;
 `;
 
+const TagNameRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+`;
+
 const ColorDot = styled.div`
     width: 20px;
     height: 20px;
@@ -61,11 +68,19 @@ const ColorDot = styled.div`
 
 export const TagNameColumn = React.memo(
     ({ tagUrn, displayName, searchQuery }: { tagUrn: string; displayName: string; searchQuery?: string }) => {
+        const { data } = useGetTagQuery({ variables: { urn: tagUrn }, fetchPolicy: 'cache-first' });
+        const deprecation = data?.tag?.deprecation ?? null;
+
         return (
             <ColumnContainer>
-                <TagName data-testid={`${tagUrn}-name`}>
-                    <Highlight search={searchQuery}>{displayName}</Highlight>
-                </TagName>
+                <TagNameRow>
+                    <TagName data-testid={`${tagUrn}-name`}>
+                        <Highlight search={searchQuery}>{displayName}</Highlight>
+                    </TagName>
+                    {deprecation && deprecation.deprecated && (
+                        <DeprecationIcon urn={tagUrn} deprecation={deprecation} showUndeprecate={false} showText={false} />
+                    )}
+                </TagNameRow>
             </ColumnContainer>
         );
     },

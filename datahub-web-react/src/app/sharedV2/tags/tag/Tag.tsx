@@ -4,6 +4,7 @@ import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
@@ -147,6 +148,16 @@ export default function Tag({
                         variant={highlightTag ? 'highlighted' : 'default'}
                         size={fontSize && fontSize <= 10 ? 'sm' : 'md'}
                         dataTestId={`tag-${displayName}-pill`}
+                        rightAdornment={
+                            tag.tag.deprecation && tag.tag.deprecation.deprecated ? (
+                                <DeprecationIcon
+                                    urn={tag.tag.urn}
+                                    deprecation={tag.tag.deprecation}
+                                    showUndeprecate={false}
+                                    showText={false}
+                                />
+                            ) : undefined
+                        }
                         onRemove={
                             canRemove && !readOnly
                                 ? (e) => {
