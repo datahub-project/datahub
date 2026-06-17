@@ -4,9 +4,9 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 #### Emitting as the DocumentDB platform
 
-By default the connector emits all ingested entities under the `mongodb` data platform, regardless of whether the underlying source is MongoDB or AWS DocumentDB. To surface DocumentDB clusters as their own platform, set `emit_as_documentdb: true`. This requires `hostingEnvironment` to be `AWS_DOCUMENTDB`.
+By default the connector emits all ingested entities under the `mongodb` data platform, regardless of whether the underlying source is MongoDB or AWS DocumentDB. To surface DocumentDB clusters as their own platform, set `platform: documentdb`. This requires `hostingEnvironment` to be `AWS_DOCUMENTDB`; any other hosting environment is rejected at config validation time.
 
-Enabling this for an existing recipe will generate new `documentdb` URNs; previously emitted `mongodb` URNs will need to be cleaned up via stateful ingestion (if enabled) or manually soft-deleted.
+Switching an existing recipe to `platform: documentdb` will generate new `documentdb` dataset and container URNs; the previously emitted `mongodb` URNs will need to be cleaned up via stateful ingestion (if enabled) or manually soft-deleted.
 
 ### Limitations
 
