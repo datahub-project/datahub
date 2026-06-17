@@ -387,9 +387,6 @@ def test_ensure_size_of_too_big_schema_metadata(processor):
     )
     assert len(schema.fields) < 1004, "Schema has not been properly truncated"
     assert schema.fields[-1].fieldPath == "dddd", "Small field was not added at the end"
-    # The truncated aspect must fit within the budget. The budget now accounts
-    # for the full serialized aspect (not just the fields list), so the result
-    # is bounded by the payload constraint rather than an arbitrary slop.
     assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
         "Aspect exceeded acceptable size"
     )
@@ -408,12 +405,13 @@ def test_ensure_size_of_proper_schema_metadata(processor):
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
-def test_ensure_schema_metadata_budget_accounts_for_raw_schema(processor):
-    # rawSchema takes ~half the budget; the field budget must shrink to
-    # compensate so the total aspect — raw schema included — stays within the
-    # limit. Previously only the fields were counted, so the aspect could
-    # still exceed the limit after truncation.
-    raw_schema_size = processor.schema_size_constraint // 2
+def test_ensure_schema_metadata_drops_raw_schema_before_trimming_fields(processor):
+    # Mixed case: neither the raw schema (~9 MB) nor the fields (~9 MB) is
+    # individually over the budget, but together they exceed it. Per the
+    # "fields > raw platform schema" priority, the raw schema is dropped first
+    # and ALL fields are retained — rather than keeping the raw schema and
+    # trimming columns to make room for it.
+    raw_schema_size = int(processor.schema_size_constraint * 0.6)
     fields = [
         SchemaFieldClass(
             fieldPath=f"t{i}",
@@ -421,7 +419,7 @@ def test_ensure_schema_metadata_budget_accounts_for_raw_schema(processor):
             type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
             description=20000 * "a",
         )
-        for i in range(1000)
+        for i in range(450)
     ]
     schema = SchemaMetadataClass(
         schemaName="abcdef",
@@ -437,12 +435,13 @@ def test_ensure_schema_metadata_budget_accounts_for_raw_schema(processor):
     )
 
     assert isinstance(schema.platformSchema, OtherSchemaClass)
-    assert schema.platformSchema.rawSchema == "a" * raw_schema_size, (
-        "Raw schema that fits within budget should be retained"
+    assert schema.platformSchema.rawSchema == "", (
+        "Raw schema should be dropped before any field is trimmed"
     )
-    assert len(schema.fields) < 1000, (
-        "Fields should have been trimmed to fit the budget"
+    assert len(schema.fields) == 450, (
+        "All fields should be retained once the raw schema is dropped"
     )
+    assert processor.report.num_platform_schema_drops == 1
     assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
         "Aspect exceeded acceptable size despite truncation"
     )

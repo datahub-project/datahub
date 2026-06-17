@@ -148,30 +148,30 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
     def ensure_schema_metadata_size(
         self, dataset_urn: str, schema: SchemaMetadataClass
     ) -> None:
-        # Budget against the full serialized aspect, not just the fields list:
-        # the platformSchema blob (and other top-level content) is emitted too.
-        truncated = False
-        non_fields_size = self._schema_size_without_fields(schema)
-
-        # If the non-field content alone exceeds the budget, the platformSchema
-        # blob is the culprit and the least valuable content. Drop it BEFORE
-        # trimming fields (which carry the metadata users query), then re-measure.
-        # Otherwise the field budget would start already-oversized and reject
-        # every field while the aspect stays over the limit.
+        # Fast path: if the whole aspect already fits, there's nothing to trim.
         if (
-            non_fields_size >= self.schema_size_constraint
-            and self._drop_platform_schema(schema)
+            len(json.dumps(pre_json_transform(schema.to_obj())))
+            < self.schema_size_constraint
         ):
+            return
+
+        # Over budget. Shed the least-valuable content first — the platformSchema
+        # blob (an opaque source-format dump) — so we keep as many fields (the
+        # structured, queryable metadata) as possible. Only after that do we trim
+        # fields, and only if they still don't fit. This keeps "fields > raw
+        # platform schema" even when neither part is individually over the limit
+        # (e.g. a ~half-schema / ~half-fields aspect).
+        truncated = False
+        if self._drop_platform_schema(schema):
             self.ctx.source_report.warning(
                 title="Schema truncated due to size constraint",
                 message="Dataset schema contained too much data and would have caused ingestion to fail",
                 context=f"Raw platform schema was removed from schema for {dataset_urn} due to aspect size constraints",
             )
             self.report.num_platform_schema_drops += 1
-            non_fields_size = self._schema_size_without_fields(schema)
             truncated = True
 
-        total_fields_size = non_fields_size
+        total_fields_size = self._schema_size_without_fields(schema)
         accepted_fields: List[SchemaFieldClass] = []
         for schema_field in schema.fields:
             field_size = len(json.dumps(pre_json_transform(schema_field.to_obj())))
