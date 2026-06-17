@@ -30,6 +30,15 @@ const RemoveIcon = styled(PillRemoveIcon)`
     margin-left: 4px;
 `;
 
+const PillDeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
+`;
+
 const StyledTag = styled.div<{ fontSize?: number }>`
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
     font-weight: 500;
@@ -68,7 +77,14 @@ function DomainContent({
             <DomainColoredIcon domain={domain} size={iconSize || 24} fontSize={iconFontSize ?? 16} />
             {displayName}
             {domain.deprecation && domain.deprecation.deprecated && (
-                <DeprecationIcon urn={domain.urn} deprecation={domain.deprecation} showUndeprecate={false} showText={false} />
+                <PillDeprecationSlot>
+                    <DeprecationIcon
+                        urn={domain.urn}
+                        deprecation={domain.deprecation}
+                        showUndeprecate={false}
+                        showText={false}
+                    />
+                </PillDeprecationSlot>
             )}
             {closable && <RemoveIcon onClick={onClose} />}
         </StyledTag>

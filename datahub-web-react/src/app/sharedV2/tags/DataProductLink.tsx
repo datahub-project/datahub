@@ -31,6 +31,15 @@ const RemoveIcon = styled(PillRemoveIcon)`
     margin-left: 4px;
 `;
 
+const PillDeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
+`;
+
 const IconWrapper = styled.div`
     display: flex;
     color: ${(props) => props.theme.colors.icon};
@@ -64,12 +73,14 @@ function DataProductContent({ dataProduct, name, closable, onClose, tagStyle, fo
             <IconWrapper>{entityRegistry.getIcon(EntityType.DataProduct, 16, IconStyleType.ACCENT)}</IconWrapper>
             {displayName}
             {dataProduct.deprecation && dataProduct.deprecation.deprecated && (
-                <DeprecationIcon
-                    urn={dataProduct.urn}
-                    deprecation={dataProduct.deprecation}
-                    showUndeprecate={false}
-                    showText={false}
-                />
+                <PillDeprecationSlot>
+                    <DeprecationIcon
+                        urn={dataProduct.urn}
+                        deprecation={dataProduct.deprecation}
+                        showUndeprecate={false}
+                        showText={false}
+                    />
+                </PillDeprecationSlot>
             )}
             {closable && <RemoveIcon onClick={onClose} />}
         </StyledTag>
