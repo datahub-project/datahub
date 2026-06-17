@@ -6,6 +6,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import com.datahub.authorization.AuthUtil;
@@ -24,6 +25,8 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.query.QuerySubject;
 import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,6 +47,14 @@ public class EntityAspectAuthorizationUtilsTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,foo,PROD)");
   private static final Urn ASSET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,asset,PROD)");
+  private static final Urn PHYSICAL_DATASET =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,physical,PROD)");
+  private static final Urn LOGICAL_DATASET =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:logical,logical,PROD)");
+  private static final Urn PHYSICAL_SCHEMA_FIELD =
+      UrnUtils.getUrn("urn:li:schemaField:(" + PHYSICAL_DATASET + ",physical_field)");
+  private static final Urn LOGICAL_SCHEMA_FIELD =
+      UrnUtils.getUrn("urn:li:schemaField:(" + LOGICAL_DATASET + ",logical_field)");
 
   private AuthorizationSession mockAuthSession;
   private AspectRetriever mockAspectRetriever;
@@ -323,18 +334,218 @@ public class EntityAspectAuthorizationUtilsTest {
     Urn child = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,child,PROD)");
     Urn parent = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,parent,PROD)");
 
-    authUtilMockedStatic
-        .when(
-            () ->
-                AuthUtil.isAuthorizedEntityUrns(
-                    eq(mockAuthSession), eq(UPDATE), eq(Set.of(child, parent))))
-        .thenReturn(false);
+    mockEditEntityAuthorizedOnUrns(child);
 
     Set<Urn> unauthorized =
         EntityAspectAuthorizationUtils.filterUnauthorizedToEditLogicalParent(
             mockAuthSession, Map.of(child, Set.of(child, parent)));
 
     Assert.assertEquals(unauthorized, Set.of(child));
+  }
+
+  @Test
+  public void testResolveLogicalParentAuthorizationCandidates_includesDatasetForSchemaField() {
+    LinkedHashSet<Urn> candidates =
+        EntityAspectAuthorizationUtils.resolveLogicalParentAuthorizationCandidates(
+            PHYSICAL_SCHEMA_FIELD);
+
+    Assert.assertEquals(List.copyOf(candidates), List.of(PHYSICAL_DATASET, PHYSICAL_SCHEMA_FIELD));
+  }
+
+  @Test
+  public void testResolveLogicalParentAuthorizationCandidates_datasetOnly() {
+    Set<Urn> candidates =
+        EntityAspectAuthorizationUtils.resolveLogicalParentAuthorizationCandidates(
+            PHYSICAL_DATASET);
+
+    Assert.assertEquals(candidates, Set.of(PHYSICAL_DATASET));
+  }
+
+  @Test
+  public void testIsAuthorizedToEditLogicalParentEntity_schemaFieldViaDataset() {
+    mockEditEntityAuthorizedOnUrns(PHYSICAL_DATASET);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditLogicalParentEntity(
+            mockAuthSession, PHYSICAL_SCHEMA_FIELD));
+  }
+
+  @Test
+  public void
+      testIsAuthorizedToEditLogicalParentEntity_schemaFieldViaEntityUrnOnlyAfterDatasetDenied() {
+    mockEditEntityAuthorizedOnUrns(PHYSICAL_SCHEMA_FIELD);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditLogicalParentEntity(
+            mockAuthSession, PHYSICAL_SCHEMA_FIELD));
+
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAuthorizedEntityUrns(
+                eq(mockAuthSession), eq(UPDATE), eq(Set.of(PHYSICAL_DATASET))),
+        times(1));
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAuthorizedEntityUrns(
+                eq(mockAuthSession), eq(UPDATE), eq(Set.of(PHYSICAL_SCHEMA_FIELD))),
+        times(1));
+  }
+
+  @Test
+  public void testIsAuthorizedToEditLogicalParent_datasetPairUsesPerSideChecks() {
+    mockEditEntityAuthorizedOnUrns(PHYSICAL_DATASET, LOGICAL_DATASET);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditLogicalParent(
+            mockAuthSession, PHYSICAL_DATASET, LOGICAL_DATASET));
+
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAuthorizedEntityUrns(
+                eq(mockAuthSession), eq(UPDATE), eq(Set.of(PHYSICAL_DATASET))),
+        times(1));
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAuthorizedEntityUrns(
+                eq(mockAuthSession), eq(UPDATE), eq(Set.of(LOGICAL_DATASET))),
+        times(1));
+  }
+
+  @Test
+  public void testIsAuthorizedToEditLogicalParent_schemaFieldPairUsesDatasetPerSide() {
+    mockEditEntityAuthorizedOnUrns(PHYSICAL_DATASET, LOGICAL_DATASET);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditLogicalParent(
+            mockAuthSession, PHYSICAL_SCHEMA_FIELD, LOGICAL_SCHEMA_FIELD));
+
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAuthorizedEntityUrns(
+                eq(mockAuthSession), eq(UPDATE), eq(Set.of(PHYSICAL_DATASET))),
+        times(1));
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAuthorizedEntityUrns(
+                eq(mockAuthSession), eq(UPDATE), eq(Set.of(LOGICAL_DATASET))),
+        times(1));
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAuthorizedEntityUrns(
+                eq(mockAuthSession), eq(UPDATE), eq(Set.of(PHYSICAL_SCHEMA_FIELD))),
+        times(0));
+  }
+
+  @Test
+  public void testIsAuthorizedToEditLogicalParentEntity_schemaFieldViaEntityUrn() {
+    mockEditEntityAuthorizedOnUrns(PHYSICAL_SCHEMA_FIELD);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditLogicalParentEntity(
+            mockAuthSession, PHYSICAL_SCHEMA_FIELD));
+  }
+
+  @Test
+  public void testIsAuthorizedToEditLogicalParent_allowsBothSidesViaDatasets() {
+    mockEditEntityAuthorizedOnUrns(PHYSICAL_DATASET, LOGICAL_DATASET);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditLogicalParent(
+            mockAuthSession, PHYSICAL_SCHEMA_FIELD, LOGICAL_SCHEMA_FIELD));
+  }
+
+  @Test
+  public void testIsAuthorizedToEditLogicalParent_deniesPhysicalOnly() {
+    mockEditEntityAuthorizedOnUrns(PHYSICAL_DATASET);
+
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditLogicalParent(
+            mockAuthSession, PHYSICAL_SCHEMA_FIELD, LOGICAL_SCHEMA_FIELD));
+  }
+
+  @Test
+  public void testIsAuthorizedToEditLogicalParent_deniesLogicalOnly() {
+    mockEditEntityAuthorizedOnUrns(LOGICAL_DATASET);
+
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditLogicalParent(
+            mockAuthSession, PHYSICAL_SCHEMA_FIELD, LOGICAL_SCHEMA_FIELD));
+  }
+
+  @Test
+  public void testIsAuthorizedToEditLogicalParent_allowsMixedDatasetAndSchemaFieldGrants() {
+    mockEditEntityAuthorizedOnUrns(PHYSICAL_DATASET, LOGICAL_SCHEMA_FIELD);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditLogicalParent(
+            mockAuthSession, PHYSICAL_DATASET, LOGICAL_SCHEMA_FIELD));
+  }
+
+  @Test
+  public void testIsAuthorizedToEditLogicalParent_allowsSchemaFieldPairViaPerSideFieldUrns() {
+    mockEditEntityAuthorizedOnUrns(PHYSICAL_SCHEMA_FIELD, LOGICAL_SCHEMA_FIELD);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditLogicalParent(
+            mockAuthSession, PHYSICAL_SCHEMA_FIELD, LOGICAL_SCHEMA_FIELD));
+
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAuthorizedEntityUrns(
+                eq(mockAuthSession), eq(UPDATE), eq(Set.of(PHYSICAL_DATASET))),
+        times(1));
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAuthorizedEntityUrns(
+                eq(mockAuthSession), eq(UPDATE), eq(Set.of(LOGICAL_DATASET))),
+        times(1));
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAuthorizedEntityUrns(
+                eq(mockAuthSession), eq(UPDATE), eq(Set.of(PHYSICAL_SCHEMA_FIELD))),
+        times(1));
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAuthorizedEntityUrns(
+                eq(mockAuthSession), eq(UPDATE), eq(Set.of(LOGICAL_SCHEMA_FIELD))),
+        times(1));
+  }
+
+  @Test
+  public void testIsAuthorizedToEditLogicalParent_clearParentViaDatasetOnly() {
+    mockEditEntityAuthorizedOnUrns(PHYSICAL_DATASET);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditLogicalParent(
+            mockAuthSession, PHYSICAL_SCHEMA_FIELD, null));
+  }
+
+  @Test
+  public void testFilterUnauthorizedToEditLogicalParent_allowsWhenBothSidesPass() {
+    Urn child = PHYSICAL_SCHEMA_FIELD;
+    Urn parent = LOGICAL_SCHEMA_FIELD;
+    mockEditEntityAuthorizedOnUrns(PHYSICAL_DATASET, LOGICAL_DATASET);
+
+    Set<Urn> unauthorized =
+        EntityAspectAuthorizationUtils.filterUnauthorizedToEditLogicalParent(
+            mockAuthSession, Map.of(child, Set.of(child, parent)));
+
+    Assert.assertTrue(unauthorized.isEmpty());
+  }
+
+  private void mockEditEntityAuthorizedOnUrns(Urn... authorizedUrns) {
+    Set<Urn> authorized = Set.of(authorizedUrns);
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorizedEntityUrns(
+                    eq(mockAuthSession), eq(UPDATE), any(Collection.class)))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Collection<Urn> urns = invocation.getArgument(2);
+              return authorized.containsAll(urns);
+            });
   }
 
   @Test

@@ -334,10 +334,25 @@ View authorization is controlled by `VIEW_AUTHORIZATION_ENABLED` (see [Environme
 
 #### Logical parent (`logicalParent` aspect)
 
-Setting a physical dataset's logical parent requires **Edit Entity** on both the **child dataset**
-whose `logicalParent` aspect is being written (the entity URN in the MCP / `setLogicalParent`
-input) and the **proposed parent** dataset. Clearing a logical parent requires **Edit Entity** on
-the child dataset only.
+Setting a logical parent requires **Edit Entity** on **both** the child and the proposed parent.
+Clearing a logical parent requires **Edit Entity** on the child side only. There is no OR between
+child and parent — access to only one side is insufficient when setting a link.
+
+Each side is evaluated **independently**. For a **dataset**, that side passes when the actor has
+**Edit Entity** on that dataset. For a **schema field**, that side passes when the actor has **Edit
+Entity** on the containing dataset **or** on the schema field URN. Child and parent may satisfy
+their respective checks via different grant types (for example, dataset grant on the physical side
+and schema-field grant on the logical side).
+
+| Child entity  | Parent entity (when set) | How access is evaluated                                                                 |
+| ------------- | ------------------------ | --------------------------------------------------------------------------------------- |
+| `dataset`     | `dataset`                | Edit Entity on child dataset **and** parent dataset                                     |
+| `schemaField` | `schemaField`            | Edit Entity on each side (containing dataset or schema field URN), independently        |
+| `dataset`     | `schemaField`            | Edit Entity on child dataset **and** on parent (containing dataset or schema field URN) |
+| `schemaField` | `dataset`                | Edit Entity on child (containing dataset or schema field URN) **and** parent dataset    |
+
+Applies to MCP ingestion, GraphQL (`setLogicalParent`), and OpenAPI logical-model relationship
+endpoints.
 
 ### Specific Entity-level Privileges
 

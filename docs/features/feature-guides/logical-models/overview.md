@@ -158,8 +158,10 @@ The relationship can also be removed:
 
 ## Authorization
 
-Linking or unlinking a physical dataset to a logical parent writes the [`LogicalParent`](../../../generated/metamodel/entities/dataset.md#logicalparent) aspect on the **child** dataset. Authorization requires **Edit Entity** on the **child dataset** being updated and, when setting a parent, on the **proposed parent dataset** as well. Clearing a logical parent requires **Edit Entity** on the **child dataset** only.
+Linking or unlinking a physical dataset to a logical parent writes the [`LogicalParent`](../../../generated/metamodel/entities/dataset.md#logicalparent) aspect on the **child** entity (dataset and, for column links, schema field). Authorization requires **Edit Entity** on **both** the child and proposed parent when setting a link; clearing a parent requires **Edit Entity** on the child only.
+
+Each side is checked independently: **datasets** require **Edit Entity** on that dataset; **schema fields** accept **Edit Entity** on the containing dataset or on the schema field URN. The child and parent sides may use different grant types (for example, a dataset policy on the physical side and a schema-field policy on the logical side). OpenAPI logical-model endpoints apply the same rules before batch-writing MCPs.
 
 This applies to MCP ingestion, GraphQL (`setLogicalParent`), and OpenAPI relationship endpoints.
 
-See [Metadata Policies — derived authorization rules](../../../authorization/policies.md#derived-authorization-rules).
+See [Metadata Policies — derived authorization rules](../../../authorization/policies.md#logical-parent-logicalparent-aspect).

@@ -211,10 +211,10 @@ public class QueryTypeTest {
                     new Aspect(TEST_QUERY_SUBJECTS_1.data()))));
 
     QueryType type = new QueryType(client);
+    OperationContext userContext = createUserContextWithViewAuth(mockAuthorizer, aspectRetriever);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
-    Mockito.when(mockContext.getOperationContext())
-        .thenReturn(createUserContextWithViewAuth(mockAuthorizer, aspectRetriever));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(userContext);
 
     List<DataFetcherResult<QueryEntity>> result =
         type.batchLoad(ImmutableList.of(TEST_QUERY_URN.toString()), mockContext);

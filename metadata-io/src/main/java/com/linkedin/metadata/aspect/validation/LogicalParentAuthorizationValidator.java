@@ -11,11 +11,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.Setter;
@@ -36,24 +32,15 @@ public class LogicalParentAuthorizationValidator extends AbstractAspectAuthoriza
       @Nonnull RetrieverContext retrieverContext,
       @Nonnull AuthorizationSession session) {
 
-    Map<Urn, Set<Urn>> urnsRequiringEditByChild = new HashMap<>();
-    for (BatchItem item : items) {
-      Set<Urn> urnsToCheck = new HashSet<>();
-      urnsToCheck.add(item.getUrn());
-      LogicalParent proposed = item.getAspect(LogicalParent.class);
-      if (proposed != null && proposed.hasParent() && proposed.getParent().hasDestinationUrn()) {
-        urnsToCheck.add(proposed.getParent().getDestinationUrn());
-      }
-      urnsRequiringEditByChild.put(item.getUrn(), urnsToCheck);
-    }
-
-    Set<Urn> unauthorized =
-        EntityAspectAuthorizationUtils.filterUnauthorizedToEditLogicalParent(
-            session, urnsRequiringEditByChild);
-
     List<AspectValidationException> failures = new ArrayList<>();
     for (BatchItem item : items) {
-      if (unauthorized.contains(item.getUrn())) {
+      Urn proposedParentUrn = null;
+      LogicalParent proposed = item.getAspect(LogicalParent.class);
+      if (proposed != null && proposed.hasParent() && proposed.getParent().hasDestinationUrn()) {
+        proposedParentUrn = proposed.getParent().getDestinationUrn();
+      }
+      if (!EntityAspectAuthorizationUtils.isAuthorizedToEditLogicalParent(
+          session, item.getUrn(), proposedParentUrn)) {
         failures.add(
             authFailure(item, "Unauthorized to modify logicalParent on entity: " + item.getUrn()));
       }

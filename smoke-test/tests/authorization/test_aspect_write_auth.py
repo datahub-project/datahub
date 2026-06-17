@@ -14,6 +14,11 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DomainPropertiesClass,
     DomainsClass,
+    MySqlDDLClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
 )
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.privileges.utils import (
@@ -48,6 +53,9 @@ TARGET_DATASET_URN = (
 PARENT_DATASET_URN = (
     f"urn:li:dataset:(urn:li:dataPlatform:kafka,auth-parent-{_UNIQUE},PROD)"
 )
+PHYSICAL_SCHEMA_FIELD_URN = f"urn:li:schemaField:({TARGET_DATASET_URN},col1)"
+LOGICAL_SCHEMA_FIELD_URN = f"urn:li:schemaField:({PARENT_DATASET_URN},col1)"
+KAFKA_PLATFORM_URN = "urn:li:dataPlatform:kafka"
 MEMBER_DATASET_URN = (
     f"urn:li:dataset:(urn:li:dataPlatform:kafka,auth-member-{_UNIQUE},PROD)"
 )
@@ -114,6 +122,23 @@ CREATE_DATA_PRODUCT_MUTATION = (
 DATA_PRODUCT_URN: str = ""
 
 
+def _schema_metadata_with_field(field_path: str = "col1") -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="auth_test_schema",
+        platform=KAFKA_PLATFORM_URN,
+        version=0,
+        hash="",
+        platformSchema=MySqlDDLClass(tableSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=field_path,
+                nativeDataType="string",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+            )
+        ],
+    )
+
+
 @pytest.fixture(scope="module", autouse=True)
 def auth_test_setup(graph_client, auth_session):
     global DATA_PRODUCT_URN
@@ -133,6 +158,18 @@ def auth_test_setup(graph_client, auth_session):
                 name=f"auth-parent-{_UNIQUE}",
                 description="Parent dataset for logicalParent auth test",
             ),
+        )
+    )
+    graph_client.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=TARGET_DATASET_URN,
+            aspect=_schema_metadata_with_field(),
+        )
+    )
+    graph_client.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=PARENT_DATASET_URN,
+            aspect=_schema_metadata_with_field(),
         )
     )
     graph_client.emit_mcp(
@@ -346,6 +383,140 @@ def test_set_logical_parent_allowed_with_edit_entity_on_target_and_parent(auth_s
 
     remove_policy(target_policy_urn, admin_session)
     remove_policy(parent_policy_urn, admin_session)
+
+
+def test_set_logical_parent_schema_field_denied_without_edit_entity_on_logical_dataset():
+    """Schema field logicalParent denied when only the physical dataset is authorized."""
+    admin_session = get_frontend_session()
+    policy_urn = create_metadata_policy(
+        admin_session,
+        name=f"Test EDIT_ENTITY physical dataset only {_UNIQUE}",
+        description="Grant EDIT_ENTITY on physical dataset only for schema field link",
+        privileges=["EDIT_ENTITY"],
+        user_urn=TEST_USER_URN,
+        resource_urn=TARGET_DATASET_URN,
+    )
+    wait_for_writes_to_sync()
+
+    payload = {
+        "query": SET_LOGICAL_PARENT_MUTATION,
+        "variables": {
+            "input": {
+                "resourceUrn": PHYSICAL_SCHEMA_FIELD_URN,
+                "parentUrn": LOGICAL_SCHEMA_FIELD_URN,
+            }
+        },
+    }
+    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    _assert_graphql_auth_denied(res)
+
+    remove_policy(policy_urn, admin_session)
+
+
+def test_set_logical_parent_schema_field_denied_without_edit_entity_on_physical_dataset():
+    """Schema field logicalParent denied when only the logical dataset is authorized."""
+    admin_session = get_frontend_session()
+    policy_urn = create_metadata_policy(
+        admin_session,
+        name=f"Test EDIT_ENTITY logical dataset only {_UNIQUE}",
+        description="Grant EDIT_ENTITY on logical dataset only for schema field link",
+        privileges=["EDIT_ENTITY"],
+        user_urn=TEST_USER_URN,
+        resource_urn=PARENT_DATASET_URN,
+    )
+    wait_for_writes_to_sync()
+
+    payload = {
+        "query": SET_LOGICAL_PARENT_MUTATION,
+        "variables": {
+            "input": {
+                "resourceUrn": PHYSICAL_SCHEMA_FIELD_URN,
+                "parentUrn": LOGICAL_SCHEMA_FIELD_URN,
+            }
+        },
+    }
+    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    _assert_graphql_auth_denied(res)
+
+    remove_policy(policy_urn, admin_session)
+
+
+def test_set_logical_parent_schema_field_allowed_via_dataset_policies_only(
+    auth_session,
+):
+    """Schema field logicalParent succeeds with EDIT_ENTITY on physical and logical datasets."""
+    admin_session = get_frontend_session()
+    physical_policy_urn = create_metadata_policy(
+        admin_session,
+        name=f"Test EDIT_ENTITY physical dataset schema field {_UNIQUE}",
+        description="Grant EDIT_ENTITY on physical dataset for schema field delegation",
+        privileges=["EDIT_ENTITY"],
+        user_urn=TEST_USER_URN,
+        resource_urn=TARGET_DATASET_URN,
+    )
+    logical_policy_urn = create_metadata_policy(
+        admin_session,
+        name=f"Test EDIT_ENTITY logical dataset schema field {_UNIQUE}",
+        description="Grant EDIT_ENTITY on logical dataset for schema field delegation",
+        privileges=["EDIT_ENTITY"],
+        user_urn=TEST_USER_URN,
+        resource_urn=PARENT_DATASET_URN,
+    )
+    wait_for_writes_to_sync()
+
+    payload = {
+        "query": SET_LOGICAL_PARENT_MUTATION,
+        "variables": {
+            "input": {
+                "resourceUrn": PHYSICAL_SCHEMA_FIELD_URN,
+                "parentUrn": LOGICAL_SCHEMA_FIELD_URN,
+            }
+        },
+    }
+    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    assert res.get("data", {}).get("setLogicalParent") is True, res
+
+    remove_policy(physical_policy_urn, admin_session)
+    remove_policy(logical_policy_urn, admin_session)
+
+
+def test_set_logical_parent_schema_field_allowed_with_mixed_dataset_and_field_grants(
+    auth_session,
+):
+    """Schema field link allows dataset grant on child and schema-field grant on parent."""
+    admin_session = get_frontend_session()
+    physical_policy_urn = create_metadata_policy(
+        admin_session,
+        name=f"Test EDIT_ENTITY physical dataset mixed {_UNIQUE}",
+        description="Grant EDIT_ENTITY on physical dataset only",
+        privileges=["EDIT_ENTITY"],
+        user_urn=TEST_USER_URN,
+        resource_urn=TARGET_DATASET_URN,
+    )
+    logical_field_policy_urn = create_metadata_policy(
+        admin_session,
+        name=f"Test EDIT_ENTITY logical schema field mixed {_UNIQUE}",
+        description="Grant EDIT_ENTITY on logical schema field only",
+        privileges=["EDIT_ENTITY"],
+        user_urn=TEST_USER_URN,
+        resource_urn=LOGICAL_SCHEMA_FIELD_URN,
+    )
+    wait_for_writes_to_sync()
+
+    payload = {
+        "query": SET_LOGICAL_PARENT_MUTATION,
+        "variables": {
+            "input": {
+                "resourceUrn": PHYSICAL_SCHEMA_FIELD_URN,
+                "parentUrn": LOGICAL_SCHEMA_FIELD_URN,
+            }
+        },
+    }
+    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    assert res.get("data", {}).get("setLogicalParent") is True, res
+
+    remove_policy(physical_policy_urn, admin_session)
+    remove_policy(logical_field_policy_urn, admin_session)
 
 
 def test_batch_set_data_product_denied_with_asset_side_privilege_only(auth_session):

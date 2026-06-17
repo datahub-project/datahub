@@ -1,6 +1,7 @@
 package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.LOGICAL_PARENT_ASPECT_NAME;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 
@@ -36,6 +37,10 @@ public class LogicalParentAuthorizationValidatorTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
   private static final Urn PARENT_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,parent,PROD)");
+  private static final Urn SCHEMA_FIELD_URN =
+      UrnUtils.getUrn("urn:li:schemaField:(" + TEST_DATASET_URN + ",field1)");
+  private static final Urn PARENT_SCHEMA_FIELD_URN =
+      UrnUtils.getUrn("urn:li:schemaField:(" + PARENT_URN + ",parent_field1)");
 
   private LogicalParentAuthorizationValidator validator;
   private AuthorizationSession mockAuthSession;
@@ -187,6 +192,41 @@ public class LogicalParentAuthorizationValidatorTest {
               @SuppressWarnings("unchecked")
               Collection<Urn> urns = invocation.getArgument(2);
               return urns.size() == 1 && urns.equals(Set.of(TEST_DATASET_URN));
+            });
+
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            TestOperationContexts.systemContextNoSearchAuthorization().getRetrieverContext(),
+            mockAuthSession);
+
+    Assert.assertTrue(result.findAny().isEmpty());
+  }
+
+  @Test
+  public void testAllowSchemaFieldViaContainingDatasets() {
+    LogicalParent logicalParent = new LogicalParent();
+    logicalParent.setParent(
+        new Edge()
+            .setDestinationUrn(PARENT_SCHEMA_FIELD_URN)
+            .setCreated(
+                new AuditStamp().setTime(1L).setActor(UrnUtils.getUrn("urn:li:corpuser:test"))));
+
+    TestMCP item =
+        TestMCP.ofOneUpsertItem(SCHEMA_FIELD_URN, logicalParent, new TestEntityRegistry()).stream()
+            .map(i -> (TestMCP) i)
+            .findFirst()
+            .get();
+
+    authUtilMockedStatic
+        .when(() -> AuthUtil.isAuthorizedEntityUrns(eq(mockAuthSession), eq(UPDATE), any()))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Collection<Urn> urns = invocation.getArgument(2);
+              Set<Urn> authorized = Set.of(TEST_DATASET_URN, PARENT_URN);
+              return authorized.containsAll(urns);
             });
 
     Stream<AspectValidationException> result =

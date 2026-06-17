@@ -149,7 +149,13 @@ public class ListQueriesResolverTest {
 
     Mockito.when(
             mockClient.search(
-                any(), Mockito.eq(Constants.QUERY_ENTITY_NAME), any(), any(), any(), any(), any()))
+                any(),
+                Mockito.eq(Constants.QUERY_ENTITY_NAME),
+                any(),
+                any(),
+                any(),
+                anyInt(),
+                any()))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)

@@ -63,9 +63,58 @@ public final class EntityAspectAuthorizationUtils {
   private EntityAspectAuthorizationUtils() {}
 
   /**
-   * Returns child URNs whose {@code logicalParent} write is unauthorized. The actor must have
-   * {@code EDIT_ENTITY} on the child entity and, when a parent is being set, on the proposed parent
-   * as well.
+   * Authorization candidates for a {@code logicalParent} write on {@code urn}, ordered for
+   * evaluation: containing dataset first for schema fields (most common), then the entity URN.
+   */
+  @Nonnull
+  public static LinkedHashSet<Urn> resolveLogicalParentAuthorizationCandidates(@Nonnull Urn urn) {
+    LinkedHashSet<Urn> candidates = new LinkedHashSet<>();
+    if (SCHEMA_FIELD_ENTITY_NAME.equals(urn.getEntityType())) {
+      candidates.add(UrnUtils.getUrn(urn.getEntityKey().get(0)));
+      candidates.add(urn);
+    } else {
+      candidates.add(urn);
+    }
+    return candidates;
+  }
+
+  /**
+   * Returns true when the actor has {@code EDIT_ENTITY} on {@code urn} for a logical-parent write.
+   * Datasets are checked directly. Schema fields succeed when either the containing dataset or the
+   * schema field URN is authorized.
+   */
+  public static boolean isAuthorizedToEditLogicalParentEntity(
+      @Nonnull AuthorizationSession session, @Nonnull Urn urn) {
+    for (Urn candidate : resolveLogicalParentAuthorizationCandidates(urn)) {
+      if (com.datahub.authorization.AuthUtil.isAuthorizedEntityUrns(
+          session, ApiOperation.UPDATE, Set.of(candidate))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns true when the actor may write {@code logicalParent} on {@code childUrn}. Setting a
+   * parent requires {@code EDIT_ENTITY} on both the child and proposed parent — each side is
+   * evaluated independently (dataset or schema field URN for that side). Clearing a parent requires
+   * authorization on the child side only.
+   */
+  public static boolean isAuthorizedToEditLogicalParent(
+      @Nonnull AuthorizationSession session,
+      @Nonnull Urn childUrn,
+      @Nullable Urn proposedParentUrn) {
+    if (proposedParentUrn == null) {
+      return isAuthorizedToEditLogicalParentEntity(session, childUrn);
+    }
+    return isAuthorizedToEditLogicalParentEntity(session, childUrn)
+        && isAuthorizedToEditLogicalParentEntity(session, proposedParentUrn);
+  }
+
+  /**
+   * Returns child URNs whose {@code logicalParent} write is unauthorized. Delegates to {@link
+   * #isAuthorizedToEditLogicalParent(AuthorizationSession, Urn, Urn)} per entry; map values are the
+   * child URN plus an optional proposed parent URN.
    */
   @Nonnull
   public static Set<Urn> filterUnauthorizedToEditLogicalParent(
@@ -75,9 +124,15 @@ public final class EntityAspectAuthorizationUtils {
     }
     return urnsRequiringEditByChild.entrySet().stream()
         .filter(
-            entry ->
-                !com.datahub.authorization.AuthUtil.isAuthorizedEntityUrns(
-                    session, ApiOperation.UPDATE, entry.getValue()))
+            entry -> {
+              Urn childUrn = entry.getKey();
+              Urn proposedParentUrn =
+                  entry.getValue().stream()
+                      .filter(urn -> !urn.equals(childUrn))
+                      .findFirst()
+                      .orElse(null);
+              return !isAuthorizedToEditLogicalParent(session, childUrn, proposedParentUrn);
+            })
         .map(Entry::getKey)
         .collect(Collectors.toSet());
   }
