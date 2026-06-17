@@ -204,8 +204,7 @@ class SnowflakeQuery:
         if pattern.deny:
             deny_conditions: List[str] = []
             for p in pattern.deny:
-                # Escape backslashes and single quotes for SQL string literal
-                escaped = transform(p).replace("\\", "\\\\").replace("'", "''")
+                escaped = _escape_sql_string_literal(transform(p))
                 deny_conditions.append(f"{col_expr} NOT RLIKE '{escaped}'")
 
             if len(deny_conditions) == 1:

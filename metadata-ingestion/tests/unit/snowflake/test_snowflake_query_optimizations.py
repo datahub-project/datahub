@@ -6,11 +6,16 @@ Covers:
 - columns_for_schema_in_template: IN-clause column query template
 """
 
+import itertools
+import re
+
 import pytest
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.snowflake.snowflake_query import (
+    _SNOWFLAKE_SAFE_LITERAL_SUBSET_RE,
     SnowflakeQuery,
+    _make_composable,
     paginate_query_values_segment_by_byte_budget,
 )
 
@@ -456,6 +461,16 @@ def _parse_snowflake_string_literals(body: str) -> list:
     return values
 
 
+def test_snowflake_oracle_rejects_backslash_breakout():
+    """Guard the test oracle itself. A ``''``-only parser would happily "recover"
+    a value from ``'TABLE\\'`` (the trailing backslash eats the closing quote),
+    giving a false all-clear. The Snowflake-accurate oracle must reject it. This
+    keeps the oracle these tests rely on from silently regressing to ``''``-only,
+    which is what hid the backslash injection in the first place."""
+    with pytest.raises(ValueError):
+        _parse_snowflake_string_literals(r"'TABLE\'")
+
+
 def _parse_in_values(sql: str) -> list:
     """Extract Snowflake-unescaped values from the IN (...) clause."""
     idx = sql.find("IN (")
@@ -493,9 +508,11 @@ _ADVERSARIAL_NAMES = [
     "'; SELECT * FROM passwords; --",
     "' UNION SELECT null,null,null --",
     # Backslash + quote combinations (multi-pass escape abuse)
+    "TABLE\\",  # trailing backslash — most direct breakout (eats closing quote)
     "TABLE\\'",  # backslash then quote
     "TABLE\\\\'",  # two backslashes then quote
     "TABLE\\\\\\'",  # three backslashes then quote
+    "ORDERS\\' UNION SELECT current_user() --",  # backslash breakout + payload
     # Quote-only names
     "'",
     "''",
@@ -610,8 +627,11 @@ class TestColumnsTemplateAdversarialNames:
             ("SCHEMA' OR '1'='1", "DB"),
             ("SCHEMA; DELETE FROM t --", "DB"),
             ("SCHEMA\\'", "DB"),
+            ("PUBLIC\\", "DB"),  # trailing backslash in schema name
             ("{in_values}", "DB"),
             ("SCHEMA", "{in_values}"),
+            ("S{0}CHEMA", "MY_DB"),  # positional brace — would crash naive .format()
+            ("SCHEMA{", "DB"),  # lone brace — would raise ValueError in .format()
         ],
     )
     def test_adversarial_schema_names_round_trip(self, schema, db):
@@ -643,3 +663,224 @@ class TestColumnsTemplateAdversarialNames:
         # Table names in the IN clause must be unaffected
         recovered_names = _parse_in_values(sql)
         assert recovered_names == names
+
+
+# ---------------------------------------------------------------------------
+# _make_composable fast path: the re.compile-skip safety contract
+# ---------------------------------------------------------------------------
+#
+# _make_composable wraps a pattern in (?:...) and, for patterns matching
+# _SNOWFLAKE_SAFE_LITERAL_SUBSET_RE, returns it WITHOUT the re.compile validation
+# every other pattern goes through. Skipping validation is only safe because that
+# subset admits no SQL-quote, backslash, or regex group/alternation metacharacter.
+# These tests pin that contract so any future loosening of the subset (or of the
+# escaping) trips a red test instead of shipping a scope-widening / literal-
+# breaking pattern straight into SQL.
+
+
+def _extract_rlike_literal(sql: str) -> str:
+    """Return the FIRST ``RLIKE '...'`` literal in *sql*, parsed with Snowflake's
+    real escaping rules. Raises ``ValueError`` if the literal is unterminated
+    (a backslash/quote broke out of it)."""
+    marker = "RLIKE '"
+    idx = sql.find(marker)
+    assert idx != -1, f"no RLIKE literal in: {sql!r}"
+    i = idx + len(marker)
+    chars: list = []
+    n = len(sql)
+    while i < n:
+        c = sql[i]
+        if c == "\\":
+            if i + 1 >= n:
+                raise ValueError(
+                    "backslash escaped the closing quote of the RLIKE literal"
+                )
+            chars.append(sql[i + 1])
+            i += 2
+            continue
+        if c == "'":
+            if i + 1 < n and sql[i + 1] == "'":
+                chars.append("'")
+                i += 2
+                continue
+            return "".join(chars)
+        chars.append(c)
+        i += 1
+    raise ValueError(f"unterminated RLIKE literal (recovered {''.join(chars)!r})")
+
+
+# SQL-literal breakers (quote, backslash) and regex group/alternation breakers
+# that the validation-skipping subset must never admit.
+_FORBIDDEN_IN_FAST_PATH = ["'", "\\", "(", ")", "|", "[", "]", "{", "}", "*", "+", "?"]
+
+
+class TestMakeComposableFastPath:
+    """Lock the safety contract of the re.compile-skipping fast path."""
+
+    @pytest.mark.parametrize("ch", _FORBIDDEN_IN_FAST_PATH)
+    def test_subset_regex_rejects_dangerous_characters(self, ch):
+        """If the subset ever admits a SQL-literal breaker or a regex
+        group/alternation metacharacter, skipping re.compile becomes unsafe."""
+        assert not _SNOWFLAKE_SAFE_LITERAL_SUBSET_RE.match(f"DB.T{ch}ABLE$"), (
+            f"subset regex now admits {ch!r} — re.compile skip is unsafe"
+        )
+
+    def test_every_subset_pattern_is_a_valid_wrapped_regex(self):
+        """Skipping re.compile is sound only if EVERY subset-matching pattern is a
+        valid regex once wrapped. Fuzz the alphabet to confirm there is no input
+        the slow path would have rejected."""
+        offenders = []
+        for length in range(1, 5):
+            for combo in itertools.product("AZ09_$.", repeat=length):
+                p = "".join(combo) + "$"
+                if not _SNOWFLAKE_SAFE_LITERAL_SUBSET_RE.match(p):
+                    continue
+                wrapped = _make_composable(p)
+                assert wrapped is not None
+                try:
+                    re.compile(wrapped)
+                except re.error:
+                    offenders.append(p)
+        assert not offenders, (
+            f"fast path accepts but re.compile rejects: {offenders[:10]}"
+        )
+
+    def test_fast_path_output_equals_validated_path(self):
+        """The optimization must be behavior-preserving: for subset patterns the
+        fast path returns exactly what the validate-then-wrap path would."""
+        for p in ["A.B.C$", "PROD_DB.PUBLIC.T$", "9X$", "A$B$", "X...$", "T_1$"]:
+            wrapped = f"(?:{p})"
+            re.compile(wrapped)  # the slow path would accept it
+            assert _make_composable(p) == wrapped
+
+    @pytest.mark.parametrize(
+        "allow",
+        [
+            ["DB.SCHEMA.TABLE'; DROP TABLE t; --"],
+            ["DB.SCHEMA.TABLE\\"],  # trailing backslash
+            ["DB.SCHEMA.O\\'BRIEN"],  # backslash + quote
+            ["DB.SCHEMA.T\\\\"],  # double backslash
+            ["DB.SCHEMA.TABLE)|(.*"],  # regex-breakout attempt via )|(
+            ["A'$", "B\\$"],  # quote/backslash patterns that LOOK subset-ish
+            ["NORMAL.TABLE$"],  # benign control
+        ],
+    )
+    def test_allow_pattern_rlike_literal_is_always_well_formed(self, allow):
+        """Whatever the allow pattern, the emitted RLIKE literal must be a single,
+        properly-terminated Snowflake literal — no quote/backslash may break out.
+        (Patterns may still WIDEN regex matching, but that is within the recipe
+        author's existing authority; SQL breakout is not.)"""
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(allow=allow), FQN_EXPR
+        )
+        if "RLIKE '" in result:
+            _extract_rlike_literal(result)  # raises on breakout
+
+    def test_quotey_subsetlike_pattern_routes_through_escaping(self):
+        """``A'$`` resembles a safe literal but contains a quote, so it must NOT
+        take the validation-skip fast path, and its quote must be doubled."""
+        assert not _SNOWFLAKE_SAFE_LITERAL_SUBSET_RE.match("A'$")
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(allow=["A'$"]), FQN_EXPR
+        )
+        assert "''" in result
+        _extract_rlike_literal(result)
+
+
+# ---------------------------------------------------------------------------
+# Adversarial deny patterns (NOT RLIKE)
+# ---------------------------------------------------------------------------
+
+
+def _all_rlike_literals(sql: str) -> list:
+    """Return every ``RLIKE '...'`` / ``NOT RLIKE '...'`` literal in *sql*, parsed
+    with Snowflake's real escaping rules. Raises ``ValueError`` if any literal is
+    left unterminated (backslash/quote breakout)."""
+    results: list = []
+    marker = "RLIKE '"
+    i, n = 0, len(sql)
+    while True:
+        idx = sql.find(marker, i)
+        if idx == -1:
+            return results
+        j = idx + len(marker)
+        chars: list = []
+        terminated = False
+        while j < n:
+            c = sql[j]
+            if c == "\\":
+                if j + 1 >= n:
+                    raise ValueError(
+                        "backslash consumed the closing quote of a RLIKE literal"
+                    )
+                chars.append(sql[j + 1])
+                j += 2
+                continue
+            if c == "'":
+                if j + 1 < n and sql[j + 1] == "'":
+                    chars.append("'")
+                    j += 2
+                    continue
+                j += 1
+                terminated = True
+                break
+            chars.append(c)
+            j += 1
+        if not terminated:
+            raise ValueError(
+                f"unterminated RLIKE literal (recovered {''.join(chars)!r})"
+            )
+        results.append("".join(chars))
+        i = j
+
+
+class TestDenyPatternInjection:
+    """Deny patterns are recipe-controlled (untrusted). Each NOT RLIKE literal
+    must stay self-contained, and deny patterns must never be silently dropped."""
+
+    @pytest.mark.parametrize(
+        "deny",
+        [
+            "SECRET.*'; DROP TABLE t; --",
+            "SECRET\\",  # trailing backslash — would eat the closing quote if unescaped
+            "O\\'BRIEN_SECRET",  # backslash + quote
+            "X\\\\",  # double backslash
+            ".*_TEMP' OR '1'='1",
+            "SECRET)|(.*",  # regex widen attempt (must stay inside the literal)
+        ],
+    )
+    def test_single_deny_literal_is_well_formed(self, deny):
+        # ignoreCase=False keeps the round-trip exact; escaping is case-independent.
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=[deny], ignoreCase=False), FQN_EXPR
+        )
+        literals = _all_rlike_literals(result)  # raises on breakout
+        assert deny in literals, (
+            f"deny pattern {deny!r} not recovered intact from: {result!r}"
+        )
+
+    def test_backslash_deny_is_escaped(self):
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=["SECRET\\"]), FQN_EXPR
+        )
+        assert "\\\\" in result  # backslash doubled for the SQL literal
+        _all_rlike_literals(result)  # well-formed
+
+    def test_allow_and_deny_both_literals_well_formed(self):
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(allow=["DB.GOOD.*$"], deny=["DB.SECRET\\", "X'Y"]),
+            FQN_EXPR,
+        )
+        literals = _all_rlike_literals(result)
+        assert any("GOOD" in lit for lit in literals)
+        assert "NOT RLIKE" in result and " AND " in result
+
+    def test_uncomposable_deny_is_not_silently_dropped(self):
+        """A deny pattern an allow pattern would drop (unbalanced paren) must NOT
+        vanish from the deny path — it should still be emitted (failing loudly at
+        Snowflake), never silently widening collection to excluded objects."""
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=["SECRET("]), FQN_EXPR
+        )
+        assert "NOT RLIKE" in result, f"deny pattern was silently dropped: {result!r}"
+        assert "SECRET(" in _all_rlike_literals(result)
