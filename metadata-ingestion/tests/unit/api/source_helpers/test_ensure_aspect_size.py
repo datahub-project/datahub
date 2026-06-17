@@ -378,7 +378,7 @@ def test_ensure_size_of_proper_dataset_profile(processor):
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
-def test_ensure_size_of_too_big_schema_metadata(processor):
+def test_schema_metadata_trims_fields_when_fields_are_too_large(processor):
     schema = too_big_schema_metadata()
     assert len(schema.fields) == 1004
 
@@ -393,7 +393,7 @@ def test_ensure_size_of_too_big_schema_metadata(processor):
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
-def test_ensure_size_of_proper_schema_metadata(processor):
+def test_schema_metadata_no_op_when_fits_within_budget(processor):
     schema = proper_schema_metadata()
     orig_repr = json.dumps(schema.to_obj())
     processor.ensure_schema_metadata_size(
@@ -529,6 +529,60 @@ def test_ensure_schema_metadata_drops_oversized_non_other_platform_schema(proces
         "Aspect exceeded acceptable size"
     )
     assert processor.report.num_platform_schema_drops == 1
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_schema_metadata_drops_raw_schema_then_trims_fields(processor):
+    # Cascade: a meaningful raw schema (~40% of budget) AND fields that are too
+    # large even on their own. The raw schema must be dropped FIRST, then fields
+    # trimmed — proving the order (a regression that trimmed fields first and
+    # dropped the schema second would leave a different result).
+    raw_schema_size = int(processor.schema_size_constraint * 0.4)
+    fields = [
+        SchemaFieldClass(
+            fieldPath=f"t{i}",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+            description=20000 * "a",
+        )
+        for i in range(1000)
+    ]
+    schema = SchemaMetadataClass(
+        schemaName="abcdef",
+        version=1,
+        platform="s3",
+        hash="ABCDE1234567890",
+        platformSchema=OtherSchemaClass(rawSchema="a" * raw_schema_size),
+        fields=fields,
+    )
+
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
+    )
+
+    assert isinstance(schema.platformSchema, OtherSchemaClass)
+    assert schema.platformSchema.rawSchema == "", "Raw schema should be dropped first"
+    assert processor.report.num_platform_schema_drops == 1
+    assert len(schema.fields) < 1000, "Fields should also be trimmed after the drop"
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
+        "Aspect exceeded acceptable size"
+    )
+
+
+def test_platform_schema_raw_fields_map_matches_models():
+    # setattr/getattr bypass the type checker, so a mistyped field name in
+    # _PLATFORM_SCHEMA_RAW_FIELDS would silently no-op. Assert every mapped
+    # field actually exists on its platformSchema variant.
+    from datahub.ingestion.workunit_processors.ensure_aspect_size import (
+        _PLATFORM_SCHEMA_RAW_FIELDS,
+    )
+
+    for cls, field_names in _PLATFORM_SCHEMA_RAW_FIELDS.items():
+        valid_fields = {f.name for f in cls.RECORD_SCHEMA.fields}  # type: ignore[attr-defined]
+        for field_name in field_names:
+            assert field_name in valid_fields, (
+                f"{cls.__name__} has no field {field_name!r}"
+            )
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
