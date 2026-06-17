@@ -186,6 +186,7 @@ interface Props {
     actions?: EntityMenuActions;
     browsePaths?: BrowsePathV2 | undefined;
     propagationDetails?: AttributionDetails;
+    refetchDeprecation?: () => void;
 }
 
 export default function DefaultPreviewCard({
@@ -233,6 +234,7 @@ export default function DefaultPreviewCard({
     browsePaths,
     description,
     propagationDetails,
+    refetchDeprecation,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
@@ -284,6 +286,7 @@ export default function DefaultPreviewCard({
             deprecation={deprecation}
             health={health}
             degree={degree}
+            refetchDeprecation={refetchDeprecation}
             connectionName={previewData?.name}
             previewData={previewData}
         />

@@ -263,6 +263,7 @@ entities:
       - domainProperties
       - institutionalMemory
       - ownership
+      - deprecation
       - structuredProperties
       - forms
       - testResults
@@ -665,6 +666,7 @@ entities:
       - applications
       - dataProductProperties
       - institutionalMemory
+      - deprecation
       - status
       - structuredProperties
       - forms

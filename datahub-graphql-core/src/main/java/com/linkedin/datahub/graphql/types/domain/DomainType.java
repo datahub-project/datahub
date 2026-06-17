@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.domain;
 
+import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -42,6 +44,7 @@ public class DomainType
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
           Constants.FORMS_ASPECT_NAME,
           Constants.DISPLAY_PROPERTIES_ASPECT_NAME,
+          DEPRECATION_ASPECT_NAME,
           Constants.ASSET_SETTINGS_ASPECT_NAME);
   private final EntityClient _entityClient;
 

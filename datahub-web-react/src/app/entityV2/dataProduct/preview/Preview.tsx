@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -7,7 +7,7 @@ import { getParentEntities } from '@app/entityV2/shared/containers/profile/heade
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Domain, EntityPath, EntityType, GlobalTags, GlossaryTerms, Owner } from '@types';
+import { Deprecation, Domain, EntityPath, EntityType, GlobalTags, GlossaryTerms, Owner } from '@types';
 
 interface Props {
     urn: string;
@@ -22,6 +22,7 @@ interface Props {
     externalUrl?: string | null;
     degree?: number;
     paths?: EntityPath[];
+    deprecation?: Deprecation | null;
     headerDropdownItems?: Set<EntityMenuItems>;
     previewType: PreviewType;
     actions?: EntityMenuActions;
@@ -40,11 +41,19 @@ export const Preview = ({
     externalUrl,
     degree,
     paths,
+    deprecation,
     headerDropdownItems,
     previewType,
     actions,
 }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+
+    // Local copy so un-deprecating via the badge popup removes the badge immediately
+    // without requiring a full search refetch (no DomainsContext equivalent for data products).
+    const [localDeprecation, setLocalDeprecation] = useState(deprecation ?? null);
+    useEffect(() => {
+        setLocalDeprecation(deprecation ?? null);
+    }, [deprecation]);
 
     return (
         <DefaultPreviewCard
@@ -65,6 +74,8 @@ export const Preview = ({
             externalUrl={externalUrl}
             degree={degree}
             paths={paths}
+            deprecation={localDeprecation}
+            refetchDeprecation={() => setLocalDeprecation(null)}
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}
             actions={actions}

@@ -34,6 +34,7 @@ import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal
 import MoveGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/MoveGlossaryEntityModal';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
+import { useHandleDeprecateDomain } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import {
     isDeleteDisabled,
     isMoveDisabled,
@@ -120,6 +121,7 @@ const EntityDropdown = (props: Props) => {
     const versioningEnabled = useAppConfig().config.featureFlags.entityVersioningEnabled;
 
     const [updateDeprecation] = useUpdateDeprecationMutation();
+    const { handleDeprecateDomainComplete } = useHandleDeprecateDomain(urn);
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(
@@ -163,6 +165,9 @@ const EntityDropdown = (props: Props) => {
                 entityUrns: [urn],
                 deprecated: deprecatedStatus,
             });
+            if (entityType === EntityType.Domain) {
+                handleDeprecateDomainComplete(deprecatedStatus);
+            }
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
@@ -556,7 +561,12 @@ const EntityDropdown = (props: Props) => {
                 <UpdateDeprecationModal
                     urns={[urn]}
                     onClose={() => setIsDeprecationModalVisible(false)}
-                    refetch={refetchForEntity}
+                    refetch={(formData) => {
+                        refetchForEntity?.();
+                        if (entityType === EntityType.Domain) {
+                            handleDeprecateDomainComplete(true, formData);
+                        }
+                    }}
                 />
             )}
             {isEntityAnnouncementModalVisible && (
