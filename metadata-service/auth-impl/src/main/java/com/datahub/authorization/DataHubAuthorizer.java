@@ -2,9 +2,11 @@ package com.datahub.authorization;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.plugins.auth.authorization.ResourceSpecCachingAuthorizer;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -28,6 +30,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +44,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 // TODO: Decouple this from all Rest.li objects if possible.
 @Slf4j
-public class DataHubAuthorizer implements Authorizer {
+public class DataHubAuthorizer implements Authorizer, ResourceSpecCachingAuthorizer {
 
   public enum AuthorizationMode {
     /** Default mode simply means that authorization is enforced, with a DENY result returned */
@@ -102,6 +105,13 @@ public class DataHubAuthorizer implements Authorizer {
   }
 
   public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
+    return authorize(request, null);
+  }
+
+  @Override
+  public AuthorizationResult authorize(
+      @Nonnull final AuthorizationRequest request,
+      @Nullable final Map<EntitySpec, ResolvedEntitySpec> resourceSpecCache) {
 
     // 0. Short circuit: If the action is being performed by the system (root), always allow it.
     if (isSystemRequest(request, systemOpContext.getAuthentication())) {
@@ -109,18 +119,31 @@ public class DataHubAuthorizer implements Authorizer {
     }
 
     Optional<ResolvedEntitySpec> resolvedResourceSpec =
-        request.getResourceSpec().map(entitySpecResolver::resolve);
+        request.getResourceSpec().map(spec -> resolveWithCache(spec, resourceSpecCache));
 
     List<ResolvedEntitySpec> resolvedSubResources =
         request.getSubResources().stream()
-            .map(entitySpecResolver::resolve)
+            .map(spec -> resolveWithCache(spec, resourceSpecCache))
             .collect(Collectors.toList());
 
     // 1. Fetch the policies relevant to the requested privilege.
-    final List<DataHubPolicyInfo> policiesToEvaluate =
-        new LinkedList<>(getOrDefault(request.getPrivilege(), new ArrayList<>()));
-    policiesToEvaluate.addAll(
-        PoliciesConfig.getDefaultPolicies(UrnUtils.getUrn(request.getActorUrn())));
+    final List<DataHubPolicyInfo> policiesToEvaluate = new LinkedList<>();
+    if (request.getActorPoliciesByPrivilege() != null) {
+      for (final RecordTemplate policy :
+          request
+              .getActorPoliciesByPrivilege()
+              .getOrDefault(request.getPrivilege(), Collections.emptyList())) {
+        policiesToEvaluate.add((DataHubPolicyInfo) policy);
+      }
+    } else {
+      policiesToEvaluate.addAll(getOrDefault(request.getPrivilege(), new ArrayList<>()));
+    }
+    for (final DataHubPolicyInfo defaultPolicy :
+        PoliciesConfig.getDefaultPolicies(UrnUtils.getUrn(request.getActorUrn()))) {
+      if (policiesToEvaluate.stream().noneMatch(existing -> existing == defaultPolicy)) {
+        policiesToEvaluate.add(defaultPolicy);
+      }
+    }
 
     // 2. Evaluate each policy.
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
@@ -133,6 +156,19 @@ public class DataHubAuthorizer implements Authorizer {
       }
     }
     return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
+  }
+
+  /**
+   * Resolve a spec, sharing the result through the request-scoped cache when present so the same
+   * resource is resolved (and its domain/container/owner hierarchy walked) at most once per
+   * request.
+   */
+  private ResolvedEntitySpec resolveWithCache(
+      final EntitySpec spec, @Nullable final Map<EntitySpec, ResolvedEntitySpec> cache) {
+    if (cache == null) {
+      return entitySpecResolver.resolve(spec);
+    }
+    return cache.computeIfAbsent(spec, entitySpecResolver::resolve);
   }
 
   public PolicyEngine.PolicyGrantedPrivileges getGrantedPrivileges(

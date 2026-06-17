@@ -10,15 +10,21 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubPolicyInfo;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -46,6 +52,7 @@ public class ActorContext implements ContextInterface {
         .systemAuth(false)
         .authentication(authentication)
         .policyInfoSet(dataHubPolicySet)
+        .actorPoliciesByPrivilege(indexPoliciesByPrivilege(dataHubPolicySet))
         .groupMembership(groupMembership)
         .enforceExistenceEnabled(enforceExistenceEnabled)
         .build();
@@ -57,6 +64,13 @@ public class ActorContext implements ContextInterface {
   @EqualsAndHashCode.Exclude @Builder.Default
   private final Set<DataHubPolicyInfo> policyInfoSet = Collections.emptySet();
 
+  /**
+   * Derived once per session from {@link #policyInfoSet} so authorize() can look up candidates for
+   * a privilege in O(1) without scanning the full actor-applicable set on every check.
+   */
+  @EqualsAndHashCode.Exclude @Builder.Default
+  private final Map<String, List<RecordTemplate>> actorPoliciesByPrivilege = Collections.emptyMap();
+
   @EqualsAndHashCode.Exclude @Builder.Default
   private final Collection<Urn> groupMembership = Collections.emptyList();
 
@@ -64,6 +78,28 @@ public class ActorContext implements ContextInterface {
 
   public Urn getActorUrn() {
     return UrnUtils.getUrn(authentication.getActor().toUrnStr());
+  }
+
+  /**
+   * Groups actor-applicable policies by privilege. Uses the same {@link DataHubPolicyInfo}
+   * references as the policy cache.
+   */
+  @Nonnull
+  public static Map<String, List<RecordTemplate>> indexPoliciesByPrivilege(
+      @Nullable final Set<DataHubPolicyInfo> policyInfoSet) {
+    if (policyInfoSet == null || policyInfoSet.isEmpty()) {
+      return Collections.emptyMap();
+    }
+    final Map<String, List<RecordTemplate>> byPrivilege = new HashMap<>();
+    for (final DataHubPolicyInfo policy : policyInfoSet) {
+      if (policy.getPrivileges() == null) {
+        continue;
+      }
+      for (final String privilege : policy.getPrivileges()) {
+        byPrivilege.computeIfAbsent(privilege, ignored -> new ArrayList<>()).add(policy);
+      }
+    }
+    return Collections.unmodifiableMap(byPrivilege);
   }
 
   /**
