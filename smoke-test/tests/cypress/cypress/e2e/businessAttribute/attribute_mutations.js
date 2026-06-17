@@ -1,6 +1,7 @@
 import { aliasQuery, hasOperationName } from "../utils";
 
-describe("attribute list adding tags and terms", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("attribute list adding tags and terms", () => {
   let businessAttributeEntityEnabled;
 
   beforeEach(() => {

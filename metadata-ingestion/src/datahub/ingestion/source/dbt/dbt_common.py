@@ -59,7 +59,6 @@ from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
     convert_upstream_lineage_to_patch,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
@@ -75,7 +74,6 @@ from datahub.ingestion.source.dbt.dbt_tests import (
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -1444,16 +1442,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.compiled_owner_extraction_pattern = re.compile(
                 self.config.owner_extraction_pattern
             )
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, ctx
-        )
         # Cached timestamp for Query entities (ensures reproducible output)
         self._query_timestamp_cache: Optional[int] = None
         # Exposures loaded by subclass (manifest or dbt Cloud API)
         self._exposures: List[DBTExposure] = []
         # Cache for upstream existence checks (skip_missing_upstreams_in_lineage)
         self._upstream_exists_cache: Dict[str, bool] = {}
+
+    def get_excluded_workunit_processors(self):
+        from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
+            AutoIncrementalLineageProcessor,
+        )
+
+        # dbt converts lineage to incremental patches internally (see dbt_common.py
+        # around the convert_upstream_lineage_to_patch call). Applying the generic
+        # AutoIncrementalLineageProcessor on top of that causes double-processing.
+        return [AutoIncrementalLineageProcessor]
 
     def _get_query_timestamp(self) -> int:
         """Get timestamp for Query entities, cached for reproducibility."""
@@ -1834,12 +1838,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     entityUrn=exposure_urn,
                     aspect=GlobalTagsClass(tags=tag_associations),
                 )
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
 
     def _make_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(

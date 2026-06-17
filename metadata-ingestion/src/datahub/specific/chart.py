@@ -11,6 +11,7 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
 )
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.domains import HasDomainsPatch
 from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.specific.aspect_helpers.tags import HasTagsPatch
 from datahub.specific.aspect_helpers.terms import HasTermsPatch
@@ -22,6 +23,7 @@ class ChartPatchBuilder(
     HasCustomPropertiesPatch,
     HasTagsPatch,
     HasTermsPatch,
+    HasDomainsPatch,
     MetadataPatchProposal,
 ):
     def __init__(

@@ -228,7 +228,7 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                 buttons={[
                     {
                         text: tc('cancel'),
-                        color: 'violet',
+                        color: 'primary',
                         variant: 'text',
                         onClick: () => setShowDeleteModal(false),
                     },

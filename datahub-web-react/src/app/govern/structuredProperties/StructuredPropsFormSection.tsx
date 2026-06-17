@@ -83,7 +83,7 @@ const StructuredPropsFormSection = ({
                         <FlexContainer>
                             {t('allowedEntityTypes.title')}
                             <Tooltip title={t('allowedEntityTypes.tooltip')} showArrow={false}>
-                                <Icon icon={Info} color="violet" size="lg" />
+                                <Icon icon={Info} color="iconBrand" size="lg" />
                             </Tooltip>
                         </FlexContainer>
                         {isEditMode && (
@@ -125,7 +125,7 @@ const StructuredPropsFormSection = ({
                         {t('appliesTo.title')}
                         <RequiredAsterisk />
                         <Tooltip title={t('appliesTo.tooltip')} showArrow={false}>
-                            <Icon icon={Info} color="violet" size="lg" />
+                            <Icon icon={Info} color="iconBrand" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                     {isEditMode && (

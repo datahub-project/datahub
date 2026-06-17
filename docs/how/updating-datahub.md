@@ -44,6 +44,52 @@ Requirements:
 
 ### Breaking Changes
 
+- #17852: **(Ingestion framework)** Workunit processor helper functions have been removed and replaced with `WorkunitProcessor` classes. If you were directly calling these functions in custom code, you must update to use the processor class API. **Migration:** Import the processor class, create a `WorkunitProcessorContext`, instantiate the processor via `Processor.create(ctx)`, and call `.process(stream)`. Additionally, some processors have been renamed to follow a consistent naming convention:
+
+  **Renamed processors (old → new):**
+
+  - `AutoFixDuplicateSchemaFieldPathsProcessor` → `ValidateDuplicateSchemaFieldPathsProcessor`
+  - `AutoFixEmptyFieldPathsProcessor` → `ValidateEmptySchemaFieldPathsProcessor`
+  - `StaleEntityRemovalProcessor` → `AutoStaleEntityRemovalProcessor`
+
+  **Removed standalone functions (use processor classes instead):**
+
+  - `auto_status_aspect()` → Use `AutoStatusAspectProcessor` from `datahub.ingestion.workunit_processors.auto_status_aspect`
+  - `auto_workunit_reporter()` → Use `AutoWorkunitsReporterProcessor` from `datahub.ingestion.workunit_processors.auto_workunits_reporter`
+  - `auto_lowercase_urns()` → Use `AutoLowercaseUrnsProcessor` from `datahub.ingestion.workunit_processors.auto_lowercase_urns`
+  - `auto_materialize_referenced_tags_terms()` → Use `AutoMaterializeReferencedTagsTermsProcessor` from `datahub.ingestion.workunit_processors.auto_materialize_referenced_tags_terms`
+  - `auto_fix_duplicate_schema_field_paths()` → Use `ValidateDuplicateSchemaFieldPathsProcessor` from `datahub.ingestion.workunit_processors.validate_duplicate_schema_field_paths`
+  - `auto_fix_empty_field_paths()` → Use `ValidateEmptySchemaFieldPathsProcessor` from `datahub.ingestion.workunit_processors.validate_empty_schema_field_paths`
+  - `auto_browse_path_v2()` → Use `AutoBrowsePathV2Processor` from `datahub.ingestion.workunit_processors.auto_browse_path_v2`
+  - `auto_incremental_lineage()` → Use `AutoIncrementalLineageProcessor` from `datahub.ingestion.workunit_processors.auto_incremental_lineage`
+  - `auto_incremental_ownership()` → Use `AutoIncrementalOwnershipProcessor` from `datahub.ingestion.workunit_processors.auto_incremental_ownership`
+  - `auto_incremental_properties()` → Use `AutoIncrementalPropertiesProcessor` from `datahub.ingestion.workunit_processors.auto_incremental_properties`
+  - `auto_patch_last_modified()` → Use `AutoPatchLastModifiedProcessor` from `datahub.ingestion.workunit_processors.auto_patch_last_modified`
+
+  **Example migration:**
+
+  ```python
+  # OLD (removed):
+  from datahub.ingestion.workunit_processors.auto_status_aspect import auto_status_aspect
+  result = list(auto_status_aspect(stream))
+
+  # NEW (required):
+  from unittest.mock import MagicMock
+  from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
+  from datahub.ingestion.workunit_processors.auto_status_aspect import AutoStatusAspectProcessor
+
+  ctx = WorkunitProcessorContext(
+      source_report=report,
+      pipeline_context=MagicMock(),
+      source_config=config,
+      platform="myplatform"
+  )
+  processor = AutoStatusAspectProcessor.create(ctx)
+  result = list(processor.process(stream))
+  ```
+
+  **Naming convention:** Processors follow a consistent pattern: `Auto*Processor` (enrichment), `Validate*Processor` (validation/cleanup), `Ensure*Processor` (constraint enforcement). See `WorkunitProcessor` base class documentation for details.
+
 - **(GMS rate limiting)** Renamed `rateLimits.defaultRetryAfterSeconds` / `RATE_LIMITS_DEFAULT_RETRY_AFTER` to `minRetryAfterSeconds` / `RATE_LIMITS_MIN_RETRY_AFTER`. The value is now the **minimum** `Retry-After` floor; endpoint (token-bucket) denials may return a longer wait derived from Bucket4j refill timing. Added `retryAfterJitterPercent` / `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT` (default `10`) to spread endpoint retry timing. **Action:** update env vars and external rate-limit YAML if you set the old names; capacity denials still use the flat minimum.
 
 - **(Ingestion / Airflow plugin) Dropped support for Airflow 2.x.** `acryl-datahub-airflow-plugin` now requires Airflow 3.0+. The package's `apache-airflow` floor is bumped to `>=3.0.0`. The legacy standalone `openlineage-airflow` package is no longer used at all — the plugin always uses `apache-airflow-providers-openlineage`, which is now an unconditional dependency (`>=2.1.0` — the version that added Airflow 3 listener support). Drop `openlineage-airflow` from your constraints if it was pinned. The `[airflow2]` install extra is gone; `[airflow3]` is retained as a backward-compatible no-op (it installs the same as the bare package), so existing `pip install 'acryl-datahub-airflow-plugin[airflow3]'` commands keep working. The `taskinstance` value for `datajob_url_link` (an Airflow 2-only URL format) is no longer accepted; use `tasks` (default) or `grid`. The `patch_snowflake_schema` config option has been removed — it patched a Snowflake schema bug in the deprecated `openlineage-airflow` `SnowflakeExtractor` and has no effect under the OpenLineage provider, which handles Snowflake schema resolution natively; remove the setting from `airflow.cfg` if present (it is silently ignored). If you are still on Airflow 2.7–2.10, pin `acryl-datahub-airflow-plugin <= 1.6.0` (the last release with Airflow 2 support) — see the [compatibility section in the Airflow integration docs](../lineage/airflow.md#compatibility) for the full version ladder.
@@ -78,6 +124,8 @@ Requirements:
 - #17649 **(Ingestion / Dremio)** The `domain` recipe field now actually emits a `Domains` aspect for every Dremio container and dataset. Previously, the config field was documented and plumbed through to the aspect builder, but the aspect was never yielded, so the setting silently did nothing. Recipes that already set `domain` will now start attaching the configured domain to ingested entities — verify the domain URN/name is what you intend before upgrading. Bare names (e.g. `domain: marketing`) are now resolved against the live DataHub graph via `DomainRegistry` (same pattern as Snowflake/BigQuery), so the recipe must have a `datahub_api`/sink with a graph configured; otherwise pass a full `urn:li:domain:<id>`.
 - #17651 **(Ingestion / Dremio)** Dataset properties no longer emit a synthetic `created` timestamp when Dremio does not report one. Previously, missing creation timestamps surfaced as epoch 0 (1970-01-01) on the dataset properties aspect; the field is now omitted entirely. Dashboards or alerting that treated epoch 0 as a valid `created` time should treat it as missing instead.
 - #17812 **(Ingestion / Glue)** When `extract_lakeformation_tags` is enabled, the Glue connector now also extracts **column-level** Lake Formation tags by default (new `extract_lakeformation_column_tags`, default `true`) and can propagate a database's Lake Formation tags down to its tables and columns (new `propagate_lakeformation_tags`, default `false`). Existing recipes with `extract_lakeformation_tags: true` will start emitting directly-assigned column tags after upgrade with no config change; set `extract_lakeformation_column_tags: false` to retain the previous (table/database-only) behavior. Inherited (propagated) tags are marked with propagation attribution and a `propagated` context so they can be distinguished from directly-assigned tags. No additional AWS API calls are made — all tag levels come from the existing per-table `GetResourceLFTags` response.
+
+- #17860 **(CLI / Python SDK)** Mutual TLS (mTLS) client authentication is now supported for outbound HTTPS calls from the CLI.
 
 ## v1.6.0
 

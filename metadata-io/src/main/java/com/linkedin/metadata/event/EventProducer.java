@@ -3,6 +3,7 @@ package com.linkedin.metadata.event;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.entity.OperationContextExempt;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
@@ -25,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 public abstract class EventProducer {
 
   /** Flush the producer * */
+  @OperationContextExempt(reason = "Flush is a transport-level no-op with no per-event context.")
   public abstract void flush();
 
   /**
@@ -46,14 +48,21 @@ public abstract class EventProducer {
             metadataChangeLog.getSystemMetadata(),
             getMetadataChangeLogTopicName(aspectSpec)),
         SetMode.IGNORE_NULL);
-    return produceMetadataChangeLog(urn, aspectSpec, metadataChangeLog);
+    return produceMCL(opContext, urn, aspectSpec, metadataChangeLog);
   }
 
-  public abstract Future<?> produceMetadataChangeLog(
+  /**
+   * Implementation hook for {@link #produceMetadataChangeLog}. Carries the per-event {@link
+   * OperationContext} all the way to the underlying transport.
+   */
+  public abstract Future<?> produceMCL(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog);
 
+  @OperationContextExempt(
+      reason = "Pure topic-name lookup derived from the aspect spec; no per-event context needed.")
   public abstract String getMetadataChangeLogTopicName(@Nonnull AspectSpec aspectSpec);
 
   /**
@@ -70,13 +79,22 @@ public abstract class EventProducer {
             "produceMetadataChangeProposal",
             item.getSystemMetadata(),
             getMetadataChangeProposalTopicName()));
-    return produceMetadataChangeProposal(urn, item.getMetadataChangeProposal());
+    return produceMetadataChangeProposal(opContext, urn, item.getMetadataChangeProposal());
   }
 
+  /**
+   * Implementation hook for the {@link MCPItem}-taking overload. Carries the per-event {@link
+   * OperationContext} all the way to the underlying transport. Coexists with the wrapper above —
+   * Java overload resolution dispatches by the 3rd-arg type ({@code MCPItem} vs {@code
+   * MetadataChangeProposal}), mirroring {@link #produceFailedMetadataChangeProposalAsync}.
+   */
   @WithSpan
   public abstract Future<?> produceMetadataChangeProposal(
-      @Nonnull final Urn urn, @Nonnull MetadataChangeProposal metadataChangeProposal);
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull MetadataChangeProposal metadataChangeProposal);
 
+  @OperationContextExempt(reason = "Pure topic-name lookup; no per-event context needed.")
   public abstract String getMetadataChangeProposalTopicName();
 
   public Future<?> produceFailedMetadataChangeProposalAsync(
@@ -117,6 +135,7 @@ public abstract class EventProducer {
   /**
    * Produces a generic platform "event".
    *
+   * @param opContext per-event operation context.
    * @param name the name, or type, of the event to produce, as defined in the {@link
    *     EntityRegistry}.
    * @param key an optional partitioning key for the event. If not provided, the name of the event
@@ -126,15 +145,21 @@ public abstract class EventProducer {
    * @return A {@link Future} object that reports when the message has been produced.
    */
   public abstract Future<?> producePlatformEvent(
-      @Nonnull String name, @Nullable String key, @Nonnull PlatformEvent payload);
+      @Nonnull OperationContext opContext,
+      @Nonnull String name,
+      @Nullable String key,
+      @Nonnull PlatformEvent payload);
 
+  @OperationContextExempt(reason = "Pure topic-name lookup; no per-event context needed.")
   public abstract String getPlatformEventTopicName();
 
   /**
    * Creates an entry on the history log of when the indices were last rebuilt with the latest
    * configuration.
    *
+   * @param opContext per-event operation context.
    * @param event the history event to send to the DataHub Upgrade history topic
    */
-  public abstract void produceDataHubUpgradeHistoryEvent(@Nonnull DataHubUpgradeHistoryEvent event);
+  public abstract void produceDataHubUpgradeHistoryEvent(
+      @Nonnull OperationContext opContext, @Nonnull DataHubUpgradeHistoryEvent event);
 }

@@ -1,5 +1,7 @@
 import dayjs from 'dayjs';
 import 'dayjs/locale/de';
+import 'dayjs/locale/es';
+import 'dayjs/locale/pt-br';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import duration from 'dayjs/plugin/duration';
