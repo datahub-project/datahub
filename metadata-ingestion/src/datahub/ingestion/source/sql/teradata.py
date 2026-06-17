@@ -1456,12 +1456,12 @@ ORDER by DataBaseName, TableName;
     # DBC.TableSizeV (new/zero-perm tables, permission asymmetry) remains a
     # profiling candidate (fail-open)
     PROFILE_OVERSIZED_TABLES_QUERY: str = """
-    SELECT TableName AS name
-    FROM DBC.TableSizeV
-    WHERE DatabaseName (NOT CASESPECIFIC) = :schema (NOT CASESPECIFIC)
-    GROUP BY TableName
-    HAVING SUM(CurrentPerm) >= :size_limit_bytes
-    """.strip()
+SELECT TableName AS name
+FROM DBC.TableSizeV
+WHERE DatabaseName (NOT CASESPECIFIC) = :schema (NOT CASESPECIFIC)
+GROUP BY TableName
+HAVING SUM(CurrentPerm) >= :size_limit_bytes
+""".strip()
 
     def _build_tables_and_views_query(self) -> str:
         excluded_dbs = ",".join([f"'{db}'" for db in EXCLUDED_DATABASES])
