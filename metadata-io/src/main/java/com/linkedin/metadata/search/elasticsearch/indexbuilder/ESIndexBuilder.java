@@ -1934,7 +1934,7 @@ public class ESIndexBuilder {
       return taskStatusRetry.executeSupplier(
           () -> {
             try {
-              return searchClient.getTask(opContext, request, RequestOptions.DEFAULT);
+              return searchClient.getTask(request, RequestOptions.DEFAULT);
             } catch (IOException e) {
               throw new RuntimeException(e);
             }
@@ -2116,7 +2116,7 @@ public class ESIndexBuilder {
         () -> {
           ListTasksRequest listTasksRequest = new ListTasksRequest().setDetailed(true);
           List<TaskInfo> taskInfos =
-              searchClient.listTasks(opContext, listTasksRequest, requestOptionsLong).getTasks();
+              searchClient.listTasks(listTasksRequest, requestOptionsLong).getTasks();
           return taskInfos.stream()
               .filter(
                   info ->

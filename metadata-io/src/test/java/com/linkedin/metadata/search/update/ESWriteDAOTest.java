@@ -422,8 +422,7 @@ public class ESWriteDAOTest {
     TaskInfo mockTaskInfo = mock(TaskInfo.class);
     when(mockTaskResponse.getTaskInfo()).thenReturn(mockTaskInfo);
 
-    when(mockSearchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
@@ -467,8 +466,7 @@ public class ESWriteDAOTest {
     TaskInfo mockTaskInfo = mock(TaskInfo.class);
     when(mockTaskResponse.getTaskInfo()).thenReturn(mockTaskInfo);
 
-    when(mockSearchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
@@ -512,8 +510,7 @@ public class ESWriteDAOTest {
     TaskInfo mockTaskInfo = mock(TaskInfo.class);
     when(mockTaskResponse.getTaskInfo()).thenReturn(mockTaskInfo);
 
-    when(mockSearchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
@@ -571,10 +568,7 @@ public class ESWriteDAOTest {
 
       GetTaskResponse mockTaskResponse = mock(GetTaskResponse.class);
       when(mockTaskResponse.isCompleted()).thenReturn(true);
-      when(mockSearchClient.getTask(
-              any(OperationFingerprint.class),
-              any(GetTaskRequest.class),
-              eq(RequestOptions.DEFAULT)))
+      when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
           .thenReturn(Optional.of(mockTaskResponse));
 
       ESWriteDAO.DeleteByQueryResult result =
@@ -681,8 +675,7 @@ public class ESWriteDAOTest {
     GetTaskResponse mockTaskResponse = mock(GetTaskResponse.class);
     when(mockTaskResponse.isCompleted()).thenReturn(false); // Task didn't complete
 
-    when(mockSearchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
@@ -729,8 +722,7 @@ public class ESWriteDAOTest {
     GetTaskResponse mockTaskResponse = mock(GetTaskResponse.class);
     when(mockTaskResponse.isCompleted()).thenReturn(true);
 
-    when(mockSearchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
@@ -754,8 +746,7 @@ public class ESWriteDAOTest {
     TaskId taskId = new TaskId(TEST_NODE_ID, TEST_TASK_ID);
 
     // Mock task API throwing exception
-    when(mockSearchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new IOException("Task API error"));
 
     // Also make count fail when trying to get remaining documents
@@ -865,8 +856,7 @@ public class ESWriteDAOTest {
     when(mockTaskResponse.isCompleted()).thenReturn(true);
 
     // Simulate interruption during task monitoring
-    when(mockSearchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             invocation -> {
               Thread.currentThread().interrupt();
@@ -908,8 +898,7 @@ public class ESWriteDAOTest {
         .thenReturn(TEST_TASK_STRING);
 
     // Return empty Optional for task response
-    when(mockSearchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.empty());
 
     ESWriteDAO.DeleteByQueryResult result =
@@ -957,8 +946,7 @@ public class ESWriteDAOTest {
     // Mock task response
     GetTaskResponse mockTaskResponse = mock(GetTaskResponse.class);
     when(mockTaskResponse.isCompleted()).thenReturn(true);
-    when(mockSearchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.of(mockTaskResponse));
 
     esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, customConfig);
@@ -966,11 +954,7 @@ public class ESWriteDAOTest {
     // Verify GetTaskRequest parameters
     ArgumentCaptor<GetTaskRequest> taskRequestCaptor =
         ArgumentCaptor.forClass(GetTaskRequest.class);
-    verify(mockSearchClient)
-        .getTask(
-            any(OperationFingerprint.class),
-            taskRequestCaptor.capture(),
-            eq(RequestOptions.DEFAULT));
+    verify(mockSearchClient).getTask(taskRequestCaptor.capture(), eq(RequestOptions.DEFAULT));
 
     GetTaskRequest capturedRequest = taskRequestCaptor.getValue();
     assertEquals(capturedRequest.getNodeId(), TEST_NODE_ID);

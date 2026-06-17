@@ -136,7 +136,7 @@ public class CreateUserStep implements UpgradeStep {
         // Internal user authentication: create internal user
         log.info("Internal user mode: Creating internal user: {}", username);
         IndexRoleUtils.createAwsOpenSearchUser(
-            operationContext, esComponents, username, password, roleName, null, operationContext);
+            operationContext, esComponents, username, password, roleName, null);
       }
     } else {
       log.warn("Detected self-hosted OpenSearch. Creating user and role not supported.");

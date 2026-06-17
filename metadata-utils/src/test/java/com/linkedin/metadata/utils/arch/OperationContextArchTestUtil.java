@@ -1,8 +1,7 @@
-package com.linkedin.metadata.entity;
+package com.linkedin.metadata.utils.arch;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 
-import com.linkedin.metadata.utils.arch.OperationContextExempt;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -17,7 +16,7 @@ import java.util.stream.Collectors;
  * Shared ArchUnit helpers for enforcing parameter-shape rules on a target class. Anyone can call
  * {@link #checkArch(Class, Map)} to assert that every public, non-exempt method declared directly
  * on a target type has the required parameter type at a specific index — e.g. {@code Map.of(0,
- * OperationContext.class)} to require {@code OperationContext} as the first parameter.
+ * OperationFingerprint.class)} to require {@code OperationFingerprint} as the first parameter.
  *
  * <p>Currently filters to {@code arePublic() && !@OperationContextExempt}. A future overload can
  * accept a visibility filter map (private / protected / public) and a custom exempt annotation if

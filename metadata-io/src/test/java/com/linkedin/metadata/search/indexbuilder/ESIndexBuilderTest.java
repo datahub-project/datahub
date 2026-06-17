@@ -1093,9 +1093,7 @@ public class ESIndexBuilderTest {
         mock(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse.class);
     when(taskListResponse.getTasks()).thenReturn(new ArrayList<>());
     when(searchClient.listTasks(
-            any(OperationFingerprint.class),
-            any(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest.class),
-            any()))
+            any(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest.class), any()))
         .thenReturn(taskListResponse);
 
     // Mock refreshIndex response
@@ -1210,9 +1208,7 @@ public class ESIndexBuilderTest {
         mock(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse.class);
     when(taskListResponse.getTasks()).thenReturn(new ArrayList<>());
     when(searchClient.listTasks(
-            any(OperationFingerprint.class),
-            any(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest.class),
-            any()))
+            any(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest.class), any()))
         .thenReturn(taskListResponse);
 
     org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
@@ -1338,9 +1334,7 @@ public class ESIndexBuilderTest {
         mock(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse.class);
     when(taskListResponse.getTasks()).thenReturn(new ArrayList<>());
     when(searchClient.listTasks(
-            any(OperationFingerprint.class),
-            any(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest.class),
-            any()))
+            any(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest.class), any()))
         .thenReturn(taskListResponse);
 
     org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
@@ -1455,9 +1449,7 @@ public class ESIndexBuilderTest {
         mock(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse.class);
     when(taskListResponse.getTasks()).thenReturn(new ArrayList<>());
     when(searchClient.listTasks(
-            any(OperationFingerprint.class),
-            any(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest.class),
-            any()))
+            any(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest.class), any()))
         .thenReturn(taskListResponse);
 
     org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
@@ -1785,11 +1777,10 @@ public class ESIndexBuilderTest {
     when(taskResponse.isCompleted()).thenReturn(false);
 
     // Mock successful fetch for task1
-    when(searchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), any(RequestOptions.class)))
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
         .thenAnswer(
             (in) -> {
-              GetTaskRequest req = in.getArgument(1);
+              GetTaskRequest req = in.getArgument(0);
               long taskId = req.getTaskId();
               if (taskId == 1) {
                 return Optional.of(mock(GetTaskResponse.class));

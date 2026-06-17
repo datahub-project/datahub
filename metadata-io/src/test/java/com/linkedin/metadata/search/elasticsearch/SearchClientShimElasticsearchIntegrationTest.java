@@ -118,7 +118,7 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
   @Test
   public void testClusterInfo() throws IOException {
 
-    Map<String, String> clusterInfo = searchClientShim.getClusterInfo(OperationFingerprint.EMPTY);
+    Map<String, String> clusterInfo = searchClientShim.getClusterInfo();
     assertNotNull(clusterInfo);
 
     assertTrue(clusterInfo.containsKey("version"));
@@ -136,7 +136,7 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
   @Test
   public void testEngineVersion() throws IOException {
 
-    String version = searchClientShim.getEngineVersion(OperationFingerprint.EMPTY);
+    String version = searchClientShim.getEngineVersion();
     assertNotNull(version);
     assertNotEquals(version, "unknown");
     assertTrue(
@@ -731,7 +731,6 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
         getTaskResponse =
             searchClientShim
                 .getTask(
-                    OperationFingerprint.EMPTY,
                     new GetTaskRequest(taskId1.getNodeId(), taskId1.getId()),
                     RequestOptions.DEFAULT)
                 .orElse(null);

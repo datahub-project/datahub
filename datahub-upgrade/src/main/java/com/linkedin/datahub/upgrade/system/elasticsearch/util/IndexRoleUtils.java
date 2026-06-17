@@ -300,11 +300,10 @@ public class IndexRoleUtils {
       String username,
       String password,
       String roleName,
-      String iamRoleArn,
-      OperationContext operationContext)
+      String iamRoleArn)
       throws IOException {
     try {
-      ObjectMapper mapper = operationContext.getObjectMapper();
+      ObjectMapper mapper = opContext.getObjectMapper();
 
       // Build the user JSON
       ObjectNode userNode = mapper.createObjectNode();

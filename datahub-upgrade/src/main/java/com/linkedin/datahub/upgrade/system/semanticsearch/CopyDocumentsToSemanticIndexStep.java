@@ -127,7 +127,7 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
     while (System.currentTimeMillis() - startTime < TASK_TIMEOUT_MS) {
       try {
         Optional<GetTaskResponse> responseOpt =
-            searchClient.getTask(opContext, taskRequest, RequestOptions.DEFAULT);
+            searchClient.getTask(taskRequest, RequestOptions.DEFAULT);
 
         if (responseOpt.isEmpty()) {
           // Task not found - may have completed and been cleaned up

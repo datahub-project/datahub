@@ -77,8 +77,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
     TaskInfo mockTaskInfo = mock(TaskInfo.class);
     when(mockTaskInfo.isCancelled()).thenReturn(false);
     when(mockTaskResponse.getTaskInfo()).thenReturn(mockTaskInfo);
-    when(searchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), any(RequestOptions.class)))
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
         .thenReturn(Optional.of(mockTaskResponse));
 
     step =
@@ -97,9 +96,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
     verify(searchClient)
         .submitReindexTask(
             any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
-    verify(searchClient)
-        .getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), any(RequestOptions.class));
+    verify(searchClient).getTask(any(GetTaskRequest.class), any(RequestOptions.class));
   }
 
   @Test
@@ -153,8 +150,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
     TaskInfo mockTaskInfo = mock(TaskInfo.class);
     when(mockTaskInfo.isCancelled()).thenReturn(true); // Task was cancelled
     when(mockTaskResponse.getTaskInfo()).thenReturn(mockTaskInfo);
-    when(searchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), any(RequestOptions.class)))
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
         .thenReturn(Optional.of(mockTaskResponse));
 
     step =
@@ -195,9 +191,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
 
     // Task was never polled because ID format is invalid
-    verify(searchClient, never())
-        .getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), any(RequestOptions.class));
+    verify(searchClient, never()).getTask(any(GetTaskRequest.class), any(RequestOptions.class));
   }
 
   @Test
@@ -217,8 +211,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
         .thenReturn(taskId);
 
     // Task not found (empty optional - may have completed and been cleaned up)
-    when(searchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), any(RequestOptions.class)))
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
         .thenReturn(Optional.empty());
 
     step =
@@ -276,8 +269,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
         .thenReturn(taskId);
 
     // getTask throws exception
-    when(searchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), any(RequestOptions.class)))
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
         .thenThrow(new IOException("Task service unavailable"));
 
     step =
@@ -392,8 +384,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
     when(mockTaskInfo.isCancelled()).thenReturn(false);
     when(completedResponse.getTaskInfo()).thenReturn(mockTaskInfo);
 
-    when(searchClient.getTask(
-            any(OperationFingerprint.class), any(GetTaskRequest.class), any(RequestOptions.class)))
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
         .thenReturn(Optional.of(runningResponse))
         .thenReturn(Optional.of(completedResponse));
 

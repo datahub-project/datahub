@@ -1,6 +1,7 @@
 package com.linkedin.metadata.utils.elasticsearch;
 
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.metadata.utils.arch.OperationContextExempt;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -156,6 +157,7 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
     SSLContext getSSLContext();
   }
 
+  @OperationContextExempt(reason = "Local accessor, no I/O.")
   ShimConfiguration getShimConfiguration();
 
   // Core search operations
@@ -331,18 +333,20 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
       throws IOException;
 
   // Cluster operations
+  @OperationContextExempt(
+      reason =
+          "Cluster-wide settings fetch; no tenant routing, no actor relevance, no per-request payload to enrich.")
   @Nonnull
   ClusterGetSettingsResponse getClusterSettings(
-      @Nonnull OperationFingerprint opContext,
-      ClusterGetSettingsRequest clusterGetSettingsRequest,
-      RequestOptions options)
+      ClusterGetSettingsRequest clusterGetSettingsRequest, RequestOptions options)
       throws IOException;
 
+  @OperationContextExempt(
+      reason =
+          "Cluster-wide settings update; no tenant routing, no actor relevance, no per-request payload to enrich.")
   @Nonnull
   ClusterUpdateSettingsResponse putClusterSettings(
-      @Nonnull OperationFingerprint opContext,
-      ClusterUpdateSettingsRequest clusterUpdateSettingsRequest,
-      RequestOptions options)
+      ClusterUpdateSettingsRequest clusterUpdateSettingsRequest, RequestOptions options)
       throws IOException;
 
   @Nonnull
@@ -353,17 +357,21 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
       throws IOException;
 
   // Async Task operations
+  @OperationContextExempt(
+      reason =
+          "Cluster-wide task listing; no tenant routing, no actor relevance, no per-request payload to enrich.")
   @Nonnull
-  ListTasksResponse listTasks(
-      @Nonnull OperationFingerprint opContext, ListTasksRequest request, RequestOptions options)
-      throws IOException;
+  ListTasksResponse listTasks(ListTasksRequest request, RequestOptions options) throws IOException;
 
+  @OperationContextExempt(
+      reason =
+          "Cluster task status probe — pure introspection; no tenant routing, no actor relevance.")
   @Nonnull
-  Optional<GetTaskResponse> getTask(
-      @Nonnull OperationFingerprint opContext, GetTaskRequest request, RequestOptions options)
+  Optional<GetTaskResponse> getTask(GetTaskRequest request, RequestOptions options)
       throws IOException;
 
   // Metadata and introspection
+  @OperationContextExempt(reason = "Local enum, no I/O.")
   @Nonnull
   SearchEngineType getEngineType();
 
@@ -374,16 +382,23 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
    * strips it. Each shim implementation supplies the variant that matches its engine, keeping
    * engine-version knowledge inside the shim layer.
    */
+  @OperationContextExempt(reason = "Static per-engine constant, no I/O.")
   @Nonnull
   Map<String, String> partialNgramConfig();
 
+  @OperationContextExempt(
+      reason = "Cluster version probe — pure introspection; no tenant routing, no actor relevance.")
   @Nonnull
-  String getEngineVersion(@Nonnull OperationFingerprint opContext) throws IOException;
+  String getEngineVersion() throws IOException;
 
+  @OperationContextExempt(
+      reason =
+          "Cluster metadata probe — pure introspection; no tenant routing, no actor relevance.")
   @Nonnull
-  Map<String, String> getClusterInfo(@Nonnull OperationFingerprint opContext) throws IOException;
+  Map<String, String> getClusterInfo() throws IOException;
 
   /** Check if the client supports a specific API feature */
+  @OperationContextExempt(reason = "Local feature flag, no I/O.")
   boolean supportsFeature(@Nonnull String feature);
 
   /**
@@ -416,6 +431,7 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
       throws IOException;
 
   // Bulk operations
+  @OperationContextExempt(reason = "Bulk processor lifecycle setup, not a per-event call.")
   void generateAsyncBulkProcessor(
       WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
       MetricUtils metricUtils,
@@ -425,6 +441,7 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
       int numRetries,
       int threadCount);
 
+  @OperationContextExempt(reason = "Bulk processor lifecycle setup, not a per-event call.")
   void generateBulkProcessor(
       WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
       MetricUtils metricUtils,
@@ -439,8 +456,10 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
       @Nonnull String urn,
       @Nonnull DocWriteRequest<?> writeRequest);
 
+  @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
   void flushBulkProcessor();
 
+  @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
   void closeBulkProcessor();
 
   // -- Semantic search operations --------------------------------------------------
@@ -452,6 +471,8 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
         "searchKnn not supported by " + getEngineType() + " shim");
   }
 
+  @OperationContextExempt(
+      reason = "One-time index creation — infrastructure setup, no per-event tenant routing.")
   default void createSemanticIndex(@Nonnull SemanticIndexSpec spec) throws IOException {
     throw new UnsupportedOperationException(
         "createSemanticIndex not supported by " + getEngineType() + " shim");
@@ -467,6 +488,7 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
    * Get the native client instance for advanced operations that require direct access WARNING:
    * Using this breaks the abstraction and should be used sparingly
    */
+  @OperationContextExempt(reason = "Escape-hatch accessor, no I/O.")
   @Nonnull
   T getNativeClient();
 }

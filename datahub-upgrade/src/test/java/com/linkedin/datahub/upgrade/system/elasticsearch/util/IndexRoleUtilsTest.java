@@ -345,7 +345,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        operationContext, esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null);
 
     // Assert
     // Should make calls for user creation
@@ -371,7 +371,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        operationContext, esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null);
 
     // Assert
     // User creation attempted
@@ -714,7 +714,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        operationContext, esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null);
 
     // Assert - Should handle 409 gracefully without throwing exception
     Mockito.verify(searchClient, Mockito.atLeast(1))
@@ -741,7 +741,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        operationContext, esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null);
   }
 
   // ==================== IAM-Only Authentication Tests ====================
@@ -764,7 +764,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        operationContext, esComponents, username, password, roleName, iamRoleArn, operationContext);
+        operationContext, esComponents, username, password, roleName, iamRoleArn);
 
     // Assert
     // Should make calls for user creation
@@ -791,7 +791,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        operationContext, esComponents, username, password, roleName, iamRoleArn, operationContext);
+        operationContext, esComponents, username, password, roleName, iamRoleArn);
 
     // Assert
     // Should make calls for user creation
@@ -818,7 +818,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        operationContext, esComponents, username, password, roleName, iamRoleArn, operationContext);
+        operationContext, esComponents, username, password, roleName, iamRoleArn);
 
     // Assert
     // Should make calls for user creation
@@ -856,7 +856,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        operationContext, esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null);
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -889,7 +889,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        operationContext, esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null);
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -919,7 +919,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        operationContext, esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null);
   }
 
   // ==================== AWS OpenSearch Role Mapping Error Logging Tests ====================
@@ -1005,7 +1005,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        operationContext, esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null);
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -1034,7 +1034,7 @@ public class IndexRoleUtilsTest {
 
     // Act
     IndexRoleUtils.createAwsOpenSearchUser(
-        operationContext, esComponents, username, password, roleName, null, operationContext);
+        operationContext, esComponents, username, password, roleName, null);
   }
 
   // ==================== Helper Methods ====================

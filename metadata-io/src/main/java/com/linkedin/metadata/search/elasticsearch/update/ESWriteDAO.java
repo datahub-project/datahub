@@ -581,7 +581,7 @@ public class ESWriteDAO {
       getTaskRequest.setTimeout(TimeValue.timeValueMillis(finalTimeout.toMillis()));
 
       Optional<GetTaskResponse> taskResponse =
-          searchClient.getTask(opContext, getTaskRequest, RequestOptions.DEFAULT);
+          searchClient.getTask(getTaskRequest, RequestOptions.DEFAULT);
 
       if (taskResponse.isEmpty() || !taskResponse.get().isCompleted()) {
         // Count remaining documents to determine if any progress was made

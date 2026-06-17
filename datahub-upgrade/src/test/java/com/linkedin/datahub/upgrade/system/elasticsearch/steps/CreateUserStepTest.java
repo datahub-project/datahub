@@ -146,8 +146,7 @@ public class CreateUserStepTest {
                       Mockito.anyString(),
                       Mockito.anyString(),
                       Mockito.anyString(),
-                      Mockito.anyString(),
-                      Mockito.any(OperationContext.class)))
+                      Mockito.anyString()))
           .thenAnswer(invocation -> null);
 
       // Act

@@ -60,7 +60,7 @@ public class ESSystemMetadataDAO {
       @Nonnull OperationContext opContext, @Nonnull String nodeId, long taskId) {
     final GetTaskRequest taskRequest = new GetTaskRequest(nodeId, taskId);
     try {
-      return client.getTask(opContext, taskRequest, RequestOptions.DEFAULT);
+      return client.getTask(taskRequest, RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("ERROR: Failed to get task status: ", e);
       e.printStackTrace();

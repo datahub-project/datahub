@@ -549,9 +549,7 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public ClusterGetSettingsResponse getClusterSettings(
-      @Nonnull OperationFingerprint opContext,
-      ClusterGetSettingsRequest clusterGetSettingsRequest,
-      RequestOptions options)
+      ClusterGetSettingsRequest clusterGetSettingsRequest, RequestOptions options)
       throws IOException {
     return client.cluster().getSettings(clusterGetSettingsRequest, options);
   }
@@ -559,9 +557,7 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public ClusterUpdateSettingsResponse putClusterSettings(
-      @Nonnull OperationFingerprint opContext,
-      ClusterUpdateSettingsRequest clusterUpdateSettingsRequest,
-      RequestOptions options)
+      ClusterUpdateSettingsRequest clusterUpdateSettingsRequest, RequestOptions options)
       throws IOException {
     return client.cluster().putSettings(clusterUpdateSettingsRequest, options);
   }
@@ -578,16 +574,14 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
 
   @Nonnull
   @Override
-  public ListTasksResponse listTasks(
-      @Nonnull OperationFingerprint opContext, ListTasksRequest request, RequestOptions options)
+  public ListTasksResponse listTasks(ListTasksRequest request, RequestOptions options)
       throws IOException {
     return client.tasks().list(request, options);
   }
 
   @Nonnull
   @Override
-  public Optional<GetTaskResponse> getTask(
-      @Nonnull OperationFingerprint opContext, GetTaskRequest request, RequestOptions options)
+  public Optional<GetTaskResponse> getTask(GetTaskRequest request, RequestOptions options)
       throws IOException {
     return client.tasks().get(request, options);
   }
@@ -618,9 +612,9 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
 
   @Nonnull
   @Override
-  public String getEngineVersion(@Nonnull OperationFingerprint opContext) throws IOException {
+  public String getEngineVersion() throws IOException {
     try {
-      Map<String, String> clusterInfo = getClusterInfo(opContext);
+      Map<String, String> clusterInfo = getClusterInfo();
       return clusterInfo.getOrDefault("version", "unknown");
     } catch (Exception e) {
       log.warn("Failed to get engine version", e);
@@ -630,8 +624,7 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
 
   @Nonnull
   @Override
-  public Map<String, String> getClusterInfo(@Nonnull OperationFingerprint opContext)
-      throws IOException {
+  public Map<String, String> getClusterInfo() throws IOException {
     try {
       // Use the info() API to get cluster information
       org.opensearch.client.core.MainResponse info = client.info(RequestOptions.DEFAULT);

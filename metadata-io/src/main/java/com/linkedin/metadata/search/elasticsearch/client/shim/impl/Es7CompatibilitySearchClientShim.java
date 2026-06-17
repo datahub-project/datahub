@@ -35,9 +35,9 @@ public class Es7CompatibilitySearchClientShim extends OpenSearch2SearchClientShi
 
   @Nonnull
   @Override
-  public String getEngineVersion(@Nonnull OperationFingerprint opContext) throws IOException {
+  public String getEngineVersion() throws IOException {
     try {
-      Map<String, String> clusterInfo = getClusterInfo(opContext);
+      Map<String, String> clusterInfo = getClusterInfo();
       return clusterInfo.getOrDefault("version", "unknown");
     } catch (Exception e) {
       log.warn("Failed to get engine version", e);
@@ -47,8 +47,7 @@ public class Es7CompatibilitySearchClientShim extends OpenSearch2SearchClientShi
 
   @Nonnull
   @Override
-  public Map<String, String> getClusterInfo(@Nonnull OperationFingerprint opContext)
-      throws IOException {
+  public Map<String, String> getClusterInfo() throws IOException {
     try {
       // Use the info() API to get cluster information
       org.opensearch.client.core.MainResponse info = getNativeClient().info(RequestOptions.DEFAULT);

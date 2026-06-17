@@ -42,7 +42,6 @@ public class BulkProcessorTestUtils {
       throws IOException, InterruptedException {
     while (!searchClient
         .listTasks(
-            OperationFingerprint.EMPTY,
             new ListTasksRequest()
                 .setActions("indices:*,*/put,*/update")
                 .setWaitForCompletion(true)

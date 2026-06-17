@@ -359,21 +359,17 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
   @Override
   @Nonnull
   public ClusterGetSettingsResponse getClusterSettings(
-      @Nonnull OperationFingerprint opContext,
-      ClusterGetSettingsRequest clusterGetSettingsRequest,
-      RequestOptions options)
+      ClusterGetSettingsRequest clusterGetSettingsRequest, RequestOptions options)
       throws IOException {
-    return delegate.getClusterSettings(opContext, clusterGetSettingsRequest, options);
+    return delegate.getClusterSettings(clusterGetSettingsRequest, options);
   }
 
   @Override
   @Nonnull
   public ClusterUpdateSettingsResponse putClusterSettings(
-      @Nonnull OperationFingerprint opContext,
-      ClusterUpdateSettingsRequest clusterUpdateSettingsRequest,
-      RequestOptions options)
+      ClusterUpdateSettingsRequest clusterUpdateSettingsRequest, RequestOptions options)
       throws IOException {
-    return delegate.putClusterSettings(opContext, clusterUpdateSettingsRequest, options);
+    return delegate.putClusterSettings(clusterUpdateSettingsRequest, options);
   }
 
   @Override
@@ -388,18 +384,16 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
 
   @Override
   @Nonnull
-  public ListTasksResponse listTasks(
-      @Nonnull OperationFingerprint opContext, ListTasksRequest request, RequestOptions options)
+  public ListTasksResponse listTasks(ListTasksRequest request, RequestOptions options)
       throws IOException {
-    return delegate.listTasks(opContext, request, options);
+    return delegate.listTasks(request, options);
   }
 
   @Override
   @Nonnull
-  public Optional<GetTaskResponse> getTask(
-      @Nonnull OperationFingerprint opContext, GetTaskRequest request, RequestOptions options)
+  public Optional<GetTaskResponse> getTask(GetTaskRequest request, RequestOptions options)
       throws IOException {
-    return delegate.getTask(opContext, request, options);
+    return delegate.getTask(request, options);
   }
 
   @Override
@@ -429,15 +423,14 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
 
   @Override
   @Nonnull
-  public String getEngineVersion(@Nonnull OperationFingerprint opContext) throws IOException {
-    return delegate.getEngineVersion(opContext);
+  public String getEngineVersion() throws IOException {
+    return delegate.getEngineVersion();
   }
 
   @Override
   @Nonnull
-  public Map<String, String> getClusterInfo(@Nonnull OperationFingerprint opContext)
-      throws IOException {
-    return delegate.getClusterInfo(opContext);
+  public Map<String, String> getClusterInfo() throws IOException {
+    return delegate.getClusterInfo();
   }
 
   @Override

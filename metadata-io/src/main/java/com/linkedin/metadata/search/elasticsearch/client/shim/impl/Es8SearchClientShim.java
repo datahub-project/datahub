@@ -1402,9 +1402,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public ClusterGetSettingsResponse getClusterSettings(
-      @Nonnull OperationFingerprint opContext,
-      ClusterGetSettingsRequest clusterGetSettingsRequest,
-      RequestOptions options)
+      ClusterGetSettingsRequest clusterGetSettingsRequest, RequestOptions options)
       throws IOException {
     GetClusterSettingsRequest esGetClusterSettingsRequest =
         new GetClusterSettingsRequest.Builder()
@@ -1430,9 +1428,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public ClusterUpdateSettingsResponse putClusterSettings(
-      @Nonnull OperationFingerprint opContext,
-      ClusterUpdateSettingsRequest clusterUpdateSettingsRequest,
-      RequestOptions options)
+      ClusterUpdateSettingsRequest clusterUpdateSettingsRequest, RequestOptions options)
       throws IOException {
     throw new UnsupportedOperationException(
         "Not implemented currently due to no usages for the ES8 shim.");
@@ -1451,8 +1447,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public ListTasksResponse listTasks(
-      @Nonnull OperationFingerprint opContext, ListTasksRequest request, RequestOptions options)
+  public ListTasksResponse listTasks(ListTasksRequest request, RequestOptions options)
       throws IOException {
     ListRequest esListRequest = new ListRequest.Builder().detailed(request.getDetailed()).build();
     ListResponse esListResponse = withTransportOptions(options).tasks().list(esListRequest);
@@ -1465,8 +1460,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public Optional<GetTaskResponse> getTask(
-      @Nonnull OperationFingerprint opContext, GetTaskRequest request, RequestOptions options)
+  public Optional<GetTaskResponse> getTask(GetTaskRequest request, RequestOptions options)
       throws IOException {
     String taskId = request.getNodeId() + ":" + request.getTaskId();
     GetTasksRequest esGetTaskRequest =
@@ -1557,9 +1551,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public String getEngineVersion(@Nonnull OperationFingerprint opContext) throws IOException {
+  public String getEngineVersion() throws IOException {
     try {
-      Map<String, String> clusterInfo = getClusterInfo(opContext);
+      Map<String, String> clusterInfo = getClusterInfo();
       return clusterInfo.getOrDefault("version", "unknown");
     } catch (Exception e) {
       log.warn("Failed to get engine version", e);
@@ -1569,8 +1563,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public Map<String, String> getClusterInfo(@Nonnull OperationFingerprint opContext)
-      throws IOException {
+  public Map<String, String> getClusterInfo() throws IOException {
     try {
       // Use the info() API to get cluster information
       InfoResponse info = client.info();

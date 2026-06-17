@@ -109,7 +109,7 @@ public class UsageEventDataStreamTest {
     Mockito.doReturn(searchClient).when(esComponents).getSearchClient();
 
     log.info("Test environment ready:");
-    log.info("  ES version: {}", searchClient.getEngineVersion(OperationFingerprint.EMPTY));
+    log.info("  ES version: {}", searchClient.getEngineVersion());
     log.info("  Engine type: {}", searchClient.getEngineType());
   }
 

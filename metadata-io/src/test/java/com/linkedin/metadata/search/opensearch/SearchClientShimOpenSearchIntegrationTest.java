@@ -59,7 +59,7 @@ public class SearchClientShimOpenSearchIntegrationTest extends AbstractTestNGSpr
   @Test
   public void testClusterInfo() throws IOException {
 
-    Map<String, String> clusterInfo = searchClientShim.getClusterInfo(OperationFingerprint.EMPTY);
+    Map<String, String> clusterInfo = searchClientShim.getClusterInfo();
     assertNotNull(clusterInfo);
 
     assertTrue(clusterInfo.containsKey("version"));
@@ -74,7 +74,7 @@ public class SearchClientShimOpenSearchIntegrationTest extends AbstractTestNGSpr
   @Test
   public void testEngineVersion() throws IOException {
 
-    String version = searchClientShim.getEngineVersion(OperationFingerprint.EMPTY);
+    String version = searchClientShim.getEngineVersion();
     assertNotNull(version);
     assertNotEquals(version, "unknown");
     assertTrue(version.startsWith("2."), "Expected version to start with 2, got: " + version);
@@ -155,7 +155,7 @@ public class SearchClientShimOpenSearchIntegrationTest extends AbstractTestNGSpr
       assertEquals(autoShim.getEngineType(), SearchEngineType.OPENSEARCH_2);
 
       // Verify it can perform basic operations
-      Map<String, String> clusterInfo = autoShim.getClusterInfo(OperationFingerprint.EMPTY);
+      Map<String, String> clusterInfo = autoShim.getClusterInfo();
       assertNotNull(clusterInfo);
       assertEquals(clusterInfo.get("engine_type"), "opensearch");
     }
@@ -173,7 +173,7 @@ public class SearchClientShimOpenSearchIntegrationTest extends AbstractTestNGSpr
     assertFalse(searchClientShim.getEngineType().requiresEs8JavaClient());
 
     // Verify cluster information contains OpenSearch-specific details
-    Map<String, String> clusterInfo = searchClientShim.getClusterInfo(OperationFingerprint.EMPTY);
+    Map<String, String> clusterInfo = searchClientShim.getClusterInfo();
     assertTrue(clusterInfo.containsKey("build_flavor") || clusterInfo.containsKey("build_type"));
   }
 }
