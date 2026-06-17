@@ -1,5 +1,6 @@
 import json
 import time
+from typing import Callable, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,19 +19,26 @@ from datahub.ingestion.workunit_processors.ensure_aspect_size import (
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    BinaryJsonSchemaClass,
     ChangeTypeClass,
     DatasetFieldProfileClass,
     DatasetLineageTypeClass,
     DatasetProfileClass,
     DatasetSnapshotClass,
+    EspressoSchemaClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GenericAspectClass,
     KafkaSchemaClass,
+    KeyValueSchemaClass,
     MetadataChangeProposalClass,
+    MySqlDDLClass,
     NumberTypeClass,
+    OracleDDLClass,
+    OrcSchemaClass,
     OtherSchemaClass,
+    PrestoDDLClass,
     QueryLanguageClass,
     QueryPropertiesClass,
     QuerySourceClass,
@@ -39,6 +47,7 @@ from datahub.metadata.schema_classes import (
     QuerySubjectsClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
+    SchemalessClass,
     SchemaMetadataClass,
     StatusClass,
     StringTypeClass,
@@ -569,19 +578,65 @@ def test_ensure_schema_metadata_drops_raw_schema_then_trims_fields(processor):
     )
 
 
-def test_platform_schema_raw_fields_map_matches_models():
-    # setattr/getattr bypass the type checker, so a mistyped field name in
-    # _PLATFORM_SCHEMA_RAW_FIELDS would silently no-op. Assert every mapped
-    # field actually exists on its platformSchema variant.
-    from datahub.ingestion.workunit_processors.ensure_aspect_size import (
-        _PLATFORM_SCHEMA_RAW_FIELDS,
+def test_drop_platform_schema_handles_every_union_variant(processor):
+    # Pull the live union members of SchemaMetadata.platformSchema from the
+    # generated model. When a new variant is added to the schema, this test fails
+    # with a clear message — preventing a silent "Unrecognized variant" warning +
+    # retained oversized blob in production. The constructor map lives here (not in
+    # src/) on purpose: a new variant should force both a dispatcher branch AND a
+    # behavioral check that the branch actually clears something.
+    constructors: Dict[str, Callable[[], object]] = {
+        "OtherSchema": lambda: OtherSchemaClass(rawSchema="x" * 100),
+        "PrestoDDL": lambda: PrestoDDLClass(rawSchema="x" * 100),
+        "MySqlDDL": lambda: MySqlDDLClass(tableSchema="x" * 100),
+        "OracleDDL": lambda: OracleDDLClass(tableSchema="x" * 100),
+        "OrcSchema": lambda: OrcSchemaClass(schema="x" * 100),
+        "BinaryJsonSchema": lambda: BinaryJsonSchemaClass(schema="x" * 100),
+        "KafkaSchema": lambda: KafkaSchemaClass(documentSchema="x" * 100),
+        "EspressoSchema": lambda: EspressoSchemaClass(
+            documentSchema="x" * 100, tableSchema="x" * 100
+        ),
+        "KeyValueSchema": lambda: KeyValueSchemaClass(
+            keySchema="x" * 100, valueSchema="x" * 100
+        ),
+        "Schemaless": lambda: SchemalessClass(),
+    }
+
+    model_union_members = {
+        s.name
+        for s in SchemaMetadataClass.RECORD_SCHEMA.fields_dict[  # type: ignore[attr-defined]
+            "platformSchema"
+        ].type.schemas
+    }
+    test_covers = set(constructors.keys())
+
+    missing_in_test = model_union_members - test_covers
+    extra_in_test = test_covers - model_union_members
+    assert not missing_in_test, (
+        f"New platformSchema variant(s) in the model are not exercised here: "
+        f"{missing_in_test}. Add a constructor above AND a branch in "
+        f"_drop_platform_schema."
+    )
+    assert not extra_in_test, (
+        f"Test references variants no longer in the model: {extra_in_test}"
     )
 
-    for cls, field_names in _PLATFORM_SCHEMA_RAW_FIELDS.items():
-        valid_fields = {f.name for f in cls.RECORD_SCHEMA.fields}  # type: ignore[attr-defined]
-        for field_name in field_names:
-            assert field_name in valid_fields, (
-                f"{cls.__name__} has no field {field_name!r}"
+    for name, make in constructors.items():
+        schema = SchemaMetadataClass(
+            schemaName="t",
+            version=1,
+            platform="p",
+            hash="h",
+            platformSchema=make(),  # type: ignore[arg-type]
+            fields=[],
+        )
+        cleared = processor._drop_platform_schema(schema)
+        if name == "Schemaless":
+            assert not cleared, "Schemaless carries no content to clear"
+        else:
+            assert cleared, (
+                f"_drop_platform_schema returned False for {name}; the dispatcher "
+                f"likely has no branch for it"
             )
 
 

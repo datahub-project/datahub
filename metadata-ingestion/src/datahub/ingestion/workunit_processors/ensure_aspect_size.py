@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -42,24 +42,6 @@ QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES = int(
     )
 )
 QUERY_STATEMENT_TRUNCATION_BUFFER = 100
-
-# Maps each platformSchema union variant to its raw schema-content string field(s)
-# — the large source-format dump we shed when an aspect is oversized. Only these
-# fields are blanked; small markers on the same record (e.g. KafkaSchema's
-# documentSchemaType="AVRO") are intentionally left intact. Schemaless carries no
-# content. An unrecognized variant is warned about and left untouched.
-_PLATFORM_SCHEMA_RAW_FIELDS: Dict[type, Tuple[str, ...]] = {
-    OtherSchemaClass: ("rawSchema",),
-    PrestoDDLClass: ("rawSchema",),
-    MySqlDDLClass: ("tableSchema",),
-    OracleDDLClass: ("tableSchema",),
-    OrcSchemaClass: ("schema",),
-    BinaryJsonSchemaClass: ("schema",),
-    KafkaSchemaClass: ("documentSchema", "keySchema"),
-    EspressoSchemaClass: ("documentSchema", "tableSchema"),
-    KeyValueSchemaClass: ("keySchema", "valueSchema"),
-    SchemalessClass: (),
-}
 
 
 @dataclass
@@ -157,31 +139,68 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
 
         ``platformSchema`` holds an opaque, source-format dump of the schema and
         is the least valuable part of the aspect (``fields`` carry the structured,
-        queryable metadata), so we shed it before trimming fields. We clear only
-        the known schema-content field(s) for each union variant
-        (``_PLATFORM_SCHEMA_RAW_FIELDS``), leaving small markers such as
-        ``KafkaSchema.documentSchemaType`` intact. An unrecognized variant is
-        warned about and left untouched. Returns ``True`` if any content was cleared.
+        queryable metadata), so we shed it before trimming fields. Each union
+        variant is handled explicitly so the type checker verifies the field
+        names — a model change surfaces as a mypy error rather than a silent
+        no-op. Small markers such as ``KafkaSchema.documentSchemaType`` are left
+        intact. An unrecognized variant is warned about and left untouched.
+        Returns ``True`` if any content was cleared.
         """
-        platform_schema = schema.platformSchema
-        if platform_schema is None:
+        ps = schema.platformSchema
+        if ps is None or isinstance(ps, SchemalessClass):
             return False
-        raw_fields = _PLATFORM_SCHEMA_RAW_FIELDS.get(type(platform_schema))
-        if raw_fields is None:
-            self.ctx.source_report.warning(
-                title="Unrecognized platformSchema variant",
-                message="Don't know how to trim the raw schema for this platformSchema "
-                "variant, so it was left untouched and the aspect may still exceed the "
-                "size limit. The variant likely needs adding to _PLATFORM_SCHEMA_RAW_FIELDS.",
-                context=type(platform_schema).__name__,
-            )
+        # Direct attribute access (not getattr/setattr) so mypy verifies each
+        # field name against the model.
+        if isinstance(ps, (OtherSchemaClass, PrestoDDLClass)):
+            if ps.rawSchema:
+                ps.rawSchema = ""
+                return True
             return False
-        cleared = False
-        for field_name in raw_fields:
-            if getattr(platform_schema, field_name, None):
-                setattr(platform_schema, field_name, "")
+        if isinstance(ps, (MySqlDDLClass, OracleDDLClass)):
+            if ps.tableSchema:
+                ps.tableSchema = ""
+                return True
+            return False
+        if isinstance(ps, (OrcSchemaClass, BinaryJsonSchemaClass)):
+            if ps.schema:
+                ps.schema = ""
+                return True
+            return False
+        if isinstance(ps, KafkaSchemaClass):
+            cleared = False
+            if ps.documentSchema:
+                ps.documentSchema = ""
                 cleared = True
-        return cleared
+            if ps.keySchema:
+                ps.keySchema = ""
+                cleared = True
+            return cleared
+        if isinstance(ps, EspressoSchemaClass):
+            cleared = False
+            if ps.documentSchema:
+                ps.documentSchema = ""
+                cleared = True
+            if ps.tableSchema:
+                ps.tableSchema = ""
+                cleared = True
+            return cleared
+        if isinstance(ps, KeyValueSchemaClass):
+            cleared = False
+            if ps.keySchema:
+                ps.keySchema = ""
+                cleared = True
+            if ps.valueSchema:
+                ps.valueSchema = ""
+                cleared = True
+            return cleared
+        self.ctx.source_report.warning(
+            title="Unrecognized platformSchema variant",
+            message="Don't know how to trim the raw schema for this platformSchema "
+            "variant, so it was left untouched and the aspect may still exceed the "
+            "size limit. The variant likely needs a branch in _drop_platform_schema.",
+            context=type(ps).__name__,
+        )
+        return False
 
     def ensure_schema_metadata_size(
         self, dataset_urn: str, schema: SchemaMetadataClass
