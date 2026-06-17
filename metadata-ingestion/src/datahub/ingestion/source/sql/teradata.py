@@ -2811,6 +2811,12 @@ ORDER by DataBaseName, TableName;
         def _watchdog() -> None:
             check_interval = max(min(stall_seconds, 60), 10)
             stall_warned = False
+            # Suppression is per query: reset stall_warned whenever the fetch
+            # loop advances to a new query so an independent stall on a later
+            # query is still reported. Today _make_lineage_queries() returns a
+            # single query, but this keeps the watchdog correct if that ever
+            # becomes multiple queries.
+            warned_for_query_index: Optional[int] = None
             while not watchdog_stop.wait(check_interval):
                 with phase_state_lock:
                     phase = phase_state["phase"]
@@ -2818,6 +2824,8 @@ ORDER by DataBaseName, TableName;
                     elapsed = time.time() - phase_state["last_event_at"]
                 if phase == "completed":
                     return
+                if query_index != warned_for_query_index:
+                    stall_warned = False
                 if elapsed > stall_seconds:
                     if not stall_warned:
                         logger.warning(
@@ -2834,6 +2842,7 @@ ORDER by DataBaseName, TableName;
                                 context=f"phase={phase}, query_index={query_index}, stalled_for={elapsed:.0f}s",
                             )
                         stall_warned = True
+                        warned_for_query_index = query_index
 
         watchdog_thread: Optional[Thread] = None
         if stall_seconds > 0:
