@@ -2049,6 +2049,7 @@
     "aspect": {
         "json": {
             "customProperties": {},
+            "active": true,
             "displayName": "user1",
             "email": "User1@foo.com",
             "system": false
@@ -2104,6 +2105,7 @@
     "aspect": {
         "json": {
             "customProperties": {},
+            "active": true,
             "displayName": "user2",
             "email": "User2@foo.com",
             "system": false
@@ -3029,6 +3031,13 @@
             },
             {
                 "op": "add",
+                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
+                "value": {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)"
+                }
+            },
+            {
+                "op": "add",
                 "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)",
                 "value": {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)"
@@ -3046,13 +3055,6 @@
                 "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)",
                 "value": {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)"
-                }
-            },
-            {
-                "op": "add",
-                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
-                "value": {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)"
                 }
             },
             {
@@ -3234,6 +3236,7 @@
     "aspect": {
         "json": {
             "customProperties": {},
+            "active": true,
             "displayName": "user1",
             "email": "User1@foo.com",
             "system": false
@@ -3289,6 +3292,7 @@
     "aspect": {
         "json": {
             "customProperties": {},
+            "active": true,
             "displayName": "user2",
             "email": "User2@foo.com",
             "system": false

@@ -756,6 +756,7 @@
     "aspect": {
         "json": {
             "customProperties": {},
+            "active": true,
             "displayName": "John Doe",
             "email": "john.doe@acryldata.io",
             "system": false

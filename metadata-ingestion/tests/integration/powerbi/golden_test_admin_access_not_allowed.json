@@ -23,6 +23,7 @@
     "aspect": {
         "json": {
             "customProperties": {},
+            "active": true,
             "displayName": "user1",
             "email": "User1@foo.com",
             "system": false
@@ -91,6 +92,7 @@
     "aspect": {
         "json": {
             "customProperties": {},
+            "active": true,
             "displayName": "user2",
             "email": "User2@foo.com",
             "system": false
