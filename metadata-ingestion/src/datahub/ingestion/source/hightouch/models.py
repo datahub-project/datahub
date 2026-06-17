@@ -151,6 +151,11 @@ class HightouchContractEvent(_HightouchBaseModel):
     )
 
 
+class HightouchEventSource(_HightouchBaseModel):
+    id: str
+    name: str
+
+
 class HightouchContract(_HightouchBaseModel):
     id: str
     name: str
@@ -161,6 +166,9 @@ class HightouchContract(_HightouchBaseModel):
         default=None, alias="onUndeclaredSchema"
     )
     events: List[HightouchContractEvent] = Field(default_factory=list)
+    event_sources: List[HightouchEventSource] = Field(
+        default_factory=list, alias="eventSources"
+    )
 
 
 class HightouchDestinationLineageInfo(BaseModel):

@@ -90,6 +90,8 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     contracts_scanned: int = 0
     contracts_emitted: int = 0
     contract_events_emitted: int = 0
+    contract_assertions_emitted: int = 0
+    event_sources_emitted: int = 0
     filtered_syncs: LossyList[str] = dataclasses.field(default_factory=LossyList)
     filtered_models: LossyList[str] = dataclasses.field(default_factory=LossyList)
     filtered_contracts: LossyList[str] = dataclasses.field(default_factory=LossyList)
@@ -137,6 +139,12 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
 
     def report_contract_events_emitted(self, count: int = 1) -> None:
         self.contract_events_emitted += count
+
+    def report_contract_assertions_emitted(self, count: int = 1) -> None:
+        self.contract_assertions_emitted += count
+
+    def report_event_sources_emitted(self, count: int = 1) -> None:
+        self.event_sources_emitted += count
 
     def report_syncs_dropped(self, sync: str) -> None:
         self.filtered_syncs.append(sync)
@@ -209,8 +217,9 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
 
     include_contracts: bool = Field(
         default=True,
-        description="Whether to ingest Hightouch Event Contracts. Each event in a "
-        "contract is emitted as a dataset with its JSON Schema and enforcement rules.",
+        description="Whether to ingest Hightouch Event Contracts. Each event is "
+        "emitted as a dataset with its JSON Schema, a DataContract housing a schema "
+        "assertion, and lineage from the contract's event sources.",
     )
 
     contract_patterns: AllowDenyPattern = Field(

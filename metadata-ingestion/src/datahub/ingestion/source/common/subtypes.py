@@ -44,6 +44,7 @@ class DatasetSubTypes(StrEnum):
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
     HIGHTOUCH_MODEL = "Hightouch Model"
     HIGHTOUCH_EVENT_CONTRACT = "Event Contract"
+    HIGHTOUCH_EVENT_SOURCE = "Event Source"
     CONNECTION = "Connection"
     SEMANTIC_MODEL = "Semantic Model"
     SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"

@@ -49,8 +49,9 @@ source:
     # ============================================
     # Event Contracts
     # ============================================
-    # Ingest Hightouch Event Contracts. Each event in a contract is emitted as a
-    # dataset carrying the event's JSON Schema and enforcement rules.
+    # Ingest Hightouch Event Contracts. Each event is emitted as a dataset carrying
+    # the event's JSON Schema, a DataContract with a schema assertion, and lineage
+    # from the contract's event sources.
     include_contracts: true
 
     # ============================================

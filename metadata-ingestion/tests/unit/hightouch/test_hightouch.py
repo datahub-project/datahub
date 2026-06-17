@@ -6,6 +6,7 @@ import requests
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.hightouch.config import (
     HightouchAPIConfig,
     HightouchSourceConfig,
@@ -19,12 +20,30 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchContract,
     HightouchContractEvent,
     HightouchDestination,
+    HightouchEventSource,
     HightouchModel,
     HightouchSourceConnection,
     HightouchSync,
 )
-from datahub.metadata.schema_classes import SubTypesClass
+from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionTypeClass,
+    DataContractPropertiesClass,
+    SubTypesClass,
+    UpstreamLineageClass,
+)
 from datahub.metadata.urns import DatasetUrn
+from datahub.sdk.dataset import Dataset
+
+
+def _aspects_of_type(workunits, aspect_type):
+    aspects = []
+    for wu in workunits:
+        if isinstance(wu, MetadataWorkUnit):
+            aspect = wu.metadata.aspect
+            if isinstance(aspect, aspect_type):
+                aspects.append(aspect)
+    return aspects
 
 
 @pytest.fixture
@@ -647,12 +666,11 @@ def test_contract_emits_event_datasets(mock_api_client_class, pipeline_context):
         ],
     )
 
-    entities = list(
-        source_instance._contract_handler.get_contract_workunits([contract])
-    )
+    out = list(source_instance._contract_handler.get_contract_workunits([contract]))
 
-    assert len(entities) == 1
-    dataset = entities[0]
+    datasets = [e for e in out if isinstance(e, Dataset)]
+    assert len(datasets) == 1
+    dataset = datasets[0]
     assert str(dataset.urn) == str(
         DatasetUrn(platform="hightouch", name="signup-tracking.signed-up")
     )
@@ -675,9 +693,20 @@ def test_contract_emits_event_datasets(mock_api_client_class, pipeline_context):
     ]
     assert subtypes and subtypes[0].typeNames == ["Event Contract"]
 
+    # A DataContract with a DATA_SCHEMA assertion is emitted on the event dataset.
+    contract_props = _aspects_of_type(out, DataContractPropertiesClass)
+    assert len(contract_props) == 1
+    assert contract_props[0].entity == str(dataset.urn)
+    assert contract_props[0].schema and len(contract_props[0].schema) == 1
+
+    assertion_infos = _aspects_of_type(out, AssertionInfoClass)
+    assert len(assertion_infos) == 1
+    assert assertion_infos[0].type == AssertionTypeClass.DATA_SCHEMA
+
     assert source_instance.report.contracts_scanned == 1
     assert source_instance.report.contracts_emitted == 1
     assert source_instance.report.contract_events_emitted == 1
+    assert source_instance.report.contract_assertions_emitted == 1
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -701,13 +730,88 @@ def test_contract_with_multiple_events(mock_api_client_class, pipeline_context):
         ],
     )
 
-    entities = list(
-        source_instance._contract_handler.get_contract_workunits([contract])
-    )
+    out = list(source_instance._contract_handler.get_contract_workunits([contract]))
 
-    assert len(entities) == 2
+    datasets = [e for e in out if isinstance(e, Dataset)]
+    assert len(datasets) == 2
     assert source_instance.report.contract_events_emitted == 2
     assert source_instance.report.contracts_emitted == 1
+    # Only the event carrying a JSON Schema produces a data contract/assertion.
+    assert source_instance.report.contract_assertions_emitted == 1
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_contract_emits_event_sources_and_lineage(
+    mock_api_client_class, pipeline_context
+):
+    """Event sources are emitted as datasets and linked upstream of each event."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        include_contracts=True,
+    )
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    contract = HightouchContract(
+        id="c1",
+        name="Sourced",
+        slug="sourced",
+        events=[
+            HightouchContractEvent(
+                type="track", name="Order", slug="order", schema=_email_event_schema()
+            )
+        ],
+        event_sources=[HightouchEventSource(id="src_1", name="Web App")],
+    )
+
+    out = list(source_instance._contract_handler.get_contract_workunits([contract]))
+
+    datasets = [e for e in out if isinstance(e, Dataset)]
+    source_urn = str(DatasetUrn(platform="hightouch", name="event_source.src_1"))
+    event_urn = str(DatasetUrn(platform="hightouch", name="sourced.order"))
+
+    dataset_urns = {str(d.urn) for d in datasets}
+    assert source_urn in dataset_urns
+    assert event_urn in dataset_urns
+    assert source_instance.report.event_sources_emitted == 1
+
+    event_dataset = next(d for d in datasets if str(d.urn) == event_urn)
+    upstreams = [
+        mcp.aspect
+        for mcp in event_dataset.as_mcps()
+        if isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+    assert upstreams
+    assert source_urn in {u.dataset for u in upstreams[0].upstreams}
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_event_sources_emitted_once_across_contracts(
+    mock_api_client_class, pipeline_context
+):
+    """A shared event source is only emitted once across multiple contracts."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        include_contracts=True,
+    )
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    shared_source = HightouchEventSource(id="src_1", name="Web App")
+    contracts = [
+        HightouchContract(
+            id=f"c{i}",
+            name=f"Contract {i}",
+            slug=f"contract-{i}",
+            events=[
+                HightouchContractEvent(type="track", name="e", slug="e", schema={})
+            ],
+            event_sources=[shared_source],
+        )
+        for i in range(2)
+    ]
+
+    list(source_instance._contract_handler.get_contract_workunits(contracts))
+
+    assert source_instance.report.event_sources_emitted == 1
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")

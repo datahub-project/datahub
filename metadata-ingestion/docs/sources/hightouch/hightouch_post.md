@@ -9,6 +9,7 @@ This connector extracts the following metadata from Hightouch:
 - **Sync Runs** — Execution history with detailed statistics (as DataHub DataProcessInstances)
 - **Lineage** — Complete data flow from sources through models and syncs to destinations
 - **Column-level Lineage** — Field mappings between source and destination systems
+- **Event Contracts** — Event schema definitions emitted as Datasets, each with a DataHub DataContract housing a schema assertion, plus lineage from the contract's Event Sources
 
 #### Model Ingestion Options
 
@@ -54,6 +55,26 @@ When enabled, the Hightouch model is marked as the **primary** sibling and the u
 table is linked as a **secondary** sibling. Sibling aspects are only emitted on the upstream
 table if it already exists in DataHub, preventing the creation of "ghost" entities. Requires
 `sources_to_platform_instance` configuration for proper URN matching.
+
+#### Event Contracts
+
+Hightouch [Event Contracts](https://hightouch.com/docs/events/contracts) define the schemas used to
+validate incoming events. When `include_contracts: true` (default), the connector ingests them as:
+
+- one **Dataset** per event, whose schema is the event's JSON Schema and whose custom properties
+  capture the enforcement rules (`on_schema_violation`, `on_undeclared_fields`, `on_undeclared_schema`),
+- a **DataContract** on each event dataset, housing a schema assertion derived from the JSON Schema,
+- **lineage** from the contract's Event Sources (emitted as datasets) to each event dataset.
+
+```yaml
+include_contracts: true # default: true
+contract_patterns:
+  allow:
+    - ".*"
+```
+
+The Hightouch API does not expose contract validation history, so the assertions are emitted as
+definitions only (no pass/fail run results).
 
 #### Platform Instance Configuration
 
