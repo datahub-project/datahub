@@ -1,7 +1,7 @@
 import contextlib
 import json
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Dict, Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -1990,6 +1990,518 @@ class TestMultiTableInsert:
         assert len(entries) == 2
         assert all(e is good_entry for e in entries)
         extractor.structured_reporter.warning.assert_called_once()  # type: ignore[attr-defined]
+
+
+class TestStreamUpstreamMultiTableInsert:
+    """Stream upstream + multi-target INSERT ALL must reach the per-downstream emission path."""
+
+    UPSTREAM_STREAM_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.s_dw_customer_profile_2_stage,PROD)"
+    DOWNSTREAM_PROFILE_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.st_dw_customer_profile,PROD)"
+    DOWNSTREAM_ERROR_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.st_dw_jsonschemavalidation_error,PROD)"
+
+    def _create_mock_extractor(self) -> SnowflakeQueriesExtractor:
+        mock_connection = Mock()
+        mock_connection.query.return_value = []
+        config = SnowflakeQueriesExtractorConfig(
+            window=BaseTimeWindowConfig(
+                start_time=datetime(2026, 4, 30, tzinfo=timezone.utc),
+                end_time=datetime(2026, 4, 30, 23, 59, 59, tzinfo=timezone.utc),
+            ),
+        )
+        # Use a real SourceReport so the DDL path's
+        # `with self.structured_reporter.report_exc(...)` context manager works.
+        structured_report = SourceReport()
+        mock_filters = Mock(spec=SnowflakeFilter)
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=SnowflakeIdentifierConfig(),
+            structured_reporter=structured_report,
+        )
+        return SnowflakeQueriesExtractor(
+            connection=mock_connection,
+            config=config,
+            structured_report=structured_report,
+            filters=mock_filters,
+            identifiers=identifiers,
+            redundant_run_skip_handler=None,
+        )
+
+    def _audit_row(
+        self,
+        direct_objects_accessed: list,
+        objects_modified: list,
+        query_text: str = (
+            "INSERT ALL"
+            " WHEN 1 = 1 THEN INTO stage_dwh.st_dw_customer_profile (a) VALUES (a)"
+            " WHEN 1 = 1 THEN INTO raw_betler.st_dw_jsonschemavalidation_error (b) VALUES (b)"
+            " SELECT a, b FROM raw_betler.s_dw_customer_profile_2_stage"
+        ),
+    ) -> dict:
+        return {
+            "QUERY_ID": "customer-q-001",
+            "QUERY_TEXT": query_text,
+            "QUERY_START_TIME": datetime(2026, 4, 30, 11, 50, tzinfo=timezone.utc),
+            "QUERY_TYPE": "INSERT",
+            "ROWS_INSERTED": 1000,
+            "ROWS_UPDATED": 0,
+            "ROWS_DELETED": 0,
+            "USER_NAME": "ETL_USER",
+            "ROLE_NAME": "ETL_ROLE",
+            "SESSION_ID": "session-001",
+            "WAREHOUSE_NAME": "ETL_WH",
+            "DATABASE_NAME": "PROD",
+            "SCHEMA_NAME": "STAGE_DWH",
+            "DEFAULT_DB": "PROD",
+            "DEFAULT_SCHEMA": "STAGE_DWH",
+            "ROOT_QUERY_ID": None,
+            "QUERY_COUNT": 1,
+            "QUERY_SECONDARY_FINGERPRINT": None,
+            "QUERY_DURATION": 5000,
+            "OBJECTS_MODIFIED": json.dumps(objects_modified),
+            "DIRECT_OBJECTS_ACCESSED": json.dumps(direct_objects_accessed),
+            "OBJECT_MODIFIED_BY_DDL": None,
+        }
+
+    def _two_clean_targets(self) -> list:
+        return [
+            {
+                "objectName": "PROD.STAGE_DWH.ST_DW_CUSTOMER_PROFILE",
+                "objectDomain": "Table",
+                "columns": [
+                    {
+                        "columnName": "ADDRESS",
+                        "directSources": [
+                            {
+                                "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                                "objectDomain": "Stream",
+                                "columnName": "RECORD_CONTENT",
+                            }
+                        ],
+                    }
+                ],
+            },
+            {
+                "objectName": "PROD.RAW_BETLER.ST_DW_JSONSCHEMAVALIDATION_ERROR",
+                "objectDomain": "Table",
+                "columns": [
+                    {
+                        "columnName": "RECORD_CONTENT",
+                        "directSources": [
+                            {
+                                "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                                "objectDomain": "Stream",
+                                "columnName": "RECORD_CONTENT",
+                            }
+                        ],
+                    }
+                ],
+            },
+        ]
+
+    def test_stream_upstream_clean_metadata_uses_per_downstream_path(self):
+        """Customer's case: Stream upstream, clean object names in
+        objects_modified. Both downstreams must each get a PreparsedQuery
+        with column lineage referencing the Stream URN."""
+        extractor = self._create_mock_extractor()
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                    "objectDomain": "Stream",
+                    "columns": [
+                        {"columnName": "RECORD_CONTENT"},
+                        {"columnName": "RECORD_METADATA"},
+                    ],
+                }
+            ],
+            objects_modified=self._two_clean_targets(),
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 2
+        prepared = [r for r in results if isinstance(r, PreparsedQuery)]
+        assert len(prepared) == 2
+        downstreams = {r.downstream for r in prepared}
+        assert downstreams == {self.DOWNSTREAM_PROFILE_URN, self.DOWNSTREAM_ERROR_URN}
+        for entry in prepared:
+            assert entry.upstreams == [self.UPSTREAM_STREAM_URN]
+            assert entry.column_lineage and len(entry.column_lineage) == 1
+            cl = entry.column_lineage[0]
+            assert len(cl.upstreams) == 1
+            assert cl.upstreams[0].table == self.UPSTREAM_STREAM_URN
+        assert extractor.report.num_stream_queries_observed == 0
+        assert extractor.report.num_stream_queries_clean_fast_path == 1
+
+    def test_stream_upstream_with_sys_view_in_objects_modified_falls_back(self):
+        """$SYS_VIEW_<id> placeholder in objects_modified -> bypass to ObservedQuery."""
+        extractor = self._create_mock_extractor()
+        corrupt_targets = self._two_clean_targets()
+        corrupt_targets[1]["objectName"] = "PROD.RAW_BETLER.$SYS_VIEW_42"
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                    "objectDomain": "Stream",
+                    "columns": [{"columnName": "RECORD_CONTENT"}],
+                }
+            ],
+            objects_modified=corrupt_targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert extractor.report.num_stream_queries_observed == 1
+
+    def test_stream_upstream_with_sys_view_in_direct_objects_falls_back(self):
+        """$SYS_VIEW_<id> placeholder in direct_objects_accessed -> bypass to ObservedQuery."""
+        extractor = self._create_mock_extractor()
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.$SYS_VIEW_99",
+                    "objectDomain": "Stream",
+                    "columns": [{"columnName": "RECORD_CONTENT"}],
+                }
+            ],
+            objects_modified=self._two_clean_targets(),
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert extractor.report.num_stream_queries_observed == 1
+
+    def test_no_stream_upstream_uses_per_downstream_path(self):
+        """Table upstream -> per-downstream path."""
+        extractor = self._create_mock_extractor()
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                    "objectDomain": "Table",
+                    "columns": [{"columnName": "RECORD_CONTENT"}],
+                }
+            ],
+            objects_modified=self._two_clean_targets(),
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 2
+        assert all(isinstance(r, PreparsedQuery) for r in results)
+        assert extractor.report.num_stream_queries_observed == 0
+
+    def test_create_temp_view_still_falls_back(self):
+        """CREATE TEMPORARY VIEW -> bypass to ObservedQuery."""
+        extractor = self._create_mock_extractor()
+        row = self._audit_row(
+            query_text="CREATE TEMPORARY VIEW v AS SELECT * FROM raw_betler.t",
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.T",
+                    "objectDomain": "Table",
+                    "columns": [{"columnName": "C"}],
+                }
+            ],
+            objects_modified=[],
+        )
+        row["QUERY_TYPE"] = "CREATE_VIEW"
+        row["OBJECT_MODIFIED_BY_DDL"] = json.dumps(
+            {
+                "objectName": "PROD.RAW_BETLER.V",
+                "objectDomain": "View",
+                "operationType": "CREATE",
+                "properties": {},
+            }
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert extractor.report.num_create_temp_view_queries_observed == 1
+
+    def test_single_target_stream_falls_back_unchanged(self):
+        """Single-target stream INSERT -> bypass (only multi-target uses fast path)."""
+        extractor = self._create_mock_extractor()
+        single_target = [
+            {
+                "objectName": "PROD.STAGE_DWH.ST_DW_CUSTOMER_PROFILE",
+                "objectDomain": "Table",
+                "columns": [
+                    {
+                        "columnName": "ADDRESS",
+                        "directSources": [
+                            {
+                                "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                                "objectDomain": "Stream",
+                                "columnName": "RECORD_CONTENT",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                    "objectDomain": "Stream",
+                    "columns": [{"columnName": "RECORD_CONTENT"}],
+                }
+            ],
+            objects_modified=single_target,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert extractor.report.num_stream_queries_observed == 1
+        assert extractor.report.num_stream_queries_clean_fast_path == 0
+
+    def test_multi_target_stream_with_unknown_dollar_prefix_falls_back(self):
+        """$-prefix objectName that isn't $SYS_VIEW_ -> bypass + drift counter."""
+        extractor = self._create_mock_extractor()
+        anomalous_targets = self._two_clean_targets()
+        anomalous_targets[1]["objectName"] = "PROD.RAW_BETLER.$FUTURE_PLACEHOLDER_99"
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                    "objectDomain": "Stream",
+                    "columns": [{"columnName": "RECORD_CONTENT"}],
+                }
+            ],
+            objects_modified=anomalous_targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert extractor.report.num_stream_queries_observed == 1
+        assert extractor.report.num_audit_rows_unknown_dollar_prefix == 1
+
+    def test_audit_row_missing_object_name_increments_counter(self):
+        """None objectName in objects_modified -> missing-name counter increments, no crash.
+
+        stream_clean_multi_target fires (None doesn't trigger has_corrupt_object_names
+        or has_unknown_dollar_prefix).  _build_downstream_targets drops the None-name
+        target via its per-object exception handler (logged as a structured warning),
+        so only the one clean target emits a PreparsedQuery with intact column lineage.
+        """
+        extractor = self._create_mock_extractor()
+        targets = self._two_clean_targets()
+        targets[1]["objectName"] = None
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                    "objectDomain": "Stream",
+                    "columns": [{"columnName": "RECORD_CONTENT"}],
+                }
+            ],
+            objects_modified=targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        # Exactly one missing name (the None target); use == to catch double-counting.
+        assert extractor.report.num_audit_rows_missing_object_name == 1
+        # Only the clean target produces a PreparsedQuery; the None-name target is dropped.
+        assert len(results) == 1
+        assert isinstance(results[0], PreparsedQuery)
+        assert results[0].downstream == self.DOWNSTREAM_PROFILE_URN
+        # Column lineage to the stream upstream must survive on the clean target.
+        assert results[0].column_lineage and len(results[0].column_lineage) == 1
+        assert (
+            results[0].column_lineage[0].upstreams[0].table == self.UPSTREAM_STREAM_URN
+        )
+
+    def test_audit_row_none_direct_object_falls_back_to_sql(self):
+        """None objectName in direct_objects_accessed → fall back to sqlglot.
+
+        Emitting a PreparsedQuery with upstreams=[] at confidence 1.0 would
+        overwrite previously-correct lineage; ObservedQuery defers to sqlglot.
+        """
+        extractor = self._create_mock_extractor()
+        targets = self._two_clean_targets()[:1]
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {"objectName": None, "objectDomain": "Table", "columns": []},
+            ],
+            objects_modified=targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        # Sqlglot needs the original SQL + DB/schema context to resolve unqualified names.
+        assert results[0].query == row["QUERY_TEXT"]
+        assert results[0].default_db == "PROD"
+        assert results[0].default_schema == "STAGE_DWH"
+        assert results[0].usage_multiplier == 1
+        # Counter must reflect exactly one missing-name entry from this row.
+        assert extractor.report.num_audit_rows_missing_object_name == 1
+        warning_messages = [w.message for w in extractor.structured_reporter.warnings]
+        assert any("falling back to SQL-based lineage" in m for m in warning_messages)
+
+    def test_audit_row_whitespace_direct_object_falls_back_to_sql(self):
+        """Whitespace-only objectName in direct_objects_accessed → fall back to sqlglot.
+
+        The `.strip()` guard closes the gap that `not obj_name` alone misses.
+        """
+        extractor = self._create_mock_extractor()
+        targets = self._two_clean_targets()[:1]
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {"objectName": "   ", "objectDomain": "Table", "columns": []},
+            ],
+            objects_modified=targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert results[0].query == row["QUERY_TEXT"]
+        assert results[0].default_db == "PROD"
+        assert results[0].default_schema == "STAGE_DWH"
+        assert extractor.report.num_audit_rows_missing_object_name == 1
+        warning_messages = [w.message for w in extractor.structured_reporter.warnings]
+        assert any("falling back to SQL-based lineage" in m for m in warning_messages)
+
+    def test_direct_object_with_missing_columns_key_does_not_crash(self):
+        """Direct object with no 'columns' key is treated as having no columns.
+
+        Validates the `obj.get("columns") or []` guard against future Snowflake
+        schema changes that might omit the 'columns' key entirely.
+        """
+        extractor = self._create_mock_extractor()
+        targets = self._two_clean_targets()[:1]
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                # Valid objectName but 'columns' key entirely absent.
+                {"objectName": "PROD.RAW_BETLER.SOME_TABLE", "objectDomain": "Table"},
+            ],
+            objects_modified=targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], PreparsedQuery)
+        assert results[0].downstream == self.DOWNSTREAM_PROFILE_URN
+        assert len(results[0].upstreams) == 1
+
+
+class TestClassifyAuditLogObjects:
+    """Unit tests for SnowflakeQueriesExtractor._classify_audit_log_objects."""
+
+    def _obj(self, name: Optional[str], domain: str = "Table") -> Dict[str, Any]:
+        return {"objectName": name, "objectDomain": domain}
+
+    def test_empty_list(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects([])
+        assert not result.has_placeholder
+        assert result.n_missing_name == 0
+        assert result.n_unknown_dollar == 0
+
+    def test_clean_object(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("DB.SCHEMA.TABLE")]
+        )
+        assert not result.has_placeholder
+        assert result.n_missing_name == 0
+        assert result.n_unknown_dollar == 0
+        assert not result.has_unknown_dollar_prefix
+
+    def test_sys_view_placeholder_detected(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("PROD.SCHEMA.$SYS_VIEW_42")]
+        )
+        assert result.has_placeholder
+        assert result.n_missing_name == 0
+        assert result.n_unknown_dollar == 0
+
+    def test_sys_view_without_trailing_underscore_is_not_placeholder(self):
+        # "$SYS_VIEW" (no trailing underscore) must NOT match $SYS_VIEW_* prefix.
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("PROD.SCHEMA.$SYS_VIEW")]
+        )
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 1
+
+    def test_unknown_dollar_prefix_counted_separately(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("PROD.SCHEMA.$FUTURE_PLACEHOLDER_99")]
+        )
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 1
+        assert result.has_unknown_dollar_prefix
+
+    def test_none_name_increments_missing(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj(None)]
+        )
+        assert result.n_missing_name == 1
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 0
+
+    def test_empty_string_name_increments_missing(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects([self._obj("")])
+        assert result.n_missing_name == 1
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 0
+
+    def test_whitespace_only_name_increments_missing(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("   ")]
+        )
+        assert result.n_missing_name == 1
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 0
+
+    def test_name_with_no_dot_still_classified(self):
+        # objectName without any dot: unqualified == name itself.
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("$SYS_VIEW_7")]
+        )
+        assert result.has_placeholder
+
+    def test_mixed_objects_only_one_corrupt(self):
+        # Multiple objects where only one has a $SYS_VIEW_ placeholder.
+        objects = [
+            self._obj("PROD.SCHEMA.CLEAN_TABLE"),
+            self._obj("PROD.SCHEMA.$SYS_VIEW_99"),
+            self._obj("PROD.SCHEMA.ANOTHER_CLEAN"),
+        ]
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(objects)
+        assert result.has_placeholder
+        assert result.n_missing_name == 0
+        assert result.n_unknown_dollar == 0
+
+    def test_mixed_missing_and_unknown_dollar(self):
+        objects = [
+            self._obj(None),
+            self._obj("DB.SCHEMA.$WEIRD_123"),
+            self._obj("DB.SCHEMA.NORMAL"),
+        ]
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(objects)
+        assert not result.has_placeholder
+        assert result.n_missing_name == 1
+        assert result.n_unknown_dollar == 1
 
 
 class TestBuildPatternFilter:

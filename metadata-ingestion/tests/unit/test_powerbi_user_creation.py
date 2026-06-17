@@ -1,10 +1,14 @@
-"""Unit tests for PowerBI user creation logic.
-
-Tests the fix for CUS-7063: PowerBI ingestion overwrites existing user profiles.
-"""
+"""Unit tests for PowerBI user creation logic."""
 
 from typing import List, Optional
+from unittest import mock
 
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.powerbi.config import (
+    PowerBiDashboardSourceConfig,
+    PowerBiDashboardSourceReport,
+)
+from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import User
 from datahub.metadata.schema_classes import CorpUserInfoClass, CorpUserKeyClass
 
@@ -366,3 +370,65 @@ class TestEdgeCases:
         )
 
         assert user_info.displayName == "fallback_user"
+
+
+def _make_mapper(
+    extract_ownership: bool,
+    create_corp_user: bool,
+) -> Mapper:
+    config = PowerBiDashboardSourceConfig(
+        tenant_id="tenant",
+        client_id="client",
+        client_secret="secret",
+        extract_ownership=extract_ownership,
+        ownership={"create_corp_user": create_corp_user},
+    )
+    return Mapper(
+        ctx=PipelineContext(run_id="test-run"),
+        config=config,
+        reporter=PowerBiDashboardSourceReport(),
+        dataplatform_instance_resolver=mock.MagicMock(),
+    )
+
+
+class TestToDatahubUsersGate:
+    """Both flags gate user-MCP emission to avoid clobbering LDAP/SCIM/Okta profiles."""
+
+    def test_extract_ownership_false_returns_empty(self) -> None:
+        """extract_ownership=False must skip user MCP emission regardless of create_corp_user."""
+        mapper = _make_mapper(extract_ownership=False, create_corp_user=True)
+        users = [make_test_user("u1", principal_type="User")]
+
+        assert mapper.to_datahub_users(users) == []
+
+    def test_create_corp_user_false_returns_empty(self) -> None:
+        """create_corp_user=False must skip user MCP emission regardless of extract_ownership (soft-reference mode)."""
+        mapper = _make_mapper(extract_ownership=True, create_corp_user=False)
+        users = [make_test_user("u1", principal_type="User")]
+
+        assert mapper.to_datahub_users(users) == []
+
+    def test_both_flags_true_emits_user_mcps(self) -> None:
+        """(extract_ownership, create_corp_user) both True: a User-type principal must produce at least one MCP."""
+        mapper = _make_mapper(extract_ownership=True, create_corp_user=True)
+        users = [make_test_user("u1", principal_type="User")]
+
+        mcps = mapper.to_datahub_users(users)
+
+        assert mcps, (
+            "expected user MCPs when both flags are on and a User principal is present"
+        )
+
+    def test_app_principal_filters_to_empty_without_raising(self) -> None:
+        """Non-User principals (App, Group) filter to no MCPs even when both flags are on."""
+        mapper = _make_mapper(extract_ownership=True, create_corp_user=True)
+        users = [
+            make_test_user(
+                "SP-1",
+                principal_type="App",
+                email="",
+                display_name="MyServicePrincipal",
+            )
+        ]
+
+        assert mapper.to_datahub_users(users) == []

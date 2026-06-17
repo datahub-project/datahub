@@ -1,3 +1,7 @@
+---
+description: "Rebuild DataHub's Elasticsearch, OpenSearch, or Neo4j indices from the metadata_aspect_v2 table when search or graph services drift."
+---
+
 # Search and Graph Reindexing
 
 If your search infrastructure (Elasticsearch/OpenSearch) or graph services (Elasticsearch/OpenSearch/Neo4j) become inconsistent or out-of-sync with your primary metadata store, you can **rebuild them from the source of truth**: the `metadata_aspect_v2` table in your relational database (MySQL/Postgres).
@@ -294,7 +298,7 @@ Run the system update job with the following environment variable `ELASTICSEARCH
 
 :::caution
 Remember to reset this after restoration completes!
-:::caution
+:::
 
 ##### Bulk Processing Improvements:
 
@@ -313,6 +317,8 @@ Remember to reset this after restoration completes!
 
 Consider using a read replica as the source of the job's data. If you configure a read-only replica
 you must also provide the parameter `createDefaultAspects=false`.
+
+For **GMS** serving live traffic, you can optionally enable the entity-aspect [read pool](../deploy/primary-storage-read-pool.md) (`EBEAN_READ_POOL_*` or `CASSANDRA_READ_POOL_*`) so non-locking reads use a replica or a dedicated read connection pool. Restore/load jobs and upgrade tooling still use the primary pool only.
 
 #### Kafka & Consumers
 

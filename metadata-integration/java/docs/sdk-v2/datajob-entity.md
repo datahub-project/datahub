@@ -1,3 +1,7 @@
+---
+description: "Manage DataJob entities for Airflow tasks, dbt models, and Spark jobs in DataHub using the Java SDK V2 with full lineage support."
+---
+
 # DataJob Entity
 
 The DataJob entity represents a unit of work in a data processing pipeline (e.g., an Airflow task, a dbt model, a Spark job). DataJobs belong to DataFlows (pipelines) and can have lineage to datasets and other DataJobs. This guide covers comprehensive DataJob operations in SDK V2.

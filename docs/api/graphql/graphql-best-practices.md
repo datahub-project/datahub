@@ -1,3 +1,7 @@
+---
+description: "Best practices for using the DataHub GraphQL API efficiently, including pagination, batching, error handling, and query design."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

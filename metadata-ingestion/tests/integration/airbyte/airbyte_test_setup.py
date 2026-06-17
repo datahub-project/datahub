@@ -1,0 +1,1028 @@
+"""Helpers for spinning up Airbyte locally via abctl, seeding sources/destinations,
+and rewriting auto-generated IDs to static values so golden files stay stable."""
+
+import json
+import os
+import platform
+import re
+import shutil
+import subprocess
+import tarfile
+import time
+import traceback
+import urllib.request
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import requests
+
+AIRBYTE_API_HOST = "localhost"
+AIRBYTE_WEB_PORT = 8000
+AIRBYTE_API_PORT = 8000
+BASIC_AUTH_USERNAME = "test@datahub.io"
+BASIC_AUTH_PASSWORD = "password"
+POSTGRES_PORT = 5433
+MYSQL_PORT = 30306
+
+
+def get_database_host() -> str:
+    """Return the hostname Airbyte (in Kind) should use to reach the test databases.
+    On Mac/Windows the Docker daemon resolves `host.docker.internal`; on Linux we
+    have to ask Docker for the bridge gateway IP (typically 172.17.0.1)."""
+    if platform.system() == "Linux":
+        try:
+            result = subprocess.run(
+                [
+                    "docker",
+                    "network",
+                    "inspect",
+                    "bridge",
+                    "-f",
+                    "{{range .IPAM.Config}}{{.Gateway}}{{end}}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+        except Exception:
+            pass
+        return "172.17.0.1"
+    return "host.docker.internal"
+
+
+DATABASE_HOST = get_database_host()
+print(f"Using database host for Airbyte connections: {DATABASE_HOST}")
+print(
+    f"Test databases running on ports - PostgreSQL: {POSTGRES_PORT}, MySQL: {MYSQL_PORT}"
+)
+
+# Static IDs replace the random UUIDs Airbyte assigns, so the generated
+# golden files don't change between runs.
+STATIC_WORKSPACE_ID = "12345678-1234-1234-1234-123456789012"
+STATIC_MYSQL_SOURCE_ID = "22222222-2222-2222-2222-222222222222"
+STATIC_POSTGRES_DEST_ID = "44444444-4444-4444-4444-444444444444"
+STATIC_MYSQL_TO_PG_CONNECTION_ID = "66666666-6666-6666-6666-666666666666"
+
+# abctl v0.30.3 deploys Airbyte 1.8+
+ABCTL_VERSION = "v0.30.3"
+
+AIRBYTE_API_URL: str = f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/v1"
+
+
+def set_airbyte_api_url(url: str) -> None:
+    global AIRBYTE_API_URL
+    AIRBYTE_API_URL = url
+
+
+def get_airbyte_api_url() -> str:
+    return AIRBYTE_API_URL
+
+
+def is_postgres_ready(container_name: str) -> bool:
+    try:
+        cmd = f"docker exec {container_name} pg_isready -U test"
+        ret = subprocess.run(cmd, shell=True, capture_output=True, timeout=5)
+        return ret.returncode == 0
+    except subprocess.SubprocessError:
+        return False
+
+
+def is_mysql_ready(container_name: str) -> bool:
+    try:
+        cmd = f"docker exec {container_name} mysqladmin ping -h localhost -u root -prootpwd123"
+        ret = subprocess.run(cmd, shell=True, capture_output=True, timeout=5)
+        return ret.returncode == 0
+    except subprocess.SubprocessError:
+        return False
+
+
+def check_container_logs_for_errors(
+    container_name: str, error_patterns: Optional[List[str]] = None
+) -> bool:
+    if error_patterns is None:
+        error_patterns = ["error", "exception", "failed"]
+
+    try:
+        logs = subprocess.check_output(
+            f"docker logs {container_name} 2>&1 | grep -i -E '({'|'.join(error_patterns)})' | tail -20",
+            shell=True,
+            text=True,
+        )
+        return bool(logs.strip())
+    except subprocess.CalledProcessError:
+        return False
+    except Exception:
+        return False
+
+
+def check_container_health(container_name: str) -> Optional[str]:
+    try:
+        health = subprocess.check_output(
+            f"docker inspect --format='{{{{.State.Health.Status}}}}' {container_name}",
+            shell=True,
+            text=True,
+        ).strip()
+        return health if health else None
+    except Exception:
+        return None
+
+
+def find_working_api_url() -> Optional[Dict[str, Any]]:
+    """Probe a few candidate Airbyte health endpoints (paths differ across versions
+    and basic-auth may or may not be required) and return the first one that
+    responds successfully, along with whether auth is needed."""
+    api_paths = [
+        "/api/v1/health",
+        "/api/public/v1/health",
+        "/api/public/health",
+        "/health",
+    ]
+
+    for port in [AIRBYTE_API_PORT]:
+        for path in api_paths:
+            url = f"http://{AIRBYTE_API_HOST}:{port}{path}"
+            try:
+                response = requests.get(url, timeout=5)
+                auth_type = "none"
+
+                if response.status_code == 401:
+                    response = requests.get(
+                        url, auth=(BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD), timeout=5
+                    )
+                    auth_type = "basic"
+
+                if response.status_code == 200 and (
+                    "available" in response.text.lower()
+                    or "ok" in response.text.lower()
+                ):
+                    return {
+                        "url": url,
+                        "port": port,
+                        "path": path,
+                        "auth_required": auth_type == "basic",
+                    }
+            except requests.RequestException:
+                pass
+
+    return None
+
+
+def diagnose_airbyte_proxy_issue() -> None:
+    """Print abctl status and pod state to help diagnose flaky local installs."""
+    print("Running Airbyte diagnostics...")
+
+    try:
+        result = subprocess.run(
+            ["abctl", "local", "status"], capture_output=True, text=True, timeout=30
+        )
+        if result.returncode == 0:
+            print(result.stdout)
+    except Exception:
+        pass
+
+    try:
+        kubeconfig = str(Path.home() / ".airbyte" / "abctl" / "abctl.kubeconfig")
+        result = subprocess.run(
+            [
+                "kubectl",
+                "--kubeconfig",
+                kubeconfig,
+                "get",
+                "pods",
+                "-n",
+                "airbyte-abctl",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode == 0:
+            print(result.stdout)
+    except Exception:
+        pass
+
+
+def get_api_url_for_test() -> Tuple[str, bool]:
+    api_config = find_working_api_url()
+
+    if api_config:
+        if api_config["auth_required"]:
+            return (f"http://{AIRBYTE_API_HOST}:{api_config['port']}/api/v1", True)
+        else:
+            return (f"http://{AIRBYTE_API_HOST}:{api_config['port']}/api/v1", False)
+    else:
+        diagnose_airbyte_proxy_issue()
+        return (f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/v1", True)
+
+
+def check_airbyte_pods_ready() -> bool:
+    try:
+        kubeconfig = Path.home() / ".airbyte" / "abctl" / "abctl.kubeconfig"
+        if not kubeconfig.exists():
+            return True
+
+        result = subprocess.run(
+            [
+                "kubectl",
+                f"--kubeconfig={kubeconfig}",
+                "get",
+                "pods",
+                "-n",
+                "airbyte-abctl",
+                "-o",
+                "json",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if result.returncode != 0:
+            return False
+
+        pods_data = json.loads(result.stdout)
+        pods = pods_data.get("items", [])
+
+        if not pods:
+            return False
+
+        all_ready = all(
+            pod["status"]["phase"] == "Running"
+            and all(
+                cs.get("ready", False)
+                for cs in pod["status"].get("containerStatuses", [])
+            )
+            for pod in pods
+        )
+
+        return all_ready
+
+    except Exception:
+        return False
+
+
+def get_airbyte_version() -> Optional[str]:
+    try:
+        result = subprocess.run(
+            [
+                "kubectl",
+                "get",
+                "deployment",
+                "airbyte-server",
+                "-n",
+                "airbyte-abctl",
+                "-o",
+                "jsonpath={.spec.template.spec.containers[0].image}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0 and result.stdout:
+            image = result.stdout.strip()
+            if ":" in image:
+                return image.split(":")[-1]
+    except Exception:
+        pass
+    return None
+
+
+def wait_for_airbyte_ready(timeout: int = 600) -> bool:
+    print(f"Waiting for Airbyte API (timeout: {timeout}s)...")
+
+    time.sleep(45)
+
+    if check_airbyte_pods_ready():
+        airbyte_version = get_airbyte_version()
+        version_str = f" ({airbyte_version})" if airbyte_version else ""
+        print(f"Airbyte pods ready{version_str}")
+
+    end_time = time.time() + timeout
+    check_interval = 15
+    attempt = 0
+    max_attempts_before_diagnostics = 5
+
+    while time.time() < end_time:
+        attempt += 1
+
+        if attempt == 1 or attempt == max_attempts_before_diagnostics:
+            api_url, _ = get_api_url_for_test()
+            set_airbyte_api_url(api_url)
+        else:
+            api_url = get_airbyte_api_url()
+
+        try:
+            health_response = requests.get(f"{api_url}/health", timeout=10)
+            if health_response.status_code == 200:
+                password = os.environ.get("AIRBYTE_PASSWORD", BASIC_AUTH_PASSWORD)
+                auth = (BASIC_AUTH_USERNAME, password)
+
+                workspaces_response = requests.post(
+                    f"{api_url}/workspaces/list", auth=auth, json={}, timeout=10
+                )
+
+                if workspaces_response.status_code == 200:
+                    print("Airbyte API ready")
+                    return True
+                elif attempt == 1:
+                    print(
+                        f"Workspace list returned {workspaces_response.status_code}: {workspaces_response.text[:200]}"
+                    )
+                    print(
+                        f"Using password from env: {'AIRBYTE_PASSWORD' in os.environ}"
+                    )
+
+        except requests.RequestException:
+            pass
+
+        if attempt == max_attempts_before_diagnostics:
+            diagnose_airbyte_proxy_issue()
+
+        time.sleep(check_interval)
+
+    print("ERROR: Timeout waiting for Airbyte API")
+    return False
+
+
+def update_all_ids_atomically(
+    kubeconfig_path: Path,
+    id_updates: Dict[str, Dict[str, Any]],
+) -> bool:
+    """Rewrite Airbyte-assigned UUIDs (actors + connections) to our static test IDs
+    in a single transaction so golden files stay stable across runs."""
+    if not shutil.which("kubectl") or not kubeconfig_path.exists():
+        return False
+
+    try:
+        db_pod_name = "airbyte-db-0"
+
+        sql_statements = [
+            "BEGIN;",
+            "ALTER TABLE connection DISABLE TRIGGER ALL;",
+            "ALTER TABLE actor DISABLE TRIGGER ALL;",
+        ]
+
+        for old_id, new_id in id_updates.get("actors", {}).items():
+            sql_statements.append(
+                f"UPDATE actor SET id = '{new_id}' WHERE id = '{old_id}';"
+            )
+
+        for old_conn_id, conn_data in id_updates.get("connections", {}).items():
+            new_conn_id = conn_data["new_id"]
+            new_source_id = conn_data["new_source_id"]
+            new_dest_id = conn_data["new_dest_id"]
+            sql_statements.append(
+                f"UPDATE connection SET id = '{new_conn_id}', "
+                f"source_id = '{new_source_id}', destination_id = '{new_dest_id}' "
+                f"WHERE id = '{old_conn_id}';"
+            )
+
+        sql_statements.extend(
+            [
+                "ALTER TABLE actor ENABLE TRIGGER ALL;",
+                "ALTER TABLE connection ENABLE TRIGGER ALL;",
+                "COMMIT;",
+            ]
+        )
+
+        full_sql = " ".join(sql_statements)
+
+        command = [
+            "kubectl",
+            "--kubeconfig",
+            str(kubeconfig_path),
+            "exec",
+            "-n",
+            "airbyte-abctl",
+            db_pod_name,
+            "--",
+            "psql",
+            "-U",
+            "airbyte",
+            "-d",
+            "db-airbyte",
+            "-c",
+            full_sql,
+        ]
+
+        result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+        return result.returncode == 0
+
+    except Exception:
+        return False
+
+
+def update_airbyte_database_id(
+    kubeconfig_path: Path, table_name: str, old_id: str, new_id: str
+) -> bool:
+    if not kubeconfig_path.exists():
+        return False
+
+    try:
+        kubectl_check = subprocess.run(
+            ["kubectl", "version", "--client"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if kubectl_check.returncode != 0:
+            return False
+    except (subprocess.SubprocessError, FileNotFoundError):
+        return False
+
+    try:
+        result = subprocess.run(
+            [
+                "kubectl",
+                f"--kubeconfig={kubeconfig_path}",
+                "exec",
+                "-n",
+                "airbyte-abctl",
+                "airbyte-db-0",
+                "--",
+                "psql",
+                "-U",
+                "airbyte",
+                "-d",
+                "db-airbyte",
+                "-c",
+                f"UPDATE {table_name} SET id = '{new_id}' WHERE id = '{old_id}';",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        return result.returncode == 0
+
+    except (subprocess.TimeoutExpired, Exception):
+        return False
+
+
+def try_direct_api_setup() -> Optional[str]:
+    """Hit a couple of Airbyte API base paths, locate the first responsive workspace,
+    cache the API URL for later calls, and return the workspace ID."""
+    print("Verifying Airbyte API...")
+
+    try:
+        api_endpoints = [
+            f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/public/v1",
+            f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/v1",
+        ]
+
+        password = os.environ.get("AIRBYTE_PASSWORD", BASIC_AUTH_PASSWORD)
+        auth = (BASIC_AUTH_USERNAME, password)
+
+        for api_url in api_endpoints:
+            workspaces_response = requests.get(
+                f"{api_url}/workspaces", auth=auth, timeout=10
+            )
+
+            if workspaces_response.status_code == 200:
+                workspaces_data = workspaces_response.json()
+                workspaces = workspaces_data.get(
+                    "data", workspaces_data.get("workspaces", [])
+                )
+                if workspaces:
+                    workspace_id = workspaces[0].get("workspaceId")
+                    print(f"Workspace ID: {workspace_id}")
+                    set_airbyte_api_url(api_url)
+                    return workspace_id
+            else:
+                workspaces_response = requests.post(
+                    f"{api_url}/workspaces/list", auth=auth, json={}, timeout=10
+                )
+
+                if workspaces_response.status_code == 200:
+                    workspaces_data = workspaces_response.json()
+                    workspaces = workspaces_data.get("workspaces", [])
+                    if workspaces:
+                        workspace_id = workspaces[0].get("workspaceId")
+                        print(f"Workspace ID: {workspace_id}")
+                        set_airbyte_api_url(api_url)
+                        return workspace_id
+
+        print("ERROR: Could not find working API endpoint")
+        return None
+
+    except Exception as e:
+        print(f"ERROR: Failed to get workspace ID: {str(e)}")
+        traceback.print_exc()
+        return None
+
+
+def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
+    print("Creating Airbyte resources...")
+
+    created_ids: Dict[str, Optional[str]] = {
+        "workspace_id": workspace_id,
+        "postgres_dest_id": None,
+    }
+
+    try:
+        api_url = f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/v1"
+        password = os.environ.get("AIRBYTE_PASSWORD", BASIC_AUTH_PASSWORD)
+        auth = (BASIC_AUTH_USERNAME, password)
+
+        source_defs_response = requests.post(
+            f"{api_url}/source_definitions/list", auth=auth, json={}, timeout=10
+        )
+
+        if source_defs_response.status_code != 200:
+            print(
+                f"Failed to get source definitions: {source_defs_response.status_code}"
+            )
+            return created_ids
+
+        source_defs = source_defs_response.json().get("sourceDefinitions", [])
+
+        mysql_source_def_id = None
+        for source_def in source_defs:
+            name = source_def.get("name", "").lower()
+            if "mysql" in name and not mysql_source_def_id:
+                mysql_source_def_id = source_def["sourceDefinitionId"]
+                break
+
+        if not mysql_source_def_id:
+            print("ERROR: Could not find MySQL source definition")
+            return created_ids
+
+        mysql_source_config = {
+            "name": "Test MySQL Source",
+            "sourceDefinitionId": mysql_source_def_id,
+            "workspaceId": workspace_id,
+            "connectionConfiguration": {
+                "host": DATABASE_HOST,
+                "port": MYSQL_PORT,
+                "database": "source_db",
+                "username": "test",
+                "password": "test",
+                "ssl": False,
+                "replication_method": {"method": "STANDARD"},
+            },
+        }
+
+        mysql_source_response = requests.post(
+            f"{api_url}/sources/create", auth=auth, json=mysql_source_config, timeout=10
+        )
+
+        mysql_source_id = None
+        if mysql_source_response.status_code in [200, 201]:
+            mysql_source_id = mysql_source_response.json()["sourceId"]
+            created_ids["mysql_source_id"] = mysql_source_id
+        else:
+            print("WARNING: Failed to create MySQL source")
+
+        dest_defs_response = requests.post(
+            f"{api_url}/destination_definitions/list", auth=auth, json={}, timeout=10
+        )
+
+        if dest_defs_response.status_code != 200:
+            print(
+                f"Failed to get destination definitions: {dest_defs_response.status_code}"
+            )
+            return created_ids
+
+        dest_defs = dest_defs_response.json().get("destinationDefinitions", [])
+
+        postgres_dest_def_id = None
+        for dest_def in dest_defs:
+            name = dest_def.get("name", "").lower()
+            if "postgres" in name:
+                postgres_dest_def_id = dest_def["destinationDefinitionId"]
+                break
+
+        if not postgres_dest_def_id:
+            print("ERROR: Could not find PostgreSQL destination definition")
+            return created_ids
+
+        postgres_dest_config = {
+            "name": "Test Postgres Destination",
+            "destinationDefinitionId": postgres_dest_def_id,
+            "workspaceId": workspace_id,
+            "connectionConfiguration": {
+                "host": DATABASE_HOST,
+                "port": POSTGRES_PORT,
+                "database": "test",
+                "username": "test",
+                "password": "test",
+                "ssl": False,
+                "ssl_mode": {"mode": "disable"},
+                "schema": "public",
+            },
+        }
+
+        postgres_dest_response = requests.post(
+            f"{api_url}/destinations/create",
+            auth=auth,
+            json=postgres_dest_config,
+            timeout=10,
+        )
+
+        if postgres_dest_response.status_code in [200, 201]:
+            postgres_dest_id = postgres_dest_response.json()["destinationId"]
+            created_ids["postgres_dest_id"] = postgres_dest_id
+        else:
+            print("ERROR: Failed to create PostgreSQL destination")
+            return created_ids
+
+        if mysql_source_id:
+            _create_mysql_connection(
+                api_url, auth, mysql_source_id, postgres_dest_id, created_ids
+            )
+
+        print("Triggering sync jobs for connections...")
+        _trigger_sync_jobs(api_url, auth, created_ids)
+
+        # Give Airbyte a moment to persist the job rows so the ingest run finds them.
+        time.sleep(10)
+
+        print("All Airbyte resources created")
+
+        return created_ids
+
+    except Exception as e:
+        print(f"ERROR: Failed to create Airbyte test setup: {str(e)}")
+        traceback.print_exc()
+        return created_ids
+
+
+def _discover_schema(
+    api_url: str, auth: tuple, source_id: str, source_name: str
+) -> Optional[Dict]:
+    discover_payload = {"sourceId": source_id}
+
+    for attempt in range(3):
+        try:
+            print(
+                f"Schema discovery attempt {attempt + 1}/3 for {source_name} (source_id: {source_id})"
+            )
+            discover_response = requests.post(
+                f"{api_url}/sources/discover_schema",
+                auth=auth,
+                json=discover_payload,
+                timeout=300,
+            )
+
+            if discover_response.status_code == 200:
+                catalog_data = discover_response.json()
+                sync_catalog = catalog_data.get("catalog")
+
+                if sync_catalog and "streams" in sync_catalog:
+                    for stream in sync_catalog["streams"]:
+                        if "config" not in stream:
+                            stream["config"] = {}
+                        stream["config"]["selected"] = True
+                        stream["config"]["syncMode"] = "full_refresh"
+                        stream["config"]["destinationSyncMode"] = "overwrite"
+                    print(
+                        f"Discovered {len(sync_catalog['streams'])} {source_name} streams"
+                    )
+                return sync_catalog
+            elif attempt < 2:
+                time.sleep(30)
+        except (requests.exceptions.Timeout, Exception):
+            if attempt < 2:
+                time.sleep(30)
+
+    print(f"ERROR: {source_name} schema discovery failed, using empty catalog")
+    return {"streams": []}
+
+
+def _create_mysql_connection(
+    api_url: str, auth: tuple, source_id: str, dest_id: str, created_ids: Dict
+) -> None:
+    sync_catalog = _discover_schema(api_url, auth, source_id, "MySQL")
+
+    connection_config = {
+        "name": "MySQL to Postgres Connection",
+        "sourceId": source_id,
+        "destinationId": dest_id,
+        "status": "active",
+        "scheduleType": "manual",
+        "namespaceDefinition": "source",
+        "namespaceFormat": "${SOURCE_NAMESPACE}",
+        "prefix": "",
+        "syncCatalog": sync_catalog,
+    }
+
+    connection_response = requests.post(
+        f"{api_url}/connections/create", auth=auth, json=connection_config, timeout=30
+    )
+
+    if connection_response.status_code in [200, 201]:
+        connection_id = connection_response.json().get("connectionId")
+        created_ids["mysql_to_pg_connection_id"] = connection_id
+
+
+def _trigger_sync_jobs(api_url: str, auth: tuple, created_ids: Dict) -> None:
+    conn_id = created_ids.get("mysql_to_pg_connection_id")
+    if conn_id:
+        try:
+            requests.post(
+                f"{api_url}/connections/sync",
+                auth=auth,
+                json={"connectionId": conn_id},
+                timeout=30,
+            )
+        except Exception:
+            pass
+
+    time.sleep(10)
+
+
+def setup_airbyte_connections(test_resources_dir: Path) -> Dict[str, Optional[str]]:
+    workspace_id = try_direct_api_setup()
+
+    if not workspace_id:
+        return {}
+
+    kubeconfig = Path.home() / ".airbyte" / "abctl" / "abctl.kubeconfig"
+
+    if update_airbyte_database_id(
+        kubeconfig, "workspace", workspace_id, STATIC_WORKSPACE_ID
+    ):
+        workspace_id = STATIC_WORKSPACE_ID
+        print(f"Using static workspace ID: {workspace_id}")
+        time.sleep(5)
+
+    created_ids = create_airbyte_test_setup(workspace_id)
+
+    _update_ids_to_static(kubeconfig, created_ids)
+    _restart_airbyte_server(kubeconfig)
+    time.sleep(15)
+
+    return created_ids
+
+
+def _update_ids_to_static(kubeconfig: Path, created_ids: Dict) -> None:
+    postgres_dest_id_val = created_ids.get("postgres_dest_id")
+    mysql_source_id_val = created_ids.get("mysql_source_id")
+    mysql_connection_id_val = created_ids.get("mysql_to_pg_connection_id")
+
+    id_updates: Dict[str, Dict[str, Any]] = {"actors": {}, "connections": {}}
+
+    if mysql_source_id_val:
+        id_updates["actors"][mysql_source_id_val] = STATIC_MYSQL_SOURCE_ID
+    if postgres_dest_id_val:
+        id_updates["actors"][postgres_dest_id_val] = STATIC_POSTGRES_DEST_ID
+
+    if mysql_connection_id_val and mysql_source_id_val and postgres_dest_id_val:
+        id_updates["connections"][mysql_connection_id_val] = {
+            "new_id": STATIC_MYSQL_TO_PG_CONNECTION_ID,
+            "new_source_id": STATIC_MYSQL_SOURCE_ID,
+            "new_dest_id": STATIC_POSTGRES_DEST_ID,
+        }
+
+    if update_all_ids_atomically(kubeconfig, id_updates):
+        if mysql_source_id_val:
+            created_ids["mysql_source_id"] = STATIC_MYSQL_SOURCE_ID
+        if postgres_dest_id_val:
+            created_ids["postgres_dest_id"] = STATIC_POSTGRES_DEST_ID
+        if mysql_connection_id_val:
+            created_ids["mysql_to_pg_connection_id"] = STATIC_MYSQL_TO_PG_CONNECTION_ID
+    else:
+        print("WARNING: Atomic ID update failed, IDs may be dynamic")
+
+
+def _restart_airbyte_server(kubeconfig: Path) -> None:
+    # After rewriting IDs we have to bounce the server so it drops any caches
+    # holding the old (dynamic) UUIDs.
+    try:
+        restart_cmd = [
+            "kubectl",
+            "--kubeconfig",
+            str(kubeconfig),
+            "rollout",
+            "restart",
+            "deployment/airbyte-abctl-server",
+            "-n",
+            "airbyte-abctl",
+        ]
+        restart_result = subprocess.run(
+            restart_cmd, capture_output=True, text=True, timeout=30
+        )
+
+        if restart_result.returncode == 0:
+            rollout_status_cmd = [
+                "kubectl",
+                "--kubeconfig",
+                str(kubeconfig),
+                "rollout",
+                "status",
+                "deployment/airbyte-abctl-server",
+                "-n",
+                "airbyte-abctl",
+                "--timeout=120s",
+            ]
+            subprocess.run(
+                rollout_status_cmd, capture_output=True, text=True, timeout=130
+            )
+            time.sleep(15)
+    except Exception:
+        pass
+
+
+def init_test_data(test_resources_dir: Path) -> None:
+    """Seed the Postgres test container by piping `setup/init-test-db.sql` into psql.
+    MySQL is already seeded by docker-compose via `/docker-entrypoint-initdb.d/init.sql`."""
+    try:
+        postgres_init_file = test_resources_dir / "setup" / "init-test-db.sql"
+        if postgres_init_file.exists():
+            with open(postgres_init_file, "r") as f:
+                postgres_sql = f.read()
+
+            subprocess.run(
+                [
+                    "docker",
+                    "exec",
+                    "test-postgres",
+                    "psql",
+                    "-U",
+                    "test",
+                    "-d",
+                    "test",
+                    "-c",
+                    postgres_sql,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+    except Exception:
+        pass
+
+
+def install_abctl(test_resources_dir: Path) -> Path:
+    try:
+        result = subprocess.run(
+            ["abctl", "version"], capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0:
+            return Path("abctl")
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+    import platform
+
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+
+    if system == "darwin":
+        os_name = "darwin"
+        arch = "arm64" if machine == "arm64" else "amd64"
+    elif system == "linux":
+        os_name = "linux"
+        arch = "arm64" if machine in ["aarch64", "arm64"] else "amd64"
+    else:
+        raise RuntimeError(f"Unsupported OS: {system}")
+
+    download_url = f"https://github.com/airbytehq/abctl/releases/download/{ABCTL_VERSION}/abctl-{ABCTL_VERSION}-{os_name}-{arch}.tar.gz"
+
+    abctl_path = test_resources_dir / "abctl"
+    archive_path = test_resources_dir / f"abctl-{ABCTL_VERSION}-{os_name}-{arch}.tar.gz"
+
+    try:
+        urllib.request.urlretrieve(download_url, archive_path)
+
+        with tarfile.open(archive_path, "r:gz") as tar:
+            members = tar.getnames()
+            binary_member = None
+            for member in members:
+                if member.endswith("/abctl") or member == "abctl":
+                    binary_member = member
+                    break
+
+            if not binary_member:
+                raise RuntimeError("Could not find abctl binary in archive")
+
+            tar.extract(binary_member, test_resources_dir)
+
+            if "/" in binary_member:
+                extracted_path = test_resources_dir / binary_member
+                extracted_path.rename(abctl_path)
+                shutil.rmtree(test_resources_dir / binary_member.split("/")[0])
+
+        archive_path.unlink()
+        abctl_path.chmod(0o755)
+
+        result = subprocess.run(
+            [str(abctl_path), "version"], capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Downloaded abctl is not working: {result.stderr}")
+
+        return abctl_path
+
+    except Exception as e:
+        if archive_path.exists():
+            archive_path.unlink()
+        if abctl_path.exists():
+            abctl_path.unlink()
+        raise RuntimeError(f"Failed to download abctl: {e}") from e
+
+
+def cleanup_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
+    try:
+        cleanup_result = subprocess.run(
+            [str(abctl_path), "local", "uninstall", "--persisted"],
+            cwd=test_resources_dir,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if cleanup_result.returncode == 0:
+            time.sleep(5)
+        else:
+            fallback_result = subprocess.run(
+                [str(abctl_path), "local", "uninstall"],
+                cwd=test_resources_dir,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if fallback_result.returncode == 0:
+                time.sleep(5)
+
+    except (subprocess.TimeoutExpired, Exception):
+        pass
+
+
+def get_airbyte_credentials(abctl_path: Path, test_resources_dir: Path) -> None:
+    """Read credentials from `abctl local credentials` and stash them in env vars
+    (AIRBYTE_PASSWORD / AIRBYTE_CLIENT_ID / AIRBYTE_CLIENT_SECRET) for the rest
+    of the test run."""
+    try:
+        creds_result = subprocess.run(
+            [str(abctl_path), "local", "credentials"],
+            cwd=test_resources_dir,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if creds_result.returncode == 0:
+            lines = creds_result.stdout.split("\n")
+            password = None
+            client_id = None
+            client_secret = None
+
+            for line in lines:
+                if "Password:" in line:
+                    password = line.split("Password:")[1].strip()
+                    password = re.sub(r"\x1b\[[0-9;]*m", "", password)
+                elif "Client-Id:" in line:
+                    client_id = line.split("Client-Id:")[1].strip()
+                    client_id = re.sub(r"\x1b\[[0-9;]*m", "", client_id)
+                elif "Client-Secret:" in line:
+                    client_secret = line.split("Client-Secret:")[1].strip()
+                    client_secret = re.sub(r"\x1b\[[0-9;]*m", "", client_secret)
+
+            if password:
+                os.environ["AIRBYTE_PASSWORD"] = password
+                if client_id:
+                    os.environ["AIRBYTE_CLIENT_ID"] = client_id
+                if client_secret:
+                    os.environ["AIRBYTE_CLIENT_SECRET"] = client_secret
+    except Exception:
+        pass
+
+
+def complete_airbyte_onboarding() -> bool:
+    try:
+        api_endpoints = [
+            f"http://localhost:{AIRBYTE_API_PORT}/api/v1",
+            f"http://localhost:{AIRBYTE_API_PORT}/api/public/v1",
+        ]
+
+        for api_endpoint in api_endpoints:
+            try:
+                password = os.environ.get("AIRBYTE_PASSWORD", BASIC_AUTH_PASSWORD)
+                auth = (BASIC_AUTH_USERNAME, password)
+
+                setup_data = {
+                    "email": "test@datahub.io",
+                    "anonymousDataCollection": False,
+                    "news": False,
+                    "securityUpdates": False,
+                }
+
+                response = requests.post(
+                    f"{api_endpoint}/instance_configuration/setup",
+                    json=setup_data,
+                    auth=auth,
+                    timeout=10,
+                )
+
+                if response.status_code in [200, 201]:
+                    print("Onboarding completed, waiting 15 seconds...")
+                    time.sleep(15)
+                    return True
+
+            except requests.RequestException:
+                continue
+
+        return False
+
+    except Exception:
+        return False

@@ -1,4 +1,5 @@
 import ColorThief from 'colorthief';
+import i18next from 'i18next';
 import React, { useCallback, useRef, useState } from 'react';
 import styled, { CSSObject, css, useTheme } from 'styled-components/macro';
 
@@ -19,6 +20,7 @@ type PlatformIconProps = {
     imageStyles?: CSSObject | undefined;
     className?: string;
     onError?: () => void;
+    dataTestId?: string;
 };
 
 const IconContainer = styled.div<{ background?: string; styles: CSSObject | undefined }>`
@@ -44,7 +46,7 @@ const PreviewImage = styled.img<{ size: number; imageStyles?: CSSObject | undefi
 const PlatformIcon: React.FC<PlatformIconProps> = ({
     platform,
     size = 17,
-    alt = 'Platform Logo',
+    alt = i18next.t('shared.misc:platformIcon.alt'),
     entityType = EntityType.DataPlatform,
     color,
     title,
@@ -52,6 +54,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     imageStyles,
     className,
     onError,
+    dataTestId,
 }) => {
     const [background, setBackground] = useState<string | undefined>(undefined);
     const imgRef = useRef<HTMLImageElement>(null);
@@ -69,7 +72,13 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     }, [onError, setBackground, theme.colors.bgSurface]);
 
     return (
-        <IconContainer background={background} styles={styles} title={title} className={className}>
+        <IconContainer
+            background={background}
+            styles={styles}
+            title={title}
+            className={className}
+            data-testid={dataTestId}
+        >
             {logoUrl ? (
                 <PreviewImage
                     crossOrigin="anonymous"
@@ -83,6 +92,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
                         if (img && img.width > 0 && img.height > 0) {
                             const colorThief = new ColorThief();
                             const [r, g, b] = colorThief.getColor(img, 25);
+                            // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) numeric rgb join separator
                             setBackground(`rgb(${getLighterRGBColor(r, g, b).join(', ')})`);
                         }
                     }}

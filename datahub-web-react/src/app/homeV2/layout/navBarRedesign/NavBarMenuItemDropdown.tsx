@@ -71,6 +71,7 @@ export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, 
 
     return (
         <Dropdown
+            trigger={['click']}
             dropdownRender={() => {
                 return (
                     <StyledDropdownContentWrapper style={shouldScroll ? { maxHeight: 200, overflowY: 'auto' } : {}}>

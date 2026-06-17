@@ -77,6 +77,13 @@ class UnityCatalogUsageExtractor:
         except Exception as e:
             logger.error("Error processing usage", exc_info=True)
             self.report.report_warning("usage-extraction", str(e))
+        finally:
+            # Release the aggregator's temp SQLite database once usage emission is done.
+            # Guarded so a close() failure can't mask an exception from the generator body.
+            try:
+                self.usage_aggregator.close()
+            except Exception:
+                logger.warning("Failed to close usage aggregator", exc_info=True)
 
     def _get_workunits_internal(
         self, table_refs: Set[TableReference]

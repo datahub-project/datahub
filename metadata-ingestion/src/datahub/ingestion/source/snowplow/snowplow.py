@@ -94,9 +94,6 @@ from datahub.ingestion.source.snowplow.utils.cache_manager import CacheManager
 from datahub.ingestion.source.snowplow.utils.field_reference_parser import (
     FieldReferenceParser,
 )
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -171,9 +168,6 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         self.user_resolver.load_users()
 
         # Initialize stale entity removal handler
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, self.ctx
-        )
 
         # Domain registry (optional)
         self.domain_registry: Optional[DomainRegistry] = None
@@ -447,10 +441,23 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
 
+        # Resolve display name: API name > UUID fallback
+        display_label = org_id
+        if self.bdp_client:
+            try:
+                org = self.bdp_client.get_organization()
+                if org and org.name:
+                    display_label = org.name
+            except Exception as e:
+                logger.warning(
+                    f"Failed to resolve organization name for {org_id}, "
+                    f"falling back to organization ID: {e}"
+                )
+
         # Use gen_containers to emit all container aspects properly
         yield from gen_containers(
             container_key=org_key,
-            name=f"Snowplow Organization ({org_id})",
+            name=f"Snowplow Organization ({display_label})",
             sub_types=[DatasetContainerSubTypes.DATABASE],
             description="Snowplow BDP organization containing event and entity schemas",
             extra_properties={

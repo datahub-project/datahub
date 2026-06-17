@@ -4,6 +4,7 @@ import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { DocumentActionsMenu } from '@app/homeV2/layout/sidebar/documents/DocumentActionsMenu';
@@ -89,7 +90,7 @@ const IconWrapper = styled.div<{ $isSelected: boolean }>`
         ${(props) =>
             props.$isSelected
                 ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`
-                : `color: ${props.theme.colors.textTertiary};`}
+                : `color: ${props.theme.colors.icon};`}
     }
 `;
 
@@ -158,6 +159,8 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     hideCreate = false,
     parentUrn,
 }) => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const [isHovered, setIsHovered] = useState(false);
     const [forceShowActions, setForceShowActions] = useState(false);
@@ -190,7 +193,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                     data-testid={`document-tree-expand-button-${urn}`}
                     $isVisible
                     onClick={handleExpandClick}
-                    aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                    aria-label={isExpanded ? tc('collapse') : tc('expand')}
                 >
                     {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
                     {!isLoading && isExpanded && (
@@ -243,7 +246,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                         />
                     )}
                     {!hideCreate && (
-                        <Tooltip title="New document" placement="bottom" showArrow={false}>
+                        <Tooltip title={t('documents.newDocumentTooltip')} placement="bottom" showArrow={false}>
                             <ActionButton
                                 icon={{ icon: Plus, color: 'gray', colorLevel: 1800 }}
                                 variant="text"

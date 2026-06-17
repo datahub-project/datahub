@@ -1,3 +1,7 @@
+---
+description: "Preview of upcoming DataHub Cloud features and changes planned for the next scheduled release."
+---
+
 # Next
 
 :::info
@@ -17,7 +21,6 @@ TBD
 - **On-Prem Versions**:
   - **Helm**: TBD
   - **API Gateway**: TBD
-  - **Actions**: TBD
 
 ## Release Changelog
 

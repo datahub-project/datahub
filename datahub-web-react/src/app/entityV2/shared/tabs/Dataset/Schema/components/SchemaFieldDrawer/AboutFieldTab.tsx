@@ -9,8 +9,7 @@ import FieldDescription from '@app/entityV2/shared/tabs/Dataset/Schema/component
 import { FieldDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDetails';
 import FieldTags from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTags';
 import FieldTerms from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTerms';
-import SampleValuesSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SampleValuesSection';
-import StatsSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSection';
+import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsTabWrapper';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
@@ -19,6 +18,7 @@ import dayjs from '@utils/dayjs';
 
 import {
     DatasetFieldProfile,
+    DatasetProfile,
     EditableSchemaMetadata,
     Post,
     SchemaField,
@@ -38,7 +38,9 @@ interface AboutFieldTabProps {
         editableSchemaMetadata?: EditableSchemaMetadata | null;
         usageStats?: UsageQueryResult | null;
         fieldProfile: DatasetFieldProfile | undefined;
-        profiles: any[];
+        profiles: DatasetProfile[];
+        fetchDataWithLookbackWindow: (lookbackWindow: any) => void;
+        profilesDataLoading: boolean;
         notes: Post[];
         setSelectedTabName: any;
         refetch?: () => void;
@@ -127,12 +129,16 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                                 fieldEntity: expandedField.schemaFieldEntity,
                             }}
                         />
-                        <StatsSection
-                            fieldProfile={properties.fieldProfile}
-                            setSelectedTabName={properties.setSelectedTabName}
-                        />
-                        <SampleValuesSection fieldProfile={properties.fieldProfile} />
                     </MetadataSections>
+                    <StatsTabWrapper
+                        properties={{
+                            expandedField,
+                            fieldProfile: properties.fieldProfile,
+                            profiles: properties.profiles,
+                            fetchDataWithLookbackWindow: properties.fetchDataWithLookbackWindow,
+                            profilesDataLoading: properties.profilesDataLoading,
+                        }}
+                    />
                 </>
             )}
         </>

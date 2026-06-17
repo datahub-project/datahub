@@ -56,6 +56,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -245,7 +246,9 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             getIndexBuilder(),
             TEST_SEARCH_SERVICE_CONFIG,
             TEST_ES_SEARCH_CONFIG,
-            new V2MappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
+            new V2MappingsBuilder(
+                TEST_ES_SEARCH_CONFIG.getEntityIndex(),
+                OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG),
             settingsBuilder,
             searchDAO,
             browseDAO,

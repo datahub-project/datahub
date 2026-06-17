@@ -586,6 +586,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             schema_name=schema_name, db_name=db_name, domain=domain
         )
 
+    @staticmethod
+    def _resolve_input_kind(kind: str) -> SnowflakeObjectDomain:
+        # DYNAMIC_TABLE_GRAPH_HISTORY INPUTS.kind is underscored uppercase
+        # (e.g. "MATERIALIZED_VIEW"); SnowflakeObjectDomain values are
+        # space-separated lowercase. Unknown kinds fall back to TABLE so we
+        # still emit lineage.
+        normalized = kind.lower().replace("_", " ")
+        try:
+            return SnowflakeObjectDomain(normalized)
+        except ValueError:
+            return SnowflakeObjectDomain.TABLE
+
     def _process_tables(
         self,
         tables: List[SnowflakeTable],
@@ -596,21 +608,57 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if self.config.include_technical_schema:
             data_reader = self.make_data_reader()
             for table in tables:
-                # Handle dynamic table definitions for lineage
-                if (
-                    isinstance(table, SnowflakeDynamicTable)
-                    and table.definition
-                    and self.aggregator
-                ):
+                if isinstance(table, SnowflakeDynamicTable) and self.aggregator:
                     table_identifier = self.identifiers.get_dataset_identifier(
                         table.name, schema_name, db_name
                     )
-                    self.aggregator.add_view_definition(
-                        view_urn=self.identifiers.gen_dataset_urn(table_identifier),
-                        view_definition=table.definition,
-                        default_db=db_name,
-                        default_schema=schema_name,
-                    )
+                    downstream_urn = self.identifiers.gen_dataset_urn(table_identifier)
+
+                    if table.definition:
+                        self.aggregator.add_view_definition(
+                            view_urn=downstream_urn,
+                            view_definition=table.definition,
+                            default_db=db_name,
+                            default_schema=schema_name,
+                        )
+                    else:
+                        self.report.num_dynamic_tables_missing_definition += 1
+                        self.structured_reporter.info(
+                            title="Dynamic table definition unavailable — column-level lineage skipped",
+                            message=(
+                                "The DDL for this dynamic table could not be retrieved; "
+                                "table-level lineage will be produced from INPUTS but "
+                                "column-level lineage requires the MONITOR privilege on the dynamic table."
+                            ),
+                            context=f"{db_name}.{schema_name}.{table.name}",
+                        )
+                        # Fall back to table-level lineage from DYNAMIC_TABLE_GRAPH_HISTORY().INPUTS
+                        # when DDL is unavailable. Skipped when DDL is present because SQL parsing
+                        # produces accurate column-level lineage; identity CLL from INPUTS would be
+                        # wrong for aliased/aggregated columns (e.g. SUM(amount) AS total).
+                        for upstream_input in table.upstream_tables:
+                            upstream_qualified_name = upstream_input.name
+                            upstream_domain = self._resolve_input_kind(
+                                upstream_input.kind
+                            )
+                            upstream_identifier = self.identifiers.get_dataset_identifier_from_qualified_name(
+                                upstream_qualified_name
+                            )
+                            if not self.filters.is_dataset_pattern_allowed(
+                                upstream_identifier, upstream_domain
+                            ):
+                                logger.debug(
+                                    f"Skipping dynamic table upstream {upstream_qualified_name}: "
+                                    f"filtered by database/schema/table pattern"
+                                )
+                                continue
+                            self.aggregator.add_known_lineage_mapping(
+                                upstream_urn=self.identifiers.gen_dataset_urn(
+                                    upstream_identifier
+                                ),
+                                downstream_urn=downstream_urn,
+                                lineage_type=DatasetLineageTypeClass.VIEW,
+                            )
 
                 table_wu_generator = self._process_table(
                     table, snowflake_schema, db_name
@@ -1338,6 +1386,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 yield from add_structured_properties_to_entity_wu(
                     dataset_urn,
                     self._format_tags_as_structured_properties(table.tags),
+                    write_mode=self.config.structured_properties_write_mode,
                 )
             else:
                 tag_associations = [
@@ -1514,6 +1563,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 self._format_tags_as_structured_properties(
                     table.column_tags[column_name]
                 ),
+                write_mode=self.config.structured_properties_write_mode,
             )
 
     def _build_json_props(

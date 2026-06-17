@@ -1,18 +1,20 @@
 import json
 import time
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-from freezegun.api import freeze_time
+import time_machine
 
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
-from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
-    EnsureAspectSizeProcessor,
-)
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
+from datahub.ingestion.workunit_processors.ensure_aspect_size import (
+    EnsureAspectSizeProcessor,
+    EnsureAspectSizeProcessorReport,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -25,6 +27,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GenericAspectClass,
+    KafkaSchemaClass,
     MetadataChangeProposalClass,
     NumberTypeClass,
     OtherSchemaClass,
@@ -47,8 +50,18 @@ from datahub.metadata.schema_classes import (
 
 
 @pytest.fixture
-def processor():
-    return EnsureAspectSizeProcessor(SourceReport())
+def processor_ctx():
+    return WorkunitProcessorContext(
+        source_report=SourceReport(),
+        pipeline_context=MagicMock(),
+        source_config=None,
+        platform=None,
+    )
+
+
+@pytest.fixture
+def processor(processor_ctx):
+    return EnsureAspectSizeProcessor.create(processor_ctx)
 
 
 def too_big_schema_metadata() -> SchemaMetadataClass:
@@ -352,7 +365,7 @@ def proper_dataset_profile() -> DatasetProfileClass:
     )
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_proper_dataset_profile(processor):
     profile = proper_dataset_profile()
     orig_repr = json.dumps(profile.to_obj())
@@ -364,7 +377,7 @@ def test_ensure_size_of_proper_dataset_profile(processor):
     )
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_too_big_schema_metadata(processor):
     schema = too_big_schema_metadata()
     assert len(schema.fields) == 1004
@@ -374,15 +387,15 @@ def test_ensure_size_of_too_big_schema_metadata(processor):
     )
     assert len(schema.fields) < 1004, "Schema has not been properly truncated"
     assert schema.fields[-1].fieldPath == "dddd", "Small field was not added at the end"
-    # +100kb is completely arbitrary, but we are truncating the aspect based on schema fields size only, not total taken
-    # by other parameters of the aspect - it is reasonable approach though - schema fields is the only field in schema
-    # metadata which can be expected to grow out of control
-    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES + 100000, (
+    # The truncated aspect must fit within the budget. The budget now accounts
+    # for the full serialized aspect (not just the fields list), so the result
+    # is bounded by the payload constraint rather than an arbitrary slop.
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
         "Aspect exceeded acceptable size"
     )
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_proper_schema_metadata(processor):
     schema = proper_schema_metadata()
     orig_repr = json.dumps(schema.to_obj())
@@ -394,7 +407,128 @@ def test_ensure_size_of_proper_schema_metadata(processor):
     )
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_schema_metadata_budget_accounts_for_raw_schema(processor):
+    # rawSchema takes ~half the budget; the field budget must shrink to
+    # compensate so the total aspect — raw schema included — stays within the
+    # limit. Previously only the fields were counted, so the aspect could
+    # still exceed the limit after truncation.
+    raw_schema_size = processor.schema_size_constraint // 2
+    fields = [
+        SchemaFieldClass(
+            fieldPath=f"t{i}",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+            description=20000 * "a",
+        )
+        for i in range(1000)
+    ]
+    schema = SchemaMetadataClass(
+        schemaName="abcdef",
+        version=1,
+        platform="s3",
+        hash="ABCDE1234567890",
+        platformSchema=OtherSchemaClass(rawSchema="a" * raw_schema_size),
+        fields=fields,
+    )
+
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
+    )
+
+    assert isinstance(schema.platformSchema, OtherSchemaClass)
+    assert schema.platformSchema.rawSchema == "a" * raw_schema_size, (
+        "Raw schema that fits within budget should be retained"
+    )
+    assert len(schema.fields) < 1000, (
+        "Fields should have been trimmed to fit the budget"
+    )
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
+        "Aspect exceeded acceptable size despite truncation"
+    )
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_schema_metadata_drops_oversized_raw_schema(processor):
+    # When rawSchema alone exceeds the budget, it is dropped so the structured
+    # fields can still be retained rather than failing the whole aspect.
+    fields = [
+        SchemaFieldClass(
+            f"f{i}",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        )
+        for i in range(5)
+    ]
+    schema = SchemaMetadataClass(
+        schemaName="abcdef",
+        version=1,
+        platform="s3",
+        hash="ABCDE1234567890",
+        platformSchema=OtherSchemaClass(
+            rawSchema="a" * (processor.schema_size_constraint + 100000)
+        ),
+        fields=fields,
+    )
+
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
+    )
+
+    assert isinstance(schema.platformSchema, OtherSchemaClass)
+    assert schema.platformSchema.rawSchema == "", "Oversized raw schema was not dropped"
+    assert len(schema.fields) == 5, (
+        "Fields should be retained once the oversized raw schema is dropped"
+    )
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
+        "Aspect exceeded acceptable size"
+    )
+    assert processor.report.num_platform_schema_drops == 1
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_schema_metadata_drops_oversized_non_other_platform_schema(processor):
+    # The platform-schema blob must be dropped before fields for ANY union
+    # variant, not just OtherSchema. Here a KafkaSchema documentSchema alone
+    # exceeds the budget; without generic handling the field loop would reject
+    # every field and still leave the aspect oversized.
+    fields = [
+        SchemaFieldClass(
+            f"f{i}",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        )
+        for i in range(5)
+    ]
+    schema = SchemaMetadataClass(
+        schemaName="abcdef",
+        version=1,
+        platform="kafka",
+        hash="ABCDE1234567890",
+        platformSchema=KafkaSchemaClass(
+            documentSchema="a" * (processor.schema_size_constraint + 100000)
+        ),
+        fields=fields,
+    )
+
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(kafka, dummy_dataset, DEV)", schema
+    )
+
+    assert isinstance(schema.platformSchema, KafkaSchemaClass)
+    assert schema.platformSchema.documentSchema == "", (
+        "Oversized platform schema was not dropped"
+    )
+    assert len(schema.fields) == 5, (
+        "Fields should be retained once the oversized platform schema is dropped"
+    )
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
+        "Aspect exceeded acceptable size"
+    )
+    assert processor.report.num_platform_schema_drops == 1
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_too_big_dataset_profile(processor):
     profile = proper_dataset_profile()
     big_field = DatasetFieldProfileClass(
@@ -419,18 +553,18 @@ def test_ensure_size_of_too_big_dataset_profile(processor):
     )
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
 )
 def test_wu_processor_triggered_by_data_profile_aspect(
     ensure_dataset_profile_size_mock, ensure_schema_metadata_size_mock, processor
 ):
     ret = [  # noqa: F841
-        *processor.ensure_aspect_size(
+        *processor.process(
             [
                 MetadataChangeProposalWrapper(
                     entityUrn="urn:li:dataset:(urn:li:dataPlatform:s3, dummy_name, DEV)",
@@ -443,12 +577,12 @@ def test_wu_processor_triggered_by_data_profile_aspect(
     ensure_schema_metadata_size_mock.assert_not_called()
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
 )
 def test_wu_processor_triggered_by_data_profile_aspect_mcpc(
     ensure_dataset_profile_size_mock, ensure_schema_metadata_size_mock, processor
@@ -467,17 +601,17 @@ def test_wu_processor_triggered_by_data_profile_aspect_mcpc(
             ),
         ),
     )
-    ret = [*processor.ensure_aspect_size([mcpc])]  # noqa: F841
+    ret = [*processor.process([mcpc])]  # noqa: F841
     ensure_dataset_profile_size_mock.assert_called_once()
     ensure_schema_metadata_size_mock.assert_not_called()
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
 )
 def test_wu_processor_triggered_by_data_profile_aspect_mce(
     ensure_dataset_profile_size_mock, ensure_schema_metadata_size_mock, processor
@@ -489,23 +623,23 @@ def test_wu_processor_triggered_by_data_profile_aspect_mce(
     mce = MetadataWorkUnit(
         id="test", mce=MetadataChangeEvent(proposedSnapshot=snapshot)
     )
-    ret = [*processor.ensure_aspect_size([mce])]  # noqa: F841
+    ret = [*processor.process([mce])]  # noqa: F841
     ensure_schema_metadata_size_mock.assert_called_once()
     ensure_dataset_profile_size_mock.assert_not_called()
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
 )
 def test_wu_processor_triggered_by_schema_metadata_aspect(
     ensure_dataset_profile_size_mock, ensure_schema_metadata_size_mock, processor
 ):
     ret = [  # noqa: F841
-        *processor.ensure_aspect_size(
+        *processor.process(
             [
                 MetadataChangeProposalWrapper(
                     entityUrn="urn:li:dataset:(urn:li:dataPlatform:s3, dummy_name, DEV)",
@@ -518,18 +652,18 @@ def test_wu_processor_triggered_by_schema_metadata_aspect(
     ensure_dataset_profile_size_mock.assert_not_called()
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_dataset_profile_size"
 )
 def test_wu_processor_not_triggered_by_unhandled_aspects(
     ensure_dataset_profile_size_mock, ensure_schema_metadata_size_mock, processor
 ):
     ret = [  # noqa: F841
-        *processor.ensure_aspect_size(
+        *processor.process(
             [
                 MetadataChangeProposalWrapper(
                     entityUrn="urn:li:dataset:(urn:li:dataPlatform:s3, dummy_name, DEV)",
@@ -546,7 +680,7 @@ def test_wu_processor_not_triggered_by_unhandled_aspects(
     ensure_dataset_profile_size_mock.assert_not_called()
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_proper_query_subjects(processor):
     query_subjects = proper_query_subjects()
     orig_repr = json.dumps(query_subjects.to_obj())
@@ -558,7 +692,7 @@ def test_ensure_size_of_proper_query_subjects(processor):
     )
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_too_big_query_subjects(processor):
     query_subjects = too_big_query_subjects()
     assert len(query_subjects.subjects) == 505  # 5 table + 500 column subjects
@@ -600,15 +734,15 @@ def test_ensure_size_of_too_big_query_subjects(processor):
     )
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_query_subjects_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_query_subjects_size"
 )
 def test_wu_processor_triggered_by_query_subjects_aspect(
     ensure_query_subjects_size_mock, processor
 ):
     ret = [  # noqa: F841
-        *processor.ensure_aspect_size(
+        *processor.process(
             [
                 MetadataChangeProposalWrapper(
                     entityUrn="urn:li:query:(urn:li:dataPlatform:hive, dummy_query, DEV)",
@@ -620,7 +754,7 @@ def test_wu_processor_triggered_by_query_subjects_aspect(
     ensure_query_subjects_size_mock.assert_called_once()
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_proper_upstream_lineage(processor):
     upstream_lineage = proper_upstream_lineage()
     orig_repr = json.dumps(upstream_lineage.to_obj())
@@ -633,7 +767,7 @@ def test_ensure_size_of_proper_upstream_lineage(processor):
     )
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_too_big_upstream_lineage(processor):
     upstream_lineage = too_big_upstream_lineage()
     assert len(upstream_lineage.upstreams) == 5  # 5 upstreams
@@ -704,15 +838,15 @@ def test_ensure_size_of_too_big_upstream_lineage(processor):
     )
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_upstream_lineage_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_upstream_lineage_size"
 )
 def test_wu_processor_triggered_by_upstream_lineage_aspect(
     ensure_upstream_lineage_size_mock, processor
 ):
     ret = [  # noqa: F841
-        *processor.ensure_aspect_size(
+        *processor.process(
             [
                 MetadataChangeProposalWrapper(
                     entityUrn="urn:li:dataset:(urn:li:dataPlatform:hive, dummy_dataset, DEV)",
@@ -724,7 +858,7 @@ def test_wu_processor_triggered_by_upstream_lineage_aspect(
     ensure_upstream_lineage_size_mock.assert_called_once()
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_proper_query_properties(processor):
     query_properties = proper_query_properties()
     original_statement = query_properties.statement.value
@@ -737,10 +871,10 @@ def test_ensure_size_of_proper_query_properties(processor):
 
     # Statement should remain unchanged for properly sized query properties
     assert query_properties.statement.value == original_statement
-    assert len(processor.report.warnings) == 0
+    assert len(processor.ctx.source_report.warnings) == 0
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_too_big_query_properties(processor):
     query_properties = too_big_query_properties()
     original_statement_size = len(query_properties.statement.value)
@@ -774,18 +908,18 @@ def test_ensure_size_of_too_big_query_properties(processor):
     )
 
     # Should have logged a warning
-    assert len(processor.report.warnings) == 1
+    assert len(processor.ctx.source_report.warnings) == 1
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_query_properties_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_query_properties_size"
 )
 def test_wu_processor_triggered_by_query_properties_aspect(
     ensure_query_properties_size_mock, processor
 ):
     list(
-        processor.ensure_aspect_size(
+        processor.process(
             [
                 MetadataChangeProposalWrapper(
                     entityUrn="urn:li:query:test",
@@ -859,7 +993,7 @@ def test_ensure_size_of_proper_view_properties(processor):
     assert orig_repr == json.dumps(view_properties.to_obj()), (
         "Aspect was modified in case where workunit processor should have been no-op"
     )
-    assert len(processor.report.warnings) == 0
+    assert len(processor.ctx.source_report.warnings) == 0
 
 
 def test_ensure_size_of_too_big_view_properties(processor):
@@ -892,7 +1026,7 @@ def test_ensure_size_of_too_big_view_properties(processor):
     )
 
     # Should have logged a warning
-    assert len(processor.report.warnings) >= 1
+    assert len(processor.ctx.source_report.warnings) >= 1
 
 
 def test_ensure_size_truncates_formatted_first(processor):
@@ -955,10 +1089,10 @@ def test_ensure_size_of_view_properties_viewlogic_only(processor):
 
 
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
 @patch(
-    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_view_properties_size"
+    "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_view_properties_size"
 )
 def test_mce_workunit_checks_all_aspects_not_just_first_elif_regression(
     ensure_view_properties_size_mock, ensure_schema_metadata_size_mock, processor
@@ -979,14 +1113,16 @@ def test_mce_workunit_checks_all_aspects_not_just_first_elif_regression(
         id="test", mce=MetadataChangeEvent(proposedSnapshot=snapshot)
     )
 
-    list(processor.ensure_aspect_size([mce]))
+    list(processor.process([mce]))
 
     # CRITICAL: Both handlers should be called, not just the first one
     ensure_schema_metadata_size_mock.assert_called_once()
     ensure_view_properties_size_mock.assert_called_once()
 
 
-def test_ensure_size_removes_formatted_view_logic_entirely_when_too_small():
+def test_ensure_size_removes_formatted_view_logic_entirely_when_too_small(
+    processor_ctx,
+):
     """Test that formattedViewLogic is removed entirely when it's too small to truncate.
 
     This tests the edge case where formattedViewLogic exists but is smaller than
@@ -994,9 +1130,9 @@ def test_ensure_size_removes_formatted_view_logic_entirely_when_too_small():
     """
     # Use a smaller payload constraint to trigger the edge case more easily
     small_constraint = 1000  # 1KB constraint
-    processor = EnsureAspectSizeProcessor(
-        SourceReport(), payload_constraint=small_constraint
-    )
+    processor = EnsureAspectSizeProcessor.create(processor_ctx)
+    processor.payload_constraint = small_constraint
+    processor.schema_size_constraint = int(small_constraint * 0.985)
 
     # Create view properties where formattedViewLogic is small but total exceeds constraint
     # viewLogic is much larger than formattedViewLogic
@@ -1022,3 +1158,74 @@ def test_ensure_size_removes_formatted_view_logic_entirely_when_too_small():
         f"original was {original_formatted_size} chars"
         in view_properties.formattedViewLogic
     )
+
+
+class TestEnsureAspectSizeProcessorReport:
+    @pytest.fixture
+    def ctx(self):
+        return WorkunitProcessorContext(
+            source_report=SourceReport(),
+            pipeline_context=MagicMock(),
+            source_config=None,
+            platform=None,
+        )
+
+    def test_report_is_correct_type(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        assert isinstance(proc.report, EnsureAspectSizeProcessorReport)
+
+    def test_no_truncation_leaves_report_empty(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_schema_metadata_size("urn:x", proper_schema_metadata())
+        assert proc.report.num_truncations_by_aspect == {}
+
+    def test_schema_metadata_truncation_recorded(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_schema_metadata_size("urn:x", too_big_schema_metadata())
+        assert proc.report.num_truncations_by_aspect.get("schemaMetadata", 0) == 1
+
+    def test_dataset_profile_truncation_recorded(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        profile = proper_dataset_profile()
+        big_field = DatasetFieldProfileClass(
+            fieldPath="big",
+            sampleValues=20 * [(int(INGEST_MAX_PAYLOAD_BYTES / 20) - 10) * "a"],
+        )
+        assert profile.fieldProfiles
+        profile.fieldProfiles.insert(0, big_field)
+        proc.ensure_dataset_profile_size("urn:x", profile)
+        assert proc.report.num_truncations_by_aspect.get("datasetProfile", 0) == 1
+
+    def test_query_subjects_truncation_recorded(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_query_subjects_size("urn:x", too_big_query_subjects())
+        assert proc.report.num_truncations_by_aspect.get("querySubjects", 0) == 1
+
+    def test_upstream_lineage_truncation_recorded(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_upstream_lineage_size("urn:x", too_big_upstream_lineage())
+        assert proc.report.num_truncations_by_aspect.get("upstreamLineage", 0) == 1
+
+    def test_query_properties_truncation_recorded(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_query_properties_size("urn:x", too_big_query_properties())
+        assert proc.report.num_truncations_by_aspect.get("queryProperties", 0) == 1
+
+    def test_view_properties_truncation_recorded(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_view_properties_size("urn:x", too_big_view_properties())
+        assert proc.report.num_truncations_by_aspect.get("viewProperties", 0) == 1
+
+    def test_multiple_workunits_accumulate_count(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        for _ in range(3):
+            proc.ensure_schema_metadata_size("urn:x", too_big_schema_metadata())
+        assert proc.report.num_truncations_by_aspect.get("schemaMetadata", 0) == 3
+
+    def test_multiple_aspect_types_tracked_independently(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_schema_metadata_size("urn:x", too_big_schema_metadata())
+        proc.ensure_query_subjects_size("urn:y", too_big_query_subjects())
+        assert proc.report.num_truncations_by_aspect.get("schemaMetadata", 0) == 1
+        assert proc.report.num_truncations_by_aspect.get("querySubjects", 0) == 1
+        assert proc.report.num_truncations_by_aspect.get("upstreamLineage", 0) == 0

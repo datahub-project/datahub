@@ -224,10 +224,12 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             extra_headers=config.extra_headers,
             ca_certificate_path=config.ca_certificate_path,
             client_certificate_path=config.client_certificate_path,
+            client_key_path=config.client_key_path,
             disable_ssl_verification=config.disable_ssl_verification,
             openapi_ingestion=config.endpoint == RestSinkEndpoint.OPENAPI,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
+            tcp_keepalive=config.tcp_keepalive,
         )
 
     @property

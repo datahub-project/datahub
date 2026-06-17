@@ -2,6 +2,7 @@ import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons'
 import { Avatar } from '@components';
 import { Dropdown, List, Tag, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
@@ -71,6 +72,8 @@ export default function UserListItem({
     onDelete,
     refetch,
 }: Props) {
+    const { t } = useTranslation('entity.identity');
+    const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
@@ -87,7 +90,7 @@ export default function UserListItem({
     const getUserStatusToolTip = (userStatus: CorpUserStatus) => {
         switch (userStatus) {
             case CorpUserStatus.Active:
-                return 'The user has logged in.';
+                return t('users.activeStatusTooltip');
             default:
                 return '';
         }
@@ -115,7 +118,7 @@ export default function UserListItem({
                     onClick={() => setIsViewingResetToken(true)}
                     data-testid="reset-menu-item"
                 >
-                    <UnlockOutlined data-testid="resetButton" /> &nbsp; Reset user password
+                    <UnlockOutlined data-testid="resetButton" /> &nbsp; {t('users.resetPasswordMenu')}
                 </MenuItemStyle>
             ),
         },
@@ -123,7 +126,7 @@ export default function UserListItem({
             key: 'delete',
             label: (
                 <MenuItemStyle onClick={onDeleteEntity}>
-                    <DeleteOutlined /> &nbsp;Delete
+                    <DeleteOutlined /> &nbsp;{tc('delete')}
                 </MenuItemStyle>
             ),
         },
