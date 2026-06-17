@@ -13,6 +13,8 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+import com.linkedin.metadata.aspect.plugins.filter.AspectReadContext;
+import com.linkedin.metadata.aspect.plugins.filter.AspectReadFilter;
 import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
@@ -21,6 +23,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import java.util.Collection;
@@ -31,6 +34,8 @@ import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -121,6 +126,60 @@ public class SpringPluginFactoryTest {
             .filter(validator -> validator.shouldApply(ChangeType.DELETE, "*", "schemaMetadata"))
             .count(),
         1);
+  }
+
+  @Test
+  public void testSpringInjectedReadFiltersWithoutYamlConfig() {
+    AnnotationConfigApplicationContext applicationContext =
+        new AnnotationConfigApplicationContext();
+    applicationContext.register(ReadFilterTestConfiguration.class);
+    applicationContext.refresh();
+
+    SpringPluginFactory pluginFactory =
+        new SpringPluginFactory(
+            applicationContext, null, List.of(SpringPluginFactoryTest.class.getClassLoader()));
+
+    assertEquals(pluginFactory.getAspectReadFilters().size(), 1);
+    assertEquals(pluginFactory.getAspectReadFilters().get(0).getClass(), TestReadFilter.class);
+  }
+
+  @Configuration
+  static class ReadFilterTestConfiguration {
+    @Bean
+    public TestReadFilter testReadFilter() {
+      return new TestReadFilter()
+          .setConfig(
+              AspectPluginConfig.builder()
+                  .className(TestReadFilter.class.getName())
+                  .enabled(true)
+                  .supportedOperations(List.of("READ"))
+                  .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
+                  .build());
+    }
+  }
+
+  @Getter
+  @Setter
+  @Accessors(chain = true)
+  public static class TestReadFilter extends AspectReadFilter {
+    private AspectPluginConfig config;
+
+    @Override
+    public AspectPluginConfig getConfig() {
+      return config;
+    }
+
+    @Override
+    public TestReadFilter setConfig(AspectPluginConfig config) {
+      this.config = config;
+      return this;
+    }
+
+    @Override
+    public boolean isAllowed(
+        @Nonnull AspectReadContext context, @Nonnull EntityRegistry entityRegistry) {
+      return true;
+    }
   }
 
   /*

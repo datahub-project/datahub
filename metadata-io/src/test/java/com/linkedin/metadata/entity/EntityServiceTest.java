@@ -59,6 +59,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.metadata.aspect.patch.builder.GlobalTagsPatchBuilder;
+import com.linkedin.metadata.aspect.plugins.filter.ReadIntent;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
@@ -1535,9 +1536,9 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     RecordTemplate readAspect2 =
         _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName);
     EntityAspect readAspectDao1 =
-        _aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 1);
+        _aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 1, ReadIntent.READ);
     EntityAspect readAspectDao2 =
-        _aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 0);
+        _aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 0, ReadIntent.READ);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
     SystemMetadataUtils.setNoOp(expectedMetadata2, false);
@@ -1645,9 +1646,9 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     EnvelopedAspect readAspect2 =
         _entityServiceImpl.getLatestEnvelopedAspect(opContext, "corpuser", entityUrn, aspectName);
     EntityAspect readAspectDao1 =
-        _aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 1);
+        _aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 1, ReadIntent.READ);
     EntityAspect readAspectDao2 =
-        _aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 0);
+        _aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 0, ReadIntent.READ);
 
     assertTrue(
         DataTemplateUtil.areEqual(writeAspect2, new CorpUserInfo(readAspect2.getValue().data())));
@@ -1791,7 +1792,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     RecordTemplate readAspect2 =
         _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName);
     EntityAspect readAspectDao2 =
-        _aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, ASPECT_LATEST_VERSION);
+        _aspectDao.getAspect(
+            opContext, entityUrn.toString(), aspectName, ASPECT_LATEST_VERSION, ReadIntent.READ);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
     assertFalse(

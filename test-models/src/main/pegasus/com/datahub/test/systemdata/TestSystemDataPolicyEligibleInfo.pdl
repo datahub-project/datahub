@@ -1,0 +1,11 @@
+namespace com.datahub.test.systemdata
+
+/**
+ * Test-only value aspect paired with {@link TestSystemDataPolicyEligibleKey}.
+ */
+@Aspect = {
+  "name": "testSystemDataPolicyEligibleInfo"
+}
+record TestSystemDataPolicyEligibleInfo {
+  value: optional string
+}

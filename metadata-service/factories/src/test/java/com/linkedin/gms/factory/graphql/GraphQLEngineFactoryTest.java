@@ -8,6 +8,7 @@ import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.post.PostService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
+import com.datahub.authorization.config.SystemDataAccessControlConfiguration;
 import com.datahub.authorization.role.RoleService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -51,6 +52,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.mockito.Answers;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -554,7 +556,12 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 
     @Bean
     public SpringStandardPluginConfiguration springStandardPluginConfiguration() {
-      return new SpringStandardPluginConfiguration();
+      @SuppressWarnings("unchecked")
+      ObjectProvider<SystemDataAccessControlConfiguration> configProvider =
+          mock(ObjectProvider.class);
+      when(configProvider.getIfAvailable(org.mockito.ArgumentMatchers.any()))
+          .thenReturn(new SystemDataAccessControlConfiguration());
+      return new SpringStandardPluginConfiguration(configProvider);
     }
 
     @Bean("systemOperationContext")

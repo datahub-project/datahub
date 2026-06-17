@@ -19,9 +19,13 @@ public class PluginConfiguration {
   private static final String[] HOOK_PACKAGES = {
     "com.linkedin.metadata.aspect.plugins.hooks", "com.linkedin.metadata.aspect.hooks"
   };
+  private static final String[] READ_FILTER_PACKAGES = {
+    "com.linkedin.metadata.aspect.plugins.filter", "com.linkedin.metadata.aspect.filter"
+  };
 
   private List<AspectPluginConfig> aspectPayloadValidators = Collections.emptyList();
   private List<AspectPluginConfig> mutationHooks = Collections.emptyList();
+  private List<AspectPluginConfig> readFilters = Collections.emptyList();
   private List<AspectPluginConfig> mclSideEffects = Collections.emptyList();
   private List<AspectPluginConfig> mcpSideEffects = Collections.emptyList();
   private List<AspectPluginConfig> mcpObservers = Collections.emptyList();
@@ -31,6 +35,7 @@ public class PluginConfiguration {
   public boolean isEmpty() {
     return aspectPayloadValidators.isEmpty()
         && mutationHooks.isEmpty()
+        && readFilters.isEmpty()
         && mclSideEffects.isEmpty()
         && mcpSideEffects.isEmpty()
         && mcpObservers.isEmpty();
@@ -42,6 +47,8 @@ public class PluginConfiguration {
                 a.getAspectPayloadValidators().stream(), b.getAspectPayloadValidators().stream())
             .collect(Collectors.toList()),
         Stream.concat(a.getMutationHooks().stream(), b.getMutationHooks().stream())
+            .collect(Collectors.toList()),
+        Stream.concat(a.getReadFilters().stream(), b.getReadFilters().stream())
             .collect(Collectors.toList()),
         Stream.concat(a.getMclSideEffects().stream(), b.getMclSideEffects().stream())
             .collect(Collectors.toList()),
@@ -55,7 +62,9 @@ public class PluginConfiguration {
     return Stream.concat(
         Stream.concat(
             Stream.concat(
-                Stream.concat(aspectPayloadValidators.stream(), mutationHooks.stream()),
+                Stream.concat(
+                    Stream.concat(aspectPayloadValidators.stream(), mutationHooks.stream()),
+                    readFilters.stream()),
                 mclSideEffects.stream()),
             mcpSideEffects.stream()),
         mcpObservers.stream());
@@ -112,6 +121,17 @@ public class PluginConfiguration {
                 cfg.getPackageScan() != null
                     ? cfg.getPackageScan().stream()
                     : Arrays.stream(HOOK_PACKAGES))
+        .distinct()
+        .collect(Collectors.toList());
+  }
+
+  public List<String> readFilterPackages() {
+    return readFilters.stream()
+        .flatMap(
+            cfg ->
+                cfg.getPackageScan() != null
+                    ? cfg.getPackageScan().stream()
+                    : Arrays.stream(READ_FILTER_PACKAGES))
         .distinct()
         .collect(Collectors.toList());
   }

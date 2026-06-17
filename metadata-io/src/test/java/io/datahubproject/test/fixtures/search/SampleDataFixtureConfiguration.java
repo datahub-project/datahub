@@ -374,7 +374,7 @@ public class SampleDataFixtureConfiguration {
             new ConcurrentMapCacheManager(), entitySearchService, 1, false);
 
     AspectDao mockAspectDao = mock(AspectDao.class);
-    when(mockAspectDao.batchGet(any(OperationContext.class), anySet(), anyBoolean()))
+    when(mockAspectDao.batchGet(any(OperationContext.class), anySet(), anyBoolean(), any()))
         .thenAnswer(
             args -> {
               Set<EntityAspectIdentifier> ids = args.getArgument(1);

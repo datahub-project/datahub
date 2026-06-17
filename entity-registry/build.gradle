@@ -54,5 +54,8 @@ dependencies {
   testFixturesImplementation externalDependency.mockito
   testFixturesCompileOnly externalDependency.lombok
   testFixturesAnnotationProcessor externalDependency.lombok
+  testFixturesImplementation project(path: ':metadata-models')
+  testFixturesImplementation project(path: ':metadata-models', configuration: 'dataTemplate')
+  testImplementation testFixtures(project(':entity-registry'))
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')

@@ -49,6 +49,7 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.aspect.plugins.filter.ReadIntent;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
@@ -409,7 +410,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     if (alwaysIncludeKeyAspect) {
-      // Add "key" aspects for each urn. TODO: Replace this with a materialized key aspect.
       urnToAspects
           .keySet()
           .forEach(
@@ -493,7 +493,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final EntityAspectIdentifier primaryKey =
         new EntityAspectIdentifier(urn.toString(), aspectName, version);
     final Optional<EntityAspect> maybeAspect =
-        Optional.ofNullable(aspectDao.getAspect(opContext, primaryKey));
+        Optional.ofNullable(aspectDao.getAspect(opContext, primaryKey, ReadIntent.READ));
 
     return Pair.of(
         EntityUtils.toSystemAspect(
@@ -2909,7 +2909,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         ASPECT_LATEST_VERSION))
             .collect(Collectors.toSet());
     final Map<EntityAspectIdentifier, EntityAspect> aspects =
-        aspectDao.batchGet(opContext, dbKeys, forUpdate);
+        aspectDao.batchGet(opContext, dbKeys, forUpdate, ReadIntent.EXISTS);
     final Set<String> existingUrnStrings =
         aspects.values().stream()
             .filter(Objects::nonNull)
@@ -3030,7 +3030,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                             EntityUtils.toSystemAspect(
                                     opContext,
                                     opContext.getRetrieverContext(),
-                                    aspectDao.getAspect(opContext, urn, aspectName, maxVersion),
+                                    aspectDao.getAspect(
+                                        opContext, urn, aspectName, maxVersion, ReadIntent.READ),
                                     true)
                                 .orElse(null);
                     SystemMetadata previousSysMetadata =
@@ -3276,7 +3277,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         .forEachRemaining(
             batch ->
                 batchGetResults.putAll(
-                    aspectDao.batchGet(opContext, ImmutableSet.copyOf(batch), forUpdate)));
+                    aspectDao.batchGet(
+                        opContext, ImmutableSet.copyOf(batch), forUpdate, ReadIntent.READ)));
     return batchGetResults;
   }
 
@@ -3299,7 +3301,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private Map<EntityAspectIdentifier, EnvelopedAspect> getEnvelopedAspects(
       @Nonnull OperationContext opContext, final Set<EntityAspectIdentifier> dbKeys) {
     final Map<EntityAspectIdentifier, EntityAspect> dbEntries =
-        aspectDao.batchGet(opContext, dbKeys, false);
+        aspectDao.batchGet(opContext, dbKeys, false, ReadIntent.READ);
 
     List<SystemAspect> envelopedAspects =
         EntityUtils.toSystemAspects(opContext, opContext.getRetrieverContext(), dbEntries.values());

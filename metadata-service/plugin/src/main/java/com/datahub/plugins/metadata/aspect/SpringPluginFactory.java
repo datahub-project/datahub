@@ -4,6 +4,7 @@ import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.aspect.plugins.PluginSpec;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
+import com.linkedin.metadata.aspect.plugins.filter.AspectReadFilter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -62,6 +63,38 @@ public class SpringPluginFactory extends PluginFactory {
       log.error("Error loading Spring Plugins!", e);
       throw e;
     }
+  }
+
+  @Override
+  protected List<AspectReadFilter> augmentReadFilters(@Nonnull List<AspectReadFilter> readFilters) {
+    if (springApplicationContext == null) {
+      return readFilters;
+    }
+    return mergeSpringPlugins(readFilters, AspectReadFilter.class, springApplicationContext);
+  }
+
+  @Nonnull
+  private static <T extends PluginSpec> List<T> mergeSpringPlugins(
+      @Nonnull List<T> configuredPlugins,
+      @Nonnull Class<T> pluginType,
+      @Nonnull ApplicationContext springApplicationContext) {
+    List<T> springPlugins =
+        BeanFactoryUtils.beansOfTypeIncludingAncestors(springApplicationContext, pluginType)
+            .values()
+            .stream()
+            .filter(PluginSpec::enabled)
+            .collect(Collectors.toList());
+
+    if (springPlugins.isEmpty()) {
+      return configuredPlugins;
+    }
+
+    return Stream.concat(configuredPlugins.stream(), springPlugins.stream())
+        .collect(
+            Collectors.toMap(plugin -> plugin.getClass().getName(), plugin -> plugin, (a, b) -> a))
+        .values()
+        .stream()
+        .collect(Collectors.toList());
   }
 
   private static Stream<String> extractPackageScan(Stream<AspectPluginConfig> configStream) {

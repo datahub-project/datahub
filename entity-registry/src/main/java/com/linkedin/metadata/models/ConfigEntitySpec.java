@@ -26,6 +26,10 @@ public class ConfigEntitySpec implements EntitySpec {
   private Map<PathSpec, String> searchableFieldPathMap;
   private Map<String, List<PathSpec>> fieldPathToSearchableFieldMap;
 
+  private boolean _systemEntity;
+  private boolean _systemEntityAllowRead;
+  private boolean _systemEntityAllowExists;
+
   public ConfigEntitySpec(
       @Nonnull final String entityName,
       @Nonnull final String keyAspect,
@@ -127,5 +131,27 @@ public class ConfigEntitySpec implements EntitySpec {
   @Override
   public String getSearchGroup() {
     return _entityAnnotation.getSearchGroup();
+  }
+
+  @Override
+  public boolean isSystemEntity() {
+    return _systemEntity;
+  }
+
+  @Override
+  public boolean isSystemEntityAllowRead() {
+    return _systemEntityAllowRead;
+  }
+
+  @Override
+  public boolean isSystemEntityAllowExists() {
+    return _systemEntityAllowExists;
+  }
+
+  public void setSystemEntityFlags(
+      final boolean systemEntity, final boolean allowRead, final boolean allowExists) {
+    _systemEntity = systemEntity;
+    _systemEntityAllowRead = allowRead;
+    _systemEntityAllowExists = allowExists;
   }
 }

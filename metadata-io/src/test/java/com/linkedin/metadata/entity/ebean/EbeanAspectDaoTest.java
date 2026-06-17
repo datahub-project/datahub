@@ -23,6 +23,7 @@ import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.plugins.filter.ReadIntent;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.TransactionResult;
@@ -189,7 +190,8 @@ public class EbeanAspectDaoTest {
                       "urn:li:corpuser:testbatchGetForUpdate2",
                       DATA_PLATFORM_INSTANCE_ASPECT_NAME,
                       ASPECT_LATEST_VERSION)),
-              true);
+              true,
+              ReadIntent.READ);
           return TransactionResult.commit("");
         },
         mock(AspectsBatch.class),
@@ -365,7 +367,8 @@ public class EbeanAspectDaoTest {
 
       // Verify it exists
       com.linkedin.metadata.aspect.EntityAspect beforeDelete =
-          testDao.getAspect(opContext, urnString, aspectName, ASPECT_LATEST_VERSION);
+          testDao.getAspect(
+              opContext, urnString, aspectName, ASPECT_LATEST_VERSION, ReadIntent.READ);
       assertNotNull(beforeDelete, "Aspect should exist before delete");
 
       // Delete the aspect
@@ -374,7 +377,8 @@ public class EbeanAspectDaoTest {
 
       // Verify it's deleted
       com.linkedin.metadata.aspect.EntityAspect afterDelete =
-          testDao.getAspect(opContext, urnString, aspectName, ASPECT_LATEST_VERSION);
+          testDao.getAspect(
+              opContext, urnString, aspectName, ASPECT_LATEST_VERSION, ReadIntent.READ);
       assertNull(afterDelete, "Aspect should be deleted when writable");
     } else {
       // When not writable, delete should be a no-op
@@ -400,11 +404,13 @@ public class EbeanAspectDaoTest {
 
       // Verify aspects exist
       com.linkedin.metadata.aspect.EntityAspect aspect1 =
-          testDao.getAspect(opContext, urnString, "corpUserInfo", ASPECT_LATEST_VERSION);
+          testDao.getAspect(
+              opContext, urnString, "corpUserInfo", ASPECT_LATEST_VERSION, ReadIntent.READ);
       com.linkedin.metadata.aspect.EntityAspect aspect2 =
-          testDao.getAspect(opContext, urnString, "status", ASPECT_LATEST_VERSION);
+          testDao.getAspect(opContext, urnString, "status", ASPECT_LATEST_VERSION, ReadIntent.READ);
       com.linkedin.metadata.aspect.EntityAspect keyAspect =
-          testDao.getAspect(opContext, urnString, "corpUserKey", ASPECT_LATEST_VERSION);
+          testDao.getAspect(
+              opContext, urnString, "corpUserKey", ASPECT_LATEST_VERSION, ReadIntent.READ);
       assertTrue(
           aspect1 != null && aspect2 != null && keyAspect != null,
           "All aspects should exist before deletion");
@@ -420,11 +426,13 @@ public class EbeanAspectDaoTest {
 
       // Verify aspects are deleted
       com.linkedin.metadata.aspect.EntityAspect afterAspect1 =
-          testDao.getAspect(opContext, urnString, "corpUserInfo", ASPECT_LATEST_VERSION);
+          testDao.getAspect(
+              opContext, urnString, "corpUserInfo", ASPECT_LATEST_VERSION, ReadIntent.READ);
       com.linkedin.metadata.aspect.EntityAspect afterAspect2 =
-          testDao.getAspect(opContext, urnString, "status", ASPECT_LATEST_VERSION);
+          testDao.getAspect(opContext, urnString, "status", ASPECT_LATEST_VERSION, ReadIntent.READ);
       com.linkedin.metadata.aspect.EntityAspect afterKeyAspect =
-          testDao.getAspect(opContext, urnString, "corpUserKey", ASPECT_LATEST_VERSION);
+          testDao.getAspect(
+              opContext, urnString, "corpUserKey", ASPECT_LATEST_VERSION, ReadIntent.READ);
       assertTrue(
           afterAspect1 == null && afterAspect2 == null && afterKeyAspect == null,
           "All aspects should be deleted");
@@ -448,7 +456,7 @@ public class EbeanAspectDaoTest {
     String urnString = "urn:li:corpuser:testToggle";
     insertAspect(urnString, "status", ASPECT_LATEST_VERSION, "test-metadata");
     com.linkedin.metadata.aspect.EntityAspect aspect =
-        testDao.getAspect(opContext, urnString, "status", ASPECT_LATEST_VERSION);
+        testDao.getAspect(opContext, urnString, "status", ASPECT_LATEST_VERSION, ReadIntent.READ);
     assertTrue(aspect != null, "Insert should work when writable");
 
     // Now set to read-only
@@ -474,7 +482,11 @@ public class EbeanAspectDaoTest {
     insertAspect("urn:li:corpuser:testToggle3", "status", ASPECT_LATEST_VERSION, "test-metadata");
     com.linkedin.metadata.aspect.EntityAspect aspect3 =
         testDao.getAspect(
-            opContext, "urn:li:corpuser:testToggle3", "status", ASPECT_LATEST_VERSION);
+            opContext,
+            "urn:li:corpuser:testToggle3",
+            "status",
+            ASPECT_LATEST_VERSION,
+            ReadIntent.READ);
     assertTrue(aspect3 != null, "Insert should work again after re-enabling write");
   }
 
@@ -490,7 +502,7 @@ public class EbeanAspectDaoTest {
 
     // Read operations should still work
     com.linkedin.metadata.aspect.EntityAspect aspect =
-        testDao.getAspect(opContext, urnString, "status", ASPECT_LATEST_VERSION);
+        testDao.getAspect(opContext, urnString, "status", ASPECT_LATEST_VERSION, ReadIntent.READ);
     assertTrue(aspect != null, "Read operations should work when not writable");
     assertEquals(aspect.getMetadata(), "test-metadata", "Read should return correct data");
 
@@ -499,7 +511,8 @@ public class EbeanAspectDaoTest {
         testDao.batchGet(
             opContext,
             Set.of(new EntityAspectIdentifier(urnString, "status", ASPECT_LATEST_VERSION)),
-            false);
+            false,
+            ReadIntent.READ);
     assertEquals(batchResult.size(), 1, "Batch get should work when not writable");
 
     // Count should work
@@ -545,7 +558,11 @@ public class EbeanAspectDaoTest {
     insertAspect("urn:li:corpuser:postMigration", "status", ASPECT_LATEST_VERSION, "test");
     com.linkedin.metadata.aspect.EntityAspect aspect =
         testDao.getAspect(
-            opContext, "urn:li:corpuser:postMigration", "status", ASPECT_LATEST_VERSION);
+            opContext,
+            "urn:li:corpuser:postMigration",
+            "status",
+            ASPECT_LATEST_VERSION,
+            ReadIntent.READ);
     assertTrue(aspect != null, "Writes work after migration");
   }
 }

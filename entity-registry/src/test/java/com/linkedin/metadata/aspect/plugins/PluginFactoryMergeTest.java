@@ -10,12 +10,15 @@ import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
+import com.linkedin.metadata.aspect.plugins.filter.AspectReadContext;
+import com.linkedin.metadata.aspect.plugins.filter.AspectReadFilter;
 import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -308,6 +311,7 @@ public class PluginFactoryMergeTest {
         new PluginConfiguration(
             configs, // aspectPayloadValidators
             Collections.emptyList(), // mutationHooks
+            Collections.emptyList(), // readFilters
             Collections.emptyList(), // mclSideEffects
             Collections.emptyList(), // mcpSideEffects
             Collections.emptyList() // mcpObservers
@@ -317,6 +321,7 @@ public class PluginFactoryMergeTest {
         pluginConfiguration,
         Collections.emptyList(),
         validators,
+        Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),
@@ -340,6 +345,7 @@ public class PluginFactoryMergeTest {
         new PluginConfiguration(
             List.of(config), // aspectPayloadValidators
             List.of(config), // mutationHooks
+            List.of(config), // readFilters
             List.of(config), // mclSideEffects
             List.of(config), // mcpSideEffects
             List.of(config) // mcpObservers
@@ -350,6 +356,7 @@ public class PluginFactoryMergeTest {
         Collections.emptyList(),
         List.of((AspectPayloadValidator) new MockAspectPayloadValidator().setConfig(config)),
         List.of((MutationHook) new MockMutationHook().setConfig(config)),
+        List.of((AspectReadFilter) new MockAspectReadFilter().setConfig(config)),
         List.of((MCLSideEffect) new MockMCLSideEffect().setConfig(config)),
         List.of((MCPSideEffect) new MockMCPSideEffect().setConfig(config)),
         List.of((MCPObserver) new MockMCPObserver().setConfig(config)));
@@ -400,6 +407,27 @@ public class PluginFactoryMergeTest {
     public PluginSpec setConfig(AspectPluginConfig config) {
       this.config = config;
       return this;
+    }
+  }
+
+  private static class MockAspectReadFilter extends AspectReadFilter {
+    private AspectPluginConfig config;
+
+    @Override
+    public AspectPluginConfig getConfig() {
+      return config;
+    }
+
+    @Override
+    public PluginSpec setConfig(AspectPluginConfig config) {
+      this.config = config;
+      return this;
+    }
+
+    @Override
+    public boolean isAllowed(
+        @Nonnull AspectReadContext context, @Nonnull EntityRegistry entityRegistry) {
+      return true;
     }
   }
 

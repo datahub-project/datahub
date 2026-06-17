@@ -16,6 +16,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.plugins.filter.ReadIntent;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanSystemAspect;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
@@ -418,13 +419,11 @@ public class AspectDaoTest {
 
     @Override
     public EntityAspect getAspect(
-        @Nonnull OperationContext opContext, String urn, String aspectName, long version) {
-      return null;
-    }
-
-    @Override
-    public EntityAspect getAspect(
-        @Nonnull OperationContext opContext, @Nonnull EntityAspectIdentifier key) {
+        @Nonnull OperationContext opContext,
+        String urn,
+        String aspectName,
+        long version,
+        ReadIntent intent) {
       return null;
     }
 
@@ -432,7 +431,8 @@ public class AspectDaoTest {
     public Map<EntityAspectIdentifier, EntityAspect> batchGet(
         @Nonnull OperationContext opContext,
         @Nonnull Set<EntityAspectIdentifier> keys,
-        boolean forUpdate) {
+        boolean forUpdate,
+        ReadIntent intent) {
       return null;
     }
 
@@ -442,7 +442,8 @@ public class AspectDaoTest {
         @Nonnull Urn urn,
         Set<String> aspectNames,
         long startTimeMillis,
-        long endTimeMillis) {
+        long endTimeMillis,
+        ReadIntent intent) {
       return null;
     }
 

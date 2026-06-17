@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.plugins;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
+import com.linkedin.metadata.aspect.plugins.filter.AspectReadFilter;
 import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
@@ -172,6 +173,14 @@ public class PluginFactory {
                 loadedB.mutationHooks.stream())
             .collect(Collectors.toList()),
         Stream.concat(
+                loadedA.readFilters.stream()
+                    .filter(
+                        aPlugin ->
+                            loadedB.pluginConfiguration.getReadFilters().stream()
+                                .noneMatch(bConfig -> aPlugin.getConfig().isDisabledBy(bConfig))),
+                loadedB.readFilters.stream())
+            .collect(Collectors.toList()),
+        Stream.concat(
                 loadedA.mclSideEffects.stream()
                     .filter(
                         aPlugin ->
@@ -201,6 +210,7 @@ public class PluginFactory {
   @Nonnull @Getter private final List<ClassLoader> classLoaders;
   @Getter private List<AspectPayloadValidator> aspectPayloadValidators;
   @Getter private List<MutationHook> mutationHooks;
+  @Getter private List<AspectReadFilter> readFilters;
   @Getter private List<MCLSideEffect> mclSideEffects;
   @Getter private List<MCPSideEffect> mcpSideEffects;
   @Getter private List<MCPObserver> mcpObservers;
@@ -219,6 +229,7 @@ public class PluginFactory {
       @Nonnull List<ClassLoader> classLoaders,
       @Nonnull List<AspectPayloadValidator> aspectPayloadValidators,
       @Nonnull List<MutationHook> mutationHooks,
+      @Nonnull List<AspectReadFilter> readFilters,
       @Nonnull List<MCLSideEffect> mclSideEffects,
       @Nonnull List<MCPSideEffect> mcpSideEffects,
       @Nonnull List<MCPObserver> mcpObservers) {
@@ -227,6 +238,7 @@ public class PluginFactory {
         pluginConfiguration == null ? PluginConfiguration.EMPTY : pluginConfiguration;
     this.aspectPayloadValidators = applyDisable(aspectPayloadValidators);
     this.mutationHooks = sortByPriority(applyDisable(mutationHooks));
+    this.readFilters = applyDisable(readFilters);
     this.mclSideEffects = applyDisable(mclSideEffects);
     this.mcpSideEffects = applyDisable(mcpSideEffects);
     this.mcpObservers = applyDisable(mcpObservers);
@@ -235,6 +247,7 @@ public class PluginFactory {
   public PluginFactory loadPlugins() {
     if (this.aspectPayloadValidators != null
         || this.mutationHooks != null
+        || this.readFilters != null
         || this.mclSideEffects != null
         || this.mcpSideEffects != null
         || this.mcpObservers != null) {
@@ -242,6 +255,7 @@ public class PluginFactory {
     } else {
       this.aspectPayloadValidators = buildAspectPayloadValidators(this.pluginConfiguration);
       this.mutationHooks = buildMutationHooks(this.pluginConfiguration);
+      this.readFilters = augmentReadFilters(buildReadFilters(this.pluginConfiguration));
       this.mclSideEffects = buildMCLSideEffects(this.pluginConfiguration);
       this.mcpSideEffects = buildMCPSideEffects(this.pluginConfiguration);
       this.mcpObservers = buildMCPObservers(this.pluginConfiguration);
@@ -249,6 +263,7 @@ public class PluginFactory {
           Stream.of(
                   this.aspectPayloadValidators,
                   this.mutationHooks,
+                  this.readFilters,
                   this.mclSideEffects,
                   this.mcpSideEffects,
                   this.mcpObservers)
@@ -262,6 +277,7 @@ public class PluginFactory {
     return this.pluginConfiguration.isEmpty()
         && Optional.ofNullable(this.aspectPayloadValidators).map(List::isEmpty).orElse(true)
         && Optional.ofNullable(this.mutationHooks).map(List::isEmpty).orElse(true)
+        && Optional.ofNullable(this.readFilters).map(List::isEmpty).orElse(true)
         && Optional.ofNullable(this.mclSideEffects).map(List::isEmpty).orElse(true)
         && Optional.ofNullable(this.mcpSideEffects).map(List::isEmpty).orElse(true)
         && Optional.ofNullable(this.mcpObservers).map(List::isEmpty).orElse(true);
@@ -271,6 +287,7 @@ public class PluginFactory {
     return Stream.of(
             this.aspectPayloadValidators,
             this.mutationHooks,
+            this.readFilters,
             this.mclSideEffects,
             this.mcpSideEffects,
             this.mcpObservers)
@@ -407,6 +424,30 @@ public class PluginFactory {
         .collect(Collectors.toList());
   }
 
+  @Nonnull
+  public List<AspectReadFilter> getAspectReadFilters() {
+    return readFilters;
+  }
+
+  /**
+   * Return read filters for {@link com.linkedin.metadata.aspect.plugins.filter.ReadIntent} checks
+   * at DAO egress.
+   *
+   * @param intent read or exists intent
+   * @param entityName entity name
+   * @param aspectName aspect name
+   * @return read filters
+   */
+  @Nonnull
+  public List<AspectReadFilter> getAspectReadFilters(
+      @Nonnull com.linkedin.metadata.aspect.plugins.filter.ReadIntent intent,
+      @Nonnull String entityName,
+      @Nonnull String aspectName) {
+    return readFilters.stream()
+        .filter(plugin -> plugin.shouldApply(intent, entityName, aspectName))
+        .collect(Collectors.toList());
+  }
+
   /**
    * Returns the side effects to apply to {@link com.linkedin.mxe.MetadataChangeProposal}. Side
    * effects can generate one or more additional MCPs during write operations.
@@ -463,6 +504,7 @@ public class PluginFactory {
     return EntityRegistryLoadResult.PluginLoadResult.builder()
         .validatorCount(aspectPayloadValidators.size())
         .mutationHookCount(mutationHooks.size())
+        .readFilterCount(readFilters.size())
         .mcpSideEffectCount(mcpSideEffects.size())
         .mclSideEffectCount(mclSideEffects.size())
         .validatorClasses(
@@ -471,6 +513,8 @@ public class PluginFactory {
                 .collect(Collectors.toSet()))
         .mutationHookClasses(
             mutationHooks.stream().map(cls -> cls.getClass().getName()).collect(Collectors.toSet()))
+        .readFilterClasses(
+            readFilters.stream().map(cls -> cls.getClass().getName()).collect(Collectors.toSet()))
         .mcpSideEffectClasses(
             mcpSideEffects.stream()
                 .map(cls -> cls.getClass().getName())
@@ -511,6 +555,21 @@ public class PluginFactory {
     return hooks.stream()
         .sorted(Comparator.comparingInt(MutationHook::getPriority).reversed())
         .collect(Collectors.toList());
+  }
+
+  protected List<AspectReadFilter> augmentReadFilters(@Nonnull List<AspectReadFilter> readFilters) {
+    return readFilters;
+  }
+
+  private List<AspectReadFilter> buildReadFilters(
+      @Nullable PluginConfiguration pluginConfiguration) {
+    return pluginConfiguration == null
+        ? Collections.emptyList()
+        : applyDisable(
+            build(
+                AspectReadFilter.class,
+                pluginConfiguration.readFilterPackages(),
+                pluginConfiguration.getReadFilters()));
   }
 
   private List<MCLSideEffect> buildMCLSideEffects(

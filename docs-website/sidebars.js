@@ -1395,6 +1395,7 @@ module.exports = {
           ],
         },
         "docs/modeling/extending-the-metadata-model",
+        "docs/modeling/system-data",
         "docs/advanced/api-tracing",
         "docs/advanced/micrometer-best-practices",
         "datahub-web-react/src/app/analytics/README",

@@ -27,6 +27,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.SystemAspectValidator;
+import com.linkedin.metadata.aspect.filter.AspectDaoReadSupport;
+import com.linkedin.metadata.aspect.plugins.filter.ReadIntent;
 import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
@@ -47,7 +49,6 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -104,41 +105,60 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull String aspectName,
       boolean forUpdate) {
     validateConnection();
-    return Optional.ofNullable(getAspect(opContext, urn, aspectName, ASPECT_LATEST_VERSION))
-        .map(
-            a -> {
-              // Pre-patch validation if this is for update
-              if (forUpdate && systemAspectValidators != null) {
-                for (SystemAspectValidator validator : systemAspectValidators) {
-                  validator.validatePrePatch(
-                      a.getMetadata(), UrnUtils.getUrn(urn), aspectName, opContext);
-                }
-              }
-              return EntityAspect.EntitySystemAspect.builder()
-                  .systemAspectValidators(systemAspectValidators)
-                  .forUpdate(a, opContext.getEntityRegistry());
-            })
+    EntityAspect aspect =
+        getAspect(opContext, urn, aspectName, ASPECT_LATEST_VERSION, ReadIntent.READ);
+    return Optional.ofNullable(aspect)
+        .map(a -> toSystemAspect(opContext, a, forUpdate))
         .orElse(null);
   }
 
   @Override
   public Map<String, Map<String, SystemAspect>> getLatestAspects(
       @Nonnull OperationContext opContext, Map<String, Set<String>> urnAspects, boolean forUpdate) {
-    return urnAspects.entrySet().stream()
+    validateConnection();
+
+    Set<EntityAspectIdentifier> keys =
+        urnAspects.entrySet().stream()
+            .flatMap(
+                entry ->
+                    entry.getValue().stream()
+                        .map(
+                            aspect ->
+                                new EntityAspectIdentifier(
+                                    entry.getKey(), aspect, ASPECT_LATEST_VERSION)))
+            .collect(Collectors.toSet());
+
+    Map<EntityAspectIdentifier, EntityAspect> results =
+        batchGet(opContext, keys, forUpdate, ReadIntent.READ);
+
+    return results.values().stream()
+        .collect(Collectors.groupingBy(EntityAspect::getUrn))
+        .entrySet()
+        .stream()
         .map(
             entry ->
                 Map.entry(
                     entry.getKey(),
                     entry.getValue().stream()
-                        .map(
-                            aspectName -> {
-                              SystemAspect aspect =
-                                  getLatestAspect(opContext, entry.getKey(), aspectName, forUpdate);
-                              return aspect != null ? Map.entry(aspectName, aspect) : null;
-                            })
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
+                        .collect(
+                            Collectors.toMap(
+                                EntityAspect::getAspect,
+                                aspect -> toSystemAspect(opContext, aspect, forUpdate)))))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  @Nonnull
+  private SystemAspect toSystemAspect(
+      @Nonnull OperationContext opContext, @Nonnull EntityAspect aspect, boolean forUpdate) {
+    if (forUpdate && systemAspectValidators != null) {
+      for (SystemAspectValidator validator : systemAspectValidators) {
+        validator.validatePrePatch(
+            aspect.getMetadata(), UrnUtils.getUrn(aspect.getUrn()), aspect.getAspect(), opContext);
+      }
+    }
+    return EntityAspect.EntitySystemAspect.builder()
+        .systemAspectValidators(systemAspectValidators)
+        .forUpdate(aspect, opContext.getEntityRegistry());
   }
 
   @Override
@@ -280,20 +300,34 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   public Map<EntityAspectIdentifier, EntityAspect> batchGet(
       @Nonnull OperationContext opContext,
       @Nonnull final Set<EntityAspectIdentifier> keys,
-      boolean forUpdate) {
+      boolean forUpdate,
+      @Nonnull ReadIntent intent) {
     validateConnection();
-    return keys.stream()
-        .map(key -> getAspect(opContext, key))
-        .filter(Objects::nonNull)
-        .collect(Collectors.toMap(EntityAspectIdentifier::fromEntityAspect, aspect -> aspect));
+    return AspectDaoReadSupport.batchGet(
+        opContext,
+        keys,
+        forUpdate,
+        intent,
+        (allowedKeys, ignored) -> {
+          Map<EntityAspectIdentifier, EntityAspect> loaded = new HashMap<>();
+          for (EntityAspectIdentifier key : allowedKeys) {
+            EntityAspect aspect =
+                loadAspect(opContext, key.getUrn(), key.getAspect(), key.getVersion());
+            if (aspect != null) {
+              loaded.put(key, aspect);
+            }
+          }
+          return loaded;
+        });
   }
 
   @Override
   @Nullable
   public EntityAspect getAspect(
-      @Nonnull OperationContext opContext, @Nonnull EntityAspectIdentifier key) {
-    validateConnection();
-    return getAspect(opContext, key.getUrn(), key.getAspect(), key.getVersion());
+      @Nonnull OperationContext opContext,
+      @Nonnull EntityAspectIdentifier key,
+      @Nonnull ReadIntent intent) {
+    return getAspect(opContext, key.getUrn(), key.getAspect(), key.getVersion(), intent);
   }
 
   @Override
@@ -548,6 +582,21 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull OperationContext opContext,
       @Nonnull String urn,
       @Nonnull String aspectName,
+      long version,
+      @Nonnull ReadIntent intent) {
+    validateConnection();
+    return AspectDaoReadSupport.getAspect(
+        opContext,
+        new EntityAspectIdentifier(urn, aspectName, version),
+        intent,
+        key -> loadAspect(opContext, key.getUrn(), key.getAspect(), key.getVersion()));
+  }
+
+  @Nullable
+  private EntityAspect loadAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull String urn,
+      @Nonnull String aspectName,
       long version) {
     validateConnection();
     SimpleStatement ss =
@@ -791,25 +840,37 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull Urn urn,
       Set<String> aspectNames,
       long startTimeMillis,
-      long endTimeMillis) {
+      long endTimeMillis,
+      @Nonnull ReadIntent intent) {
     validateConnection();
-    SimpleStatement ss =
-        selectFrom(CassandraAspect.TABLE_NAME)
-            .all()
-            .whereColumn(CassandraAspect.URN_COLUMN)
-            .isEqualTo(literal(urn.toString()))
-            .whereColumn(CassandraAspect.ASPECT_COLUMN)
-            .in(aspectNamesToLiterals(aspectNames))
-            .whereColumn(CassandraAspect.CREATED_ON_COLUMN)
-            .isGreaterThanOrEqualTo(literal(startTimeMillis))
-            .whereColumn(CassandraAspect.CREATED_ON_COLUMN)
-            .isLessThan(literal(endTimeMillis))
-            .allowFiltering()
-            .build();
+    if (aspectNames == null || aspectNames.isEmpty()) {
+      return List.of();
+    }
+    return AspectDaoReadSupport.getAspectsInRange(
+        opContext,
+        urn,
+        aspectNames,
+        intent,
+        allowedAspectNames -> {
+          SimpleStatement ss =
+              selectFrom(CassandraAspect.TABLE_NAME)
+                  .all()
+                  .whereColumn(CassandraAspect.URN_COLUMN)
+                  .isEqualTo(literal(urn.toString()))
+                  .whereColumn(CassandraAspect.ASPECT_COLUMN)
+                  .in(aspectNamesToLiterals(allowedAspectNames))
+                  .whereColumn(CassandraAspect.CREATED_ON_COLUMN)
+                  .isGreaterThanOrEqualTo(literal(startTimeMillis))
+                  .whereColumn(CassandraAspect.CREATED_ON_COLUMN)
+                  .isLessThan(literal(endTimeMillis))
+                  .allowFiltering()
+                  .build();
 
-    ResultSet rs = readSession(opContext, false).execute(ss);
-
-    return rs.all().stream().map(CassandraAspect::rowToEntityAspect).collect(Collectors.toList());
+          ResultSet rs = readSession(opContext, false).execute(ss);
+          return rs.all().stream()
+              .map(CassandraAspect::rowToEntityAspect)
+              .collect(Collectors.toList());
+        });
   }
 
   private Iterable<Term> aspectNamesToLiterals(Set<String> aspectNames) {

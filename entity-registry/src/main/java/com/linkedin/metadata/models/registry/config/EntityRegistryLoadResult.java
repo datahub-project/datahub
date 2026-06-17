@@ -21,12 +21,14 @@ public class EntityRegistryLoadResult {
   public static class PluginLoadResult {
     private int validatorCount;
     private int mutationHookCount;
+    private int readFilterCount;
     private int mcpSideEffectCount;
     private int mclSideEffectCount;
     private int mcpObserverCount;
 
     @Builder.Default private Set<String> validatorClasses = Collections.emptySet();
     @Builder.Default private Set<String> mutationHookClasses = Collections.emptySet();
+    @Builder.Default private Set<String> readFilterClasses = Collections.emptySet();
     @Builder.Default private Set<String> mcpSideEffectClasses = Collections.emptySet();
     @Builder.Default private Set<String> mclSideEffectClasses = Collections.emptySet();
     @Builder.Default private Set<String> mcpObserverClasses = Collections.emptySet();

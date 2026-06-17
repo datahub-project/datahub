@@ -1491,7 +1491,8 @@ public class EntityServiceImplTest {
             any(OperationContext.class),
             eq(propertyUrn.toString()),
             eq(STRUCTURED_PROPERTY_KEY_ASPECT_NAME),
-            eq(1L)))
+            eq(1L),
+            any()))
         .thenReturn(keyAspectAtVersionOne);
     when(mockAspectDao.deleteUrn(any(OperationContext.class), any(), eq(propertyUrn.toString())))
         .thenReturn(2);

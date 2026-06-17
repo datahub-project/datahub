@@ -1,0 +1,12 @@
+namespace com.datahub.test.systemdata
+
+/**
+ * Test-only key aspect for system entity data access control tests.
+ */
+@Aspect = {
+  "name": "testSystemDataKey"
+}
+@SystemEntity = true
+record TestSystemDataKey {
+  id: string
+}

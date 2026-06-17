@@ -13,6 +13,7 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
 import com.linkedin.metadata.CassandraTestUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
+import com.linkedin.metadata.aspect.plugins.filter.ReadIntent;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.storage.PrimaryStorageResolver;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
@@ -98,7 +99,7 @@ public class PrimaryStorageReadPoolCassandraIT {
     EntityAspectIdentifier key =
         new EntityAspectIdentifier(urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION);
     Map<EntityAspectIdentifier, EntityAspect> batch =
-        aspectDao.batchGet(opContext, Set.of(key), false);
+        aspectDao.batchGet(opContext, Set.of(key), false, ReadIntent.READ);
     assertEquals(batch.size(), 1);
     assertEquals(batch.get(key).getUrn(), urn);
   }

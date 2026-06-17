@@ -563,6 +563,12 @@ entities:
     aspects:
       - dataHubUpgradeRequest
       - dataHubUpgradeResult
+  - name: dataHubSystemState
+    doc: Internal GMS operational state stored as system metadata.
+    category: internal
+    keyAspect: dataHubSystemStateKey
+    aspects:
+      - dataHubSystemStateProperties
   - name: inviteToken
     category: internal
     keyAspect: inviteTokenKey

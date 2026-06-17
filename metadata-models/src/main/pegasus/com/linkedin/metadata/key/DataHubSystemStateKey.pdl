@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for durable GMS-internal operational state stored as system metadata.
+ */
+@Aspect = {
+  "name": "dataHubSystemStateKey"
+}
+@SystemEntity = true
+record DataHubSystemStateKey {
+  /**
+   * Component-scoped identifier for this system state record.
+   */
+  id: string
+}

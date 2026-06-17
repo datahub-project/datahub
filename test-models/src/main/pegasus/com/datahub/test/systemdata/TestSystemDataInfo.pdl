@@ -1,0 +1,11 @@
+namespace com.datahub.test.systemdata
+
+/**
+ * Test-only value aspect for system entity data access control tests.
+ */
+@Aspect = {
+  "name": "testSystemDataInfo"
+}
+record TestSystemDataInfo {
+  value: optional string
+}

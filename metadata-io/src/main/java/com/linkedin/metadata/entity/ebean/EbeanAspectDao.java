@@ -14,6 +14,8 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.SystemAspectValidator;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.filter.AspectDaoReadSupport;
+import com.linkedin.metadata.aspect.plugins.filter.ReadIntent;
 import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
@@ -55,7 +57,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -201,26 +202,29 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       boolean forUpdate) {
     validateConnection();
 
-    List<EbeanAspectV2.PrimaryKey> keys =
+    Set<EntityAspectIdentifier> keys =
         urnAspects.entrySet().stream()
             .flatMap(
                 entry ->
                     entry.getValue().stream()
                         .map(
                             aspect ->
-                                new EbeanAspectV2.PrimaryKey(
+                                new EntityAspectIdentifier(
                                     entry.getKey(), aspect, ASPECT_LATEST_VERSION)))
-            .sorted(
-                Comparator.comparing(EbeanAspectV2.PrimaryKey::getUrn)
-                    .thenComparing(EbeanAspectV2.PrimaryKey::getAspect)
-                    .thenComparing(EbeanAspectV2.PrimaryKey::getVersion))
-            .collect(Collectors.toList());
+            .collect(Collectors.toSet());
 
-    // Use batchGet to chunk large IN clauses and avoid optimizer memory exhaustion
-    // (range_optimizer_max_mem_size)
-    final List<EbeanAspectV2> results =
-        batchGet(opContext, new HashSet<>(keys), queryKeysCount, forUpdate && canWrite);
-    return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
+    final Map<EntityAspectIdentifier, EntityAspect> results =
+        batchGet(opContext, keys, forUpdate && canWrite, ReadIntent.READ);
+
+    final List<EbeanAspectV2> filtered =
+        results.values().stream()
+            .map(EbeanAspectV2::fromEntityAspect)
+            .sorted(
+                Comparator.comparing(EbeanAspectV2::getUrn)
+                    .thenComparing(EbeanAspectV2::getAspect)
+                    .thenComparing(EbeanAspectV2::getVersion))
+            .collect(Collectors.toList());
+    return toUrnAspectMap(opContext.getEntityRegistry(), filtered, opContext);
   }
 
   @Override
@@ -250,15 +254,24 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull OperationContext opContext,
       @Nonnull final String urn,
       @Nonnull final String aspectName,
-      final long version) {
-    return getAspect(opContext, new EntityAspectIdentifier(urn, aspectName, version));
+      final long version,
+      @Nonnull ReadIntent intent) {
+    return getAspect(opContext, new EntityAspectIdentifier(urn, aspectName, version), intent);
   }
 
   @Override
   @Nullable
   public EntityAspect getAspect(
-      @Nonnull OperationContext opContext, @Nonnull final EntityAspectIdentifier key) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final EntityAspectIdentifier key,
+      @Nonnull ReadIntent intent) {
     validateConnection();
+    return AspectDaoReadSupport.getAspect(opContext, key, intent, k -> loadAspect(opContext, k));
+  }
+
+  @Nullable
+  private EntityAspect loadAspect(
+      @Nonnull OperationContext opContext, @Nonnull final EntityAspectIdentifier key) {
     EbeanAspectV2.PrimaryKey primaryKey =
         new EbeanAspectV2.PrimaryKey(key.getUrn(), key.getAspect(), key.getVersion());
     EbeanAspectV2 ebeanAspect =
@@ -326,26 +339,35 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   public Map<EntityAspectIdentifier, EntityAspect> batchGet(
       @Nonnull OperationContext opContext,
       @Nonnull final Set<EntityAspectIdentifier> keys,
-      boolean forUpdate) {
+      boolean forUpdate,
+      @Nonnull ReadIntent intent) {
     validateConnection();
-    if (keys.isEmpty()) {
-      return Collections.emptyMap();
-    }
-
-    final Set<EbeanAspectV2.PrimaryKey> ebeanKeys =
-        keys.stream()
-            .map(EbeanAspectV2.PrimaryKey::fromAspectIdentifier)
-            .collect(Collectors.toSet());
-    final List<EbeanAspectV2> records;
-    if (queryKeysCount == 0) {
-      records = batchGet(opContext, ebeanKeys, ebeanKeys.size(), forUpdate);
-    } else {
-      records = batchGet(opContext, ebeanKeys, queryKeysCount, forUpdate);
-    }
-    return records.stream()
-        .collect(
-            Collectors.toMap(
-                record -> record.getKey().toAspectIdentifier(), EbeanAspectV2::toEntityAspect));
+    return AspectDaoReadSupport.batchGet(
+        opContext,
+        keys,
+        forUpdate,
+        intent,
+        (allowedKeys, forUpd) -> {
+          final Set<EbeanAspectV2.PrimaryKey> ebeanKeys =
+              allowedKeys.stream()
+                  .map(EbeanAspectV2.PrimaryKey::fromAspectIdentifier)
+                  .collect(Collectors.toSet());
+          final List<EbeanAspectV2> records;
+          if (queryKeysCount == 0) {
+            records = loadBatchGet(opContext, ebeanKeys, ebeanKeys.size(), forUpd);
+          } else {
+            records = loadBatchGet(opContext, ebeanKeys, queryKeysCount, forUpd);
+          }
+          return records.stream()
+              .collect(
+                  Collectors.toMap(
+                      ebeanAspect ->
+                          new EntityAspectIdentifier(
+                              ebeanAspect.getUrn(),
+                              ebeanAspect.getAspect(),
+                              ebeanAspect.getVersion()),
+                      EbeanAspectV2::toEntityAspect));
+        });
   }
 
   /**
@@ -357,7 +379,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * @param forUpdate whether the operation is intending to write to this row in a tx
    */
   @Nonnull
-  private List<EbeanAspectV2> batchGet(
+  private List<EbeanAspectV2> loadBatchGet(
       @Nonnull OperationContext opContext,
       @Nonnull final Set<EbeanAspectV2.PrimaryKey> keys,
       final int keysCount,
@@ -1183,22 +1205,33 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull Urn urn,
       Set<String> aspectNames,
       long startTimeMillis,
-      long endTimeMillis) {
+      long endTimeMillis,
+      @Nonnull ReadIntent intent) {
     validateConnection();
-    List<EbeanAspectV2> ebeanAspects =
-        primaryStorageResolver
-            .resolveEbean(opContext, false)
-            .find(EbeanAspectV2.class)
-            .select(EbeanAspectV2.ALL_COLUMNS)
-            .where()
-            .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
-            .in(EbeanAspectV2.ASPECT_COLUMN, aspectNames)
-            .inRange(
-                EbeanAspectV2.CREATED_ON_COLUMN,
-                new Timestamp(startTimeMillis),
-                new Timestamp(endTimeMillis))
-            .findList();
-    return ebeanAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList());
+    if (aspectNames == null || aspectNames.isEmpty()) {
+      return List.of();
+    }
+    return AspectDaoReadSupport.getAspectsInRange(
+        opContext,
+        urn,
+        aspectNames,
+        intent,
+        allowedAspectNames ->
+            primaryStorageResolver
+                .resolveEbean(opContext, false)
+                .find(EbeanAspectV2.class)
+                .select(EbeanAspectV2.ALL_COLUMNS)
+                .where()
+                .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
+                .in(EbeanAspectV2.ASPECT_COLUMN, allowedAspectNames)
+                .inRange(
+                    EbeanAspectV2.CREATED_ON_COLUMN,
+                    new Timestamp(startTimeMillis),
+                    new Timestamp(endTimeMillis))
+                .findList()
+                .stream()
+                .map(EbeanAspectV2::toEntityAspect)
+                .collect(Collectors.toList()));
   }
 
   private Map<String, SystemAspect> toAspectMap(

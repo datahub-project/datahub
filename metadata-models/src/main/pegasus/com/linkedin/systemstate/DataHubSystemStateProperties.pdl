@@ -1,0 +1,21 @@
+namespace com.linkedin.systemstate
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * String map payload for {@link com.linkedin.metadata.key.DataHubSystemStateKey} records.
+ */
+@Aspect = {
+  "name": "dataHubSystemStateProperties"
+}
+record DataHubSystemStateProperties {
+  /**
+   * Opaque key-value operational state.
+   */
+  properties: optional map[string, string]
+
+  /**
+   * Last modification audit stamp.
+   */
+  lastModified: optional AuditStamp
+}

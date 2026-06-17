@@ -323,12 +323,14 @@ public class AspectTestUtilsTest {
             Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
+            Collections.emptyList(),
             Collections.emptyList());
 
     return new PluginFactory(
         pluginConfiguration,
         Collections.emptyList(),
         validators,
+        Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),

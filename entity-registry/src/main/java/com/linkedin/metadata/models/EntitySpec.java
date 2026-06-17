@@ -268,4 +268,19 @@ public interface EntitySpec {
 
     return getFieldMap(numValuesFn, hasValuesFn, defaultKeyFn, mergeFn);
   }
+
+  /** Whether this entity is system-managed ({@code @SystemEntity} on the key aspect). */
+  default boolean isSystemEntity() {
+    return false;
+  }
+
+  /** Whether READ on this system entity is eligible for policy-engine evaluation. */
+  default boolean isSystemEntityAllowRead() {
+    return false;
+  }
+
+  /** Whether EXISTS on this system entity is eligible for policy-engine evaluation. */
+  default boolean isSystemEntityAllowExists() {
+    return false;
+  }
 }
