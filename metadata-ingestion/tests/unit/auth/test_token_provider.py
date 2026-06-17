@@ -101,3 +101,37 @@ def test_auth_retries_once_on_401(requests_mock):
     assert resp.status_code == 200
     assert provider.invalidated == 1
     assert resp.request.headers["Authorization"] == "Bearer fresh"
+
+
+def test_auth_passes_non_401_through_untouched(requests_mock):
+    # The retry hook fires on every response; a success must pass straight
+    # through without invalidating the cached token.
+    provider = _SeqProvider(["t1"])
+    auth = TokenProviderAuth(provider)
+    requests_mock.get("http://gms/api", status_code=200, text="ok")
+    resp = requests.get("http://gms/api", auth=auth)
+    assert resp.status_code == 200
+    assert provider.invalidated == 0
+
+
+def test_auth_retries_at_most_once_on_repeated_401(requests_mock):
+    # A persistent 401 must not loop: invalidate + retry once, then surface
+    # the failure rather than refreshing forever.
+    provider = _SeqProvider(["stale", "still-stale"])
+    auth = TokenProviderAuth(provider)
+    requests_mock.get(
+        "http://gms/api",
+        [{"status_code": 401}, {"status_code": 401}],
+    )
+    resp = requests.get("http://gms/api", auth=auth)
+    assert resp.status_code == 401
+    assert provider.invalidated == 1  # exactly one refresh attempt, no loop
+
+
+def test_auth_does_not_retry_when_provider_cannot_invalidate(requests_mock):
+    # StaticTokenProvider has no invalidate(); a 401 has no fresh token to fall
+    # back to, so the response passes through instead of retrying.
+    auth = TokenProviderAuth(StaticTokenProvider("tok"))
+    requests_mock.get("http://gms/api", status_code=401)
+    resp = requests.get("http://gms/api", auth=auth)
+    assert resp.status_code == 401
