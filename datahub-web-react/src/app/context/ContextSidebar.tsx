@@ -1,7 +1,11 @@
 import { LoadingOutlined, SearchOutlined } from '@ant-design/icons';
 import { Button, SearchBar, Tooltip } from '@components';
+import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
+import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Divider } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -9,7 +13,6 @@ import { useContextDocumentsPermissions } from '@app/context/useContextDocuments
 import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useCreateDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -32,7 +35,7 @@ const SidebarContainer = styled.div<{
     max-height: 100%;
     width: ${(props) => (props.$isCollapsed ? `${SIDEBAR_COLLAPSED_WIDTH}px` : `${props.$width}px`)};
     transition: width ${SIDEBAR_TRANSITION_MS}ms ease-in-out;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;
@@ -41,9 +44,9 @@ const SidebarContainer = styled.div<{
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        margin: ${props.$isEntityProfile ? '5px 0px 6px 5px' : '0px 4px 0px 0px'};
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
-    `}
+ margin: ${props.$isEntityProfile ? '5px 0px 6px 5px' : '0px 4px 0px 0px'};
+ box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+ `}
 `;
 
 const HeaderControls = styled.div<{ $isCollapsed: boolean }>`
@@ -58,8 +61,7 @@ const HeaderControls = styled.div<{ $isCollapsed: boolean }>`
 const SidebarTitle = styled.div`
     font-size: 16px;
     font-weight: bold;
-    color: #374066;
-    white-space: nowrap;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const HeaderButtons = styled.div`
@@ -91,24 +93,21 @@ const SearchInputWrapper = styled.div`
 `;
 
 const SearchIcon = styled(SearchOutlined)`
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding: 16px;
     width: 100%;
     font-size: 20px;
     cursor: pointer;
 
     &:hover {
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
+        color: ${(props) => props.theme.colors.hyperlinks};
     }
 `;
 
 const ResultsWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
-    box-shadow:
-        0 3px 6px -4px rgb(0 0 0 / 12%),
-        0 6px 16px 0 rgb(0 0 0 / 8%),
-        0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     padding: 8px;
     position: absolute;
     max-height: 300px;
@@ -129,7 +128,7 @@ const LoadingWrapper = styled(ResultsWrapper)`
 const EmptyState = styled.div`
     padding: 16px;
     text-align: center;
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 14px;
 `;
 
@@ -149,16 +148,16 @@ const TreeContainer = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: #a9adbd;
+        background: ${(props) => props.theme.colors.textTertiary};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: #81879f;
+        background: ${(props) => props.theme.colors.textTertiary};
     }
 
     scrollbar-width: thin;
-    scrollbar-color: #a9adbd transparent;
+    scrollbar-color: ${(props) => props.theme.colors.textTertiary} transparent;
 `;
 
 type Props = {
@@ -174,6 +173,8 @@ export default function ContextSidebar({
     onToggleCollapsed,
     onExpandSidebar,
 }: Props) {
+    const { t } = useTranslation('misc');
+    const { t: tc } = useTranslation('common.actions');
     const [creating, setCreating] = useState(false);
     const [searchInput, setSearchInput] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -230,6 +231,7 @@ export default function ContextSidebar({
                 expandAncestors(parentDocumentUrn || null);
 
                 const newUrn = await createDocument({
+                    /* untranslated-text -- default new-document title persisted as backend data, not UI chrome */
                     title: 'New Document',
                     parentDocument: parentDocumentUrn || null,
                 });
@@ -264,14 +266,14 @@ export default function ContextSidebar({
             $isEntityProfile={isEntityProfile}
         >
             <HeaderControls $isCollapsed={isCollapsed}>
-                {!isCollapsed && <SidebarTitle>Documents</SidebarTitle>}
+                {!isCollapsed && <SidebarTitle>{t('context.documentsSidebarTitle')}</SidebarTitle>}
                 <HeaderButtons>
                     {!isCollapsed && (
                         <Tooltip
                             title={
                                 canCreateDocuments
-                                    ? 'Create Document'
-                                    : 'Reach out to your DataHub admin to create documents.'
+                                    ? t('context.createDocumentTooltip')
+                                    : t('context.noCreateDocumentPermissionTooltip')
                             }
                             placement="bottom"
                             showArrow={false}
@@ -281,7 +283,7 @@ export default function ContextSidebar({
                                     variant="filled"
                                     color="primary"
                                     isCircle
-                                    icon={{ icon: 'Plus', source: 'phosphor' }}
+                                    icon={{ icon: Plus }}
                                     onClick={() => handleCreateDocument()}
                                     disabled={!canCreateDocuments || creating}
                                     data-testid="create-document-button"
@@ -294,7 +296,7 @@ export default function ContextSidebar({
                         color="gray"
                         size="lg"
                         isCircle
-                        icon={{ icon: isCollapsed ? 'ArrowLineRight' : 'ArrowLineLeft', source: 'phosphor' }}
+                        icon={{ icon: isCollapsed ? ArrowLineRight : ArrowLineLeft }}
                         isActive={!isCollapsed}
                         onClick={onToggleCollapsed}
                         data-testid="context-sidebar-collapse-button"
@@ -311,7 +313,7 @@ export default function ContextSidebar({
                     <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
                         <SearchInputWrapper>
                             <SearchBar
-                                placeholder="Search documents"
+                                placeholder={t('context.searchDocumentsPlaceholder')}
                                 value={searchInput}
                                 onChange={setSearchInput}
                                 onFocus={() => setIsSearchBarFocused(true)}
@@ -325,7 +327,7 @@ export default function ContextSidebar({
                         )}
                         {!searchLoading && isSearchBarFocused && isSearching && searchResults.length === 0 && (
                             <ResultsWrapper>
-                                <EmptyState>No results found</EmptyState>
+                                <EmptyState>{tc('noResults')}</EmptyState>
                             </ResultsWrapper>
                         )}
                         {!searchLoading && isSearchBarFocused && isSearching && searchResults.length > 0 && (
@@ -333,12 +335,14 @@ export default function ContextSidebar({
                                 {searchResults.map((doc) => {
                                     // Build breadcrumb from parentDocuments array
                                     let breadcrumb: string | null = null;
+                                    /* eslint-disable i18next/no-literal-string -- (untranslated-text) 'Untitled' is a fallback default for a missing document title (data, not UI chrome); ' > ' is a punctuation separator */
                                     if (doc.parentDocuments?.documents && doc.parentDocuments.documents.length > 0) {
                                         const parents = [...doc.parentDocuments.documents].reverse();
                                         breadcrumb = parents
                                             .map((parent) => parent.info?.title || 'Untitled')
                                             .join(' > ');
                                     }
+                                    /* eslint-enable i18next/no-literal-string */
 
                                     return (
                                         <SearchResultItem

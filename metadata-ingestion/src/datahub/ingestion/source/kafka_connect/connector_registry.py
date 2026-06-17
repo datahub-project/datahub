@@ -205,11 +205,14 @@ class ConnectorRegistry:
         """Get appropriate sink connector implementation."""
         from datahub.ingestion.source.kafka_connect.sink_connectors import (
             BIGQUERY_SINK_CONNECTOR_CLASS,
+            CLICKHOUSE_SINK_CONNECTOR_CLASS,
             CONFLUENT_JDBC_SINK_CONNECTOR_CLASS,
             DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,
             S3_SINK_CONNECTOR_CLASS,
             SNOWFLAKE_SINK_CONNECTOR_CLASS,
+            SNOWFLAKE_STREAMING_SINK_CONNECTOR_CLASS,
             BigQuerySinkConnector,
+            ClickHouseSinkConnector,
             ConfluentS3SinkConnector,
             JdbcSinkConnector,
             SnowflakeSinkConnector,
@@ -225,9 +228,10 @@ class ConnectorRegistry:
         # S3 sink connectors
         elif connector_class_value == S3_SINK_CONNECTOR_CLASS:
             return ConfluentS3SinkConnector(manifest, config, report)
-        # Snowflake sink connectors (both self-hosted and Cloud)
+        # Snowflake sink connectors (classic self-hosted, high-performance v4, and Cloud)
         elif connector_class_value in (
             SNOWFLAKE_SINK_CONNECTOR_CLASS,
+            SNOWFLAKE_STREAMING_SINK_CONNECTOR_CLASS,
             SNOWFLAKE_SINK_CLOUD,
         ):
             return SnowflakeSinkConnector(manifest, config, report)
@@ -236,6 +240,9 @@ class ConnectorRegistry:
             return JdbcSinkConnector(manifest, config, report, platform="postgres")
         elif connector_class_value == MYSQL_SINK_CLOUD:
             return JdbcSinkConnector(manifest, config, report, platform="mysql")
+        # ClickHouse sink connector
+        elif connector_class_value == CLICKHOUSE_SINK_CONNECTOR_CLASS:
+            return ClickHouseSinkConnector(manifest, config, report)
         # Self-hosted JDBC sink connectors — platform auto-detected from connection.url
         elif connector_class_value in (
             DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,

@@ -1,18 +1,24 @@
-import { CloseOutlined } from '@ant-design/icons';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import PillRemoveIcon from '@app/sharedV2/icons/PillRemoveIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataProduct as DataProductEntity, EntityType } from '@types';
 
 const DataProductLinkContainer = styled(Link)`
     display: inline-block;
+    color: ${(props) => props.theme.colors.text};
+
+    &:hover,
+    &:focus,
+    &:active {
+        color: ${(props) => props.theme.colors.text};
+    }
 `;
 
 const DataProductWrapper = styled.span`
@@ -20,31 +26,22 @@ const DataProductWrapper = styled.span`
     margin-bottom: 8px;
 `;
 
-const CloseButton = styled.div`
+const RemoveIcon = styled(PillRemoveIcon)`
     margin-left: 4px;
-    :hover {
-        cursor: pointer;
-    }
-    && {
-        color: ${ANTD_GRAY[7]};
-    }
 `;
 
-const StyledCloseOutlined = styled(CloseOutlined)`
-    && {
-        font-size: 10px;
-    }
-`;
-
-const IconWrapper = styled.span`
-    margin-right: 6px;
+const IconWrapper = styled.div`
+    display: flex;
+    color: ${(props) => props.theme.colors.icon};
 `;
 
 const StyledTag = styled.div<{ fontSize?: number }>`
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
+    font-weight: 500;
     display: flex;
     align-items: center;
     justify-content: start;
+    gap: 4px;
 `;
 
 interface ContentProps {
@@ -63,20 +60,14 @@ function DataProductContent({ dataProduct, name, closable, onClose, tagStyle, fo
 
     return (
         <StyledTag style={tagStyle} fontSize={fontSize}>
-            <IconWrapper>
-                {entityRegistry.getIcon(EntityType.DataProduct, fontSize || 10, IconStyleType.ACCENT, ANTD_GRAY[9])}
-            </IconWrapper>
+            <IconWrapper>{entityRegistry.getIcon(EntityType.DataProduct, 16, IconStyleType.ACCENT)}</IconWrapper>
             {displayName}
-            {closable && (
-                <CloseButton onClick={onClose}>
-                    <StyledCloseOutlined />
-                </CloseButton>
-            )}
+            {closable && <RemoveIcon onClick={onClose} />}
         </StyledTag>
     );
 }
 
-export type Props = {
+type Props = {
     dataProduct: DataProductEntity;
     name?: string;
     closable?: boolean;

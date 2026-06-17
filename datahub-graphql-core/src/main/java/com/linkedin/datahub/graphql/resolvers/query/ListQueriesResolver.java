@@ -134,7 +134,6 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
       andConditions.add(
           new FacetFilterInput(
               QUERY_SOURCE_FIELD,
-              null,
               ImmutableList.of(input.getSource().toString()),
               false,
               FilterOperator.EQUAL));
@@ -145,7 +144,6 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
       andConditions.add(
           new FacetFilterInput(
               QUERY_ENTITIES_FIELD,
-              null,
               ImmutableList.of(input.getDatasetUrn()),
               false,
               FilterOperator.EQUAL));

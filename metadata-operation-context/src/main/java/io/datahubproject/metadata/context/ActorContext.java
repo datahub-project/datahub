@@ -10,16 +10,21 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.identity.CorpUserStatus;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubPolicyInfo;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -47,6 +52,7 @@ public class ActorContext implements ContextInterface {
         .systemAuth(false)
         .authentication(authentication)
         .policyInfoSet(dataHubPolicySet)
+        .actorPoliciesByPrivilege(indexPoliciesByPrivilege(dataHubPolicySet))
         .groupMembership(groupMembership)
         .enforceExistenceEnabled(enforceExistenceEnabled)
         .build();
@@ -58,6 +64,13 @@ public class ActorContext implements ContextInterface {
   @EqualsAndHashCode.Exclude @Builder.Default
   private final Set<DataHubPolicyInfo> policyInfoSet = Collections.emptySet();
 
+  /**
+   * Derived once per session from {@link #policyInfoSet} so authorize() can look up candidates for
+   * a privilege in O(1) without scanning the full actor-applicable set on every check.
+   */
+  @EqualsAndHashCode.Exclude @Builder.Default
+  private final Map<String, List<RecordTemplate>> actorPoliciesByPrivilege = Collections.emptyMap();
+
   @EqualsAndHashCode.Exclude @Builder.Default
   private final Collection<Urn> groupMembership = Collections.emptyList();
 
@@ -68,12 +81,36 @@ public class ActorContext implements ContextInterface {
   }
 
   /**
-   * Actor is considered active if the user is not hard-deleted, soft-deleted, and is not suspended
+   * Groups actor-applicable policies by privilege. Uses the same {@link DataHubPolicyInfo}
+   * references as the policy cache.
+   */
+  @Nonnull
+  public static Map<String, List<RecordTemplate>> indexPoliciesByPrivilege(
+      @Nullable final Set<DataHubPolicyInfo> policyInfoSet) {
+    if (policyInfoSet == null || policyInfoSet.isEmpty()) {
+      return Collections.emptyMap();
+    }
+    final Map<String, List<RecordTemplate>> byPrivilege = new HashMap<>();
+    for (final DataHubPolicyInfo policy : policyInfoSet) {
+      if (policy.getPrivileges() == null) {
+        continue;
+      }
+      for (final String privilege : policy.getPrivileges()) {
+        byPrivilege.computeIfAbsent(privilege, ignored -> new ArrayList<>()).add(policy);
+      }
+    }
+    return Collections.unmodifiableMap(byPrivilege);
+  }
+
+  /**
+   * Actor is considered active if a corp user key is present when enforcement is on and the user is
+   * not soft-deleted or suspended.
    *
    * @param aspectRetriever aspect retriever - ideally the SystemEntityClient backed one for caching
    * @return active status
    */
-  public boolean isActive(AspectRetriever aspectRetriever) {
+  public boolean isActive(
+      OperationContext context, com.linkedin.metadata.aspect.AspectRetriever aspectRetriever) {
     // system cannot be disabled
     if (SYSTEM_ACTOR.equals(authentication.getActor().toUrnStr())) {
       return true;
@@ -82,13 +119,14 @@ public class ActorContext implements ContextInterface {
     Urn selfUrn = UrnUtils.getUrn(authentication.getActor().toUrnStr());
     Map<Urn, Map<String, Aspect>> urnAspectMap =
         aspectRetriever.getLatestAspectObjects(
+            context,
             Set.of(selfUrn),
             Set.of(STATUS_ASPECT_NAME, CORP_USER_STATUS_ASPECT_NAME, CORP_USER_KEY_ASPECT_NAME));
 
     Map<String, Aspect> aspectMap = urnAspectMap.getOrDefault(selfUrn, Map.of());
 
     if (enforceExistenceEnabled && !aspectMap.containsKey(CORP_USER_KEY_ASPECT_NAME)) {
-      // user is hard deleted
+      // No corp user key aspect (never provisioned, purged, or inconsistent); not inferrable.
       return false;
     }
 

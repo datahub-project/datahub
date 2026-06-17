@@ -1,7 +1,10 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Form } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import AllowedValuesDrawer from '@app/govern/structuredProperties/AllowedValuesDrawer';
 import StructuredPropsForm from '@app/govern/structuredProperties/StructuredPropsForm';
@@ -64,6 +67,8 @@ const StructuredPropsDrawer = ({
     handleAddProperty,
     handleUpdateProperty,
 }: Props) => {
+    const { t } = useTranslation('governance.structured-properties');
+    const { t: tc } = useTranslation('common.actions');
     const [form] = Form.useForm();
     const [valuesForm] = Form.useForm();
     const me = useUserContext();
@@ -108,11 +113,11 @@ const StructuredPropsDrawer = ({
     };
 
     const showErrorMessage = () => {
-        showToastMessage(ToastType.ERROR, `Failed to ${isEditMode ? 'update' : 'create'} structured property.`, 3);
+        showToastMessage(ToastType.ERROR, t(isEditMode ? 'updateError' : 'createError'), 3);
     };
 
     const showSuccessMessage = () => {
-        showToastMessage(ToastType.SUCCESS, `Structured property ${isEditMode ? 'updated' : 'created'}!`, 3);
+        showToastMessage(ToastType.SUCCESS, t(isEditMode ? 'updateSuccess' : 'createSuccess'), 3);
     };
 
     const { reloadByKeyType } = useReloadableContext();
@@ -321,32 +326,25 @@ const StructuredPropsDrawer = ({
                     {showAllowedValuesDrawer ? (
                         <TitleContainer>
                             <StyledIcon
-                                icon="ArrowBack"
+                                icon={ArrowLeft}
                                 color="gray"
                                 size="3xl"
                                 onClick={() => setShowAllowedValuesDrawer(false)}
                             />
                             <Text color="gray" weight="bold" size="lg">
-                                Allowed Values
+                                {t('allowedValues.title')}
                             </Text>
                         </TitleContainer>
                     ) : (
                         <Text color="gray" weight="bold" size="lg">
-                            {`${isEditMode ? 'Edit' : 'Create'} Structured Property`}
+                            {t(isEditMode ? 'editTitle' : 'createTitle')}
                         </Text>
                     )}
-                    <StyledIcon icon="Close" color="gray" onClick={handleClose} />
+                    <StyledIcon icon={X} color="gray" onClick={handleClose} />
                 </DrawerHeader>
             }
             footer={
-                <Tooltip
-                    showArrow={false}
-                    title={
-                        !canEditProps
-                            ? 'Must have permission to manage structured properties. Ask your DataHub administrator.'
-                            : null
-                    }
-                >
+                <Tooltip showArrow={false} title={!canEditProps ? t('permissionTooltip') : null}>
                     <FooterContainer>
                         {showAllowedValuesDrawer ? (
                             <Button
@@ -354,7 +352,7 @@ const StructuredPropsDrawer = ({
                                 onClick={handleUpdateAllowedValues}
                                 disabled={!canEditProps}
                             >
-                                Update Allowed Values
+                                {t('allowedValues.updateButton')}
                             </Button>
                         ) : (
                             <Button
@@ -363,7 +361,7 @@ const StructuredPropsDrawer = ({
                                 disabled={isLoading || !canEditProps}
                                 data-testid="structured-props-create-update-button"
                             >
-                                {isEditMode ? 'Update' : 'Create'}
+                                {isEditMode ? tc('update') : tc('create')}
                             </Button>
                         )}
                     </FooterContainer>
@@ -371,7 +369,11 @@ const StructuredPropsDrawer = ({
             }
             destroyOnClose
         >
-            <StyledSpin spinning={isLoading} indicator={<LoadingOutlined />}>
+            <StyledSpin
+                spinning={isLoading}
+                indicator={<LoadingOutlined />}
+                data-testid="structured-props-drawer-content"
+            >
                 {showAllowedValuesDrawer ? (
                     <>
                         <AllowedValuesDrawer

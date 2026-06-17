@@ -1,5 +1,6 @@
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import {
@@ -21,20 +22,28 @@ interface Props {
 }
 
 export default function CreateViewButton({ onClick }: Props) {
+    const { t } = useTranslation('entity.views');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const IconWrapper = isShowNavBarRedesign ? ViewIconNavBarRedesign : ViewIcon;
 
     return (
-        <ViewContainer onClick={() => onClick?.()} role="none" $isShowNavBarRedesign={isShowNavBarRedesign}>
+        <ViewContainer
+            onClick={() => onClick?.()}
+            role="none"
+            data-testid="create-view-button"
+            $isShowNavBarRedesign={isShowNavBarRedesign}
+        >
             <IconWrapper>
                 <AddOutlinedIconStyle />
             </IconWrapper>
             <ViewContent $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <CardViewLabel className="static" $isShowNavBarRedesign={isShowNavBarRedesign}>
-                    Create a View
+                    {t('viewSelect.createViewLabel')}
                 </CardViewLabel>
                 <ViewDescription $isShowNavBarRedesign={isShowNavBarRedesign}>
-                    {isShowNavBarRedesign ? 'Create a set of saved search filters' : 'Create view'}
+                    {isShowNavBarRedesign
+                        ? t('viewSelect.createViewDescription')
+                        : t('viewSelect.createViewDescriptionLegacy')}
                 </ViewDescription>
             </ViewContent>
         </ViewContainer>

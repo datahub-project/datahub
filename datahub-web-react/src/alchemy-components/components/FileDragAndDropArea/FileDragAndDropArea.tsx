@@ -1,5 +1,7 @@
-import { Button, Icon, Text, colors } from '@components';
+import { Button, Icon, Text } from '@components';
+import { UploadSimple } from '@phosphor-icons/react/dist/csr/UploadSimple';
 import React, { useCallback, useRef, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const Container = styled.div<{ $dragActive?: boolean }>`
@@ -9,7 +11,7 @@ const Container = styled.div<{ $dragActive?: boolean }>`
     flex-direction: column;
     align-items: center;
 
-    border: 1px dashed ${(props) => (props.$dragActive ? colors.primary[500] : colors.gray[100])};
+    border: 1px dashed ${({ $dragActive, theme }) => ($dragActive ? theme.colors.borderBrand : theme.colors.border)};
     border-radius: 12px;
 `;
 
@@ -29,7 +31,7 @@ const IconContainer = styled.div`
     width: 32px;
     height: 32px;
     border-radius: 100%;
-    background-color: ${colors.gray[1000]};
+    background-color: ${({ theme }) => theme.colors.bgSurfaceBrand};
 `;
 
 const ActionTextContainer = styled.div`
@@ -55,6 +57,7 @@ interface Props {
 }
 
 export function FileDragAndDropArea({ onFilesUpload, className }: Props) {
+    const { t } = useTranslation('alchemy');
     const [dragActive, setDragActive] = useState<boolean>(false);
 
     const inputRef = useRef<HTMLInputElement>(null);
@@ -113,20 +116,21 @@ export function FileDragAndDropArea({ onFilesUpload, className }: Props) {
             >
                 <InnerContainer>
                     <IconContainer onDragLeave={(e) => e.stopPropagation()}>
-                        <Icon icon="UploadSimple" source="phosphor" color="primary" size="2xl" />
+                        <Icon icon={UploadSimple} color="iconBrand" size="2xl" />
                     </IconContainer>
                     <ActionTextContainer>
                         <Text size="sm" weight="semiBold">
-                            Drag a file or
-                        </Text>{' '}
-                        <InlineButton variant="text" size="sm" onClick={onButtonClick}>
-                            click to upload
-                        </InlineButton>
+                            <Trans
+                                t={t}
+                                i18nKey="fileUpload.dragDropPrompt"
+                                components={{
+                                    uploadButton: <InlineButton variant="text" size="sm" onClick={onButtonClick} />,
+                                }}
+                            />
+                        </Text>
                     </ActionTextContainer>
                     <Description>
-                        <Text size="sm" color="gray">
-                            Max Size: 2GB
-                        </Text>
+                        <Text size="sm">{t('fileUpload.maxSize')}</Text>
                     </Description>
                 </InnerContainer>
             </Container>

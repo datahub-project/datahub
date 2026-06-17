@@ -19,6 +19,12 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.api.incremental_ownership_helper import (
+    IncrementalOwnershipConfigMixin,
+)
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -83,7 +89,7 @@ class UnityCatalogProfilerConfig(ConfigModel):
 
 class DeltaLakeDetails(ConfigModel):
     platform_instance_name: Optional[str] = Field(
-        default=None, description="Delta-lake paltform instance name"
+        default=None, description="Delta-lake platform instance name"
     )
     env: str = Field(default="PROD", description="Delta-lake environment")
 
@@ -157,6 +163,8 @@ class UnityCatalogSourceConfig(
     DatasetSourceConfigMixin,
     StatefulProfilingConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
+    IncrementalOwnershipConfigMixin,
+    IncrementalPropertiesConfigMixin,
 ):
     include_metastore: bool = pydantic.Field(
         default=False,
@@ -180,10 +188,12 @@ class UnityCatalogSourceConfig(
     )
 
     _only_ingest_assigned_metastore_removed = pydantic_removed_field(
-        "only_ingest_assigned_metastore"
+        "only_ingest_assigned_metastore", month="June", year=2023
     )
 
-    _metastore_id_pattern_removed = pydantic_removed_field("metastore_id_pattern")
+    _metastore_id_pattern_removed = pydantic_removed_field(
+        "metastore_id_pattern", month="June", year=2023
+    )
 
     catalogs: Optional[List[str]] = pydantic.Field(
         default=None,
@@ -214,6 +224,28 @@ class UnityCatalogSourceConfig(
             "Regex patterns for notebooks to filter in ingestion, based on notebook *path*."
             " Specify regex to match the entire notebook path in `/<dir>/.../<name>` format."
             " e.g. to match all notebooks in the root Shared directory, use the regex `/Shared/.*`."
+        ),
+    )
+
+    metric_view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for Unity Catalog Metric Views to filter in ingestion."
+            " Specify regex to match the full `catalog.schema.metric_view_name`."
+            " Only applies when `include_metric_views` is True."
+        ),
+    )
+
+    include_metric_views: bool = pydantic.Field(
+        default=False,
+        description=(
+            "Enable enriched ingestion of Unity Catalog Metric Views: subtype"
+            " 'Metric View', YAML body as ViewProperties, upstream and column-level"
+            " lineage from `source` / `joins` / `dimensions.expr` / `measures.expr`,"
+            " `Dimension` / `Measure` tags on matching columns, `materialization`"
+            " → `ViewProperties.materialized`, and `filter` as a custom property."
+            " Default `false` keeps metric views as plain Tables. Requires a"
+            " `databricks-sdk` recent enough to expose `TableType.METRIC_VIEW`."
         ),
     )
 
@@ -261,6 +293,26 @@ class UnityCatalogSourceConfig(
     include_column_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
+    )
+
+    include_table_constraints: bool = pydantic.Field(
+        default=False,
+        description=(
+            "If enabled, fetches primary key and foreign key constraints for each table "
+            "via an additional tables.get() API call per table (one call per table). "
+            "Disabled by default to avoid unexpected API load on large catalogs. "
+            "Enables PK/FK visualisation in the DataHub schema view when set to true."
+        ),
+    )
+
+    include_partition_keys: bool = pydantic.Field(
+        default=False,
+        description=(
+            "If enabled, the `isPartitioningKey` field is populated on schema fields "
+            "for columns that are part of the table's partition key. "
+            "Partition key information is already present in the tables.list() response "
+            "so no additional API calls are made."
+        ),
     )
 
     lineage_data_source: LineageDataSource = pydantic.Field(
@@ -321,7 +373,7 @@ class UnityCatalogSourceConfig(
         UnityCatalogAnalyzeProfilerConfig,
         UnityCatalogSQLAlchemyProfilerConfig,
     ] = Field(  # type: ignore
-        default=UnityCatalogGEProfilerConfig(),
+        default=UnityCatalogSQLAlchemyProfilerConfig(),
         description="Data profiling configuration",
         discriminator="method",
     )
@@ -407,6 +459,12 @@ class UnityCatalogSourceConfig(
 
     def is_ge_profiling(self) -> bool:
         return self.profiling.method == "ge"
+
+    def is_sqlalchemy_profiling(self) -> bool:
+        return self.profiling.method == "sqlalchemy"
+
+    def uses_table_level_profiler(self) -> bool:
+        return self.is_ge_profiling() or self.is_sqlalchemy_profiling()
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."
@@ -496,4 +554,11 @@ class UnityCatalogSourceConfig(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:
         v.deny.append(".*\\.information_schema")
+        return v
+
+    @field_validator("profiling", mode="before")
+    @classmethod
+    def _default_profiling_method(cls, v: object) -> object:
+        if isinstance(v, dict) and "method" not in v:
+            return {**v, "method": "sqlalchemy"}
         return v

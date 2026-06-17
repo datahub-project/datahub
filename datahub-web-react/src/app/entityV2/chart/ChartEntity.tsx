@@ -7,7 +7,10 @@ import {
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import { ChartLine, ListBullets, TreeStructure } from '@phosphor-icons/react';
+import { ChartLine } from '@phosphor-icons/react/dist/csr/ChartLine';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -92,9 +95,9 @@ export class ChartEntity implements Entity<Chart> {
 
     getPathName = () => this.getGraphName();
 
-    getEntityName = () => 'Chart';
+    getEntityName = () => i18next.t('entity.types:chart.name');
 
-    getCollectionName = () => 'Charts';
+    getCollectionName = () => i18next.t('entity.types:chart.namePlural');
 
     useEntityQuery = useGetChartQuery;
 
@@ -111,7 +114,7 @@ export class ChartEntity implements Entity<Chart> {
             }}
             tabs={[
                 {
-                    name: 'Summary',
+                    name: i18next.t('entity.types:tab.summary'),
                     component: ChartSummaryTab,
                     icon: SUMMARY_TAB_ICON,
                     display: {
@@ -123,12 +126,12 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileOutlined,
                 },
                 {
-                    name: 'Fields',
+                    name: i18next.t('entity.types:chart.fieldsTab'),
                     component: InputFieldsTab,
                     icon: LayoutOutlined,
                     display: {
@@ -137,7 +140,7 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Preview',
+                    name: i18next.t('common.actions:preview'),
                     component: EmbedTab,
                     icon: EyeOutlined,
                     display: {
@@ -150,7 +153,7 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
                     icon: PartitionOutlined,
                     properties: {
@@ -159,12 +162,12 @@ export class ChartEntity implements Entity<Chart> {
                     supportsFullsize: true,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: UnorderedListOutlined,
                 },
                 {
-                    name: 'Dashboards',
+                    name: i18next.t('entity.types:dashboard.namePlural'),
                     component: ChartDashboardsTab,
                     icon: DashboardOutlined,
                     display: {
@@ -173,7 +176,7 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Incidents',
+                    name: i18next.t('entity.types:tab.incidents'),
                     getCount: (_, chart, loading) => {
                         return !loading ? chart?.chart?.activeIncidents?.total : undefined;
                     },
@@ -230,18 +233,18 @@ export class ChartEntity implements Entity<Chart> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
         },
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];

@@ -1,6 +1,7 @@
-describe("home", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("home", () => {
   beforeEach(() => {
-    cy.setFeatureFlags(true, (res) => {
+    cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
     });
     cy.skipIntroducePage();

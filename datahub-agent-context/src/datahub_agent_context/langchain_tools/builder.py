@@ -3,6 +3,10 @@
 from typing import TYPE_CHECKING
 
 from datahub_agent_context.mcp_tools import get_me
+from datahub_agent_context.mcp_tools.ask_datahub import (
+    ask_datahub_chat,
+    get_datahub_chat,
+)
 from datahub_agent_context.mcp_tools.assertions import get_dataset_assertions
 from datahub_agent_context.mcp_tools.documents import grep_documents, search_documents
 from datahub_agent_context.mcp_tools.domains import remove_domains, set_domains
@@ -97,5 +101,34 @@ def build_langchain_tools(
         tools.append(tool(create_context_wrapper(add_glossary_terms, client)))
         tools.append(tool(create_context_wrapper(remove_glossary_terms, client)))
         tools.append(tool(create_context_wrapper(save_document, client)))
+
+    return tools
+
+
+def build_langchain_cloud_tools(
+    client: "DataHubClient",
+    *,
+    ask_datahub: bool = True,
+) -> list[BaseTool]:
+    """Build LangChain tools for DataHub Cloud features.
+
+    Returns tools that are only available on DataHub Cloud instances.
+    Use alongside ``build_langchain_tools`` to get the full suite::
+
+        tools = build_langchain_tools(client, include_mutations=True)
+        tools += build_langchain_cloud_tools(client, ask_datahub=True)
+
+    Args:
+        client: DataHubClient instance (must be connected to a Cloud instance)
+        ask_datahub: Include the Ask DataHub AI chat tools (default: True)
+
+    Returns:
+        List of LangChain BaseTool instances for Cloud-only features
+    """
+    tools: list[BaseTool] = []
+
+    if ask_datahub:
+        tools.append(tool(create_context_wrapper(ask_datahub_chat, client)))
+        tools.append(tool(create_context_wrapper(get_datahub_chat, client)))
 
     return tools

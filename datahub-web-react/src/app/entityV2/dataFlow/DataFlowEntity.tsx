@@ -1,12 +1,11 @@
-import {
-    ArrowsClockwise,
-    FileText,
-    ListBullets,
-    Share,
-    ShareNetwork,
-    TreeStructure,
-    WarningCircle,
-} from '@phosphor-icons/react';
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Share } from '@phosphor-icons/react/dist/csr/Share';
+import { ShareNetwork } from '@phosphor-icons/react/dist/csr/ShareNetwork';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -74,9 +73,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getPathName = () => 'pipelines';
 
-    getEntityName = () => 'Pipeline';
+    getEntityName = () => i18next.t('entity.types:dataFlow.name');
 
-    getCollectionName = () => 'Pipelines';
+    getCollectionName = () => i18next.t('entity.types:dataFlow.namePlural');
 
     useEntityQuery = useGetDataFlowQuery;
 
@@ -90,18 +89,18 @@ export class DataFlowEntity implements Entity<DataFlow> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: DAGTab,
                     icon: TreeStructure,
                     supportsFullsize: true,
                 },
                 {
-                    name: 'Tasks',
+                    name: i18next.t('entity.types:dataJob.namePlural'),
                     component: DataFlowJobsTab,
                     icon: Share,
                     properties: {
@@ -109,7 +108,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     },
                 },
                 {
-                    name: 'Incidents',
+                    name: i18next.t('entity.types:tab.incidents'),
                     icon: WarningCircle,
                     component: IncidentTab,
                     getCount: (_, dataFlow) => {
@@ -117,12 +116,12 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     },
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: ListBullets,
                 },
                 {
-                    name: 'Runs',
+                    name: i18next.t('entity.types:tab.runs'),
                     component: RunsTab,
                     icon: ArrowsClockwise,
                     display: {
@@ -174,9 +173,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];

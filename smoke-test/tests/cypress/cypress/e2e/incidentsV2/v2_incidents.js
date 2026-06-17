@@ -28,10 +28,8 @@ function expandGroupIfNeeded(group) {
     });
 }
 
-describe("incidents", () => {
-  beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-  });
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("incidents", () => {
   const newIncidentNameWithTimeStamp = `${NEW_INCIDENT_VALUES.NAME}-${Date.now()}`;
   const editedIncidentNameWithTimeStamp = `${newIncidentNameWithTimeStamp}-edited`;
 

@@ -1,5 +1,6 @@
 import { AppstoreOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { BookmarksSimple } from '@phosphor-icons/react';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
+import i18next from 'i18next';
 import React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -10,6 +11,7 @@ import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
+import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
@@ -59,9 +61,9 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     getPathName = () => 'glossaryNode';
 
-    getCollectionName = () => 'Term Groups';
+    getCollectionName = () => i18next.t('entity.types:glossaryNode.namePlural');
 
-    getEntityName = () => 'Term Group';
+    getEntityName = () => i18next.t('entity.types:glossaryNode.name');
 
     useEntityQuery = useGetGlossaryNodeQuery;
 
@@ -101,6 +103,12 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             component: SidebarOwnerSection,
         },
         {
+            component: SidebarDomainSection,
+            properties: {
+                hideOwnerType: true,
+            },
+        },
+        {
             component: SidebarApplicationSection,
         },
         {
@@ -118,20 +126,20 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             ...(showSummaryTab
                 ? [
                       {
-                          name: 'Summary',
+                          name: i18next.t('entity.types:tab.summary'),
                           component: SummaryTab,
                       },
                   ]
                 : []),
             {
-                name: 'Contents',
+                name: i18next.t('entity.types:tab.contents'),
                 component: ChildrenTabWrapper,
                 icon: AppstoreOutlined,
             },
             ...(!showSummaryTab
                 ? [
                       {
-                          name: 'Documentation',
+                          name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
                           icon: FileOutlined,
                           properties: {
@@ -141,7 +149,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                   ]
                 : []),
             {
-                name: 'Properties',
+                name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
                 icon: UnorderedListOutlined,
             },
@@ -150,9 +158,9 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: UnorderedListOutlined,
         },
     ];
@@ -205,6 +213,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.DOMAINS,
             EntityCapabilityType.RELATED_DOCUMENTS,
             EntityCapabilityType.FORMS,
         ]);

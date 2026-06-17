@@ -2,11 +2,11 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Skeleton, Spin } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY, LINEAGE_COLORS, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
 import { ContractLineageButton } from '@app/lineageV2/LineageEntityNode/ContractLineageButton';
 import { ExpandLineageButton } from '@app/lineageV2/LineageEntityNode/ExpandLineageButton';
@@ -15,7 +15,6 @@ import NodeSkeleton from '@app/lineageV2/LineageEntityNode/NodeSkeleton';
 import { FetchStatus } from '@app/lineageV2/common';
 import { downgradeV2FieldPath, useGetLineageUrl } from '@app/lineageV2/lineageUtils';
 import { FetchedEntityV2 } from '@app/lineageV2/types';
-import { COLORS } from '@app/sharedV2/colors';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -26,7 +25,6 @@ import LinkOut from '@images/link-out.svg?react';
 
 export const SCHEMA_FIELD_NODE_HEIGHT = 80;
 export const SCHEMA_FIELD_NODE_WIDTH = 240;
-const NODE_COLOR = COLORS.blue_7;
 
 const NodeWrapper = styled.div<{
     selected: boolean;
@@ -36,15 +34,15 @@ const NodeWrapper = styled.div<{
     isSearchedEntity: boolean;
 }>`
     align-items: center;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border: 1px solid
-        ${({ color, selected, isGhost }) => {
+        ${({ color, selected, isGhost, theme }) => {
             if (selected) return color;
-            if (isGhost) return `${LINEAGE_COLORS.NODE_BORDER}50`;
-            return LINEAGE_COLORS.NODE_BORDER;
+            if (isGhost) return `${theme.colors.border}50`;
+            return theme.colors.border;
         }};
     box-shadow: ${({ isSearchedEntity, theme }) =>
-        isSearchedEntity ? `0 0 4px 4px ${theme.styles['primary-color']}95` : 'none'};
+        isSearchedEntity ? `0 0 4px 4px ${theme.colors.borderBrand}95` : 'none'};
     outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
     border-left: none;
     border-radius: 6px;
@@ -102,7 +100,7 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
 
 const IconsWrapper = styled.div`
     align-items: center;
-    color: ${ANTD_GRAY[10]};
+    color: ${(props) => props.theme.colors.icon};
     display: flex;
     flex-direction: column;
     font-size: 24px;
@@ -144,7 +142,7 @@ const ParentLine = styled.span`
     height: min-content;
     gap: 4px;
 
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 600;
 `;
 
@@ -193,7 +191,7 @@ const ColumnLinkWrapper = styled(Link)`
     color: inherit;
 
     :hover {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 
@@ -236,7 +234,10 @@ export default function SchemaFieldNodeContents({
     setHoveredNode,
     ignoreSchemaFieldStatus,
 }: Props) {
+    const { t } = useTranslation('lineage');
     const entityRegistry = useEntityRegistryV2();
+    const theme = useTheme();
+    const NODE_COLOR = theme.colors.chartsInformationLow;
 
     const isExpandedDownstream = isExpanded?.[LineageDirection.Downstream];
     const isExpandedUpstream = isExpanded?.[LineageDirection.Upstream];
@@ -248,7 +249,7 @@ export default function SchemaFieldNodeContents({
     const parentLineageUrl = useGetLineageUrl(parent?.urn, parent?.type);
     const lineageUrl = useGetLineageUrl(urn, EntityType.SchemaField);
 
-    const highlightColor = isSearchedEntity ? REDESIGN_COLORS.YELLOW_500 : REDESIGN_COLORS.YELLOW_200;
+    const highlightColor = isSearchedEntity ? theme.colors.textWarning : theme.colors.bgSurfaceWarning;
     const contents = (
         <NodeWrapper
             selected={selected}
@@ -317,7 +318,11 @@ export default function SchemaFieldNodeContents({
                 <CustomHandle type="source" position={Position.Right} isConnectable={false} />
                 <IconsWrapper>
                     {platformIcon ? (
-                        <PlatformIcon src={platformIcon} alt={platformName || 'platform'} title={platformName} />
+                        <PlatformIcon
+                            src={platformIcon}
+                            alt={platformName || t('node.platformAlt')}
+                            title={platformName}
+                        />
                     ) : (
                         <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />
                     )}
@@ -345,7 +350,7 @@ export default function SchemaFieldNodeContents({
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
-                                        <Tooltip title="Explore parent lineage" mouseEnterDelay={0.5}>
+                                        <Tooltip title={t('node.exploreParentLineage.tooltip')} mouseEnterDelay={0.5}>
                                             <LinkOut />
                                         </Tooltip>
                                     </ColumnLinkWrapper>
@@ -364,7 +369,7 @@ export default function SchemaFieldNodeContents({
                                     />
                                 </InvalidSchemaFieldLine>
                             ) : (
-                                <Tooltip title="Change home node" mouseEnterDelay={0.3}>
+                                <Tooltip title={t('node.changeHomeNodeTooltip')} mouseEnterDelay={0.3}>
                                     <SchemaFieldLine to={lineageUrl}>
                                         <OverflowTitle
                                             title={downgradeV2FieldPath(entity.name)}
@@ -383,12 +388,12 @@ export default function SchemaFieldNodeContents({
     );
 
     if (isGhost) {
-        const message =
+        const ghostTitle =
             entity?.status?.removed || entity?.parent?.status?.removed
-                ? 'has been deleted'
-                : 'does not exist in DataHub';
+                ? t('node.ghost.deleted')
+                : t('node.ghost.notFound');
         return (
-            <Tooltip title={`This entity ${message}`} mouseEnterDelay={0.3}>
+            <Tooltip title={ghostTitle} mouseEnterDelay={0.3}>
                 {contents}
             </Tooltip>
         );

@@ -1,3 +1,7 @@
+---
+description: "Set up no-code metadata ingestion in DataHub through the UI to automatically pull metadata from your data sources on a schedule."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Metadata Ingestion
@@ -120,7 +124,7 @@ _Ask DataHub (Public Beta - Cloud only) provides contextual assistance throughou
 :::
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-configuration-ask-datahub.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-configuration-ask-datahub-2.png"/>
 </p>
 
 _Ask DataHub (Public Beta - Cloud only) helps you understand configuration options and provides tailored recommendations for your data source_

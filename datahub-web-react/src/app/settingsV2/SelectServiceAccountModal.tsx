@@ -1,4 +1,6 @@
+import { Robot } from '@phosphor-icons/react/dist/csr/Robot';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
@@ -39,6 +41,8 @@ const ModalFooter = styled.div`
 const DEBOUNCE_MS = 300;
 
 export default function SelectServiceAccountModal({ visible, onClose, onSelectServiceAccount }: Props) {
+    const { t } = useTranslation('settings.tokens');
+    const { t: tc } = useTranslation('common.actions');
     const [selectedUrn, setSelectedUrn] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
     const [debouncedSearchText, setDebouncedSearchText] = useState('');
@@ -104,8 +108,8 @@ export default function SelectServiceAccountModal({ visible, onClose, onSelectSe
 
     return (
         <Modal
-            title="Select Service Account"
-            subtitle="Choose a service account to generate an API token for."
+            title={t('selectServiceAccountTitle')}
+            subtitle={t('selectServiceAccountSubtitle')}
             onCancel={handleClose}
             width={500}
             dataTestId="select-service-account-modal"
@@ -117,7 +121,7 @@ export default function SelectServiceAccountModal({ visible, onClose, onSelectSe
                         color="gray"
                         data-testid="cancel-select-service-account"
                     >
-                        Cancel
+                        {tc('cancel')}
                     </Button>
                     <Button
                         id="selectServiceAccountButton"
@@ -125,7 +129,7 @@ export default function SelectServiceAccountModal({ visible, onClose, onSelectSe
                         disabled={!selectedUrn}
                         data-testid="continue-select-service-account"
                     >
-                        Continue
+                        {tc('continue')}
                     </Button>
                 </ModalFooter>
             }
@@ -133,9 +137,9 @@ export default function SelectServiceAccountModal({ visible, onClose, onSelectSe
             <ModalContent>
                 {hasNoAccounts ? (
                     <EmptyState
-                        icon="Robot"
-                        title="No service accounts found"
-                        description="Create a service account first."
+                        icon={Robot}
+                        title={t('noServiceAccountsTitle')}
+                        description={t('noServiceAccountsDescription')}
                         size="sm"
                     />
                 ) : (
@@ -150,7 +154,7 @@ export default function SelectServiceAccountModal({ visible, onClose, onSelectSe
                         showSearch
                         filterResultsByQuery={false}
                         onSearchChange={(value) => setSearchText(value.trim())}
-                        placeholder="Search service accounts..."
+                        placeholder={t('searchServiceAccountsPlaceholder')}
                         showClear
                         width="full"
                         isLoading={loading}

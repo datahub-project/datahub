@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { ComponentType } from 'react';
 import styled from 'styled-components';
 
 import { StructuredReportItem } from '@app/ingestV2/executions/components/reporting/StructuredReportItem';
@@ -14,7 +14,7 @@ interface Props {
     items: StructuredReportLogEntry[];
     color: string;
     textColor?: string;
-    icon?: string;
+    icon?: ComponentType<any>;
     defaultActiveKey?: string;
 }
 

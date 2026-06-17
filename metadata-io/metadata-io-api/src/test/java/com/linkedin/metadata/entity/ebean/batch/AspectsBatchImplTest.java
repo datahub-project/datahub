@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
@@ -123,7 +124,10 @@ public class AspectsBatchImplTest {
 
     assertEquals(
         testBatch.toUpsertBatchItems(
-            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
+            OperationFingerprint.EMPTY,
+            new HashMap<>(),
+            new HashMap<>(),
+            (changeMCP, systemAspect) -> systemAspect),
         Pair.of(Map.of(), testItems),
         "Expected noop, pass through with no additional MCPs or changes");
   }
@@ -180,7 +184,10 @@ public class AspectsBatchImplTest {
 
     assertEquals(
         testBatch.toUpsertBatchItems(
-            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
+            OperationFingerprint.EMPTY,
+            new HashMap<>(),
+            new HashMap<>(),
+            (changeMCP, systemAspect) -> systemAspect),
         Pair.of(
             Map.of(),
             List.of(
@@ -199,7 +206,7 @@ public class AspectsBatchImplTest {
                     .recordTemplate(
                         new StructuredProperties()
                             .setProperties(new StructuredPropertyValueAssignmentArray()))
-                    .systemMetadata(testItems.get(0).getSystemMetadata().setVersion("1"))
+                    .systemMetadata(testItems.get(0).getSystemMetadata())
                     .build(mockAspectRetriever),
                 ChangeItemImpl.builder()
                     .urn(
@@ -216,7 +223,7 @@ public class AspectsBatchImplTest {
                     .recordTemplate(
                         new StructuredProperties()
                             .setProperties(new StructuredPropertyValueAssignmentArray()))
-                    .systemMetadata(testItems.get(1).getSystemMetadata().setVersion("1"))
+                    .systemMetadata(testItems.get(1).getSystemMetadata())
                     .build(mockAspectRetriever))),
         "Expected patch items converted to upsert change items");
   }
@@ -268,7 +275,10 @@ public class AspectsBatchImplTest {
 
     assertEquals(
         testBatch.toUpsertBatchItems(
-            new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect),
+            OperationFingerprint.EMPTY,
+            new HashMap<>(),
+            new HashMap<>(),
+            (changeMCP, systemAspect) -> systemAspect),
         Pair.of(
             Map.of(),
             List.of(
@@ -284,7 +294,7 @@ public class AspectsBatchImplTest {
                             .getEntitySpec(DATASET_ENTITY_NAME)
                             .getAspectSpec(STATUS_ASPECT_NAME))
                     .auditStamp(auditStamp)
-                    .systemMetadata(testItems.get(0).getSystemMetadata().setVersion("1"))
+                    .systemMetadata(testItems.get(0).getSystemMetadata())
                     .recordTemplate(new Status().setRemoved(false))
                     .build(mockAspectRetriever),
                 ChangeItemImpl.builder()
@@ -299,7 +309,7 @@ public class AspectsBatchImplTest {
                             .getEntitySpec(DATASET_ENTITY_NAME)
                             .getAspectSpec(STATUS_ASPECT_NAME))
                     .auditStamp(auditStamp)
-                    .systemMetadata(testItems.get(1).getSystemMetadata().setVersion("1"))
+                    .systemMetadata(testItems.get(1).getSystemMetadata())
                     .recordTemplate(new Status().setRemoved(false))
                     .build(mockAspectRetriever))),
         "Mutation to status aspect");
@@ -355,7 +365,10 @@ public class AspectsBatchImplTest {
     assertEquals(
         testBatch
             .toUpsertBatchItems(
-                new HashMap<>(), new HashMap<>(), (changeMCP, systemAspect) -> systemAspect)
+                OperationFingerprint.EMPTY,
+                new HashMap<>(),
+                new HashMap<>(),
+                (changeMCP, systemAspect) -> systemAspect)
             .getSecond()
             .size(),
         1,
@@ -371,6 +384,7 @@ public class AspectsBatchImplTest {
 
     @Override
     protected Stream<MCPItem> proposalMutation(
+        @Nonnull OperationFingerprint operationContext,
         @Nonnull Collection<MCPItem> mcpItems,
         @Nonnull com.linkedin.metadata.aspect.RetrieverContext retrieverContext) {
       return mcpItems.stream()

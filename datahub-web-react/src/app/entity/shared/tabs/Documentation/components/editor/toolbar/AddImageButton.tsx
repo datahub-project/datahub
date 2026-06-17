@@ -2,10 +2,15 @@ import { PictureOutlined } from '@ant-design/icons';
 import { useCommands } from '@remirror/react';
 import { Form, Input, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { CommandButton } from '@app/entity/shared/tabs/Documentation/components/editor/toolbar/CommandButton';
 
+const IMAGE_URL_PLACEHOLDER = 'http://www.example.com/image.jpg';
+
 export const AddImageButton = () => {
+    const { t } = useTranslation('entity.profile.editor');
+    const { t: tc } = useTranslation('common.actions');
     const [isModalVisible, setModalVisible] = useState(false);
     const [form] = Form.useForm();
     const { insertImage } = useCommands();
@@ -38,16 +43,22 @@ export const AddImageButton = () => {
                 commandName="insertImage"
                 onClick={handleButtonClick}
             />
-            <Modal title="Add Image" open={isModalVisible} okText="Save" onOk={handleOk} onCancel={handleCancel}>
+            <Modal
+                title={t('addImage.title')}
+                open={isModalVisible}
+                okText={tc('save')}
+                onOk={handleOk}
+                onCancel={handleCancel}
+            >
                 <Form form={form} layout="vertical" colon={false} requiredMark={false}>
                     <Form.Item
                         name="src"
-                        label={<Typography.Text strong>Image URL</Typography.Text>}
+                        label={<Typography.Text strong>{t('addImage.imageUrl')}</Typography.Text>}
                         rules={[{ required: true }]}
                     >
-                        <Input placeholder="http://www.example.com/image.jpg" autoFocus />
+                        <Input placeholder={IMAGE_URL_PLACEHOLDER} autoFocus />
                     </Form.Item>
-                    <Form.Item name="alt" label={<Typography.Text strong>Alt Text</Typography.Text>}>
+                    <Form.Item name="alt" label={<Typography.Text strong>{t('addImage.altText')}</Typography.Text>}>
                         <Input />
                     </Form.Item>
                 </Form>

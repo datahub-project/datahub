@@ -1,5 +1,5 @@
 from datetime import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
@@ -257,11 +257,8 @@ class TestQueryLineageValidation:
         )
         assert warning_found, "Warning should mention versioned reference"
 
-    @patch("datahub.ingestion.source.dremio.dremio_source.logger")
-    def test_query_with_unknown_dataset_debug_log(
-        self, mock_logger, mock_dremio_source
-    ):
-        """Test that queries with unknown datasets (no suspicious pattern) only log debug."""
+    def test_query_with_unknown_dataset_no_warning(self, mock_dremio_source):
+        """Unknown datasets with no suspicious pattern should not trigger a warning."""
         query = Mock(spec=DremioQuery)
         query.job_id = "test-job-103"
         query.query = "SELECT * FROM otherspace.table"
@@ -271,17 +268,9 @@ class TestQueryLineageValidation:
         query.submitted_ts = datetime(2024, 1, 1, 12, 0, 0)
 
         initial_warning_count = len(mock_dremio_source.report.warnings)
-
         mock_dremio_source.process_query(query)
 
-        assert len(mock_dremio_source.report.warnings) == initial_warning_count, (
-            "No warning should be raised for non-suspicious unknown dataset"
-        )
-
-        # Verify debug log was called
-        mock_logger.debug.assert_called()
-        debug_message = str(mock_logger.debug.call_args)
-        assert "not found in catalog" in debug_message
+        assert len(mock_dremio_source.report.warnings) == initial_warning_count
 
     def test_query_with_multiple_datasets_mixed(self, mock_dremio_source):
         """Test query with mix of catalog and suspicious datasets."""

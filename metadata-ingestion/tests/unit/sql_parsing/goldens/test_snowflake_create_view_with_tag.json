@@ -3,7 +3,7 @@
     "query_type_props": {
         "kind": "VIEW"
     },
-    "query_fingerprint": "31868958a3de4c531ae5167c4632fb36fee3cb2523103108afd968c468670044",
+    "query_fingerprint": "d55daf3d9fa66b88af21c482ea93d2c71ec2c9ea59ffedca64ea8f657d116fa5",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)"
     ],
@@ -51,6 +51,6 @@
     "joins": [],
     "debug_info": {
         "confidence": 0.2,
-        "generalized_statement": "CREATE OR REPLACE VIEW my_db.my_schema.my_view TAG (cost_center=?, classification=?) AS SELECT id, name FROM my_db.my_schema.my_table"
+        "generalized_statement": "CREATE OR REPLACE VIEW my_db.my_schema.my_view AS SELECT id, name FROM my_db.my_schema.my_table"
     }
 }

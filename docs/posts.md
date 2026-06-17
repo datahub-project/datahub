@@ -1,3 +1,7 @@
+---
+description: "Create Posts in DataHub to share announcements, links, and updates on the home page and across surfaces of the application."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Posts
@@ -88,7 +92,7 @@ mutation test {
       postType: HOME_PAGE_ANNOUNCEMENT,
       content: {
         contentType: TEXT,
-        title: "Planed Upgrade 2023-03-23 20:05 - 2023-03-23 23:05",
+        title: "Planned Upgrade 2023-03-23 20:05 - 2023-03-23 23:05",
         description: "datahub upgrade to v0.10.1"
       }
     }

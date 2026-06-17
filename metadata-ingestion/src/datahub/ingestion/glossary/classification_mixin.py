@@ -10,6 +10,7 @@ from datahub_classify.helper_classes import ColumnInfo, Metadata
 from pydantic import Field
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.env_vars import get_report_info_sample_size
 from datahub.emitter.mce_builder import get_sys_time, make_term_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -243,7 +244,8 @@ class ClassificationHandler:
             col_info.infotype_proposals, key=lambda p: p.confidence_level
         )
         self.report.info_types_detected.setdefault(
-            infotype_proposal.infotype, LossyList()
+            infotype_proposal.infotype,
+            LossyList(max_elements=get_report_info_sample_size()),
         ).append(f"{col_info.metadata.dataset_name}.{col_info.metadata.name}")
         term = self.config.classification.info_type_to_term.get(
             infotype_proposal.infotype, infotype_proposal.infotype

@@ -2,15 +2,14 @@ import { BookOutlined } from '@ant-design/icons';
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveTermMutation } from '@graphql/mutations.generated';
 import { EntityType, GlossaryTermAssociation, SubResourceType } from '@types';
-
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
 const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean }>`
     &&& {
@@ -47,6 +46,10 @@ export default function TermContent({
     onOpenModal,
     refetch,
 }: Props) {
+    const { t } = useTranslation('shared.tags');
+    const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
     const entityRegistry = useEntityRegistry();
     const [removeTermMutation] = useRemoveTermMutation();
     const highlightTerm = useHasMatchedFieldByUrn(term.term.urn, 'glossaryTerms');
@@ -55,8 +58,8 @@ export default function TermContent({
         onOpenModal?.();
         const termName = termToRemove && entityRegistry.getDisplayName(termToRemove.term.type, termToRemove.term);
         Modal.confirm({
-            title: `Do you want to remove ${termName} term?`,
-            content: `Are you sure you want to remove the ${termName} term?`,
+            title: t('removeTermConfirmTitle', { name: termName }),
+            content: t('removeTermConfirmContent', { name: termName }),
             onOk() {
                 if (termToRemove.associatedUrn || entityUrn) {
                     removeTermMutation({
@@ -71,18 +74,18 @@ export default function TermContent({
                     })
                         .then(({ errors }) => {
                             if (!errors) {
-                                message.success({ content: 'Removed Term!', duration: 2 });
+                                message.success({ content: t('removeTermSuccess'), duration: 2 });
                             }
                         })
                         .then(refetch)
                         .catch((e) => {
                             message.destroy();
-                            message.error({ content: `Failed to remove term: \n ${e.message || ''}`, duration: 3 });
+                            message.error({ content: t('removeTermError', { error: e.message || '' }), duration: 3 });
                         });
                 }
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: tc('yes'),
             maskClosable: true,
             closable: true,
         });

@@ -31,15 +31,15 @@ const downloadCsvFile = (filename) => {
   cy.ensureTextNotPresent("Creating CSV");
 };
 
-describe("download lineage results to .csv file", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("download lineage results to .csv file", () => {
   beforeEach(() => {
     setLineageV3FeatureFlags();
     cy.on("uncaught:exception", (err, runnable) => false);
   });
 
   it("download and verify lineage results for 1st, 2nd and 3+ degree of dependencies", () => {
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
     cy.goToDataset(test_dataset, "SampleCypressKafkaDataset");
     cy.get('[data-node-key="Lineage"]').first().should("be.visible").click();
 

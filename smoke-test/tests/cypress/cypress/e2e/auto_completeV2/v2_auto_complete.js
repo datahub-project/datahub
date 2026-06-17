@@ -1,6 +1,7 @@
-describe("auto-complete", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("auto-complete", () => {
   beforeEach(() => {
-    cy.setFeatureFlags(true, (res) => {
+    cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
       res.body.data.appConfig.featureFlags.showSearchBarAutocompleteRedesign = false;
     });

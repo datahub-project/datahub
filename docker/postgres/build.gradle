@@ -1,0 +1,30 @@
+// Image lifecycle is independent of the DataHub application version (see publish-datahub-postgres workflow).
+apply from: "../../gradle/docker/docker.gradle"
+
+ext {
+    docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
+    docker_repo = 'datahub-postgres'
+    docker_dir = 'postgres'
+    datahubPostgresImageTag = project.findProperty('datahubPostgresImageTag') ?: '17.5-extensions-v1'
+}
+
+docker {
+    name "${docker_registry}/${docker_repo}:${datahubPostgresImageTag}"
+    dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
+    files fileTree(rootProject.projectDir) {
+        include '.dockerignore'
+        include "docker/${docker_dir}/**"
+    }.exclude {
+        i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
+    }
+    additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
+
+    def dockerBuildArgs = [:]
+    if (project.hasProperty('postgresVersion')) {
+        dockerBuildArgs.POSTGRES_VERSION = project.getProperty('postgresVersion')
+    }
+
+    if (dockerBuildArgs.size() > 0) {
+        buildArgs(dockerBuildArgs)
+    }
+}

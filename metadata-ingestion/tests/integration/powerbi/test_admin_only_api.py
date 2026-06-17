@@ -2,12 +2,12 @@ from typing import Any, Dict, Optional
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 
-pytestmark = pytest.mark.integration_batch_3
+pytestmark = pytest.mark.integration_batch_5
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
@@ -25,41 +25,12 @@ def scan_init_response(request, context):
     return w_id_vs_response[workspace_id]
 
 
-def admin_datasets_response(request, context):
-    if "05169cd2-e713-41e6-9600-1d8066d95445" in request.query:
-        return {
-            "value": [
-                {
-                    "id": "05169CD2-E713-41E6-9600-1D8066D95445",
-                    "name": "library-dataset",
-                    "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
-                }
-            ]
-        }
-
-    if "ba0130a1-5b03-40de-9535-b34e778ea6ed" in request.query:
-        return {
-            "value": [
-                {
-                    "id": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
-                    "name": "hr_pbi_test",
-                    "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed",
-                }
-            ]
-        }
-
-
 def register_mock_admin_api(
     request_mock: Any, override_data: Optional[dict] = None
 ) -> None:
     if override_data is None:
         override_data = {}
     api_vs_response = {
-        "https://api.powerbi.com/v1.0/myorg/admin/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets": {
-            "method": "GET",
-            "status_code": 200,
-            "json": admin_datasets_response,
-        },
         "https://api.powerbi.com/v1.0/myorg/admin/groups?%24skip=0&%24top=1000": {
             "method": "GET",
             "status_code": 200,
@@ -80,131 +51,6 @@ def register_mock_admin_api(
             "status_code": 200,
             "json": {
                 "value": [],
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
-                        "isReadOnly": True,
-                        "displayName": "test_dashboard",
-                        "embedUrl": "https://localhost/dashboards/embed/1",
-                        "webUrl": "https://localhost/dashboards/web/1",
-                    }
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/reports/5b218778-e7a5-4d73-8187-f10824047715/users": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "identifier": "User1@foo.com",
-                        "displayName": "user1",
-                        "emailAddress": "User1@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
-                        "principalType": "User",
-                        "reportUserAccessRight": "Read",
-                    },
-                    {
-                        "identifier": "User2@foo.com",
-                        "displayName": "user2",
-                        "emailAddress": "User2@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
-                        "principalType": "User",
-                        "reportUserAccessRight": "Owner",
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/users": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "identifier": "User1@foo.com",
-                        "displayName": "user1",
-                        "emailAddress": "User1@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
-                        "principalType": "User",
-                    },
-                    {
-                        "identifier": "User2@foo.com",
-                        "displayName": "user2",
-                        "emailAddress": "User2@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
-                        "principalType": "User",
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-8FFC-4505-9215-655BCA5BEBAE/users": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "identifier": "User3@foo.com",
-                        "displayName": "user3",
-                        "emailAddress": "User3@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
-                        "principalType": "User",
-                    },
-                    {
-                        "identifier": "User4@foo.com",
-                        "displayName": "user4",
-                        "emailAddress": "User4@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
-                        "principalType": "User",
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "id": "B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0",
-                        "title": "test_tile",
-                        "embedUrl": "https://localhost/tiles/embed/1",
-                        "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
-                    },
-                    {
-                        "id": "23212598-23b5-4980-87cc-5fc0ecd84385",
-                        "title": "yearly_sales",
-                        "embedUrl": "https://localhost/tiles/embed/2",
-                        "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/datasources": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "datasourceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                        "datasourceType": "PostgreSql",
-                        "connectionDetails": {
-                            "database": "library_db",
-                            "server": "foo",
-                        },
-                    },
-                ]
             },
         },
         "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/4674efd1-603c-4129-8d82-03cf2be05aff": {
@@ -235,7 +81,7 @@ def register_mock_admin_api(
                             {
                                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                                 "endorsementDetails": {"endorsement": "Promoted"},
-                                "name": "test_sf_pbi_test",
+                                "name": "library-dataset",
                                 "tables": [
                                     {
                                         "name": "public issue_history",
@@ -325,6 +171,7 @@ def register_mock_admin_api(
                                 "tables": [
                                     {
                                         "name": "dbo_book_issue",
+                                        "description": "hr pbi test description",
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = Sql.Database("localhost", "library"),\n dbo_book_issue = Source{[Schema="dbo",Item="book_issue"]}[Data]\n in dbo_book_issue',
@@ -338,6 +185,7 @@ def register_mock_admin_api(
                                     },
                                     {
                                         "name": "ms_sql_native_table",
+                                        "description": "hr pbi test description",
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="select *,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,\'-\',\'\'))), MONTH_WID) as CD_AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_MANAGER_CLOSING_MONTH,\'-\',\'\'))), MONTH_WID) as AGENT_KEY#(lf)#(lf)from V_PS_CD_RETENTION", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #"Changed Type" = Table.TransformColumnTypes(Source,{{"mth_date", type date}}),\n    #"Added Custom" = Table.AddColumn(#"Changed Type", "Month", each Date.Month([mth_date])),\n    #"Added Custom1" = Table.AddColumn(#"Added Custom", "TPV Opening", each if [Month] = 1 then [TPV_AMV_OPENING]\nelse if [Month] = 2 then 0\nelse if [Month] = 3 then 0\nelse if [Month] = 4 then [TPV_AMV_OPENING]\nelse if [Month] = 5 then 0\nelse if [Month] = 6 then 0\nelse if [Month] = 7 then [TPV_AMV_OPENING]\nelse if [Month] = 8 then 0\nelse if [Month] = 9 then 0\nelse if [Month] = 10 then [TPV_AMV_OPENING]\nelse if [Month] = 11 then 0\nelse if [Month] = 12 then 0\n\nelse 0)\nin\n    #"Added Custom1"',
@@ -395,6 +243,41 @@ def register_mock_admin_api(
                             {
                                 "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
                                 "isReadOnly": True,
+                                "displayName": "test_dashboard",
+                                "embedUrl": "https://localhost/dashboards/embed/1",
+                                "webUrl": "https://localhost/dashboards/web/1",
+                                "users": [
+                                    {
+                                        "identifier": "User1@foo.com",
+                                        "displayName": "user1",
+                                        "emailAddress": "User1@foo.com",
+                                        "datasetUserAccessRight": "ReadWrite",
+                                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
+                                        "principalType": "User",
+                                    },
+                                    {
+                                        "identifier": "User2@foo.com",
+                                        "displayName": "user2",
+                                        "emailAddress": "User2@foo.com",
+                                        "datasetUserAccessRight": "ReadWrite",
+                                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
+                                        "principalType": "User",
+                                    },
+                                ],
+                                "tiles": [
+                                    {
+                                        "id": "B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0",
+                                        "title": "test_tile",
+                                        "embedUrl": "https://localhost/tiles/embed/1",
+                                        "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                                    },
+                                    {
+                                        "id": "23212598-23b5-4980-87cc-5fc0ecd84385",
+                                        "title": "yearly_sales",
+                                        "embedUrl": "https://localhost/tiles/embed/2",
+                                        "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
+                                    },
+                                ],
                             }
                         ],
                         "reports": [
@@ -404,6 +287,26 @@ def register_mock_admin_api(
                                 "reportType": "PowerBIReport",
                                 "name": "SalesMarketing",
                                 "description": "Acryl sales marketing report",
+                                "users": [
+                                    {
+                                        "identifier": "User1@foo.com",
+                                        "displayName": "user1",
+                                        "emailAddress": "User1@foo.com",
+                                        "datasetUserAccessRight": "ReadWrite",
+                                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
+                                        "principalType": "User",
+                                        "reportUserAccessRight": "Read",
+                                    },
+                                    {
+                                        "identifier": "User2@foo.com",
+                                        "displayName": "user2",
+                                        "emailAddress": "User2@foo.com",
+                                        "datasetUserAccessRight": "ReadWrite",
+                                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
+                                        "principalType": "User",
+                                        "reportUserAccessRight": "Owner",
+                                    },
+                                ],
                             }
                         ],
                     },
@@ -423,36 +326,6 @@ def register_mock_admin_api(
             "method": "POST",
             "status_code": 200,
             "json": scan_init_response,
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/groups/64ED5CAD-7C10-4684-8180-826122881108/reports": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
-                        "id": "5b218778-e7a5-4d73-8187-f10824047715",
-                        "name": "SalesMarketing",
-                        "reportType": "PowerBIReport",
-                        "description": "Acryl sales marketing report",
-                        "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
-                        "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
-                    }
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
-                "id": "5b218778-e7a5-4d73-8187-f10824047715",
-                "name": "SalesMarketing",
-                "reportType": "PowerBIReport",
-                "description": "Acryl sales marketing report",
-                "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
-                "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
-            },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/pages": {
             "method": "GET",
@@ -525,7 +398,7 @@ def default_source_config():
     }
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -561,7 +434,7 @@ def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_most_config_and_modified_since(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock

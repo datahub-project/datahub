@@ -225,8 +225,9 @@ public class ListDataProductAssetsResolver
    * filter determine which urns we filter search results on. Otherwise, if no output port filter is
    * found, return all asset urns as per usual.
    */
+  // Package-private for unit tests.
   @Nonnull
-  private List<Urn> getUrnsToFilterOn(
+  List<Urn> getUrnsToFilterOn(
       @Nonnull final List<Urn> assetUrns,
       @Nonnull final Set<String> outputPortUrns,
       @Nullable final List<FacetFilterInput> filters) {
@@ -240,7 +241,10 @@ public class ListDataProductAssetsResolver
     // optionally get entities that explicitly are or are not output ports
     List<Urn> urnsToFilterOn = assetUrns;
     if (isOutputPort.isPresent()) {
-      if (isOutputPort.get().getValue().equals("true")) {
+      List<String> outputPortVals = isOutputPort.get().getValues();
+      if (outputPortVals != null
+          && !outputPortVals.isEmpty()
+          && "true".equals(outputPortVals.get(0))) {
         urnsToFilterOn = outputPortUrns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
       } else {
         urnsToFilterOn =

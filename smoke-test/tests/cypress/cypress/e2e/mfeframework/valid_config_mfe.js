@@ -1,6 +1,7 @@
 const MFE_CONTAINER_CSS_SELECTOR = '[data-testid="mfe-configurable-container"]';
 
-describe("MFE YAML Config - Valid Config", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("MFE YAML Config - Valid Config", () => {
   beforeEach(() => {
     cy.intercept("GET", "/mfe/config", {
       statusCode: 200,
@@ -19,7 +20,6 @@ microFrontends:
       `,
     }).as("mfeConfig");
 
-    cy.setIsThemeV2Enabled(true);
     cy.skipIntroducePage();
     cy.on("uncaught:exception", (err, runnable) => false);
     cy.visitWithLogin("/");

@@ -1,60 +1,72 @@
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { Key } from '@phosphor-icons/react/dist/csr/Key';
+import { Robot } from '@phosphor-icons/react/dist/csr/Robot';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import { NO_ROLE_URN } from '@app/identity/useRoleAssignment';
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import CreateTokenModal from '@app/settingsV2/CreateTokenModal';
-import { Avatar, Button, Icon, Modal, Pagination, SearchBar, Table, Text } from '@src/alchemy-components';
+import {
+    Avatar,
+    Button,
+    Icon,
+    Modal,
+    Pagination,
+    SearchBar,
+    SimpleSelect,
+    Table,
+    Text,
+    Tooltip,
+} from '@src/alchemy-components';
 import { Menu } from '@src/alchemy-components/components/Menu';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
+import { SelectOption } from '@src/alchemy-components/components/Select/types';
 
 import { AccessTokenType, DataHubRole, ServiceAccount } from '@types';
 
-export const ServiceAccountContainer = styled.div`
+const ServiceAccountContainer = styled.div`
     display: flex;
     flex-direction: column;
     margin-top: 16px;
-    padding: 0 16px;
 `;
 
-export const TableContainer = styled.div`
+const TableContainer = styled.div`
     flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
-    overflow: auto;
-    padding: 0 16px;
+    overflow: hidden;
 
-    /* Make table header sticky */
-    .ant-table-thead {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        background: ${(props) => props.theme.colors.bg};
-    }
-
-    /* Ensure header cells have proper background */
-    .ant-table-thead > tr > th {
-        background: ${(props) => props.theme.colors.bg} !important;
-        border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    table {
+        table-layout: fixed;
+        width: 100%;
     }
 `;
 
-export const FiltersHeader = styled.div`
+const FiltersHeader = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
 `;
 
-export const SearchContainer = styled.div`
+const SearchContainer = styled.div`
     display: flex;
     flex-direction: column;
     flex: 1;
 `;
 
-export const ActionsContainer = styled.div`
+const MinCharsHint = styled(Text)`
+    margin-top: 4px;
+`;
+
+const ActionsContainer = styled.div`
     display: flex;
     align-items: right;
     justify-content: flex-end;
@@ -71,12 +83,15 @@ const ServiceAccountInfo = styled.div`
     display: flex;
     align-items: center;
     gap: 16px;
+    overflow: hidden;
 `;
 
 const ServiceAccountDetails = styled.div`
     display: flex;
     flex-direction: column;
     color: ${(props) => props.theme.colors.textSecondary};
+    overflow: hidden;
+    min-width: 0;
 `;
 
 const ActionsButtonStyle = {
@@ -84,6 +99,14 @@ const ActionsButtonStyle = {
     border: 'none',
     boxShadow: 'none',
 };
+
+const EllipsisText = styled(Text)`
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    display: block;
+`;
 
 export const EmptyStateContainer = styled.div`
     display: flex;
@@ -99,16 +122,18 @@ type ServiceAccountNameCellProps = {
     serviceAccount: ServiceAccount;
 };
 
-export const ServiceAccountNameCell = ({ serviceAccount }: ServiceAccountNameCellProps) => {
+const ServiceAccountNameCell = ({ serviceAccount }: ServiceAccountNameCellProps) => {
     const displayName = serviceAccount.displayName || serviceAccount.name;
 
     return (
         <ServiceAccountInfo>
             <Avatar size="xl" name={displayName} />
             <ServiceAccountDetails>
-                <Text size="md" weight="semiBold" lineHeight="xs">
-                    {displayName}
-                </Text>
+                <Tooltip title={displayName} showArrow={false}>
+                    <EllipsisText size="md" weight="semiBold" lineHeight="xs">
+                        {displayName}
+                    </EllipsisText>
+                </Tooltip>
             </ServiceAccountDetails>
         </ServiceAccountInfo>
     );
@@ -119,10 +144,22 @@ type ServiceAccountDescriptionCellProps = {
 };
 
 export const ServiceAccountDescriptionCell = ({ serviceAccount }: ServiceAccountDescriptionCellProps) => {
+    const { t } = useTranslation('entity.identity');
+
+    if (!serviceAccount.description) {
+        return (
+            <Text color="gray" size="md">
+                {t('serviceAccounts.descriptionEmpty')}
+            </Text>
+        );
+    }
+
     return (
-        <Text color="gray" size="md">
-            {serviceAccount.description || '-'}
-        </Text>
+        <Tooltip title={serviceAccount.description} showArrow={false}>
+            <EllipsisText color="gray" size="md">
+                {serviceAccount.description}
+            </EllipsisText>
+        </Tooltip>
     );
 };
 
@@ -133,13 +170,14 @@ type ServiceAccountRoleCellProps = {
     onRoleChange?: (serviceAccountUrn: string, newRoleUrn: string, originalRoleUrn: string) => void;
 };
 
-export const ServiceAccountRoleCell = ({
+const ServiceAccountRoleCell = ({
     serviceAccount,
     selectRoleOptions,
     optimisticRoleUrn,
     onRoleChange,
 }: ServiceAccountRoleCellProps) => {
-    // Extract current role from relationships (server data)
+    const { t } = useTranslation('entity.identity');
+    // TODO: Remove cast once GraphQL codegen includes roles on ServiceAccount
     const castedServiceAccount = serviceAccount as any;
     const roleRelationships = castedServiceAccount?.roles?.relationships;
     const serverRole =
@@ -153,15 +191,54 @@ export const ServiceAccountRoleCell = ({
         <SimpleSelectRole
             selectedRole={selectRoleOptions.find((r) => r.urn === currentRoleUrn)}
             onRoleSelect={(role) => {
-                const newRoleUrn = role?.urn || 'urn:li:dataHubRole:NoRole';
+                const newRoleUrn = role?.urn || NO_ROLE_URN;
                 if (newRoleUrn !== currentRoleUrn && onRoleChange) {
                     onRoleChange(serviceAccount.urn, newRoleUrn, serverRoleUrn);
                 }
             }}
-            placeholder="No Role"
+            placeholder={t('serviceAccounts.noRole')}
             size="md"
             width="fit-content"
         />
+    );
+};
+
+type ServiceAccountDefaultViewCellProps = {
+    serviceAccount: ServiceAccount;
+    viewOptions: SelectOption[];
+    onDefaultViewChange: (serviceAccountUrn: string, viewUrn: string | null) => void;
+};
+
+export const ServiceAccountDefaultViewCell = ({
+    serviceAccount,
+    viewOptions,
+    onDefaultViewChange,
+}: ServiceAccountDefaultViewCellProps) => {
+    const { t } = useTranslation('entity.identity');
+    const currentViewUrn = serviceAccount.defaultView?.urn;
+    const resolvedValue = viewOptions.some((o) => o.value === currentViewUrn) ? currentViewUrn : undefined;
+
+    return (
+        <Tooltip title={t('serviceAccounts.defaultViewTooltip')} showArrow={false}>
+            <div>
+                <SimpleSelect
+                    options={viewOptions}
+                    values={resolvedValue ? [resolvedValue] : []}
+                    placeholder={t('serviceAccounts.noView')}
+                    onUpdate={(values) => {
+                        const nextView = values[0] ?? null;
+                        if (nextView !== currentViewUrn) {
+                            onDefaultViewChange(serviceAccount.urn, nextView);
+                        }
+                    }}
+                    onClear={() => onDefaultViewChange(serviceAccount.urn, null)}
+                    size="md"
+                    width="fit-content"
+                    showClear={!!resolvedValue}
+                    showSearch
+                />
+            </div>
+        </Tooltip>
     );
 };
 
@@ -170,7 +247,9 @@ type ServiceAccountActionsMenuProps = {
     onDelete: (urn: string) => void;
 };
 
-export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceAccountActionsMenuProps) => {
+const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceAccountActionsMenuProps) => {
+    const { t } = useTranslation('entity.identity');
+    const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const [isCreatingToken, setIsCreatingToken] = useState(false);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -179,7 +258,7 @@ export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceA
 
     const handleCopyUrn = () => {
         navigator.clipboard.writeText(serviceAccount.urn);
-        message.success('URN copied to clipboard');
+        message.success(t('serviceAccounts.urnCopied'));
     };
 
     const handleTokenCreated = () => {
@@ -196,22 +275,22 @@ export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceA
         {
             type: 'item' as const,
             key: 'create-token',
-            title: 'Create Token',
-            icon: 'Key',
+            title: t('serviceAccounts.createToken'),
+            icon: Key,
             onClick: () => setIsCreatingToken(true),
         },
         {
             type: 'item' as const,
             key: 'copy-urn',
-            title: 'Copy URN',
-            icon: 'Copy',
+            title: t('serviceAccounts.copyUrn'),
+            icon: Copy,
             onClick: handleCopyUrn,
         },
         {
             type: 'item' as const,
             key: 'delete',
-            title: 'Delete',
-            icon: 'Trash',
+            title: tc('delete'),
+            icon: Trash,
             danger: true,
             onClick: () => setIsConfirmingDelete(true),
         },
@@ -222,7 +301,7 @@ export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceA
             <Menu items={items}>
                 <Button
                     variant="text"
-                    icon={{ icon: 'DotsThreeVertical', weight: 'bold', size: 'xl', source: 'phosphor', color: 'gray' }}
+                    icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'gray' }}
                     isCircle
                     style={ActionsButtonStyle}
                     data-testid={`service-account-menu-${serviceAccount.name}`}
@@ -241,7 +320,7 @@ export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceA
             {isConfirmingDelete && (
                 <Modal
                     open={isConfirmingDelete}
-                    title="Delete Service Account"
+                    title={t('serviceAccounts.deleteTitle')}
                     onCancel={() => setIsConfirmingDelete(false)}
                     dataTestId="delete-service-account-modal"
                     footer={
@@ -251,7 +330,7 @@ export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceA
                                 onClick={() => setIsConfirmingDelete(false)}
                                 data-testid="delete-service-account-cancel-button"
                             >
-                                Cancel
+                                {tc('cancel')}
                             </Button>
                             <Button
                                 variant="filled"
@@ -259,15 +338,12 @@ export const ServiceAccountActionsMenu = ({ serviceAccount, onDelete }: ServiceA
                                 onClick={handleDeleteConfirm}
                                 data-testid="delete-service-account-confirm-button"
                             >
-                                Delete
+                                {tc('delete')}
                             </Button>
                         </ModalFooter>
                     }
                 >
-                    <Text>
-                        Are you sure you want to delete the service account &quot;{displayName}&quot;? This action
-                        cannot be undone and will revoke all associated API tokens.
-                    </Text>
+                    <Text>{t('serviceAccounts.deleteConfirm', { name: displayName })}</Text>
                 </Modal>
             )}
         </>
@@ -281,6 +357,7 @@ type ServiceAccountTableProps = {
     serviceAccounts: ServiceAccount[];
     selectRoleOptions: DataHubRole[];
     optimisticRoles: Record<string, string>;
+    viewOptions: SelectOption[];
     loading: boolean;
     page: number;
     pageSize: number;
@@ -288,6 +365,8 @@ type ServiceAccountTableProps = {
     onChangePage: (page: number) => void;
     onDelete: (urn: string) => void;
     onRoleChange?: (serviceAccountUrn: string, newRoleUrn: string, originalRoleUrn: string) => void;
+    onDefaultViewChange: (serviceAccountUrn: string, viewUrn: string | null) => void;
+    refetch?: () => void;
 };
 
 export const ServiceAccountTable = ({
@@ -297,6 +376,7 @@ export const ServiceAccountTable = ({
     serviceAccounts,
     selectRoleOptions,
     optimisticRoles,
+    viewOptions,
     loading,
     page,
     pageSize,
@@ -304,28 +384,32 @@ export const ServiceAccountTable = ({
     onChangePage,
     onDelete,
     onRoleChange,
+    onDefaultViewChange,
+    refetch: _refetch,
 }: ServiceAccountTableProps) => {
+    const { t } = useTranslation('entity.identity');
+
     const columns = [
         {
-            title: 'Name',
+            title: t('serviceAccounts.table.name'),
             dataIndex: 'name',
             key: 'name',
-            minWidth: '30%',
+            width: '25%',
             render: (serviceAccount: ServiceAccount) => <ServiceAccountNameCell serviceAccount={serviceAccount} />,
         },
         {
-            title: 'Description',
+            title: t('serviceAccounts.table.description'),
             dataIndex: 'description',
             key: 'description',
-            minWidth: '35%',
+            width: '30%',
             render: (serviceAccount: ServiceAccount) => (
                 <ServiceAccountDescriptionCell serviceAccount={serviceAccount} />
             ),
         },
         {
-            title: 'Role',
+            title: t('serviceAccounts.table.role'),
             key: 'role',
-            minWidth: '15%',
+            width: '15%',
             render: (serviceAccount: ServiceAccount) => (
                 <ServiceAccountRoleCell
                     serviceAccount={serviceAccount}
@@ -336,9 +420,25 @@ export const ServiceAccountTable = ({
             ),
         },
         {
+            title: (
+                <Tooltip title={t('serviceAccounts.defaultViewTooltip')} showArrow={false}>
+                    <span>{t('serviceAccounts.table.defaultView')}</span>
+                </Tooltip>
+            ),
+            key: 'defaultView',
+            width: '20%',
+            render: (serviceAccount: ServiceAccount) => (
+                <ServiceAccountDefaultViewCell
+                    serviceAccount={serviceAccount}
+                    viewOptions={viewOptions}
+                    onDefaultViewChange={onDefaultViewChange}
+                />
+            ),
+        },
+        {
             title: '',
             key: 'actions',
-            minWidth: '5%',
+            width: '10%',
             render: (serviceAccount: ServiceAccount) => (
                 <ActionsContainer>
                     <ServiceAccountActionsMenu serviceAccount={serviceAccount} onDelete={onDelete} />
@@ -353,7 +453,7 @@ export const ServiceAccountTable = ({
                 <FiltersHeader>
                     <SearchContainer>
                         <SearchBar
-                            placeholder="Search service accounts..."
+                            placeholder={t('serviceAccounts.searchPlaceholder')}
                             value={query}
                             onChange={(value) => {
                                 setQuery(value);
@@ -363,19 +463,19 @@ export const ServiceAccountTable = ({
                             allowClear
                         />
                         {query.length > 0 && query.length < 3 && (
-                            <Text size="xs" color="gray" style={{ marginTop: '4px' }}>
-                                Enter at least 3 characters to search
-                            </Text>
+                            <MinCharsHint size="xs" color="gray">
+                                {t('serviceAccounts.searchMinChars')}
+                            </MinCharsHint>
                         )}
                     </SearchContainer>
                 </FiltersHeader>
             </ServiceAccountContainer>
 
-            <TableContainer>
+            <TableContainer data-testid="service-accounts-table-container">
                 {serviceAccounts.length > 0 ? (
                     <>
                         <Table columns={columns} data={serviceAccounts} isLoading={loading} isScrollable />
-                        <div style={{ padding: '8px 20px 0 20px', display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ paddingTop: '8px', display: 'flex', justifyContent: 'center' }}>
                             <Pagination
                                 currentPage={page}
                                 itemsPerPage={pageSize}
@@ -388,16 +488,16 @@ export const ServiceAccountTable = ({
                     <EmptyStateContainer>
                         {loading ? (
                             <Text size="md" color="gray">
-                                Loading service accounts...
+                                {t('serviceAccounts.loading')}
                             </Text>
                         ) : (
                             <>
-                                <Icon icon="Robot" source="phosphor" size="4xl" color="gray" />
+                                <Icon icon={Robot} size="4xl" color="gray" />
                                 <Text size="md" color="gray">
-                                    No service accounts found
+                                    {t('serviceAccounts.emptyTitle')}
                                 </Text>
                                 <Text size="sm" color="gray">
-                                    Create a service account to enable programmatic access to DataHub APIs
+                                    {t('serviceAccounts.emptyDescription')}
                                 </Text>
                             </>
                         )}

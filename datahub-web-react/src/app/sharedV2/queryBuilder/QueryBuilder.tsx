@@ -1,3 +1,4 @@
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Collapse } from 'antd';
 import React, { useMemo, useState } from 'react';
 
@@ -97,7 +98,7 @@ const QueryBuilder = ({
             ghost
             expandIcon={({ isActive }) => (
                 <CardIcons>
-                    <Icon icon="ChevronRight" rotate={isActive ? '90' : '0'} size="md" />
+                    <Icon icon={CaretRight} rotate={isActive ? '90' : '0'} size="md" />
                 </CardIcons>
             )}
             defaultActiveKey={`panel-${depth}.${index}`}

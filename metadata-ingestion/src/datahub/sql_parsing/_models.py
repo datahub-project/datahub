@@ -112,13 +112,16 @@ class _TableName(_FrozenModel):
                 )
 
         if isinstance(table.this, sqlglot.exp.Dot):
-            # Multi-part tables (>3 parts) have extra parts in a Dot expression
+            # Multi-part tables (>3 parts) have extra parts in a Dot expression.
+            # Dot is left-associative (a.b.c = Dot(Dot(a,b),c)), so collect right-side
+            # identifiers while walking left, then reverse.
             parts = []
             exp = table.this
             while isinstance(exp, sqlglot.exp.Dot):
-                parts.append(exp.this.name)
-                exp = exp.expression
+                parts.append(exp.expression.name)
+                exp = exp.this
             parts.append(exp.name)
+            parts.reverse()
             table_name = ".".join(parts)
         else:
             table_name = table.this.name

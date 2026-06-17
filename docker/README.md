@@ -34,9 +34,14 @@ which are continuously deployed to [Docker Hub](https://hub.docker.com/u/acrylda
 You can easily download and run all these images and their dependencies with our
 [quick start guide](../docs/quickstart.md).
 
+**Compose layout:** Quickstart and local development use [Docker Compose profiles](profiles/docker-compose.yml) under
+`docker/profiles/`. The CLI downloads a flattened compose file at
+`docker/quickstart/docker-compose.quickstart-profile.yml`. Legacy root-level `docker-compose*.yml` files and shell
+scripts (`quickstart.sh`, `dev.sh`, `nuke.sh`) have been removed.
+
 DataHub Docker Images:
 
-Do not use `latest` or `debug` tags for any of the image as those are not supported and present only due to legacy reasons. Please use `head` or tags specific for versions like `v0.8.40`. For production we recommend using version specific tags not `head`.
+Do not use `latest` or `debug` tags for any of the image as those are not supported and present only due to legacy reasons. For local Compose / quickstart, use the coordinated `quickstart` tag or a version-specific tag like `v0.8.40`. For production and Kubernetes, pin a release tag (`v*`) or an immutable commit tag (`sha-<short_sha>`). Do not use `quickstart` in production clusters.
 
 - [acryldata/datahub-ingestion](https://hub.docker.com/r/acryldata/datahub-ingestion/)
 - [acryldata/datahub-gms](https://hub.docker.com/repository/docker/acryldata/datahub-gms/)
@@ -48,13 +53,15 @@ Do not use `latest` or `debug` tags for any of the image as those are not suppor
 
 ## Image Variants
 
-Both `datahub-ingestion` and `datahub-actions` are available only as **full**, **slim**, and **locked** (Ubuntu-based; no Alpine variants).
+`datahub-ingestion` and `datahub-actions` are available as **full**, **slim**, and **locked**. **`datahub-ingestion`** is Ubuntu 24.04–based. **`datahub-actions`** uses the **default base image** set in its Dockerfile; override with Docker build arg **`BASE_IMAGE`** when needed.
 
-| Variant          | Base OS      | Image Size | Use Case                                |
-| ---------------- | ------------ | ---------- | --------------------------------------- |
-| `full` (default) | Ubuntu 24.04 | Largest    | All connectors, maximum compatibility   |
-| `slim`           | Ubuntu 24.04 | Medium     | Common connectors, good balance         |
-| `locked`         | Ubuntu 24.04 | Medium     | Air-gapped environments (pypi disabled) |
+Java runtime images (**`datahub-gms`**, **`datahub-mce-consumer`**, **`datahub-mae-consumer`**, **`datahub-upgrade`**, **`datahub-frontend-react`**) follow the same pattern: each Dockerfile declares a default **base image**; override with **`BASE_IMAGE`**. Optional **`APK_REPOSITORY_URL`** overrides the apk repository line used at image build time (see each Dockerfile for the default). When building with Gradle, use **`-PdockerBaseImage=...`** and **`-PapkRepositoryUrl=...`** instead of any legacy mirror property you may have used for older image builds. Those five images share **`docker/snippets/setup_java_runtime.sh`**, which ensures **`java`** is on **`PATH`** for entrypoints (apk OpenJDK JRE packages here do not add **`/usr/bin/java`** by default). All Java service images run **Java 25 LTS** at runtime (set via **`JAVA_MAJOR=25`** in the setup script); the script’s **`JAVA_MAJOR=…`** assignment is the single bump point for the apk JRE major. **`datahub-actions`** reads that line when installing OpenJDK for the full variant. **`datahub-ingestion`** images also use **`openjdk-25-jre-headless`**.
+
+| Variant          | Image size | Use case                                |
+| ---------------- | ---------- | --------------------------------------- |
+| `full` (default) | Largest    | All connectors, maximum compatibility   |
+| `slim`           | Medium     | Common connectors, good balance         |
+| `locked`         | Medium     | Air-gapped environments (pypi disabled) |
 
 ### Variant Tag Format
 
@@ -82,19 +89,22 @@ acryldata/datahub-ingestion:v0.x.y-locked   # locked
 | Glue                  | Yes  | Yes  |   -    |
 | Spark lineage (JRE)   | Yes  |  -   |   -    |
 | Oracle client         | Yes  |  -   |   -    |
+| MSSQL ODBC driver     | Yes  |  -   |   -    |
 | Runtime `pip install` | Yes  | Yes  |   -    |
 
 ### datahub-actions Feature Matrix
 
-| Feature                      | full | slim | locked |
-| ---------------------------- | :--: | :--: | :----: |
-| Core actions                 | Yes  | Yes  |  Yes   |
-| Kafka / Executor             | Yes  | Yes  |  Yes   |
-| Slack / Teams                | Yes  | Yes  |  Yes   |
-| Tag / Term / Doc propagation | Yes  | Yes  |  Yes   |
-| Snowflake tag propagation    | Yes  | Yes  |  Yes   |
-| Bundled CLI venvs            | Yes  | Yes  |  Yes   |
-| Runtime `pip install`        | Yes  | Yes  |   -    |
+| Feature                       | full | slim | locked |
+| ----------------------------- | :--: | :--: | :----: |
+| Core actions                  | Yes  | Yes  |  Yes   |
+| Kafka / Executor              | Yes  | Yes  |  Yes   |
+| Slack / Teams                 | Yes  | Yes  |  Yes   |
+| Tag / Term / Doc propagation  | Yes  | Yes  |  Yes   |
+| Snowflake tag propagation     | Yes  | Yes  |  Yes   |
+| Bundled CLI venvs             | Yes  | Yes  |  Yes   |
+| Oracle client (full only)     | Yes  |  -   |   -    |
+| MSSQL ODBC driver (full only) | Yes  |  -   |   -    |
+| Runtime `pip install`         | Yes  | Yes  |   -    |
 
 ### CI Testing Coverage
 
@@ -120,7 +130,7 @@ SQL and search index setup are performed by the system update job (datahub-upgra
 
 ### Ingesting demo data.
 
-If you want to test ingesting some data once DataHub is up, use the `./docker/ingestion/ingestion.sh` script or `datahub docker ingest-sample-data`. See the [quickstart guide](../docs/quickstart.md) for more details.
+If you want to test ingesting some data once DataHub is up, run `datahub init` then `datahub datapack load showcase-ecommerce`. See the [quickstart guide](../docs/quickstart.md) for more details.
 
 ## Using Docker Images During Development
 
@@ -173,7 +183,8 @@ Every quickstart configuration automatically gets a nuke task for targeted clean
 - **`quickstartCypressNuke`** - Removes containers and volumes for the cypress configuration (`dh-cypress`)
 - **`quickstartDebugMinNuke`** - Removes containers and volumes for the debug-min configuration (`datahub`)
 - **`quickstartDebugConsumersNuke`** - Removes containers and volumes for the debug-consumers configuration (`datahub`)
-- **`quickstartPgNuke`** - Removes containers and volumes for the postgres configuration (`datahub`)
+- **`quickstartPgNuke`** - Removes containers and volumes for the quickstart-postgres configuration (`datahub`)
+- **`quickstartPgConsumersNuke`** - Removes containers and volumes for the quickstart-postgres-consumers configuration (`datahub`)
 - **`quickstartPgDebugNuke`** - Removes containers and volumes for the debug-postgres configuration (`datahub`)
 - **`quickstartSlimNuke`** - Removes containers and volumes for the backend configuration (`datahub`)
 - **`quickstartSparkNuke`** - Removes containers and volumes for the spark configuration (`datahub`)
@@ -194,7 +205,8 @@ Every quickstart configuration automatically gets a nuke task for targeted clean
 ./gradlew quickstartDebugNuke      # For debug configuration
 ./gradlew quickstartCypressNuke    # For cypress configuration
 ./gradlew quickstartDebugMinNuke   # For debug-min configuration
-./gradlew quickstartPgNuke         # For postgres configuration
+./gradlew quickstartPgNuke           # For quickstart-postgres (slim)
+./gradlew quickstartPgConsumersNuke  # For quickstart-postgres-consumers (with MAE/MCE)
 
 # For general cleanup of all containers
 ./gradlew quickstartDown
@@ -296,4 +308,6 @@ The nuke tasks are automatically generated based on the `quickstart_configs` in 
 
 # Clean up only postgres environment (leaving others intact)
 ./gradlew quickstartPgNuke
+# Or the postgres + consumers variant:
+./gradlew quickstartPgConsumersNuke
 ```

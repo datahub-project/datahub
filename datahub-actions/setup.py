@@ -46,9 +46,11 @@ lint_requirements = {
 
 base_requirements = {
     f"acryl-datahub[datahub-kafka]{_self_pin}",
+    # pg_queue event source imports metadata-ingestion connection helpers that require psycopg2.
+    "psycopg2-binary<3.0.0",
     # Actual dependencies.
     "typing-inspect",
-    "pydantic>=2.0.0,<3.0.0",
+    "pydantic>=2.4.0,<3.0.0",
     "ratelimit",
     # Lower bounds on httpcore and h11 due to CVE-2025-43859.
     "httpcore>=1.0.9",
@@ -78,7 +80,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # Action Plugins
     "executor": {
-        "acryl-executor==0.3.2",
+        "acryl-executor>=0.3.11,<1"
     },
     "slack": {
         "slack-bolt>=1.15.5",
@@ -184,6 +186,7 @@ entry_points = {
     ],
     "datahub_actions.transformer.plugins": [],
     "datahub_actions.source.plugins": [],
+    "datahub_actions.filter.plugins": [],
 }
 
 

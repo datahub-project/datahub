@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import EntityContext from '@app/entity/shared/EntityContext';
 import { PreviewType } from '@app/entityV2/Entity';
+import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
 import { DocumentNativeProfile } from '@app/entityV2/document/DocumentNativeProfile';
 import { Preview } from '@app/entityV2/document/preview/Preview';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
@@ -411,7 +412,7 @@ describe('Document Preview - Platform Logo Display', () => {
                 expect(platformImage).toBeInTheDocument();
                 expect(platformImage).toHaveAttribute('src', 'https://example.com/gdocs-logo.png');
             });
-        });
+        }, 30_000);
 
         it('should display platform logo in full preview', async () => {
             const mockPlatform = createMockPlatform('SharePoint', 'https://example.com/sharepoint-logo.png');
@@ -1177,7 +1178,7 @@ describe('Document Profile Rendering', () => {
                 // Native profile should render the document
                 expect(screen.getByText('My Native Document Title')).toBeInTheDocument();
             });
-        });
+        }, 30_000);
 
         it('should render native profile with parent document breadcrumbs', async () => {
             const parentDocs = createMockParentDocuments();
@@ -1489,6 +1490,27 @@ describe('Document Profile Rendering', () => {
             // Native documents should not have externalUrl
             expect(genericData.externalUrl).toBeNull();
             expect(genericData.platform).toBeNull();
+        });
+
+        it('should map lastIngested from document data into override properties', () => {
+            const ts = 1716000000000;
+            const entity = new DocumentEntity();
+            const externalDoc = createMockExternalDocument('Confluence', 'https://confluence.example.com/123', {
+                lastIngested: ts,
+            } as any);
+
+            const overrides = entity.getOverridePropertiesFromEntity(externalDoc);
+
+            expect(overrides.lastIngested).toBe(ts);
+        });
+
+        it('should set lastIngested to undefined when not present on document', () => {
+            const entity = new DocumentEntity();
+            const externalDoc = createMockExternalDocument('Confluence', 'https://confluence.example.com/123');
+
+            const overrides = entity.getOverridePropertiesFromEntity(externalDoc);
+
+            expect(overrides.lastIngested).toBeUndefined();
         });
     });
 

@@ -238,6 +238,42 @@ The connector will produce the following things:
 - Assertion definitions that are attached to the dataset (or datasets)
 - Results from running the tests attached to the timeline of the dataset
 
+##### How dbt test statuses map to DataHub assertion results
+
+Each dbt test result is translated into a DataHub `AssertionResult` with a `type` (SUCCESS, FAILURE, or ERROR) and, on failures, an optional `severity` (LOW, MEDIUM, HIGH).
+
+DataHub distinguishes **the test produced a verdict** (SUCCESS / FAILURE) from **the test could not run** (ERROR). This lets you separate data-quality regressions from infrastructure or SQL-compile problems downstream.
+
+The mapping for regular dbt tests:
+
+| dbt status      | Meaning                                                                             | `AssertionResult.type` | `AssertionResult.severity` |
+| --------------- | ----------------------------------------------------------------------------------- | ---------------------- | -------------------------- |
+| `pass`          | Test ran, no failing rows                                                           | `SUCCESS`              | —                          |
+| `warn`          | Test ran, found failing rows, configured with `severity: warn`                      | see below              | `LOW` (if emitted)         |
+| `fail`          | Test ran, found failing rows, configured with `severity: error` (the default)       | `FAILURE`              | `HIGH`                     |
+| `error`         | Test invocation failed to compile/start (SQL error, missing ref, permissions, etc.) | `ERROR`                | —                          |
+| `runtime error` | Test started running and then the warehouse raised an exception                     | `ERROR`                | —                          |
+
+The `warn` row depends on the `test_warnings_are_errors` config:
+
+- `test_warnings_are_errors: false` (default): `warn` → `SUCCESS`. Honors dbt's author-declared "soft concern" semantics.
+- `test_warnings_are_errors: true`: `warn` → `FAILURE` with `severity: LOW`. Stricter — every failing test row counts as a failure, but soft ones are tagged for downstream filtering.
+
+:::note Default will change in a future release
+
+`test_warnings_are_errors` is planned to default to `true` once assertion result consumers (UI, saved searches, alerting) can filter by severity. At that point, `warn` will always emit as `FAILURE` with `severity: LOW`, and the flag itself will be deprecated. Set `test_warnings_are_errors: true` today to adopt the forthcoming behavior.
+
+:::
+
+For dbt source freshness checks, the semantics of `error` differ: `error` means the `error_after` threshold was exceeded, i.e. the check ran and the source is considered stale. The freshness mapping:
+
+| dbt freshness status | Meaning                              | `AssertionResult.type`               | `AssertionResult.severity` |
+| -------------------- | ------------------------------------ | ------------------------------------ | -------------------------- |
+| `pass`               | Source is fresh                      | `SUCCESS`                            | —                          |
+| `warn`               | `warn_after` threshold exceeded      | see `test_warnings_are_errors` above | `LOW` (if emitted)         |
+| `error`              | `error_after` threshold exceeded     | `FAILURE`                            | `HIGH`                     |
+| `runtime error`      | Freshness check itself failed to run | `ERROR`                              | —                          |
+
 :::note Missing test results?
 
 The most common reason for missing test results is that the `run_results.json` with the test result information is getting overwritten by a subsequent `dbt` command. We recommend copying the `run_results.json` file before running other `dbt` commands.
@@ -250,6 +286,53 @@ dbt docs generate
 cp target/run_results_backup.json target/run_results.json
 ```
 
+:::
+
+#### Glob patterns for run_results_paths
+
+If your dbt setup produces many `run_results.json` files (e.g. one per Airflow DAG task or retry), you can use glob patterns instead of listing every file explicitly. This works for both S3 URIs and local paths.
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: "s3://my-bucket/dbt/target/manifest.json"
+    catalog_path: "s3://my-bucket/dbt/target/catalog.json"
+    target_platform: postgres
+    run_results_paths:
+      - "s3://my-bucket/dbt/run_results/*/*/*.json"
+    aws_connection: {}
+```
+
+```yaml
+# Local paths also support glob patterns
+source:
+  type: dbt
+  config:
+    manifest_path: /dbt/target/manifest.json
+    catalog_path: /dbt/target/catalog.json
+    target_platform: postgres
+    run_results_paths:
+      - "/dbt/run_results/*/run_results.json"
+```
+
+Supported wildcard characters: `*` (any characters within a path segment), `?` (single character), `[...]` (character set). If a glob pattern matches zero files, a warning is emitted in the ingestion report. The expanded file list is also recorded in the report for debugging.
+
+:::warning Avoid globbing over historical run result files
+Glob patterns that match timestamped or versioned files (e.g. `run_results/2024-01-01/run_results.json`) will cause DataHub to re-process old test failures on every ingestion cycle, triggering repeated alerts. Instead, write results to a **stable path that is overwritten on each run** and glob across jobs, not history:
+
+```yaml
+# ✅ Glob across tasks, stable path overwritten each run
+- "s3://my-bucket/run_results_latest/my_dag/*/run_results.json"
+
+# ❌ Glob across timestamps — re-processes historical failures every cycle
+- "s3://my-bucket/run_results/*/2024-*/run_results.json"
+```
+
+:::
+
+:::note S3 IAM permissions for glob patterns
+When using glob patterns with S3 paths, the IAM role or user must have **`s3:ListBucket`** permission on the bucket in addition to `s3:GetObject`. Without `s3:ListBucket`, the glob expansion will fail with an `AccessDenied` error. Explicit (non-glob) S3 paths only require `s3:GetObject`.
 :::
 
 ##### View of dbt tests for a dataset

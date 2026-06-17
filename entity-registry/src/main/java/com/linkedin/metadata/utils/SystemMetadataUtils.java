@@ -54,6 +54,23 @@ public class SystemMetadataUtils {
    * @param auditStamp
    * @return the modified SystemMetadata
    */
+  /**
+   * Stamps the aspect's current schema version onto {@code systemMetadata} if the field is not
+   * already set. This ensures every persisted aspect row records the schema version it was written
+   * at, enabling the read-path migration chain to detect and upgrade stale data.
+   *
+   * @param systemMetadata the system metadata to update (must not be null)
+   * @param schemaVersion the current schema version from {@code @Aspect.schemaVersion}
+   * @return the modified SystemMetadata
+   */
+  public static SystemMetadata setSchemaVersion(
+      @Nonnull SystemMetadata systemMetadata, long schemaVersion) {
+    if (!systemMetadata.hasSchemaVersion()) {
+      systemMetadata.setSchemaVersion(schemaVersion);
+    }
+    return systemMetadata;
+  }
+
   public static SystemMetadata setAspectModified(
       @Nonnull SystemMetadata systemMetadata, @Nullable AuditStamp auditStamp) {
     if (auditStamp != null && !SYSTEM_ACTOR.equals(auditStamp.getActor().toString())) {

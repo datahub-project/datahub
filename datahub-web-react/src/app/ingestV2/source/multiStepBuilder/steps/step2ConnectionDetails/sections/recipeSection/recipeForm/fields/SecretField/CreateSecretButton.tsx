@@ -1,8 +1,8 @@
-import { blue } from '@ant-design/colors';
 import { PlusOutlined } from '@ant-design/icons';
 import { Button } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { SecretBuilderModal } from '@app/ingestV2/secret/SecretBuilderModal';
@@ -19,7 +19,7 @@ const CreateButton = styled(Button)`
     /* width: calc(100% - 24px); */
     /* 
     &:hover {
-        color: ${blue[5]};
+        color: ${(props) => props.theme.colors.textBrand};
     }
 
     .anticon-plus {
@@ -34,6 +34,7 @@ interface Props {
 }
 
 function CreateSecretButton({ initialState, onSubmit, refetchSecrets }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
     const [createSecretMutation] = useCreateSecretMutation();
 
@@ -51,19 +52,19 @@ function CreateSecretButton({ initialState, onSubmit, refetchSecrets }: Props) {
                 onSubmit?.(state);
                 setIsCreateModalVisible(false);
                 resetBuilderState();
-                message.success({ content: `Created secret!` });
+                message.success({ content: t('multiStep.secret.createSuccess') });
                 setTimeout(() => refetchSecrets(), 3000);
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to create secret: \n ${e.message || ''}` });
+                message.error({ content: t('multiStep.secret.createError', { error: e.message || '' }) });
             });
     };
 
     return (
         <>
             <CreateButton onClick={() => setIsCreateModalVisible(true)} variant="text">
-                <PlusOutlined /> Create Secret
+                <PlusOutlined /> {t('multiStep.secret.createButton')}
             </CreateButton>
             {isCreateModalVisible && (
                 <SecretBuilderModal

@@ -12,7 +12,6 @@ import static com.linkedin.metadata.entity.validation.ValidationApiUtils.validat
 import static com.linkedin.metadata.entity.validation.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
-import static com.linkedin.metadata.utils.CriterionUtils.validateAndConvert;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.generateSystemMetadataIfEmpty;
 
@@ -32,6 +31,7 @@ import io.datahubproject.metadata.services.RestrictedService;
 import com.linkedin.data.template.SetMode;
 import io.datahubproject.metadata.context.OperationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -39,6 +39,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.FilterExistingUrnsRequest;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.DeleteEntityService;
@@ -123,6 +124,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String ACTION_FILTER = "filter";
   private static final String ACTION_DELETE = "delete";
   private static final String ACTION_EXISTS = "exists";
+  private static final String ACTION_FILTER_EXISTING_URNS = "filterExistingUrns";
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
@@ -132,6 +134,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_START_TIME_MILLIS = "startTimeMillis";
   private static final String PARAM_END_TIME_MILLIS = "endTimeMillis";
   private static final String PARAM_URN = "urn";
+  private static final String PARAM_REQUEST = "request";
   private static final String PARAM_INCLUDE_SOFT_DELETE = "includeSoftDelete";
   private static final String SYSTEM_METADATA = "systemMetadata";
   private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
@@ -187,6 +190,26 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Inject
   private ElasticSearchConfiguration searchConfiguration;
+
+  @VisibleForTesting
+  void setEntityService(EntityService<?> entityService) {
+    this.entityService = entityService;
+  }
+
+  @VisibleForTesting
+  void setTimeseriesAspectService(TimeseriesAspectService timeseriesAspectService) {
+    this.timeseriesAspectService = timeseriesAspectService;
+  }
+
+  @VisibleForTesting
+  void setAuthorizer(Authorizer authorizer) {
+    this.authorizer = authorizer;
+  }
+
+  @VisibleForTesting
+  void setSystemOperationContext(OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+  }
 
   /** Retrieves the value for an entity that is made up of latest versions of specified aspects. */
   @RestMethod.Get
@@ -406,7 +429,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           // This API is not used by the frontend for search bars so we default to structured
           result =
               entitySearchService.search(opContext,
-                  List.of(entityName), input, validateAndConvert(filter), sortCriterionList, start, count);
+                  List.of(entityName), input, filter, sortCriterionList, start, count);
 
           if (!isAPIAuthorizedResult(
                   opContext,
@@ -453,7 +476,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.debug("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
     return RestliUtils.toTask(
         () -> {
-          SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, validateAndConvert(filter), sortCriterionList, start, count);
+          SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, filter, sortCriterionList, start, count);
           if (!isAPIAuthorizedResult(
                   opContext,
                   result)) {
@@ -519,7 +542,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   opContext,
                   entityList,
                   input,
-                  validateAndConvert(filter),
+                  filter,
                   sortCriterionList,
                   scrollId,
                   keepAlive,
@@ -588,7 +611,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   entityList,
                   input,
                   maxHops,
-                  validateAndConvert(filter),
+                  filter,
                   sortCriterionList,
                   start,
                   count),
@@ -653,7 +676,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                     entityList,
                     input,
                     maxHops,
-                    validateAndConvert(filter),
+                    filter,
                     sortCriterionList,
                     scrollId,
                     keepAlive,
@@ -688,7 +711,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
-    final Filter finalFilter = validateAndConvert(filter);
+    final Filter finalFilter = filter;
     log.debug("GET LIST RESULTS for {} with filter {}", entityName, finalFilter);
     return RestliUtils.toTask(systemOperationContext,
         () -> {
@@ -941,7 +964,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           DeleteEntityResponse response = new DeleteEntityResponse();
           if (aspectName == null) {
             RollbackRunResult result = entityService.deleteUrn(opContext, urn);
-            response.setRows(result.getRowsDeletedFromEntityDeletion());
+            Integer rows = result.getRowsDeletedFromEntityDeletion();
+            response.setRows(rows != null ? rows.longValue() : 0L);
           }
           Long numTimeseriesDocsDeleted =
               deleteTimeseriesAspects(
@@ -973,6 +997,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis,
       @Nonnull List<String> aspectsToDelete) {
+    if (aspectsToDelete.isEmpty()) {
+      return 0L;
+    }
+
     long totalNumberOfDocsDeleted = 0;
 
     final Authentication auth = AuthenticationContext.getAuthentication();
@@ -1251,5 +1279,54 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final boolean includeRemoved = includeSoftDelete == null || includeSoftDelete;
     return RestliUtils.toTask(systemOperationContext,
         () -> entityService.exists(opContext, urn, includeRemoved), MetricRegistry.name(this.getClass(), "exists"));
+  }
+
+  @Action(name = ACTION_FILTER_EXISTING_URNS)
+  @Nonnull
+  @WithSpan
+  public Task<String[]> filterExistingUrns(
+      @ActionParam(PARAM_REQUEST) @Nonnull FilterExistingUrnsRequest request)
+      throws URISyntaxException {
+    if (!request.hasUrns() || request.getUrns().isEmpty()) {
+      return Task.value(new String[0]);
+    }
+
+    final String[] urnStrs = request.getUrns().toArray(new String[0]);
+    final Set<Urn> urns = new HashSet<>();
+    for (final String urnStr : urnStrs) {
+      urns.add(Urn.createFromString(urnStr));
+    }
+
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildRestli(
+                    auth.getActor().toUrnStr(),
+                    getContext(),
+                    ACTION_FILTER_EXISTING_URNS,
+                    urnStrs),
+            authorizer,
+            auth,
+            true);
+    if (!isAPIAuthorizedEntityUrns(opContext, EXISTS, urns)) {
+      throw new RestLiServiceException(
+          HttpStatus.S_403_FORBIDDEN,
+          "User is unauthorized to check entity existence for "
+              + urnStrs.length
+              + " urn(s)");
+    }
+
+    log.debug("FILTER_EXISTING_URNS for {} urns", urnStrs.length);
+    final boolean includeRemoved =
+        !request.hasIncludeSoftDelete() || Boolean.TRUE.equals(request.isIncludeSoftDelete());
+    return RestliUtils.toTask(
+        systemOperationContext,
+        () ->
+            entityService.exists(opContext, urns, includeRemoved).stream()
+                .map(Urn::toString)
+                .toArray(String[]::new),
+        MetricRegistry.name(this.getClass(), "filterExistingUrns"));
   }
 }

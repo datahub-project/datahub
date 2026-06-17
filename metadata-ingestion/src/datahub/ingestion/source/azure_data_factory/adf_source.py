@@ -48,8 +48,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
 from datahub.ingestion.source.azure_data_factory.adf_client import (
     AzureDataFactoryClient,
 )
@@ -68,9 +68,6 @@ from datahub.ingestion.source.common.subtypes import (
     DataJobSubTypes,
     FlowContainerSubTypes,
     SourceCapabilityModifier,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -99,53 +96,6 @@ PLATFORM = "azure-data-factory"
 MAX_RUN_MESSAGE_LENGTH = 500  # Truncate long error/status messages
 MAX_RUN_PARAMETERS = 10  # Limit number of parameters to store
 MAX_PARAMETER_VALUE_LENGTH = 100  # Truncate long parameter values
-
-# Mapping of ADF linked service types to DataHub platforms.
-# Platform identifiers must match those defined in:
-# metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml
-# Unsupported linked service types will trigger a structured warning.
-LINKED_SERVICE_PLATFORM_MAP: dict[str, str] = {
-    # Azure Storage - all Azure storage types map to "abs" (Azure Blob Storage)
-    "AzureBlobStorage": "abs",
-    "AzureBlobFS": "abs",  # Azure Data Lake Storage Gen2 (uses abfs:// protocol)
-    "AzureDataLakeStore": "abs",  # Azure Data Lake Storage Gen1
-    "AzureDataLakeStoreCosmosStructuredStream": "abs",
-    "AzureFileStorage": "abs",
-    # Azure Databases - Synapse uses mssql protocol
-    "AzureSqlDatabase": "mssql",
-    "AzureSqlDW": "mssql",  # Azure Synapse (formerly SQL DW)
-    "AzureSynapseAnalytics": "mssql",  # Azure Synapse Analytics
-    "AzureSqlMI": "mssql",
-    "SqlServer": "mssql",
-    "AzurePostgreSql": "postgres",
-    "AzureMySql": "mysql",
-    # Databricks
-    "AzureDatabricks": "databricks",
-    "AzureDatabricksDeltaLake": "databricks",
-    # Cloud Platforms
-    "AmazonS3": "s3",
-    "AmazonS3Compatible": "s3",
-    "GoogleCloudStorage": "gcs",
-    "AmazonRedshift": "redshift",
-    "GoogleBigQuery": "bigquery",
-    "Snowflake": "snowflake",
-    # Traditional Databases
-    "PostgreSql": "postgres",
-    "MySql": "mysql",
-    "Oracle": "oracle",
-    "OracleServiceCloud": "oracle",
-    "Db2": "db2",
-    "Teradata": "teradata",
-    "Vertica": "vertica",
-    # Data Warehouses
-    "Hive": "hive",
-    "Spark": "spark",
-    "Hdfs": "hdfs",
-    # SaaS Applications
-    "Salesforce": "salesforce",
-    "SalesforceServiceCloud": "salesforce",
-    "SalesforceMarketingCloud": "salesforce",
-}
 
 # Mapping of ADF activity types to DataHub subtypes
 ACTIVITY_SUBTYPE_MAP: dict[str, str] = {
@@ -265,14 +215,6 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
     ) -> "AzureDataFactorySource":
         config = AzureDataFactoryConfig.model_validate(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> list[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Generate workunits for all Azure Data Factory resources."""
@@ -1218,7 +1160,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             self.report.report_unmapped_platform(dataset_name, "unknown")
             return None
 
-        platform = LINKED_SERVICE_PLATFORM_MAP.get(ls_type)
+        platform = ADF_LINKED_SERVICE_PLATFORM_MAP.get(ls_type)
 
         if not platform:
             self.report.report_unmapped_platform(dataset_name, ls_type)

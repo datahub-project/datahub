@@ -2,8 +2,9 @@ import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 
-import { ANTD_GRAY_V2 } from '@app/entityV2/shared/constants';
 import { DatasetAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
 import { FieldAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/FieldAssertionDescription';
 import {
@@ -61,7 +62,8 @@ import { useGetUserQuery } from '@graphql/user.generated';
  * @link getOperatorText
  * Returns the Plain Text to render for the operator portion of the Assertion Description
  */
-export const getOperatorPlainText = (
+/* untranslated-text -- sentence fragment, word order differs by language */
+const getOperatorPlainText = (
     op: AssertionStdOperator,
     parameters: AssertionStdParameters | undefined,
     nativeType: string | undefined,
@@ -130,7 +132,8 @@ export const getOperatorPlainText = (
  *
  * Schema assertions require an aggregation.
  */
-export const getSchemaAggregationPlainText = (
+/* untranslated-text -- sentence fragment, word order differs by language */
+const getSchemaAggregationPlainText = (
     aggregation: AssertionStdAggregation | undefined | null,
     fields: Array<SchemaFieldRef> | undefined | null,
 ) => {
@@ -156,7 +159,8 @@ export const getSchemaAggregationPlainText = (
  *
  * Row assertions require an aggregation.
  */
-export const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation | undefined | null) => {
+/* untranslated-text -- sentence fragment, word order differs by language */
+const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation | undefined | null) => {
     switch (aggregation) {
         case AssertionStdAggregation.RowCount:
             return 'Dataset row count is';
@@ -176,7 +180,8 @@ export const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  * for Assertions on Dataset Columns
  */
-export const getColumnAggregationPlainText = (
+/* untranslated-text -- sentence fragment, word order differs by language */
+const getColumnAggregationPlainText = (
     aggregation: AssertionStdAggregation | undefined | null,
     field: SchemaFieldRef | undefined,
 ) => {
@@ -230,7 +235,8 @@ export const getColumnAggregationPlainText = (
  * @link getAggregationText
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  */
-export const getAggregationPlainText = (
+/* untranslated-text -- sentence fragment, word order differs by language */
+const getAggregationPlainText = (
     scope: DatasetAssertionScope,
     aggregation: AssertionStdAggregation | undefined | null,
     fields: Array<SchemaFieldRef> | undefined | null,
@@ -253,8 +259,8 @@ export const getAggregationPlainText = (
  * @link DatasetAssertionDescription
  * A human-readable Plain Text description of a Dataset Assertion.
  */
-
-export const getDatasetAssertionPlainTextDescription = (datasetAssertion: DatasetAssertionInfo): string => {
+/* untranslated-text -- assembles full description by concatenating fragments, sentence structure differs by language */
+const getDatasetAssertionPlainTextDescription = (datasetAssertion: DatasetAssertionInfo): string => {
     const { scope, aggregation, fields, operator, parameters, nativeType } = datasetAssertion;
     const aggregationPlainText = getAggregationPlainText(scope, aggregation, fields);
     const operatorPlainText = getOperatorPlainText(operator, parameters || undefined, nativeType || undefined);
@@ -266,7 +272,8 @@ export const getDatasetAssertionPlainTextDescription = (datasetAssertion: Datase
  * @link getAggregationText
  * A human-readable Plain Text description of a Volume Assertion.
  */
-export const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionInfo): string => {
+/* untranslated-text -- assembles full description by concatenating fragments, sentence structure differs by language */
+const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionInfo): string => {
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
     const volumeTypeDescription = getVolumeTypeDescription(volumeType);
@@ -284,7 +291,8 @@ export const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAsse
  * @link getAggregationText
  * A human-readable Plain Text description of a Field Assertion.
  */
-export const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo) => {
+/* untranslated-text -- assembles full description by concatenating fragments, sentence structure differs by language */
+const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo) => {
     const field = getFieldDescription(assertionInfo);
     const transform = getFieldTransformDescription(assertionInfo);
     // Do not pluralize if this is a metric assertion since you're checking one metric, not multiple values
@@ -300,7 +308,8 @@ export const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssert
  * @link getAggregationText
  * A human-readable Plain Text description of a Schema Assertion.
  */
-export const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAssertionInfo) => {
+/* untranslated-text -- assembles full description with English fragments, cannot be expressed as a single translation key */
+const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAssertionInfo) => {
     const { compatibility } = assertionInfo;
     const matchText = compatibility === SchemaAssertionCompatibility.ExactMatch ? 'exactly match' : 'include';
     const expectedColumnCount = assertionInfo?.fields?.length || 0;
@@ -312,7 +321,8 @@ export const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAsse
 /**
  * A human-readable Plain Text description of an Freshness Assertion.
  */
-export const getFreshnessAssertionPlainTextDescription = (
+/* untranslated-text -- assembles full description with English sentence prefix, split sentence cannot be independently translated */
+const getFreshnessAssertionPlainTextDescription = (
     assertionInfo: FreshnessAssertionInfo,
     monitorSchedule: CronSchedule,
 ) => {
@@ -353,7 +363,8 @@ export const useBuildAssertionPrimaryLabel = (
     monitorSchedule?: Maybe<CronSchedule>,
     options?: { showColumnTag?: boolean },
 ): JSX.Element => {
-    let primaryLabel = <Typography.Text>No description found</Typography.Text>;
+    const { t } = useTranslation('entity.profile.validations');
+    let primaryLabel = <Typography.Text>{t('datasetDescription.fallback.noDescription')}</Typography.Text>;
     if (assertionInfo?.description && assertionInfo?.type !== AssertionType.Field) {
         primaryLabel = <Typography.Text>{assertionInfo.description}</Typography.Text>;
     } else {
@@ -409,6 +420,8 @@ export const useBuildAssertionPrimaryLabel = (
  * @returns {JSX.Element} if sufficient data is present
  */
 const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Element | null => {
+    const theme = useTheme();
+    const { t } = useTranslation('entity.profile.validations');
     const entityRegistry = useEntityRegistry();
 
     // 1. Fetching the most recent actor data.
@@ -432,37 +445,26 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
 
     // 2.1 Creator info if available
     if (createdActor?.corpUser && entityRegistry.getDisplayName(EntityType.CorpUser, createdActor.corpUser)) {
-        secondaryLabelMessage = `Created by ${entityRegistry.getDisplayName(
-            EntityType.CorpUser,
-            createdActor.corpUser,
-        )}`;
+        const creator = entityRegistry.getDisplayName(EntityType.CorpUser, createdActor.corpUser);
+        secondaryLabelMessage = t('datasetDescription.label.createdByTemplate', { creator });
 
-        tooltipCreatedByMessage = `Created by: ${entityRegistry.getDisplayName(
-            EntityType.CorpUser,
-            createdActor.corpUser,
-        )}${createdActor.corpUser?.info?.email ? ` (${createdActor.corpUser.info.email})` : ''} on ${
-            assertionInfo?.source?.created?.time
-                ? new Date(assertionInfo.source.created.time).toLocaleString()
-                : 'an unknown time' // should never get here
-        }.`;
+        const extra = createdActor.corpUser?.info?.email ? ` (${createdActor.corpUser.info.email})` : '';
+        const date = assertionInfo?.source?.created?.time
+            ? new Date(assertionInfo.source.created.time).toLocaleString()
+            : t('datasetDescription.tooltip.anUnknownTime');
+        tooltipCreatedByMessage = t('datasetDescription.tooltip.createdBy', { creator, extra, date });
     }
     // 2.2 Last updated info if available
     if (lastUpdatedActor?.corpUser && entityRegistry.getDisplayName(EntityType.CorpUser, lastUpdatedActor.corpUser)) {
+        const updater = entityRegistry.getDisplayName(EntityType.CorpUser, lastUpdatedActor.corpUser);
         // Special handling if creator is last updater
         if (updatedActorUrn === creatorActorUrn) {
-            const prefix =
+            secondaryLabelMessage =
                 assertionInfo?.source?.created?.time === assertionInfo?.lastUpdated?.time
-                    ? `Created by`
-                    : `Last updated by`;
-            secondaryLabelMessage = `${prefix} ${entityRegistry.getDisplayName(
-                EntityType.CorpUser,
-                lastUpdatedActor.corpUser,
-            )}`;
+                    ? t('datasetDescription.label.createdByTemplate', { creator: updater })
+                    : t('datasetDescription.label.lastUpdatedByTemplate', { updater });
         } else {
-            secondaryLabelMessage = `Last updated by ${entityRegistry.getDisplayName(
-                EntityType.CorpUser,
-                lastUpdatedActor.corpUser,
-            )}`;
+            secondaryLabelMessage = t('datasetDescription.label.lastUpdatedByTemplate', { updater });
         }
 
         // Show tooltip label for last updated if either the updater != creator OR if updatedTime != createdTime
@@ -470,14 +472,11 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
             updatedActorUrn !== creatorActorUrn ||
             assertionInfo?.lastUpdated?.time !== assertionInfo?.source?.created?.time
         ) {
-            tooltipLastUpdatedByMessage = `Last updated by ${entityRegistry.getDisplayName(
-                EntityType.CorpUser,
-                lastUpdatedActor.corpUser,
-            )}${lastUpdatedActor.corpUser?.info?.email ? ` (${lastUpdatedActor.corpUser.info.email})` : ''} on ${
-                assertionInfo?.lastUpdated?.time
-                    ? new Date(assertionInfo.lastUpdated.time).toLocaleString()
-                    : 'an unknown time' // should never get here
-            }.`;
+            const extra = lastUpdatedActor.corpUser?.info?.email ? ` (${lastUpdatedActor.corpUser.info.email})` : '';
+            const date = assertionInfo?.lastUpdated?.time
+                ? new Date(assertionInfo.lastUpdated.time).toLocaleString()
+                : t('datasetDescription.tooltip.anUnknownTime');
+            tooltipLastUpdatedByMessage = t('datasetDescription.tooltip.lastUpdatedBy', { updater, extra, date });
         }
     }
 
@@ -491,7 +490,7 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
                 </>
             }
         >
-            <Typography.Text style={{ color: ANTD_GRAY_V2['6'], fontSize: 12 }}>
+            <Typography.Text style={{ color: theme.colors.textDisabled, fontSize: 12 }}>
                 {secondaryLabelMessage}
             </Typography.Text>
         </Tooltip>

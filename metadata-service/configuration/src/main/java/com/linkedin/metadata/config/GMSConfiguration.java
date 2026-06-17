@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config;
 
+import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import lombok.Data;
 
 /** POJO representing the "datahub.gms" configuration block in application.yaml. */
@@ -23,6 +24,9 @@ public class GMSConfiguration {
   /** Truststore configuration for SSL */
   private TruststoreConfiguration truststore;
 
+  /** Keystore configuration for SSL client authentication (mTLS) */
+  private KeystoreConfiguration keystore;
+
   /** Async request configuration */
   private AsyncConfiguration async;
 
@@ -31,6 +35,12 @@ public class GMSConfiguration {
 
   /** SSL context protocol */
   private String sslContext;
+
+  /**
+   * GMS HTTP service rate limiting (GraphQL, OpenAPI, Rest.li, /auth/*). Not MCP ingestion or Kafka
+   * lag throttle.
+   */
+  private RateLimitProperties rateLimits;
 
   @Data
   public static class TruststoreConfiguration {
@@ -42,6 +52,21 @@ public class GMSConfiguration {
 
     /** Type of the truststore (e.g., PKCS12) */
     private String type;
+  }
+
+  @Data
+  public static class KeystoreConfiguration {
+    /** Path to the keystore file */
+    private String path;
+
+    /** Password for the keystore */
+    private String password;
+
+    /** Type of the keystore (e.g., PKCS12) */
+    private String type;
+
+    /** Password for the private key; defaults to keystore password when unset */
+    private String keyPassword;
   }
 
   @Data

@@ -1,0 +1,11 @@
+{
+    "boundary.onPremActionMessage": "Por favor, informe as mensagens de erro do seu navegador ao seu Administrador do DataHub",
+    "bulkEditUnauthorized": "Sua seleção de edição em massa incluiu entidades que você não tem permissão para atualizar. A edição em massa sendo realizada não será salva.",
+    "fallback.defaultMessage": "Nossa equipe foi notificada sobre este erro inesperado e está trabalhando em uma solução.",
+    "fallback.subtitle": "Algo não saiu como planejado.",
+    "fallback.title": "Ops!",
+    "section.description": "Ocorreu um erro inesperado. Por favor, tente novamente mais tarde ou entre em contato com seu administrador",
+    "section.needSupport": "<bold>Precisa de ajuda?</bold> Confira estes recursos:",
+    "section.title": "Algo deu errado.",
+    "unauthorized": "Não autorizado. Por favor, entre em contato com seu administrador do DataHub."
+}

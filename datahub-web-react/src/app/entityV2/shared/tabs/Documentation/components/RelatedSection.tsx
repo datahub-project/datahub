@@ -1,5 +1,7 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { List } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
@@ -22,6 +24,7 @@ import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission
 import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Menu, Popover, Tooltip } from '@src/alchemy-components';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -52,6 +55,7 @@ const EmptyState = styled.div`
 `;
 
 export const RelatedSection: React.FC = () => {
+    const { t } = useTranslation('entity.profile.documentation');
     const { urn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const [isEditFormModalOpened, setIsEditFormModalOpened] = useState<boolean>(false);
@@ -153,7 +157,7 @@ export const RelatedSection: React.FC = () => {
         <>
             <SectionContainer>
                 <SectionHeader>
-                    <SectionTitle>Resources</SectionTitle>
+                    <SectionTitle>{t('resources')}</SectionTitle>
                     {supportsRelatedDocuments && menuItems.length > 0 && (
                         <Popover
                             open={showAddContextPopover}
@@ -177,12 +181,12 @@ export const RelatedSection: React.FC = () => {
                             }}
                         >
                             <Menu items={menuItems} placement="bottomRight">
-                                <Tooltip title="Add related link or context">
+                                <Tooltip title={t('addRelatedLinkTooltip')}>
                                     <Button
                                         variant="text"
                                         isCircle
-                                        icon={{ icon: 'Plus', source: 'phosphor' }}
-                                        aria-label="Add related link or context"
+                                        icon={{ icon: Plus }}
+                                        aria-label={t('addRelatedLinkTooltip')}
                                         data-testid="add-related-button"
                                     />
                                 </Tooltip>
@@ -205,7 +209,7 @@ export const RelatedSection: React.FC = () => {
                     />
                 )}
 
-                {!hasContent && !documentsLoading && <EmptyState>No related links or context yet</EmptyState>}
+                {!hasContent && !documentsLoading && <EmptyState>{t('noRelatedLinks')}</EmptyState>}
             </SectionContainer>
 
             {isEditFormModalOpened && <EditLinkModal link={editingMetadata} onClose={onEditFormModalClosed} />}

@@ -10,6 +10,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -63,7 +65,10 @@ public class UpdateIndicesServiceTest {
             timeseriesAspectService,
             "MD5",
             null, // No semantic search config for this test
-            mock(IndexConvention.class));
+            mock(IndexConvention.class),
+            false,
+            mock(V2MappingsBuilder.class),
+            null);
 
     UpdateIndicesV3Strategy v3Strategy =
         new UpdateIndicesV3Strategy(
@@ -72,7 +77,8 @@ public class UpdateIndicesServiceTest {
             searchDocumentTransformer,
             timeseriesAspectService,
             "MD5",
-            true); // v2Enabled = true (both strategies active)
+            true, // v2Enabled = true (both strategies active)
+            null);
 
     Collection<UpdateIndicesStrategy> strategies = Arrays.asList(v2Strategy, v3Strategy);
 
@@ -82,6 +88,7 @@ public class UpdateIndicesServiceTest {
             entitySearchService,
             systemMetadataService,
             strategies,
+            null,
             true, // searchDiffMode
             true, // structuredPropertiesHookEnabled
             true); // structuredPropertiesWriteEnabled
@@ -200,6 +207,48 @@ public class UpdateIndicesServiceTest {
             eq(aspectSpec),
             eq(false),
             eq(event.getCreated()));
+  }
+
+  @Test
+  public void testThrottle_ServiceAcceptsNonNullThrottleCache() {
+    TimeseriesWriteThrottleCache cache =
+        new TimeseriesWriteThrottleCache(
+            com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration.builder()
+                .entityIndex(
+                    com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration
+                        .IndexThrottleConfig.builder()
+                        .enabled(true)
+                        .build())
+                .refreshPeriodSeconds(3600)
+                .maxCacheUrns(10_000)
+                .build());
+
+    UpdateIndicesV2Strategy v2Strategy =
+        new UpdateIndicesV2Strategy(
+            EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
+            entitySearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            null,
+            mock(IndexConvention.class),
+            false,
+            mock(V2MappingsBuilder.class),
+            cache);
+
+    UpdateIndicesService serviceWithThrottle =
+        new UpdateIndicesService(
+            updateGraphIndicesService,
+            entitySearchService,
+            systemMetadataService,
+            Collections.singletonList(v2Strategy),
+            cache,
+            true,
+            true,
+            true);
+
+    assertTrue(cache.isEnabled());
+    assertTrue(cache.isEntityIndexEnabled());
   }
 
   @Test

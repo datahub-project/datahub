@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.kafka;
 
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.DEFAULT_EVENT_CONSUMER_NAME;
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCL_BATCH_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCL_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCP_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.PE_EVENT_CONSUMER_NAME;
@@ -19,7 +20,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -34,6 +35,7 @@ import org.springframework.kafka.support.serializer.DeserializationException;
 @Configuration
 public class KafkaEventConsumerFactory {
   private int kafkaEventConsumerConcurrency;
+  private int authExceptionRetryIntervalSeconds;
 
   @Bean(name = "kafkaConsumerFactory")
   protected DefaultKafkaConsumerFactory<String, GenericRecord> createConsumerFactory(
@@ -42,6 +44,8 @@ public class KafkaEventConsumerFactory {
       @Qualifier("schemaRegistryConfig")
           KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
     kafkaEventConsumerConcurrency = provider.getKafka().getListener().getConcurrency();
+    authExceptionRetryIntervalSeconds =
+        provider.getKafka().getConsumer().getAuthExceptionRetryIntervalSeconds();
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Map<String, Object> customizedProperties =
@@ -58,6 +62,8 @@ public class KafkaEventConsumerFactory {
       @Qualifier("schemaRegistryConfig")
           KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
     kafkaEventConsumerConcurrency = provider.getKafka().getListener().getConcurrency();
+    authExceptionRetryIntervalSeconds =
+        provider.getKafka().getConsumer().getAuthExceptionRetryIntervalSeconds();
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Map<String, Object> customizedProperties =
@@ -138,7 +144,7 @@ public class KafkaEventConsumerFactory {
       consumerProps.getSecurity().setProtocol(securityProtocol);
     }
 
-    Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties(null);
+    Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties();
     customizedProperties.putAll(
         kafkaConfiguration.getSerde().getEvent().getConsumerProperties(schemaRegistryConfig));
 
@@ -201,6 +207,20 @@ public class KafkaEventConsumerFactory {
         configurationProvider.getKafka().getConsumer().getMcl());
   }
 
+  @Bean(name = MCL_BATCH_EVENT_CONSUMER_NAME)
+  protected KafkaListenerContainerFactory<?> mclBatchEventConsumer(
+      @Qualifier("kafkaConsumerFactory")
+          DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
+      @Qualifier("configurationProvider") ConfigurationProvider configurationProvider) {
+
+    return buildDefaultKafkaListenerContainerFactory(
+        MCL_BATCH_EVENT_CONSUMER_NAME,
+        kafkaConsumerFactory,
+        configurationProvider.getKafka().getConsumer().isStopOnDeserializationError(),
+        configurationProvider.getKafka().getConsumer().getMcl(),
+        true);
+  }
+
   @Bean(name = DEFAULT_EVENT_CONSUMER_NAME)
   protected KafkaListenerContainerFactory<?> kafkaEventConsumer(
       @Qualifier("kafkaConsumerFactory")
@@ -219,12 +239,24 @@ public class KafkaEventConsumerFactory {
       DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
       boolean isStopOnDeserializationError,
       @Nullable ConsumerConfiguration.ConsumerOptions consumerOptions) {
+    return buildDefaultKafkaListenerContainerFactory(
+        consumerFactoryName,
+        kafkaConsumerFactory,
+        isStopOnDeserializationError,
+        consumerOptions,
+        false);
+  }
+
+  private KafkaListenerContainerFactory<?> buildDefaultKafkaListenerContainerFactory(
+      String consumerFactoryName,
+      DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
+      boolean isStopOnDeserializationError,
+      @Nullable ConsumerConfiguration.ConsumerOptions consumerOptions,
+      boolean batchListener) {
 
     final DefaultKafkaConsumerFactory<String, GenericRecord> factoryWithOverrides;
     if (consumerOptions != null) {
-      // Copy the base config
       Map<String, Object> props = new HashMap<>(kafkaConsumerFactory.getConfigurationProperties());
-      // Override just the auto.offset.reset
       props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, consumerOptions.getAutoOffsetReset());
       factoryWithOverrides =
           new DefaultKafkaConsumerFactory<>(
@@ -241,15 +273,20 @@ public class KafkaEventConsumerFactory {
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConcurrency(kafkaEventConsumerConcurrency);
     factory.setAutoStartup(false);
+    if (batchListener) {
+      factory.setBatchListener(true);
+    }
 
-    /*
-     * Sets up a delegating error handler for Deserialization errors, if disabled
-     * will
-     * use DefaultErrorHandler (does back-off retry and then logs) rather than
-     * stopping the container. Stopping the container
-     * prevents lost messages until the error can be examined, disabling this will
-     * allow progress, but may lose data
-     */
+    // Allow consumer containers to survive transient authentication failures (e.g.,
+    // MSK IAM credential rotation with EKS Pod Identity) instead of stopping fatally.
+    // The Kafka client's NetworkClient automatically reconnects with fresh credentials
+    // on the next poll — the same self-healing that the producer side already has.
+    if (authExceptionRetryIntervalSeconds > 0) {
+      factory
+          .getContainerProperties()
+          .setAuthExceptionRetryInterval(Duration.ofSeconds(authExceptionRetryIntervalSeconds));
+    }
+
     if (isStopOnDeserializationError) {
       CommonDelegatingErrorHandler delegatingErrorHandler =
           new CommonDelegatingErrorHandler(new DefaultErrorHandler());
@@ -258,8 +295,9 @@ public class KafkaEventConsumerFactory {
       factory.setCommonErrorHandler(delegatingErrorHandler);
     }
     log.info(
-        "Event-based {} KafkaListenerContainerFactory built successfully. Consumer concurrency = {}",
+        "Event-based {}{} KafkaListenerContainerFactory built successfully. Consumer concurrency = {}",
         consumerFactoryName,
+        batchListener ? " (batch)" : "",
         kafkaEventConsumerConcurrency);
 
     return factory;
@@ -276,6 +314,11 @@ public class KafkaEventConsumerFactory {
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConcurrency(1);
     factory.setAutoStartup(false);
+    if (authExceptionRetryIntervalSeconds > 0) {
+      factory
+          .getContainerProperties()
+          .setAuthExceptionRetryInterval(Duration.ofSeconds(authExceptionRetryIntervalSeconds));
+    }
 
     log.info(
         "Event-based DUHE KafkaListenerContainerFactory built successfully. Consumer concurrency = 1");

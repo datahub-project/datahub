@@ -10,6 +10,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
@@ -35,10 +36,10 @@ import javax.annotation.Nullable;
  * aspect is set to 0 for efficient retrieval. In most cases only the latest state of an aspect will
  * be fetched. See {@link EntityServiceImpl} for more details.
  *
- * <p>TODO: This interface exposes {@link #runInTransactionWithRetry(Function, int)}
- * (TransactionContext)} because {@link EntityServiceImpl} concerns itself with batching multiple
- * commands into a single transaction. It exposes storage concerns somewhat and it'd be worth
- * looking into ways to move this responsibility inside {@link AspectDao} implementations.
+ * <p>TODO: This interface exposes {@link #runInTransactionWithRetry(OperationContext, Function,
+ * int)} (TransactionContext)} because {@link EntityServiceImpl} concerns itself with batching
+ * multiple commands into a single transaction. It exposes storage concerns somewhat and it'd be
+ * worth looking into ways to move this responsibility inside {@link AspectDao} implementations.
  */
 public interface AspectDao {
   String ASPECT_WRITE_COUNT_METRIC_NAME = "aspectWriteCount";
@@ -46,18 +47,28 @@ public interface AspectDao {
 
   @Nullable
   EntityAspect getAspect(
-      @Nonnull final String urn, @Nonnull final String aspectName, final long version);
+      @Nonnull OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName,
+      final long version);
 
   @Nullable
-  EntityAspect getAspect(@Nonnull final EntityAspectIdentifier key);
+  EntityAspect getAspect(
+      @Nonnull OperationContext opContext, @Nonnull final EntityAspectIdentifier key);
 
   @Nonnull
   Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate);
+      @Nonnull OperationContext opContext,
+      @Nonnull final Set<EntityAspectIdentifier> keys,
+      boolean forUpdate);
 
   @Nonnull
   List<EntityAspect> getAspectsInRange(
-      @Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis);
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      Set<String> aspectNames,
+      long startTimeMillis,
+      long endTimeMillis);
 
   /**
    * @param urn urn to fetch
@@ -90,23 +101,30 @@ public interface AspectDao {
   /**
    * Updates the system aspect
    *
+   * @param operationContext
    * @param txContext transaction context
    * @param aspect the orm model to update
    */
   @Nonnull
   Optional<EntityAspect> updateAspect(
-      @Nullable TransactionContext txContext, @Nonnull final SystemAspect aspect);
+      OperationContext operationContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final SystemAspect aspect);
 
   /**
    * Insert system aspect, returning the inserted aspect which may be different from the input
    * aspect, having been replaced with an ORM variation.
    *
+   * @param operationContext
    * @param txContext transaction context
    * @param aspect the aspect to insert
    */
   @Nonnull
   Optional<EntityAspect> insertAspect(
-      @Nullable TransactionContext txContext, @Nonnull final SystemAspect aspect, long version);
+      OperationContext operationContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final SystemAspect aspect,
+      long version);
 
   /**
    * Update the latest aspect version 0 and insert the previous version. Returns the updated version
@@ -147,13 +165,16 @@ public interface AspectDao {
               .getSystemMetadataVersion()
               .equals(currentVersion0.getSystemMetadataVersion())) {
 
-        inserted = insertAspect(txContext, latestAspect.getDatabaseAspect().get(), targetVersion);
+        inserted =
+            insertAspect(
+                opContext, txContext, latestAspect.getDatabaseAspect().get(), targetVersion);
       }
 
       // update version 0
       Optional<EntityAspect> updated = Optional.empty();
-      boolean isNoOp =
-          Objects.equals(currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
+      final boolean isNoOp =
+          ValidationApiUtils.normalizedEqual(
+              currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
 
       // update trace
       newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
@@ -162,14 +183,15 @@ public interface AspectDao {
           || !isNoOp) {
         // update no-op used for tracing
         SystemMetadataUtils.setNoOp(newAspect.getSystemMetadata(), isNoOp);
-        updated = updateAspect(txContext, newAspect);
+        updated = updateAspect(opContext, txContext, newAspect);
       }
 
       return Pair.of(inserted, updated);
     } else {
       // initial insert
       newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), false));
-      Optional<EntityAspect> inserted = insertAspect(txContext, newAspect, ASPECT_LATEST_VERSION);
+      Optional<EntityAspect> inserted =
+          insertAspect(opContext, txContext, newAspect, ASPECT_LATEST_VERSION);
       return Pair.of(Optional.empty(), inserted);
     }
   }
@@ -203,26 +225,77 @@ public interface AspectDao {
   }
 
   void deleteAspect(
-      @Nonnull final Urn urn, @Nonnull final String aspect, @Nonnull final Long version);
+      OperationContext operationContext,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspect,
+      @Nonnull final Long version);
 
   @Nonnull
   ListResult<String> listUrns(
+      OperationContext operationContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
       final int pageSize);
 
   @Nonnull
-  Integer countAspect(@Nonnull final String aspectName, @Nullable String urnLike);
+  Integer countAspect(
+      OperationContext operationContext,
+      @Nonnull final String aspectName,
+      @Nullable String urnLike);
 
   @Nonnull
-  Integer countAspect(final RestoreIndicesArgs args);
+  Integer countAspect(OperationContext operationContext, final RestoreIndicesArgs args);
 
   @Nonnull
-  PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args);
+  PartitionedStream<EbeanAspectV2> streamAspectBatches(
+      @Nonnull OperationContext opContext, @Nonnull final RestoreIndicesArgs args);
 
+  /**
+   * Stream latest-version (v0) rows for the given aspects ordered by creation time ascending,
+   * filtering to only rows whose stored {@code schemaVersion} has not yet reached the per-aspect
+   * target version. Intended for cross-aspect migration sweeps where oldest data is migrated first.
+   *
+   * <p>Only aspects whose target version is strictly greater than {@link
+   * com.linkedin.metadata.Constants#DEFAULT_SCHEMA_VERSION} are included; aspects mapped to the
+   * default version are ignored.
+   *
+   * <p>A row is included when its stored {@code schemaVersion} is absent/null or differs from the
+   * target version for that aspect.
+   *
+   * <p>Cursor-based: pass {@code afterCreatedOnMs = 0} to start from the beginning, or the epoch-ms
+   * value of the last processed batch's {@code createdon} to resume. Rows already at the target
+   * version are excluded by the DB filter, so re-visiting rows at the resumed timestamp is safe.
+   *
+   * @param aspectTargetVersions map of aspect name to its target schema version; aspects with
+   *     target == DEFAULT_SCHEMA_VERSION are skipped
+   * @param afterCreatedOnMs epoch-ms cursor; 0 means no lower bound
+   * @param batchSize hint for fetch size
+   * @param limit overall row cap; 0 means unlimited
+   * @return partitioned stream of matching rows
+   */
   @Nonnull
-  Stream<EntityAspect> streamAspects(String entityName, String aspectName);
+  @OperationContextExempt(
+      reason =
+          "TODO: Needs a bigger refactor, will be handled later. Streams need to follow a consumer pattern")
+  PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
+      @Nonnull Map<String, Long> aspectTargetVersions,
+      long afterCreatedOnMs,
+      int batchSize,
+      int limit);
+
+  /**
+   * Stream aspects for the given entity / aspect name.
+   *
+   * @param entityName the entity name (urn-type prefix)
+   * @param aspectName the aspect to stream
+   * @return stream of aspects; caller is responsible for closing
+   */
+  @Nonnull
+  @OperationContextExempt(
+      reason =
+          "TODO: Needs a bigger refactor, will be handled later. Streams need to follow a consumer pattern")
+  Stream<EntityAspect> streamAspects(@Nonnull String entityName, @Nonnull String aspectName);
 
   int deleteUrn(
       @Nonnull OperationContext opContext,
@@ -231,6 +304,7 @@ public interface AspectDao {
 
   @Nonnull
   ListResult<String> listLatestAspectMetadata(
+      OperationContext operationContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
@@ -238,48 +312,69 @@ public interface AspectDao {
 
   @Nonnull
   ListResult<String> listAspectMetadata(
+      OperationContext operationContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final long version,
       final int start,
       final int pageSize);
 
-  Map<String, Map<String, Long>> getNextVersions(@Nonnull Map<String, Set<String>> urnAspectMap);
+  Map<String, Map<String, Long>> getNextVersions(
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<String, Set<String>> urnAspectMap,
+      boolean lockLatestForWrite);
 
-  default long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
-    return getNextVersions(urn, Set.of(aspectName)).get(aspectName);
+  default long getNextVersion(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName) {
+    return getNextVersions(opContext, Map.of(urn, Set.of(aspectName)), true)
+        .get(urn)
+        .get(aspectName);
   }
 
   default Map<String, Long> getNextVersions(
-      @Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
-    return getNextVersions(Map.of(urn, aspectNames)).get(urn);
+      @Nonnull OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final Set<String> aspectNames) {
+    return getNextVersions(opContext, Map.of(urn, aspectNames), true).get(urn);
   }
 
-  long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName);
+  long getMaxVersion(
+      OperationContext operationContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName);
 
   /**
    * Return the min/max version for the given URN & aspect
    *
+   * @param operationContext
    * @param urn the urn
    * @param aspectName the aspect
    * @return the range of versions, if they do not exist -1 is returned
    */
   @Nonnull
-  Pair<Long, Long> getVersionRange(@Nonnull final String urn, @Nonnull final String aspectName);
+  Pair<Long, Long> getVersionRange(
+      OperationContext operationContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName);
 
+  @OperationContextExempt(reason = "Lifecycle/admin toggle, no actor context needed")
   void setWritable(boolean canWrite);
 
   @Nonnull
   <T> Optional<T> runInTransactionWithRetry(
+      OperationContext operationContext,
       @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
       final int maxTransactionRetry);
 
   @Nonnull
   default <T> Optional<T> runInTransactionWithRetry(
+      OperationContext operationContext,
       @Nonnull final Function<TransactionContext, TransactionResult<T>> block,
       AspectsBatch batch,
       final int maxTransactionRetry) {
-    return runInTransactionWithRetry(block, maxTransactionRetry);
+    return runInTransactionWithRetry(operationContext, block, maxTransactionRetry);
   }
 
   default void incrementWriteMetrics(
@@ -305,8 +400,10 @@ public interface AspectDao {
   }
 
   @Nonnull
+  @OperationContextExempt(reason = "Returns static config, no request context needed")
   List<com.linkedin.metadata.aspect.SystemAspectValidator> getSystemAspectValidators();
 
   @Nullable
+  @OperationContextExempt(reason = "Returns static config, no request context needed")
   com.linkedin.metadata.config.AspectSizeValidationConfiguration getValidationConfig();
 }

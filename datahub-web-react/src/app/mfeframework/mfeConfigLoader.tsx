@@ -25,6 +25,7 @@ export interface MFEConfig {
 
 // MFESchema: The overall config schema.
 export interface MFESchema {
+    topLevelMenuTitle: string;
     subNavigationMode: boolean;
     microFrontends: MFEConfig[];
 }
@@ -37,7 +38,7 @@ const REQUIRED_FIELDS: (keyof MFEConfig)[] = ['id', 'label', 'path', 'remoteEntr
  * - Collects all validation errors for the entry.
  * - Returns the valid MFEConfig if no errors, otherwise returns null and logs all errors.
  */
-export function validateMFEConfig(config: any): MFEConfig | null {
+function validateMFEConfig(config: any): MFEConfig | null {
     const errors: string[] = [];
 
     REQUIRED_FIELDS.forEach((field) => {

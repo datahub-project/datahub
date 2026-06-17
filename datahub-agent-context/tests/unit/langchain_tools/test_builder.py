@@ -7,9 +7,12 @@ import pytest
 from datahub_agent_context import get_datahub_client
 from datahub_agent_context.context import get_graph
 from datahub_agent_context.langchain_tools.builder import (
+    build_langchain_cloud_tools,
     build_langchain_tools,
     create_context_wrapper,
 )
+
+CLOUD_TOOL_NAMES = {"ask_datahub_chat", "get_datahub_chat"}
 
 
 @pytest.fixture
@@ -154,3 +157,36 @@ def test_wrapped_tools_manage_context_automatically(mock_client):
     # Context should be reset after tool execution
     with pytest.raises(RuntimeError, match="No DataHubClient in context"):
         get_graph()
+
+
+# ---------------------------------------------------------------------------
+# Cloud tools builder
+# ---------------------------------------------------------------------------
+
+
+def test_build_langchain_tools_excludes_cloud(mock_client):
+    """Base builder should not include cloud tools."""
+    tools = build_langchain_tools(mock_client, include_mutations=True)
+    tool_names = {t.name for t in tools}
+    assert tool_names.isdisjoint(CLOUD_TOOL_NAMES)
+
+
+def test_build_langchain_cloud_tools_includes_ask_datahub(mock_client):
+    """Cloud builder includes Ask DataHub tools by default."""
+    tools = build_langchain_cloud_tools(mock_client)
+    tool_names = {t.name for t in tools}
+    assert tool_names == CLOUD_TOOL_NAMES
+
+
+def test_build_langchain_cloud_tools_can_disable(mock_client):
+    """Cloud builder with ask_datahub=False returns empty list."""
+    tools = build_langchain_cloud_tools(mock_client, ask_datahub=False)
+    assert tools == []
+
+
+def test_build_langchain_combined_tools(mock_client):
+    """Base + cloud builders together give the full tool set."""
+    base = build_langchain_tools(mock_client, include_mutations=True)
+    cloud = build_langchain_cloud_tools(mock_client)
+    all_names = {t.name for t in base + cloud}
+    assert CLOUD_TOOL_NAMES.issubset(all_names)

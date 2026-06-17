@@ -1,7 +1,11 @@
-import { PageTitle } from '@components';
-import React from 'react';
+import { Button, PageTitle } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import React, { useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
+import { POLICIES_CREATE_POLICY_ID } from '@app/onboarding/config/PoliciesOnboardingConfig';
 import { ManagePolicies } from '@app/permissions/policy/ManagePolicies';
 import { ManageRoles } from '@app/permissions/roles/ManageRoles';
 import { AlchemyRoutedTabs } from '@app/shared/AlchemyRoutedTabs';
@@ -18,7 +22,18 @@ const PageContainer = styled.div`
 
 const PageHeaderContainer = styled.div`
     display: flex;
+    justify-content: space-between;
+`;
+
+const HeaderLeft = styled.div`
+    display: flex;
     flex-direction: column;
+`;
+
+const HeaderRight = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
 `;
 
 const Content = styled.div`
@@ -37,13 +52,21 @@ enum TabType {
     Roles = 'Roles',
     Policies = 'Policies',
 }
-const ENABLED_TAB_TYPES = [TabType.Roles, TabType.Policies];
 
 export const ManagePermissions = () => {
+    const { t } = useTranslation('settings.permissions');
+    const location = useLocation();
+    const createPolicyRef = useRef<() => void>(() => {});
+    const registerCreatePolicy = useCallback((fn: () => void) => {
+        createPolicyRef.current = fn;
+    }, []);
+
+    const isPoliciesTab = location.pathname.includes('/policies');
+
     const getTabs = () => {
         return [
             {
-                name: TabType.Roles,
+                name: t('roles.tab'),
                 path: TabType.Roles.toLocaleLowerCase(),
                 content: <ManageRoles />,
                 display: {
@@ -51,14 +74,14 @@ export const ManagePermissions = () => {
                 },
             },
             {
-                name: TabType.Policies,
+                name: t('policiesTab'),
                 path: TabType.Policies.toLocaleLowerCase(),
-                content: <ManagePolicies />,
+                content: <ManagePolicies onRegisterCreatePolicy={registerCreatePolicy} />,
                 display: {
                     enabled: () => true,
                 },
             },
-        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+        ];
     };
 
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
@@ -66,10 +89,22 @@ export const ManagePermissions = () => {
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <PageTitle
-                    title="Manage Permissions"
-                    subTitle="View your DataHub permissions. Take administrative actions."
-                />
+                <HeaderLeft>
+                    <PageTitle title={t('pageTitle')} subTitle={t('pageSubTitle')} />
+                </HeaderLeft>
+                {isPoliciesTab && (
+                    <HeaderRight>
+                        <Button
+                            id={POLICIES_CREATE_POLICY_ID}
+                            variant="filled"
+                            icon={{ icon: Plus }}
+                            onClick={() => createPolicyRef.current()}
+                            data-testid="add-policy-button"
+                        >
+                            {t('createNewPolicy')}
+                        </Button>
+                    </HeaderRight>
+                )}
             </PageHeaderContainer>
             <Content>
                 <AlchemyRoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} />

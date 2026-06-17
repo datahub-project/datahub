@@ -9,10 +9,18 @@ import pytest
 import requests
 
 from datahub.ingestion.run.pipeline import Pipeline
+from tests.utilities.messaging_transport import (
+    build_pgqueue_sink_config,
+    is_pgqueue_transport,
+)
 from tests.utilities.metadata_operations import update_description
 from tests.utils import (
     execute_graphql,
     get_admin_credentials,
+    get_db_password,
+    get_db_type,
+    get_db_url,
+    get_db_username,
     get_frontend_session,
     get_kafka_broker_url,
     get_kafka_schema_registry,
@@ -32,7 +40,12 @@ bq_sample_data = "./sample_bq_data.json"
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
-kafka_post_ingestion_wait_sec = 30
+async_messaging_post_ingestion_wait_sec = 30
+
+BQ_SAMPLE_DATASET_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
+    "bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times,PROD)"
+)
 
 
 @with_test_retry()
@@ -118,34 +131,61 @@ def fixture_ingestion_usage_via_rest(auth_session):
     ingest_file_via_rest(auth_session, usage_sample_data)
 
 
-def fixture_ingestion_via_kafka(auth_session):
+def _run_file_ingestion_pipeline(auth_session, sink_config: dict) -> None:
     pipeline = Pipeline.create(
         {
             "source": {
                 "type": "file",
                 "config": {"filename": bq_sample_data},
             },
-            "sink": {
-                "type": "datahub-kafka",
-                "config": {
-                    "connection": {
-                        "bootstrap": get_kafka_broker_url(),
-                        "schema_registry_url": get_kafka_schema_registry(),
-                    }
-                },
-            },
+            "sink": sink_config,
         }
     )
     pipeline.run()
     pipeline.raise_from_status()
-    _ensure_dataset_present(
-        auth_session,
-        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times,PROD)",
-    )
+    _ensure_dataset_present(auth_session, BQ_SAMPLE_DATASET_URN)
 
-    # Since Kafka emission is asynchronous, we must wait a little bit so that
-    # the changes are actually processed.
-    time.sleep(kafka_post_ingestion_wait_sec)
+
+def fixture_ingestion_via_kafka(auth_session):
+    _run_file_ingestion_pipeline(
+        auth_session,
+        {
+            "type": "datahub-kafka",
+            "config": {
+                "connection": {
+                    "bootstrap": get_kafka_broker_url(),
+                    "schema_registry_url": get_kafka_schema_registry(),
+                }
+            },
+        },
+    )
+    # Kafka emission is asynchronous; allow consumers to catch up.
+    time.sleep(async_messaging_post_ingestion_wait_sec)
+
+
+def fixture_ingestion_via_pgqueue(auth_session):
+    if get_db_type() != "postgres":
+        raise AssertionError(
+            "pgQueue ingestion requires a postgres datastore (set DB_TYPE=postgres)"
+        )
+    _run_file_ingestion_pipeline(
+        auth_session,
+        build_pgqueue_sink_config(
+            schema_registry_url=get_kafka_schema_registry(),
+            host_port=get_db_url(),
+            database="datahub",
+            username=get_db_username(),
+            password=get_db_password(),
+        ),
+    )
+    wait_for_writes_to_sync()
+
+
+def fixture_ingestion_via_messaging(auth_session):
+    if is_pgqueue_transport(auth_session):
+        fixture_ingestion_via_pgqueue(auth_session)
+    else:
+        fixture_ingestion_via_kafka(auth_session)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -158,7 +198,7 @@ def test_run_ingestion(auth_session):
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         futures = []
         for ingestion_fixture in [
-            "fixture_ingestion_via_kafka",
+            "fixture_ingestion_via_messaging",
             "fixture_ingestion_via_rest",
         ]:
             futures.append(executor.submit(globals()[ingestion_fixture], auth_session))

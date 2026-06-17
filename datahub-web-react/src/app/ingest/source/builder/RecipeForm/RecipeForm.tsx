@@ -20,7 +20,7 @@ import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 
 import { useListSecretsQuery } from '@graphql/ingestion.generated';
 
-export const ControlsContainer = styled.div`
+const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 12px;
@@ -53,7 +53,7 @@ const TestConnectionWrapper = styled.div`
 const HeaderTooltipWrapper = styled(QuestionCircleOutlined)`
     margin-left: 5px;
     font-size: 12px;
-    color: rgba(0, 0, 0, 0.45);
+    color: ${(props) => props.theme.colors.icon};
     cursor: help;
 `;
 
@@ -257,7 +257,9 @@ function RecipeForm(props: Props) {
                 <Button variant="outline" color="gray" disabled={isEditing} onClick={goToPrevious}>
                     Previous
                 </Button>
-                <Button onClick={onClickNext}>Next</Button>
+                <Button onClick={onClickNext} data-testid="recipe-builder-next-button">
+                    Next
+                </Button>
             </ControlsContainer>
         </>
     );
