@@ -9,6 +9,10 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.source.identity.corp_user_status import (
+    CORP_USER_STATUS_ACTIVE,
+    make_corp_user_status_aspect,
+)
 from datahub.metadata.schema_classes import (
     CorpUserEditableInfoClass,
     CorpUserInfoClass,
@@ -112,7 +116,7 @@ class CorpUser(ConfigModel):
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=str(self.urn),
                 aspect=CorpUserInfoClass(
-                    active=True,  # Deprecated, use CorpUserStatus instead.
+                    active=True,
                     displayName=self.display_name,
                     email=self.email,
                     title=self.title,
@@ -133,6 +137,11 @@ class CorpUser(ConfigModel):
                 aspect=group_membership,
             )
             yield mcp
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=self.urn,
+            aspect=make_corp_user_status_aspect(CORP_USER_STATUS_ACTIVE),
+        )
 
         # Finally emit status
         yield MetadataChangeProposalWrapper(

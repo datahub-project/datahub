@@ -756,14 +756,33 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "active": true,
             "displayName": "John Doe",
             "email": "john.doe@acryldata.io",
             "system": false
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:john.doe@acryldata.io",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1643893200000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643893200000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
