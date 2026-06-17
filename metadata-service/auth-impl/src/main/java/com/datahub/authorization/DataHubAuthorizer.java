@@ -6,6 +6,7 @@ import com.datahub.plugins.auth.authorization.ResourceSpecCachingAuthorizer;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -126,10 +127,23 @@ public class DataHubAuthorizer implements Authorizer, ResourceSpecCachingAuthori
             .collect(Collectors.toList());
 
     // 1. Fetch the policies relevant to the requested privilege.
-    final List<DataHubPolicyInfo> policiesToEvaluate =
-        new LinkedList<>(getOrDefault(request.getPrivilege(), new ArrayList<>()));
-    policiesToEvaluate.addAll(
-        PoliciesConfig.getDefaultPolicies(UrnUtils.getUrn(request.getActorUrn())));
+    final List<DataHubPolicyInfo> policiesToEvaluate = new LinkedList<>();
+    if (request.getActorPoliciesByPrivilege() != null) {
+      for (final RecordTemplate policy :
+          request
+              .getActorPoliciesByPrivilege()
+              .getOrDefault(request.getPrivilege(), Collections.emptyList())) {
+        policiesToEvaluate.add((DataHubPolicyInfo) policy);
+      }
+    } else {
+      policiesToEvaluate.addAll(getOrDefault(request.getPrivilege(), new ArrayList<>()));
+    }
+    for (final DataHubPolicyInfo defaultPolicy :
+        PoliciesConfig.getDefaultPolicies(UrnUtils.getUrn(request.getActorUrn()))) {
+      if (policiesToEvaluate.stream().noneMatch(existing -> existing == defaultPolicy)) {
+        policiesToEvaluate.add(defaultPolicy);
+      }
+    }
 
     // 2. Evaluate each policy.
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
