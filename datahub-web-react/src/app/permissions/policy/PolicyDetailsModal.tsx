@@ -13,6 +13,7 @@ import {
     mapResourceTypeToDisplayName,
 } from '@app/permissions/policy/policyUtils';
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
+import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -74,6 +75,10 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
     const { t } = useTranslation('settings.permissions');
     const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
+    const { data: ownershipData } = useOwnershipTypes();
+    const ownershipTypesMap = Object.fromEntries(
+        (ownershipData?.listOwnershipTypes?.ownershipTypes || []).map((ot) => [ot.urn, ot.info?.name]),
+    );
     const isGlossaryBasedPoliciesEnabled = useIsGlossaryBasedPoliciesEnabled();
 
     const isActive = policy?.state === PolicyState.Active;
@@ -260,6 +265,16 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                     <Typography.Title level={5}>{t('details.appliesToOwnersLabel')}</Typography.Title>
                     <ThinDivider />
                     {resourceOwnersField(policy?.actors)}
+                    {policy?.actors?.excludedResourceOwnersTypes?.length ? (
+                        <div style={{ marginTop: 8 }}>
+                            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                {t('details.excludedOwnershipTypesLabel')}{' '}
+                            </Typography.Text>
+                            {policy.actors.excludedResourceOwnersTypes.map((urn) => (
+                                <Tag key={urn}>{ownershipTypesMap[urn] || urn}</Tag>
+                            ))}
+                        </div>
+                    ) : null}
                 </div>
                 <div>
                     <Typography.Title level={5}>{t('details.appliesToUsersLabel')}</Typography.Title>
@@ -277,6 +292,18 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                     />
                     {policy?.actors?.allGroups ? <Tag>{t('allGroups')}</Tag> : null}
                 </div>
+                {policy?.actors?.excludedUsers?.length || policy?.actors?.excludedGroups?.length ? (
+                    <div>
+                        <Typography.Title level={5}>{t('details.excludedUsersGroupsLabel')}</Typography.Title>
+                        <ThinDivider />
+                        <AvatarsGroup
+                            users={policy?.actors?.resolvedExcludedUsers}
+                            groups={policy?.actors?.resolvedExcludedGroups}
+                            entityRegistry={entityRegistry}
+                            maxCount={50}
+                        />
+                    </div>
+                ) : null}
                 <div>
                     <Typography.Title level={5}>{t('details.appliesToRolesLabel')}</Typography.Title>
                     <ThinDivider />

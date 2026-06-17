@@ -613,3 +613,108 @@ def test_privilege_from_group_role_can_create_and_manage_secret():
 
     # Ensure user can't create secret after policy is removed
     _ensure_cant_perform_action(user_session, create_secret, "createSecret")
+
+
+def test_actor_exclusion_blocks_excluded_user():
+    """An excluded actor must be denied a privilege even when an allUsers ALLOW
+    policy would otherwise grant it. Removing the exclusion restores access,
+    proving the exclusion (not a missing grant) is what blocked the user."""
+    (admin_user, admin_pass) = get_admin_credentials()
+    admin_session = login_as(admin_user, admin_pass)
+    user_session = login_as(TEST_PRIVILEGES_USER_EMAIL, "user")
+    secret_urn = "urn:li:dataHubSecret:TestExclusionSecret"
+
+    create_secret = {
+        "query": """mutation createSecret($input: CreateSecretInput!) {\n
+            createSecret(input: $input)\n}""",
+        "variables": {
+            "input": {
+                "name": "TestExclusionSecret",
+                "value": "Test Secret Value",
+                "description": "Test Secret Description",
+            }
+        },
+    }
+
+    # Baseline: with no granting policy the user cannot create a secret.
+    _ensure_cant_perform_action(user_session, create_secret, "createSecret")
+
+    # Grant MANAGE_SECRETS to all users, but explicitly exclude the test user.
+    create_policy = {
+        "query": """mutation createPolicy($input: PolicyUpdateInput!) {
+            createPolicy(input: $input)
+        }""",
+        "variables": {
+            "input": {
+                "type": "PLATFORM",
+                "name": "Test Exclusion Policy",
+                "description": "Test Exclusion Policy Description",
+                "state": "ACTIVE",
+                "resources": {"filter": {"criteria": []}},
+                "privileges": ["MANAGE_SECRETS"],
+                "actors": {
+                    "users": [],
+                    "groups": None,
+                    "resourceOwners": False,
+                    "allUsers": True,
+                    "allGroups": False,
+                    "resourceOwnersTypes": None,
+                    "excludedUsers": [TEST_PRIVILEGES_USER_URN],
+                },
+            }
+        },
+    }
+    create_policy_response = admin_session.post(
+        f"{get_frontend_url()}/api/v2/graphql", json=create_policy
+    )
+    create_policy_response.raise_for_status()
+    policy_urn = create_policy_response.json()["data"]["createPolicy"]
+    assert policy_urn
+    wait_for_writes_to_sync()
+
+    # The exclusion must take precedence over the allUsers grant.
+    _ensure_cant_perform_action(user_session, create_secret, "createSecret")
+
+    # Drop the exclusion; the same allUsers grant should now apply to the user.
+    update_policy = {
+        "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
+            updatePolicy(urn: $urn, input: $input) }""",
+        "variables": {
+            "urn": policy_urn,
+            "input": {
+                "type": "PLATFORM",
+                "name": "Test Exclusion Policy",
+                "description": "Test Exclusion Policy Description",
+                "state": "ACTIVE",
+                "privileges": ["MANAGE_SECRETS"],
+                "actors": {
+                    "users": [],
+                    "groups": None,
+                    "resourceOwners": False,
+                    "allUsers": True,
+                    "allGroups": False,
+                    "resourceOwnersTypes": None,
+                    "excludedUsers": [],
+                },
+            },
+        },
+    }
+    update_policy_response = admin_session.post(
+        f"{get_frontend_url()}/api/v2/graphql", json=update_policy
+    )
+    update_policy_response.raise_for_status()
+    assert update_policy_response.json()["data"]["updatePolicy"] == policy_urn
+    wait_for_writes_to_sync()
+
+    _ensure_can_create_secret(user_session, create_secret, secret_urn)
+
+    # Cleanup: delete the secret and the policy.
+    remove_secret_mutation = {
+        "query": """mutation deleteSecret($urn: String!) {\n
+            deleteSecret(urn: $urn)\n}""",
+        "variables": {"urn": secret_urn},
+    }
+    user_session.post(
+        f"{get_frontend_url()}/api/v2/graphql", json=remove_secret_mutation
+    ).raise_for_status()
+    remove_policy(policy_urn, admin_session)
