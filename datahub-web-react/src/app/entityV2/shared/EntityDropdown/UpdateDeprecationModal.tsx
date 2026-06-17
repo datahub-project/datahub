@@ -21,12 +21,17 @@ import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { ResourceRefInput, SubResourceType } from '@types';
 
+type DeprecationModalResult = {
+    note?: string | null;
+    decommissionTime?: number | null;
+};
+
 type Props = {
     urns: string[];
     // if you need to provide context for subresources, resourceRefs should be provided and will take precedence over urns
     resourceRefs?: ResourceRefInput[];
     onClose: () => void;
-    refetch?: () => void;
+    refetch?: (result?: DeprecationModalResult) => void;
     zIndexOverride?: number;
 };
 
@@ -95,7 +100,10 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                 );
             }
         }
-        refetch?.();
+        refetch?.({
+            note: formData.note ?? null,
+            decommissionTime: formData.decommissionTime && formData.decommissionTime.unix() * 1000,
+        });
         handleClose();
     };
 

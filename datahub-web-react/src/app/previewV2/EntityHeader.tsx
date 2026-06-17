@@ -76,6 +76,7 @@ interface EntityHeaderProps {
     degree?: number;
     connectionName?: Maybe<string>;
     previewData?: GenericEntityProperties | null;
+    refetchDeprecation?: () => void;
 }
 
 const EntityHeader: React.FC<EntityHeaderProps> = ({
@@ -90,6 +91,7 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
     degree,
     connectionName,
     previewData,
+    refetchDeprecation,
 }) => {
     const { t } = useTranslation('entity.preview');
     const linkProps = useEmbeddedProfileLinkProps();
@@ -120,7 +122,13 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
                 </Tooltip>
             )}
             {deprecation?.deprecated && (
-                <DeprecationIcon urn={urn} deprecation={deprecation} showUndeprecate showText={false} />
+                <DeprecationIcon
+                    urn={urn}
+                    deprecation={deprecation}
+                    showUndeprecate
+                    showText={false}
+                    refetch={refetchDeprecation}
+                />
             )}
             {health && <HealthIcon urn={urn} health={health} baseUrl={url} />}
             <StructuredPropertyBadge structuredProperties={previewData?.structuredProperties} />
