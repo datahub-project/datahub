@@ -809,7 +809,6 @@ looker-sdk==25.20.0
     # via acryl-datahub
 lxml==5.4.0
     # via
-    #   pyodata
     #   redshift-connector
     #   unstructured
     #   zeep
@@ -1243,8 +1242,6 @@ pymysql==1.1.2
     # via
     #   acryl-datahub
     #   starrocks
-pyodata==1.11.2
-    # via acryl-datahub
 pyodbc==5.3.0
     # via acryl-datahub
 pyopenssl==26.0.0

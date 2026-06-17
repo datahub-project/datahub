@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
@@ -22,6 +23,7 @@ type Props = {
 };
 
 export const UserGroupSideBarSection = ({ groupsDetails }: Props) => {
+    const { t } = useTranslation('entity.shared.profile');
     const entityRegistry = useEntityRegistryV2();
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
 
@@ -33,7 +35,7 @@ export const UserGroupSideBarSection = ({ groupsDetails }: Props) => {
     const groupsDetailsCount = validGroups.length;
     return (
         <SidebarSection
-            title="Groups"
+            title={t('sidebar.groupsTitle')}
             content={
                 <>
                     <GroupsContainer>

@@ -128,6 +128,7 @@ include 'metadata-integration:java:examples'
 include 'mock-entity-registry'
 include 'metadata-service:services'
 include 'metadata-service:configuration'
+include 'metadata-service:rate-limit'
 include ':metadata-jobs:common'
 include ':metadata-operation-context'
 include ':metadata-service:openapi-servlet:models'
@@ -160,7 +161,13 @@ buildCache {
 def installPreCommitHooks() {
     if (System.getenv("CI") == "true") {
         println("Skipping pre-commit hooks in CI")
-        return 
+        return
+    }
+    // In a git worktree, .git is a file (not a directory) pointing to the main repo's worktrees dir.
+    // Pre-commit hooks only need to be installed once in the main worktree.
+    if (new File(rootDir, ".git").isFile()) {
+        println("Skipping pre-commit hooks in git worktree")
+        return
     }
     def preCommitInstalled = false
     try {

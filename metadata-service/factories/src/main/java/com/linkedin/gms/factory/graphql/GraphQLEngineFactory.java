@@ -31,6 +31,7 @@ import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.search.SemanticSearchService;
@@ -136,6 +137,10 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("gitVersion")
   private GitVersion gitVersion;
+
+  @Autowired
+  @Qualifier("ingestionCliVersionMatrixService")
+  private IngestionCliVersionMatrixService versionMatrixService;
 
   @Autowired
   @Qualifier("timelineService")
@@ -267,6 +272,7 @@ public class GraphQLEngineFactory {
     args.setSecretService(secretService);
     args.setNativeUserService(nativeUserService);
     args.setIngestionConfiguration(configProvider.getIngestion());
+    args.setIngestionCliVersionMatrixService(versionMatrixService);
     args.setAuthenticationConfiguration(configProvider.getAuthentication());
     args.setAuthorizationConfiguration(configProvider.getAuthorization());
     args.setGitVersion(gitVersion);

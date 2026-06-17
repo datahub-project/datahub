@@ -1,19 +1,19 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Empty, List, Select, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
 import { AddIncidentModal } from '@app/entity/shared/tabs/Incident/components/AddIncidentModal';
 import IncidentListItem from '@app/entity/shared/tabs/Incident/components/IncidentListItem';
 import { IncidentSummary } from '@app/entity/shared/tabs/Incident/components/IncidentSummary';
 import { IncidentsLoadingSection } from '@app/entity/shared/tabs/Incident/components/IncidentsLoadingSection';
 import {
-    INCIDENT_DISPLAY_STATES,
     PAGE_SIZE,
+    getIncidentDisplayStates,
     getIncidentsStatusSummary,
 } from '@app/entity/shared/tabs/Incident/incidentUtils';
 
@@ -21,7 +21,7 @@ import { useGetEntityIncidentsQuery } from '@graphql/incident.generated';
 import { EntityType, Incident, IncidentState } from '@types';
 
 const Header = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[3]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
 `;
 
@@ -51,8 +51,9 @@ const IncidentStateSelect = styled(Select)`
 `;
 
 export const IncidentTab = () => {
+    const { t } = useTranslation('entity.profile.incident');
     const { urn, entityType } = useEntityData();
-    const incidentStates = INCIDENT_DISPLAY_STATES;
+    const incidentStates = getIncidentDisplayStates();
     const [selectedIncidentState, setSelectedIncidentState] = useState<IncidentState | undefined>(IncidentState.Active);
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
 
@@ -80,7 +81,7 @@ export const IncidentTab = () => {
             <Header>
                 <TabToolbar>
                     <Button icon={<PlusOutlined />} onClick={() => setIsRaiseIncidentModalVisible(true)} type="text">
-                        Raise Incident
+                        {t('modal.title')}
                     </Button>
                     <AddIncidentModal
                         refetch={refetch}
@@ -114,9 +115,11 @@ export const IncidentTab = () => {
                         locale={{
                             emptyText: (
                                 <Empty
-                                    description={`No${
-                                        selectedIncidentState ? ` ${selectedIncidentState.toLocaleLowerCase()} ` : ''
-                                    } incidents`}
+                                    description={
+                                        selectedIncidentState
+                                            ? t('tab.emptyState', { state: selectedIncidentState.toLocaleLowerCase() })
+                                            : t('tab.emptyStateNoFilter')
+                                    }
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                                 />
                             ),

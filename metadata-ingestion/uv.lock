@@ -186,7 +186,6 @@ all = [
     { name = "pymetastore" },
     { name = "pymongo", extra = ["aws"] },
     { name = "pymysql" },
-    { name = "pyodata" },
     { name = "pyodbc" },
     { name = "pyopenssl" },
     { name = "pyspark" },
@@ -621,7 +620,6 @@ dev = [
     { name = "pymetastore" },
     { name = "pymongo", extra = ["aws"] },
     { name = "pymysql" },
-    { name = "pyodata" },
     { name = "pyodbc" },
     { name = "pyopenssl" },
     { name = "pyspark" },
@@ -815,7 +813,6 @@ docs = [
     { name = "pymetastore" },
     { name = "pymongo", extra = ["aws"] },
     { name = "pymysql" },
-    { name = "pyodata" },
     { name = "pyodbc" },
     { name = "pyopenssl" },
     { name = "pyspark" },
@@ -1550,7 +1547,6 @@ s3-slim = [
 ]
 sac = [
     { name = "authlib" },
-    { name = "pyodata" },
     { name = "requests" },
 ]
 sagemaker = [
@@ -1733,6 +1729,22 @@ thoughtspot = [
     { name = "sqlglot", extra = ["c"] },
     { name = "thoughtspot-rest-api" },
 ]
+tidb = [
+    { name = "acryl-datahub-classify" },
+    { name = "boto3" },
+    { name = "botocore" },
+    { name = "cachetools" },
+    { name = "greenlet" },
+    { name = "numpy" },
+    { name = "patchy" },
+    { name = "pip" },
+    { name = "pymysql" },
+    { name = "schwifty" },
+    { name = "sqlalchemy" },
+    { name = "sqlglot", extra = ["c"] },
+    { name = "sqlparse" },
+    { name = "urllib3" },
+]
 timescaledb = [
     { name = "acryl-datahub-classify" },
     { name = "boto3" },
@@ -1848,6 +1860,7 @@ requires-dist = [
     { name = "acryl-datahub-classify", marker = "extra == 'starburst-trino-usage'", specifier = "==0.0.11" },
     { name = "acryl-datahub-classify", marker = "extra == 'starrocks'", specifier = "==0.0.11" },
     { name = "acryl-datahub-classify", marker = "extra == 'teradata'", specifier = "==0.0.11" },
+    { name = "acryl-datahub-classify", marker = "extra == 'tidb'", specifier = "==0.0.11" },
     { name = "acryl-datahub-classify", marker = "extra == 'timescaledb'", specifier = "==0.0.11" },
     { name = "acryl-datahub-classify", marker = "extra == 'trino'", specifier = "==0.0.11" },
     { name = "acryl-datahub-classify", marker = "extra == 'unity-catalog'", specifier = "==0.0.11" },
@@ -1949,6 +1962,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 's3-slim'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'sagemaker'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'sql-queries'", specifier = ">=1.35.0,<2.0.0" },
+    { name = "boto3", marker = "extra == 'tidb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'timescaledb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'unstructured'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3-stubs", extras = ["dynamodb", "glue", "lakeformation", "s3", "sagemaker", "sts"], marker = "extra == 'dev'", specifier = "==1.40.0" },
@@ -1979,6 +1993,7 @@ requires-dist = [
     { name = "botocore", marker = "extra == 's3-slim'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'sagemaker'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'sql-queries'", specifier = "!=1.23.0,<2.0.0" },
+    { name = "botocore", marker = "extra == 'tidb'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'timescaledb'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'unstructured'", specifier = "!=1.23.0,<2.0.0" },
     { name = "build", marker = "extra == 'dev'", specifier = "<2.0.0" },
@@ -2041,6 +2056,7 @@ requires-dist = [
     { name = "cachetools", marker = "extra == 'starburst-trino-usage'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'starrocks'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'teradata'", specifier = "<6.0.0" },
+    { name = "cachetools", marker = "extra == 'tidb'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'timescaledb'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'trino'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'unity-catalog'", specifier = "<6.0.0" },
@@ -2292,6 +2308,7 @@ requires-dist = [
     { name = "greenlet", marker = "extra == 'starburst-trino-usage'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'starrocks'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'teradata'", specifier = "<4.0.0" },
+    { name = "greenlet", marker = "extra == 'tidb'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'timescaledb'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'trino'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'unity-catalog'", specifier = "<4.0.0" },
@@ -2467,6 +2484,7 @@ requires-dist = [
     { name = "numpy", marker = "extra == 'starburst-trino-usage'", specifier = "<2" },
     { name = "numpy", marker = "extra == 'starrocks'", specifier = "<2" },
     { name = "numpy", marker = "extra == 'teradata'", specifier = "<2" },
+    { name = "numpy", marker = "extra == 'tidb'", specifier = "<2" },
     { name = "numpy", marker = "extra == 'timescaledb'", specifier = "<2" },
     { name = "numpy", marker = "extra == 'trino'", specifier = "<2" },
     { name = "numpy", marker = "extra == 'unity-catalog'", specifier = "<2" },
@@ -2581,6 +2599,7 @@ requires-dist = [
     { name = "patchy", marker = "extra == 'tableau'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'teradata'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'thoughtspot'", specifier = "==2.8.0" },
+    { name = "patchy", marker = "extra == 'tidb'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'timescaledb'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'trino'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'unity-catalog'", specifier = "==2.8.0" },
@@ -2629,6 +2648,7 @@ requires-dist = [
     { name = "pip", marker = "extra == 'starburst-trino-usage'" },
     { name = "pip", marker = "extra == 'starrocks'" },
     { name = "pip", marker = "extra == 'teradata'" },
+    { name = "pip", marker = "extra == 'tidb'" },
     { name = "pip", marker = "extra == 'timescaledb'" },
     { name = "pip", marker = "extra == 'trino'" },
     { name = "pip", marker = "extra == 'unity-catalog'" },
@@ -2715,11 +2735,8 @@ requires-dist = [
     { name = "pymysql", marker = "extra == 'integration-tests'", specifier = ">=1.0.2,<2.0.0" },
     { name = "pymysql", marker = "extra == 'mariadb'", specifier = ">=1.0.2,<2.0.0" },
     { name = "pymysql", marker = "extra == 'mysql'", specifier = ">=1.0.2,<2.0.0" },
+    { name = "pymysql", marker = "extra == 'tidb'", specifier = ">=1.0.2,<2.0.0" },
     { name = "pymysql", marker = "extra == 'presto-on-hive'", specifier = ">=1.0.2,<2.0.0" },
-    { name = "pyodata", marker = "extra == 'all'", specifier = ">=1.11.1,<2.0.0" },
-    { name = "pyodata", marker = "extra == 'dev'", specifier = ">=1.11.1,<2.0.0" },
-    { name = "pyodata", marker = "extra == 'docs'", specifier = ">=1.11.1,<2.0.0" },
-    { name = "pyodata", marker = "extra == 'sac'", specifier = ">=1.11.1,<2.0.0" },
     { name = "pyodbc", marker = "extra == 'all'", specifier = ">=4.0,<6.0.0" },
     { name = "pyodbc", marker = "extra == 'db2'", specifier = "<6.0.0" },
     { name = "pyodbc", marker = "extra == 'dev'", specifier = "<6.0.0" },
@@ -2898,6 +2915,7 @@ requires-dist = [
     { name = "schwifty", marker = "extra == 'starburst-trino-usage'", specifier = "<2026.0.0" },
     { name = "schwifty", marker = "extra == 'starrocks'", specifier = "<2026.0.0" },
     { name = "schwifty", marker = "extra == 'teradata'", specifier = "<2026.0.0" },
+    { name = "schwifty", marker = "extra == 'tidb'", specifier = "<2026.0.0" },
     { name = "schwifty", marker = "extra == 'timescaledb'", specifier = "<2026.0.0" },
     { name = "schwifty", marker = "extra == 'trino'", specifier = "<2026.0.0" },
     { name = "schwifty", marker = "extra == 'unity-catalog'", specifier = "<2026.0.0" },
@@ -2994,6 +3012,7 @@ requires-dist = [
     { name = "sqlalchemy", marker = "extra == 'starburst-trino-usage'", specifier = ">=1.4.39,<2" },
     { name = "sqlalchemy", marker = "extra == 'starrocks'", specifier = ">=1.4.39,<2" },
     { name = "sqlalchemy", marker = "extra == 'teradata'", specifier = ">=1.4.39,<2" },
+    { name = "sqlalchemy", marker = "extra == 'tidb'", specifier = ">=1.4.39,<2" },
     { name = "sqlalchemy", marker = "extra == 'timescaledb'", specifier = ">=1.4.39,<2" },
     { name = "sqlalchemy", marker = "extra == 'trino'", specifier = ">=1.4.39,<2" },
     { name = "sqlalchemy", marker = "extra == 'unity-catalog'", specifier = ">=1.4.39,<2" },
@@ -3086,6 +3105,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'tableau'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'teradata'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'thoughtspot'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'tidb'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'timescaledb'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'trino'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'unity-catalog'", specifier = "==30.8.0" },
@@ -3132,6 +3152,7 @@ requires-dist = [
     { name = "sqlparse", marker = "extra == 'starburst-trino-usage'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'starrocks'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'teradata'", specifier = "<0.6.0" },
+    { name = "sqlparse", marker = "extra == 'tidb'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'timescaledb'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'trino'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'unity-catalog'", specifier = "<0.6.0" },
@@ -3291,6 +3312,7 @@ requires-dist = [
     { name = "urllib3", marker = "extra == 's3-slim'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'sagemaker'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'sql-queries'", specifier = ">=1.26,<3.0" },
+    { name = "urllib3", marker = "extra == 'tidb'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'timescaledb'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'unstructured'", specifier = ">=1.26,<3.0" },
     { name = "uvicorn", marker = "extra == 'datahub-lite'", specifier = "<0.41.0" },
@@ -3332,7 +3354,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"
@@ -10221,18 +10243,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f5/ae/1fe3fcd9f959efa0ebe200b8de88b5a5ce3e767e38c7ac32fb179f16a388/pymysql-1.1.2.tar.gz", hash = "sha256:4961d3e165614ae65014e361811a724e2044ad3ea3739de9903ae7c21f539f03", size = 48258, upload-time = "2025-08-24T12:55:55.146Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7c/4c/ad33b92b9864cbde84f259d5df035a6447f91891f5be77788e2a3892bce3/pymysql-1.1.2-py3-none-any.whl", hash = "sha256:e6b1d89711dd51f8f74b1631fe08f039e7d76cf67a42a323d3178f0f25762ed9", size = 45300, upload-time = "2025-08-24T12:55:53.394Z" },
-]
-
-[[package]]
-name = "pyodata"
-version = "1.11.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "lxml" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/19/b9/7e11aeafd60e027f08e98407a58e22a76560f31b1de76e822dee041b92fa/pyodata-1.11.2.tar.gz", hash = "sha256:87df4659cae1c4aff7426cf84dcaef875902495a506a3bd5231c6e3ee343c483", size = 70473, upload-time = "2025-04-26T15:22:59.358Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/05/75/7bfb86c18599a73648c52d6d4a982affe86a73fbcc9c94dcfb0ece2f26c5/pyodata-1.11.2-py3-none-any.whl", hash = "sha256:ca0daaba2d05a545ed91420749081c776497e26a3541b16153ee0d09d88167f2", size = 72434, upload-time = "2025-04-26T15:22:57.921Z" },
 ]
 
 [[package]]

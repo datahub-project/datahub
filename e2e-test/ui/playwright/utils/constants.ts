@@ -7,6 +7,7 @@ export function gmsUrl(baseUrl?: string): string {
 }
 
 export const DEFAULT_TIMEOUT = 30000;
+export const LONG_TIMEOUT = DEFAULT_TIMEOUT * 3;
 export const NETWORK_IDLE_TIMEOUT = 10000;
 export const WAIT_TIMEOUT = 10000;
 export const SHORT_TIMEOUT = 5000;

@@ -23,7 +23,6 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -92,28 +91,24 @@ public class UpdateIndicesService implements SearchIndicesService {
   @Override
   public void handleChangeEvents(
       @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
-    // Convert MetadataChangeLog events to MCLItem events
-    List<MCLItem> mclItems = new ArrayList<>();
-    for (MetadataChangeLog event : events) {
-      MCLItemImpl batch = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
-      mclItems.add(batch);
-    }
+    // Convert MetadataChangeLog events to MCLItems for batch processing
+    List<MCLItem> mclItems =
+        events.stream()
+            .map(event -> MCLItemImpl.builder().build(event, opContext.getAspectRetriever()))
+            .collect(Collectors.toList());
 
-    // Apply side effects to all events at once
-    Stream<MCLItem> sideEffects =
-        AspectsBatch.applyMCLSideEffects(mclItems, opContext.getRetrieverContext());
+    // Apply side effects to generate additional MCLItems
+    List<MCLItem> sideEffects =
+        AspectsBatch.applyMCLSideEffects(mclItems, opContext.getRetrieverContext())
+            .collect(Collectors.toList());
 
-    // Build combined collection of all events (original + side effects)
-    List<MCLItem> allEvents =
-        Stream.concat(mclItems.stream(), sideEffects).collect(Collectors.toList());
-
-    // Group all events by URN while preserving order
+    // Group events by URN for batch processing while preserving order. Cross-routing-key mixing
+    // is segregated upstream in the Kafka batch listener (see MCLBatchKafkaListener.consumeBatch),
+    // so every call to this method already arrives under a single routing identity — grouping by
+    // URN alone is sufficient here.
     LinkedHashMap<Urn, List<MCLItem>> groupedEvents =
-        UpdateIndicesUtil.groupEventsByUrn(allEvents.stream());
+        UpdateIndicesUtil.groupEventsByUrn(Stream.concat(mclItems.stream(), sideEffects.stream()));
 
-    // For optimized batch processing we simply process them here
-    // and rely on the handleSystemMetadataUpdateChangeEvents method below
-    // to process system metadata updates index
     for (UpdateIndicesStrategy strategy : updateStrategies) {
       if (strategy.isEnabled()) {
         strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
@@ -124,37 +119,34 @@ public class UpdateIndicesService implements SearchIndicesService {
     // recordWrite can race with another strategy's shouldThrottle on the same event.
     recordThrottleWrites(groupedEvents);
 
-    // Process each group of events for the same URN
+    // Process each group of events for the same URN together
     for (List<MCLItem> urnEvents : groupedEvents.values()) {
       // Process update events
       List<MCLItem> updateEvents =
           urnEvents.stream()
-              .filter(
-                  event ->
-                      UPDATE_CHANGE_TYPES.contains(event.getMetadataChangeLog().getChangeType()))
+              .filter(e -> UPDATE_CHANGE_TYPES.contains(e.getMetadataChangeLog().getChangeType()))
               .collect(Collectors.toList());
 
       if (!updateEvents.isEmpty()) {
-        // Update graph indices for update events
+        // Update graph indices for each event individually for now
         for (MCLItem event : updateEvents) {
           updateGraphIndicesService.handleChangeEvent(opContext, event.getMetadataChangeLog());
         }
 
-        // Process system metadata updates
-        handleSystemMetadataUpdateChangeEvents(opContext, updateEvents);
+        handleSystemMetadataUpdateChangeEvents(updateEvents);
       }
 
       // Process delete events
       List<MCLItem> deleteEvents =
           urnEvents.stream()
-              .filter(event -> event.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
+              .filter(e -> e.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
               .collect(Collectors.toList());
 
       for (MCLItem deleteEvent : deleteEvents) {
         Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(deleteEvent);
         boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
 
-        // graph update
+        // graph update first
         updateGraphIndicesService.handleChangeEvent(opContext, deleteEvent.getMetadataChangeLog());
 
         // system metadata is last for tracing
@@ -167,12 +159,9 @@ public class UpdateIndicesService implements SearchIndicesService {
    * Handles system metadata updates for a collection of update change events. This method processes
    * system metadata separately for tracing purposes.
    *
-   * @param opContext the operation context
    * @param events the collection of update events
    */
-  private void handleSystemMetadataUpdateChangeEvents(
-      @Nonnull OperationContext opContext, @Nonnull final Collection<MCLItem> events) {
-
+  private void handleSystemMetadataUpdateChangeEvents(@Nonnull final Collection<MCLItem> events) {
     if (events.isEmpty()) {
       return;
     }

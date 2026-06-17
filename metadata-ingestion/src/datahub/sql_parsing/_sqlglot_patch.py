@@ -8,7 +8,6 @@ import sqlglot
 import sqlglot.expressions
 import sqlglot.lineage
 import sqlglot.optimizer.scope
-import sqlglot.optimizer.unnest_subqueries
 
 from datahub.utilities.is_pytest import is_pytest_running
 from datahub.utilities.unified_diff import apply_diff
@@ -117,39 +116,6 @@ def _patch_scope_traverse() -> None:
     sqlglot.optimizer.scope.Scope.traverse = _traverse_with_cycle_detection  # type: ignore
 
 
-def _patch_unnest_subqueries() -> None:
-    patchy.patch(
-        sqlglot.optimizer.unnest_subqueries.decorrelate,
-        """\
-@@ -148,16 +148,19 @@
-         if key in group_by:
-             key.replace(nested)
-         elif isinstance(predicate, exp.EQ):
--            parent_predicate = _replace(
--                parent_predicate,
--                f"({parent_predicate} AND ARRAY_CONTAINS({nested}, {column}))",
--            )
-+            if parent_predicate:
-+                parent_predicate = _replace(
-+                    parent_predicate,
-+                    f"({parent_predicate} AND ARRAY_CONTAINS({nested}, {column}))",
-+                )
-         else:
-             key.replace(exp.to_identifier("_x"))
--            parent_predicate = _replace(
--                parent_predicate,
--                f"({parent_predicate} AND ARRAY_ANY({nested}, _x -> {predicate}))",
--            )
-+
-+            if parent_predicate:
-+                parent_predicate = _replace(
-+                    parent_predicate,
-+                    f"({parent_predicate} AND ARRAY_ANY({nested}, _x -> {predicate}))",
-+                )
-""",
-    )
-
-
 def _patch_lineage() -> None:
     import importlib.util
     import os
@@ -182,20 +148,6 @@ def _patch_lineage() -> None:
 
     lineage_py.Node = Node  # type: ignore
     sqlglot.lineage.Node = Node  # type: ignore
-
-    patchy.patch(
-        lineage_py.lineage,
-        """\
-@@ -68,4 +68,6 @@
-     if column is not None:
--        column_name = normalize_identifiers.normalize_identifiers(column, dialect=dialect).name
-+        # column_name = normalize_identifiers.normalize_identifiers(column, dialect=dialect).name
-+        assert isinstance(column, str)
-+        column_name = column
-         if not any(select.alias_or_name == column_name for select in selectable.selects):
-             raise SqlglotError(f"Cannot find column '{column_name}' in query.")
-""",
-    )
 
     # Patch 1: Change set to list for source_columns (preserve column order)
     patchy.patch(
@@ -255,7 +207,6 @@ def _patch_lineage() -> None:
 
 sqlglot.expressions.Expression.__deepcopy__ = _deepcopy_wrapper  # type: ignore
 _patch_scope_traverse()
-_patch_unnest_subqueries()
 _patch_lineage()
 
 SQLGLOT_PATCHED = True

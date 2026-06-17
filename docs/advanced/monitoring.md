@@ -38,6 +38,12 @@ DataHub's observability strategy consists of two complementary approaches:
    - Application Metrics: Cache hit rates, queue depths, processing times
    - Business Metrics: Entity counts, ingestion rates, search performance
 
+### GMS HTTP service rate limiting metrics
+
+When [GMS HTTP service rate limiting](../deploy/gms-rate-limiting.md) is active (`capacity.enabled` and/or `endpoint.enabled`), scrape `gms.rate_limit.requests`, `gms.rate_limit.adaptive.limit`, and `gms.rate_limit.endpoint.remaining` to alert on sustained denials or exhausted auth-path buckets. Adaptive capacity metrics are tagged by `rule_id` — each tag is an independent in-flight pool; sum inflight across rules to estimate total pod load. Use `GET /openapi/v1/rate-limits/status` for live per-pod state (`capacityEnabled`, `endpointEnabled`, per-rule adaptive/endpoint maps) during incidents.
+
+These metrics are **not** MCP ingestion throttle or Kafka lag backpressure — for pipeline-side 429s and consumer lag, use MCP throttle settings (`MCP_*` env vars) and `/openapi/operations/throttle/*` instead.
+
 2. Distributed Tracing
 
    **Purpose:** Track individual requests as they flow through multiple services and components
@@ -716,6 +722,28 @@ datahub:
 ```
 
 Default buckets (1MB, 5MB, 10MB, 15MB) create ranges: 0-1MB, 1MB-5MB, 5MB-10MB, 10MB-15MB, 15MB+
+
+## Primary storage read pool metrics
+
+When [primary storage read pools](../deploy/primary-storage-read-pool.md) are enabled on GMS,
+Micrometer counters track which pool served each resolution:
+
+| Metric                                     | Tags                                                                          | Meaning                                                              |
+| ------------------------------------------ | ----------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `primary_storage_target_used`              | `target` (`PRIMARY` \| `READ`), `store` (`ebean` \| `cassandra`), `forUpdate` | Pool chosen for a resolver call                                      |
+| `primary_storage_read_fallback_to_primary` | `store`                                                                       | READ preference requested but no read pool registered — used PRIMARY |
+
+Example PromQL:
+
+```promql
+# Share of aspect reads using the read pool (non-locking only)
+sum(rate(primary_storage_target_used_total{target="READ",forUpdate="false"}[5m]))
+  /
+sum(rate(primary_storage_target_used_total{forUpdate="false"}[5m]))
+
+# Fallbacks — should stay near zero when read pool is enabled
+rate(primary_storage_read_fallback_to_primary_total[5m])
+```
 
 ## Cache Monitoring (Micrometer)
 

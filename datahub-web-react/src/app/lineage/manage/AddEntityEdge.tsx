@@ -13,6 +13,9 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType } from '@types';
 
+// AutoComplete option discriminator for the loading state — programmatic value, not user-visible.
+const LOADING_OPTION_VALUE = 'loading';
+
 const AddEdgeWrapper = styled.div`
     padding: 15px 20px;
     display: flex;
@@ -153,7 +156,7 @@ export default function AddEntityEdge({
                 notFoundContent={(queryText.length > 3 && <Empty description={t('add.noAssetsFound')} />) || undefined}
             >
                 {loading && (
-                    <AutoComplete.Option value="loading">
+                    <AutoComplete.Option value={LOADING_OPTION_VALUE}>
                         <LoadingWrapper>
                             <LoadingOutlined />
                         </LoadingWrapper>

@@ -124,7 +124,7 @@ export default function UserProfile({ urn }: Props) {
     const getTabs = () => {
         return [
             {
-                name: TabType.Assets,
+                name: t('user.tab.ownerOf'),
                 path: TabType.Assets.toLocaleLowerCase(),
                 content: <UserAssets urn={urn} />,
                 display: {
@@ -132,14 +132,14 @@ export default function UserProfile({ urn }: Props) {
                 },
             },
             {
-                name: TabType.Groups,
+                name: t('user.tab.groups'),
                 path: TabType.Groups.toLocaleLowerCase(),
                 content: <UserGroups urn={urn} initialRelationships={userGroups} pageSize={GROUP_PAGE_SIZE} />,
                 display: {
                     enabled: () => userGroups?.length > 0,
                 },
             },
-        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+        ].filter((tab) => ENABLED_TAB_TYPES.some((tabType) => tabType.toLocaleLowerCase() === tab.path));
     };
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
     const onTabChange = () => null;

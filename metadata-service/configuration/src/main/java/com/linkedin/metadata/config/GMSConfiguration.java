@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config;
 
+import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import lombok.Data;
 
 /** POJO representing the "datahub.gms" configuration block in application.yaml. */
@@ -34,6 +35,12 @@ public class GMSConfiguration {
 
   /** SSL context protocol */
   private String sslContext;
+
+  /**
+   * GMS HTTP service rate limiting (GraphQL, OpenAPI, Rest.li, /auth/*). Not MCP ingestion or Kafka
+   * lag throttle.
+   */
+  private RateLimitProperties rateLimits;
 
   @Data
   public static class TruststoreConfiguration {
