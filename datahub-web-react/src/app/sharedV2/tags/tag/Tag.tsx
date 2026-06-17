@@ -35,6 +35,18 @@ const StyledHighlight = styled(Highlight)<{ $maxWidth?: number }>`
     max-width: ${(props) => (props.$maxWidth ? `${props.$maxWidth}px` : '120px')};
 `;
 
+// The DeprecationIcon renders a 16x16 SVG by default. Inside a tag pill it sits next to the
+// 12px PillRemoveIcon (X), so we constrain its SVG size to match for visual balance. Popover
+// content is portalled to document.body, so this selector only affects the inline trigger SVG.
+const PillDeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
+`;
+
 interface Props {
     tag: TagAssociation;
     entityUrn?: string;
@@ -150,12 +162,14 @@ export default function Tag({
                         dataTestId={`tag-${displayName}-pill`}
                         rightAdornment={
                             tag.tag.deprecation && tag.tag.deprecation.deprecated ? (
-                                <DeprecationIcon
-                                    urn={tag.tag.urn}
-                                    deprecation={tag.tag.deprecation}
-                                    showUndeprecate={false}
-                                    showText={false}
-                                />
+                                <PillDeprecationSlot>
+                                    <DeprecationIcon
+                                        urn={tag.tag.urn}
+                                        deprecation={tag.tag.deprecation}
+                                        showUndeprecate={false}
+                                        showText={false}
+                                    />
+                                </PillDeprecationSlot>
                             ) : undefined
                         }
                         onRemove={

@@ -17,10 +17,10 @@ import { ExpandedOwner } from '@app/entity/shared/components/styled/ExpandedOwne
 import { GetSearchResultsParams, SearchResultInterface } from '@app/entity/shared/components/styled/search/types';
 import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
 import { EditOwnersModal } from '@app/entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
 import { generateOrFilters } from '@app/search/utils/generateOrFilters';
 import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
-import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import CopyUrn from '@app/shared/CopyUrn';
 import { ErrorSection } from '@app/shared/error/ErrorSection';
 import { useEntityRegistry } from '@app/useEntityRegistry';

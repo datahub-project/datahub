@@ -4,7 +4,6 @@ import { ThemeProvider } from 'styled-components';
 
 import { TagNameColumn } from '@app/tags/TagsTableColumns';
 import themeV2 from '@conf/theme/themeV2';
-
 import { useGetTagQuery } from '@src/graphql/tag.generated';
 
 vi.mock('@src/graphql/tag.generated', () => ({

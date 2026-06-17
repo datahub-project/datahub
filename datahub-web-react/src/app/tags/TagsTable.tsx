@@ -5,8 +5,8 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ManageTag } from '@app/tags/ManageTag';
 import { UpdateDeprecationModal } from '@app/entity/shared/EntityDropdown/UpdateDeprecationModal';
+import { ManageTag } from '@app/tags/ManageTag';
 import {
     TagActionsColumn,
     TagAppliedToColumn,
@@ -55,8 +55,8 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
 
     const handleDeprecationComplete = useCallback(() => {
         refetch();
-        client.refetchQueries({ include: [{ query: GetTagDocument, variables: { urn: deprecationTagUrn } }] });
-    }, [client, deprecationTagUrn, refetch]);
+        client.refetchQueries({ include: [GetTagDocument] });
+    }, [client, refetch]);
 
     // Simplified state for delete confirmation modal
     const [showDeleteModal, setShowDeleteModal] = useState(false);

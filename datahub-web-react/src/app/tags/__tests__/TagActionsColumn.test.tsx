@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { TagActionsColumn } from '@app/tags/TagsTableColumns';
 import themeV2 from '@conf/theme/themeV2';
-
 import { useGetTagQuery } from '@src/graphql/tag.generated';
 
 // Mock Apollo hooks so no ApolloProvider is needed
@@ -45,7 +44,6 @@ vi.mock('@components', async (importOriginal) => {
         Text: (props: any) => <p {...props} />,
     };
 });
-
 
 const TAG_URN = 'urn:li:tag:TestTag';
 
