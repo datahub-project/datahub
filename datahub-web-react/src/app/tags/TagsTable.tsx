@@ -1,4 +1,4 @@
-import { NetworkStatus } from '@apollo/client';
+import { NetworkStatus, useApolloClient } from '@apollo/client';
 import { Modal, Table } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -20,7 +20,7 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
 
-import { useDeleteTagMutation } from '@graphql/tag.generated';
+import { GetTagDocument, useDeleteTagMutation } from '@graphql/tag.generated';
 
 interface Props {
     searchQuery: string;
@@ -36,6 +36,7 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
     const { t: tl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
+    const client = useApolloClient();
     const [deleteTagMutation] = useDeleteTagMutation();
 
     // Check if user has permission to manage or delete tags
@@ -51,6 +52,11 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
 
     const [showDeprecationModal, setShowDeprecationModal] = useState(false);
     const [deprecationTagUrn, setDeprecationTagUrn] = useState('');
+
+    const handleDeprecationComplete = useCallback(() => {
+        refetch();
+        client.refetchQueries({ include: [{ query: GetTagDocument, variables: { urn: deprecationTagUrn } }] });
+    }, [client, deprecationTagUrn, refetch]);
 
     // Simplified state for delete confirmation modal
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -231,7 +237,7 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                 <UpdateDeprecationModal
                     urns={[deprecationTagUrn]}
                     onClose={() => setShowDeprecationModal(false)}
-                    refetch={refetch}
+                    refetch={handleDeprecationComplete}
                 />
             )}
 
