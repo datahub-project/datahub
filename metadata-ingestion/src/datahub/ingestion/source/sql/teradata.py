@@ -1546,6 +1546,19 @@ ORDER by DataBaseName, TableName;
                 self.config.profiling.profile_table_size_limit,
             )
 
+        # profile_if_updated_since_days has no effect on Teradata: candidate
+        # selection is size-based only (see generate_profile_candidates), so warn
+        # rather than let users assume freshness filtering is applied.
+        if (
+            self.config.is_profiling_enabled()
+            and self.config.profiling.profile_if_updated_since_days is not None
+        ):
+            logger.warning(
+                "Teradata profiling does not support profile_if_updated_since_days "
+                "(freshness filtering); this setting will be ignored. Tables are "
+                "selected for profiling by size only (profile_table_size_limit)."
+            )
+
         if self.config.include_tables or self.config.include_views:
             with self.report.new_stage("Table and view discovery"):
                 self.cache_tables_and_views()
