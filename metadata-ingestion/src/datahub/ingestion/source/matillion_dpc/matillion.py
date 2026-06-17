@@ -56,7 +56,9 @@ from datahub.ingestion.source.matillion_dpc.matillion_utils import (
     MatillionUrnBuilder,
     build_data_job_custom_properties,
     extract_base_pipeline_name,
+    extract_folder_segments,
     make_dataset_urn_from_matillion_dataset,
+    make_execution_dpi_urn,
     make_step_dpi_urn,
     match_pipeline_name,
     parse_iso_timestamp,
@@ -82,8 +84,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    BrowsePathEntryClass,
-    BrowsePathsV2Class,
     DataJobInputOutputClass,
     DataProcessInstancePropertiesClass,
     DataProcessInstanceRelationshipsClass,
@@ -152,11 +152,16 @@ class MatillionSource(StatefulIngestionSourceBase):
         self._schedules_cache: Dict[str, list] = {}
         self._lineage_events_cache: Optional[List[Dict]] = None
 
-        # (project_id, full pipeline path) -> environment name. Lets lineage reuse a
-        # discovered pipeline's DataFlow URN. The lineage namespace's environment is
-        # an opaque UUID that no API maps back to the name, so reconciliation ignores
-        # it and keys on the path, which lineage and discovery both report identically.
+        # (project_id, full pipeline path) -> environment name. Lets lineage nest a job
+        # under the right environment. The lineage namespace's environment is an opaque
+        # UUID that no API maps back to the name, so this is sourced from published
+        # pipelines and from executions (which report the environment name), keyed on the
+        # path, which lineage, discovery, and executions all report identically.
         self._discovered_env_by_path: Dict[Tuple[str, str], str] = {}
+
+        # DataFlow URNs already emitted by discovery, so lineage can reuse a published
+        # pipeline's flow (with its richer properties) instead of re-emitting it.
+        self._emitted_flow_urns: set[str] = set()
 
         self.lineage_start_time: Optional[datetime] = None
         self.lineage_end_time: Optional[datetime] = None
@@ -261,12 +266,28 @@ class MatillionSource(StatefulIngestionSourceBase):
             )
             return []
 
+    def _record_execution_environments(
+        self, executions: List[MatillionPipelineExecution]
+    ) -> None:
+        # Executions report the environment name and full pipeline path, so they let
+        # lineage resolve an environment for pipelines that are not published.
+        for execution in executions:
+            if not execution.project_id or not execution.pipeline_name:
+                continue
+            env_name = execution.environment_name
+            if not env_name or not self.config.environment_patterns.allowed(env_name):
+                continue
+            self._discovered_env_by_path[
+                (execution.project_id, execution.pipeline_name)
+            ] = env_name
+
     def _group_executions_for_discovery(
         self,
     ) -> Dict[PipelineGroupKey, List[MatillionPipelineExecution]]:
         all_executions = self._discover_executions()
         self.report.executions_scanned += len(all_executions)
         logger.info(f"Found {len(all_executions)} total executions")
+        self._record_execution_environments(all_executions)
 
         pipeline_groups: Dict[PipelineGroupKey, List[MatillionPipelineExecution]] = (
             defaultdict(list)
@@ -303,6 +324,7 @@ class MatillionSource(StatefulIngestionSourceBase):
         # pipeline directly; executions without a published match are dropped.
         all_executions = self._discover_executions()
         self.report.executions_scanned += len(all_executions)
+        self._record_execution_environments(all_executions)
         for execution in all_executions:
             if not execution.project_id or not execution.pipeline_name:
                 continue
@@ -330,8 +352,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             self._projects_cache[project.id] = project
             self.container_handler.register_project(project)
 
-            if self.config.extract_projects_to_containers:
-                yield from self.container_handler.emit_project_container(project)
+            yield from self.container_handler.emit_project_container(project)
 
             self.report.report_api_call()
             environments = self.api_client.get_environments(project.id)
@@ -343,10 +364,9 @@ class MatillionSource(StatefulIngestionSourceBase):
                     continue
 
                 self._environments_cache[env.name] = env
-                if self.config.extract_projects_to_containers:
-                    yield from self.container_handler.emit_environment_container(
-                        env, project
-                    )
+                yield from self.container_handler.emit_environment_container(
+                    env, project
+                )
 
                 self.report.report_api_call()
                 published_pipelines = self.api_client.get_pipelines(
@@ -411,10 +431,9 @@ class MatillionSource(StatefulIngestionSourceBase):
                     )
                     self._environments_cache[env_name] = environment
 
-                    if self.config.extract_projects_to_containers:
-                        yield from self.container_handler.emit_environment_container(
-                            environment, project
-                        )
+                    yield from self.container_handler.emit_environment_container(
+                        environment, project
+                    )
                     self.report.report_environments_scanned(1)
 
             published_pipeline = None
@@ -478,7 +497,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             platform=MATILLION_PLATFORM,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            display_name=pipeline_name,
+            display_name=extract_base_pipeline_name(pipeline_name),
             external_url=external_url,
             custom_properties=custom_properties,
             subtype=FlowContainerSubTypes.MATILLION_PIPELINE,
@@ -491,11 +510,14 @@ class MatillionSource(StatefulIngestionSourceBase):
 
         yield from dataflow.as_workunits()
         pipeline_urn = str(dataflow.urn)
+        self._emitted_flow_urns.add(pipeline_urn)
 
-        if self.config.extract_projects_to_containers:
-            yield from self.container_handler.add_pipeline_to_container(
-                pipeline_urn, project, environment=environment
-            )
+        yield from self.container_handler.add_pipeline_to_container(
+            pipeline_urn,
+            project,
+            environment=environment,
+            folder_segments=extract_folder_segments(pipeline_name),
+        )
 
         self.report.report_pipelines_emitted()
         logger.debug(f"Emitted DataFlow for pipeline: {pipeline_name}")
@@ -549,6 +571,11 @@ class MatillionSource(StatefulIngestionSourceBase):
         )
 
         for exec_with_steps in executions_with_steps:
+            # Pipeline-level run so the DataFlow's "Runs" tab is populated, mirroring
+            # how DAG-level runs surface on the pipeline (not just on its components).
+            yield from self._generate_execution_dpi(
+                exec_with_steps.execution, pipeline, pipeline_urn, project
+            )
             for step in exec_with_steps.steps:
                 yield from self._generate_step_dpi(
                     step,
@@ -818,16 +845,15 @@ class MatillionSource(StatefulIngestionSourceBase):
 
         display_name = extract_base_pipeline_name(full_path)
 
-        # Reuse the discovered pipeline's DataFlow URN when the path matches, so the
-        # component lands under the foldered pipeline rather than a bare-named flow.
+        # Without a resolved environment we cannot nest the job, so skip it rather
+        # than float a flow under the bare project.
         env_name = self._discovered_env_by_path.get((project.id, full_path))
-        environment = (
-            self._environments_cache.get(env_name) if env_name is not None else None
-        )
-        if env_name is not None:
-            flow_name = f"{project.id}.{env_name}.{full_path}"
-        else:
-            flow_name = f"{project.id}.{full_path}"
+        if env_name is None:
+            self.report.lineage_jobs_skipped_no_environment += 1
+            return
+
+        environment = self._environments_cache.get(env_name)
+        flow_name = f"{project.id}.{env_name}.{full_path}"
 
         dataflow = DataFlow(
             name=flow_name,
@@ -847,16 +873,25 @@ class MatillionSource(StatefulIngestionSourceBase):
         )
         pipeline_urn = str(dataflow.urn)
 
-        # Discovery already emitted the DataFlow and container membership for a
-        # matched pipeline; only mint the flow when there is no discovered pipeline.
-        if env_name is None:
+        # A pipeline not already emitted by discovery is a dependent (child) pipeline
+        # pulled in purely via lineage events. Skip it entirely when the user opts out.
+        is_dependent = pipeline_urn not in self._emitted_flow_urns
+        if is_dependent and not self.config.include_dependent_pipelines:
+            self.report.lineage_dependent_pipelines_skipped += 1
+            return
+
+        # Reuse the discovered pipeline's flow (with its richer published properties)
+        # when discovery already emitted it; otherwise mint it here, nested under the
+        # resolved environment.
+        if is_dependent:
             yield from dataflow.as_workunits()
-            if self.config.extract_projects_to_containers:
-                self.container_handler.register_project(project)
-                yield from self.container_handler.emit_project_container(project)
-                yield from self.container_handler.add_pipeline_to_container(
-                    pipeline_urn, project
-                )
+            self._emitted_flow_urns.add(pipeline_urn)
+            yield from self.container_handler.add_pipeline_to_container(
+                pipeline_urn,
+                project,
+                environment=environment,
+                folder_segments=extract_folder_segments(full_path),
+            )
 
         datajob = DataJob(
             name=flow_name,
@@ -869,7 +904,7 @@ class MatillionSource(StatefulIngestionSourceBase):
         data_job_urn = str(datajob.urn)
 
         yield from self._emit_data_job_browse_path(
-            data_job_urn, pipeline_urn, project, environment
+            data_job_urn, pipeline_urn, full_path, project, environment
         )
 
         yield MetadataChangeProposalWrapper(
@@ -1036,32 +1071,17 @@ class MatillionSource(StatefulIngestionSourceBase):
         self,
         data_job_urn: str,
         pipeline_urn: str,
+        pipeline_path: str,
         project: MatillionProject,
         environment: Optional[MatillionEnvironment],
     ) -> Iterable[MetadataWorkUnit]:
-        if not self.config.extract_projects_to_containers:
-            return
-
-        # Note: auto_browse_path_v2 processor will prepend platform instance if configured
-        path_elements = []
-
-        project_urn = self.container_handler.get_project_container_urn(project)
-        path_elements.append(BrowsePathEntryClass(id=project_urn, urn=project_urn))
-
-        if environment:
-            env_urn = self.container_handler.get_environment_container_urn(
-                environment, project
-            )
-            path_elements.append(BrowsePathEntryClass(id=env_urn, urn=env_urn))
-
-        path_elements.append(BrowsePathEntryClass(id=pipeline_urn, urn=pipeline_urn))
-        path_elements.append(BrowsePathEntryClass(id=data_job_urn, urn=data_job_urn))
-
-        browse_path = BrowsePathsV2Class(path=path_elements)
-        yield MetadataChangeProposalWrapper(
-            entityUrn=data_job_urn,
-            aspect=browse_path,
-        ).as_workunit()
+        yield from self.container_handler.add_data_job_to_container(
+            data_job_urn,
+            pipeline_urn,
+            project,
+            environment=environment,
+            folder_segments=extract_folder_segments(pipeline_path),
+        )
 
     def _fetch_steps_for_pipeline(
         self,
@@ -1138,7 +1158,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             yield from datajob.as_workunits()
 
             yield from self._emit_data_job_browse_path(
-                data_job_urn.urn(), pipeline_urn, project, environment
+                data_job_urn.urn(), pipeline_urn, pipeline.name, project, environment
             )
 
             yield from self._emit_step_input_output(
@@ -1469,6 +1489,81 @@ class MatillionSource(StatefulIngestionSourceBase):
             logger.debug(f"Emitted DPI for step '{step.name}' execution {exec_id[:8]}")
         except (ValueError, AttributeError) as e:
             logger.warning(f"Failed to parse timestamp for step {step.name}: {e}")
+
+    def _generate_execution_dpi(
+        self,
+        execution: MatillionPipelineExecution,
+        pipeline: MatillionPipeline,
+        pipeline_urn: str,
+        project: MatillionProject,
+    ) -> Iterable[MetadataWorkUnit]:
+        exec_id = execution.pipeline_execution_id
+        dpi_urn = make_execution_dpi_urn(
+            self.config, project.id, pipeline.name, exec_id
+        )
+
+        custom_properties = {
+            "execution_id": exec_id,
+            "pipeline_name": pipeline.name,
+            "status": execution.status,
+        }
+        if execution.environment_name:
+            custom_properties["environment_name"] = execution.environment_name
+        if execution.project_id:
+            custom_properties["project_id"] = execution.project_id
+        if execution.started_at:
+            custom_properties["started_at"] = execution.started_at.isoformat()
+        if execution.finished_at:
+            custom_properties["finished_at"] = execution.finished_at.isoformat()
+
+        created_timestamp = (
+            int(execution.started_at.timestamp() * 1000) if execution.started_at else 0
+        )
+
+        properties = DataProcessInstancePropertiesClass(
+            name=f"{pipeline.name}-{exec_id[:8]}",
+            created=AuditStampClass(
+                time=created_timestamp,
+                actor="urn:li:corpuser:datahub",
+            ),
+            type=DPI_TYPE_BATCH_SCHEDULED
+            if execution.trigger == MATILLION_TRIGGER_SCHEDULE
+            else DPI_TYPE_BATCH_AD_HOC,
+            externalUrl=MATILLION_DPI_OBSERVABILITY_URL.format(execution_id=exec_id),
+            customProperties=custom_properties,
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dpi_urn,
+            aspect=properties,
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dpi_urn,
+            aspect=DataProcessInstanceRelationshipsClass(
+                upstreamInstances=[],
+                parentTemplate=pipeline_urn,
+            ),
+        ).as_workunit()
+
+        if not execution.finished_at:
+            return
+
+        finished_timestamp = int(execution.finished_at.timestamp() * 1000)
+        result_type = MATILLION_TO_DATAHUB_RESULT_TYPE.get(
+            execution.status, RunResultTypeClass.SKIPPED
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dpi_urn,
+            aspect=DataProcessInstanceRunEventClass(
+                timestampMillis=finished_timestamp,
+                status=DataProcessRunStatusClass.COMPLETE,
+                result=DataProcessInstanceRunResultClass(
+                    type=result_type,
+                    nativeResultType=execution.status,
+                ),
+            ),
+        ).as_workunit()
+        self.report.report_pipeline_executions_emitted()
 
     def _generate_step_dpi(
         self,

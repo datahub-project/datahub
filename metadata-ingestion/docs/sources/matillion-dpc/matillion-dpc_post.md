@@ -34,6 +34,24 @@ Enable `parse_sql_for_lineage: true` to parse SQL queries from OpenLineage event
 
 **Postgres / Redshift:** 3-tier naming (`database.schema.table`). Set both `database` and `schema`
 
+#### Container Hierarchy
+
+Pipelines and their components are organized into a browsable container hierarchy that mirrors their
+path in Matillion:
+
+```
+Project › Environment › <folder> › … › Pipeline › Component
+```
+
+The folder levels come from the pipeline's path (e.g. `ingest/staging/orders/load.orch.yaml`
+yields `ingest › staging › orders` folders), so the browse tree lines up with the paths
+you match on in `pipeline_patterns`. Components (DataJobs) live in their pipeline's folder and browse
+directly under the pipeline.
+
+The environment and folder levels are always built. `extract_projects_to_containers` (default `true`)
+only controls whether the top-level **Project** container is added to the hierarchy; set it to `false`
+to hang environments (and their folders) directly at the root instead of under a project.
+
 #### Filtering Options
 
 The connector supports flexible regex-based filtering to control what metadata is ingested.
@@ -82,6 +100,14 @@ The connector automatically detects and tracks when pipelines call other pipelin
 
 No configuration needed — this feature is automatic when execution history is ingested.
 
+Child pipelines that only appear in lineage events (and were not discovered as project pipelines themselves) are, by default, created as their own DataFlows/DataJobs so the full dependency graph is captured. To suppress these lineage-only dependencies and keep ingestion scoped to discovered pipelines, disable:
+
+```yaml
+include_dependent_pipelines: false
+```
+
+Lineage is still emitted for discovered pipelines when this is disabled — only the lineage-only dependent pipelines are skipped.
+
 #### Published vs Unpublished Pipelines
 
 The connector can discover pipelines from two sources:
@@ -103,7 +129,7 @@ This is useful when:
 
 #### Run History (DataProcessInstances)
 
-Run history — per-execution `DataProcessInstance` entities with status and timing — is produced from the pipeline-executions API. When `include_unpublished_pipelines: true`, this happens automatically as part of discovery.
+Run history — per-execution `DataProcessInstance` entities with status and timing — is produced from the pipeline-executions API. Each execution surfaces a run on the **pipeline** (DataFlow) itself as well as on each of its **components** (DataJobs), so the "Runs" tab is populated at both levels. When `include_unpublished_pipelines: true`, this happens automatically as part of discovery.
 
 When `include_unpublished_pipelines: false`, discovery only lists published pipelines and does **not** fetch executions, so no runs are emitted by default. To get run history for your published pipelines without also ingesting unpublished ones, enable:
 
@@ -113,6 +139,8 @@ extract_run_history: true
 ```
 
 This fetches executions within the configured time window and attaches runs to the matching published pipelines. It is off by default because it calls the pipeline-executions and per-execution steps APIs, which are slower and degrade over wider time windows — pair it with a narrow `start_time` / `end_time` and stateful ingestion.
+
+Enabling it has a second benefit: lineage often references **unpublished child orchestrations** (e.g. `SRC_*_ORCH` pipelines invoked by a published schedule). The OpenLineage namespace only carries an opaque environment UUID, so when such a pipeline is neither published nor seen in executions, its environment cannot be resolved and the connector **skips** it rather than placing it in a pipeline with no environment. Because executions report the environment name, enabling `extract_run_history` (or `include_unpublished_pipelines`) lets these child orchestrations resolve their environment and nest correctly under it.
 
 #### Time Window and Incremental Ingestion
 

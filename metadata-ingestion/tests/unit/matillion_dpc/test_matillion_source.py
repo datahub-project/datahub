@@ -31,6 +31,7 @@ from datahub.ingestion.source.matillion_dpc.models import (
 )
 from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
+    DataProcessInstanceRelationshipsClass,
     DataProcessInstanceRunEventClass,
     UpstreamLineageClass,
 )
@@ -361,33 +362,34 @@ def test_lineage_emitted_from_events_for_unexecuted_child_pipeline(
     config.extract_projects_to_containers = False
     source = MatillionSource(config, pipeline_context)
     source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+    _resolve_env(source, "ingest/staging/load orders.orch.yaml")
     source._lineage_events_cache = [
         {
             "event": {
                 "job": {
                     "namespace": "matillion://proj-1.env-1",
-                    "name": "SOURCE_MAPPINGS/SFDC/INCIDENT_SRC_ORCH NRT.orch.yaml",
+                    "name": "ingest/staging/load orders.orch.yaml",
                 },
                 "inputs": [
                     {
-                        "namespace": "salesforce://00D70000000KG1jEAG",
-                        "name": "Incident__c",
+                        "namespace": "salesforce://example-org",
+                        "name": "Orders__c",
                         "facets": {},
                     }
                 ],
                 "outputs": [
                     {
                         "namespace": "snowflake://ACME-WAREHOUSE",
-                        "name": "RAW.SALESFORCE.INCIDENT_LND",
+                        "name": "RAW.SALES.ORDERS_LND",
                         "facets": {
                             "columnLineage": {
                                 "fields": {
                                     "ID": {
                                         "inputFields": [
                                             {
-                                                "namespace": "salesforce://00D70000000KG1jEAG",
-                                                "name": "Incident__c",
-                                                "field": "Id",
+                                                "namespace": "salesforce://example-org",
+                                                "name": "Orders__c",
+                                                "field": "id",
                                             }
                                         ]
                                     }
@@ -435,15 +437,15 @@ def _lineage_event(full_path: str) -> dict:
             },
             "inputs": [
                 {
-                    "namespace": "salesforce://00D70000000KG1jEAG",
-                    "name": "Incident__c",
+                    "namespace": "salesforce://example-org",
+                    "name": "Orders__c",
                     "facets": {},
                 }
             ],
             "outputs": [
                 {
                     "namespace": "snowflake://ACME-WAREHOUSE",
-                    "name": "RAW.SALESFORCE.INCIDENT_LND",
+                    "name": "RAW.SALES.ORDERS_LND",
                     "facets": {},
                 }
             ],
@@ -469,17 +471,28 @@ def _datajob_workunit_urns(workunits: list) -> list:
     return _distinct_urns(workunits, "urn:li:dataJob:")
 
 
+def _resolve_env(
+    source: MatillionSource,
+    full_path: str,
+    project_id: str = "proj-1",
+    env: str = "prod",
+) -> None:
+    source._environments_cache[env] = MatillionEnvironment(name=env)
+    source._discovered_env_by_path[(project_id, full_path)] = env
+
+
 def test_lineage_pipeline_patterns_filter_on_full_path(
     config: MatillionSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     # job.name is the full pipeline path, so folder-scoped pipeline_patterns apply
     # to it directly with no name resolution.
     config.extract_projects_to_containers = False
-    config.pipeline_patterns.allow = ["SOURCE_MAPPINGS/SALESFORCE/.*"]
+    config.pipeline_patterns.allow = ["ingest/staging/.*"]
     source = MatillionSource(config, pipeline_context)
     source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+    _resolve_env(source, "ingest/staging/load deals.orch.yaml")
     source._lineage_events_cache = [
-        _lineage_event("SOURCE_MAPPINGS/SALESFORCE/OPPORTUNITY_SRC_ORCH NRT.orch.yaml"),
+        _lineage_event("ingest/staging/load deals.orch.yaml"),
         _lineage_event("DATA_SERVICES/AUDIT_LOG_ORCH.orch.yaml"),
     ]
 
@@ -488,42 +501,104 @@ def test_lineage_pipeline_patterns_filter_on_full_path(
 
     datajob_urns = _datajob_workunit_urns(workunits)
     assert len(datajob_urns) == 1
-    assert "OPPORTUNITY_SRC_ORCH NRT" in datajob_urns[0]
+    assert "load deals" in datajob_urns[0]
     assert "DATA_SERVICES/AUDIT_LOG_ORCH.orch.yaml" in source.report.filtered_pipelines
 
 
-def test_lineage_merges_into_discovered_pipeline(
+def test_lineage_reuses_discovered_pipeline_flow(
     config: MatillionSourceConfig, pipeline_context: PipelineContext
 ) -> None:
-    # When the lineage path matches a discovered published pipeline, the component
-    # attaches to that pipeline's DataFlow URN (env name + full path) and no
-    # separate bare-named flow is minted.
+    # When discovery already emitted the pipeline's DataFlow, lineage reuses that
+    # URN (env name + full path) and mints no new flow; the component nests under it.
     config.extract_projects_to_containers = False
-    full_path = "SOURCE_MAPPINGS/SALESFORCE/OPPORTUNITY_SRC_ORCH NRT.orch.yaml"
+    full_path = "ingest/staging/load deals.orch.yaml"
     source = MatillionSource(config, pipeline_context)
     source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
-    source._environments_cache = {
-        "PROD-STABLE": MatillionEnvironment(name="PROD-STABLE")
-    }
-    source._discovered_env_by_path[("proj-1", full_path)] = "PROD-STABLE"
+    _resolve_env(source, full_path)
+    flow_urn = f"urn:li:dataFlow:(matillion,proj-1.prod.{full_path},PROD)"
+    source._emitted_flow_urns.add(flow_urn)
     source._lineage_events_cache = [_lineage_event(full_path)]
 
     projects = [MatillionProject(id="proj-1", name="Proj")]
     workunits = list(source._generate_lineage_from_events(projects))
 
-    # No new DataFlow is emitted (discovery owns it); the component nests under the
-    # discovered flow URN, which carries the env name and the full folder path.
     assert _dataflow_workunit_urns(workunits) == []
     datajob_urns = _datajob_workunit_urns(workunits)
     assert len(datajob_urns) == 1
-    assert f"proj-1.PROD-STABLE.{full_path}" in datajob_urns[0]
+    assert f"proj-1.prod.{full_path}" in datajob_urns[0]
 
 
-def test_lineage_unmatched_emits_standalone_flow_with_full_path(
+def test_lineage_resolved_env_mints_flow_under_environment(
     config: MatillionSourceConfig, pipeline_context: PipelineContext
 ) -> None:
-    # An unpublished lineage job (no discovered match) still emits with its full
-    # path so it lands in the right folder, just as its own DataFlow.
+    # An unpublished job whose environment is resolved (e.g. via executions) but that
+    # discovery did not emit gets its flow minted under the resolved environment.
+    config.extract_projects_to_containers = False
+    full_path = "ingest/staging/load campaigns.orch.yaml"
+    source = MatillionSource(config, pipeline_context)
+    source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+    _resolve_env(source, full_path)
+    source._lineage_events_cache = [_lineage_event(full_path)]
+
+    projects = [MatillionProject(id="proj-1", name="Proj")]
+    workunits = list(source._generate_lineage_from_events(projects))
+
+    assert any(
+        f"proj-1.prod.{full_path}" in urn for urn in _dataflow_workunit_urns(workunits)
+    )
+    assert any(
+        f"proj-1.prod.{full_path}" in urn for urn in _datajob_workunit_urns(workunits)
+    )
+
+
+def test_lineage_dependent_pipeline_skipped_when_disabled(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    # A dependent (lineage-only) pipeline that discovery never emitted is skipped
+    # entirely when include_dependent_pipelines is disabled.
+    config.extract_projects_to_containers = False
+    config.include_dependent_pipelines = False
+    full_path = "ingest/staging/load campaigns.orch.yaml"
+    source = MatillionSource(config, pipeline_context)
+    source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+    _resolve_env(source, full_path)
+    source._lineage_events_cache = [_lineage_event(full_path)]
+
+    projects = [MatillionProject(id="proj-1", name="Proj")]
+    workunits = list(source._generate_lineage_from_events(projects))
+
+    assert _dataflow_workunit_urns(workunits) == []
+    assert _datajob_workunit_urns(workunits) == []
+    assert source.report.lineage_dependent_pipelines_skipped == 1
+
+
+def test_lineage_discovered_pipeline_emitted_when_dependents_disabled(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    # Disabling dependents must not drop lineage for pipelines discovery already emitted.
+    config.extract_projects_to_containers = False
+    config.include_dependent_pipelines = False
+    full_path = "ingest/staging/load deals.orch.yaml"
+    source = MatillionSource(config, pipeline_context)
+    source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+    _resolve_env(source, full_path)
+    source._emitted_flow_urns.add(
+        f"urn:li:dataFlow:(matillion,proj-1.prod.{full_path},PROD)"
+    )
+    source._lineage_events_cache = [_lineage_event(full_path)]
+
+    projects = [MatillionProject(id="proj-1", name="Proj")]
+    workunits = list(source._generate_lineage_from_events(projects))
+
+    assert len(_datajob_workunit_urns(workunits)) == 1
+    assert source.report.lineage_dependent_pipelines_skipped == 0
+
+
+def test_lineage_unmatched_no_environment_is_skipped(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    # No environment can be resolved (not published, no executions) -> skip the job
+    # rather than float a flow under the bare project.
     config.extract_projects_to_containers = False
     full_path = "DATA_SERVICES/ADHOC/ONE_OFF_LOAD.orch.yaml"
     source = MatillionSource(config, pipeline_context)
@@ -533,10 +608,9 @@ def test_lineage_unmatched_emits_standalone_flow_with_full_path(
     projects = [MatillionProject(id="proj-1", name="Proj")]
     workunits = list(source._generate_lineage_from_events(projects))
 
-    dataflow_urns = _dataflow_workunit_urns(workunits)
-    assert any(f"proj-1.{full_path}" in urn for urn in dataflow_urns)
-    datajob_urns = _datajob_workunit_urns(workunits)
-    assert any(full_path in urn for urn in datajob_urns)
+    assert _dataflow_workunit_urns(workunits) == []
+    assert _datajob_workunit_urns(workunits) == []
+    assert source.report.lineage_jobs_skipped_no_environment == 1
 
 
 def _sql_lineage_event(with_column_lineage: bool) -> dict:
@@ -593,6 +667,7 @@ def test_sql_gapfill_registers_query_when_no_column_lineage(
     config.extract_projects_to_containers = False
     source = MatillionSource(config, pipeline_context)
     source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+    _resolve_env(source, "TRANSFORM.tran.yaml")
 
     event = _sql_lineage_event(with_column_lineage=False)
     source._lineage_events_cache = [event]
@@ -621,6 +696,7 @@ def test_sql_gapfill_skipped_when_column_lineage_present(
     config.extract_projects_to_containers = False
     source = MatillionSource(config, pipeline_context)
     source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+    _resolve_env(source, "TRANSFORM.tran.yaml")
 
     event = _sql_lineage_event(with_column_lineage=True)
     source._lineage_events_cache = [event]
@@ -737,10 +813,25 @@ def test_run_history_for_published_pipelines(
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
         and isinstance(wu.metadata.aspect, DataProcessInstanceRunEventClass)
     ]
+    parent_templates = {
+        wu.metadata.aspect.parentTemplate
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DataProcessInstanceRelationshipsClass)
+    }
 
     if extract_run_history:
         assert executions_mock.called
         assert run_events, "Expected run history (DataProcessInstance) workunits"
+        # Runs are surfaced on the pipeline (DataFlow), not only on its components.
+        assert any(
+            template is not None and template.startswith("urn:li:dataFlow:")
+            for template in parent_templates
+        ), "Expected a pipeline-level DPI parented to the DataFlow"
+        assert any(
+            template is not None and template.startswith("urn:li:dataJob:")
+            for template in parent_templates
+        ), "Expected a step-level DPI parented to the DataJob"
     else:
         assert not executions_mock.called
         assert not run_events

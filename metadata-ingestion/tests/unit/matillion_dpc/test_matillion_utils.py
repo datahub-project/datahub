@@ -5,7 +5,10 @@ from datahub.ingestion.source.matillion_dpc.config import (
     MatillionAPIConfig,
     MatillionSourceConfig,
 )
-from datahub.ingestion.source.matillion_dpc.matillion_utils import MatillionUrnBuilder
+from datahub.ingestion.source.matillion_dpc.matillion_utils import (
+    MatillionUrnBuilder,
+    extract_folder_segments,
+)
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionEnvironment,
     MatillionPipeline,
@@ -75,6 +78,22 @@ def test_make_environment_container_urn(urn_builder: MatillionUrnBuilder) -> Non
 
     assert "urn:li:container:" in urn
     assert "Production" in urn
+
+
+@pytest.mark.parametrize(
+    "job_name,expected",
+    [
+        (
+            "ingest/staging/orders/load.orch.yaml",
+            ["ingest", "staging", "orders"],
+        ),
+        ("folder/pipeline.tran.yaml", ["folder"]),
+        ("pipeline.orch.yaml", []),
+        ("pipeline", []),
+    ],
+)
+def test_extract_folder_segments(job_name: str, expected: list) -> None:
+    assert extract_folder_segments(job_name) == expected
 
 
 @pytest.mark.parametrize(

@@ -127,6 +127,13 @@ Requirements:
 
 - #17860 **(CLI / Python SDK)** Mutual TLS (mTLS) client authentication is now supported for outbound HTTPS calls from the CLI.
 
+- #17927 **(Ingestion / Matillion)** Several improvements to the `matillion-dpc` connector:
+  - **Folder hierarchy in containers:** pipelines and components are now organized into a browsable container tree that mirrors their path in Matillion (`Project › Environment › <folder> … › Pipeline › Component`), instead of all pipelines sitting flat under the environment. Folder levels are derived from the pipeline path, so the browse tree lines up with the paths used in `pipeline_patterns`. Components (DataJobs) now also carry a `container` aspect and browse directly under their pipeline. Browse paths no longer include the entity itself as a trailing node.
+  - **Environment-scoped lineage:** lineage jobs whose environment cannot be resolved (not published and not seen in execution history) are now skipped rather than emitted as flows floating under the bare project. Enabling `extract_run_history` (or `include_unpublished_pipelines`) helps resolve environments for unpublished child orchestrations. A `lineage_jobs_skipped_no_environment` report counter records skips.
+  - **Run history at both levels:** per-execution `DataProcessInstance` entities are now emitted for the pipeline (DataFlow) as well as each component (DataJob), populating the "Runs" tab at both levels.
+  - **New `extract_run_history` flag** (default `false`): emit run history for published pipelines without also discovering unpublished ones (implied when `include_unpublished_pipelines` is enabled).
+  - **New `include_dependent_pipelines` flag** (default `true`, preserves prior behavior): when disabled, child pipelines that appear only in lineage events (and were not discovered as project pipelines) are no longer created as their own DataFlows/DataJobs; lineage for discovered pipelines is unaffected.
+
 ## v1.6.0
 
 Requirements:

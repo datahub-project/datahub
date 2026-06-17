@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from datahub.emitter.mce_builder import (
     datahub_guid,
@@ -75,6 +75,19 @@ def extract_base_pipeline_name(job_name: str) -> str:
     return base_name
 
 
+def extract_folder_segments(job_name: str) -> List[str]:
+    """Return the folder path segments that precede the pipeline file name.
+
+    Examples:
+        "ingest/staging/orders/load.orch.yaml" ->
+            ["ingest", "staging", "orders"]
+        "pipeline.orch.yaml" -> []
+    """
+    if "/" not in job_name:
+        return []
+    return [segment for segment in job_name.split("/")[:-1] if segment]
+
+
 def normalize_pipeline_name(pipeline_name: str) -> str:
     """
     Normalize pipeline name by stripping file extensions.
@@ -141,6 +154,26 @@ def make_step_dpi_urn(
             "pipeline_name": pipeline_name,
             "execution_id": execution_id,
             "step_id": step_id,
+        }
+    )
+    return make_data_process_instance_urn(dpi_id)
+
+
+def make_execution_dpi_urn(
+    config: MatillionSourceConfig,
+    project_id: str,
+    pipeline_name: str,
+    execution_id: str,
+) -> str:
+    dpi_id = datahub_guid(
+        {
+            "platform": MATILLION_PLATFORM,
+            "instance": config.platform_instance,
+            "env": config.env,
+            "project_id": project_id,
+            "pipeline_name": pipeline_name,
+            "execution_id": execution_id,
+            "entity": "execution",
         }
     )
     return make_data_process_instance_urn(dpi_id)

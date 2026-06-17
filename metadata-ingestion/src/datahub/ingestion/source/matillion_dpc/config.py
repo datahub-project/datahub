@@ -175,6 +175,8 @@ class MatillionSourceReport(StaleEntityRemovalSourceReport):
     api_calls_count: int = 0
     containers_emitted: int = 0
     lineage_emitted: int = 0
+    lineage_jobs_skipped_no_environment: int = 0
+    lineage_dependent_pipelines_skipped: int = 0
     streaming_pipelines_scanned: int = 0
     streaming_pipelines_emitted: int = 0
     sql_parsing_attempts: int = 0
@@ -292,8 +294,9 @@ class MatillionSourceConfig(
 
     extract_projects_to_containers: bool = Field(
         default=True,
-        description="Whether to extract Matillion projects as DataHub containers. "
-        "When enabled, pipelines are organized under project containers, providing hierarchical navigation.",
+        description="Whether to add the top-level Matillion project as a DataHub container. "
+        "Environment and folder containers are always created; this only controls whether they "
+        "are nested under a project container or hang at the root.",
     )
 
     include_unpublished_pipelines: bool = Field(
@@ -307,6 +310,14 @@ class MatillionSourceConfig(
         default=False,
         description="Emit run history (DataProcessInstances) for published pipelines by fetching "
         "their executions in the time window. Implied when include_unpublished_pipelines is enabled.",
+    )
+
+    include_dependent_pipelines: bool = Field(
+        default=True,
+        description="Whether to ingest dependent (child) pipelines that are only referenced via "
+        "lineage events and were not discovered as project pipelines (published or via execution "
+        "history). When disabled, lineage is still emitted for discovered pipelines, but these "
+        "lineage-only dependencies are not created as their own DataFlows/DataJobs.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
