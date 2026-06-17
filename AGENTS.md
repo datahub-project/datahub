@@ -713,3 +713,15 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 - Entity Registry is defined in YAML, not code (`entity-registry.yml`)
 - All metadata changes flow through the event streaming system
 - GraphQL schema is generated from backend GMS APIs
+
+## Learned User Preferences
+
+- Do an "AI slop" cleanup sweep before committing or opening/updating a PR: remove verbose/obvious comments, drop unnecessary docstrings (only add a docstring when it genuinely adds value), and shorten overly long config field descriptions.
+- Keep customer names and Linear/internal ticket references out of public-repo PR titles, descriptions, and code comments.
+- Verify changes end-to-end locally before declaring them done rather than assuming; for this the user is fine with nuking the local OSS quickstart and re-running.
+- For ingestion connector fixes, test against the connected customer environment using `~/.datahubenv` + the DataHub MCP server, and emit an MCE/MCP file locally to inspect the resulting lineage and aspects.
+- When building or modifying ingestion connectors, mirror established patterns from existing connectors (e.g. Dremio-style relative time strings like `7D`, Redshift/Airbyte lineage handling) instead of inventing new ones.
+
+## Learned Workspace Facts
+
+- Ingestion lineage gotcha: emitting an upstream/downstream edge to a URN that has not been ingested creates a `Status` aspect on that URN (a "ghost" entity). Follow Airbyte's pattern of only adding upstream URNs when they already exist instead of blindly emitting forward lineage.

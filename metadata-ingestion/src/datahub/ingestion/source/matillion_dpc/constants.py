@@ -47,15 +47,11 @@ MATILLION_EU1_URL = "https://eu1.api.matillion.com/dpc"
 MATILLION_US1_URL = "https://us1.api.matillion.com/dpc"
 MATILLION_OAUTH_TOKEN_URL = "https://id.core.matillion.com/oauth/dpc/token"
 
-API_PATH_SUFFIX = "/dpc"
-
 # OAuth2 configuration
 OAUTH_GRANT_TYPE = "client_credentials"
 OAUTH_AUDIENCE = "https://api.matillion.com"
 OAUTH_TOKEN_EXPIRY_SECONDS = 1800  # 30 minutes
 OAUTH_TOKEN_REFRESH_BUFFER_SECONDS = 300  # Refresh 5 minutes before expiry
-UI_PATH_PIPELINES = "pipelines"
-UI_PATH_STREAMING_PIPELINES = "streaming-pipelines"
 
 DEFAULT_REQUEST_TIMEOUT_SEC = 30
 MAX_REQUEST_TIMEOUT_WARNING_THRESHOLD = 300
@@ -118,12 +114,16 @@ TWO_TIER_PLATFORMS = {
 # to match DataHub connector behavior (e.g., Snowflake's convert_urns_to_lowercase)
 LOWERCASE_FIELD_PLATFORMS = {"snowflake"}
 
-# Matillion UI URL patterns
-MATILLION_PIPELINE_OBSERVABILITY_URL = "https://app.matillion.com/observability-dashboard?timeFrame=*&search={pipeline_name}"
-MATILLION_DPI_OBSERVABILITY_URL = (
-    "https://app.matillion.com/observability-dashboard/pipeline/{execution_id}"
+# Matillion DPC console (UI) deep-link path templates. These are appended to the
+# account-specific console base URL (api_config.console_url); the DPC console is
+# served from a per-account subdomain rather than a fixed host, so the base must
+# come from config and cannot be derived from the API.
+UI_PATH_PROJECT = "/projects/{project_id}/branches"
+UI_PATH_PIPELINE_OBSERVABILITY = (
+    "/observability-dashboard?timeFrame=*&search={pipeline_name}"
 )
-MATILLION_PROJECT_URL = "https://app.matillion.com/projects/{project_id}/branches"
+UI_PATH_EXECUTION = "/observability-dashboard/pipeline/{execution_id}"
+UI_PATH_STREAMING_PIPELINE = "/streaming-pipelines/{pipeline_id}"
 
 # Matillion execution and step status values
 MATILLION_STATUS_SUCCESS = "SUCCESS"

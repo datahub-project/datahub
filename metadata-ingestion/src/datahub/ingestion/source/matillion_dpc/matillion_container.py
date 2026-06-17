@@ -10,9 +10,11 @@ from datahub.ingestion.source.matillion_dpc.config import (
 )
 from datahub.ingestion.source.matillion_dpc.constants import (
     MATILLION_PLATFORM,
-    MATILLION_PROJECT_URL,
 )
-from datahub.ingestion.source.matillion_dpc.matillion_utils import MatillionUrnBuilder
+from datahub.ingestion.source.matillion_dpc.matillion_utils import (
+    MatillionUrnBuilder,
+    build_project_url,
+)
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionEnvironment,
     MatillionProject,
@@ -116,7 +118,9 @@ class MatillionContainerHandler:
             name=project.name,
             description=project.description,
             sub_types=[DatasetContainerSubTypes.MATILLION_PROJECT],
-            external_url=MATILLION_PROJECT_URL.format(project_id=project.id),
+            external_url=build_project_url(
+                self.config.api_config.console_url, project.id
+            ),
             extra_properties={"project_id": project.id},
         )
         self._containers_emitted.add(container_urn)

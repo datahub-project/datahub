@@ -133,6 +133,7 @@ Requirements:
   - **Run history at both levels:** per-execution `DataProcessInstance` entities are now emitted for the pipeline (DataFlow) as well as each component (DataJob), populating the "Runs" tab at both levels.
   - **New `extract_run_history` flag** (default `false`): emit run history for published pipelines without also discovering unpublished ones (implied when `include_unpublished_pipelines` is enabled).
   - **New `include_dependent_pipelines` flag** (default `true`, preserves prior behavior): when disabled, child pipelines that appear only in lineage events (and were not discovered as project pipelines) are no longer created as their own DataFlows/DataJobs; lineage for discovered pipelines is unaffected.
+  - **Fixed external links:** entity external URLs previously pointed at a hardcoded `app.matillion.com` host (and the API host for streaming pipelines), which does not resolve to the account-specific Data Productivity Cloud console. External links are now built from a new `api_config.console_url` setting (e.g. `https://your-account.us1.matillion.com`); when it is unset, no external links are emitted instead of broken ones.
 
 ## v1.6.0
 

@@ -52,6 +52,14 @@ The environment and folder levels are always built. `extract_projects_to_contain
 only controls whether the top-level **Project** container is added to the hierarchy; set it to `false`
 to hang environments (and their folders) directly at the root instead of under a project.
 
+#### External Links
+
+To get clickable links from emitted entities back into the Matillion Data Productivity Cloud
+console (project, pipeline observability, and run pages), set `api_config.console_url` to your
+account's console base URL — the host you see in the browser when using Designer/Observability,
+e.g. `https://your-account.us1.matillion.com`. This host is account-specific and cannot be derived
+from the API, so when `console_url` is unset no external links are emitted.
+
 #### Filtering Options
 
 The connector supports flexible regex-based filtering to control what metadata is ingested.

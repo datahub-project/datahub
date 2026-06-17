@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional
+from urllib.parse import quote, quote_plus
 
 from datahub.emitter.mce_builder import (
     datahub_guid,
@@ -14,6 +15,10 @@ from datahub.emitter.mce_builder import (
 from datahub.ingestion.source.matillion_dpc.config import MatillionSourceConfig
 from datahub.ingestion.source.matillion_dpc.constants import (
     MATILLION_PLATFORM,
+    UI_PATH_EXECUTION,
+    UI_PATH_PIPELINE_OBSERVABILITY,
+    UI_PATH_PROJECT,
+    UI_PATH_STREAMING_PIPELINE,
 )
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionDatasetInfo,
@@ -26,6 +31,40 @@ logger = logging.getLogger(__name__)
 
 # Pipeline file suffixes for name normalization
 PIPELINE_FILE_SUFFIXES = [".orch.yaml", ".tran.yaml", ".yaml", ".yml"]
+
+
+def build_project_url(console_url: Optional[str], project_id: str) -> Optional[str]:
+    if not console_url:
+        return None
+    return console_url + UI_PATH_PROJECT.format(project_id=quote(project_id, safe=""))
+
+
+def build_pipeline_observability_url(
+    console_url: Optional[str], pipeline_name: str
+) -> Optional[str]:
+    if not console_url:
+        return None
+    return console_url + UI_PATH_PIPELINE_OBSERVABILITY.format(
+        pipeline_name=quote_plus(pipeline_name)
+    )
+
+
+def build_execution_url(console_url: Optional[str], execution_id: str) -> Optional[str]:
+    if not console_url:
+        return None
+    return console_url + UI_PATH_EXECUTION.format(
+        execution_id=quote(execution_id, safe="")
+    )
+
+
+def build_streaming_pipeline_url(
+    console_url: Optional[str], pipeline_id: str
+) -> Optional[str]:
+    if not console_url:
+        return None
+    return console_url + UI_PATH_STREAMING_PIPELINE.format(
+        pipeline_id=quote(pipeline_id, safe="")
+    )
 
 
 # Standalone utility functions

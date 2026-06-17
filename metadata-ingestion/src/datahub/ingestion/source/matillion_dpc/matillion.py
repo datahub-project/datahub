@@ -36,9 +36,7 @@ from datahub.ingestion.source.matillion_dpc.constants import (
     API_TIMEOUT_TUNING_GUIDANCE,
     DPI_TYPE_BATCH_AD_HOC,
     DPI_TYPE_BATCH_SCHEDULED,
-    MATILLION_DPI_OBSERVABILITY_URL,
     MATILLION_NAMESPACE_PREFIX,
-    MATILLION_PIPELINE_OBSERVABILITY_URL,
     MATILLION_PLATFORM,
     MATILLION_TO_DATAHUB_RESULT_TYPE,
     MATILLION_TRIGGER_SCHEDULE,
@@ -55,6 +53,8 @@ from datahub.ingestion.source.matillion_dpc.matillion_streaming import (
 from datahub.ingestion.source.matillion_dpc.matillion_utils import (
     MatillionUrnBuilder,
     build_data_job_custom_properties,
+    build_execution_url,
+    build_pipeline_observability_url,
     extract_base_pipeline_name,
     extract_folder_segments,
     make_dataset_urn_from_matillion_dataset,
@@ -488,8 +488,8 @@ class MatillionSource(StatefulIngestionSourceBase):
         else:
             custom_properties["is_published"] = "false"
 
-        external_url = MATILLION_PIPELINE_OBSERVABILITY_URL.format(
-            pipeline_name=pipeline_name
+        external_url = build_pipeline_observability_url(
+            self.config.api_config.console_url, pipeline_name
         )
 
         dataflow = DataFlow(
@@ -861,8 +861,8 @@ class MatillionSource(StatefulIngestionSourceBase):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             display_name=display_name,
-            external_url=MATILLION_PIPELINE_OBSERVABILITY_URL.format(
-                pipeline_name=full_path
+            external_url=build_pipeline_observability_url(
+                self.config.api_config.console_url, full_path
             ),
             custom_properties={
                 "pipeline_name": full_path,
@@ -1373,7 +1373,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             except (ValueError, AttributeError):
                 pass
 
-        execution_url = MATILLION_DPI_OBSERVABILITY_URL.format(execution_id=exec_id)
+        execution_url = build_execution_url(self.config.api_config.console_url, exec_id)
 
         properties = DataProcessInstancePropertiesClass(
             name=f"{pipeline.name}-{step.name}-{exec_id[:8]}",
@@ -1529,7 +1529,9 @@ class MatillionSource(StatefulIngestionSourceBase):
             type=DPI_TYPE_BATCH_SCHEDULED
             if execution.trigger == MATILLION_TRIGGER_SCHEDULE
             else DPI_TYPE_BATCH_AD_HOC,
-            externalUrl=MATILLION_DPI_OBSERVABILITY_URL.format(execution_id=exec_id),
+            externalUrl=build_execution_url(
+                self.config.api_config.console_url, exec_id
+            ),
             customProperties=custom_properties,
         )
         yield MetadataChangeProposalWrapper(
