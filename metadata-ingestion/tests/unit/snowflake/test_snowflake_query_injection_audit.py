@@ -470,3 +470,123 @@ class TestRlikeOnlyFastPathInvariants:
         # The dot is emitted literally into the regex (a wildcard at match time),
         # not escaped to a literal dot — proving exactness was traded for regex.
         assert "(?:DB.SCHEMA.TABLE$)" in result
+
+
+# ---------------------------------------------------------------------------
+# Vector 6: the DENY path (NOT RLIKE)
+# ---------------------------------------------------------------------------
+#
+# The deny branch of _build_pattern_filter was NOT touched by the recent
+# optimization commits, but it is the other half of the filter and is equally
+# attacker-reachable (deny patterns come from the recipe). Two properties matter:
+#
+#   1. SQL-literal integrity: each ``NOT RLIKE '...'`` literal must stay closed
+#      regardless of pattern content (it currently escapes backslash THEN quote
+#      inline — correct, but duplicated rather than using the shared helper, so a
+#      future "cleanup" could silently drop the backslash pass).
+#   2. NO silent drop: unlike the allow path, deny patterns are never run through
+#      _make_composable, so an unusable deny pattern reaches Snowflake and errors
+#      LOUDLY instead of vanishing. A vanished deny = objects meant to be EXCLUDED
+#      get ingested (exfiltration of intended-excluded metadata). If someone ever
+#      adds drop-on-invalid to the deny path, test_uncomposable_deny... must fail.
+
+
+def _all_rlike_literals(sql: str) -> list:
+    """Return every ``RLIKE '...'`` / ``NOT RLIKE '...'`` literal in *sql*,
+    parsed with Snowflake's real escaping rules. Raises ``ValueError`` if any
+    literal is left unterminated (backslash/quote breakout)."""
+    results: list = []
+    marker = "RLIKE '"
+    i = 0
+    n = len(sql)
+    while True:
+        idx = sql.find(marker, i)
+        if idx == -1:
+            return results
+        j = idx + len(marker)
+        chars: list = []
+        terminated = False
+        while j < n:
+            c = sql[j]
+            if c == "\\":
+                if j + 1 >= n:
+                    raise ValueError(
+                        "backslash consumed the closing quote of a RLIKE literal"
+                    )
+                chars.append(sql[j + 1])
+                j += 2
+                continue
+            if c == "'":
+                if j + 1 < n and sql[j + 1] == "'":
+                    chars.append("'")
+                    j += 2
+                    continue
+                j += 1
+                terminated = True
+                break
+            chars.append(c)
+            j += 1
+        if not terminated:
+            raise ValueError(
+                f"unterminated RLIKE literal (recovered {''.join(chars)!r})"
+            )
+        results.append("".join(chars))
+        i = j
+
+
+class TestDenyPatternInjection:
+    """Deny patterns are recipe-controlled (untrusted). Each NOT RLIKE literal
+    must stay self-contained under Snowflake's real escaping rules."""
+
+    DENY_ATTACKS = [
+        "SECRET.*'; DROP TABLE t; --",
+        "SECRET\\",  # trailing backslash -> would eat the closing quote if unescaped
+        "O\\'BRIEN_SECRET",  # backslash + quote
+        "X\\\\",  # double backslash
+        ".*_TEMP' OR '1'='1",
+        "SECRET)|(.*",  # regex widen attempt (stays in literal)
+    ]
+
+    @pytest.mark.parametrize("deny", DENY_ATTACKS)
+    def test_single_deny_literal_is_well_formed(self, deny):
+        # ignoreCase=False so the pattern is not uppercased by transform(), making
+        # the round-trip exact. Escaping is independent of case, so this still
+        # fully exercises the SQL-literal escape path.
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=[deny], ignoreCase=False), FQN_EXPR
+        )
+        literals = _all_rlike_literals(result)  # raises on breakout
+        assert deny in literals, (
+            f"deny pattern {deny!r} not recovered intact from: {result!r}"
+        )
+
+    def test_backslash_deny_is_escaped(self):
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=["SECRET\\"]), FQN_EXPR
+        )
+        assert "\\\\" in result  # backslash doubled for the SQL literal
+        _all_rlike_literals(result)  # well-formed
+
+    def test_allow_and_deny_both_literals_well_formed(self):
+        """Combined allow+deny: every literal in the AND-joined filter must be
+        well-formed, and the structure must apply both."""
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(allow=["DB.GOOD.*$"], deny=["DB.SECRET\\", "X'Y"]),
+            FQN_EXPR,
+        )
+        literals = _all_rlike_literals(result)
+        assert any("GOOD" in lit for lit in literals)
+        assert "NOT RLIKE" in result and " AND " in result
+
+    def test_uncomposable_deny_is_not_silently_dropped(self):
+        """A deny pattern that an allow pattern would drop (e.g. unbalanced
+        paren) must NOT vanish from the deny path — it should still be emitted
+        (and fail loudly at Snowflake), never silently widening collection."""
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=["SECRET("]), FQN_EXPR
+        )
+        assert "NOT RLIKE" in result, (
+            "deny pattern was silently dropped — objects meant to be excluded "
+            f"would be ingested. Got: {result!r}"
+        )
+        assert "SECRET(" in _all_rlike_literals(result)
