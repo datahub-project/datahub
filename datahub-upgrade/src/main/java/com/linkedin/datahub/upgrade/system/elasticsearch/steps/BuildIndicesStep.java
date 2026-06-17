@@ -153,6 +153,7 @@ public class BuildIndicesStep implements UpgradeStep {
             });
     HealthCheckPoller healthPoller =
         new HealthCheckPoller(
+            context.opContext(),
             services.get(0).getIndexBuilder(),
             circuitBreakerState,
             config.getClusterHeapThresholdPercent(),

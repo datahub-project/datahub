@@ -24,13 +24,16 @@ public class HealthCheckPollerTest {
 
   @Mock private ESIndexBuilder mockIndexBuilder;
   @Mock private CircuitBreakerState mockCircuitBreakerState;
+  @Mock private OperationContext mockOpContext;
 
   private HealthCheckPoller poller;
 
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
-    poller = new HealthCheckPoller(mockIndexBuilder, mockCircuitBreakerState, 15, 90.0, 10);
+    poller =
+        new HealthCheckPoller(
+            mockOpContext, mockIndexBuilder, mockCircuitBreakerState, 15, 90.0, 10);
   }
 
   /**
