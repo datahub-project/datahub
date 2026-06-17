@@ -400,6 +400,17 @@ def test_schema_metadata_trims_fields_when_fields_are_too_large(processor):
         "Aspect exceeded acceptable size"
     )
 
+    # Field trimming should emit a single per-entity warning reporting the dropped
+    # count, not one warning per dropped field.
+    field_drop_warnings = [
+        w
+        for w in processor.ctx.source_report.warnings
+        if "some fields were dropped" in w.message
+    ]
+    assert len(field_drop_warnings) == 1
+    assert len(field_drop_warnings[0].context) == 1
+    assert "fields from schema" in field_drop_warnings[0].context[0]
+
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_schema_metadata_no_op_when_fits_within_budget(processor):

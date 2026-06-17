@@ -235,13 +235,17 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
             if total_fields_size + field_size < self.schema_size_constraint:
                 accepted_fields.append(schema_field)
                 total_fields_size += field_size
-            else:
-                self.ctx.source_report.warning(
-                    title="Schema truncated due to size constraint",
-                    message="Dataset schema contained too much data and would have caused ingestion to fail",
-                    context=f"Field {schema_field.fieldPath} was removed from schema for {dataset_urn} due to aspect size constraints",
-                )
-        if truncated or len(accepted_fields) < len(schema.fields):
+
+        dropped_field_count = len(schema.fields) - len(accepted_fields)
+        if dropped_field_count:
+            # Report a single warning per entity with the dropped count, rather
+            # than one warning per dropped field.
+            self.ctx.source_report.warning(
+                title="Schema truncated due to size constraint",
+                message="Dataset schema contained too much data and would have caused ingestion to fail; some fields were dropped",
+                context=f"Dropped {dropped_field_count} of {len(schema.fields)} fields from schema for {dataset_urn} due to aspect size constraints",
+            )
+        if truncated or dropped_field_count:
             self._record_truncation("schemaMetadata")
         schema.fields = accepted_fields
 
