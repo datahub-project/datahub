@@ -683,7 +683,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         executed_as_user_name=row.executed_as,
                     )
                 except Exception as e:
-                    logger.warning(f"Error parsing query from system table: {e}")
+                    logger.warning(
+                        "Error parsing query from system table", exc_info=True
+                    )
                     self.report.report_warning(
                         title="Failed to parse query from system tables",
                         message="A statement read from system.query.history could not be parsed and was skipped.",
@@ -1428,7 +1430,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         The connection stays open for the lifetime of iteration — bounded memory in
         exchange for a longer-held connection. Callers must fully consume or close the
         generator to release the connection.
-        On failure, reports a warning and yields nothing (does not raise).
+        On failure, reports a warning, increments num_usage_query_fetch_failures, and
+        yields nothing (does not raise). Consumer errors propagate cleanly because yield
+        is never inside a try/except.
         """
         logger.debug(f"Executing SQL query (streaming) with {len(params)} parameters")
         if logger.isEnabledFor(logging.DEBUG):
@@ -1443,20 +1447,32 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         proxy_env_debug = self._detected_proxy_env_vars()
 
         try:
-            with (
-                connect(**sql_connection_params) as connection,
-                connection.cursor() as cursor,
-            ):
-                cursor.execute(query, list(params))
-                while True:
-                    batch = cursor.fetchmany(batch_size)
-                    if not batch:
-                        break
-                    yield from batch
-
+            connection = connect(**sql_connection_params)
         except Exception as e:
             self._report_sql_query_failure(e, query, params, proxy_env_debug)
             self.report.num_usage_query_fetch_failures += 1
+            return
+        with closing(connection):
+            try:
+                cursor = connection.cursor()
+                cursor.execute(query, list(params))
+            except Exception as e:
+                self._report_sql_query_failure(e, query, params, proxy_env_debug)
+                self.report.num_usage_query_fetch_failures += 1
+                return
+            with closing(cursor):
+                while True:
+                    try:
+                        batch = cursor.fetchmany(batch_size)
+                    except Exception as e:
+                        self._report_sql_query_failure(
+                            e, query, params, proxy_env_debug
+                        )
+                        self.report.num_usage_query_fetch_failures += 1
+                        return
+                    if not batch:
+                        break
+                    yield from batch  # OUTSIDE any try/except — consumer errors propagate cleanly
 
     @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_schema_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:

@@ -36,9 +36,6 @@ class UnityCatalogReport(SQLSourceReport):
     num_queries_dropped: int = 0
     num_usage_query_fetch_failures: int = 0
 
-    # Distinguish from Operations emitted for created / updated timestamps
-    num_operational_stats_workunits_emitted: int = 0
-
     profile_table_timeouts: LossyList[str] = field(default_factory=LossyList)
     profile_table_empty: LossyList[str] = field(default_factory=LossyList)
     profile_table_errors: LossyDict[str, LossyList[Tuple[str, str]]] = field(

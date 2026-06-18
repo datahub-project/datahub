@@ -1527,7 +1527,7 @@ def test_unity_catalog_usage_via_aggregator(pytestconfig, tmp_path, requests_moc
                     "include_column_lineage": False,
                     "include_usage_statistics": True,
                     "usage_data_source": "SYSTEM_TABLES",
-                    "emit_queries": True,
+                    "include_queries": True,
                     "include_operational_stats": True,
                     "start_time": "2021-12-07T00:00:00Z",
                     "end_time": "2021-12-08T00:00:00Z",

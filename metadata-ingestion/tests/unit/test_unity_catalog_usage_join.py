@@ -74,9 +74,9 @@ def test_streaming_yields_all_rows_across_batches() -> None:
         result = list(proxy._execute_sql_query_streaming("SELECT 1"))
 
     assert result == all_rows, f"expected {all_rows}, got {result}"
-    # Connection and cursor must be closed (context managers exited)
-    conn.__exit__.assert_called_once()
-    cursor.__exit__.assert_called_once()
+    # Connection and cursor must be closed (closing() calls .close())
+    conn.close.assert_called_once()
+    cursor.close.assert_called_once()
 
 
 def test_streaming_reports_warning_on_error_and_does_not_raise() -> None:
@@ -142,9 +142,9 @@ def test_streaming_mid_stream_error_reports_warning_and_closes_connection() -> N
     assert any("Failed to run SQL query" in t for t in warning_titles), (
         f"expected 'Failed to run SQL query' warning, got: {warning_titles}"
     )
-    # Connection/cursor must have been closed despite the mid-stream error
-    conn.__exit__.assert_called_once()
-    cursor.__exit__.assert_called_once()
+    # Connection/cursor must have been closed despite the mid-stream error (closing() calls .close())
+    conn.close.assert_called_once()
+    cursor.close.assert_called_once()
 
 
 def test_streaming_no_warehouse_id_yields_nothing_and_warns() -> None:
@@ -168,7 +168,7 @@ def test_closing_wrapper_ensures_connection_closed_on_early_abort() -> None:
 
     Wrapping iteration in closing() causes the inner generator's close() to be called
     when the outer with-block exits, which triggers the streaming method's
-    'with connect(...)' __exit__ and releases the DB connection deterministically.
+    closing(connection).__exit__ → connection.close() and releases the DB connection.
     """
     all_rows = [_row(v=i) for i in range(5)]
     batches = [all_rows[:3], all_rows[3:]]
@@ -192,9 +192,10 @@ def test_closing_wrapper_ensures_connection_closed_on_early_abort() -> None:
             for _row_val in rows:
                 break  # early abort after one row
 
-    # Even though the consumer stopped early, the connection must be closed
-    conn.__exit__.assert_called_once()
-    cursor.__exit__.assert_called_once()
+    # Even though the consumer stopped early, the connection and cursor must be closed.
+    # The new implementation uses closing() which calls .close() rather than __exit__.
+    conn.close.assert_called_once()
+    cursor.close.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +221,7 @@ def _query(text: str, qid: str = "s1") -> Query:
 def _extractor(config: MagicMock, proxy: MagicMock) -> UnityCatalogUsageExtractor:
     ex = UnityCatalogUsageExtractor.__new__(UnityCatalogUsageExtractor)
     ex.config = config
-    ex.report = MagicMock()
+    ex.report = UnityCatalogReport()
     ex.proxy = proxy
     ex.table_urn_builder = lambda ref: (
         f"urn:li:dataset:(urn:li:dataPlatform:databricks,{ref.qualified_table_name},PROD)"
@@ -259,7 +260,8 @@ def test_builds_aggregator_and_feeds_observed_queries(
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
     config = MagicMock()
-    config.emit_queries = True
+    config.include_queries = True
+    config.include_query_usage_statistics = True
     config.include_operational_stats = True
     config.usage_uses_system_tables.return_value = True
     proxy = MagicMock()
@@ -340,7 +342,8 @@ def test_observed_query_timestamps_normalized_to_utc(
     ts_naive = datetime(2026, 6, 1, 8, 30)
 
     config = MagicMock()
-    config.emit_queries = True
+    config.include_queries = True
+    config.include_query_usage_statistics = True
     config.include_operational_stats = True
     config.usage_uses_system_tables.return_value = True
     proxy = MagicMock()
@@ -412,7 +415,8 @@ def test_is_allowed_table_predicate_scopes_to_ingested_tables(
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
     config = MagicMock()
-    config.emit_queries = False
+    config.include_queries = False
+    config.include_query_usage_statistics = False
     config.include_operational_stats = False
     config.usage_uses_system_tables.return_value = True
     proxy = MagicMock()
@@ -488,7 +492,8 @@ def test_is_allowed_table_predicate_platform_instance_safe(
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
     config = MagicMock()
-    config.emit_queries = False
+    config.include_queries = False
+    config.include_query_usage_statistics = False
     config.include_operational_stats = False
     config.usage_uses_system_tables.return_value = True
     proxy = MagicMock()
@@ -499,7 +504,7 @@ def test_is_allowed_table_predicate_platform_instance_safe(
     # in the URN — exactly what the connector does when platform_instance="core_finance".
     ex = UnityCatalogUsageExtractor.__new__(UnityCatalogUsageExtractor)
     ex.config = config
-    ex.report = MagicMock()
+    ex.report = UnityCatalogReport()
     ex.proxy = proxy
     ex.table_urn_builder = lambda ref: (
         f"urn:li:dataset:(urn:li:dataPlatform:databricks,"
@@ -564,7 +569,8 @@ def test_schema_resolver_passed_to_aggregator(
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
     config = MagicMock()
-    config.emit_queries = False
+    config.include_queries = False
+    config.include_query_usage_statistics = False
     config.include_operational_stats = False
     config.platform_instance = None
     config.env = "PROD"
@@ -611,7 +617,8 @@ def test_default_db_set_to_single_catalog(
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
     config = MagicMock()
-    config.emit_queries = True
+    config.include_queries = True
+    config.include_query_usage_statistics = True
     config.include_operational_stats = True
     config.usage_uses_system_tables.return_value = True
     proxy = MagicMock()
@@ -664,7 +671,8 @@ def test_default_db_none_for_multi_catalog(
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
     config = MagicMock()
-    config.emit_queries = True
+    config.include_queries = True
+    config.include_query_usage_statistics = True
     config.include_operational_stats = True
     config.usage_uses_system_tables.return_value = True
     proxy = MagicMock()
@@ -710,7 +718,8 @@ def test_default_db_none_for_empty_table_refs(
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
     config = MagicMock()
-    config.emit_queries = True
+    config.include_queries = True
+    config.include_query_usage_statistics = True
     config.include_operational_stats = True
     config.usage_uses_system_tables.return_value = True
     proxy = MagicMock()
@@ -753,7 +762,8 @@ def test_schema_resolver_explicit_empty_resolver_passed_through(
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
     config = MagicMock()
-    config.emit_queries = False
+    config.include_queries = False
+    config.include_query_usage_statistics = False
     config.include_operational_stats = False
     config.platform_instance = None
     config.env = "PROD"
@@ -809,7 +819,8 @@ def test_auto_empty_usage_emitted_for_unqueried_tables(
     end = datetime(2026, 6, 2, tzinfo=timezone.utc)
 
     config = MagicMock()
-    config.emit_queries = False
+    config.include_queries = False
+    config.include_query_usage_statistics = False
     config.include_operational_stats = False
     config.usage_uses_system_tables.return_value = True
     # Provide real time-window values so auto_empty_dataset_usage_statistics can
@@ -888,7 +899,8 @@ def test_zero_queries_emits_no_usage_workunits(
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
     config = MagicMock()
-    config.emit_queries = False
+    config.include_queries = False
+    config.include_query_usage_statistics = False
     config.include_operational_stats = False
     config.usage_uses_system_tables.return_value = True
 
@@ -948,7 +960,8 @@ def test_fetch_failure_reports_failure_and_no_usage_workunits(
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
     config = MagicMock()
-    config.emit_queries = False
+    config.include_queries = False
+    config.include_query_usage_statistics = False
     config.include_operational_stats = False
     config.usage_uses_system_tables.return_value = True
 
@@ -1001,13 +1014,17 @@ def test_fetch_failure_reports_failure_and_no_usage_workunits(
 # ---------------------------------------------------------------------------
 
 
-def test_gen_metadata_raises_does_not_propagate(
+def test_gen_metadata_raises_propagates_to_caller(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """If gen_metadata() raises, get_usage_workunits must NOT propagate the exception.
+    """If gen_metadata() raises during iteration, the exception propagates to the caller.
 
-    A 'usage-extraction' warning (or failure) must be recorded instead.
+    After the B2 restructure, yield from is outside any except block, so errors
+    raised during iteration (including from gen_metadata) propagate to the consumer.
+    The finally block still closes the aggregator cleanly.
     """
+
+    closed_calls: list = []
 
     class FakeAgg:
         def __init__(self, **kw: object) -> None:
@@ -1018,14 +1035,16 @@ def test_gen_metadata_raises_does_not_propagate(
 
         def gen_metadata(self):  # type: ignore[return]
             raise RuntimeError("gen_metadata boom")
+            yield  # make it a generator
 
         def close(self) -> None:
-            pass
+            closed_calls.append(True)
 
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
     config = MagicMock()
-    config.emit_queries = False
+    config.include_queries = False
+    config.include_query_usage_statistics = False
     config.include_operational_stats = False
     config.usage_uses_system_tables.return_value = True
     proxy = MagicMock()
@@ -1038,22 +1057,12 @@ def test_gen_metadata_raises_does_not_propagate(
     ex = _extractor(config, proxy)
     ex.report = UnityCatalogReport()
 
-    # Must not raise.
-    workunits = list(ex.get_usage_workunits(set()))
+    # gen_metadata errors now propagate to the caller (yield is outside any except).
+    with pytest.raises(RuntimeError, match="gen_metadata boom"):
+        list(ex.get_usage_workunits(set()))
 
-    # No usage workunits should have been emitted (gen_metadata failed).
-    assert workunits == [], (
-        f"expected no workunits on gen_metadata failure: {workunits}"
-    )
-
-    # A failure must have been recorded (gen_metadata raises → outer except → report_failure).
-    failure_titles_and_messages = [
-        (getattr(f, "title", None), f.message) for f in ex.report.failures
-    ]
-    assert any(
-        "Usage extraction failed" in (title or "") or "Usage extraction failed" in msg
-        for title, msg in failure_titles_and_messages
-    ), f"expected 'Usage extraction failed' failure, got: {failure_titles_and_messages}"
+    # The aggregator must still have been closed cleanly via the finally block.
+    assert closed_calls, "aggregator.close() must be called even on gen_metadata error"
 
 
 def test_aggregator_close_raises_does_not_propagate(
@@ -1081,7 +1090,8 @@ def test_aggregator_close_raises_does_not_propagate(
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
     config = MagicMock()
-    config.emit_queries = False
+    config.include_queries = False
+    config.include_query_usage_statistics = False
     config.include_operational_stats = False
     config.usage_uses_system_tables.return_value = True
     proxy = MagicMock()
@@ -1127,7 +1137,8 @@ def test_single_bad_query_skipped_others_still_fed(
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
     config = MagicMock()
-    config.emit_queries = False
+    config.include_queries = False
+    config.include_query_usage_statistics = False
     config.include_operational_stats = False
     config.usage_uses_system_tables.return_value = True
     proxy = MagicMock()
@@ -1163,3 +1174,178 @@ def test_single_bad_query_skipped_others_still_fed(
     assert any(t == "Skipped query during usage extraction" for t in warning_titles), (
         f"expected 'Skipped query during usage extraction' warning, got: {warning_titles}"
     )
+
+
+# ---------------------------------------------------------------------------
+# New tests: API path routing, mid-stream fetch failure, flag rename/split
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_queries_routes_through_api_when_system_tables_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When usage_uses_system_tables returns False, _fetch_queries must use
+    proxy.query_history and NOT proxy.get_query_history_via_system_tables.
+    """
+    observed: list = []
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            pass
+
+        def add_observed_query(self, obs: object, **kw: object) -> None:
+            observed.append(obs)
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.include_queries = True
+    config.include_query_usage_statistics = True
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = False  # force API path
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.query_history.return_value = [
+        _query("SELECT * FROM api.s.t", "api_q1"),
+    ]
+    # System tables path must NOT be called
+    proxy.get_query_history_via_system_tables.return_value = []
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+
+    list(ex.get_usage_workunits(set()))
+
+    # Must have used the REST API path
+    proxy.query_history.assert_called_once()
+    proxy.get_query_history_via_system_tables.assert_not_called()
+
+    # The API query must have been fed to the aggregator
+    observed_texts = [o.query for o in observed]
+    assert "SELECT * FROM api.s.t" in observed_texts, (
+        f"expected API query in observed, got: {observed_texts}"
+    )
+
+
+def test_midstream_fetch_failure_with_some_queries_reports_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When a fetch failure occurs after >=1 queries are already processed
+    (num_queries > 0 AND fetch_failed), get_usage_workunits must still record
+    a 'Failed to fetch query history' failure — not just the benign warning.
+    """
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            pass
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            pass
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.include_queries = False
+    config.include_query_usage_statistics = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+
+    report = UnityCatalogReport()
+
+    def _partial_failing_fetch(*_args: object, **_kw: object) -> "Iterator[Query]":
+        # Yield one real query, then simulate a mid-stream DB error by
+        # incrementing the failure counter (as _execute_sql_query_streaming does).
+        yield _query("SELECT * FROM main.s.t", "q1")
+        report.num_usage_query_fetch_failures += 1
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.side_effect = _partial_failing_fetch
+
+    ex = _extractor(config, proxy)
+    ex.report = report
+
+    ref = TableReference(metastore=None, catalog="main", schema="s", table="t")
+    list(ex.get_usage_workunits({ref}))
+
+    # num_queries > 0 (one query was processed) AND fetch_failed → must report_failure
+    assert report.num_queries >= 1, (
+        f"expected >=1 query processed, got {report.num_queries}"
+    )
+    failure_keys = [getattr(f, "title", None) or f.message for f in report.failures]
+    assert any("Failed to fetch query history" in k for k in failure_keys), (
+        f"expected 'Failed to fetch query history' failure when mid-stream failure occurs "
+        f"with num_queries>0, got: {failure_keys}"
+    )
+
+
+def _run_flag_case(
+    monkeypatch: pytest.MonkeyPatch,
+    include_q: bool,
+    include_qu_stats: bool,
+) -> dict:
+    """Helper: run get_usage_workunits with the given flag values; return aggregator kwargs."""
+    captured: dict = {}
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            captured["kwargs"] = kw
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            pass
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.include_queries = include_q
+    config.include_query_usage_statistics = include_qu_stats
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = []
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+
+    list(ex.get_usage_workunits(set()))
+    return captured["kwargs"]
+
+
+def test_include_queries_flag_controls_generate_queries_kwarg(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """include_queries (True/False) must map directly to generate_queries kwarg,
+    and include_query_usage_statistics must map to generate_query_usage_statistics.
+    """
+    kwargs = _run_flag_case(monkeypatch, include_q=True, include_qu_stats=True)
+    assert kwargs["generate_queries"] is True
+    assert kwargs["generate_query_usage_statistics"] is True
+
+    kwargs = _run_flag_case(monkeypatch, include_q=False, include_qu_stats=False)
+    assert kwargs["generate_queries"] is False
+    assert kwargs["generate_query_usage_statistics"] is False
+
+    kwargs = _run_flag_case(monkeypatch, include_q=True, include_qu_stats=False)
+    assert kwargs["generate_queries"] is True
+    assert kwargs["generate_query_usage_statistics"] is False

@@ -605,7 +605,8 @@ def _base(**kw):
 
 def test_emit_and_parse_flags_default_true():
     c = UnityCatalogSourceConfig.model_validate(_base())
-    assert c.emit_queries is True
+    assert c.include_queries is True
+    assert c.include_query_usage_statistics is True
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

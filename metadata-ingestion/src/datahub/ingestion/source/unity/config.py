@@ -367,13 +367,20 @@ class UnityCatalogSourceConfig(
         ),
     )
 
-    emit_queries: bool = pydantic.Field(
+    include_queries: bool = pydantic.Field(
         default=True,
         description=(
-            "Whether to emit DataHub Query entities for the SQL statements seen in query "
-            "history. A Query entity captures the statement text and the datasets it "
-            "reads/writes, and powers query-level usage. Only effective on the system-tables "
-            "usage path; identical statements are de-duplicated by fingerprint."
+            "If enabled, emit DataHub Query entities for the SQL statements seen in query "
+            "history (the statement text and the datasets it reads/writes). Only effective "
+            "on the system-tables usage path; identical statements are de-duplicated by "
+            "fingerprint."
+        ),
+    )
+    include_query_usage_statistics: bool = pydantic.Field(
+        default=True,
+        description=(
+            "If enabled, emit per-query usage/popularity statistics (queryUsageStatistics) "
+            "for the emitted Query entities. Only effective when include_queries is enabled."
         ),
     )
 
