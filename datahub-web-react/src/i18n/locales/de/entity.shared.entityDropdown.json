@@ -32,7 +32,7 @@
     "deprecation.markUnTooltip": "Veraltungsmarkierung dieser {{entityName}} entfernen",
     "deprecation.modalTitle": "Als veraltet markieren",
     "deprecation.noteLabel": "Notiz",
-    "deprecation.ok": "OK",
+    "deprecation.ok": "Verwerfen",
     "deprecation.reasonLabel": "Grund",
     "deprecation.reasonPlaceholder": "Grund hinzufügen",
     "deprecation.replacementLabel": "Nachfolger",

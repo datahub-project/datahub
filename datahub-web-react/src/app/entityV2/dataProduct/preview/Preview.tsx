@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -48,12 +49,27 @@ export const Preview = ({
 }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
-    // Local copy so un-deprecating via the badge popup removes the badge immediately
-    // without requiring a full search refetch (no DomainsContext equivalent for data products).
-    const [localDeprecation, setLocalDeprecation] = useState(deprecation ?? null);
+    // Local copy so deprecate/un-deprecate via the badge popup or the three-dot
+    // menu updates the badge immediately, without requiring a full search refetch
+    // (no DataProductsContext equivalent exists like DomainsContext does for domains).
+    const [localDeprecation, setLocalDeprecation] = useState<Deprecation | null>(deprecation ?? null);
     useEffect(() => {
         setLocalDeprecation(deprecation ?? null);
     }, [deprecation]);
+
+    const handleDeprecationChange = (formData?: DeprecationFormData) => {
+        if (!formData) {
+            setLocalDeprecation(null);
+            return;
+        }
+        setLocalDeprecation({
+            deprecated: true,
+            note: formData.note ?? null,
+            actor: null,
+            decommissionTime: formData.decommissionTime ?? null,
+            replacement: formData.replacement ?? null,
+        });
+    };
 
     return (
         <DefaultPreviewCard
@@ -75,7 +91,7 @@ export const Preview = ({
             degree={degree}
             paths={paths}
             deprecation={localDeprecation}
-            refetchDeprecation={() => setLocalDeprecation(null)}
+            refetchDeprecation={handleDeprecationChange}
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}
             actions={actions}
