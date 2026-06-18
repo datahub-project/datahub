@@ -93,7 +93,7 @@ SNOWFLAKE_OBJECT_NAME_RE = re.compile(
 # Allow-patterns containing only Snowflake unquoted-identifier chars (letters,
 # digits, underscores, dollar signs) and FQN-separator dots, terminated by a
 # '$' regex anchor. No other metacharacters. Patterns in this subset are
-# trivially valid non-capturing groups, so _make_composable can skip the
+# trivially valid capturing groups, so _make_composable can skip the
 # re.compile validation step for them.
 #
 # Note: Snowflake unquoted identifiers are [A-Za-z_][A-Za-z0-9_$]* (no digit
@@ -105,14 +105,19 @@ _PLAIN_LITERAL_PATTERN_RE = re.compile(r"^[A-Za-z0-9_$.]+\$$")
 
 
 def _make_composable(pattern: str) -> Optional[str]:
-    """Wrap a regex pattern in (?:...) for use in a single RLIKE alternation.
+    """Wrap a regex pattern in (...) for use in a single RLIKE alternation.
+
+    Snowflake RLIKE uses POSIX ERE, not PCRE — non-capturing groups (?:...)
+    are invalid and raise "no argument for repetition operator: ?". Plain
+    capturing groups (...) are valid ERE and sufficient for alternation
+    grouping.
 
     Returns the wrapped form if the result is a valid regex, or None if the
     pattern has unbalanced parentheses or other syntax that would break the
     alternation context (e.g., ``TABLE(unclosed``).
     """
-    wrapped = f"(?:{pattern})"
-    # Fast path: safe-literal-subset patterns are trivially valid non-capturing
+    wrapped = f"({pattern})"
+    # Fast path: safe-literal-subset patterns are trivially valid capturing
     # groups — skip re.compile for the common exact-literal case.
     if _PLAIN_LITERAL_PATTERN_RE.match(pattern):
         return wrapped
