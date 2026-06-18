@@ -133,6 +133,10 @@ class UnityCatalogUsageExtractor:
                     "no-queries-found",
                     f"No queries found in the configured time range. {hint}.",
                 )
+                # Skip resetting per-table usage when we couldn't read any queries at
+                # all (empty history or missing permission).  Emitting zero-usage aspects
+                # in that case would wrongly wipe existing usage stats in DataHub.
+                return
             yield from auto_empty_dataset_usage_statistics(
                 auto_workunit(aggregator.gen_metadata()),
                 dataset_urns={self.table_urn_builder(ref) for ref in table_refs},

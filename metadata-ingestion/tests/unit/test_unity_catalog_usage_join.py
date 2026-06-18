@@ -779,12 +779,12 @@ def test_schema_resolver_none_falls_back_to_empty_resolver(
 def test_auto_empty_usage_emitted_for_unqueried_tables(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Tables with no observed queries must still get a zero-usage datasetUsageStatistics aspect.
+    """An ingested table with no observed queries must still get a zero-usage aspect.
 
     auto_empty_dataset_usage_statistics wraps the aggregator stream and emits empty
     usage workunits for every URN in dataset_urns that had no usage in the window.
-    This test proves the wrap is applied in get_usage_workunits so the stale-usage
-    reset behavior is preserved.
+    The test feeds ONE query for a *different* table so num_queries > 0 (auto_empty
+    runs), then checks that the *unqueried* table still receives a zero-usage workunit.
     """
     import datahub.ingestion.source.unity.usage as usage_mod
     from datahub.ingestion.source.unity.proxy_types import TableReference
@@ -825,14 +825,25 @@ def test_auto_empty_usage_emitted_for_unqueried_tables(
 
     proxy = MagicMock()
     proxy.warehouse_id = "wh1"
-    proxy.get_query_history_via_system_tables.return_value = []
+    # Feed ONE query for a different table so num_queries > 0 — this ensures
+    # auto_empty_dataset_usage_statistics is reached and can reset unqueried tables.
+    proxy.get_query_history_via_system_tables.return_value = [
+        _query("SELECT * FROM main.sales.products", "q1"),
+    ]
 
     ex = _extractor(config, proxy)
+    # Use a real report so num_queries reflects actual query count.
+    from datahub.ingestion.source.unity.report import UnityCatalogReport
 
-    ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
-    expected_urn = ex.table_urn_builder(ref)
+    ex.report = UnityCatalogReport()
 
-    workunits = list(ex.get_usage_workunits({ref}))
+    # ref_unqueried is the table that had no matching query in this window.
+    ref_unqueried = TableReference(
+        metastore=None, catalog="main", schema="sales", table="orders"
+    )
+    expected_urn = ex.table_urn_builder(ref_unqueried)
+
+    workunits = list(ex.get_usage_workunits({ref_unqueried}))
 
     # At least one workunit must carry a DatasetUsageStatistics aspect for the
     # unqueried table's URN — the zero-usage reset workunit.
@@ -853,4 +864,68 @@ def test_auto_empty_usage_emitted_for_unqueried_tables(
     )
     assert usage_aspect.uniqueUserCount == 0, (
         f"Zero-usage aspect must have uniqueUserCount=0, got {usage_aspect.uniqueUserCount}"
+    )
+
+
+def test_zero_queries_emits_no_usage_workunits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When the query history is empty (num_queries == 0), NO datasetUsageStatistics
+    workunit must be emitted, and the no-queries-found warning must fire.
+
+    Emitting zero-usage aspects on a query-less run would wrongly wipe existing
+    usage stats in DataHub (e.g. when the warehouse has no recent activity or the
+    connector lacks SELECT privilege on query history tables).
+    """
+    import datahub.ingestion.source.unity.usage as usage_mod
+    from datahub.ingestion.source.unity.proxy_types import TableReference
+    from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            pass
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            pass
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.emit_queries = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = []
+
+    ex = _extractor(config, proxy)
+    # Use a real report so num_queries starts at 0 and the comparison works correctly.
+    from datahub.ingestion.source.unity.report import UnityCatalogReport
+
+    ex.report = UnityCatalogReport()
+
+    ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+    workunits = list(ex.get_usage_workunits({ref}))
+
+    usage_wus = [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetUsageStatisticsClass) is not None
+    ]
+    assert not usage_wus, (
+        f"Expected NO datasetUsageStatistics workunits when num_queries == 0, "
+        f"but got {len(usage_wus)}: {[wu.id for wu in usage_wus]}"
+    )
+
+    # The no-queries-found warning must be reported.
+    warning_messages = [w.message for w in ex.report.warnings]
+    assert "no-queries-found" in warning_messages, (
+        f"Expected 'no-queries-found' warning, got: {warning_messages}"
     )
