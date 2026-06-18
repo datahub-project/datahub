@@ -16,6 +16,7 @@ export const VIEW_ENTITY_TYPES: { type: EntityType; id: string; displayName: str
     { type: EntityType.DataFlow, id: 'dataFlow', displayName: 'Data Flow (Pipeline)' },
     { type: EntityType.DataJob, id: 'dataJob', displayName: 'Data Job (Task)' },
     { type: EntityType.Container, id: 'container', displayName: 'Container' },
+    { type: EntityType.DataObject, id: 'dataObject', displayName: 'Data Object' },
     { type: EntityType.Domain, id: 'domain', displayName: 'Domain' },
     { type: EntityType.DataProduct, id: 'dataProduct', displayName: 'Data Product' },
     { type: EntityType.GlossaryTerm, id: 'glossaryTerm', displayName: 'Glossary Term' },

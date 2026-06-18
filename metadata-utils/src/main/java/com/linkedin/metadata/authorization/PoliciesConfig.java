@@ -859,6 +859,26 @@ public class PoliciesConfig {
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
 
+  // Data Object Privileges
+  public static final ResourcePrivileges DATA_OBJECT_PRIVILEGES =
+      ResourcePrivileges.of(
+          "dataObject",
+          "Data Objects",
+          "Files and objects in storage cataloged in DataHub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_ENTITY_DOCS_PRIVILEGE,
+              EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              CREATE_ENTITY_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_DOMAINS_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
+              EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE));
+
   // Knowledge Article Privileges
   public static final ResourcePrivileges DOCUMENT_PRIVILEGES =
       ResourcePrivileges.of(
@@ -995,6 +1015,7 @@ public class PoliciesConfig {
           GLOSSARY_TERM_PRIVILEGES,
           GLOSSARY_NODE_PRIVILEGES,
           DOCUMENT_PRIVILEGES,
+          DATA_OBJECT_PRIVILEGES,
           CORP_GROUP_PRIVILEGES,
           CORP_USER_PRIVILEGES,
           NOTEBOOK_PRIVILEGES,

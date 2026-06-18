@@ -42,8 +42,11 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 @Slf4j
 @RequiredArgsConstructor
 public class RecentlyViewedSource implements EntityRecommendationSource {
-  /** Entity Types that should be in scope for this type of recommendation. */
-  private static final Set<String> SUPPORTED_ENTITY_TYPES =
+  /**
+   * Entity Types that should be in scope for this type of recommendation. Package-visible for guard
+   * test: RecentlyEditedSourceEntityCoverageTest.
+   */
+  static final Set<String> SUPPORTED_ENTITY_TYPES =
       ImmutableSet.of(
           Constants.DATASET_ENTITY_NAME,
           Constants.DATA_FLOW_ENTITY_NAME,

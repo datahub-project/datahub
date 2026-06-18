@@ -137,6 +137,12 @@ export class DataObjectEntity implements Entity<DataObject> {
             EntityCapabilityType.TAGS,
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.DOMAINS,
+            // dataObjects are storage assets (like datasets/containers) and can be grouped into
+            // Data Products and Applications. The "Add Assets" pickers are capability-derived
+            // (entityRegistry.getTypesWithSupportedCapabilities), so this declaration is the single
+            // source of truth — there is no parallel hardcoded allowlist that could drift.
+            EntityCapabilityType.DATA_PRODUCTS,
+            EntityCapabilityType.APPLICATIONS,
         ]);
     };
 

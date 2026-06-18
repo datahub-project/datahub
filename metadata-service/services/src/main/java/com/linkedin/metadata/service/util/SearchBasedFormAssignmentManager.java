@@ -17,7 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SearchBasedFormAssignmentManager {
 
-  private static final ImmutableList<String> ENTITY_TYPES =
+  // Package-visible for guard test: SearchBasedFormAssignmentManagerEntityCoverageTest
+  static final ImmutableList<String> ENTITY_TYPES =
       ImmutableList.of(
           Constants.DATASET_ENTITY_NAME,
           Constants.DATA_JOB_ENTITY_NAME,
