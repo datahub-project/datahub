@@ -69,7 +69,6 @@ from datahub.ingestion.source.unity.proxy_types import (
     Notebook,
     NotebookReference,
     Query,
-    QueryStatementInfo,
     Schema,
     ServicePrincipal,
     Table,
@@ -681,109 +680,6 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 except Exception as e:
                     logger.warning(f"Error parsing query from system table: {e}")
                     self.report.report_warning("query-parse-system-table", str(e))
-
-    def get_query_usage_via_system_tables(
-        self,
-        start_time: datetime,
-        end_time: datetime,
-    ) -> Iterable[QueryStatementInfo]:
-        """Reconstruct per-query table reads/writes by joining table_lineage to
-        query.history on statement_id — no SQL parsing. Warehouse queries only
-        (statement_id is set only for SQL-warehouse statements)."""
-        query = """
-            SELECT
-                tl.statement_id AS statement_id,
-                qh.statement_text AS statement_text,
-                qh.statement_type AS statement_type,
-                qh.executed_by AS executed_by,
-                qh.executed_by_user_id AS executed_by_user_id,
-                qh.executed_as AS executed_as,
-                qh.executed_as_user_id AS executed_as_user_id,
-                qh.start_time AS start_time,
-                qh.end_time AS end_time,
-                tl.source_table_full_name AS source_table_full_name,
-                tl.source_type AS source_type,
-                tl.target_table_full_name AS target_table_full_name,
-                tl.target_type AS target_type
-            FROM system.access.table_lineage tl
-            -- INNER JOIN: query.history fields (timestamps, user, statement_text) are
-            -- required for usage attribution; lineage rows without a matching history
-            -- entry have no usable usage data and are handled by the parse-fallback
-            -- path. statement_id is set only for SQL-warehouse queries, which are
-            -- always present in query.history.
-            INNER JOIN system.query.history qh
-                ON tl.statement_id = qh.statement_id
-            WHERE tl.event_date >= %s
-                AND tl.event_date <= %s
-                AND tl.statement_id IS NOT NULL
-                AND tl.direct_access = true
-                AND qh.start_time IS NOT NULL
-                AND qh.end_time IS NOT NULL
-            ORDER BY tl.statement_id
-        """
-        current_id: Optional[str] = None
-        info: Optional[QueryStatementInfo] = None
-        with closing(
-            self._execute_sql_query_streaming(query, (start_time, end_time))
-        ) as rows:
-            for row in rows:
-                try:
-                    sid = row.statement_id
-                    if sid != current_id:
-                        raw_stmt_type = row.statement_type
-                        statement_type: Optional[QueryStatementType] = None
-                        if raw_stmt_type:
-                            try:
-                                statement_type = QueryStatementType(raw_stmt_type)
-                            except ValueError:
-                                logger.warning(
-                                    f"Unrecognized statement_type {raw_stmt_type!r} for "
-                                    f"statement {sid}; treating as None"
-                                )
-                                self.report.report_warning(
-                                    "unknown-statement-type",
-                                    f"statement_id={sid} statement_type={raw_stmt_type!r}",
-                                )
-                        # Build new_info first; only advance current_id/info once construction
-                        # succeeds. If construction raises, current_id and info stay on the
-                        # previous statement so subsequent rows are not mis-attributed.
-                        new_info = QueryStatementInfo(
-                            query=Query(
-                                query_id=sid,
-                                query_text=row.statement_text or "",
-                                statement_type=statement_type,
-                                start_time=row.start_time,
-                                end_time=row.end_time,
-                                user_id=row.executed_by_user_id,
-                                user_name=row.executed_by,
-                                executed_as_user_id=row.executed_as_user_id,
-                                executed_as_user_name=row.executed_as,
-                            ),
-                            source_tables=[],
-                            target_tables=[],
-                        )
-                        if info is not None:
-                            yield info
-                        info = new_info
-                        current_id = sid
-                    assert info is not None
-                    # Read row: target_type is NULL. Write row: source_type is NULL.
-                    if row.target_type is None and row.source_table_full_name:
-                        info.source_tables.append(row.source_table_full_name)
-                    if row.source_type is None and row.target_table_full_name:
-                        info.target_tables.append(row.target_table_full_name)
-                except Exception as e:
-                    sid_ctx = getattr(row, "statement_id", "<unknown>")
-                    logger.warning(
-                        f"Error parsing system-table usage row for statement {sid_ctx!r}: {e}"
-                    )
-                    self.report.report_warning(
-                        "usage-row-parse",
-                        f"statement_id={sid_ctx!r}: {e}",
-                    )
-                    continue
-        if info is not None:
-            yield info
 
     def _build_datetime_where_conditions(
         self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None

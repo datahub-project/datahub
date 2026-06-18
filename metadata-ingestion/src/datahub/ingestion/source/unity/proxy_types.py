@@ -292,17 +292,6 @@ class Query:
 
 
 @dataclass
-class QueryStatementInfo:
-    """A single query reconstructed from system.access.table_lineage joined to
-    system.query.history, without SQL parsing. Reads populate source_tables;
-    writes populate target_tables."""
-
-    query: Query
-    source_tables: List[str] = field(default_factory=list)
-    target_tables: List[str] = field(default_factory=list)
-
-
-@dataclass
 class TableProfile:
     num_rows: Optional[int]
     num_columns: Optional[int]
