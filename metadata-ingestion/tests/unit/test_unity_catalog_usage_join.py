@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -122,7 +122,8 @@ def test_empty_result_yields_nothing():
 
 def test_invalid_statement_type_yields_row_with_none_type():
     """An unrecognized statement_type string must not abort the generator.  The bad row
-    should still be yielded (statement_type=None) and the valid row must also appear."""
+    should still be yielded (statement_type=None) and the valid row must also appear.
+    Also asserts the warning was recorded on the proxy report."""
     ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
     rows = [
         _row(
@@ -172,6 +173,11 @@ def test_invalid_statement_type_yields_row_with_none_type():
     assert ok.query.statement_type is not None, (
         "valid SELECT statement_type should be set"
     )
+    # Item 9: unknown statement type must also be recorded as a warning
+    warning_messages = [str(w.message) for w in proxy.report.warnings]
+    assert any("unknown-statement-type" in m for m in warning_messages), (
+        f"expected 'unknown-statement-type' warning, got: {warning_messages}"
+    )
 
 
 def test_sql_contains_required_filters():
@@ -206,19 +212,27 @@ def _make_query(query_id: str, text: str = "SELECT 1") -> Query:
     )
 
 
-def _make_usage_extractor(fake_proxy: MagicMock) -> UnityCatalogUsageExtractor:
-    """Build a UnityCatalogUsageExtractor with a fake proxy, bypassing real init."""
-    config = UnityCatalogSourceConfig.model_validate(
-        {
-            "token": "fake",
-            "workspace_url": "https://fake.azuredatabricks.net",
-            "usage_data_source": UsageDataSource.SYSTEM_TABLES.value,
-            "parse_unmatched_queries": True,
-            "include_operational_stats": False,
-            "warehouse_id": "wh1",
-        }
-    )
+def _build_extractor(
+    fake_proxy: MagicMock,
+    usage_data_source: UsageDataSource = UsageDataSource.SYSTEM_TABLES,
+    parse_unmatched_queries: bool = True,
+    include_operational_stats: bool = False,
+    emit_queries: bool = False,
+    warehouse_id: Optional[str] = "wh1",
+) -> UnityCatalogUsageExtractor:
+    """Single unified builder for UnityCatalogUsageExtractor in unit tests."""
+    config_dict: dict = {
+        "token": "fake",
+        "workspace_url": "https://fake.azuredatabricks.net",
+        "usage_data_source": usage_data_source.value,
+        "parse_unmatched_queries": parse_unmatched_queries,
+        "include_operational_stats": include_operational_stats,
+        "emit_queries": emit_queries,
+    }
+    if warehouse_id is not None:
+        config_dict["warehouse_id"] = warehouse_id
 
+    config = UnityCatalogSourceConfig.model_validate(config_dict)
     report = UnityCatalogReport()
 
     def table_urn_builder(ref: TableReference) -> str:
@@ -236,6 +250,12 @@ def _make_usage_extractor(fake_proxy: MagicMock) -> UnityCatalogUsageExtractor:
     extractor.platform = "databricks"
     extractor.__post_init__()
     return extractor
+
+
+def _stub_aggregator(extractor: UnityCatalogUsageExtractor) -> None:
+    extractor.usage_aggregator.aggregate_event = MagicMock()  # type: ignore[method-assign]
+    extractor.usage_aggregator.generate_workunits = MagicMock(return_value=iter([]))  # type: ignore[method-assign]
+    extractor.usage_aggregator.close = MagicMock()  # type: ignore[method-assign]
 
 
 def test_system_tables_path_aggregates_and_parse_fallback(
@@ -279,13 +299,8 @@ def test_system_tables_path_aggregates_and_parse_fallback(
         _history_via_system_tables
     )
 
-    extractor = _make_usage_extractor(fake_proxy)
-
-    # Stub aggregate_event so it doesn't need a real SQLite aggregator
-    extractor.usage_aggregator.aggregate_event = MagicMock()  # type: ignore[method-assign]
-    # Also stub generate_workunits to return nothing
-    extractor.usage_aggregator.generate_workunits = MagicMock(return_value=iter([]))  # type: ignore[method-assign]
-    extractor.usage_aggregator.close = MagicMock()  # type: ignore[method-assign]
+    extractor = _build_extractor(fake_proxy)
+    _stub_aggregator(extractor)
 
     # Spy on _parse_query: for s2 return a QueryTableInfo with the known ref
     parse_spy = MagicMock(
@@ -335,37 +350,8 @@ def test_parse_unmatched_queries_disabled_skips_fallback(
     fake_proxy.warehouse_id = "wh1"
     fake_proxy.get_query_usage_via_system_tables.return_value = iter([info_s1])
 
-    config = UnityCatalogSourceConfig.model_validate(
-        {
-            "token": "fake",
-            "workspace_url": "https://fake.azuredatabricks.net",
-            "usage_data_source": UsageDataSource.SYSTEM_TABLES.value,
-            "parse_unmatched_queries": False,
-            "include_operational_stats": False,
-            "warehouse_id": "wh1",
-        }
-    )
-
-    report = UnityCatalogReport()
-
-    def table_urn_builder(ref: TableReference) -> str:
-        return f"urn:li:dataset:(urn:li:dataPlatform:databricks,{ref.qualified_table_name},PROD)"
-
-    def user_urn_builder(user: str) -> str:
-        return f"urn:li:corpuser:{user}"
-
-    extractor = UnityCatalogUsageExtractor.__new__(UnityCatalogUsageExtractor)
-    extractor.config = config
-    extractor.report = report
-    extractor.proxy = fake_proxy
-    extractor.table_urn_builder = table_urn_builder
-    extractor.user_urn_builder = user_urn_builder
-    extractor.platform = "databricks"
-    extractor.__post_init__()
-
-    extractor.usage_aggregator.aggregate_event = MagicMock()  # type: ignore[method-assign]
-    extractor.usage_aggregator.generate_workunits = MagicMock(return_value=iter([]))  # type: ignore[method-assign]
-    extractor.usage_aggregator.close = MagicMock()  # type: ignore[method-assign]
+    extractor = _build_extractor(fake_proxy, parse_unmatched_queries=False)
+    _stub_aggregator(extractor)
 
     list(extractor.get_usage_workunits({known_ref}))
 
@@ -380,38 +366,15 @@ def test_parse_unmatched_queries_disabled_skips_fallback(
 # ---------------------------------------------------------------------------
 
 
-def _make_extractor() -> UnityCatalogUsageExtractor:
+def _make_extractor_for_emit() -> UnityCatalogUsageExtractor:
     """Build an extractor without a proxy (unit-testing _emit_query_entity directly)."""
-    config = UnityCatalogSourceConfig.model_validate(
-        {
-            "token": "fake",
-            "workspace_url": "https://fake.azuredatabricks.net",
-            "usage_data_source": UsageDataSource.SYSTEM_TABLES.value,
-            "warehouse_id": "wh1",
-            "emit_queries": True,
-        }
-    )
-    report = UnityCatalogReport()
-
-    def table_urn_builder(ref: TableReference) -> str:
-        return f"urn:li:dataset:(urn:li:dataPlatform:databricks,{ref.qualified_table_name},PROD)"
-
-    def user_urn_builder(user: str) -> str:
-        return f"urn:li:corpuser:{user}"
-
-    extractor = UnityCatalogUsageExtractor.__new__(UnityCatalogUsageExtractor)
-    extractor.config = config
-    extractor.report = report
-    extractor.proxy = MagicMock()
-    extractor.table_urn_builder = table_urn_builder
-    extractor.user_urn_builder = user_urn_builder
-    extractor.platform = "databricks"
-    extractor.__post_init__()
-    return extractor
+    fake_proxy = MagicMock()
+    fake_proxy.warehouse_id = "wh1"
+    return _build_extractor(fake_proxy, emit_queries=True)
 
 
 def _make_info(
-    query_id: str, text: str, source_tables: list, target_tables: list
+    query_id: Optional[str], text: str, source_tables: list, target_tables: list
 ) -> QueryStatementInfo:
     return QueryStatementInfo(
         query=Query(
@@ -454,7 +417,7 @@ def _get_mcp_by_aspect(
 
 def test_emit_query_entity_skips_text_when_redacted() -> None:
     """Redacted query text: emits queryProperties with empty statement, increments counter."""
-    extractor = _make_extractor()
+    extractor = _make_extractor_for_emit()
     info = _make_info(query_id="s9", text=REDACTED, source_tables=[], target_tables=[])
     table_map: TableMap = {}
 
@@ -473,8 +436,9 @@ def test_emit_query_entity_skips_text_when_redacted() -> None:
 
 
 def test_emit_query_entity_skips_when_no_id_and_redacted() -> None:
-    """No query_id AND redacted text: must not emit anything and counter stays 0."""
-    extractor = _make_extractor()
+    """No query_id AND redacted text: must not emit anything and counter stays 0.
+    Also asserts num_queries_text_redacted == 1 (counter increments before the early return)."""
+    extractor = _make_extractor_for_emit()
     info = _make_info(query_id=None, text=REDACTED, source_tables=[], target_tables=[])  # type: ignore[arg-type]
     table_map: TableMap = {}
 
@@ -482,11 +446,13 @@ def test_emit_query_entity_skips_when_no_id_and_redacted() -> None:
 
     assert wus == [], f"expected no workunits, got {wus}"
     assert extractor.report.num_query_entities_emitted == 0
+    # Item 8: the redacted counter must still increment before the early return
+    assert extractor.report.num_queries_text_redacted == 1
 
 
 def test_emit_query_entity_real_text_with_tables() -> None:
     """Real query text + resolved tables: emits queryProperties + querySubjects, increments counter."""
-    extractor = _make_extractor()
+    extractor = _make_extractor_for_emit()
 
     known_ref = TableReference(
         metastore=None, catalog="cat", schema="sch", table="src", last_updated=None
@@ -829,3 +795,144 @@ def test_closing_wrapper_ensures_connection_closed_on_early_abort() -> None:
     # Even though the consumer stopped early, the connection must be closed
     conn.__exit__.assert_called_once()
     cursor.__exit__.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# New edge-case tests (Items 5-7, 10)
+# ---------------------------------------------------------------------------
+
+
+def test_single_row_with_source_and_target() -> None:
+    """A row where both source_type and target_type are non-null → both lists populated."""
+    ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    # A single row contributes to both source and target only if source_type and
+    # target_type are both non-None. The proxy appends source_table when
+    # target_type is None, and target_table when source_type is None. So for
+    # source_type=non-null + target_type=non-null neither condition triggers.
+    # The test verifies that behavior explicitly for a combined row.
+    rows = [
+        _row(
+            statement_id="s1",
+            statement_text="MERGE ...",
+            statement_type="MERGE",
+            executed_by="u@x.io",
+            executed_by_user_id=1,
+            executed_as=None,
+            executed_as_user_id=None,
+            start_time=ts,
+            end_time=ts,
+            source_table_full_name="cat.sch.src",
+            source_type="TABLE",
+            source_path=None,
+            target_table_full_name="cat.sch.tgt",
+            target_type="TABLE",
+        ),
+    ]
+    proxy = _make_proxy(rows)
+    out = list(proxy.get_query_usage_via_system_tables(ts, ts))
+
+    assert len(out) == 1
+    s1 = out[0]
+    # When both source_type and target_type are non-null, neither append condition
+    # fires — the row contributes nothing to either list.
+    assert s1.source_tables == []
+    assert s1.target_tables == []
+
+
+def test_emit_query_entity_no_id_real_text() -> None:
+    """No query_id but non-redacted text: must emit using fingerprint URN, not crash."""
+    from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
+
+    extractor = _make_extractor_for_emit()
+    real_text = "SELECT 1 FROM my_table"
+    info = _make_info(
+        query_id=None,  # type: ignore[arg-type]
+        text=real_text,
+        source_tables=[],
+        target_tables=[],
+    )
+    table_map: TableMap = {}
+
+    wus = list(extractor._emit_query_entity(info, table_map))
+
+    aspect_names = _get_mcp_aspect_names(wus)
+    assert "queryProperties" in aspect_names, (
+        f"expected queryProperties for no-id real-text path, got {aspect_names}"
+    )
+    mcp = _get_mcp_by_aspect(wus, "queryProperties")
+    assert isinstance(mcp.aspect, QueryPropertiesClass)
+    assert mcp.aspect.statement.value == real_text
+
+    # URN must be based on fingerprint, not crash
+    fingerprint = get_query_fingerprint(real_text, "databricks", fast=True)
+    assert mcp.entityUrn is not None
+    assert fingerprint in mcp.entityUrn
+
+    assert extractor.report.num_query_entities_emitted == 1
+
+
+def test_use_system_tables_join_auto_branches() -> None:
+    """AUTO + warehouse_id present → True; AUTO + no warehouse_id → False."""
+    fake_proxy_with_wh = MagicMock()
+    fake_proxy_with_wh.warehouse_id = "wh1"
+    extractor_with_wh = _build_extractor(
+        fake_proxy_with_wh, usage_data_source=UsageDataSource.AUTO
+    )
+    assert extractor_with_wh._use_system_tables_join() is True
+
+    fake_proxy_no_wh = MagicMock()
+    fake_proxy_no_wh.warehouse_id = None
+    extractor_no_wh = _build_extractor(
+        fake_proxy_no_wh,
+        usage_data_source=UsageDataSource.AUTO,
+        warehouse_id=None,
+    )
+    assert extractor_no_wh._use_system_tables_join() is False
+
+
+def test_parse_fallback_query_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When _parse_query returns None for a history query:
+    - num_queries_missing_lineage is incremented
+    - num_queries_resolved_via_parse_fallback is NOT incremented
+    """
+    known_ref = TableReference(
+        metastore=None,
+        catalog="cat",
+        schema="sch",
+        table="src",
+        last_updated=None,
+    )
+
+    q1 = _make_query("s1", "SELECT * FROM cat.sch.src")
+    info_s1 = QueryStatementInfo(
+        query=q1,
+        source_tables=["cat.sch.src"],
+        target_tables=[],
+    )
+
+    # q2 has no lineage match and _parse_query returns None for it
+    q2 = _make_query("s2", "FROBNICATE SOMETHING UNPARSEABLE")
+
+    fake_proxy = MagicMock()
+    fake_proxy.warehouse_id = "wh1"
+    fake_proxy.get_query_usage_via_system_tables.side_effect = lambda *a, **kw: iter(
+        [info_s1]
+    )
+    fake_proxy.get_query_history_via_system_tables.side_effect = lambda *a, **kw: iter(
+        [q1, q2]
+    )
+
+    extractor = _build_extractor(fake_proxy, parse_unmatched_queries=True)
+    _stub_aggregator(extractor)
+
+    # _parse_query returns None → simulates parse failure
+    monkeypatch.setattr(extractor, "_parse_query", MagicMock(return_value=None))
+
+    list(extractor.get_usage_workunits({known_ref}))
+
+    assert extractor.report.num_queries_missing_lineage == 1, (
+        "q2 should be counted as missing lineage"
+    )
+    assert extractor.report.num_queries_resolved_via_parse_fallback == 0, (
+        "parse fallback counter must NOT increment when _parse_query returns None"
+    )

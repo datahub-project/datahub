@@ -298,8 +298,8 @@ class QueryStatementInfo:
     writes populate target_tables."""
 
     query: Query
-    source_tables: List[str]
-    target_tables: List[str]
+    source_tables: List[str] = field(default_factory=list)
+    target_tables: List[str] = field(default_factory=list)
 
 
 @dataclass

@@ -42,6 +42,7 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
 
+_INGESTION_ACTOR_URN = "urn:li:corpuser:_ingestion"
 
 TableMap = Dict[str, List[TableReference]]
 T = TypeVar("T")
@@ -100,6 +101,12 @@ class UnityCatalogUsageExtractor:
     def _use_system_tables_join(self) -> bool:
         return self.config.usage_uses_system_tables(self.proxy.warehouse_id)
 
+    def _track_unique_query(
+        self, query_text: str, query_hashes: "FileBackedDict[int]"
+    ) -> None:
+        query_hashes[get_query_fingerprint(query_text, "databricks", fast=True)] = 1
+        self.report.num_unique_queries = len(query_hashes)
+
     def _get_workunits_internal(
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
@@ -124,12 +131,9 @@ class UnityCatalogUsageExtractor:
                         if info.query.query_id:
                             matched_ids[info.query.query_id] = 1
                         with self.report.usage_perf_report.query_fingerprinting_timer:
-                            query_hashes[
-                                get_query_fingerprint(
-                                    info.query.query_text, "databricks", fast=True
-                                )
-                            ] = 1
-                            self.report.num_unique_queries = len(query_hashes)
+                            self._track_unique_query(
+                                info.query.query_text, query_hashes
+                            )
                         table_info = QueryTableInfo(
                             source_tables=self._resolve_tables(
                                 info.source_tables, table_map
@@ -164,12 +168,7 @@ class UnityCatalogUsageExtractor:
                             with (
                                 self.report.usage_perf_report.query_fingerprinting_timer
                             ):
-                                query_hashes[
-                                    get_query_fingerprint(
-                                        query.query_text, "databricks", fast=True
-                                    )
-                                ] = 1
-                                self.report.num_unique_queries = len(query_hashes)
+                                self._track_unique_query(query.query_text, query_hashes)
                             parsed_table_info = self._parse_query(query, table_map)
                             if parsed_table_info is not None:
                                 yield from self._aggregate_query_usage(
@@ -271,7 +270,7 @@ class UnityCatalogUsageExtractor:
         self, info: QueryStatementInfo, table_map: TableMap
     ) -> Iterable[MetadataWorkUnit]:
         text = info.query.query_text
-        redacted = (not text) or text == "<Redacted>"
+        redacted = not text or text == "<Redacted>"
         if redacted:
             self.report.num_queries_text_redacted += 1
 
@@ -286,7 +285,7 @@ class UnityCatalogUsageExtractor:
         )
         query_urn = QueryUrn(query_id).urn()
         ts_ms = int(info.query.start_time.timestamp() * 1000)
-        audit = AuditStampClass(time=ts_ms, actor="urn:li:corpuser:_ingestion")
+        audit = AuditStampClass(time=ts_ms, actor=_INGESTION_ACTOR_URN)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=query_urn,
