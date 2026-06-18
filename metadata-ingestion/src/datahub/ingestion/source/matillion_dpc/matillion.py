@@ -343,6 +343,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             logger.info(
                 "Skipping unpublished pipeline discovery (include_unpublished_pipelines=False)"
             )
+            pipeline_groups = {key: [] for key in published_pipelines_index}
 
         for key in pipeline_groups:
             project_id = key.project_id
@@ -494,6 +495,7 @@ class MatillionSource(StatefulIngestionSourceBase):
 
         if not all_steps_by_name:
             logger.debug(f"No steps found for pipeline {pipeline_name}")
+            self.report.report_pipelines_scanned()
             return
 
         pipeline = MatillionPipeline(

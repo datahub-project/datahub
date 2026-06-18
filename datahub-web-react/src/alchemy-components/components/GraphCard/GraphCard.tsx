@@ -83,7 +83,7 @@ export function GraphCard({
                                     )}
                                     <Text>{resolvedEmptyMessage}</Text>
                                     {moreInfoModalContent && (
-                                        <LinkText color="primary" onClick={() => setShowInfoModal(true)}>
+                                        <LinkText color="hyperlinks" onClick={() => setShowInfoModal(true)}>
                                             {t('graphCard.moreInfo')}
                                         </LinkText>
                                     )}

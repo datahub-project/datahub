@@ -1,5 +1,6 @@
 import json
 import time
+from typing import Callable, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,18 +19,26 @@ from datahub.ingestion.workunit_processors.ensure_aspect_size import (
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    BinaryJsonSchemaClass,
     ChangeTypeClass,
     DatasetFieldProfileClass,
     DatasetLineageTypeClass,
     DatasetProfileClass,
     DatasetSnapshotClass,
+    EspressoSchemaClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GenericAspectClass,
+    KafkaSchemaClass,
+    KeyValueSchemaClass,
     MetadataChangeProposalClass,
+    MySqlDDLClass,
     NumberTypeClass,
+    OracleDDLClass,
+    OrcSchemaClass,
     OtherSchemaClass,
+    PrestoDDLClass,
     QueryLanguageClass,
     QueryPropertiesClass,
     QuerySourceClass,
@@ -38,6 +47,7 @@ from datahub.metadata.schema_classes import (
     QuerySubjectsClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
+    SchemalessClass,
     SchemaMetadataClass,
     StatusClass,
     StringTypeClass,
@@ -377,7 +387,7 @@ def test_ensure_size_of_proper_dataset_profile(processor):
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
-def test_ensure_size_of_too_big_schema_metadata(processor):
+def test_schema_metadata_trims_fields_when_fields_are_too_large(processor):
     schema = too_big_schema_metadata()
     assert len(schema.fields) == 1004
 
@@ -386,16 +396,24 @@ def test_ensure_size_of_too_big_schema_metadata(processor):
     )
     assert len(schema.fields) < 1004, "Schema has not been properly truncated"
     assert schema.fields[-1].fieldPath == "dddd", "Small field was not added at the end"
-    # +100kb is completely arbitrary, but we are truncating the aspect based on schema fields size only, not total taken
-    # by other parameters of the aspect - it is reasonable approach though - schema fields is the only field in schema
-    # metadata which can be expected to grow out of control
-    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES + 100000, (
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
         "Aspect exceeded acceptable size"
     )
 
+    # Field trimming should emit a single per-entity warning reporting the dropped
+    # count, not one warning per dropped field.
+    field_drop_warnings = [
+        w
+        for w in processor.ctx.source_report.warnings
+        if "some fields were dropped" in w.message
+    ]
+    assert len(field_drop_warnings) == 1
+    assert len(field_drop_warnings[0].context) == 1
+    assert "fields from schema" in field_drop_warnings[0].context[0]
+
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
-def test_ensure_size_of_proper_schema_metadata(processor):
+def test_schema_metadata_no_op_when_fits_within_budget(processor):
     schema = proper_schema_metadata()
     orig_repr = json.dumps(schema.to_obj())
     processor.ensure_schema_metadata_size(
@@ -404,6 +422,233 @@ def test_ensure_size_of_proper_schema_metadata(processor):
     assert orig_repr == json.dumps(schema.to_obj()), (
         "Aspect was modified in case where workunit processor should have been no-op"
     )
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_schema_metadata_drops_raw_schema_before_trimming_fields(processor):
+    # Mixed case: neither the raw schema (~9 MB) nor the fields (~9 MB) is
+    # individually over the budget, but together they exceed it. Per the
+    # "fields > raw platform schema" priority, the raw schema is dropped first
+    # and ALL fields are retained — rather than keeping the raw schema and
+    # trimming columns to make room for it.
+    raw_schema_size = int(processor.schema_size_constraint * 0.6)
+    fields = [
+        SchemaFieldClass(
+            fieldPath=f"t{i}",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+            description=20000 * "a",
+        )
+        for i in range(450)
+    ]
+    schema = SchemaMetadataClass(
+        schemaName="abcdef",
+        version=1,
+        platform="s3",
+        hash="ABCDE1234567890",
+        platformSchema=OtherSchemaClass(rawSchema="a" * raw_schema_size),
+        fields=fields,
+    )
+
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
+    )
+
+    assert isinstance(schema.platformSchema, OtherSchemaClass)
+    assert schema.platformSchema.rawSchema == "", (
+        "Raw schema should be dropped before any field is trimmed"
+    )
+    assert len(schema.fields) == 450, (
+        "All fields should be retained once the raw schema is dropped"
+    )
+    assert processor.report.num_platform_schema_drops == 1
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
+        "Aspect exceeded acceptable size despite truncation"
+    )
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_schema_metadata_drops_oversized_raw_schema(processor):
+    # When rawSchema alone exceeds the budget, it is dropped so the structured
+    # fields can still be retained rather than failing the whole aspect.
+    fields = [
+        SchemaFieldClass(
+            f"f{i}",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        )
+        for i in range(5)
+    ]
+    schema = SchemaMetadataClass(
+        schemaName="abcdef",
+        version=1,
+        platform="s3",
+        hash="ABCDE1234567890",
+        platformSchema=OtherSchemaClass(
+            rawSchema="a" * (processor.schema_size_constraint + 100000)
+        ),
+        fields=fields,
+    )
+
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
+    )
+
+    assert isinstance(schema.platformSchema, OtherSchemaClass)
+    assert schema.platformSchema.rawSchema == "", "Oversized raw schema was not dropped"
+    assert len(schema.fields) == 5, (
+        "Fields should be retained once the oversized raw schema is dropped"
+    )
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
+        "Aspect exceeded acceptable size"
+    )
+    assert processor.report.num_platform_schema_drops == 1
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_schema_metadata_drops_oversized_non_other_platform_schema(processor):
+    # The platform-schema blob must be dropped before fields for ANY union
+    # variant, not just OtherSchema. Here a KafkaSchema documentSchema alone
+    # exceeds the budget; without generic handling the field loop would reject
+    # every field and still leave the aspect oversized.
+    fields = [
+        SchemaFieldClass(
+            f"f{i}",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        )
+        for i in range(5)
+    ]
+    schema = SchemaMetadataClass(
+        schemaName="abcdef",
+        version=1,
+        platform="kafka",
+        hash="ABCDE1234567890",
+        platformSchema=KafkaSchemaClass(
+            documentSchema="a" * (processor.schema_size_constraint + 100000),
+            documentSchemaType="AVRO",
+        ),
+        fields=fields,
+    )
+
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(kafka, dummy_dataset, DEV)", schema
+    )
+
+    assert isinstance(schema.platformSchema, KafkaSchemaClass)
+    assert schema.platformSchema.documentSchema == "", (
+        "Oversized platform schema was not dropped"
+    )
+    assert schema.platformSchema.documentSchemaType == "AVRO", (
+        "Type marker must be preserved — only the schema blob should be blanked"
+    )
+    assert len(schema.fields) == 5, (
+        "Fields should be retained once the oversized platform schema is dropped"
+    )
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
+        "Aspect exceeded acceptable size"
+    )
+    assert processor.report.num_platform_schema_drops == 1
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_schema_metadata_drops_raw_schema_then_trims_fields(processor):
+    # Cascade: a meaningful raw schema (~40% of budget) AND fields that are too
+    # large even on their own. The raw schema must be dropped FIRST, then fields
+    # trimmed — proving the order (a regression that trimmed fields first and
+    # dropped the schema second would leave a different result).
+    raw_schema_size = int(processor.schema_size_constraint * 0.4)
+    fields = [
+        SchemaFieldClass(
+            fieldPath=f"t{i}",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+            description=20000 * "a",
+        )
+        for i in range(1000)
+    ]
+    schema = SchemaMetadataClass(
+        schemaName="abcdef",
+        version=1,
+        platform="s3",
+        hash="ABCDE1234567890",
+        platformSchema=OtherSchemaClass(rawSchema="a" * raw_schema_size),
+        fields=fields,
+    )
+
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
+    )
+
+    assert isinstance(schema.platformSchema, OtherSchemaClass)
+    assert schema.platformSchema.rawSchema == "", "Raw schema should be dropped first"
+    assert processor.report.num_platform_schema_drops == 1
+    assert len(schema.fields) < 1000, "Fields should also be trimmed after the drop"
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
+        "Aspect exceeded acceptable size"
+    )
+
+
+def test_drop_platform_schema_handles_every_union_variant(processor):
+    # Pull the live union members of SchemaMetadata.platformSchema from the
+    # generated model. When a new variant is added to the schema, this test fails
+    # with a clear message — preventing a silent "Unrecognized variant" warning +
+    # retained oversized blob in production. The constructor map lives here (not in
+    # src/) on purpose: a new variant should force both a dispatcher branch AND a
+    # behavioral check that the branch actually clears something.
+    constructors: Dict[str, Callable[[], object]] = {
+        "OtherSchema": lambda: OtherSchemaClass(rawSchema="x" * 100),
+        "PrestoDDL": lambda: PrestoDDLClass(rawSchema="x" * 100),
+        "MySqlDDL": lambda: MySqlDDLClass(tableSchema="x" * 100),
+        "OracleDDL": lambda: OracleDDLClass(tableSchema="x" * 100),
+        "OrcSchema": lambda: OrcSchemaClass(schema="x" * 100),
+        "BinaryJsonSchema": lambda: BinaryJsonSchemaClass(schema="x" * 100),
+        "KafkaSchema": lambda: KafkaSchemaClass(documentSchema="x" * 100),
+        "EspressoSchema": lambda: EspressoSchemaClass(
+            documentSchema="x" * 100, tableSchema="x" * 100
+        ),
+        "KeyValueSchema": lambda: KeyValueSchemaClass(
+            keySchema="x" * 100, valueSchema="x" * 100
+        ),
+        "Schemaless": lambda: SchemalessClass(),
+    }
+
+    model_union_members = {
+        s.name
+        for s in SchemaMetadataClass.RECORD_SCHEMA.fields_dict[  # type: ignore[attr-defined]
+            "platformSchema"
+        ].type.schemas
+    }
+    test_covers = set(constructors.keys())
+
+    missing_in_test = model_union_members - test_covers
+    extra_in_test = test_covers - model_union_members
+    assert not missing_in_test, (
+        f"New platformSchema variant(s) in the model are not exercised here: "
+        f"{missing_in_test}. Add a constructor above AND a branch in "
+        f"_drop_platform_schema."
+    )
+    assert not extra_in_test, (
+        f"Test references variants no longer in the model: {extra_in_test}"
+    )
+
+    for name, make in constructors.items():
+        schema = SchemaMetadataClass(
+            schemaName="t",
+            version=1,
+            platform="p",
+            hash="h",
+            platformSchema=make(),  # type: ignore[arg-type]
+            fields=[],
+        )
+        cleared = processor._drop_platform_schema(schema)
+        if name == "Schemaless":
+            assert not cleared, "Schemaless carries no content to clear"
+        else:
+            assert cleared, (
+                f"_drop_platform_schema returned False for {name}; the dispatcher "
+                f"likely has no branch for it"
+            )
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
