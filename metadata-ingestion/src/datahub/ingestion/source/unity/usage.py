@@ -83,6 +83,15 @@ class UnityCatalogUsageExtractor:
             (lambda name: name.lower() in allowed_names) if allowed_names else None
         )
 
+        # Databricks query history has no per-query session catalog/schema (unlike
+        # Snowflake), so we can't derive a per-query default_db.  When the recipe
+        # ingests a single catalog we use it as the default, recovering 2-part
+        # "schema.table" references (BigQuery-style).  Multi-catalog recipes get
+        # None because there is no unambiguous default.  1-part bare table names
+        # still cannot be resolved (no default schema is available).
+        catalogs = {ref.catalog for ref in table_refs}
+        default_db: Optional[str] = next(iter(catalogs)) if len(catalogs) == 1 else None
+
         aggregator: Optional[SqlParsingAggregator] = None
         try:
             aggregator = self._build_aggregator(is_allowed_table=is_allowed_table)
@@ -102,7 +111,7 @@ class UnityCatalogUsageExtractor:
                             if query.user_name
                             else None
                         ),
-                        default_db=None,
+                        default_db=default_db,
                         default_schema=None,
                     )
                 )

@@ -579,6 +579,155 @@ def test_schema_resolver_passed_to_aggregator(
     )
 
 
+def test_default_db_set_to_single_catalog(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When all table_refs share one catalog, every ObservedQuery.default_db must equal it."""
+    import datahub.ingestion.source.unity.usage as usage_mod
+    from datahub.ingestion.source.unity.proxy_types import TableReference
+
+    agg_instance: list = []
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            self.observed: list = []
+            agg_instance.append(self)
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            self.observed.append(observed)
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.emit_queries = True
+    config.include_operational_stats = True
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = [
+        _query("SELECT * FROM lineagedemo.dinner", "q1"),
+        _query("SELECT * FROM lineagedemo.lunch", "q2"),
+    ]
+    ex = _extractor(config, proxy)
+
+    refs = {
+        TableReference(
+            metastore=None, catalog="main", schema="lineagedemo", table="dinner"
+        ),
+        TableReference(
+            metastore=None, catalog="main", schema="lineagedemo", table="lunch"
+        ),
+    }
+    list(ex.get_usage_workunits(refs))
+
+    agg = agg_instance[0]
+    assert len(agg.observed) == 2
+    for obs in agg.observed:
+        assert obs.default_db == "main", (
+            f"expected default_db='main', got {obs.default_db!r}"
+        )
+        assert obs.default_schema is None
+
+
+def test_default_db_none_for_multi_catalog(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When table_refs span two catalogs, every ObservedQuery.default_db must be None."""
+    import datahub.ingestion.source.unity.usage as usage_mod
+    from datahub.ingestion.source.unity.proxy_types import TableReference
+
+    agg_instance: list = []
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            self.observed: list = []
+            agg_instance.append(self)
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            self.observed.append(observed)
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.emit_queries = True
+    config.include_operational_stats = True
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = [
+        _query("SELECT * FROM main.s.t", "q1"),
+    ]
+    ex = _extractor(config, proxy)
+
+    refs = {
+        TableReference(metastore=None, catalog="main", schema="s", table="t"),
+        TableReference(metastore=None, catalog="other", schema="s", table="t2"),
+    }
+    list(ex.get_usage_workunits(refs))
+
+    agg = agg_instance[0]
+    assert len(agg.observed) == 1
+    assert agg.observed[0].default_db is None, (
+        f"expected default_db=None for multi-catalog, got {agg.observed[0].default_db!r}"
+    )
+
+
+def test_default_db_none_for_empty_table_refs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When table_refs is empty, default_db must be None and no crash must occur."""
+    import datahub.ingestion.source.unity.usage as usage_mod
+
+    agg_instance: list = []
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            self.observed: list = []
+            agg_instance.append(self)
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            self.observed.append(observed)
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.emit_queries = True
+    config.include_operational_stats = True
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = [
+        _query("SELECT 1", "q1"),
+    ]
+    ex = _extractor(config, proxy)
+
+    list(ex.get_usage_workunits(set()))
+
+    agg = agg_instance[0]
+    assert len(agg.observed) == 1
+    assert agg.observed[0].default_db is None, (
+        f"expected default_db=None for empty refs, got {agg.observed[0].default_db!r}"
+    )
+
+
 def test_schema_resolver_none_falls_back_to_empty_resolver(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
