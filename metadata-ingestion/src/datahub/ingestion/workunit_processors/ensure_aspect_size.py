@@ -239,9 +239,10 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         sorted_fields = sorted(schema.fields, key=self._extract_field_path_length)
         for schema_field in sorted_fields:
             field_size = len(json.dumps(pre_json_transform(schema_field.to_obj())))
-            if total_fields_size + field_size < self.schema_size_constraint:
-                accepted_fields.append(schema_field)
-                total_fields_size += field_size
+            if total_fields_size + field_size >= self.schema_size_constraint:
+                break
+            accepted_fields.append(schema_field)
+            total_fields_size += field_size
 
         dropped_field_count = len(schema.fields) - len(accepted_fields)
         if dropped_field_count:
