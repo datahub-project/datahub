@@ -30,6 +30,6 @@ export const BodyContainer = styled.div`
 
 export const WhiteButton = styled(Button)`
     background-color: white;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.textBrand};
     text-shadow: none;
 `;

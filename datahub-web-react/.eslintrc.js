@@ -296,6 +296,12 @@ module.exports = {
             rules: { 'import/no-cycle': 'off' },
         },
         {
+            // Custom ESLint rules and their tests live outside src/, so the src path
+            // aliases don't apply and the rule modules are CommonJS (.js).
+            files: ['eslint-rules/**'],
+            rules: { 'import-alias/import-alias': 'off', 'import/extensions': 'off' },
+        },
+        {
             // The dayjs utils wrapper itself must import bare 'dayjs' to extend plugins.
             files: ['src/utils/dayjs.ts'],
             rules: { 'no-restricted-imports': 'off' },

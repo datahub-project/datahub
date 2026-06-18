@@ -11,7 +11,6 @@ import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { BodyContainer, BodyGridExpander } from '@app/shared/components';
 import { RotatingTriangle } from '@app/shared/sidebar/components';
-import { applyOpacity } from '@app/shared/styleUtils';
 import useToggle from '@app/shared/useToggle';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -28,8 +27,7 @@ const NameWrapper = styled(Typography.Text)<{ isSelected: boolean; addLeftPaddin
     flex: 1;
     overflow: hidden;
     padding: 2px;
-    ${(props) =>
-        props.isSelected && `background-color: ${applyOpacity(props.theme.styles['primary-color'] || '', 10)};`}
+    ${(props) => props.isSelected && `background-color: ${props.theme.colors.bgSelected};`}
     ${(props) => props.addLeftPadding && 'padding-left: 22px;'}
 
     &:hover {
