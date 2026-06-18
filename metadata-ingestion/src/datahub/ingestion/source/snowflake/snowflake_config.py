@@ -26,6 +26,9 @@ from datahub.ingestion.api.incremental_properties_helper import (
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.data_lake_common.config import (
+    S3DatasetLineageProviderConfigBase,
+)
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
@@ -429,6 +432,7 @@ class SnowflakeV2Config(
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
     IncrementalPropertiesConfigMixin,
+    S3DatasetLineageProviderConfigBase,
 ):
     include_usage_stats: bool = Field(
         default=True,
