@@ -1,6 +1,7 @@
 import uuid
 from collections import namedtuple
 from datetime import datetime, timezone
+from typing import Iterable
 from unittest import mock
 from unittest.mock import patch
 
@@ -13,9 +14,12 @@ from databricks.sdk.service.catalog import (
     SchemaInfo,
 )
 from databricks.sdk.service.iam import ServicePrincipal
+from databricks.sdk.service.sql import QueryStatementType
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
+from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
+from datahub.ingestion.source.unity.proxy_types import Query
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2021-12-07 07:00:00"
@@ -1435,3 +1439,111 @@ def test_constraints_exception_path(requests_mock):
 
         # The pipeline succeeded despite the exception — graceful degradation
         workspace_client.tables.get.assert_called()
+
+
+def _make_usage_queries() -> Iterable[Query]:
+    """Return a small fixed set of Query objects covering a SELECT and an INSERT."""
+    # Frozen at FROZEN_TIME; both queries reference the ingested table so the
+    # aggregator can resolve them to DataHub dataset URNs.
+    ts_start = datetime(2021, 12, 7, 6, 0, 0, tzinfo=timezone.utc)
+    ts_end = datetime(2021, 12, 7, 6, 0, 1, tzinfo=timezone.utc)
+    return [
+        Query(
+            query_id="q-select-001",
+            query_text="SELECT columnA, columnB FROM quickstart_catalog.quickstart_schema.quickstart_table WHERE columnA > 0",
+            statement_type=QueryStatementType.SELECT,
+            start_time=ts_start,
+            end_time=ts_end,
+            user_id=1001,
+            user_name="user@example.com",
+            executed_as_user_id=1001,
+            executed_as_user_name="user@example.com",
+        ),
+        Query(
+            query_id="q-insert-002",
+            query_text="INSERT INTO quickstart_catalog.quickstart_schema.quickstart_table SELECT columnA, columnB FROM quickstart_catalog.quickstart_schema.quickstart_table_external",
+            statement_type=QueryStatementType.INSERT,
+            start_time=ts_start,
+            end_time=ts_end,
+            user_id=1001,
+            user_name="user@example.com",
+            executed_as_user_id=1001,
+            executed_as_user_name="user@example.com",
+        ),
+    ]
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_unity_catalog_usage_via_aggregator(pytestconfig, tmp_path, requests_mock):
+    """Golden test for the SqlParsingAggregator-based usage path.
+
+    Mocks get_query_history_via_system_tables (the SYSTEM_TABLES path) with a
+    small fixed set of Query objects and verifies the aggregator emits
+    datasetUsageStatistics, operation, and queryProperties/querySubjects aspects.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+
+    register_mock_api(request_mock=requests_mock)
+
+    output_file_name = "unity_catalog_usage_aggregator_mcps.json"
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+        patch.object(
+            UnityCatalogApiProxy,
+            "get_query_history_via_system_tables",
+            return_value=list(_make_usage_queries()),
+        ),
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data(workspace_client)
+
+        inspector = mock.MagicMock()
+        inspector.get_schema_names.return_value = []
+        get_inspector.return_value = inspector
+        execute_sql.side_effect = mock_hive_sql
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-usage-aggregator-test",
+            "pipeline_name": "unity-catalog-usage-aggregator-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "warehouse_id": "test-warehouse",
+                    "include_hive_metastore": False,
+                    "include_ownership": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_usage_statistics": True,
+                    "usage_data_source": "SYSTEM_TABLES",
+                    "emit_queries": True,
+                    "include_operational_stats": True,
+                    "start_time": "2021-12-07T00:00:00Z",
+                    "end_time": "2021-12-08T00:00:00Z",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"/{tmp_path}/{output_file_name}",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"/{tmp_path}/{output_file_name}",
+            golden_path=f"{test_resources_dir}/unity_catalog_usage_aggregator_mces_golden.json",
+        )
