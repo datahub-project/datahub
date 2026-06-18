@@ -640,16 +640,7 @@
                     "userEmail": "user@example.com"
                 }
             ],
-            "fieldCounts": [
-                {
-                    "fieldPath": "columna",
-                    "count": 1
-                },
-                {
-                    "fieldPath": "columnb",
-                    "count": 1
-                }
-            ]
+            "fieldCounts": []
         }
     },
     "systemMetadata": {
@@ -687,16 +678,7 @@
                     "userEmail": "user@example.com"
                 }
             ],
-            "fieldCounts": [
-                {
-                    "fieldPath": "columna",
-                    "count": 1
-                },
-                {
-                    "fieldPath": "columnb",
-                    "count": 1
-                }
-            ]
+            "fieldCounts": []
         }
     },
     "systemMetadata": {
@@ -777,12 +759,6 @@
                 },
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD),columna)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD),columnb)"
                 },
                 {
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD),columna)"
@@ -890,12 +866,6 @@
             "subjects": [
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD),columna)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD),columnb)"
                 }
             ]
         }

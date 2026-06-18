@@ -27,6 +27,7 @@ class UnityCatalogUsageExtractor:
     table_urn_builder: Callable[[TableReference], str]
     user_urn_builder: Callable[[str], str]
     platform: str = "databricks"
+    schema_resolver: Optional[SchemaResolver] = None
 
     def _use_system_tables_join(self) -> bool:
         return self.config.usage_uses_system_tables(self.proxy.warehouse_id)
@@ -35,7 +36,11 @@ class UnityCatalogUsageExtractor:
         self,
         is_allowed_table: Optional[Callable[[str], bool]] = None,
     ) -> SqlParsingAggregator:
-        schema_resolver = SchemaResolver(
+        # Use the pre-populated resolver passed from the source so that
+        # unqualified / partial table references in queries are resolved against
+        # the schemas ingested in this run.  Fall back to a fresh empty resolver
+        # when none is provided (e.g. unit tests).
+        schema_resolver = self.schema_resolver or SchemaResolver(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,

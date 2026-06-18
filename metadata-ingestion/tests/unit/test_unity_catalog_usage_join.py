@@ -526,3 +526,102 @@ def test_is_allowed_table_predicate_platform_instance_safe(
     assert predicate("system.access.table_lineage") is False, (
         "predicate must reject tables not in the ingested set"
     )
+
+
+def test_schema_resolver_passed_to_aggregator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When schema_resolver is set on the extractor, _build_aggregator must pass
+    THAT instance to SqlParsingAggregator rather than creating a fresh empty one.
+    """
+    import datahub.ingestion.source.unity.usage as usage_mod
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
+
+    captured: dict = {}
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            captured["kwargs"] = kw
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            pass
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.emit_queries = False
+    config.include_operational_stats = False
+    config.platform_instance = None
+    config.env = "PROD"
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = []
+
+    resolver = SchemaResolver(
+        platform="databricks",
+        platform_instance=None,
+        env="PROD",
+    )
+    ex = _extractor(config, proxy)
+    ex.schema_resolver = resolver
+
+    list(ex.get_usage_workunits(set()))
+
+    assert captured["kwargs"]["schema_resolver"] is resolver, (
+        "_build_aggregator must pass the extractor's schema_resolver to SqlParsingAggregator"
+    )
+
+
+def test_schema_resolver_none_falls_back_to_empty_resolver(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When schema_resolver is None (e.g. unit tests), _build_aggregator must create
+    a fresh empty resolver — preserving existing behavior.
+    """
+    import datahub.ingestion.source.unity.usage as usage_mod
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
+
+    captured: dict = {}
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            captured["kwargs"] = kw
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            pass
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.emit_queries = False
+    config.include_operational_stats = False
+    config.platform_instance = None
+    config.env = "PROD"
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = []
+
+    ex = _extractor(config, proxy)
+    # schema_resolver is not set on _extractor() instances (defaults to None via
+    # the dataclass default); confirm the fallback creates a SchemaResolver instance.
+    assert ex.schema_resolver is None
+
+    list(ex.get_usage_workunits(set()))
+
+    assert isinstance(captured["kwargs"]["schema_resolver"], SchemaResolver), (
+        "fallback must provide a SchemaResolver instance when schema_resolver is None"
+    )
