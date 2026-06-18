@@ -12,11 +12,14 @@ import styled from 'styled-components/macro';
 import { AvatarType } from '@components/components/AvatarStack/types';
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
 
+import ImportDocumentsButton from '@app/context/import/ImportDocumentsButton';
+import { useDocumentImportSuccess } from '@app/context/import/hooks/useDocumentImportSuccess';
 import { useContextDocumentsPermissions } from '@app/context/useContextDocumentsPermissions';
 import { useDocumentFilters } from '@app/document/DocumentFiltersContext';
 import { DocumentSourceLogo } from '@app/document/DocumentSourceLogo';
 import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useCreateDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
+import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import {
     DEFAULT_STATUS_FILTER,
@@ -230,6 +233,7 @@ export default function ContextSidebar({
     } = useDocumentFilters();
     const { createDocument } = useCreateDocumentTreeMutation();
     const { expandNode, getNode, nodes } = useDocumentTree();
+    const { loadChildren } = useLoadDocumentTree();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
 
@@ -358,6 +362,8 @@ export default function ContextSidebar({
         [entityRegistry, history],
     );
 
+    const handleImportSuccess = useDocumentImportSuccess({ loadChildren });
+
     return (
         <SidebarContainer
             $width={width}
@@ -369,6 +375,9 @@ export default function ContextSidebar({
             <HeaderControls $isCollapsed={isCollapsed}>
                 {!isCollapsed && <SidebarTitle>{t('context.documentsSidebarTitle')}</SidebarTitle>}
                 <HeaderButtons>
+                    {!isCollapsed && canCreateDocuments && (
+                        <ImportDocumentsButton onSuccess={handleImportSuccess} />
+                    )}
                     {!isCollapsed && (
                         <Tooltip
                             title={

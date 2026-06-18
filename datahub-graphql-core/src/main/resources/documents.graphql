@@ -48,6 +48,15 @@ extend type Mutation {
   Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
   """
   updateDocumentSettings(input: UpdateDocumentSettingsInput!): Boolean!
+
+  """
+  Import documents from pre-parsed file contents. The caller is responsible for text extraction
+  (e.g. reading .md/.txt as text, converting .docx via mammoth in the browser).
+  Requires the MANAGE_DOCUMENTS platform privilege.
+  """
+  importDocumentsFromFiles(
+    input: ImportDocumentsFromFilesInput!
+  ): ImportDocumentsResult!
 }
 
 extend type Query {
@@ -72,6 +81,7 @@ extend type Query {
   their document settings.
   """
   searchDocuments(input: SearchDocumentsInput!): SearchDocumentsResult!
+
 }
 
 """
@@ -824,4 +834,82 @@ type ParentDocumentsResult {
   The ordered list of parent documents, starting with the direct parent
   """
   documents: [Document!]!
+}
+
+"""
+Internal use case for document import. Determines subtype and default settings.
+"""
+enum DocumentImportUseCase {
+  CONTEXT_DOCUMENT
+  SKILL
+}
+
+"""
+Result of a document import operation.
+"""
+type ImportDocumentsResult {
+  """
+  Number of documents newly created.
+  """
+  createdCount: Int!
+
+  """
+  Number of documents updated (already existed).
+  """
+  updatedCount: Int!
+
+  """
+  Number of documents that failed to import.
+  """
+  failedCount: Int!
+
+  """
+  Error messages for failed imports.
+  """
+  errors: [String!]!
+
+  """
+  URNs of all successfully imported documents.
+  """
+  documentUrns: [String!]!
+}
+
+"""
+Input for importing documents from pre-parsed file contents.
+"""
+input ImportDocumentsFromFilesInput {
+  """
+  List of documents to import, each with a filename and pre-extracted text content.
+  """
+  documents: [DocumentFileInput!]!
+
+  """
+  Whether imported documents should appear in global context. Defaults to true.
+  """
+  showInGlobalContext: Boolean
+
+  """
+  Internal use case that determines document subtype. Defaults to CONTEXT_DOCUMENT.
+  """
+  useCase: DocumentImportUseCase
+
+  """
+  Optional parent document URN. All imported documents become children of this document.
+  """
+  parentDocumentUrn: String
+}
+
+"""
+A single document to import, with pre-extracted text content.
+"""
+input DocumentFileInput {
+  """
+  Original filename (used for title generation and source ID).
+  """
+  fileName: String!
+
+  """
+  Pre-extracted text content of the file.
+  """
+  content: String!
 }
