@@ -68,6 +68,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     Notebook,
     NotebookReference,
     Query,
+    QueryStatementInfo,
     Schema,
     ServicePrincipal,
     Table,
@@ -678,6 +679,81 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 message="Error querying system.query.history table",
                 context=f"Query period: {start_time} to {end_time}",
             )
+
+    def get_query_usage_via_system_tables(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+    ) -> Iterable[QueryStatementInfo]:
+        """Reconstruct per-query table reads/writes by joining table_lineage to
+        query.history on statement_id — no SQL parsing. Warehouse queries only
+        (statement_id is set only for SQL-warehouse statements)."""
+        query = """
+            SELECT
+                tl.statement_id AS statement_id,
+                qh.statement_text AS statement_text,
+                qh.statement_type AS statement_type,
+                qh.executed_by AS executed_by,
+                qh.executed_by_user_id AS executed_by_user_id,
+                qh.executed_as AS executed_as,
+                qh.executed_as_user_id AS executed_as_user_id,
+                qh.start_time AS start_time,
+                qh.end_time AS end_time,
+                tl.source_table_full_name AS source_table_full_name,
+                tl.source_type AS source_type,
+                tl.source_path AS source_path,
+                tl.target_table_full_name AS target_table_full_name,
+                tl.target_type AS target_type
+            FROM system.access.table_lineage tl
+            LEFT JOIN system.query.history qh
+                ON tl.statement_id = qh.statement_id
+            WHERE tl.event_date >= %s
+                AND tl.event_date <= %s
+                AND tl.statement_id IS NOT NULL
+                AND tl.direct_access = true
+            ORDER BY tl.statement_id
+        """
+        rows = self._execute_sql_query(query, (start_time, end_time))
+
+        current_id: Optional[str] = None
+        info: Optional[QueryStatementInfo] = None
+        for row in rows:
+            sid = row["statement_id"]
+            if sid != current_id:
+                if info is not None:
+                    yield info
+                current_id = sid
+                info = QueryStatementInfo(
+                    query=Query(
+                        query_id=sid,
+                        query_text=row["statement_text"] or "",
+                        statement_type=(
+                            QueryStatementType(row["statement_type"])
+                            if row["statement_type"]
+                            else None
+                        ),
+                        start_time=row["start_time"],
+                        end_time=row["end_time"],
+                        user_id=row["executed_by_user_id"],
+                        user_name=row["executed_by"],
+                        executed_as_user_id=row["executed_as_user_id"],
+                        executed_as_user_name=row["executed_as"],
+                    ),
+                    source_tables=[],
+                    target_tables=[],
+                    external_source_paths=[],
+                )
+            assert info is not None
+            # Read row: target_type is NULL. Write row: source_type is NULL.
+            if row["target_type"] is None:
+                if row["source_table_full_name"]:
+                    info.source_tables.append(row["source_table_full_name"])
+                elif row["source_path"]:
+                    info.external_source_paths.append(row["source_path"])
+            if row["source_type"] is None and row["target_table_full_name"]:
+                info.target_tables.append(row["target_table_full_name"])
+        if info is not None:
+            yield info
 
     def _build_datetime_where_conditions(
         self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
