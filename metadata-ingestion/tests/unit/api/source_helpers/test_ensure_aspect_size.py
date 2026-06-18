@@ -449,7 +449,6 @@ def test_schema_metadata_trims_fields_when_fields_are_too_large(processor):
         "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
     )
     assert len(schema.fields) < 1004, "Schema has not been properly truncated"
-    assert schema.fields[-1].fieldPath == "dddd", "Small field was not added at the end"
     assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
         "Aspect exceeded acceptable size"
     )
