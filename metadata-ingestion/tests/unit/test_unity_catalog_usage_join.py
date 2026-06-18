@@ -415,6 +415,20 @@ def test_emit_query_entity_skips_text_when_redacted() -> None:
     assert extractor.report.num_query_entities_emitted == 1
 
 
+def test_emit_query_entity_skips_when_no_id_and_redacted() -> None:
+    """No query_id AND redacted text: must not emit anything and counter stays 0."""
+    from datahub.ingestion.source.unity.usage import TableMap
+
+    extractor = _make_extractor()
+    info = _make_info(query_id=None, text=REDACTED, source_tables=[], target_tables=[])  # type: ignore[arg-type]
+    table_map: TableMap = {}
+
+    wus = list(extractor._emit_query_entity(info, table_map))
+
+    assert wus == [], f"expected no workunits, got {wus}"
+    assert extractor.report.num_query_entities_emitted == 0
+
+
 def test_emit_query_entity_real_text_with_tables() -> None:
     """Real query text + resolved tables: emits queryProperties + querySubjects, increments counter."""
     from datahub.ingestion.source.unity.proxy_types import TableReference

@@ -265,6 +265,12 @@ class UnityCatalogUsageExtractor:
         if redacted:
             self.report.num_queries_text_redacted += 1
 
+        # Without a statement_id (query_id) we fall back to a content fingerprint.
+        # If the text is also redacted we have no stable identity for this Query entity:
+        # every redacted-no-id query would get the same URN and overwrite each other.
+        if not info.query.query_id and redacted:
+            return
+
         query_id = info.query.query_id or get_query_fingerprint(
             text, "databricks", fast=True
         )
