@@ -340,6 +340,7 @@ snowflake_common = {
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
     *classification_lib,
+    *path_spec_common,
 }
 
 trino = {

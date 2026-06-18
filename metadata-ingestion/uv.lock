@@ -1576,6 +1576,7 @@ snowflake = [
     { name = "msal" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "parse" },
     { name = "patchy" },
     { name = "pip" },
     { name = "schwifty" },
@@ -1585,6 +1586,7 @@ snowflake = [
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "tenacity" },
+    { name = "wcmatch" },
 ]
 snowflake-queries = [
     { name = "acryl-datahub-classify" },
@@ -1594,6 +1596,7 @@ snowflake-queries = [
     { name = "msal" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "parse" },
     { name = "patchy" },
     { name = "pip" },
     { name = "schwifty" },
@@ -1603,6 +1606,7 @@ snowflake-queries = [
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "tenacity" },
+    { name = "wcmatch" },
 ]
 snowflake-slim = [
     { name = "acryl-datahub-classify" },
@@ -1611,11 +1615,13 @@ snowflake-slim = [
     { name = "msal" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "parse" },
     { name = "pip" },
     { name = "schwifty" },
     { name = "snowflake-connector-python" },
     { name = "snowflake-sqlalchemy" },
     { name = "tenacity" },
+    { name = "wcmatch" },
 ]
 snowflake-summary = [
     { name = "acryl-datahub-classify" },
@@ -1625,6 +1631,7 @@ snowflake-summary = [
     { name = "msal" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "parse" },
     { name = "patchy" },
     { name = "pip" },
     { name = "schwifty" },
@@ -1634,6 +1641,7 @@ snowflake-summary = [
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "tenacity" },
+    { name = "wcmatch" },
 ]
 snowplow = [
     { name = "cachetools" },
@@ -2540,6 +2548,10 @@ requires-dist = [
     { name = "parse", marker = "extra == 'redshift-slim'", specifier = ">=1.19.0,<2.0.0" },
     { name = "parse", marker = "extra == 's3'", specifier = ">=1.19.0,<2.0.0" },
     { name = "parse", marker = "extra == 's3-slim'", specifier = ">=1.19.0,<2.0.0" },
+    { name = "parse", marker = "extra == 'snowflake'", specifier = ">=1.19.0,<2.0.0" },
+    { name = "parse", marker = "extra == 'snowflake-queries'", specifier = ">=1.19.0,<2.0.0" },
+    { name = "parse", marker = "extra == 'snowflake-slim'", specifier = ">=1.19.0,<2.0.0" },
+    { name = "parse", marker = "extra == 'snowflake-summary'", specifier = ">=1.19.0,<2.0.0" },
     { name = "patchy", marker = "extra == 'all'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'athena'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'bigquery'", specifier = "==2.8.0" },
@@ -2735,8 +2747,8 @@ requires-dist = [
     { name = "pymysql", marker = "extra == 'integration-tests'", specifier = ">=1.0.2,<2.0.0" },
     { name = "pymysql", marker = "extra == 'mariadb'", specifier = ">=1.0.2,<2.0.0" },
     { name = "pymysql", marker = "extra == 'mysql'", specifier = ">=1.0.2,<2.0.0" },
-    { name = "pymysql", marker = "extra == 'tidb'", specifier = ">=1.0.2,<2.0.0" },
     { name = "pymysql", marker = "extra == 'presto-on-hive'", specifier = ">=1.0.2,<2.0.0" },
+    { name = "pymysql", marker = "extra == 'tidb'", specifier = ">=1.0.2,<2.0.0" },
     { name = "pyodbc", marker = "extra == 'all'", specifier = ">=4.0,<6.0.0" },
     { name = "pyodbc", marker = "extra == 'db2'", specifier = "<6.0.0" },
     { name = "pyodbc", marker = "extra == 'dev'", specifier = "<6.0.0" },
@@ -3343,6 +3355,10 @@ requires-dist = [
     { name = "wcmatch", marker = "extra == 'redshift-slim'", specifier = "<11.0.0" },
     { name = "wcmatch", marker = "extra == 's3'", specifier = "<11.0.0" },
     { name = "wcmatch", marker = "extra == 's3-slim'", specifier = "<11.0.0" },
+    { name = "wcmatch", marker = "extra == 'snowflake'", specifier = "<11.0.0" },
+    { name = "wcmatch", marker = "extra == 'snowflake-queries'", specifier = "<11.0.0" },
+    { name = "wcmatch", marker = "extra == 'snowflake-slim'", specifier = "<11.0.0" },
+    { name = "wcmatch", marker = "extra == 'snowflake-summary'", specifier = "<11.0.0" },
     { name = "websocket-client", marker = "extra == 'all'", specifier = "<2.0.0" },
     { name = "websocket-client", marker = "extra == 'dev'", specifier = "<2.0.0" },
     { name = "websocket-client", marker = "extra == 'docs'", specifier = "<2.0.0" },

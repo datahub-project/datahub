@@ -1102,6 +1102,7 @@ snowflake = [
     "msal<2.0.0",
     "numpy<2",
     "pandas<3.0.0",
+    "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
     "pip",
     "schwifty<2026.0.0",
@@ -1111,6 +1112,7 @@ snowflake = [
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
     "tenacity>=8.0.1,<9.0.0",
+    "wcmatch<11.0.0",
 ]
 
 snowflake-queries = [
@@ -1121,6 +1123,7 @@ snowflake-queries = [
     "msal<2.0.0",
     "numpy<2",
     "pandas<3.0.0",
+    "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
     "pip",
     "schwifty<2026.0.0",
@@ -1130,6 +1133,7 @@ snowflake-queries = [
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
     "tenacity>=8.0.1,<9.0.0",
+    "wcmatch<11.0.0",
 ]
 
 snowflake-slim = [
@@ -1139,11 +1143,13 @@ snowflake-slim = [
     "msal<2.0.0",
     "numpy<2",
     "pandas<3.0.0",
+    "parse>=1.19.0,<2.0.0",
     "pip",
     "schwifty<2026.0.0",
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
+    "wcmatch<11.0.0",
 ]
 
 snowflake-summary = [
@@ -1154,6 +1160,7 @@ snowflake-summary = [
     "msal<2.0.0",
     "numpy<2",
     "pandas<3.0.0",
+    "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
     "pip",
     "schwifty<2026.0.0",
@@ -1163,6 +1170,7 @@ snowflake-summary = [
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
     "tenacity>=8.0.1,<9.0.0",
+    "wcmatch<11.0.0",
 ]
 
 snowplow = [
