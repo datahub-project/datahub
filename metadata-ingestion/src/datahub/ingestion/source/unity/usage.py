@@ -152,6 +152,10 @@ class UnityCatalogUsageExtractor:
                     ):
                         if query.query_id in matched_ids:
                             continue
+                        # Count every processed query (consistent with the lineage
+                        # branch and the API path) so the post-loop "no queries"
+                        # guard does not suppress usage emitted purely via fallback.
+                        self.report.num_queries += 1
                         self.report.num_queries_missing_lineage += 1
                         fallback_table_info = self._parse_query(query, table_map)
                         if fallback_table_info is None:

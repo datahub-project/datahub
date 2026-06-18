@@ -124,7 +124,16 @@ class QueryFilterWithStatementTypes(QueryFilter):
     statement_types: List[QueryStatementType] = dataclasses.field(default_factory=list)
 
     def as_dict(self) -> dict:
-        return {**super().as_dict(), "statement_types": self.statement_types}
+        # Emit the enum *values* (strings), not the QueryStatementType objects —
+        # the filter is JSON-serialized into the REST query-history request body,
+        # and raw enum objects are not JSON serializable.
+        return {
+            **super().as_dict(),
+            "statement_types": [
+                t.value if isinstance(t, QueryStatementType) else t
+                for t in self.statement_types
+            ],
+        }
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "QueryFilterWithStatementTypes":

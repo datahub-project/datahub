@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime
 from unittest.mock import MagicMock, patch
@@ -6,6 +7,7 @@ import pytest
 
 from datahub.ingestion.source.unity.proxy import (
     ExternalUpstream,
+    QueryFilterWithStatementTypes,
     TableLineageInfo,
     TableUpstream,
     UnityCatalogApiProxy,
@@ -1871,3 +1873,87 @@ class TestUnityCatalogProxyUsageSystemTables:
         call_args = mock_execute.call_args
         params = call_args[0][1]
         assert params == (start_time, end_time)
+
+
+class TestQueryFilterWithStatementTypesSerialisation:
+    """Regression tests for QueryFilterWithStatementTypes.as_dict().
+
+    Bug: before the fix, as_dict() serialised statement_types as raw
+    QueryStatementType enum objects.  json.dumps() raised
+    ``TypeError: Object of type QueryStatementType is not JSON serializable``,
+    which caused the REST query-history request to fail and produced zero usage.
+    """
+
+    def test_as_dict_statement_types_are_strings(self) -> None:
+        """as_dict() must return statement_types as plain strings, not enum objects."""
+        from databricks.sdk.service.sql import QueryStatementType
+
+        f = QueryFilterWithStatementTypes.from_dict(
+            {
+                "query_start_time_range": {
+                    "start_time_ms": 1_700_000_000_000,
+                    "end_time_ms": 1_700_086_400_000,
+                },
+                "statuses": ["FINISHED"],
+                "statement_types": [
+                    QueryStatementType.SELECT.value,
+                    QueryStatementType.INSERT.value,
+                ],
+            }
+        )
+
+        result = f.as_dict()
+        assert "statement_types" in result
+        for item in result["statement_types"]:
+            assert isinstance(item, str), (
+                f"Expected str in statement_types, got {type(item)!r}: {item!r}"
+            )
+
+    def test_as_dict_is_json_serializable(self) -> None:
+        """json.dumps(filter.as_dict()) must not raise.
+
+        Pre-fix this raised ``TypeError: Object of type QueryStatementType is not
+        JSON serializable``, blocking every REST query-history call.
+        """
+        from databricks.sdk.service.sql import QueryStatementType
+
+        f = QueryFilterWithStatementTypes.from_dict(
+            {
+                "query_start_time_range": {
+                    "start_time_ms": 1_700_000_000_000,
+                    "end_time_ms": 1_700_086_400_000,
+                },
+                "statuses": ["FINISHED"],
+                "statement_types": [
+                    QueryStatementType.SELECT.value,
+                    QueryStatementType.MERGE.value,
+                ],
+            }
+        )
+
+        # Must not raise TypeError: Object of type QueryStatementType is not JSON serializable
+        serialised = json.dumps(f.as_dict())
+        parsed = json.loads(serialised)
+        assert parsed["statement_types"] == [
+            QueryStatementType.SELECT.value,
+            QueryStatementType.MERGE.value,
+        ]
+
+    def test_as_dict_preserves_enum_values_round_trip(self) -> None:
+        """Values produced by as_dict() must equal the .value strings of the enums."""
+        from databricks.sdk.service.sql import QueryStatementType
+
+        types_in = [
+            QueryStatementType.SELECT,
+            QueryStatementType.INSERT,
+            QueryStatementType.UPDATE,
+            QueryStatementType.DELETE,
+        ]
+        f = QueryFilterWithStatementTypes.from_dict(
+            {
+                "statement_types": [t.value for t in types_in],
+            }
+        )
+
+        result_types = f.as_dict()["statement_types"]
+        assert result_types == [t.value for t in types_in]

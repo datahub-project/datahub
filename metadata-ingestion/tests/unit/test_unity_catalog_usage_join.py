@@ -936,3 +936,121 @@ def test_parse_fallback_query_returns_none(monkeypatch: pytest.MonkeyPatch) -> N
     assert extractor.report.num_queries_resolved_via_parse_fallback == 0, (
         "parse fallback counter must NOT increment when _parse_query returns None"
     )
+
+
+# ---------------------------------------------------------------------------
+# Regression: num_queries incremented in parse-fallback loop so the post-loop
+# "no queries" guard does not suppress usage emitted via fallback only.
+# ---------------------------------------------------------------------------
+
+
+def test_fallback_only_usage_not_suppressed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Usage workunits must be emitted when all queries are resolved via parse-fallback.
+
+    Bug (pre-fix): num_queries was only incremented on the lineage-join path.
+    When get_query_usage_via_system_tables yielded nothing (no lineage matches),
+    num_queries stayed 0 even though the fallback loop successfully aggregated
+    events.  The post-loop guard ``if not self.report.num_queries: ... return``
+    then early-returned before calling usage_aggregator.generate_workunits(),
+    dropping all usage.
+
+    Fix: num_queries is now also incremented for each query in the fallback loop.
+    This test proves the guard no longer fires when only fallback queries exist.
+    """
+    known_ref = TableReference(
+        metastore=None,
+        catalog="cat",
+        schema="sch",
+        table="src",
+        last_updated=None,
+    )
+
+    # Two queries that will be processed via the fallback path only.
+    q1 = _make_query("fb1", "SELECT * FROM cat.sch.src")
+    q2 = _make_query("fb2", "SELECT * FROM cat.sch.src")
+
+    fake_proxy = MagicMock()
+    fake_proxy.warehouse_id = "wh1"
+    # Lineage join returns nothing — no direct matches.
+    fake_proxy.get_query_usage_via_system_tables.side_effect = lambda *a, **kw: iter([])
+    # History returns two queries; neither was matched above.
+    fake_proxy.get_query_history_via_system_tables.side_effect = lambda *a, **kw: iter(
+        [q1, q2]
+    )
+
+    extractor = _build_extractor(
+        fake_proxy,
+        usage_data_source=UsageDataSource.SYSTEM_TABLES,
+        parse_unmatched_queries=True,
+    )
+
+    # _parse_query resolves both fallback queries to the known table ref.
+    parse_stub = MagicMock(
+        return_value=QueryTableInfo(
+            source_tables=[known_ref],
+            target_tables=[],
+        )
+    )
+    monkeypatch.setattr(extractor, "_parse_query", parse_stub)
+
+    # Stub the aggregator so aggregate_event is a spy and generate_workunits returns
+    # a real datasetUsageStatistics workunit to verify the post-loop path was reached.
+    _stub_aggregator(extractor)
+    aggregate_spy: MagicMock = extractor.usage_aggregator.aggregate_event  # type: ignore[assignment]
+
+    # generate_workunits must return at least one datasetUsageStatistics workunit.
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
+
+    usage_wu = MetadataWorkUnit(
+        id="wu-usage",
+        mcp=MetadataChangeProposalWrapper(
+            entityUrn=(
+                f"urn:li:dataset:(urn:li:dataPlatform:databricks,"
+                f"{known_ref.qualified_table_name},PROD)"
+            ),
+            aspect=DatasetUsageStatisticsClass(
+                timestampMillis=int(_TS.timestamp() * 1000),
+                uniqueUserCount=1,
+                totalSqlQueries=2,
+            ),
+        ),
+    )
+    extractor.usage_aggregator.generate_workunits = MagicMock(  # type: ignore[method-assign]
+        return_value=iter([usage_wu])
+    )
+
+    workunits = list(extractor.get_usage_workunits({known_ref}))
+
+    # (a) num_queries must reflect the two fallback queries — pre-fix it was 0.
+    assert extractor.report.num_queries == 2, (
+        f"expected num_queries=2 (one per fallback query), got {extractor.report.num_queries}"
+    )
+
+    # (b) Both queries must have been counted as fallback-resolved.
+    assert extractor.report.num_queries_resolved_via_parse_fallback == 2, (
+        f"expected num_queries_resolved_via_parse_fallback=2, "
+        f"got {extractor.report.num_queries_resolved_via_parse_fallback}"
+    )
+
+    # (c) The aggregator must have been called — the post-loop guard must NOT have fired.
+    assert aggregate_spy.called, (
+        "aggregate_event was never called; the post-loop guard likely early-returned "
+        "because num_queries was still 0 (pre-fix behaviour)"
+    )
+
+    # (d) Usage workunits (datasetUsageStatistics) must be emitted.
+    #     generate_workunits() is called after the guard; if it was skipped, no usage
+    #     aspects appear.
+    aspect_names = [
+        wu.metadata.aspectName
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName is not None
+    ]
+    assert "datasetUsageStatistics" in aspect_names, (
+        f"Expected datasetUsageStatistics aspect in workunits, got: {aspect_names!r}. "
+        "Pre-fix the post-loop guard suppressed all usage when only fallback queries exist."
+    )
