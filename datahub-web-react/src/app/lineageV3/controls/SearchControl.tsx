@@ -94,9 +94,11 @@ export default function SearchControl() {
                     isOpen &&
                     searchQuery && (
                         <>
+                            {/* eslint-disable i18next/no-literal-string -- (untranslated-text) numeric match-position separator (e.g. "3 / 10"), not translatable */}
                             <span>
                                 {matchedNodes.length ? searchIndex + 1 : 0} / {matchedNodes.length}
                             </span>
+                            {/* eslint-enable i18next/no-literal-string */}
                             <VerticalDivider margin={8} />
                             <Button icon={{ icon: CaretUp }} variant="outline" size="sm" onClick={prev} />
                             <Button icon={{ icon: CaretDown }} variant="outline" size="sm" onClick={next} />

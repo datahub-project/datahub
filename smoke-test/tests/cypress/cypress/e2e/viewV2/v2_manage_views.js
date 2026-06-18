@@ -1,4 +1,5 @@
-describe("manage views", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("manage views", () => {
   it("go to views settings page, create, edit, make default, delete a view", () => {
     const viewName = "Test View";
 

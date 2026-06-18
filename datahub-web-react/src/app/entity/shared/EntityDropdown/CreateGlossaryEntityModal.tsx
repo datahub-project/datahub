@@ -44,7 +44,7 @@ interface Props {
 
 function CreateGlossaryEntityModal(props: Props) {
     const { entityType, onClose, refetchData } = props;
-    const { t } = useTranslation('entityV1.shared.entityDropdown');
+    const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tf } = useTranslation('common.feedback');
     const { t: tcl } = useTranslation('common.labels');
@@ -104,7 +104,7 @@ function CreateGlossaryEntityModal(props: Props) {
                         parentNodeUrn: selectedParentUrn || undefined,
                     });
                     message.success({
-                        content: t('createModal.createdSuccess', {
+                        content: t('createGlossary.success', {
                             entityName: entityRegistry.getEntityName(entityType),
                         }),
                         duration: 2,
@@ -150,7 +150,7 @@ function CreateGlossaryEntityModal(props: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: t('createModal.createError', { message: e.message || '' }), duration: 3 });
+                message.error({ content: t('createGlossary.error', { errorMessage: e.message || '' }), duration: 3 });
             });
         onClose();
     }
@@ -162,7 +162,7 @@ function CreateGlossaryEntityModal(props: Props) {
 
     return (
         <Modal
-            title={t('createModal.title', { entityName: entityRegistry.getEntityName(entityType) })}
+            title={t('createGlossary.title', { entityName: entityRegistry.getEntityName(entityType) })}
             open
             onCancel={onClose}
             buttons={[
@@ -197,7 +197,7 @@ function CreateGlossaryEntityModal(props: Props) {
                         rules={[
                             {
                                 required: true,
-                                message: t('createModal.nameRequiredError', {
+                                message: t('createGlossary.nameRequired', {
                                     entityName: entityRegistry.getEntityName(entityType),
                                 }),
                             },
@@ -214,7 +214,7 @@ function CreateGlossaryEntityModal(props: Props) {
                         <Typography.Text strong>
                             <Trans
                                 t={t}
-                                i18nKey="createModal.parentLabel"
+                                i18nKey="createGlossary.parentLabel"
                                 components={{ optional: <OptionalWrapper /> }}
                             />
                         </Typography.Text>
@@ -232,7 +232,7 @@ function CreateGlossaryEntityModal(props: Props) {
                         <Typography.Text strong>
                             <Trans
                                 t={t}
-                                i18nKey="createModal.documentationLabel"
+                                i18nKey="createGlossary.documentationLabel"
                                 components={{ optional: <OptionalWrapper /> }}
                             />
                         </Typography.Text>
@@ -240,11 +240,11 @@ function CreateGlossaryEntityModal(props: Props) {
                 >
                     <StyledButton type="link" onClick={() => setIsDocumentationModalVisible(true)}>
                         <EditOutlined />
-                        {documentation ? t('createModal.editDocumentation') : t('createModal.addDocumentation')}
+                        {documentation ? t('createGlossary.editDocumentation') : t('createGlossary.addDocumentation')}
                     </StyledButton>
                     {isDocumentationModalVisible && (
                         <DescriptionModal
-                            title={t('createModal.addDocumentation')}
+                            title={t('createGlossary.addDocumentation')}
                             onClose={() => setIsDocumentationModalVisible(false)}
                             onSubmit={addDocumentation}
                             description={documentation}
@@ -253,19 +253,19 @@ function CreateGlossaryEntityModal(props: Props) {
                 </StyledItem>
                 <Collapse ghost>
                     <Collapse.Panel
-                        header={<Typography.Text type="secondary">{t('createModal.advanced')}</Typography.Text>}
+                        header={<Typography.Text type="secondary">{t('createGlossary.advanced')}</Typography.Text>}
                         key="1"
                     >
                         <Form.Item
                             label={
                                 <Typography.Text strong>
-                                    {t('createModal.idLabel', {
+                                    {t('createGlossary.idLabel', {
                                         entityName: entityRegistry.getEntityName(props.entityType),
                                     })}
                                 </Typography.Text>
                             }
                         >
-                            <Typography.Paragraph>{t('createModal.idDescription')}</Typography.Paragraph>
+                            <Typography.Paragraph>{t('createGlossary.idHelp')}</Typography.Paragraph>
                             <Form.Item
                                 name="id"
                                 rules={[
@@ -274,13 +274,13 @@ function CreateGlossaryEntityModal(props: Props) {
                                             if (value && validateCustomUrnId(value)) {
                                                 return Promise.resolve();
                                             }
-                                            return Promise.reject(new Error(t('createModal.invalidIdError')));
+                                            return Promise.reject(new Error(t('createGlossary.idInvalid')));
                                         },
                                     }),
                                 ]}
                             >
                                 <Input
-                                    placeholder={t('createModal.idPlaceholder')}
+                                    placeholder={t('createGlossary.idPlaceholder')}
                                     onChange={(event) => setStagedId(event.target.value)}
                                 />
                             </Form.Item>

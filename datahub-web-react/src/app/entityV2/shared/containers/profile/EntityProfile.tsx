@@ -242,7 +242,7 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry, isHideSiblingMode],
     );
 
-    const { data: formsData } = useGetFormsForEntityQuery({
+    const { data: formsData, refetch: refetchForms } = useGetFormsForEntityQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
         skip: !entityRegistry.getSupportedEntityCapabilities(entityType).has(EntityCapabilityType.FORMS),
@@ -333,6 +333,7 @@ export const EntityProfile = <T, U>({
                     updateEntity,
                     routeToTab,
                     refetch,
+                    refetchForms,
                     lineage,
                     shouldRefetchEmbeddedListSearch,
                     setShouldRefetchEmbeddedListSearch,

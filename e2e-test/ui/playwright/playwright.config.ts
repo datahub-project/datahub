@@ -1,4 +1,4 @@
-// Playwright configuration for DataHub E2E tests
+// Playwright configuration for  DataHub E2E tests
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({

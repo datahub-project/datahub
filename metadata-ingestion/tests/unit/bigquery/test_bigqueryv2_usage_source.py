@@ -15,7 +15,7 @@ from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilde
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
-FROZEN_TIME = "2021-07-20 00:00:00"
+FROZEN_TIME = "2021-07-20 00:00:00+00:00"
 
 
 @patch(

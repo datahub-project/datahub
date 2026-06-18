@@ -281,7 +281,8 @@ public class OperationContextTest {
 
     // Mock ActorContext isActive
     ActorContext mockActorContext = mock(ActorContext.class);
-    when(mockActorContext.isActive(any(AspectRetriever.class))).thenReturn(true);
+    when(mockActorContext.isActive(any(OperationContext.class), any(AspectRetriever.class)))
+        .thenReturn(true);
 
     // Build OperationContext with all required dependencies
     OperationContext operationContext =
@@ -301,6 +302,38 @@ public class OperationContextTest {
     // Assert
     assertEquals(actualAspectNames, expectedAspectNames);
     verify(mockEntityRegistryContext).getEntityAspectNames(entityType);
+  }
+
+  @Test
+  public void withReadPreference_updatesPrimaryStorageContext() {
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    OperationContext readContext = opContext.withReadPreference(ReadPreference.READ);
+
+    assertEquals(readContext.getPrimaryStorageContext().getReadPreference(), ReadPreference.READ);
+    assertEquals(opContext.getPrimaryStorageContext().getReadPreference(), ReadPreference.PRIMARY);
+  }
+
+  @Test
+  public void asSystem_usesProvidedPrimaryStorageContext() {
+    PrimaryStorageContext storageContext =
+        PrimaryStorageContext.builder()
+            .readPreference(ReadPreference.READ)
+            .includeReadPreferenceInEntityCacheKey(true)
+            .build();
+    OperationContext opContext =
+        OperationContext.asSystem(
+            OperationContextConfig.builder().build(),
+            new Authentication(new Actor(ActorType.USER, "SYSTEM"), ""),
+            mock(EntityRegistry.class),
+            null,
+            null,
+            TestOperationContexts.emptyActiveUsersRetrieverContext(null),
+            mock(ValidationContext.class),
+            null,
+            storageContext,
+            false);
+
+    assertEquals(opContext.getPrimaryStorageContext(), storageContext);
   }
 
   private OperationContext buildTraceMock() {

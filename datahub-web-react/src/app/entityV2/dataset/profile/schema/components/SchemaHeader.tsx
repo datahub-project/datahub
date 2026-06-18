@@ -131,7 +131,11 @@ export default function SchemaHeader({
             <SchemaHeaderContainer>
                 <LeftButtonsGroup>
                     {hasRaw && (
-                        <RawButton type="text" onClick={() => setShowRaw(!showRaw)}>
+                        <RawButton
+                            type="text"
+                            data-testid="schema-raw-view-button"
+                            onClick={() => setShowRaw(!showRaw)}
+                        >
                             {showRaw ? (
                                 <RawButtonTitleContainer>
                                     <TableOutlined style={{ padding: 0, margin: 0 }} />

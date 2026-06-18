@@ -1066,7 +1066,6 @@ s3-slim = [
 
 sac = [
     "Authlib>=1.6.11,<2.0.0",
-    "pyodata>=1.11.1,<2.0.0",
     "requests<3.0.0",
 ]
 
@@ -1263,6 +1262,23 @@ thoughtspot = [
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
 ]
 
+tidb = [
+    "acryl-datahub-classify==0.0.11",
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "cachetools<6.0.0",
+    "greenlet<4.0.0",
+    "numpy<2",
+    "patchy==2.8.0",
+    "pip",
+    "pymysql>=1.0.2,<2.0.0",
+    "schwifty<2026.0.0",
+    "sqlalchemy>=1.4.39,<2",
+    "sqlglot[c]==30.8.0",
+    "sqlparse<0.6.0",
+    "urllib3>=1.26,<3.0",
+]
+
 timescaledb = [
     "acryl-datahub-classify==0.0.11",
     "boto3>=1.35.0,<2.0.0",
@@ -1431,7 +1447,6 @@ all = [
     "pymetastore>=0.4.2,<1.0.0",
     "pymongo[aws]>=4.8.0,<5.0.0",
     "pymysql>=1.0.2,<2.0.0",
-    "pyodata>=1.11.1,<2.0.0",
     "pyodbc>=4.0,<6.0.0",
     "pyOpenSSL>=26.0.0,<27.0.0",
     "pyspark~=3.5.6,<4.0.0",
@@ -1592,7 +1607,6 @@ dev = [
     "pymetastore>=0.4.2,<1.0.0",
     "pymongo[aws]>=4.8.0,<5.0.0",
     "pymysql>=1.0.2,<2.0.0",
-    "pyodata>=1.11.1,<2.0.0",
     "pyodbc<6.0.0",
     "pyOpenSSL>=26.0.0,<27.0.0",
     "pyspark~=3.5.6,<4.0.0",
@@ -1784,7 +1798,6 @@ docs = [
     "pymetastore>=0.4.2,<1.0.0",
     "pymongo[aws]>=4.8.0,<5.0.0",
     "pymysql>=1.0.2,<2.0.0",
-    "pyodata>=1.11.1,<2.0.0",
     "pyodbc<6.0.0",
     "pyOpenSSL>=26.0.0,<27.0.0",
     "pyspark~=3.5.6,<4.0.0",
@@ -2023,6 +2036,7 @@ mongodb = "datahub.ingestion.source.mongodb:MongoDBSource"
 mssql = "datahub.ingestion.source.sql.mssql:SQLServerSource"
 mysql = "datahub.ingestion.source.sql.mysql:MySQLSource"
 mariadb = "datahub.ingestion.source.sql.mariadb:MariaDBSource"
+tidb = "datahub.ingestion.source.sql.tidb:TiDBSource"
 matillion-dpc = "datahub.ingestion.source.matillion_dpc.matillion:MatillionSource"
 doris = "datahub.ingestion.source.sql.doris.doris_source:DorisSource"
 okta = "datahub.ingestion.source.identity.okta:OktaSource"
@@ -2212,6 +2226,7 @@ extend-ignore = [
     "SIM105", # Use `contextlib.suppress(...)` instead of `try`-`except`-`pass`
     "SIM115", # Use a context manager for opening files
     "SIM116", # Use a dictionary instead of consecutive `if` statements
+    "SIM117", # Use a single `with` statement instead of nested `with` statements
 ]
 
 [tool.ruff.lint.mccabe]

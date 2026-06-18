@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import json
 import logging
+import os
 import re
 import socket
 import time
@@ -303,6 +304,7 @@ class RequestsSessionConfig(ConfigModel):
 
     ca_certificate_path: Optional[str] = None
     client_certificate_path: Optional[str] = None
+    client_key_path: Optional[str] = None
     disable_ssl_verification: bool = False
     client_mode: Optional[ClientMode] = _DEFAULT_CLIENT_MODE
     datahub_component: Optional[str] = None
@@ -325,8 +327,18 @@ class RequestsSessionConfig(ConfigModel):
         headers = {**base_headers, **self.extra_headers}
         session.headers.update(headers)
 
-        if self.client_certificate_path:
-            session.cert = self.client_certificate_path
+        cert_path = self.client_certificate_path or os.environ.get(
+            "DATAHUB_CLIENT_CERT_PATH"
+        )
+        key_path = self.client_key_path or os.environ.get("DATAHUB_CLIENT_KEY_PATH")
+
+        if cert_path:
+            # requests accepts either a single PEM file (cert + key concatenated)
+            # or a (cert_path, key_path) tuple.
+            if key_path:
+                session.cert = (cert_path, key_path)
+            else:
+                session.cert = cert_path
 
         if self.ca_certificate_path:
             session.verify = self.ca_certificate_path
@@ -492,6 +504,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
         client_certificate_path: Optional[str] = None,
+        client_key_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
         openapi_ingestion: Optional[bool] = None,
         client_mode: Optional[ClientMode] = None,
@@ -565,6 +578,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             extra_headers={**headers, **(extra_headers or {})},
             ca_certificate_path=ca_certificate_path,
             client_certificate_path=client_certificate_path,
+            client_key_path=client_key_path,
             disable_ssl_verification=disable_ssl_verification,
             client_mode=client_mode,
             datahub_component=datahub_component,

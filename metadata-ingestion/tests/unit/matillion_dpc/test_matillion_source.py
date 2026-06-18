@@ -224,6 +224,43 @@ def test_workunit_processors(
     assert len(processors) > 0
 
 
+def test_published_pipelines_emitted_when_unpublished_disabled(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """Published pipelines must be emitted when include_unpublished_pipelines=False."""
+    config.include_unpublished_pipelines = False
+    source = MatillionSource(config, pipeline_context)
+
+    mock_projects = [MatillionProject(id="proj-1", name="Test Project")]
+    mock_environments = [
+        MatillionEnvironment(name="Production", default_agent_id="agent-1")
+    ]
+    mock_pipelines = [
+        MatillionPipeline(name="Pipeline A"),
+        MatillionPipeline(name="Pipeline B"),
+    ]
+
+    with (
+        patch.object(source.api_client, "get_projects", return_value=mock_projects),
+        patch.object(
+            source.api_client, "get_environments", return_value=mock_environments
+        ),
+        patch.object(source.api_client, "get_pipelines", return_value=mock_pipelines),
+        patch.object(source.api_client, "get_streaming_pipelines", return_value=[]),
+        patch.object(source.api_client, "get_schedules", return_value=[]),
+        patch.object(
+            source.api_client, "get_pipeline_execution_steps", return_value=[]
+        ),
+    ):
+        workunits = list(
+            source._discover_and_process_pipelines_from_executions(mock_projects)
+        )
+
+    assert source.report.pipelines_emitted == 2
+    assert source.report.pipelines_scanned == 2
+    assert len(workunits) > 0
+
+
 def test_execution_workunits_with_no_timestamps(
     config: MatillionSourceConfig, pipeline_context: PipelineContext
 ) -> None:

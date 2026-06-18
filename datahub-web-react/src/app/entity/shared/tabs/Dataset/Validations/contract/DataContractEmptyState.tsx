@@ -1,9 +1,8 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const Container = styled.div``;
 
@@ -15,8 +14,8 @@ const Summary = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
-    box-shadow: 0px 2px 6px 0px #0000000d;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const SummaryDescription = styled.div`
@@ -47,8 +46,9 @@ const CreateButton = styled(Button)`
     border-color: ${(props) => props.theme.styles['primary-color']};
     color: ${(props) => props.theme.styles['primary-color']};
     letter-spacing: 2px;
+    text-transform: uppercase;
     &&:hover {
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillDefault};
         background-color: ${(props) => props.theme.styles['primary-color']};
         border-color: ${(props) => props.theme.styles['primary-color']};
     }
@@ -59,16 +59,18 @@ type Props = {
 };
 
 export const DataContractEmptyState = ({ showContractBuilder }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
+    const { t: tc } = useTranslation('common.actions');
     return (
         <Container>
             <Summary>
                 <SummaryDescription>
                     <SummaryMessage>
                         <SummaryTitle level={5}>
-                            No contract found
+                            {t('dataContractEmptyState.title')}
                             <div>
                                 <Typography.Text type="secondary">
-                                    A contract does not yet exist for this dataset
+                                    {t('dataContractEmptyState.description')}
                                 </Typography.Text>
                             </div>
                         </SummaryTitle>
@@ -77,7 +79,7 @@ export const DataContractEmptyState = ({ showContractBuilder }: Props) => {
                 <Actions>
                     <CreateButton onClick={showContractBuilder}>
                         <PlusOutlined />
-                        CREATE
+                        {tc('create')}
                     </CreateButton>
                 </Actions>
             </Summary>

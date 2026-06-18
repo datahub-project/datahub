@@ -28,7 +28,7 @@ const OwnershipSections = styled.div`
     justify-content: start;
     flex-wrap: wrap;
     max-width: 100%;
-    gap: 8px;
+    gap: 4px;
 `;
 
 interface Props {
