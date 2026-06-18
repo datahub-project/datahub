@@ -113,6 +113,13 @@ class UnityCatalogUsageExtractor:
                     self.report.num_queries_resolved_via_lineage += 1
                     if info.query.query_id:
                         matched_ids.add(info.query.query_id)
+                    with self.report.usage_perf_report.query_fingerprinting_timer:
+                        query_hashes.add(
+                            get_query_fingerprint(
+                                info.query.query_text, "databricks", fast=True
+                            )
+                        )
+                        self.report.num_unique_queries = len(query_hashes)
                     table_info = QueryTableInfo(
                         source_tables=self._resolve_tables(
                             info.source_tables, table_map
@@ -126,13 +133,14 @@ class UnityCatalogUsageExtractor:
                             info.query, table_info
                         )
                     for source_table in table_info.source_tables:
-                        self.usage_aggregator.aggregate_event(
-                            resource=source_table,
-                            start_time=info.query.start_time,
-                            query=info.query.query_text,
-                            user=info.query.user_name,
-                            fields=[],
-                        )
+                        with self.report.usage_perf_report.aggregator_add_event_timer:
+                            self.usage_aggregator.aggregate_event(
+                                resource=source_table,
+                                start_time=info.query.start_time,
+                                query=info.query.query_text,
+                                user=info.query.user_name,
+                                fields=[],
+                            )
 
             if self.config.parse_unmatched_queries:
                 for query in self.proxy.get_query_history_via_system_tables(
@@ -150,13 +158,14 @@ class UnityCatalogUsageExtractor:
                             query, fallback_table_info
                         )
                     for source_table in fallback_table_info.source_tables:
-                        self.usage_aggregator.aggregate_event(
-                            resource=source_table,
-                            start_time=query.start_time,
-                            query=query.query_text,
-                            user=query.user_name,
-                            fields=[],
-                        )
+                        with self.report.usage_perf_report.aggregator_add_event_timer:
+                            self.usage_aggregator.aggregate_event(
+                                resource=source_table,
+                                start_time=query.start_time,
+                                query=query.query_text,
+                                user=query.user_name,
+                                fields=[],
+                            )
         else:
             with self.report.usage_perf_report.get_queries_timer as current_timer:
                 for query in self._get_queries():

@@ -220,7 +220,84 @@ def test_system_tables_path_aggregates_and_parse_fallback(
     assert extractor.report.num_queries_resolved_via_lineage == 1
     # s2 triggered the parse fallback (and parse succeeded)
     assert extractor.report.num_queries_resolved_via_parse_fallback == 1
+    # s2 was counted as missing lineage before the parse fallback ran
+    assert extractor.report.num_queries_missing_lineage == 1
     # _parse_query called exactly once (for s2 only, not s1)
     parse_spy.assert_called_once()
     called_query = parse_spy.call_args[0][0]
     assert called_query.query_id == "s2"
+
+
+def test_parse_unmatched_queries_disabled_skips_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When parse_unmatched_queries=False, the history API is never called and the
+    parse-fallback counter stays at zero."""
+    from datahub.ingestion.source.unity.config import (
+        UnityCatalogSourceConfig,
+        UsageDataSource,
+    )
+    from datahub.ingestion.source.unity.proxy_types import TableReference
+
+    known_ref = TableReference(
+        metastore=None,
+        catalog="cat",
+        schema="sch",
+        table="src",
+        last_updated=None,
+    )
+
+    q1 = _make_query("s1", "SELECT * FROM cat.sch.src")
+    info_s1 = QueryStatementInfo(
+        query=q1,
+        source_tables=["cat.sch.src"],
+        target_tables=[],
+        external_source_paths=[],
+    )
+
+    fake_proxy = MagicMock()
+    fake_proxy.warehouse_id = "wh1"
+    fake_proxy.get_query_usage_via_system_tables.return_value = iter([info_s1])
+
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "fake",
+            "workspace_url": "https://fake.azuredatabricks.net",
+            "usage_data_source": UsageDataSource.SYSTEM_TABLES.value,
+            "parse_unmatched_queries": False,
+            "include_operational_stats": False,
+            "warehouse_id": "wh1",
+        }
+    )
+
+    from datahub.ingestion.source.unity.report import UnityCatalogReport
+
+    report = UnityCatalogReport()
+
+    def table_urn_builder(ref: TableReference) -> str:
+        return f"urn:li:dataset:(urn:li:dataPlatform:databricks,{ref.qualified_table_name},PROD)"
+
+    def user_urn_builder(user: str) -> str:
+        return f"urn:li:corpuser:{user}"
+
+    from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
+
+    extractor = UnityCatalogUsageExtractor.__new__(UnityCatalogUsageExtractor)
+    extractor.config = config
+    extractor.report = report
+    extractor.proxy = fake_proxy
+    extractor.table_urn_builder = table_urn_builder
+    extractor.user_urn_builder = user_urn_builder
+    extractor.platform = "databricks"
+    extractor.__post_init__()
+
+    extractor.usage_aggregator.aggregate_event = MagicMock()  # type: ignore[method-assign]
+    extractor.usage_aggregator.generate_workunits = MagicMock(return_value=iter([]))  # type: ignore[method-assign]
+    extractor.usage_aggregator.close = MagicMock()  # type: ignore[method-assign]
+
+    list(extractor.get_usage_workunits({known_ref}))
+
+    # The history endpoint must NOT be called when parse_unmatched_queries=False
+    fake_proxy.get_query_history_via_system_tables.assert_not_called()
+    # No queries went through the parse fallback
+    assert extractor.report.num_queries_resolved_via_parse_fallback == 0
