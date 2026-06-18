@@ -1,6 +1,6 @@
 {
     "groups.addMembersError": "Failed to add members to the group. Please add them manually.",
-    "groups.addMembersFailure": "Failed to group members: \n {{error}}",
+    "groups.addMembersFailure": "Failed to add group members: \n {{error}}",
     "groups.addMembersModal.searchPlaceholder": "Search for users...",
     "groups.addMembersModal.title": "Add group members",
     "groups.addMembersSuccess": "Group members added!",
