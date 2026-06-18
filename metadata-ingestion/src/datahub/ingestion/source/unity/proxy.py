@@ -701,7 +701,6 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 qh.end_time AS end_time,
                 tl.source_table_full_name AS source_table_full_name,
                 tl.source_type AS source_type,
-                tl.source_path AS source_path,
                 tl.target_table_full_name AS target_table_full_name,
                 tl.target_type AS target_type
             FROM system.access.table_lineage tl
@@ -728,9 +727,6 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             try:
                 sid = row.statement_id
                 if sid != current_id:
-                    if info is not None:
-                        yield info
-                    current_id = sid
                     raw_stmt_type = row.statement_type
                     statement_type: Optional[QueryStatementType] = None
                     if raw_stmt_type:
@@ -745,7 +741,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                                 "unknown-statement-type",
                                 f"statement_id={sid} statement_type={raw_stmt_type!r}",
                             )
-                    info = QueryStatementInfo(
+                    # Build new_info first; only advance current_id/info once construction
+                    # succeeds. If construction raises, current_id and info stay on the
+                    # previous statement so subsequent rows are not mis-attributed.
+                    new_info = QueryStatementInfo(
                         query=Query(
                             query_id=sid,
                             query_text=row.statement_text or "",
@@ -760,6 +759,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         source_tables=[],
                         target_tables=[],
                     )
+                    if info is not None:
+                        yield info
+                    info = new_info
+                    current_id = sid
                 assert info is not None
                 # Read row: target_type is NULL. Write row: source_type is NULL.
                 if row.target_type is None and row.source_table_full_name:

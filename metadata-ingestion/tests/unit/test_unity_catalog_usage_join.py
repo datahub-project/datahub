@@ -21,6 +21,7 @@ from datahub.ingestion.source.unity.proxy_types import (
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.usage import (
     QueryTableInfo,
+    TableMap,
     UnityCatalogUsageExtractor,
 )
 from datahub.metadata.schema_classes import QueryPropertiesClass, QuerySubjectsClass
@@ -449,8 +450,6 @@ def _get_mcp_by_aspect(
 
 def test_emit_query_entity_skips_text_when_redacted() -> None:
     """Redacted query text: emits queryProperties with empty statement, increments counter."""
-    from datahub.ingestion.source.unity.usage import TableMap
-
     extractor = _make_extractor()
     info = _make_info(query_id="s9", text=REDACTED, source_tables=[], target_tables=[])
     table_map: TableMap = {}
@@ -471,8 +470,6 @@ def test_emit_query_entity_skips_text_when_redacted() -> None:
 
 def test_emit_query_entity_skips_when_no_id_and_redacted() -> None:
     """No query_id AND redacted text: must not emit anything and counter stays 0."""
-    from datahub.ingestion.source.unity.usage import TableMap
-
     extractor = _make_extractor()
     info = _make_info(query_id=None, text=REDACTED, source_tables=[], target_tables=[])  # type: ignore[arg-type]
     table_map: TableMap = {}
@@ -485,8 +482,6 @@ def test_emit_query_entity_skips_when_no_id_and_redacted() -> None:
 
 def test_emit_query_entity_real_text_with_tables() -> None:
     """Real query text + resolved tables: emits queryProperties + querySubjects, increments counter."""
-    from datahub.ingestion.source.unity.usage import TableMap
-
     extractor = _make_extractor()
 
     known_ref = TableReference(
@@ -528,3 +523,125 @@ def test_emit_query_entity_real_text_with_tables() -> None:
 
     assert extractor.report.num_queries_text_redacted == 0
     assert extractor.report.num_query_entities_emitted == 1
+
+
+# ---------------------------------------------------------------------------
+# Row-parse error recovery: get_query_usage_via_system_tables
+# ---------------------------------------------------------------------------
+
+
+class _BrokenRow:
+    """A row whose statement_text attribute raises to simulate a construction failure.
+
+    statement_id and statement_type are readable (needed before construction),
+    but statement_text raises so QueryStatementInfo cannot be built.
+    """
+
+    def __init__(self, sid: str, ts: datetime) -> None:
+        self.statement_id = sid
+        self.statement_type = "SELECT"
+        self.executed_by = "u@x.io"
+        self.executed_by_user_id = 1
+        self.executed_as = None
+        self.executed_as_user_id = None
+        self.end_time = ts
+        self.source_table_full_name = None
+        self.source_type = None
+        self.target_table_full_name = None
+        self.target_type = None
+
+    @property
+    def start_time(self) -> datetime:
+        raise RuntimeError("injected failure during row construction")
+
+    @property
+    def statement_text(self) -> str:
+        raise RuntimeError("injected failure during row construction")
+
+
+def test_row_parse_error_skips_failed_row_and_yields_valid_rows() -> None:
+    """When one row raises during QueryStatementInfo construction the generator must:
+    (a) not raise, (b) still yield all other valid statements, (c) record a warning.
+
+    Additionally verifies the stale-info fix: a row that fails as a NEW statement_id
+    must not cause subsequent rows with a *different* valid statement_id to be
+    mis-attributed to the previous (stale) statement.
+    """
+    ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
+
+    # ok1: valid first statement — contributes a source table
+    ok1_row = _row(
+        statement_id="ok1",
+        statement_text="SELECT 1",
+        statement_type="SELECT",
+        executed_by="u@x.io",
+        executed_by_user_id=1,
+        executed_as=None,
+        executed_as_user_id=None,
+        start_time=ts,
+        end_time=ts,
+        source_table_full_name="cat.sch.src",
+        source_type="TABLE",
+        target_table_full_name=None,
+        target_type=None,
+    )
+
+    # bad: a NEW statement_id whose construction raises — neither ok1 nor ok2 should
+    # absorb its source_table
+    bad_row = _BrokenRow("bad", ts)
+
+    # ok2: another valid statement after the bad one
+    ok2_row = _row(
+        statement_id="ok2",
+        statement_text="INSERT INTO cat.sch.tgt SELECT 1",
+        statement_type="INSERT",
+        executed_by="u@x.io",
+        executed_by_user_id=1,
+        executed_as=None,
+        executed_as_user_id=None,
+        start_time=ts,
+        end_time=ts,
+        source_table_full_name=None,
+        source_type=None,
+        target_table_full_name="cat.sch.tgt",
+        target_type="TABLE",
+    )
+
+    proxy = _make_proxy([ok1_row, bad_row, ok2_row])
+    out = list(proxy.get_query_usage_via_system_tables(ts, ts))
+
+    # (a) generator must not raise — confirmed by reaching this line.
+    # Exact sequence (not membership): guards the stale-info fix. The pre-fix code
+    # advanced current_id/yielded BEFORE construction, so the failed `bad` row flushed
+    # `ok1` a second time, producing ['ok1', 'ok1', 'ok2']. Membership asserts would
+    # tolerate that duplicate; an exact-sequence assert catches it.
+    ids = [q.query.query_id for q in out]
+    assert ids == ["ok1", "ok2"], f"unexpected statement sequence: {ids}"
+
+    # (b) valid rows are yielded with correct tables
+    ok1_out = next(q for q in out if q.query.query_id == "ok1")
+    ok2_out = next(q for q in out if q.query.query_id == "ok2")
+
+    assert ok1_out.source_tables == ["cat.sch.src"], (
+        f"ok1 source_tables wrong: {ok1_out.source_tables}"
+    )
+    assert ok1_out.target_tables == [], (
+        f"ok1 target_tables wrong: {ok1_out.target_tables}"
+    )
+
+    # Stale-info check: ok2's target must NOT be attributed to ok1
+    assert ok2_out.target_tables == ["cat.sch.tgt"], (
+        f"ok2 target_tables wrong: {ok2_out.target_tables}"
+    )
+    assert ok2_out.source_tables == [], (
+        f"ok2 source_tables wrong: {ok2_out.source_tables}"
+    )
+
+    # (c) a warning must have been recorded for the bad row
+    assert len(proxy.report.warnings) >= 1, (
+        "expected at least one warning for the failed row"
+    )
+    warning_messages = [str(w.message) for w in proxy.report.warnings]
+    assert any("usage-row-parse" in m for m in warning_messages), (
+        f"expected 'usage-row-parse' warning, got: {warning_messages}"
+    )
