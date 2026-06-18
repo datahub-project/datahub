@@ -129,7 +129,7 @@ class UnityCatalogUsageExtractor:
                         MemoryError,
                         SystemExit,
                         KeyboardInterrupt,
-                    ):  # S1: never swallow system-level errors
+                    ):  # never swallow system-level errors as a "dropped query"
                         raise
                     except Exception as per_query_exc:
                         self.report.num_queries_dropped += 1
@@ -161,8 +161,8 @@ class UnityCatalogUsageExtractor:
                 self.report.num_usage_query_fetch_failures > fetch_failures_before
             )
             if fetch_failed:
-                # W1/W3: surface query-history fetch failure as a run failure (covers both
-                # the zero-rows case and a mid-stream failure that yielded partial data).
+                # Surface a query-history fetch failure as a run failure — covers both
+                # the zero-rows case and a mid-stream failure that yielded partial data.
                 self.report.report_failure(
                     title="Failed to fetch query history",
                     message="Could not fully read query history from system tables; usage statistics may be incomplete or missing. See the related SQL query failure warning for the underlying error.",
@@ -197,7 +197,9 @@ class UnityCatalogUsageExtractor:
             if aggregator is not None:
                 try:
                     aggregator.close()
-                except Exception as close_exc:  # S2: surface close failures in the report, not just logs
+                except (
+                    Exception
+                ) as close_exc:  # surface close failures in the report, not just logs
                     logger.warning(
                         "Failed to close SqlParsingAggregator", exc_info=True
                     )
