@@ -31,6 +31,7 @@ from datahub.cli.datapack.loader import (
 )
 from datahub.cli.datapack.models import DataPackInfo, TrustTier
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.utilities.entity_aspect_specs import EntityAspectSpecs
 
 
 class TestDatapackSinkConfig:
@@ -611,10 +612,10 @@ class TestApplySchemaFilter:
         mock_config.server = "http://localhost:8080"
         mock_config.token = "test"
 
-        with patch(
-            "datahub.cli.datapack.schema_compat.fetch_server_schema",
-            return_value=schema,
-        ):
+        with patch("datahub.ingestion.graph.client.DataHubGraph") as mock_graph:
+            mock_graph.return_value.get_entity_aspect_specs.return_value = (
+                EntityAspectSpecs(entity_aspects=schema)
+            )
             result = _apply_schema_filter(pack_path, client_config=mock_config)
 
         filtered = json.loads(result.read_text())
@@ -634,15 +635,17 @@ class TestApplySchemaFilter:
         mock_config.server = "http://localhost:8080"
         mock_config.token = "test"
 
-        with patch(
-            "datahub.cli.datapack.schema_compat.fetch_server_schema",
-            return_value=schema,
-        ):
+        with patch("datahub.ingestion.graph.client.DataHubGraph") as mock_graph:
+            mock_graph.return_value.get_entity_aspect_specs.return_value = (
+                EntityAspectSpecs(entity_aspects=schema)
+            )
             result = _apply_schema_filter(pack_path, client_config=mock_config)
 
         assert result == pack_path  # No new file created
 
-    def test_returns_original_when_schema_empty(self, tmp_path: pathlib.Path) -> None:
+    def test_returns_original_when_specs_unavailable(
+        self, tmp_path: pathlib.Path
+    ) -> None:
         pack_path = tmp_path / "data.json"
         pack_path.write_text("[]")
 
@@ -650,10 +653,8 @@ class TestApplySchemaFilter:
         mock_config.server = "http://localhost:8080"
         mock_config.token = None
 
-        with patch(
-            "datahub.cli.datapack.schema_compat.fetch_server_schema",
-            return_value={},
-        ):
+        with patch("datahub.ingestion.graph.client.DataHubGraph") as mock_graph:
+            mock_graph.return_value.get_entity_aspect_specs.return_value = None
             result = _apply_schema_filter(pack_path, client_config=mock_config)
 
         assert result == pack_path
@@ -670,10 +671,10 @@ class TestApplySchemaFilter:
         mock_config.server = "http://localhost:8080"
         mock_config.token = "test"
 
-        with patch(
-            "datahub.cli.datapack.schema_compat.fetch_server_schema",
-            return_value=schema,
-        ):
+        with patch("datahub.ingestion.graph.client.DataHubGraph") as mock_graph:
+            mock_graph.return_value.get_entity_aspect_specs.return_value = (
+                EntityAspectSpecs(entity_aspects=schema)
+            )
             result = _apply_schema_filter(pack_path, client_config=mock_config)
 
         assert result == pack_path  # Unknown entity, no filtering

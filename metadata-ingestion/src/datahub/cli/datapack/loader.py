@@ -22,6 +22,7 @@ from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER, load_client_config
 from datahub.cli.datapack.models import DataPackInfo, LoadRecord, TrustTier
 from datahub.cli.datapack.time_shift import time_shift_file
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.utilities.entity_aspect_specs import EntityAspectSpecs
 
 logger = logging.getLogger(__name__)
 
@@ -431,6 +432,17 @@ def remove_load_record(pack_name: str) -> None:
     path.unlink(missing_ok=True)
 
 
+def _is_mcp_compatible(
+    specs: EntityAspectSpecs, entity_type: str, aspect_name: str
+) -> bool:
+    """Whether the server supports this entity/aspect, allowing unknown entity types."""
+    try:
+        return specs.supports(entity_type, aspect_name)
+    except ValueError:
+        # Unknown entity type -- let the server decide rather than dropping it.
+        return True
+
+
 def _apply_schema_filter(
     pack_path: pathlib.Path,
     client_config: DatahubClientConfig,
@@ -440,14 +452,10 @@ def _apply_schema_filter(
     Returns the original path if no filtering is needed, or a new
     temporary file with incompatible MCPs removed.
     """
-    from datahub.cli.datapack.schema_compat import (
-        fetch_server_schema,
-        is_mcp_compatible,
-    )
+    from datahub.ingestion.graph.client import DataHubGraph
 
-    token = client_config.token
-    server_schema = fetch_server_schema(str(client_config.server), token=token)
-    if not server_schema:
+    specs = DataHubGraph(client_config).get_entity_aspect_specs()
+    if specs is None:
         click.echo("Could not fetch server schema -- skipping compatibility filter.")
         return pack_path
 
@@ -463,7 +471,7 @@ def _apply_schema_filter(
         entity_type = mcp.get("entityType", "")
         aspect_name = mcp.get("aspectName", "")
 
-        if is_mcp_compatible(entity_type, aspect_name, server_schema):
+        if _is_mcp_compatible(specs, entity_type, aspect_name):
             filtered.append(mcp)
         else:
             key = f"{entity_type}/{aspect_name}"
