@@ -23,6 +23,7 @@ def _row(**kw):
 def _make_proxy(rows):
     proxy = UnityCatalogApiProxy.__new__(UnityCatalogApiProxy)
     proxy.warehouse_id = "wh1"
+    proxy.report = UnityCatalogReport()
     proxy._execute_sql_query = MagicMock(return_value=rows)  # type: ignore[method-assign]
     return proxy
 
@@ -99,6 +100,60 @@ def test_empty_result_yields_nothing():
     ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
     proxy = _make_proxy([])
     assert list(proxy.get_query_usage_via_system_tables(ts, ts)) == []
+
+
+def test_invalid_statement_type_yields_row_with_none_type():
+    """An unrecognized statement_type string must not abort the generator.  The bad row
+    should still be yielded (statement_type=None) and the valid row must also appear."""
+    ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    rows = [
+        _row(
+            statement_id="bad1",
+            statement_text="FROBNICATE ...",
+            statement_type="WEIRD_TYPE",
+            executed_by="u@x.io",
+            executed_by_user_id=1,
+            executed_as=None,
+            executed_as_user_id=None,
+            start_time=ts,
+            end_time=ts,
+            source_table_full_name="cat.sch.src",
+            source_type="TABLE",
+            source_path=None,
+            target_table_full_name=None,
+            target_type=None,
+        ),
+        _row(
+            statement_id="ok1",
+            statement_text="SELECT ...",
+            statement_type="SELECT",
+            executed_by="u@x.io",
+            executed_by_user_id=1,
+            executed_as=None,
+            executed_as_user_id=None,
+            start_time=ts,
+            end_time=ts,
+            source_table_full_name="cat.sch.src",
+            source_type="TABLE",
+            source_path=None,
+            target_table_full_name=None,
+            target_type=None,
+        ),
+    ]
+    proxy = _make_proxy(rows)
+    out = list(proxy.get_query_usage_via_system_tables(ts, ts))
+
+    assert [q.query.query_id for q in out] == ["bad1", "ok1"], (
+        "both statements must be yielded even when one has an unknown statement_type"
+    )
+    bad = next(q for q in out if q.query.query_id == "bad1")
+    ok = next(q for q in out if q.query.query_id == "ok1")
+    assert bad.query.statement_type is None, (
+        f"expected None for unknown type, got {bad.query.statement_type!r}"
+    )
+    assert ok.query.statement_type is not None, (
+        "valid SELECT statement_type should be set"
+    )
 
 
 def _make_query(query_id: str, text: str = "SELECT 1") -> Query:

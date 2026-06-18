@@ -127,6 +127,8 @@ Requirements:
 
 - #17860 **(CLI / Python SDK)** Mutual TLS (mTLS) client authentication is now supported for outbound HTTPS calls from the CLI.
 
+- **(Ingestion / Databricks Unity Catalog)** When `usage_data_source` is set to `SYSTEM_TABLES` (or `AUTO` with a SQL warehouse configured), the connector now derives usage statistics and operational stats from the `system.access.table_lineage` table joined to `system.query.history`, instead of parsing SQL statements. Statements present in query history but without matching lineage rows (for example, serverless queries or best-effort misses) fall back to SQL parsing automatically. Query entities are now emitted for warehouse statements on this path (`emit_queries`, default `true`). The usage and lineage history window on the system-tables path may extend up to 365 days (the previous cap was 30 days, which applied only to the REST API path). Existing Databricks Unity Catalog ingestions that set a `warehouse_id` or use `usage_data_source: SYSTEM_TABLES` are affected; no recipe changes are required unless you want to opt out (`usage_data_source: API`).
+
 ## v1.6.0
 
 Requirements:

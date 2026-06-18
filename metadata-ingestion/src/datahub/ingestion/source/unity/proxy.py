@@ -728,15 +728,25 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 if info is not None:
                     yield info
                 current_id = sid
+                raw_stmt_type = row["statement_type"]
+                statement_type: Optional[QueryStatementType] = None
+                if raw_stmt_type:
+                    try:
+                        statement_type = QueryStatementType(raw_stmt_type)
+                    except ValueError:
+                        logger.warning(
+                            f"Unrecognized statement_type {raw_stmt_type!r} for "
+                            f"statement {sid}; treating as None"
+                        )
+                        self.report.report_warning(
+                            "unknown-statement-type",
+                            f"statement_id={sid} statement_type={raw_stmt_type!r}",
+                        )
                 info = QueryStatementInfo(
                     query=Query(
                         query_id=sid,
                         query_text=row["statement_text"] or "",
-                        statement_type=(
-                            QueryStatementType(row["statement_type"])
-                            if row["statement_type"]
-                            else None
-                        ),
+                        statement_type=statement_type,
                         start_time=row["start_time"],
                         end_time=row["end_time"],
                         user_id=row["executed_by_user_id"],

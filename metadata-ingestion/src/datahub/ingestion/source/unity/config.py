@@ -485,7 +485,13 @@ class UnityCatalogSourceConfig(
 
     @model_validator(mode="after")
     def validate_start_time_window(self) -> "UnityCatalogSourceConfig":
-        uses_system_tables = bool(self.warehouse_id) and (
+        # Read the profiling fallback directly rather than relying on self.warehouse_id,
+        # because set_warehouse_id_from_profiling may not have run yet (Pydantic v2 runs
+        # after-validators in definition order, and this validator is defined first).
+        effective_warehouse = self.warehouse_id or (
+            self.profiling.warehouse_id if self.profiling else None
+        )
+        uses_system_tables = bool(effective_warehouse) and (
             self.usage_data_source != UsageDataSource.API
             or self.lineage_data_source != LineageDataSource.API
         )

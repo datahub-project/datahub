@@ -648,3 +648,25 @@ def test_window_capped_at_30_when_warehouse_set_but_all_api():
                 start_time=start,
             )
         )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_window_allows_365_days_when_warehouse_only_in_profiling():
+    """Validator ordering regression: warehouse_id only in profiling.warehouse_id, not at the
+    top level.  validate_start_time_window runs before set_warehouse_id_from_profiling in
+    Pydantic v2 definition order, so it must read profiling.warehouse_id as the fallback to
+    correctly apply the 365-day cap instead of the 30-day cap."""
+    start = FROZEN_TIME - timedelta(days=120)
+    cfg = UnityCatalogSourceConfig.model_validate(
+        _base(
+            usage_data_source="SYSTEM_TABLES",
+            profiling={
+                "method": "sqlalchemy",
+                "enabled": True,
+                "warehouse_id": "wh1",
+            },
+            start_time=start,
+        )
+    )
+    assert cfg.start_time == start
+    assert cfg.warehouse_id == "wh1"
