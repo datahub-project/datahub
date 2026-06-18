@@ -933,9 +933,9 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertTrue(result.findAny().isEmpty());
   }
 
-  /** Test that UI source items are skipped during validation. */
+  /** Test that UI source items are validated (not skipped). */
   @Test
-  public void testValidateGlobalTagsWithUISourceSkipped() {
+  public void testValidateGlobalTagsWithUISourceValidated() {
     GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
     TestMCP item =
         TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
@@ -943,14 +943,16 @@ public class PrivilegeConstraintsValidatorTest {
             .findFirst()
             .get();
 
-    // Set UI source in system metadata
     SystemMetadata systemMetadata = new SystemMetadata();
     StringMap properties = new StringMap();
     properties.put(APP_SOURCE, UI_SOURCE);
     systemMetadata.setProperties(properties);
     item.setSystemMetadata(systemMetadata);
 
-    // UI source items should be skipped, no authorization check needed
+    authUtilMockedStatic
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(any(), any(), any(), any()))
+        .thenReturn(false);
+
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
             OperationFingerprint.EMPTY,
@@ -958,7 +960,7 @@ public class PrivilegeConstraintsValidatorTest {
             retrieverContext,
             mockAuthSession);
 
-    Assert.assertTrue(result.findAny().isEmpty());
+    Assert.assertTrue(result.findAny().isPresent());
   }
 
   /** Test that system update source items are skipped during validation. */
