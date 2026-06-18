@@ -84,17 +84,41 @@ export default function DataProcessInstanceSummary() {
                     </InfoItem>
                 </InfoItemContainer>
                 <Typography.Title level={3}>Training Metrics</Typography.Title>
-                <Table
-                    pagination={false}
-                    columns={propertyTableColumns}
-                    dataSource={dpi?.mlTrainingRunProperties?.trainingMetrics as MlMetric[]}
-                />
+                <div data-testid="mlmodel-training-metrics-table">
+                    <Table
+                        pagination={false}
+                        columns={propertyTableColumns.map((col, idx) => ({
+                            ...col,
+                            render:
+                                idx === 0
+                                    ? (_, record) => (
+                                          <span data-testid={`mlmodel-metric-row-${(record as MlMetric).name}`}>
+                                              {(record as MlMetric).name}
+                                          </span>
+                                      )
+                                    : undefined,
+                        }))}
+                        dataSource={dpi?.mlTrainingRunProperties?.trainingMetrics as MlMetric[]}
+                    />
+                </div>
                 <Typography.Title level={3}>Hyper Parameters</Typography.Title>
-                <Table
-                    pagination={false}
-                    columns={propertyTableColumns}
-                    dataSource={dpi?.mlTrainingRunProperties?.hyperParams as MlHyperParam[]}
-                />
+                <div data-testid="mlmodel-hyperparams-table">
+                    <Table
+                        pagination={false}
+                        columns={propertyTableColumns.map((col, idx) => ({
+                            ...col,
+                            render:
+                                idx === 0
+                                    ? (_, record) => (
+                                          <span data-testid={`mlmodel-hyperparam-row-${(record as MlHyperParam).name}`}>
+                                              {(record as MlHyperParam).name}
+                                          </span>
+                                      )
+                                    : undefined,
+                        }))}
+                        dataSource={dpi?.mlTrainingRunProperties?.hyperParams as MlHyperParam[]}
+                    />
+                </div>
             </Space>
         </TabContent>
     );

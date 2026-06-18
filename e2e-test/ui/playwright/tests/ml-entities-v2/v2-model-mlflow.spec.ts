@@ -54,18 +54,26 @@ test.describe('MLFlow Models', () => {
       mlEntitiesPage = new MLEntitiesPage(page, logger, logDir);
     });
 
-    test('can visit mlflow model groups', async () => {
+    test('can visit mlflow model groups', async ({ logger }) => {
+      logger.step('Navigate to MLFlow model group');
       await mlEntitiesPage.navigateToMLModelGroup(TEST_DATA.MLFLOW_GROUP_URN);
 
+      logger.step('Verify group page loaded');
       const currentUrl = await mlEntitiesPage.getCurrentUrl();
       expect(currentUrl).toContain(MLFLOW_STRINGS.GROUP_URL_PATTERN);
 
+      logger.step('Verify creator information');
       await mlEntitiesPage.expectTextVisible(MLFLOW_STRINGS.CREATOR_URN);
+
+      logger.step('Verify properties tab');
       await mlEntitiesPage.clickTab(MLFLOW_STRINGS.PROPERTIES_TAB);
-      await mlEntitiesPage.waitForPageLoad();
       await mlEntitiesPage.expectTextVisible(MLFLOW_STRINGS.TEAM_PROPERTY);
+
+      logger.step('Verify models list');
       await mlEntitiesPage.clickTab(MLFLOW_STRINGS.MODELS_TAB);
-      await mlEntitiesPage.waitForPageLoad();
+      await mlEntitiesPage.expectModelLinkVisible(MLFLOW_STRINGS.MODEL_NAME);
+
+      logger.step('Navigate to model and verify description');
       await mlEntitiesPage.clickModelLink(MLFLOW_STRINGS.MODEL_NAME);
       await mlEntitiesPage.expectTextVisible(MLFLOW_STRINGS.MODEL_DESCRIPTION);
     });
@@ -80,26 +88,66 @@ test.describe('MLFlow Models', () => {
       mlEntitiesPage = new MLEntitiesPage(page, logger, logDir);
     });
 
-    test('can visit mlflow model', async () => {
+    test('displays summary tab with model metadata', async ({ logger }) => {
+      logger.step('Navigate to MLFlow model');
       await mlEntitiesPage.navigateToMLModel(TEST_DATA.MLFLOW_MODEL_URN);
 
+      logger.step('Verify Summary tab is active');
       const currentUrl = await mlEntitiesPage.getCurrentUrl();
       expect(currentUrl).toContain(MLFLOW_STRINGS.MODEL_URL_PATTERN);
       expect(currentUrl).toContain(MLFLOW_STRINGS.SUMMARY_TAB);
 
+      logger.step('Verify model metadata');
       await mlEntitiesPage.expectTextVisible(MLFLOW_STRINGS.TRAINING_RUN);
       await mlEntitiesPage.expectTextVisible(MLFLOW_STRINGS.MODEL_DESCRIPTION);
+    });
+
+    test('displays metrics and hyperparameters on summary tab', async ({ logger }) => {
+      logger.step('Navigate to MLFlow model');
+      await mlEntitiesPage.navigateToMLModel(TEST_DATA.MLFLOW_MODEL_URN);
+
+      logger.step('Verify metrics table');
       await mlEntitiesPage.waitForMetricsTable();
       await mlEntitiesPage.expectMetricVisible(MLFLOW_STRINGS.METRIC_NAME);
+
+      logger.step('Verify hyperparameters table');
       await mlEntitiesPage.waitForHyperparametersTable();
       await mlEntitiesPage.expectHyperparameterVisible(MLFLOW_STRINGS.HYPERPARAM_NAME);
+    });
+
+    test('displays properties on properties tab', async ({ logger }) => {
+      logger.step('Navigate to MLFlow model');
+      await mlEntitiesPage.navigateToMLModel(TEST_DATA.MLFLOW_MODEL_URN);
+
+      logger.step('Click Properties tab');
       await mlEntitiesPage.clickTab(MLFLOW_STRINGS.PROPERTIES_TAB);
-      await mlEntitiesPage.waitForPageLoad();
+
+      logger.step('Verify team property is visible');
       await mlEntitiesPage.expectTextVisible(MLFLOW_STRINGS.TEAM_PROPERTY);
+    });
+
+    test('displays group information on group tab', async ({ logger }) => {
+      logger.step('Navigate to MLFlow model');
+      await mlEntitiesPage.navigateToMLModel(TEST_DATA.MLFLOW_MODEL_URN);
+
+      logger.step('Click Group tab');
       await mlEntitiesPage.clickTab(MLFLOW_STRINGS.GROUP_TAB);
-      await mlEntitiesPage.waitForPageLoad();
+
+      logger.step('Verify group description is visible');
       await mlEntitiesPage.expectTextVisible(MLFLOW_STRINGS.GROUP_DESCRIPTION);
+    });
+
+    test('can navigate to model group from model page', async ({ logger }) => {
+      logger.step('Navigate to MLFlow model');
+      await mlEntitiesPage.navigateToMLModel(TEST_DATA.MLFLOW_MODEL_URN);
+
+      logger.step('Click Group tab');
+      await mlEntitiesPage.clickTab(MLFLOW_STRINGS.GROUP_TAB);
+
+      logger.step('Click model group link');
       await mlEntitiesPage.clickModelGroupLink(MLFLOW_STRINGS.GROUP_NAME);
+
+      logger.step('Verify group description after navigation');
       await mlEntitiesPage.expectTextVisible(MLFLOW_STRINGS.GROUP_DESCRIPTION);
     });
   });

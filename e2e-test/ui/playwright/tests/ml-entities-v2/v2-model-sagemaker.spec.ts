@@ -51,35 +51,34 @@ test.describe('SageMaker Models', () => {
       mlEntitiesPage = new MLEntitiesPage(page, logger, logDir);
     });
 
-    test('can visit sagemaker models and groups', async () => {
-      // Navigate to SageMaker model page - Summary tab
+    test('can visit sagemaker models and groups', async ({ logger }) => {
+      logger.step('Navigate to SageMaker model - Summary tab');
       await mlEntitiesPage.navigateToMLModel(TEST_DATA.SAGEMAKER_MODEL_URN);
 
-      // Verify model page loaded with correct URL
+      logger.step('Verify model page loaded with correct URL');
       const currentUrl = await mlEntitiesPage.getCurrentUrl();
       expect(currentUrl).toContain(SAGEMAKER_STRINGS.MODEL_URL_PATTERN);
       expect(currentUrl).toContain(SAGEMAKER_STRINGS.SUMMARY_TAB);
 
+      logger.step('Verify model description');
       await mlEntitiesPage.expectTextVisible(SAGEMAKER_STRINGS.MODEL_DESCRIPTION);
 
-      // Verify metrics table and its content
+      logger.step('Verify metrics and hyperparameters');
       await mlEntitiesPage.waitForMetricsTable();
       await mlEntitiesPage.expectMetricVisible(SAGEMAKER_STRINGS.METRIC_NAME);
       await mlEntitiesPage.waitForHyperparametersTable();
       await mlEntitiesPage.expectHyperparameterVisible(SAGEMAKER_STRINGS.HYPERPARAM_NAME);
 
-      // Navigate to Features tab
+      logger.step('Navigate to Features tab');
       await mlEntitiesPage.clickTab(SAGEMAKER_STRINGS.FEATURES_TAB);
-      await mlEntitiesPage.waitForPageLoad();
       await mlEntitiesPage.expectFeatureVisible(SAGEMAKER_STRINGS.FEATURE_NAME);
 
-      // Navigate to Group tab
+      logger.step('Navigate to Group tab');
       await mlEntitiesPage.clickTab(SAGEMAKER_STRINGS.GROUP_TAB);
-      await mlEntitiesPage.waitForPageLoad();
 
+      logger.step('Verify group information');
       const groupUrl = await mlEntitiesPage.getCurrentUrl();
       expect(groupUrl).toContain(SAGEMAKER_STRINGS.GROUP_TAB);
-
       await mlEntitiesPage.expectModelGroupNameVisible(SAGEMAKER_STRINGS.GROUP_NAME);
     });
   });
@@ -93,17 +92,19 @@ test.describe('SageMaker Models', () => {
       mlEntitiesPage = new MLEntitiesPage(page, logger, logDir);
     });
 
-    test('can visit sagemaker model group with description', async () => {
-      // Navigate directly to model group page
+    test('can visit sagemaker model group with description', async ({ logger }) => {
+      logger.step('Navigate to model group page');
       await mlEntitiesPage.navigateToMLModelGroup(TEST_DATA.SAGEMAKER_GROUP_URN);
 
+      logger.step('Verify group page loaded with correct URL');
       const currentUrl = await mlEntitiesPage.getCurrentUrl();
       expect(currentUrl).toContain(SAGEMAKER_STRINGS.GROUP_URL_PATTERN);
 
-      // Verify the specific model is visible in the group (using exact match for model link)
-      await mlEntitiesPage.clickModelLink(SAGEMAKER_STRINGS.MODEL_NAME);
-      await mlEntitiesPage.navigateToMLModelGroup(TEST_DATA.SAGEMAKER_GROUP_URN);
+      logger.step('Verify group description is visible');
       await mlEntitiesPage.expectTextVisible(SAGEMAKER_STRINGS.GROUP_DESCRIPTION);
+
+      logger.step('Verify model is listed in the group');
+      await mlEntitiesPage.expectModelLinkVisible(SAGEMAKER_STRINGS.MODEL_NAME);
     });
   });
 });

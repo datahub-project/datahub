@@ -126,6 +126,11 @@ export class MLEntitiesPage extends BasePage {
     await expect(this.page.getByText(text, { exact: false })).toBeVisible();
   }
 
+  async expectModelLinkVisible(modelName: string): Promise<void> {
+    const link = this.getModelLinkLocator(modelName);
+    await expect(link).toBeVisible();
+  }
+
   async expectMetricVisible(metricName: string): Promise<void> {
     const metric = this.getMetricLocator(metricName);
     await expect(metric).toBeVisible();
