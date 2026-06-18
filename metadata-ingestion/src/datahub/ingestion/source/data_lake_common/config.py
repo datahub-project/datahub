@@ -1,5 +1,4 @@
 import logging
-from enum import Enum
 from typing import List, Optional
 from urllib.parse import urlparse
 
@@ -8,6 +7,7 @@ from pydantic import Field
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub.utilities.str_enum import StrEnum
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class PathSpecsConfigMixin(ConfigModel):
     )
 
 
-class S3PathMode(str, Enum):
+class S3PathMode(StrEnum):
     """How a path is interpreted by :meth:`S3LineageProviderConfig.get_s3_path`."""
 
     FILE = "file"
