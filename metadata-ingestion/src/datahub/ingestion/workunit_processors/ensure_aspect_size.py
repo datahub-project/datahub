@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional
 
@@ -202,6 +203,11 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         )
         return False
 
+    def _extract_field_path_length(self, field: SchemaFieldClass) -> int:
+        return len(
+            [t for t in re.sub(r"\[[^]]*]", "", field.fieldPath).split(".") if t]
+        )
+
     def ensure_schema_metadata_size(
         self, dataset_urn: str, schema: SchemaMetadataClass
     ) -> None:
@@ -230,7 +236,8 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
 
         total_fields_size = self._schema_size_without_fields(schema)
         accepted_fields: List[SchemaFieldClass] = []
-        for schema_field in schema.fields:
+        sorted_fields = sorted(schema.fields, key=self._extract_field_path_length)
+        for schema_field in sorted_fields:
             field_size = len(json.dumps(pre_json_transform(schema_field.to_obj())))
             if total_fields_size + field_size < self.schema_size_constraint:
                 accepted_fields.append(schema_field)
