@@ -291,7 +291,7 @@ def test_profiling_with_empty_record_count(mock_sdk):
         {
             "auth": "DIRECT_ACCESS_TOKEN",
             "instance_url": "https://mydomain.my.salesforce.com/",
-            "access_token": "access_token`",
+            "access_token": "access_token",
             "object_pattern": {"allow": ["^Property__c$"]},
             "profiling": {"enabled": True},
             "profile_pattern": {"allow": ["^Property__c$"]},
