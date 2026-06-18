@@ -6,6 +6,7 @@ import styled from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { PreviewType } from '@app/entityV2/Entity';
+import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { getNumberWithOrdinal } from '@app/entityV2/shared/utils';
@@ -76,7 +77,7 @@ interface EntityHeaderProps {
     degree?: number;
     connectionName?: Maybe<string>;
     previewData?: GenericEntityProperties | null;
-    refetchDeprecation?: () => void;
+    refetchDeprecation?: (formData?: DeprecationFormData) => void;
 }
 
 const EntityHeader: React.FC<EntityHeaderProps> = ({

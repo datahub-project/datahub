@@ -1,6 +1,4 @@
-import { Tooltip } from '@components';
-import { Divider, Typography, message } from 'antd';
-import { TooltipPlacement } from 'antd/es/tooltip';
+import { Tooltip, toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -28,7 +26,7 @@ const DeprecatedContainer = styled.div`
     color: ${(props) => props.theme.colors.textError};
 `;
 
-const DeprecatedTitle = styled(Typography.Text)`
+const DeprecatedTitle = styled.span`
     display: block;
     font-size: 16px;
     margin-bottom: 5px;
@@ -36,7 +34,7 @@ const DeprecatedTitle = styled(Typography.Text)`
     color: ${(props) => props.theme.colors.text};
 `;
 
-const DeprecatedSubTitle = styled(Typography.Text)`
+const DeprecatedSubTitle = styled.span`
     display: block;
     margin-bottom: 5px;
     font-size: 12px;
@@ -61,9 +59,10 @@ const ReplacementContainer = styled.span`
     max-width: 100%;
 `;
 
-const ThinDivider = styled(Divider)`
-    margin-top: 8px;
-    margin-bottom: 8px;
+const ThinDivider = styled.hr`
+    margin: 8px 0;
+    border: none;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const IconGroup = styled.div`
@@ -86,7 +85,7 @@ type Props = {
     showUndeprecate: boolean | null;
     showText?: boolean;
     zIndexOverride?: number;
-    popoverPlacement?: TooltipPlacement;
+    popoverPlacement?: React.ComponentProps<typeof StructuredPopover>['placement'];
 };
 
 export const DeprecationIcon = ({
@@ -136,7 +135,7 @@ export const DeprecationIcon = ({
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: t('deprecation.markedUnDeprecatedSuccess'), duration: 2 });
+                    toast.success(t('deprecation.markedUnDeprecatedSuccess'), { duration: 2 });
                     refetch?.();
                     analytics.event({
                         type: EventType.SetDeprecation,
@@ -148,11 +147,8 @@ export const DeprecationIcon = ({
                 setShowUndeprecateModal(false);
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: t('deprecation.markUnDeprecatedError', { message: e.message || '' }),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('deprecation.markUnDeprecatedError', { message: e.message || '' }), { duration: 3 });
             });
     };
 
