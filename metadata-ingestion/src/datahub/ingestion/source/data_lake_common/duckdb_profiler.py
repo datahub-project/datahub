@@ -479,9 +479,16 @@ class DuckDBProfiler:
                 pretty_name=display_name,
                 batch_kwargs={"schema": None, "table": table_name},
             )
-            for _req, profile in profiler.generate_profiles(
-                [request], max_workers=1, platform="duckdb"
-            ):
+            # Materialize the profiles (the actual profiling work) and stop the
+            # timer before yielding, so the recorded per-table duration measures
+            # profiling — not the downstream sink time during the yields.
+            profiles = list(
+                profiler.generate_profiles(
+                    [request], max_workers=1, platform="duckdb"
+                )
+            )
+            timer.finish()
+            for _req, profile in profiles:
                 if profile is not None:
                     if row_estimate is not None:
                         profile.rowCount = row_estimate
