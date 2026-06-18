@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Iterable, List
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from databricks.sdk.service.sql import QueryStatementType
@@ -39,7 +39,10 @@ def _make_proxy(rows):
     proxy = UnityCatalogApiProxy.__new__(UnityCatalogApiProxy)
     proxy.warehouse_id = "wh1"
     proxy.report = UnityCatalogReport()
-    proxy._execute_sql_query = MagicMock(return_value=rows)  # type: ignore[method-assign]
+    # Both usage methods now use the streaming fetch; side_effect gives a fresh
+    # iterator on each call so the mock can be called multiple times in one test.
+    _streaming_mock = MagicMock(side_effect=lambda *a, **kw: iter(rows))
+    proxy._execute_sql_query_streaming = _streaming_mock  # type: ignore[method-assign]
     return proxy
 
 
@@ -177,8 +180,8 @@ def test_sql_contains_required_filters():
     proxy = _make_proxy([])
     list(proxy.get_query_usage_via_system_tables(ts, ts))
 
-    assert proxy._execute_sql_query.called
-    sql_arg: str = proxy._execute_sql_query.call_args[0][0]
+    assert proxy._execute_sql_query_streaming.called
+    sql_arg: str = proxy._execute_sql_query_streaming.call_args[0][0]
     assert "direct_access = true" in sql_arg, "missing direct_access filter"
     assert "statement_id IS NOT NULL" in sql_arg, (
         "missing statement_id IS NOT NULL filter"
@@ -644,4 +647,84 @@ def test_row_parse_error_skips_failed_row_and_yields_valid_rows() -> None:
     warning_messages = [str(w.message) for w in proxy.report.warnings]
     assert any("usage-row-parse" in m for m in warning_messages), (
         f"expected 'usage-row-parse' warning, got: {warning_messages}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# _execute_sql_query_streaming tests
+# ---------------------------------------------------------------------------
+
+
+def _make_streaming_proxy() -> UnityCatalogApiProxy:
+    """Build a bare proxy with warehouse_id set; _workspace_client is mocked."""
+    proxy = UnityCatalogApiProxy.__new__(UnityCatalogApiProxy)
+    proxy.warehouse_id = "wh1"
+    proxy.report = UnityCatalogReport()
+    proxy._workspace_client = MagicMock()
+    return proxy
+
+
+def _make_mock_cursor(batches: List[List]) -> MagicMock:
+    """Return a mock cursor whose fetchmany() returns successive batches then []."""
+    cursor = MagicMock()
+    cursor.__enter__ = MagicMock(return_value=cursor)
+    cursor.__exit__ = MagicMock(return_value=False)
+    batch_iter = iter(batches + [[]])
+    cursor.fetchmany = MagicMock(side_effect=lambda n: next(batch_iter))
+    return cursor
+
+
+def _make_mock_connection(cursor: MagicMock) -> MagicMock:
+    conn = MagicMock()
+    conn.__enter__ = MagicMock(return_value=conn)
+    conn.__exit__ = MagicMock(return_value=False)
+    conn.cursor = MagicMock(return_value=cursor)
+    return conn
+
+
+def test_streaming_yields_all_rows_across_batches() -> None:
+    """_execute_sql_query_streaming must yield all rows across multiple fetchmany batches."""
+    all_rows = [_row(v=i) for i in range(7)]
+    batches = [all_rows[:3], all_rows[3:6], all_rows[6:]]
+    cursor = _make_mock_cursor(batches)
+    conn = _make_mock_connection(cursor)
+
+    proxy = _make_streaming_proxy()
+    with (
+        patch(
+            "datahub.ingestion.source.unity.proxy.get_sql_connection_params",
+            return_value={},
+        ),
+        patch(
+            "datahub.ingestion.source.unity.proxy.connect",
+            return_value=conn,
+        ),
+    ):
+        result = list(proxy._execute_sql_query_streaming("SELECT 1"))
+
+    assert result == all_rows, f"expected {all_rows}, got {result}"
+    # Connection and cursor must be closed (context managers exited)
+    conn.__exit__.assert_called_once()
+    cursor.__exit__.assert_called_once()
+
+
+def test_streaming_reports_warning_on_error_and_does_not_raise() -> None:
+    """_execute_sql_query_streaming must report a warning and yield nothing on DB error."""
+    proxy = _make_streaming_proxy()
+    with (
+        patch(
+            "datahub.ingestion.source.unity.proxy.get_sql_connection_params",
+            return_value={},
+        ),
+        patch(
+            "datahub.ingestion.source.unity.proxy.connect",
+            side_effect=RuntimeError("simulated DB failure"),
+        ),
+    ):
+        result = list(proxy._execute_sql_query_streaming("SELECT 1"))
+
+    assert result == [], "expected no rows on error"
+    warning_messages = [str(w.message) for w in proxy.report.warnings]
+    assert any("sql-query-failed" in m for m in warning_messages), (
+        f"expected 'sql-query-failed' warning, got: {warning_messages}"
     )

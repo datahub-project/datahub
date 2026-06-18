@@ -37,6 +37,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import QueryUrn
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
@@ -103,70 +104,90 @@ class UnityCatalogUsageExtractor:
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
         table_map = defaultdict(list)
-        query_hashes = set()
         for ref in table_refs:
             table_map[ref.table].append(ref)
             table_map[f"{ref.schema}.{ref.table}"].append(ref)
             table_map[ref.qualified_table_name].append(ref)
 
-        matched_ids: Set[str] = set()
-        if self._use_system_tables_join():
-            with self.report.usage_perf_report.get_queries_timer:
-                for info in self.proxy.get_query_usage_via_system_tables(
-                    self.config.start_time, self.config.end_time
-                ):
-                    self.report.num_queries += 1
-                    self.report.num_queries_resolved_via_lineage += 1
-                    if info.query.query_id:
-                        matched_ids.add(info.query.query_id)
-                    with self.report.usage_perf_report.query_fingerprinting_timer:
-                        query_hashes.add(
-                            get_query_fingerprint(
-                                info.query.query_text, "databricks", fast=True
-                            )
-                        )
-                        self.report.num_unique_queries = len(query_hashes)
-                    table_info = QueryTableInfo(
-                        source_tables=self._resolve_tables(
-                            info.source_tables, table_map
-                        ),
-                        target_tables=self._resolve_tables(
-                            info.target_tables, table_map
-                        ),
-                    )
-                    yield from self._aggregate_query_usage(info.query, table_info)
-                    if self.config.emit_queries:
-                        yield from self._emit_query_entity(info, table_map)
-
-            if self.config.parse_unmatched_queries:
-                for query in self.proxy.get_query_history_via_system_tables(
-                    self.config.start_time, self.config.end_time
-                ):
-                    if query.query_id in matched_ids:
-                        continue
-                    self.report.num_queries_missing_lineage += 1
-                    fallback_table_info = self._parse_query(query, table_map)
-                    if fallback_table_info is None:
-                        continue
-                    self.report.num_queries_resolved_via_parse_fallback += 1
-                    yield from self._aggregate_query_usage(query, fallback_table_info)
-        else:
-            with self.report.usage_perf_report.get_queries_timer as current_timer:
-                for query in self._get_queries():
-                    self.report.num_queries += 1
-                    with current_timer.pause():
+        # Disk-backed sets bound memory at millions-of-statements scale.
+        # Value is always 1; we only use key membership and len().
+        matched_ids: FileBackedDict[int] = FileBackedDict()
+        query_hashes: FileBackedDict[int] = FileBackedDict()
+        try:
+            if self._use_system_tables_join():
+                with self.report.usage_perf_report.get_queries_timer:
+                    for info in self.proxy.get_query_usage_via_system_tables(
+                        self.config.start_time, self.config.end_time
+                    ):
+                        self.report.num_queries += 1
+                        self.report.num_queries_resolved_via_lineage += 1
+                        if info.query.query_id:
+                            matched_ids[info.query.query_id] = 1
                         with self.report.usage_perf_report.query_fingerprinting_timer:
-                            query_hashes.add(
+                            query_hashes[
                                 get_query_fingerprint(
-                                    query.query_text, "databricks", fast=True
+                                    info.query.query_text, "databricks", fast=True
                                 )
-                            )
+                            ] = 1
                             self.report.num_unique_queries = len(query_hashes)
-                        parsed_table_info = self._parse_query(query, table_map)
-                        if parsed_table_info is not None:
-                            yield from self._aggregate_query_usage(
-                                query, parsed_table_info
-                            )
+                        table_info = QueryTableInfo(
+                            source_tables=self._resolve_tables(
+                                info.source_tables, table_map
+                            ),
+                            target_tables=self._resolve_tables(
+                                info.target_tables, table_map
+                            ),
+                        )
+                        yield from self._aggregate_query_usage(info.query, table_info)
+                        if self.config.emit_queries:
+                            yield from self._emit_query_entity(info, table_map)
+
+                if self.config.parse_unmatched_queries:
+                    for query in self.proxy.get_query_history_via_system_tables(
+                        self.config.start_time, self.config.end_time
+                    ):
+                        if query.query_id in matched_ids:
+                            continue
+                        self.report.num_queries_missing_lineage += 1
+                        fallback_table_info = self._parse_query(query, table_map)
+                        if fallback_table_info is None:
+                            continue
+                        self.report.num_queries_resolved_via_parse_fallback += 1
+                        yield from self._aggregate_query_usage(
+                            query, fallback_table_info
+                        )
+            else:
+                with self.report.usage_perf_report.get_queries_timer as current_timer:
+                    for query in self._get_queries():
+                        self.report.num_queries += 1
+                        with current_timer.pause():
+                            with (
+                                self.report.usage_perf_report.query_fingerprinting_timer
+                            ):
+                                query_hashes[
+                                    get_query_fingerprint(
+                                        query.query_text, "databricks", fast=True
+                                    )
+                                ] = 1
+                                self.report.num_unique_queries = len(query_hashes)
+                            parsed_table_info = self._parse_query(query, table_map)
+                            if parsed_table_info is not None:
+                                yield from self._aggregate_query_usage(
+                                    query, parsed_table_info
+                                )
+        finally:
+            try:
+                matched_ids.close()
+            except Exception:
+                logger.warning(
+                    "Failed to close matched_ids FileBackedDict", exc_info=True
+                )
+            try:
+                query_hashes.close()
+            except Exception:
+                logger.warning(
+                    "Failed to close query_hashes FileBackedDict", exc_info=True
+                )
 
         if not self.report.num_queries:
             logger.warning("No queries found in the given time range.")

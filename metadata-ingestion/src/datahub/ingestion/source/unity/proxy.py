@@ -648,37 +648,26 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             ORDER BY start_time
         """
 
-        try:
-            rows = self._execute_sql_query(query, (start_time, end_time))
-            for row in rows:
-                try:
-                    yield Query(
-                        query_id=row.statement_id,
-                        query_text=row.statement_text,
-                        statement_type=(
-                            QueryStatementType(row.statement_type)
-                            if row.statement_type
-                            else None
-                        ),
-                        start_time=row.start_time,
-                        end_time=row.end_time,
-                        user_id=row.executed_by_user_id,
-                        user_name=row.executed_by,
-                        executed_as_user_id=row.executed_as_user_id,
-                        executed_as_user_name=row.executed_as,
-                    )
-                except Exception as e:
-                    logger.warning(f"Error parsing query from system table: {e}")
-                    self.report.report_warning("query-parse-system-table", str(e))
-        except Exception as e:
-            logger.error(
-                f"Error fetching query history from system tables: {e}", exc_info=True
-            )
-            self.report.report_failure(
-                title="Failed to fetch query history from system tables",
-                message="Error querying system.query.history table",
-                context=f"Query period: {start_time} to {end_time}",
-            )
+        for row in self._execute_sql_query_streaming(query, (start_time, end_time)):
+            try:
+                yield Query(
+                    query_id=row.statement_id,
+                    query_text=row.statement_text,
+                    statement_type=(
+                        QueryStatementType(row.statement_type)
+                        if row.statement_type
+                        else None
+                    ),
+                    start_time=row.start_time,
+                    end_time=row.end_time,
+                    user_id=row.executed_by_user_id,
+                    user_name=row.executed_by,
+                    executed_as_user_id=row.executed_as_user_id,
+                    executed_as_user_name=row.executed_as,
+                )
+            except Exception as e:
+                logger.warning(f"Error parsing query from system table: {e}")
+                self.report.report_warning("query-parse-system-table", str(e))
 
     def get_query_usage_via_system_tables(
         self,
@@ -719,7 +708,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 AND qh.end_time IS NOT NULL
             ORDER BY tl.statement_id
         """
-        rows = self._execute_sql_query(query, (start_time, end_time))
+        rows = self._execute_sql_query_streaming(query, (start_time, end_time))
 
         current_id: Optional[str] = None
         info: Optional[QueryStatementInfo] = None
@@ -1496,6 +1485,82 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 "and that the system schemas are enabled for this workspace.",
             )
             return []
+
+    def _execute_sql_query_streaming(
+        self,
+        query: str,
+        params: Sequence[Any] = (),
+        batch_size: int = 10000,
+    ) -> Iterable[Row]:
+        """Streaming variant of _execute_sql_query that yields rows in batches.
+
+        The connection stays open for the lifetime of iteration — bounded memory in
+        exchange for a longer-held connection. Callers must fully consume or close the
+        generator to release the connection.
+        On failure, reports a warning and yields nothing (does not raise).
+        """
+        if not self.warehouse_id:
+            self.report.report_warning(
+                "Cannot execute SQL query",
+                "warehouse_id is not configured. SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration",
+            )
+            logger.warning(
+                "Cannot execute SQL query: warehouse_id is not configured. "
+                "SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration."
+            )
+            return
+
+        sql_connection_params = get_sql_connection_params(self._workspace_client)
+
+        proxy_env_debug = {}
+        for var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
+            value = os.environ.get(var)
+            if value:
+                proxy_env_debug[var] = mask_proxy_credentials(value)
+
+        try:
+            with (
+                connect(**sql_connection_params) as connection,
+                connection.cursor() as cursor,
+            ):
+                cursor.execute(query, list(params))
+                while True:
+                    batch = cursor.fetchmany(batch_size)
+                    if not batch:
+                        break
+                    yield from batch
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to execute SQL query (streaming): {e}", exc_info=True
+            )
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"SQL query that failed: {query}")
+                logger.debug(f"SQL query parameters: {params}")
+
+            error_str = str(e).lower()
+            if any(
+                proxy_keyword in error_str
+                for proxy_keyword in [
+                    "proxy",
+                    "407",
+                    "authentication required",
+                    "tunnel",
+                    "connect",
+                ]
+            ):
+                logger.error(
+                    "SQL query failure appears to be proxy-related. "
+                    "Please check proxy configuration and authentication. "
+                    f"Proxy environment variables detected: {list(proxy_env_debug.keys())}"
+                )
+
+            self.report.report_warning(
+                "sql-query-failed",
+                f"SQL query failed: {e}. "
+                "Check that the service principal has SELECT on system.access and system.query schemas "
+                "and that the system schemas are enabled for this workspace.",
+            )
 
     @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_schema_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
