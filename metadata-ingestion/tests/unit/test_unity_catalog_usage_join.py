@@ -568,11 +568,13 @@ def test_builds_aggregator_and_feeds_observed_queries(
     import datahub.ingestion.source.unity.usage as usage_mod
 
     captured: dict = {}
+    agg_instance: list = []  # single-element list so the closure can capture it
 
     class FakeAgg:
         def __init__(self, **kw: object) -> None:
             captured["kwargs"] = kw
             self.observed: list = []
+            agg_instance.append(self)
 
         def add_observed_query(self, observed: object, **kw: object) -> None:
             self.observed.append(observed)
@@ -603,7 +605,19 @@ def test_builds_aggregator_and_feeds_observed_queries(
     assert captured["kwargs"]["generate_usage_statistics"] is True
     assert captured["kwargs"]["generate_operations"] is True
     assert captured["kwargs"]["generate_queries"] is True
+    # generate_query_usage_statistics must be True so queries emit even when
+    # generate_lineage=False (it's a separate flag in SqlParsingAggregator)
+    assert captured["kwargs"]["generate_query_usage_statistics"] is True
     assert captured["closed"] is True
+
+    # Both queries must have been fed to the aggregator
+    agg = agg_instance[0]
+    assert len(agg.observed) == 2, (
+        f"expected 2 observed queries, got {len(agg.observed)}"
+    )
+    observed_texts = [o.query for o in agg.observed]
+    assert "SELECT * FROM main.s.t" in observed_texts
+    assert "SELECT * FROM main.s.t2" in observed_texts
 
 
 def test_use_system_tables_join_delegates_to_config() -> None:

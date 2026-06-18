@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Callable, Iterable, Set
+from typing import Callable, Iterable, Optional, Set
 
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -62,8 +62,9 @@ class UnityCatalogUsageExtractor:
     def get_usage_workunits(
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
-        aggregator = self._build_aggregator()
+        aggregator: Optional[SqlParsingAggregator] = None
         try:
+            aggregator = self._build_aggregator()
             for query in self._fetch_queries():
                 self.report.num_queries += 1
                 aggregator.add_observed_query(
@@ -81,12 +82,30 @@ class UnityCatalogUsageExtractor:
                         default_schema=None,
                     )
                 )
+            if self.report.num_queries == 0:
+                if self._use_system_tables_join():
+                    hint = (
+                        "verify SELECT privilege on system.query and system.access "
+                        "and that the time window covers recent activity"
+                    )
+                else:
+                    hint = (
+                        "verify CAN_MANAGE privilege on the SQL warehouse "
+                        "and that the time window covers recent activity"
+                    )
+                self.report.report_warning(
+                    "no-queries-found",
+                    f"No queries found in the configured time range. {hint}.",
+                )
             yield from auto_workunit(aggregator.gen_metadata())
         except Exception as e:
             logger.error("Error processing usage", exc_info=True)
             self.report.report_warning("usage-extraction", str(e))
         finally:
-            try:
-                aggregator.close()
-            except Exception:
-                logger.warning("Failed to close SqlParsingAggregator", exc_info=True)
+            if aggregator is not None:
+                try:
+                    aggregator.close()
+                except Exception:
+                    logger.warning(
+                        "Failed to close SqlParsingAggregator", exc_info=True
+                    )
