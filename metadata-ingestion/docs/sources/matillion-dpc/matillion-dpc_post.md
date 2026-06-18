@@ -164,7 +164,7 @@ stateful_ingestion:
 
 - SQL parsing for column-level lineage requires a DataHub graph connection and schema information in OpenLineage events. Unsupported SQL dialects or complex queries are skipped with a warning.
 - Column-level lineage is only available when Matillion pipelines emit SQL via OpenLineage; transformations without SQL output will have coarse-grained lineage only.
-- Pipeline names and the "open in Matillion" link use the pipeline **file name** — the only name the API exposes. A different display name set inside the Maia editor is not retrievable. The link opens the observability dashboard pre-filtered by that file name (there is no per-pipeline deep-link), so the pipeline must have run within the dashboard's time window to appear. Set `include_external_urls: false` to omit all Matillion console links (project, run, and pipeline).
+- Matillion console links (project, run, and pipeline) are **off by default**; set `include_external_urls: true` to emit them. Pipeline names and the pipeline link use the pipeline **file name** — the only name the API exposes; a different display name set inside the Maia editor is not retrievable. The pipeline link opens the observability dashboard pre-filtered by that file name (there is no per-pipeline deep-link), so the pipeline must have run within the dashboard's time window to appear.
 
 ### Troubleshooting
 

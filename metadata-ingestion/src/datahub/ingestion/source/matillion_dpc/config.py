@@ -321,11 +321,11 @@ class MatillionSourceConfig(
     )
 
     include_external_urls: bool = Field(
-        default=True,
+        default=False,
         description="Whether to emit links back to the Matillion console (project, run, and "
-        "pipeline). The pipeline link searches the observability dashboard by file name and only "
-        "resolves for pipelines that ran recently and whose editor name matches their file name. "
-        "Disable to omit all Matillion external links.",
+        "pipeline). Off by default because the pipeline link searches the observability dashboard "
+        "by file name and only resolves for pipelines that ran recently and whose editor name "
+        "matches their file name. Enable to add all Matillion external links.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
