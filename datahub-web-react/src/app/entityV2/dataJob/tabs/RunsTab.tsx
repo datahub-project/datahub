@@ -104,14 +104,22 @@ export const RunsTab = () => {
             title: t('shared.inputs'),
             dataIndex: 'inputs',
             key: 'inputs',
-            render: (inputs) => <CompactEntityNameList entities={inputs} placement="right" />,
+            render: (inputs) => (
+                <div data-testid="run-inputs-cell">
+                    <CompactEntityNameList entities={inputs} placement="right" />
+                </div>
+            ),
             width: 150,
         },
         {
             title: t('shared.outputs'),
             dataIndex: 'outputs',
             key: 'outputs',
-            render: (outputs) => <CompactEntityNameList entities={outputs} placement="right" />,
+            render: (outputs) => (
+                <div data-testid="run-outputs-cell">
+                    <CompactEntityNameList entities={outputs} placement="right" />
+                </div>
+            ),
             width: 150,
         },
         {

@@ -17,7 +17,9 @@
  *
  * Page Objects:
  * - TaskRunsPage: Handles navigation and assertions for runs views
- *   Selectors in POM: getRunNameCell(name), getRunStatusCell(name), getDatasetLink(urn) — all dynamic/parameterized
+ *   Selectors in POM: getRunNameCell(name), getRunStatusCell(name), getDatasetLink(urn),
+ *   getInputDatasetLink(urn), getOutputDatasetLink(urn) — all dynamic/parameterized
+ *   Assertions: assertInputDatasetLinkVisible() and assertOutputDatasetLinkVisible() for column-scoped validation
  */
 
 import { test } from '../../fixtures/base-test';
@@ -47,9 +49,9 @@ test.describe('task runs', () => {
 
     await taskRunsPage.verifyRunId(RUN_TIMESTAMP, RUN_TIMESTAMP);
     await taskRunsPage.verifyRunStatus(RUN_TIMESTAMP, RUN_STATUS);
-    await taskRunsPage.assertDatasetLinkVisible(INPUT_DATASET_URN, INPUT_DATASET_NAME);
-    await taskRunsPage.assertDatasetLinkVisible(OUTPUT_DATASET_URN_1, OUTPUT_DATASET_NAME_1);
-    await taskRunsPage.assertDatasetLinkVisible(OUTPUT_DATASET_URN_2, OUTPUT_DATASET_NAME_2);
+    await taskRunsPage.assertInputDatasetLinkVisible(INPUT_DATASET_URN, INPUT_DATASET_NAME);
+    await taskRunsPage.assertOutputDatasetLinkVisible(OUTPUT_DATASET_URN_1, OUTPUT_DATASET_NAME_1);
+    await taskRunsPage.assertOutputDatasetLinkVisible(OUTPUT_DATASET_URN_2, OUTPUT_DATASET_NAME_2);
   });
 
   test('can visit task with runs aspect and verify the task run is present', async () => {
@@ -57,8 +59,8 @@ test.describe('task runs', () => {
 
     await taskRunsPage.verifyRunId(RUN_TIMESTAMP, RUN_TIMESTAMP);
     await taskRunsPage.verifyRunStatus(RUN_TIMESTAMP, RUN_STATUS);
-    await taskRunsPage.assertDatasetLinkVisible(INPUT_DATASET_URN, INPUT_DATASET_NAME);
-    await taskRunsPage.assertDatasetLinkVisible(OUTPUT_DATASET_URN_1, OUTPUT_DATASET_NAME_1);
-    await taskRunsPage.assertDatasetLinkVisible(OUTPUT_DATASET_URN_2, OUTPUT_DATASET_NAME_2);
+    await taskRunsPage.assertInputDatasetLinkVisible(INPUT_DATASET_URN, INPUT_DATASET_NAME);
+    await taskRunsPage.assertOutputDatasetLinkVisible(OUTPUT_DATASET_URN_1, OUTPUT_DATASET_NAME_1);
+    await taskRunsPage.assertOutputDatasetLinkVisible(OUTPUT_DATASET_URN_2, OUTPUT_DATASET_NAME_2);
   });
 });

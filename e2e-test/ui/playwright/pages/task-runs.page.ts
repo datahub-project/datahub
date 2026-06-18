@@ -14,7 +14,8 @@ import type { DataHubLogger } from '../utils/logger';
 export class TaskRunsPage extends BasePage {
   readonly getRunNameCell: (name: string) => Locator;
   readonly getRunStatusCell: (name: string) => Locator;
-  readonly getDatasetLink: (urn: string) => Locator;
+  readonly getInputDatasetLink: (urn: string) => Locator;
+  readonly getOutputDatasetLink: (urn: string) => Locator;
 
   constructor(
     protected readonly page: Page,
@@ -24,18 +25,22 @@ export class TaskRunsPage extends BasePage {
     super(page, logger, logDir);
     this.getRunNameCell = (name: string) => page.getByTestId(`run-name-${name}`);
     this.getRunStatusCell = (name: string) => page.getByTestId(`run-status-${name}`);
-    this.getDatasetLink = (urn: string) => page.getByTestId(`compact-entity-link-${urn}`);
+    // Column-scoped selectors ensure assertions match the correct dataset in inputs/outputs columns
+    this.getInputDatasetLink = (urn: string) =>
+      page.getByTestId('run-inputs-cell').getByTestId(`compact-entity-link-${urn}`);
+    this.getOutputDatasetLink = (urn: string) =>
+      page.getByTestId('run-outputs-cell').getByTestId(`compact-entity-link-${urn}`);
   }
 
   async navigateToDatasetRuns(urn: string): Promise<void> {
     this.logger?.step('navigate to dataset runs', { urn });
-    await this.navigate(`/dataset/${urn}/Runs`);
+    await this.navigate(`/dataset/${encodeURIComponent(urn)}/Runs`);
     await this.waitForPageLoad();
   }
 
   async navigateToTaskRuns(urn: string): Promise<void> {
     this.logger?.step('navigate to task runs', { urn });
-    await this.navigate(`/tasks/${urn}/Runs`);
+    await this.navigate(`/tasks/${encodeURIComponent(urn)}/Runs`);
     await this.waitForPageLoad();
   }
 
@@ -49,9 +54,18 @@ export class TaskRunsPage extends BasePage {
     await expect(this.getRunStatusCell(name)).toContainText(expected);
   }
 
-  async assertDatasetLinkVisible(urn: string, name: string): Promise<void> {
-    this.logger?.step('assert dataset link visible', { urn, name });
-    const link = this.getDatasetLink(urn);
+  /** Assert input dataset link is visible with correct name (scoped to inputs column) */
+  async assertInputDatasetLinkVisible(urn: string, name: string): Promise<void> {
+    this.logger?.step('assert input dataset link visible', { urn, name });
+    const link = this.getInputDatasetLink(urn);
+    await expect(link).toBeVisible();
+    await expect(link).toContainText(name);
+  }
+
+  /** Assert output dataset link is visible with correct name (scoped to outputs column) */
+  async assertOutputDatasetLinkVisible(urn: string, name: string): Promise<void> {
+    this.logger?.step('assert output dataset link visible', { urn, name });
+    const link = this.getOutputDatasetLink(urn);
     await expect(link).toBeVisible();
     await expect(link).toContainText(name);
   }

@@ -119,13 +119,21 @@ export const OperationsTab = () => {
             title: t('shared.inputs'),
             dataIndex: 'inputs',
             key: 'inputs',
-            render: (inputs) => <CompactEntityNameList entities={inputs} />,
+            render: (inputs) => (
+                <div data-testid="run-inputs-cell">
+                    <CompactEntityNameList entities={inputs} />
+                </div>
+            ),
         },
         {
             title: t('shared.outputs'),
             dataIndex: 'outputs',
             key: 'outputs',
-            render: (outputs) => <CompactEntityNameList entities={outputs} />,
+            render: (outputs) => (
+                <div data-testid="run-outputs-cell">
+                    <CompactEntityNameList entities={outputs} />
+                </div>
+            ),
         },
         {
             title: '',
