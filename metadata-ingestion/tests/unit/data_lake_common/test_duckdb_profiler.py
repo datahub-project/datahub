@@ -720,3 +720,50 @@ def test_extension_load_failure_is_reported_as_failure(tmp_path, monkeypatch):
     assert wus == []
     assert any(f.title == "DuckDB profiling unavailable" for f in report.failures)
     assert len(report.warnings) == 0
+
+
+def test_resolve_ext_for_extensionless_file(tmp_path):
+    """Extension-less files resolve format via content_type, then
+    path_spec.default_extension (mirroring schema inference); unknown stays ''."""
+    profiler = DuckDBProfiler(
+        aws_config=None,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+    )
+    # content_type takes precedence
+    td = _table_data(str(tmp_path / "part-00000"), display_name="part-00000")
+    td.content_type = "application/vnd.apache.parquet"
+    assert profiler._path_and_ext(td)[1] == "parquet"
+    # else path_spec.default_extension
+    td2 = _table_data(str(tmp_path / "part-00001"), display_name="part-00001")
+    ps = MagicMock()
+    ps.default_extension = "csv"
+    assert profiler._path_and_ext(td2, ps)[1] == "csv"
+    # nothing known -> "" (reported as unsupported downstream, not a crash)
+    td3 = _table_data(str(tmp_path / "part-00002"), display_name="part-00002")
+    ps_none = MagicMock()
+    ps_none.default_extension = None
+    assert profiler._path_and_ext(td3, ps_none)[1] == ""
+    profiler.close()
+
+
+def test_extensionless_file_profiles_via_content_type(tmp_path):
+    """An extension-less file (e.g. Spark part-file) profiles end-to-end when its
+    content_type names the format — without the resolution it would be skipped."""
+    src = _make_parquet(str(tmp_path))
+    noext = os.path.join(str(tmp_path), "part-00000")
+    os.rename(src, noext)
+    report = DataLakeSourceReport()
+    profiler = DuckDBProfiler(
+        aws_config=None, report=report, profiling_config=_profiling_config()
+    )
+    td = _table_data(noext, display_name="part-00000")
+    td.content_type = "application/vnd.apache.parquet"
+    profile = _extract_profile(
+        profiler.get_table_profile(td, "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)")
+    )
+    profiler.close()
+    assert profile is not None
+    assert profile.rowCount == 3
+    assert profile.columnCount == 2
+    assert not report.warnings  # no "unsupported format" warning

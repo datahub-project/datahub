@@ -11,6 +11,7 @@ import duckdb
 import sqlalchemy as sa
 
 if TYPE_CHECKING:
+    from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
     from datahub.ingestion.source.s3.source import TableData
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -82,6 +83,18 @@ _REMOTE_SCHEMES = (
 # Map a file extension to the DuckDB core extension required to read it.
 # Unlike httpfs (remote-only), format extensions are needed for local files too.
 _FORMAT_EXTENSIONS = {"avro": "avro"}
+
+# S3 content-type (MIME) -> profiling extension key, mirroring the schema
+# inferrer's content-type handling (see S3Source._get_inferrer). Lets
+# extension-less files (e.g. Spark/Hive `part-00000`) profile when their format
+# is known from S3 metadata, just as schema inference already does.
+_CONTENT_TYPE_EXT = {
+    "application/vnd.apache.parquet": "parquet",
+    "text/csv": "csv",
+    "text/tab-separated-values": "tsv",
+    "application/json": "json",
+    "application/avro": "avro",
+}
 
 
 class DuckDBProfiler:
@@ -201,7 +214,28 @@ class DuckDBProfiler:
         if extension:
             self._load_extension(conn, extension)
 
-    def _path_and_ext(self, table_data: "TableData") -> tuple[str, str]:
+    @staticmethod
+    def _resolve_ext(
+        table_data: "TableData", path_spec: Optional["PathSpec"]
+    ) -> str:
+        """Resolve the file format the same way schema inference does
+        (S3Source._get_inferrer): the S3 content-type takes precedence, then the
+        filename extension, then the path_spec's ``default_extension``. This lets
+        extension-less Spark/Hive files (``part-00000``) profile instead of being
+        skipped, matching how their schema is already inferred.
+        """
+        from_content = _CONTENT_TYPE_EXT.get(table_data.content_type or "")
+        file_ext = os.path.splitext(table_data.full_path)[1].lstrip(".").lower()
+        default_ext = (
+            path_spec.default_extension.lower()
+            if path_spec is not None and path_spec.default_extension
+            else ""
+        )
+        return from_content or file_ext or default_ext
+
+    def _path_and_ext(
+        self, table_data: "TableData", path_spec: Optional["PathSpec"] = None
+    ) -> tuple[str, str]:
         """Return (resolved_path, lowercase_extension_without_dot).
 
         For partitioned tables the table_path is a directory prefix (e.g.
@@ -212,16 +246,17 @@ class DuckDBProfiler:
         uniformly.
         """
         partitions = table_data.partitions
-        ext = os.path.splitext(table_data.full_path)[1].lstrip(".").lower()
+        ext = self._resolve_ext(table_data, path_spec)
+        file_ext = os.path.splitext(table_data.full_path)[1].lstrip(".").lower()
         if not ext:
-            # No extension on the sample file — can't build a meaningful glob.
-            # Fall through to the concrete full_path and let _reader_expr raise
-            # an "unsupported format" error as usual.
+            # Unknown format (no extension, content-type, or default_extension) —
+            # return the concrete path; _open_relation reports it as unsupported.
             return table_data.full_path, ext
-        if partitions:
+        if partitions and file_ext:
+            # Only build an extension glob when the files actually carry that
+            # extension; for extension-less files a `*.ext` glob would match
+            # nothing, so fall back to the concrete sample path.
             path: str = table_data.table_path
-            # Remote paths need a glob; local directories work without one but
-            # a glob is also valid and avoids relying on DuckDB's auto-detect.
             if not path.endswith(f".{ext}") and not path.endswith("*"):
                 path = f"{path.rstrip('/')}/**/*.{ext}"
         else:
@@ -348,8 +383,10 @@ class DuckDBProfiler:
             return
         raw.register("__datahub_profile_src", rel)
         try:
+            # `table` is the fixed internal constant passed by the caller; the only
+            # interpolated value is the validated int sample size.
             raw.execute(
-                "CREATE OR REPLACE TABLE profile_target AS "
+                f"CREATE OR REPLACE TABLE {table} AS "
                 "SELECT * FROM __datahub_profile_src "
                 f"USING SAMPLE {int(sample_rows)} ROWS"
             )
@@ -357,12 +394,19 @@ class DuckDBProfiler:
             raw.unregister("__datahub_profile_src")
 
     def get_table_profile(
-        self, table_data: "TableData", dataset_urn: str
+        self,
+        table_data: "TableData",
+        dataset_urn: str,
+        path_spec: Optional["PathSpec"] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """Profile one table and yield a MetadataWorkUnit containing the profile."""
+        """Profile one table and yield a MetadataWorkUnit containing the profile.
+
+        ``path_spec`` (when provided) supplies ``default_extension`` so
+        extension-less files resolve to a format, mirroring schema inference.
+        """
         display_name: str = table_data.display_name
         try:
-            path, ext = self._path_and_ext(table_data)
+            path, ext = self._path_and_ext(table_data, path_spec)
         except Exception as e:
             self.report.report_warning(
                 f"DuckDB profiling failed to resolve path for {dataset_urn}",
