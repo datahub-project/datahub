@@ -18,7 +18,6 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.azure.abs_utils import make_abs_urn
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -214,7 +213,10 @@ class SnowflakeStagesExtractor:
         if not url:
             return None
         if url.startswith("s3://"):
-            return make_s3_urn_for_lineage(url, self.config.env)
+            # Stage URLs are directory prefixes; stripping the last component would target the parent folder.
+            return self.config.s3_lineage_config.get_s3_urn_for_lineage(
+                url, self.config.env, strip_filename=False
+            )
         if url.startswith("gcs://"):
             # Snowflake uses gcs:// but DataHub GCS platform expects the path without prefix
             path = url[len("gcs://") :]
