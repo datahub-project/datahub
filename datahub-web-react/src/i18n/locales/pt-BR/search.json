@@ -73,6 +73,7 @@
     "filters.incidents.title": "Incidents",
     "filters.moreCount_one": "Mais ({{count}})",
     "filters.moreCount_other": "Mais ({{count}})",
+    "filters.moreCount_zero": "Mais",
     "filters.pluralizedTypeLabel": "{{type}}s",
     "filters.searchFor": "Pesquisar {{name}}",
     "filters.siblings.hasNoSiblingsLabel": "Sem Itens Relacionados",

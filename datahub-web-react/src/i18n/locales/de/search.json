@@ -73,6 +73,7 @@
     "filters.incidents.title": "Vorfälle",
     "filters.moreCount_one": "Mehr ({{count}})",
     "filters.moreCount_other": "Mehr ({{count}})",
+    "filters.moreCount_zero": "Mehr",
     "filters.pluralizedTypeLabel": "{{type}}s",
     "filters.searchFor": "Nach {{name}} suchen",
     "filters.siblings.hasNoSiblingsLabel": "Hat keine Siblings",

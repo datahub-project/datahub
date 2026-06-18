@@ -73,6 +73,7 @@
     "filters.incidents.title": "Incidencias",
     "filters.moreCount_one": "Más ({{count}})",
     "filters.moreCount_other": "Más ({{count}})",
+    "filters.moreCount_zero": "Más",
     "filters.pluralizedTypeLabel": "{{type}}s",
     "filters.searchFor": "Buscar {{name}}",
     "filters.siblings.hasNoSiblingsLabel": "No tiene Siblings",
