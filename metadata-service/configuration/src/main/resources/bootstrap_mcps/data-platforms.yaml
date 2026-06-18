@@ -130,6 +130,16 @@
     displayName: Dataplex
     type: OTHERS
     logoUrl: "assets/platforms/dataplexlogo.svg"
+- entityUrn: urn:li:dataPlatform:documentdb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: documentdb
+    displayName: DocumentDB
+    type: KEY_VALUE_STORE
+    logoUrl: "assets/platforms/documentdblogo.svg"
 - entityUrn: urn:li:dataPlatform:external
   entityType: dataPlatform
   aspectName: dataPlatformInfo
