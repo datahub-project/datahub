@@ -600,13 +600,13 @@ class S3Source(StatefulIngestionSourceBase):
             classify_extension,
             guess_mime_type,
         )
-        from datahub.metadata._urns.urn_defs import DataObjectUrn
         from datahub.metadata.schema_classes import (
             AuditStampClass,
             DataObjectPropertiesClass,
             ObjectStoragePropertiesClass,
             SubTypesClass,
         )
+        from datahub.metadata.urns import DataObjectUrn
 
         browse_path = re.sub(URI_SCHEME_REGEX, "", table_data.table_path).strip("/")
         if self.source_config.convert_urns_to_lowercase:
