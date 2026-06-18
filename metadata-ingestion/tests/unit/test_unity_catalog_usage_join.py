@@ -1,13 +1,18 @@
 from datetime import datetime, timezone
-from typing import Iterable
+from typing import Iterable, List
 from unittest.mock import MagicMock
 
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query, QueryStatementInfo
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
+
+_TS = datetime(2026, 6, 1, tzinfo=timezone.utc)
+REDACTED = "<Redacted>"
 
 
 def _row(**kw):
@@ -301,3 +306,159 @@ def test_parse_unmatched_queries_disabled_skips_fallback(
     fake_proxy.get_query_history_via_system_tables.assert_not_called()
     # No queries went through the parse fallback
     assert extractor.report.num_queries_resolved_via_parse_fallback == 0
+
+
+# ---------------------------------------------------------------------------
+# Task 4: _emit_query_entity tests
+# ---------------------------------------------------------------------------
+
+
+def _make_extractor() -> UnityCatalogUsageExtractor:
+    """Build an extractor without a proxy (unit-testing _emit_query_entity directly)."""
+    from datahub.ingestion.source.unity.config import (
+        UnityCatalogSourceConfig,
+        UsageDataSource,
+    )
+    from datahub.ingestion.source.unity.proxy_types import TableReference
+
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "fake",
+            "workspace_url": "https://fake.azuredatabricks.net",
+            "usage_data_source": UsageDataSource.SYSTEM_TABLES.value,
+            "warehouse_id": "wh1",
+            "emit_queries": True,
+        }
+    )
+    report = UnityCatalogReport()
+
+    def table_urn_builder(ref: TableReference) -> str:
+        return f"urn:li:dataset:(urn:li:dataPlatform:databricks,{ref.qualified_table_name},PROD)"
+
+    def user_urn_builder(user: str) -> str:
+        return f"urn:li:corpuser:{user}"
+
+    extractor = UnityCatalogUsageExtractor.__new__(UnityCatalogUsageExtractor)
+    extractor.config = config
+    extractor.report = report
+    extractor.proxy = MagicMock()
+    extractor.table_urn_builder = table_urn_builder
+    extractor.user_urn_builder = user_urn_builder
+    extractor.platform = "databricks"
+    extractor.__post_init__()
+    return extractor
+
+
+def _make_info(
+    query_id: str, text: str, source_tables: list, target_tables: list
+) -> QueryStatementInfo:
+    return QueryStatementInfo(
+        query=Query(
+            query_id=query_id,
+            query_text=text,
+            statement_type=None,
+            start_time=_TS,
+            end_time=_TS,
+            user_id=1,
+            user_name="u@x.io",
+            executed_as_user_id=None,
+            executed_as_user_name=None,
+        ),
+        source_tables=source_tables,
+        target_tables=target_tables,
+        external_source_paths=[],
+    )
+
+
+def _get_mcp_aspect_names(wus: List[MetadataWorkUnit]) -> List[str]:
+    """Extract aspectNames from MetadataChangeProposalWrapper workunits."""
+    return [
+        wu.metadata.aspectName
+        for wu in wus
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName is not None
+    ]
+
+
+def _get_mcp_by_aspect(
+    wus: List[MetadataWorkUnit], aspect_name: str
+) -> MetadataChangeProposalWrapper:
+    """Return the first MetadataChangeProposalWrapper whose aspectName matches."""
+    return next(
+        wu.metadata  # type: ignore[misc]
+        for wu in wus
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName == aspect_name
+    )
+
+
+def test_emit_query_entity_skips_text_when_redacted() -> None:
+    """Redacted query text: emits queryProperties with empty statement, increments counter."""
+    from datahub.ingestion.source.unity.usage import TableMap
+    from datahub.metadata.schema_classes import QueryPropertiesClass
+
+    extractor = _make_extractor()
+    info = _make_info(query_id="s9", text=REDACTED, source_tables=[], target_tables=[])
+    table_map: TableMap = {}
+
+    wus = list(extractor._emit_query_entity(info, table_map))
+
+    assert "queryProperties" in _get_mcp_aspect_names(wus), (
+        "expected a queryProperties aspect"
+    )
+    mcp = _get_mcp_by_aspect(wus, "queryProperties")
+    assert isinstance(mcp.aspect, QueryPropertiesClass)
+    assert mcp.aspect.statement.value == "", (
+        f"expected empty statement value for redacted query, got {mcp.aspect.statement.value!r}"
+    )
+    assert extractor.report.num_queries_text_redacted == 1
+    assert extractor.report.num_query_entities_emitted == 1
+
+
+def test_emit_query_entity_real_text_with_tables() -> None:
+    """Real query text + resolved tables: emits queryProperties + querySubjects, increments counter."""
+    from datahub.ingestion.source.unity.proxy_types import TableReference
+    from datahub.ingestion.source.unity.usage import TableMap
+    from datahub.metadata.schema_classes import QueryPropertiesClass, QuerySubjectsClass
+
+    extractor = _make_extractor()
+
+    known_ref = TableReference(
+        metastore=None, catalog="cat", schema="sch", table="src", last_updated=None
+    )
+    target_ref = TableReference(
+        metastore=None, catalog="cat", schema="sch", table="tgt", last_updated=None
+    )
+
+    # Build a table_map the same way _get_workunits_internal does
+    table_map: TableMap = {}
+    for ref in [known_ref, target_ref]:
+        table_map[ref.table] = [ref]
+        table_map[f"{ref.schema}.{ref.table}"] = [ref]
+        table_map[ref.qualified_table_name] = [ref]
+
+    info = _make_info(
+        query_id="s10",
+        text="SELECT * FROM cat.sch.src",
+        source_tables=["cat.sch.src"],
+        target_tables=["cat.sch.tgt"],
+    )
+
+    wus = list(extractor._emit_query_entity(info, table_map))
+
+    aspect_names = _get_mcp_aspect_names(wus)
+    assert "queryProperties" in aspect_names, "expected queryProperties"
+    assert "querySubjects" in aspect_names, "expected querySubjects"
+
+    props_mcp = _get_mcp_by_aspect(wus, "queryProperties")
+    assert isinstance(props_mcp.aspect, QueryPropertiesClass)
+    assert props_mcp.aspect.statement.value == "SELECT * FROM cat.sch.src"
+
+    subjects_mcp = _get_mcp_by_aspect(wus, "querySubjects")
+    assert isinstance(subjects_mcp.aspect, QuerySubjectsClass)
+    assert len(subjects_mcp.aspect.subjects) == 2, (
+        f"expected 2 subjects, got {len(subjects_mcp.aspect.subjects)}"
+    )
+
+    assert extractor.report.num_queries_text_redacted == 0
+    assert extractor.report.num_query_entities_emitted == 1

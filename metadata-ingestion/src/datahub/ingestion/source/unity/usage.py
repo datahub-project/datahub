@@ -19,11 +19,22 @@ from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     OPERATION_STATEMENT_TYPES,
     Query,
+    QueryStatementInfo,
     TableReference,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.usage.usage_common import UsageAggregator
-from datahub.metadata.schema_classes import OperationClass
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    OperationClass,
+    QueryLanguageClass,
+    QueryPropertiesClass,
+    QuerySourceClass,
+    QueryStatementClass,
+    QuerySubjectClass,
+    QuerySubjectsClass,
+)
+from datahub.metadata.urns import QueryUrn
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -141,6 +152,8 @@ class UnityCatalogUsageExtractor:
                                 user=info.query.user_name,
                                 fields=[],
                             )
+                    if self.config.emit_queries:
+                        yield from self._emit_query_entity(info, table_map)
 
             if self.config.parse_unmatched_queries:
                 for query in self.proxy.get_query_history_via_system_tables(
@@ -243,6 +256,50 @@ class UnityCatalogUsageExtractor:
                     entityUrn=self.table_urn_builder(target_table),
                     aspect=operation_aspect,
                 ).as_workunit()
+
+    def _emit_query_entity(
+        self, info: QueryStatementInfo, table_map: TableMap
+    ) -> Iterable[MetadataWorkUnit]:
+        text = info.query.query_text
+        redacted = (not text) or text == "<Redacted>"
+        if redacted:
+            self.report.num_queries_text_redacted += 1
+
+        query_id = info.query.query_id or get_query_fingerprint(
+            text, "databricks", fast=True
+        )
+        query_urn = QueryUrn(query_id).urn()
+        ts_ms = int(info.query.start_time.timestamp() * 1000)
+        audit = AuditStampClass(time=ts_ms, actor="urn:li:corpuser:_ingestion")
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=query_urn,
+            aspect=QueryPropertiesClass(
+                statement=QueryStatementClass(
+                    value="" if redacted else text,
+                    language=QueryLanguageClass.SQL,
+                ),
+                source=QuerySourceClass.SYSTEM,
+                created=audit,
+                lastModified=audit,
+            ),
+        ).as_workunit()
+
+        subject_urns = [
+            self.table_urn_builder(t)
+            for t in self._resolve_tables(
+                info.source_tables + info.target_tables, table_map
+            )
+        ]
+        if subject_urns:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=query_urn,
+                aspect=QuerySubjectsClass(
+                    subjects=[QuerySubjectClass(entity=u) for u in subject_urns]
+                ),
+            ).as_workunit()
+
+        self.report.num_query_entities_emitted += 1
 
     def _validate_usage_data_source_config(self) -> None:
         """Validate usage data source configuration before execution."""
