@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { filterForAssetBadge } from '@app/entityV2/shared/containers/profile/header/utils';
@@ -38,6 +39,7 @@ interface Props {
 }
 
 const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const badgeStructuredProperty = structuredProperties?.properties?.find(filterForAssetBadge);
 
     const propRow = badgeStructuredProperty ? mapStructuredPropertyToPropertyRow(badgeStructuredProperty) : undefined;
@@ -58,14 +60,14 @@ const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
                 </Text>
                 <ValueContainer>
                     <Text color="gray" size="sm" weight="bold">
-                        Value
+                        {t('structuredPropertyBadge.valueLabel')}
                     </Text>
                     <Text color="gray">{propertyValue}</Text>
                 </ValueContainer>
                 {relatedDescription && (
                     <ValueContainer>
                         <Text color="gray" size="sm" weight="bold">
-                            Description
+                            {t('structuredPropertyBadge.descriptionLabel')}
                         </Text>
                         <Text color="gray">{relatedDescription}</Text>
                     </ValueContainer>

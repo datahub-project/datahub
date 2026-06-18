@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.dataprocess.RunResultType;
+import com.linkedin.dataset.FineGrainedLineage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import datahub.spark.conf.SparkAppContext;
@@ -884,6 +885,7 @@ public class OpenLineageEventToDatahubTest {
     builder.includeSchemaMetadata(true);
     builder.isSpark(true);
     builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(true);
 
     String olEvent =
         IOUtils.toString(
@@ -905,11 +907,74 @@ public class OpenLineageEventToDatahubTest {
       assertEquals(
           "urn:li:dataset:(urn:li:dataPlatform:file,/spark-test/result_test,DEV)",
           dataset.getUrn().toString());
+
+      // With include_indirect=true, DIRECT and INDIRECT transformations are merged into the
+      // single FineGrainedLineage entry per downstream column (back-compat with the
+      // pre-fix emission shape).
       assertEquals(
           "DIRECT:IDENTITY,INDIRECT:FILTER",
           Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())
               .get(0)
               .getTransformOperation());
+    }
+  }
+
+  @Test
+  public void testIncludeIndirectColumnLineageDisabled() throws URISyntaxException, IOException {
+    // When include_indirect=false:
+    //   - "name" output has one INDIRECT-only contributor (people.parquet.age, filter) and one
+    //     DIRECT contributor (people.parquet.name). The INDIRECT-only contributor must drop.
+    //   - "age" output has a single MIXED contributor (people.parquet.age with both
+    //     DIRECT:IDENTITY and INDIRECT:FILTER). Mixed contributors must NOT be dropped.
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+    builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(false);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_spark_with_transformation.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      List<FineGrainedLineage> fglines =
+          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages());
+
+      FineGrainedLineage nameEntry =
+          fglines.stream()
+              .filter(fgl -> fgl.getDownstreams().get(0).toString().endsWith(",name)"))
+              .findFirst()
+              .orElseThrow(AssertionError::new);
+      assertEquals(
+          1,
+          nameEntry.getUpstreams().size(),
+          "INDIRECT-only contributor (age) must be dropped from the name column's upstreams");
+      // Transformation tags are preserved even when the contributing URN is dropped, so the
+      // user can still tell the SQL involved a filter even though we don't list the filter
+      // column as an upstream.
+      assertEquals("DIRECT:IDENTITY,INDIRECT:FILTER", nameEntry.getTransformOperation());
+
+      // Mixed DIRECT+INDIRECT contributor must be kept — guards against isIndirectOnly
+      // incorrectly returning true when the field also has a DIRECT role.
+      FineGrainedLineage ageEntry =
+          fglines.stream()
+              .filter(fgl -> fgl.getDownstreams().get(0).toString().endsWith(",age)"))
+              .findFirst()
+              .orElseThrow(AssertionError::new);
+      assertEquals(
+          1,
+          ageEntry.getUpstreams().size(),
+          "Mixed DIRECT+INDIRECT contributor (age) must NOT be dropped from the age column's upstreams");
+      assertEquals("DIRECT:IDENTITY,INDIRECT:FILTER", ageEntry.getTransformOperation());
     }
   }
 
@@ -923,6 +988,7 @@ public class OpenLineageEventToDatahubTest {
     builder.includeSchemaMetadata(true);
     builder.isSpark(true);
     builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(true);
 
     String olEvent =
         IOUtils.toString(
@@ -945,26 +1011,24 @@ public class OpenLineageEventToDatahubTest {
           "urn:li:dataset:(urn:li:dataPlatform:file,/spark-test/result_test,DEV)",
           dataset.getUrn().toString());
 
-      // Verify that SQL query is included in transformOperation along with transformations
       String transformOperation =
           Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())
               .get(0)
               .getTransformOperation();
       assertNotNull(transformOperation);
-      // The format should be: "-- DIRECT:IDENTITY,INDIRECT:FILTER\nSELECT age, name FROM people
-      // WHERE age > 18"
+      // Format: "-- <transformations>\n<SQL>"
       assertTrue(
           transformOperation.contains("SELECT age, name FROM people WHERE age > 18"),
-          "Transform operation should contain SQL query");
+          "Transform operation should contain SQL query, got: " + transformOperation);
       assertTrue(
           transformOperation.contains("DIRECT:IDENTITY")
               && transformOperation.contains("INDIRECT:FILTER"),
-          "Transform operation should contain transformation types");
-      // Verify the format: transformations should be prefixed with "-- " and followed by newline
-      // before SQL
+          "Transform operation should contain both DIRECT and INDIRECT transformations, got: "
+              + transformOperation);
       assertTrue(
-          transformOperation.contains("-- ") && transformOperation.contains("\n"),
-          "Transform operation should have transformations prefixed with '-- ' and followed by newline before SQL");
+          transformOperation.startsWith("-- ") && transformOperation.contains("\n"),
+          "Transform operation should prefix transformations with '-- ' before SQL, got: "
+              + transformOperation);
     }
   }
 

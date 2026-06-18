@@ -35,6 +35,8 @@ dependencies {
     runtimeOnly externalDependency.openTelemetryExporterLogging
     runtimeOnly externalDependency.openTelemetryExporterCommon
 
+    runtimeOnly externalDependency.postgresql
+
     testImplementation project(':metadata-dao-impl:kafka-producer')
     testImplementation project(':metadata-jobs:pe-consumer')
     testImplementation externalDependency.springBootTest

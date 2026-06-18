@@ -1,6 +1,7 @@
 import { Modal } from '@components';
 import { Input } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
@@ -39,6 +40,8 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
     onChangeColor,
     onChangeIcon,
 }) => {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
     const refetch = useRefetch();
     const { urn } = useEntityData();
     const [updateDisplayProperties] = useUpdateDisplayPropertiesMutation();
@@ -50,11 +53,11 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
     return (
         <Modal
             open={open}
-            title={`Choose an icon for ${name || 'Domain'}`}
+            title={t('iconPicker.chooseIconForTitle', { name: name || t('iconPicker.defaultDomainName') })}
             onCancel={() => onClose()}
             buttons={[
                 {
-                    text: 'Apply',
+                    text: tc('apply'),
                     onClick: () => {
                         updateDisplayProperties({
                             variables: {

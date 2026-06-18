@@ -2,20 +2,18 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { LoadingWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { IncidentResolutionPopup } from '@app/entityV2/shared/tabs/Incident/IncidentResolutionPopup';
 import { ResolvedSection } from '@app/entityV2/shared/tabs/Incident/ResolvedSection';
-import { noPermissionsMessage } from '@app/entityV2/shared/tabs/Incident/constant';
 import { ResolverNameContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
 import { Button, Pill, Popover } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import { CorpUser, EntityPrivileges, IncidentState } from '@src/types.generated';
-
-const ME = 'Me';
 
 const Container = styled.div`
     margin-right: 12px;
@@ -37,6 +35,7 @@ export const IncidentResolveButton = ({
     refetch: () => void;
     privileges?: EntityPrivileges;
 }) => {
+    const { t } = useTranslation('entity.profile.incident');
     const theme = useTheme();
     const canEditIncidents = privileges?.canEditIncidents || false;
     const me = useUserContext();
@@ -45,7 +44,7 @@ export const IncidentResolveButton = ({
     const [getAssigneeEntities, { data: resolvedAssigneeEntities, loading }] = useGetEntitiesLazyQuery();
     const resolverName =
         me?.urn === incidentResolver?.urn
-            ? ME
+            ? t('resolution.me')
             : incidentResolver?.properties?.displayName || incidentResolver?.username;
 
     useEffect(() => {
@@ -126,9 +125,9 @@ export const IncidentResolveButton = ({
             data-testid="incident-resolve-button-container"
         >
             {incident?.state === IncidentState.Active ? (
-                <Tooltip showArrow={false} title={!canEditIncidents ? noPermissionsMessage : null}>
+                <Tooltip showArrow={false} title={!canEditIncidents ? t('permission.noEditIncidents') : null}>
                     <ResolveButton disabled={!canEditIncidents} variant="text" onClick={handleShowPopup}>
-                        Resolve
+                        {t('resolution.resolveButton')}
                     </ResolveButton>
                 </Tooltip>
             ) : (

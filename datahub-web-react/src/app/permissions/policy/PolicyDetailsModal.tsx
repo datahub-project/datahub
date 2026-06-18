@@ -1,5 +1,6 @@
 import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -70,6 +71,8 @@ const Privileges = styled.div`
  * Component used for displaying the details about an existing Policy.
  */
 export default function PolicyDetailsModal({ policy, open, onClose, privileges }: Props) {
+    const { t } = useTranslation('settings.permissions');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const isGlossaryBasedPoliciesEnabled = useIsGlossaryBasedPoliciesEnabled();
 
@@ -92,7 +95,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
 
     const actionButtons = (
         <ButtonsContainer>
-            <Button onClick={onClose}>Close</Button>
+            <Button onClick={onClose}>{tc('close')}</Button>
         </ButtonsContainer>
     );
 
@@ -124,38 +127,38 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
 
     const resourceOwnersField = (actors) => {
         if (!actors?.resourceOwners) {
-            return <PoliciesTag>No</PoliciesTag>;
+            return <PoliciesTag>{t('details.ownersNo')}</PoliciesTag>;
         }
         if ((actors?.resolvedOwnershipTypes?.length ?? 0) > 0) {
             return (
                 <div>{actors?.resolvedOwnershipTypes?.map((type) => <PoliciesTag>{type.info.name}</PoliciesTag>)}</div>
             );
         }
-        return <PoliciesTag>Yes - All owners</PoliciesTag>;
+        return <PoliciesTag>{t('details.ownersYesAll')}</PoliciesTag>;
     };
 
     return (
         <Modal title={policy?.name} open={open} onCancel={onClose} closable width={800} footer={actionButtons}>
             <PolicyContainer>
                 <div>
-                    <Typography.Title level={5}>Type</Typography.Title>
+                    <Typography.Title level={5}>{t('column.type')}</Typography.Title>
                     <ThinDivider />
                     <PoliciesTag>{policy?.type}</PoliciesTag>
                 </div>
                 <div>
-                    <Typography.Title level={5}>State</Typography.Title>
+                    <Typography.Title level={5}>{t('column.state')}</Typography.Title>
                     <ThinDivider />
                     <Tag color={isActive ? 'green' : 'red'}>{policy?.state}</Tag>
                 </div>
                 <div>
-                    <Typography.Title level={5}>Description</Typography.Title>
+                    <Typography.Title level={5}>{t('column.description')}</Typography.Title>
                     <ThinDivider />
                     <Typography.Text type="secondary">{policy?.description}</Typography.Text>
                 </div>
                 {isMetadataPolicy && (
                     <>
                         <div>
-                            <Typography.Title level={5}>Asset Type</Typography.Title>
+                            <Typography.Title level={5}>{t('details.assetTypeLabel')}</Typography.Title>
                             <ThinDivider />
                             {(resourceTypes?.length &&
                                 resourceTypes.map((value, key) => {
@@ -170,10 +173,10 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                             </Typography.Text>
                                         </PoliciesTag>
                                     );
-                                })) || <PoliciesTag>All</PoliciesTag>}
+                                })) || <PoliciesTag>{t('details.tagAll')}</PoliciesTag>}
                         </div>
                         <div>
-                            <Typography.Title level={5}>Assets</Typography.Title>
+                            <Typography.Title level={5}>{t('details.assetsLabel')}</Typography.Title>
                             <ThinDivider />
                             {(resourceEntities?.length &&
                                 resourceEntities.map((value, key) => {
@@ -186,11 +189,11 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                                 : getEntityTag(value)}
                                         </PoliciesTag>
                                     );
-                                })) || <PoliciesTag>All</PoliciesTag>}
+                                })) || <PoliciesTag>{t('details.tagAll')}</PoliciesTag>}
                         </div>
                         {dataPlatformInstances?.length > 0 && (
                             <div>
-                                <Typography.Title level={5}>Data Platform Instances</Typography.Title>
+                                <Typography.Title level={5}>{t('details.dataPlatformInstancesLabel')}</Typography.Title>
                                 <ThinDivider />
                                 {dataPlatformInstances.map((value, key) => {
                                     return (
@@ -203,7 +206,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                             </div>
                         )}
                         <div>
-                            <Typography.Title level={5}>Domains</Typography.Title>
+                            <Typography.Title level={5}>{t('details.domainsLabel')}</Typography.Title>
                             <ThinDivider />
                             {(domains?.length &&
                                 domains.map((value, key) => {
@@ -213,10 +216,10 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                             {getEntityTag(value)}
                                         </PoliciesTag>
                                     );
-                                })) || <PoliciesTag>All</PoliciesTag>}
+                                })) || <PoliciesTag>{t('details.tagAll')}</PoliciesTag>}
                         </div>
                         <div>
-                            <Typography.Title level={5}>Containers</Typography.Title>
+                            <Typography.Title level={5}>{t('details.containersLabel')}</Typography.Title>
                             <ThinDivider />
                             {(containers?.length &&
                                 containers.map((value, key) => {
@@ -226,11 +229,11 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                             {getEntityTag(value)}
                                         </PoliciesTag>
                                     );
-                                })) || <PoliciesTag>All</PoliciesTag>}
+                                })) || <PoliciesTag>{t('details.tagAll')}</PoliciesTag>}
                         </div>
                         {isGlossaryBasedPoliciesEnabled && (
                             <div>
-                                <Typography.Title level={5}>Glossary Terms & Term Groups</Typography.Title>
+                                <Typography.Title level={5}>{t('details.glossaryTermsLabel')}</Typography.Title>
                                 <ThinDivider />
                                 {(glossaryEntities?.length &&
                                     glossaryEntities.map((value, key) => {
@@ -240,13 +243,13 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                                 {getEntityTag(value)}
                                             </PoliciesTag>
                                         );
-                                    })) || <PoliciesTag>None</PoliciesTag>}
+                                    })) || <PoliciesTag>{t('details.tagNone')}</PoliciesTag>}
                             </div>
                         )}
                     </>
                 )}
                 <Privileges>
-                    <Typography.Title level={5}>Privileges</Typography.Title>
+                    <Typography.Title level={5}>{t('privilegesLabel')}</Typography.Title>
                     <ThinDivider />
                     {privileges?.map((priv, key) => (
                         // eslint-disable-next-line react/no-array-index-key
@@ -254,28 +257,28 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                     ))}
                 </Privileges>
                 <div>
-                    <Typography.Title level={5}>Applies to Owners</Typography.Title>
+                    <Typography.Title level={5}>{t('details.appliesToOwnersLabel')}</Typography.Title>
                     <ThinDivider />
                     {resourceOwnersField(policy?.actors)}
                 </div>
                 <div>
-                    <Typography.Title level={5}>Applies to Users</Typography.Title>
+                    <Typography.Title level={5}>{t('details.appliesToUsersLabel')}</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup users={policy?.actors?.resolvedUsers} entityRegistry={entityRegistry} maxCount={50} />
-                    {policy?.actors?.allUsers ? <Tag>All Users</Tag> : null}
+                    {policy?.actors?.allUsers ? <Tag>{t('allUsers')}</Tag> : null}
                 </div>
                 <div>
-                    <Typography.Title level={5}>Applies to Groups</Typography.Title>
+                    <Typography.Title level={5}>{t('details.appliesToGroupsLabel')}</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup
                         groups={policy?.actors?.resolvedGroups}
                         entityRegistry={entityRegistry}
                         maxCount={50}
                     />
-                    {policy?.actors?.allGroups ? <Tag>All Groups</Tag> : null}
+                    {policy?.actors?.allGroups ? <Tag>{t('allGroups')}</Tag> : null}
                 </div>
                 <div>
-                    <Typography.Title level={5}>Applies to Roles</Typography.Title>
+                    <Typography.Title level={5}>{t('details.appliesToRolesLabel')}</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup roles={policy?.actors?.resolvedRoles} entityRegistry={entityRegistry} maxCount={50} />
                 </div>

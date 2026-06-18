@@ -2,6 +2,7 @@ import { Avatar, Text } from '@components';
 import { Form, Select, Switch, Tag, Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
@@ -60,11 +61,14 @@ const StyledTag = styled(Tag)`
     align-items: center;
 `;
 
+const ALL_ACTORS_VALUE = 'All';
+
 /**
  * Component used to construct the "actors" portion of a DataHub
  * access Policy by populating an ActorFilter object.
  */
 export default function PolicyActorForm({ policyType, actors, setActors }: Props) {
+    const { t } = useTranslation('settings.permissions');
     const entityRegistry = useEntityRegistry();
 
     // Search for actors while building policy.
@@ -251,27 +255,23 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     return (
         <ActorForm layout="vertical">
             <ActorFormHeader>
-                <Typography.Title level={4}>Applies to</Typography.Title>
-                <Typography.Paragraph>Select the users & groups that this policy should apply to.</Typography.Paragraph>
+                <Typography.Title level={4}>{t('actorForm.title')}</Typography.Title>
+                <Typography.Paragraph>{t('actorForm.description')}</Typography.Paragraph>
             </ActorFormHeader>
             {showAppliesToOwners && (
-                <Form.Item label={<Typography.Text strong>Owners</Typography.Text>} labelAlign="right">
-                    <Typography.Paragraph>
-                        Whether this policy should be apply to owners of the Metadata asset. If true, those who are
-                        marked as owners of a Metadata Asset, either directly or indirectly via a Group, will have the
-                        selected privileges.
-                    </Typography.Paragraph>
+                <Form.Item
+                    label={<Typography.Text strong>{t('actorForm.ownersLabel')}</Typography.Text>}
+                    labelAlign="right"
+                >
+                    <Typography.Paragraph>{t('actorForm.ownersDescription')}</Typography.Paragraph>
                     <Switch size="small" checked={actors.resourceOwners} onChange={onToggleAppliesToOwners} />
                     {actors.resourceOwners && (
                         <OwnershipWrapper>
-                            <Typography.Paragraph>
-                                List of types of ownership which will be used to match owners. If empty, the policies
-                                will applied to any type of ownership.
-                            </Typography.Paragraph>
+                            <Typography.Paragraph>{t('actorForm.ownershipTypesDescription')}</Typography.Paragraph>
                             <Select
                                 value={ownershipTypesSelectValue}
                                 mode="multiple"
-                                placeholder="Ownership types"
+                                placeholder={t('actorForm.ownershipTypesPlaceholder')}
                                 onSelect={(asset: any) => onSelectOwnershipTypeActor(asset)}
                                 onDeselect={(asset: any) => onDeselectOwnershipTypeActor(asset)}
                                 tagRender={(tagProps) => {
@@ -294,17 +294,14 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     )}
                 </Form.Item>
             )}
-            <Form.Item label={<Typography.Text strong>Users & Service Accounts</Typography.Text>}>
-                <Typography.Paragraph>
-                    Search for specific users or service accounts that this policy should apply to, or select `All
-                    Users` to apply it to all users.
-                </Typography.Paragraph>
+            <Form.Item label={<Typography.Text strong>{t('actorForm.usersLabel')}</Typography.Text>}>
+                <Typography.Paragraph>{t('actorForm.usersDescription')}</Typography.Paragraph>
                 <Select
                     data-testid="users"
                     value={usersSelectUrns}
                     mode="multiple"
                     filterOption={false}
-                    placeholder="Search for users..."
+                    placeholder={t('actorForm.usersPlaceholder')}
                     onSelect={(asset: any) => onSelectUserActor(asset)}
                     onDeselect={(asset: any) => onDeselectUserActor(asset)}
                     onSearch={handleUserSearch}
@@ -319,7 +316,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         if (value === 'All') {
                             return (
                                 <StyledTag closable={closable} onClose={handleClose} onMouseDown={onPreventMouseDown}>
-                                    All Users
+                                    {t('allUsers')}
                                 </StyledTag>
                             );
                         }
@@ -335,19 +332,18 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     {userSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                     ))}
-                    <Select.Option value="All">All Users</Select.Option>
+                    <Select.Option data-testid="option-all-users" value={ALL_ACTORS_VALUE}>
+                        {t('allUsers')}
+                    </Select.Option>
                 </Select>
             </Form.Item>
-            <Form.Item label={<Typography.Text strong>Groups</Typography.Text>}>
-                <Typography.Paragraph>
-                    Search for specific groups that this policy should apply to, or select `All Groups` to apply it to
-                    all groups.
-                </Typography.Paragraph>
+            <Form.Item label={<Typography.Text strong>{t('groupsLabel')}</Typography.Text>}>
+                <Typography.Paragraph>{t('actorForm.groupsDescription')}</Typography.Paragraph>
                 <Select
                     data-testid="groups"
                     value={groupsSelectUrns}
                     mode="multiple"
-                    placeholder="Search for groups..."
+                    placeholder={t('actorForm.groupsPlaceholder')}
                     onSelect={(asset: any) => onSelectGroupActor(asset)}
                     onDeselect={(asset: any) => onDeselectGroupActor(asset)}
                     onSearch={handleGroupSearch}
@@ -363,7 +359,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         if (value === 'All') {
                             return (
                                 <StyledTag closable={closable} onClose={handleClose} onMouseDown={onPreventMouseDown}>
-                                    All Groups
+                                    {t('allGroups')}
                                 </StyledTag>
                             );
                         }
@@ -379,7 +375,10 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     {groupSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                     ))}
-                    <Select.Option value="All">All Groups</Select.Option>
+                    {/* eslint-disable-next-line i18next/no-literal-string */}
+                    <Select.Option data-testid="option-all-groups" value="All">
+                        {t('allGroups')}
+                    </Select.Option>
                 </Select>
             </Form.Item>
         </ActorForm>

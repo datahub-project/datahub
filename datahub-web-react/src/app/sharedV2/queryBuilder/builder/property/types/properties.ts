@@ -2,6 +2,8 @@
  * The file contains a set of well-supported properties,
  * which the UI deeply understands.
  */
+import i18next from 'i18next';
+
 import {
     OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
     STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
@@ -38,8 +40,12 @@ export type Property = {
 const commonProps: Property[] = [
     {
         id: 'urn',
-        displayName: 'Urn',
-        description: 'The raw urn identifier of the asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.urn');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.urnDesc');
+        },
         valueType: ValueTypeId.STRING,
         valueOptions: {
             mode: SelectInputMode.MULTIPLE,
@@ -47,36 +53,22 @@ const commonProps: Property[] = [
     },
     {
         id: 'entityType',
-        displayName: 'Type',
-        description: 'The type of the asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.type');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.typeDesc');
+        },
         valueType: ValueTypeId.ENUM,
         valueOptions: {
             mode: SelectInputMode.MULTIPLE,
             options: [
-                {
-                    id: 'dataset',
-                    displayName: 'Dataset',
-                },
-                {
-                    id: 'dashboard',
-                    displayName: 'Dashboard',
-                },
-                {
-                    id: 'chart',
-                    displayName: 'Chart',
-                },
-                {
-                    id: 'dataJob',
-                    displayName: 'Data Job (Task)',
-                },
-                {
-                    id: 'dataFlow',
-                    displayName: 'Data Flow (Pipeline)',
-                },
-                {
-                    id: 'container',
-                    displayName: 'Container',
-                },
+                { id: 'dataset', displayName: 'Dataset' },
+                { id: 'dashboard', displayName: 'Dashboard' },
+                { id: 'chart', displayName: 'Chart' },
+                { id: 'dataJob', displayName: 'Data Job (Task)' },
+                { id: 'dataFlow', displayName: 'Data Flow (Pipeline)' },
+                { id: 'container', displayName: 'Container' },
             ],
         },
     },
@@ -94,8 +86,12 @@ const commonProps: Property[] = [
     // },
     {
         id: 'dataPlatformInstance.platform',
-        displayName: 'Platform',
-        description: 'The data platform where the asset lives.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.platform');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.platformDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.DataPlatform],
@@ -104,8 +100,12 @@ const commonProps: Property[] = [
     },
     {
         id: 'globalTags.tags.tag',
-        displayName: 'Tags',
-        description: 'The tags attached to the asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.tags');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.tagsDesc');
+        },
         valueType: ValueTypeId.URN_LIST,
         valueOptions: {
             entityTypes: [EntityType.Tag],
@@ -114,8 +114,12 @@ const commonProps: Property[] = [
     },
     {
         id: 'glossaryTerms.terms.urn',
-        displayName: 'Glossary Terms',
-        description: 'The glossary terms attached to the asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.glossaryTerms');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.glossaryTermsDesc');
+        },
         valueType: ValueTypeId.URN_LIST,
         valueOptions: {
             entityTypes: [EntityType.GlossaryTerm],
@@ -124,8 +128,12 @@ const commonProps: Property[] = [
     },
     {
         id: 'glossaryTerms.terms.urn.glossaryTermInfo.parentNode',
-        displayName: 'Glossary Term Groups',
-        description: 'The set of parent Term Groups for Glossary Terms attached to the asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.glossaryTermGroups');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.glossaryTermGroupsDesc');
+        },
         valueType: ValueTypeId.URN_LIST,
         valueOptions: {
             entityTypes: [EntityType.GlossaryNode],
@@ -134,8 +142,12 @@ const commonProps: Property[] = [
     },
     {
         id: 'domains.domains',
-        displayName: 'Domain',
-        description: 'The domain that the asset is a part of.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.domain');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.domainDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.Domain],
@@ -144,8 +156,12 @@ const commonProps: Property[] = [
     },
     {
         id: 'ownership.owners.owner',
-        displayName: 'Owners',
-        description: 'The owners of the asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.owners');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.ownersDesc');
+        },
         valueType: ValueTypeId.URN_LIST,
         valueOptions: {
             entityTypes: [EntityType.CorpUser, EntityType.CorpGroup],
@@ -154,8 +170,12 @@ const commonProps: Property[] = [
     },
     {
         id: 'browsePathsV2.path.urn',
-        displayName: 'Browse Path container',
-        description: 'A container in browse path of an asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.browsePathContainer');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.browsePathContainerDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.Container],
@@ -164,8 +184,12 @@ const commonProps: Property[] = [
     },
     {
         id: 'container.container',
-        displayName: 'Container',
-        description: 'The parent container of the asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.container');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.containerDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.Container],
@@ -174,26 +198,42 @@ const commonProps: Property[] = [
     },
     {
         id: 'deprecation.deprecated',
-        displayName: 'Deprecated',
-        description: 'Whether the asset is deprecated or not.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.deprecated');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.deprecatedDesc');
+        },
         valueType: ValueTypeId.BOOLEAN,
     },
     {
         id: '__firstSynchronized',
-        displayName: 'First Synchronized',
-        description: 'The time at which the asset was first ingested into DataHub (ms).',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.firstSynchronized');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.firstSynchronizedDesc');
+        },
         valueType: ValueTypeId.TIMESTAMP,
     },
     {
         id: '__lastSynchronized',
-        displayName: 'Last Synchronized',
-        description: 'The time at which the asset was last ingested into DataHub (ms).',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.lastSynchronized');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.lastSynchronizedDesc');
+        },
         valueType: ValueTypeId.TIMESTAMP,
     },
     {
         id: '__lastObserved',
-        displayName: 'Last Observed',
-        description: 'The time at which the asset was last observed by DataHub (ms).',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.lastObserved');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.lastObservedDesc');
+        },
         valueType: ValueTypeId.TIMESTAMP,
     },
 ];
@@ -202,148 +242,222 @@ const datasetProps: Property[] = [
     ...commonProps,
     {
         id: 'datasetDescription',
-        displayName: 'Description',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.description');
+        },
         children: [
             {
                 id: 'datasetProperties.description',
-                displayName: 'Native Platform Description',
-                description: 'The description as authored and ingested from an external Data Platform.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.nativePlatformDescription');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.nativePlatformDescriptionDesc');
+                },
                 valueType: ValueTypeId.STRING,
             },
             {
                 id: 'editableDatasetProperties.description',
-                displayName: 'DataHub Description',
-                description: 'The description as authored inside DataHub directly.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.dataHubDescription');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.dataHubDescriptionDesc');
+                },
                 valueType: ValueTypeId.STRING,
             },
         ],
     },
     {
         id: 'subTypes.typeNames',
-        displayName: 'Subtype',
-        description: 'The subtype of the asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.subtype');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.subtypeDesc');
+        },
         valueType: ValueTypeId.STRING,
     },
     {
         id: 'schemaFields',
-        displayName: 'Columns',
-        description: 'The set of columns / fields associated with the dataset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.columns');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.columnsDesc');
+        },
         valueType: ValueTypeId.SCHEMA_FIELD_LIST,
     },
     {
         id: 'schemaFields.length',
-        displayName: 'Number of Columns',
-        description: 'The number of columns / fields associated with the dataset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.numColumns');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.numColumnsDesc');
+        },
         valueType: ValueTypeId.NUMBER,
     },
     {
         id: 'datasetMetrics',
-        displayName: 'Metrics',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.metrics');
+        },
         children: [
             {
                 id: 'usageFeatures.usageCountLast30Days',
-                displayName: 'Query Count in Last 30 Days',
-                description:
-                    'The total query count in the past 30 days. This requires usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.queryCountLast30Days');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.queryCountLast30DaysDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'usageFeatures.queryCountPercentileLast30Days',
-                displayName: 'Query Count Percentile in Last 30 Days (0-100)',
-                description:
-                    'The relative query count percentile for this dataset inside the data platform instance. This requires usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.queryCountPercentile');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.queryCountPercentileDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'usageFeatures.writeCountLast30Days',
-                displayName: 'Update Count in Last 30 Days',
-                description:
-                    'The total write count for this dataset in the past 30 days. This requires usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.updateCountLast30Days');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.updateCountLast30DaysDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'usageFeatures.writeCountPercentileLast30Days',
-                displayName: 'Update Count Percentile in Last 30 Days (0-100)',
-                description:
-                    'The relative write count percentile for this dataset within the data platform instance. This requires usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.updateCountPercentile');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.updateCountPercentileDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'usageFeatures.uniqueUserCountLast30Days',
-                displayName: 'Unique Users in the Last 30 Days',
-                description:
-                    'The total unique user count for this dataset in the past 30 days. This requires usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.uniqueUsersLast30Days');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.datasetUniqueUsersDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'usageFeatures.uniqueUserPercentileLast30Days',
-                displayName: 'Unique User Percentile in the Last 30 Days (0-100)',
-                description:
-                    'The relative unique user count percentile for this dataset within the data platform instance. This requires usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.uniqueUserPercentile');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.datasetUniqueUserPercentileDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'storageFeatures.rowCount',
-                displayName: 'Row Count Total',
-                description:
-                    'The total number of rows in the dataset. This requires data profiling to be enabled for connected data sources.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.rowCount');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.rowCountDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'storageFeatures.rowCountPercentile',
-                displayName: 'Row Count Percentile (0-100)',
-                description:
-                    'The relative row count percentile for this dataset within the data platform instance. This requires data profiling to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.rowCountPercentile');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.rowCountPercentileDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'storageFeatures.sizeInBytes',
-                displayName: 'Size In Bytes',
-                description:
-                    'The total size of the dataset in bytes. This requires data profiling to be enabled for supported data sources.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.sizeInBytes');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.sizeInBytesDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'storageFeatures.sizeInBytesPercentile',
-                displayName: 'Size In Bytes Percentile (0-100)',
-                description:
-                    'The relative storage size percentile for this dataset within the data platform instance. This requires data profiling to be enabled for supported sources.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.sizeInBytesPercentile');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.sizeInBytesPercentileDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
         ],
     },
     {
         id: 'assertions',
-        displayName: 'Assertions',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.assertions');
+        },
         children: [
             {
                 id: 'assertionsSummary.passingAssertionDetails',
-                displayName: 'Passing Assertions',
-                description: 'Passing assertions for the asset',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.passingAssertions');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.passingAssertionsDesc');
+                },
                 valueType: ValueTypeId.EXISTS_LIST,
             },
             {
                 id: 'assertionsSummary.failingAssertionDetails',
-                displayName: 'Failing Assertions',
-                description: 'Failing Assertions for the asset',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.failingAssertions');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.failingAssertionsDesc');
+                },
                 valueType: ValueTypeId.EXISTS_LIST,
             },
         ],
     },
     {
         id: 'incidents',
-        displayName: 'Incidents',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.incidents');
+        },
         children: [
             {
                 id: 'incidentsSummary.activeIncidentDetails',
-                displayName: 'Active Incidents',
-                description: 'Active incidents for the asset',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.activeIncidents');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.activeIncidentsDesc');
+                },
                 valueType: ValueTypeId.EXISTS_LIST,
             },
             {
                 id: 'incidentsSummary.resolvedIncidentDetails',
-                displayName: 'Resolved Incidents',
-                description: 'Resolved incidents for the asset',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.resolvedIncidents');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.resolvedIncidentsDesc');
+                },
                 valueType: ValueTypeId.EXISTS_LIST,
             },
         ],
@@ -353,8 +467,12 @@ const datasetProps: Property[] = [
     // builder experience.
     {
         id: STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
-        displayName: 'Structured Property',
-        description: 'Match entities that have a custom structured property',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.structuredProperty');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.structuredPropertyDesc');
+        },
         valueType: ValueTypeId.NO_VALUE,
     },
     // Simply serves as an entry point to defining a ownership type reference.
@@ -362,8 +480,12 @@ const datasetProps: Property[] = [
     // builder experience.
     {
         id: OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
-        displayName: 'Ownership Type',
-        description: 'Match entities that have a custom ownership type',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.ownershipType');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.ownershipTypeDesc');
+        },
         valueType: ValueTypeId.NO_VALUE,
     },
 ];
@@ -372,18 +494,28 @@ const dataJobProps = [
     ...commonProps,
     {
         id: 'dataJobDescription',
-        displayName: 'Description',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.description');
+        },
         children: [
             {
                 id: 'dataJobInfo.description',
-                displayName: 'Native Platform Description',
-                description: 'The description as authored and ingested from an external Data Platform.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.nativePlatformDescription');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.nativePlatformDescriptionDesc');
+                },
                 valueType: ValueTypeId.STRING,
             },
             {
                 id: 'editableDataJobProperties.description',
-                displayName: 'DataHub Description',
-                description: 'The description as authored inside DataHub directly.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.dataHubDescription');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.dataHubDescriptionDesc');
+                },
                 valueType: ValueTypeId.STRING,
             },
         ],
@@ -394,18 +526,28 @@ const dataFlowProps = [
     ...commonProps,
     {
         id: 'dataFlowDescription',
-        displayName: 'Description',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.description');
+        },
         children: [
             {
                 id: 'dataFlowInfo.description',
-                displayName: 'Native Platform Description',
-                description: 'The description as authored and ingested from an external Data Platform.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.nativePlatformDescription');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.nativePlatformDescriptionDesc');
+                },
                 valueType: ValueTypeId.STRING,
             },
             {
                 id: 'editableDataFlowProperties.description',
-                displayName: 'DataHub Description',
-                description: 'The description as authored inside DataHub directly.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.dataHubDescription');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.dataHubDescriptionDesc');
+                },
                 valueType: ValueTypeId.STRING,
             },
         ],
@@ -416,59 +558,86 @@ const dashboardProps = [
     ...commonProps,
     {
         id: 'dashboardDescription',
-        displayName: 'Description',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.description');
+        },
         children: [
             {
                 id: 'dashboardInfo.description',
-                displayName: 'Native Platform Description',
-                description: 'The description as authored and ingested from an external Data Platform.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.nativePlatformDescription');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.nativePlatformDescriptionDesc');
+                },
                 valueType: ValueTypeId.STRING,
             },
             {
                 id: 'editableDashboardProperties.description',
-                displayName: 'DataHub Description',
-                description: 'The description as authored inside DataHub directly.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.dataHubDescription');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.dataHubDescriptionDesc');
+                },
                 valueType: ValueTypeId.STRING,
             },
         ],
     },
     {
         id: 'dashboardMetrics',
-        displayName: 'Metrics',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.metrics');
+        },
         children: [
             {
                 id: 'usageFeatures.viewCountTotal',
-                displayName: 'Total View Count',
-                description:
-                    'The total view count for this dashboard. This requires dashboard usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.totalViewCount');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.dashboardTotalViewCountDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'usageFeatures.viewCountLast30Days',
-                displayName: 'View Count in Last 30 Days',
-                description:
-                    'The total view count for this dashboard in the past 30 days. This requires dashboard usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.viewCountLast30Days');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.dashboardViewCountLast30DaysDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'usageFeatures.viewCountPercentileLast30Days',
-                displayName: 'View Count Percentile in Last 30 Days (0-100)',
-                description:
-                    'The relative view count percentile for this dashboard within the data platform instance in the past 30 days. This requires dashboard usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.viewCountPercentile');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.dashboardViewCountPercentileDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'usageFeatures.uniqueUserCountLast30Days',
-                displayName: 'Unique Users in the Last 30 Days',
-                description:
-                    'The total unique user count for this dashboard in the past 30 days. This requires dashboard usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.uniqueUsersLast30Days');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.dashboardUniqueUsersDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'usageFeatures.uniqueUserPercentileLast30Days',
-                displayName: 'Unique User Percentile in the Last 30 Days (0-100)',
-                description:
-                    'The relative view count percentile for this dashboard within the data platform instance in the past 30 days. This requires dashboard usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.uniqueUserPercentile');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.dashboardUniqueUserPercentileDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
         ],
@@ -479,60 +648,87 @@ const chartProps = [
     ...commonProps,
     {
         id: 'chartDescription',
-        displayName: 'Description',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.description');
+        },
         children: [
             {
                 id: 'chartInfo.description',
-                displayName: 'Native Platform Description',
-                description: 'The description as authored and ingested from an external Data Platform.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.nativePlatformDescription');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.nativePlatformDescriptionDesc');
+                },
                 valueType: ValueTypeId.STRING,
             },
             {
                 id: 'editableChartProperties.description',
-                displayName: 'DataHub Description',
-                description: 'The description as authored inside DataHub directly.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.dataHubDescription');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.dataHubDescriptionDesc');
+                },
                 valueType: ValueTypeId.STRING,
             },
         ],
     },
     {
         id: 'chartMetrics',
-        displayName: 'Metrics',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.metrics');
+        },
         selectable: false,
         children: [
             {
                 id: 'usageFeatures.viewCountTotal',
-                displayName: 'Total View Count',
-                description:
-                    'The total view count for this chart. This requires chart usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.totalViewCount');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.chartTotalViewCountDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'usageFeatures.viewCountLast30Days',
-                displayName: 'View Count in Last 30 Days',
-                description:
-                    'The total view count for this chart in the past 30 days. This requires chart usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.viewCountLast30Days');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.chartViewCountLast30DaysDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'usageFeatures.viewCountPercentileLast30Days',
-                displayName: 'View Count Percentile in Last 30 Days (0-100)',
-                description:
-                    'The relative view count percentile for this chart within the data platform instance in the past 30 days. This requires chart usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.viewCountPercentile');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.chartViewCountPercentileDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'usageFeatures.uniqueUserCountLast30Days',
-                displayName: 'Unique Users in the Last 30 Days',
-                description:
-                    'The total unique user count for this chart in the past 30 days. This requires chart usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.uniqueUsersLast30Days');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.chartUniqueUsersDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'usageFeatures.uniqueUserPercentileLast30Days',
-                displayName: 'Unique User Percentile in the Last 30 Days (0-100)',
-                description:
-                    'The relative view count percentile for this chart within the data platform instance in the past 30 days. This requires chart usage data ingestion to be enabled.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.uniqueUserPercentile');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.chartUniqueUserPercentileDesc');
+                },
                 valueType: ValueTypeId.NUMBER,
             },
         ],
@@ -543,26 +739,40 @@ const containerProps = [
     ...commonProps,
     {
         id: 'containerDescription',
-        displayName: 'Description',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.description');
+        },
         children: [
             {
                 id: 'containerProperties.description',
-                displayName: 'Native Platform Description',
-                description: 'The description as authored and ingested from an external Data Platform.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.nativePlatformDescription');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.nativePlatformDescriptionDesc');
+                },
                 valueType: ValueTypeId.STRING,
             },
             {
                 id: 'editableContainerProperties.description',
-                displayName: 'DataHub Description',
-                description: 'The description as authored inside DataHub directly.',
+                get displayName() {
+                    return i18next.t('shared.query-builder:prop.dataHubDescription');
+                },
+                get description() {
+                    return i18next.t('shared.query-builder:prop.dataHubDescriptionDesc');
+                },
                 valueType: ValueTypeId.STRING,
             },
         ],
     },
     {
         id: 'subTypes.typeNames',
-        displayName: 'Subtypes',
-        description: 'The subtype(s) of the asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.subtypes');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.subtypesDesc');
+        },
         valueType: ValueTypeId.STRING,
     },
 ];

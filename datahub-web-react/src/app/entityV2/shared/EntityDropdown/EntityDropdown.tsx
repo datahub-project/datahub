@@ -17,6 +17,7 @@ import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { message } from 'antd';
 import qs from 'query-string';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Redirect, useHistory } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
@@ -55,6 +56,9 @@ import { EntityType } from '@types';
 
 import DeprecatedIcon from '@images/deprecated-status.svg?react';
 
+// Tab path segment passed to getEntityPath — a route identifier, not user-visible copy.
+const INCIDENTS_TAB_NAME = 'Incidents';
+
 const StyledMoreIcon = styled(MoreVertOutlinedIcon)`
     &&& {
         display: flex;
@@ -89,6 +93,9 @@ interface Props {
 const EntityDropdown = (props: Props) => {
     const history = useHistory();
     const theme = useTheme();
+    const { t } = useTranslation('entity.shared.entityDropdown');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tcf } = useTranslation('common.feedback');
 
     const {
         urn,
@@ -134,7 +141,7 @@ const EntityDropdown = (props: Props) => {
     const [isChangeHistoryOpen, setIsChangeHistoryOpen] = useState(false);
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
-        message.loading({ content: 'Updating...' });
+        message.loading({ content: tcf('updating') });
         try {
             await updateDeprecation({
                 variables: {
@@ -147,7 +154,7 @@ const EntityDropdown = (props: Props) => {
                 },
             });
             message.destroy();
-            message.success({ content: 'Deprecation Updated', duration: 2 });
+            message.success({ content: t('deprecation.updated'), duration: 2 });
             analytics.event({
                 type: EventType.SetDeprecation,
                 entityUrns: [urn],
@@ -156,7 +163,10 @@ const EntityDropdown = (props: Props) => {
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to update Deprecation: \n ${e.message || ''}`, duration: 2 });
+                message.error({
+                    content: t('deprecation.updateError', { errorMessage: e.message || '' }),
+                    duration: 2,
+                });
             }
         }
         refetchForEntity?.();
@@ -180,11 +190,11 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: '0',
-            title: 'Copy Url',
+            title: t('menuItem.copyUrl'),
             icon: Link,
             onClick: () => {
                 navigator.clipboard.writeText(pageUrl);
-                message.info('Copied URL!', 1.2);
+                message.info(t('menuItem.copiedUrl'), 1.2);
             },
         });
     }
@@ -193,7 +203,9 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: '1',
-            title: !entityData?.deprecation?.deprecated ? 'Mark as Deprecated' : 'Mark as un-deprecated',
+            title: !entityData?.deprecation?.deprecated
+                ? t('deprecation.markDeprecated')
+                : t('deprecation.markUnDeprecated'),
             render: () => (
                 <div
                     data-testid="entity-menu-deprecate-button"
@@ -238,7 +250,9 @@ const EntityDropdown = (props: Props) => {
                                 fontSize: '14px',
                             }}
                         >
-                            {!entityData?.deprecation?.deprecated ? 'Mark as Deprecated' : 'Mark as un-deprecated'}
+                            {!entityData?.deprecation?.deprecated
+                                ? t('deprecation.markDeprecated')
+                                : t('deprecation.markUnDeprecated')}
                         </span>
                     </div>
                 </div>
@@ -257,7 +271,7 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: '1-1',
-            title: 'Add Note',
+            title: t('addNote'),
             icon: MegaphoneSimple,
             onClick: () => setIsEntityAnnouncementModalVisible(true),
         });
@@ -267,7 +281,7 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: '2',
-            title: 'Add Term',
+            title: t('menuItem.addTerm'),
             icon: Plus,
             onClick: () => setIsCreateTermModalVisible(true),
             'data-testid': 'entity-menu-add-term-button',
@@ -278,7 +292,7 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: '3',
-            title: 'Add Term Group',
+            title: t('menuItem.addTermGroup'),
             icon: FolderPlus,
             onClick: () => setIsCreateNodeModalVisible(true),
         });
@@ -288,7 +302,7 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: '4',
-            title: 'Move',
+            title: tc('move'),
             icon: FolderOpen,
             disabled: isMoveDisabled(entityType, entityData, me.platformPrivileges),
             onClick: () => setIsMoveModalVisible(true),
@@ -300,7 +314,7 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: '9',
-            title: 'Edit',
+            title: tc('edit'),
             icon: Pencil,
             onClick: onEdit,
         });
@@ -310,7 +324,7 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: '10',
-            title: 'Clone',
+            title: t('menuItem.clone'),
             icon: Copy,
             disabled: !entityData?.privileges?.canManageEntity,
             onClick: () => setIsCloneEntityModalVisible(true),
@@ -322,7 +336,7 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: '6',
-            title: 'Raise Incident',
+            title: t('menuItem.raiseIncident'),
             icon: Warning,
             onClick: () => setIsRaiseIncidentModalVisible(true),
         });
@@ -337,7 +351,7 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: 'link',
-            title: 'Link a Newer Version',
+            title: t('linkVersion.title'),
             icon: Link,
             onClick: () => setIsLinkAssetVersionModalVisible(true),
         });
@@ -347,7 +361,7 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: 'unlink',
-            title: 'Unlink from Previous Version',
+            title: t('menuItem.unlinkVersion'),
             icon: LinkBreak,
             onClick: () => setIsUnlinkAssetVersionModalVisible(true),
         });
@@ -357,7 +371,7 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: 'showVersions',
-            title: 'Show Versions',
+            title: t('menuItem.showVersions'),
             icon: GitCommit,
             onClick: () => {
                 analytics.event({
@@ -380,7 +394,7 @@ const EntityDropdown = (props: Props) => {
             shareChildren.push({
                 type: 'item' as const,
                 key: 'copy-link',
-                title: 'Copy Link',
+                title: tc('copyLink'),
                 icon: Link,
                 onClick: () => {
                     const { origin } = window.location;
@@ -395,7 +409,7 @@ const EntityDropdown = (props: Props) => {
             shareChildren.push({
                 type: 'item' as const,
                 key: 'copy-urn',
-                title: 'Copy URN',
+                title: t('menuItem.copyUrn'),
                 icon: Copy,
                 onClick: () => {
                     navigator.clipboard.writeText(urn);
@@ -409,7 +423,7 @@ const EntityDropdown = (props: Props) => {
             shareChildren.push({
                 type: 'item' as const,
                 key: 'copy-name',
-                title: 'Copy Name',
+                title: t('menuItem.copyName'),
                 icon: Copy,
                 onClick: () => {
                     const qualifiedName = entityData?.properties?.qualifiedName;
@@ -426,7 +440,7 @@ const EntityDropdown = (props: Props) => {
         shareChildren.push({
             type: 'item' as const,
             key: 'email',
-            title: 'Email',
+            title: t('menuItem.email'),
             icon: Envelope,
             onClick: () => {
                 const displayName = entityData ? entityRegistryV2.getDisplayName(entityType, entityData) : urn;
@@ -436,8 +450,8 @@ const EntityDropdown = (props: Props) => {
                 const link = qs.stringifyUrl({
                     url: 'mailto:',
                     query: {
-                        subject: `${displayName} | ${displayType}`,
-                        body: `Check out this ${displayType} on DataHub: ${linkText}. Urn: ${urn}`,
+                        subject: t('share.emailSubject', { displayName, displayType }),
+                        body: t('share.emailBody', { displayType, linkText, urn }),
                     },
                 });
                 window.open(link, '_blank', 'noopener,noreferrer');
@@ -447,7 +461,7 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: '8',
-            title: 'Share',
+            title: tc('share'),
             icon: Share,
             children: shareChildren,
         });
@@ -457,7 +471,7 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: 'change-history',
-            title: 'Change History',
+            title: t('menuItem.changeHistory'),
             icon: ClockCounterClockwise,
             onClick: () => setIsChangeHistoryOpen(true),
         });
@@ -465,18 +479,21 @@ const EntityDropdown = (props: Props) => {
 
     // Delete should always be last (destructive action)
     if (menuItems.has(EntityMenuItems.DELETE)) {
+        let deleteTooltip: string | undefined;
+        if (shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)) {
+            const entityName = entityRegistryV2.getEntityName(entityType);
+            deleteTooltip = isDomainEntity
+                ? t('delete.cantDeleteSubDomain', { entityName })
+                : t('delete.cantDeleteChild', { entityName });
+        }
         menuItemsList.push({
             type: 'item' as const,
             key: 'delete',
-            title: 'Delete',
+            title: tc('delete'),
             icon: Trash,
             danger: true,
             disabled: isDeleteDisabled(entityType, entityData, me.platformPrivileges),
-            tooltip: shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)
-                ? `Can't delete ${entityRegistryV2.getEntityName(entityType)} with ${
-                      isDomainEntity ? 'sub-domain' : 'child'
-                  } entities.`
-                : undefined,
+            tooltip: deleteTooltip,
             onClick: onDeleteEntity,
             'data-testid': 'entity-menu-delete-button',
         });
@@ -555,7 +572,7 @@ const EntityDropdown = (props: Props) => {
                                     entityRegistryV2,
                                     false,
                                     isHideSiblingMode,
-                                    'Incidents',
+                                    INCIDENTS_TAB_NAME,
                                 )}`,
                             );
                         }, 3000);

@@ -302,14 +302,16 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
             .lastUrn(resumeUrn)
             .urnBasedPagination(true);
 
-    try (PartitionedStream<EbeanAspectV2> stream = aspectDao.streamAspectBatches(args)) {
+    try (PartitionedStream<EbeanAspectV2> stream = aspectDao.streamAspectBatches(opContext, args)) {
       stream
           .partition(batchSize)
           .forEach(
               batch -> {
                 List<Pair<Future<?>, SystemAspect>> futures =
                     EntityUtils.toSystemAspectFromEbeanAspects(
-                            opContext.getRetrieverContext(), batch.collect(Collectors.toList()))
+                            opContext,
+                            opContext.getRetrieverContext(),
+                            batch.collect(Collectors.toList()))
                         .stream()
                         .map(
                             systemAspect -> {

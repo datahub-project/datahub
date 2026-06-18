@@ -9,13 +9,20 @@ The metadata that is extracted includes point-in-time instances of dataset, char
 
 ## Installing DataHub CLI
 
+On macOS or Linux, the simplest install is via Homebrew:
+
+```bash
+brew install datahub-project/tap/datahub
+datahub version
+```
+
+Or via pip on any platform:
+
 :::note Required Python Version
-Installing DataHub CLI requires Python 3.6+.
+Installing DataHub CLI via pip requires Python 3.10+.
 :::
 
-Run the following commands in your terminal:
-
-```
+```bash
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
 python3 -m datahub version

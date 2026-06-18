@@ -41,6 +41,24 @@
   }
 }
 
+.platformPartial {
+  opacity: 1;
+  svg {
+    color: #faad14;
+  }
+}
+
+.comparisonLinkWrapper {
+  display: flex;
+  align-items: center;
+}
+
+.comparisonLink {
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .stageWrapper {
   display: flex;
   align-items: center;

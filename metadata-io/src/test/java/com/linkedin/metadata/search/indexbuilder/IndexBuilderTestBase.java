@@ -61,6 +61,7 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.rest.RestStatus;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.util.CollectionUtils;
+import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -190,7 +191,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     }
 
     // Clean up all test indices
-    String[] testIndices = {TEST_V2_INDEX_NAME, TEST_V3_INDEX_NAME};
+    String[] testIndices = {
+      TEST_V2_INDEX_NAME, TEST_V3_INDEX_NAME, TEST_V2_INDEX_NAME + "_object_roundtrip"
+    };
 
     for (String indexName : testIndices) {
       try {
@@ -868,6 +871,83 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     assertFalse(
         indexConvention.isV3EntityIndex(TEST_V2_INDEX_NAME),
         "IndexConvention should not identify dataset v2 index as v3");
+  }
+
+  /**
+   * Guards against ES8 settings reindex loops: after creating an index with analysis settings, a
+   * second {@link ESIndexBuilder#buildReindexState} pass must not detect spurious analysis drift
+   * (e.g. ES8-injected {@code type=custom} on analyzers).
+   */
+  @Test
+  public void testNoSettingsReindexLoopAfterAnalysisIndexCreationOnES8() throws Exception {
+    if (getSearchClient().getEngineType() != SearchClientShim.SearchEngineType.ELASTICSEARCH_8) {
+      throw new SkipException("ES8 engine round-trip reindex loop test");
+    }
+
+    Map<String, Object> minimalMappings =
+        ImmutableMap.of("properties", ImmutableMap.of("name", ImmutableMap.of("type", "keyword")));
+    Map<String, Object> v2Settings =
+        delegatingSettingsBuilder.getSettings(testDefaultConfig.getIndex(), TEST_V2_INDEX_NAME);
+
+    ReindexConfig createConfig =
+        testDefaultBuilder.buildReindexState(TEST_V2_INDEX_NAME, minimalMappings, v2Settings);
+    assertEquals(testDefaultBuilder.buildIndex(createConfig), ReindexResult.CREATED_NEW);
+
+    GetIndexResponse v2Index = getV2TestIndex();
+    String concreteIndex = v2Index.getIndices()[0];
+    assertEquals(
+        v2Index.getSetting(concreteIndex, "index.analysis.analyzer.browse_path_hierarchy.type"),
+        "custom",
+        "ES8 should persist type=custom for custom analyzers");
+
+    ReindexConfig secondPass =
+        testDefaultBuilder.buildReindexState(TEST_V2_INDEX_NAME, minimalMappings, v2Settings);
+
+    assertTrue(secondPass.exists(), "Index should exist for round-trip comparison");
+    assertFalse(
+        secondPass.requiresApplySettings(),
+        "ES8 round-trip must not detect spurious analysis settings drift");
+    assertFalse(
+        secondPass.requiresReindex(),
+        "Second system-update pass must not enter a settings reindex loop on ES8");
+  }
+
+  /**
+   * Guards against ES8 mapping reindex loops: nested object mappings gain {@code type: object} on
+   * persistence; a second pass must treat authored implicit-object mappings as equal.
+   */
+  @Test
+  public void testNoMappingsReindexLoopAfterObjectMappingCreationOnES8() throws Exception {
+    if (getSearchClient().getEngineType() != SearchClientShim.SearchEngineType.ELASTICSEARCH_8) {
+      throw new SkipException("ES8 mapping round-trip reindex loop test");
+    }
+
+    String indexName = TEST_V2_INDEX_NAME + "_object_roundtrip";
+    Map<String, Object> implicitObjectMappings =
+        ImmutableMap.of(
+            "properties",
+            ImmutableMap.of(
+                "partitionSpec",
+                ImmutableMap.of(
+                    "properties",
+                    ImmutableMap.of(
+                        "partition", ImmutableMap.of("type", "keyword"),
+                        "timePartition", ImmutableMap.of("type", "keyword")))));
+
+    ReindexConfig createConfig =
+        testDefaultBuilder.buildReindexState(indexName, implicitObjectMappings, Map.of());
+    assertEquals(testDefaultBuilder.buildIndex(createConfig), ReindexResult.CREATED_NEW);
+
+    ReindexConfig secondPass =
+        testDefaultBuilder.buildReindexState(indexName, implicitObjectMappings, Map.of());
+
+    assertTrue(secondPass.exists());
+    assertFalse(
+        secondPass.requiresApplyMappings(),
+        "ES8 object mapping round-trip must not produce a synthetic mapping diff");
+    assertFalse(
+        secondPass.requiresReindex(),
+        "Second system-update pass must not enter a mapping reindex loop on ES8");
   }
 
   @Test

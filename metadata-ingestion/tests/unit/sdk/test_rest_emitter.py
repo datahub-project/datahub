@@ -2486,6 +2486,64 @@ class TestRequestsSessionConfig:
         assert type(emitter._session.get_adapter("https://example.com")) is HTTPAdapter
         assert type(emitter._session.get_adapter("http://example.com")) is HTTPAdapter
 
+    def test_client_cert_unset_leaves_session_cert_none(self):
+        """No client cert configured -> requests.Session.cert stays at its default (None)."""
+        session = RequestsSessionConfig().build_session()
+        assert session.cert is None
+
+    def test_client_cert_only_sets_session_cert_to_string(self):
+        """Single combined-PEM path is passed through as a string."""
+        session = RequestsSessionConfig(
+            client_certificate_path="/etc/certs/combined.pem"
+        ).build_session()
+        assert session.cert == "/etc/certs/combined.pem"
+
+    def test_client_cert_and_key_sets_session_cert_to_tuple(self):
+        """Separate cert and key paths are passed to requests as a (cert, key) tuple."""
+        session = RequestsSessionConfig(
+            client_certificate_path="/etc/certs/client.crt",
+            client_key_path="/etc/certs/client.key",
+        ).build_session()
+        assert session.cert == ("/etc/certs/client.crt", "/etc/certs/client.key")
+
+    def test_client_key_without_cert_is_ignored(self):
+        """A key without a cert is meaningless; session.cert stays None."""
+        session = RequestsSessionConfig(
+            client_key_path="/etc/certs/client.key"
+        ).build_session()
+        assert session.cert is None
+
+
+class TestClientCertEnvFallback:
+    def test_session_config_env_vars_picked_up(self, monkeypatch):
+        monkeypatch.setenv("DATAHUB_CLIENT_CERT_PATH", "/env/client.crt")
+        monkeypatch.setenv("DATAHUB_CLIENT_KEY_PATH", "/env/client.key")
+        session = RequestsSessionConfig().build_session()
+        assert session.cert == ("/env/client.crt", "/env/client.key")
+
+    def test_session_config_no_env_vars_leaves_cert_unset(self, monkeypatch):
+        monkeypatch.delenv("DATAHUB_CLIENT_CERT_PATH", raising=False)
+        monkeypatch.delenv("DATAHUB_CLIENT_KEY_PATH", raising=False)
+        session = RequestsSessionConfig().build_session()
+        assert session.cert is None
+
+    def test_session_config_explicit_path_overrides_env(self, monkeypatch):
+        monkeypatch.setenv("DATAHUB_CLIENT_CERT_PATH", "/env/client.crt")
+        monkeypatch.setenv("DATAHUB_CLIENT_KEY_PATH", "/env/client.key")
+        session = RequestsSessionConfig(
+            client_certificate_path="/explicit/client.crt",
+            client_key_path="/explicit/client.key",
+        ).build_session()
+        assert session.cert == ("/explicit/client.crt", "/explicit/client.key")
+
+    def test_rest_emitter_picks_up_env_vars(self, monkeypatch):
+        """DataHubRestEmitter builds RequestsSessionConfig internally, so env
+        vars should reach session.cert through the same fallback."""
+        monkeypatch.setenv("DATAHUB_CLIENT_CERT_PATH", "/env/client.crt")
+        monkeypatch.setenv("DATAHUB_CLIENT_KEY_PATH", "/env/client.key")
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        assert emitter._session.cert == ("/env/client.crt", "/env/client.key")
+
 
 class TestDataHubGraphTcpKeepalive:
     """Regression tests covering tcp_keepalive propagation from a RestEmitter

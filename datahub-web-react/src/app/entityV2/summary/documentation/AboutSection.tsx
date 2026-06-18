@@ -2,6 +2,7 @@ import { Button, Editor, Text, Tooltip } from '@components';
 import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
 import queryString from 'query-string';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -43,6 +44,7 @@ interface Props {
 }
 
 export default function AboutSection({ hideLinksButton }: Props) {
+    const { t } = useTranslation('entity.profile.summary');
     const history = useHistory();
     const { search, pathname } = useLocation();
     const isEditingDescription = !!queryString.parse(search, { parseBooleans: true }).editingDescription;
@@ -83,11 +85,11 @@ export default function AboutSection({ hideLinksButton }: Props) {
         <div data-testid="about-section">
             <SectionHeaderWrapper>
                 <Text weight="bold" color="gray" colorLevel={600} size="sm">
-                    About
+                    {t('documentation.aboutTitle')}
                 </Text>
                 <ButtonsWrapper>
                     {canEditDescription && (
-                        <Tooltip title="Edit description">
+                        <Tooltip title={t('documentation.editTooltip')}>
                             <Button
                                 variant="text"
                                 color="gray"

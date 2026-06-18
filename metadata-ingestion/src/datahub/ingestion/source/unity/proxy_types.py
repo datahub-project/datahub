@@ -134,6 +134,7 @@ class Column(CommonProperty):
     position: Optional[int]
     nullable: Optional[bool]
     comment: Optional[str]
+    partition_index: Optional[int] = None
 
 
 @dataclass

@@ -1,18 +1,18 @@
 import { Avatar, Tooltip } from '@components';
-import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
-import { Tag } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
+import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
+import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import useGetBrowseV2LabelOverride from '@app/searchV2/filters/useGetBrowseV2LabelOverride';
 import { BROWSE_PATH_V2_FILTER_NAME, ENTITY_FILTER_NAME, MAX_COUNT_VAL } from '@app/searchV2/utils/constants';
 import { formatNumber } from '@app/shared/formatNumber';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
+import TagPill from '@app/sharedV2/tags/TagPill';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {
@@ -48,6 +48,7 @@ const PreviewImage = styled.img`
 export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Props) => {
     const entityRegistry = useEntityRegistry();
     const filterLabelOverride = useGetBrowseV2LabelOverride(field, value, entityRegistry);
+    const generateGlossaryColor = useGenerateGlossaryColorFromPalette();
     const countText = hideCount ? '' : ` (${count === MAX_COUNT_VAL ? '10k+' : formatNumber(count)})`;
 
     if (field === ENTITY_FILTER_NAME) {
@@ -63,12 +64,9 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
     if (entity?.type === EntityType.Tag) {
         const tag = entity as TagType;
         const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag);
-        const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                <StyledTag $colorHash={tag?.urn} $color={tag?.properties?.colorHex} fontSize={10}>
-                    {truncatedDisplayName}
-                </StyledTag>
+                <TagPill name={displayName} color={tag?.properties?.colorHex} colorHash={tag?.urn} size="sm" />
                 {countText}
             </Tooltip>
         );
@@ -109,13 +107,10 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
     if (entity?.type === EntityType.GlossaryTerm) {
         const term = entity as GlossaryTerm;
         const displayName = entityRegistry.getDisplayName(EntityType.GlossaryTerm, term);
-        const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
+        const termColor = getGlossaryTermColor(term, generateGlossaryColor);
         return (
             <Tooltip title={displayName}>
-                <Tag closable={false}>
-                    <BookmarkSimple style={{ marginRight: '4px' }} />
-                    {truncatedDisplayName}
-                </Tag>
+                <GlossaryTermPill name={displayName} color={termColor} size="sm" />
                 {countText}
             </Tooltip>
         );

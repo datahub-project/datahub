@@ -139,9 +139,7 @@ public class DocumentResolvers {
                               : null;
                         }))
                 .dataFetcher(
-                    "aspects",
-                    new com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver(
-                        entityClient, entityRegistry))
+                    "aspects", new com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver())
                 .dataFetcher(
                     "privileges",
                     new com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver(

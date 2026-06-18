@@ -1,5 +1,7 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { KeyboardArrowDownRounded, KeyboardArrowRightRounded } from '@mui/icons-material';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -8,8 +10,10 @@ import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
 import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossaryV2/GlossaryBrowser/TermItem';
+import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Loader } from '@src/alchemy-components';
 import useGlossaryChildren from '@src/app/entityV2/glossaryNode/useGlossaryChildren';
 
 import { GlossaryNodeFragment } from '@graphql/fragments.generated';
@@ -25,18 +29,10 @@ const ItemWrapper = styled.div<ItemWrapperProps>`
     flex-direction: column;
     font-weight: 700;
     position: relative;
-    overflow: ${(props) => !props.$isChildNode && 'hidden'};
 `;
 
-const NodeBadge = styled.span<{ color: string }>`
-    position: absolute;
-    height: 9px;
-    width: 50px;
-    background-color: ${({ color }) => color};
-    top: 0;
-    left: -15px;
-    transform: rotate(-45deg);
-    opacity: 1;
+const StyledNodeIcon = styled(GlossaryColoredIcon)`
+    margin-right: 8px;
 `;
 
 const NodeWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
@@ -54,40 +50,38 @@ const NodeWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
     }
 `;
 
-const StyledRightOutlined = styled(KeyboardArrowRightRounded)<{ isSelected: boolean }>`
-    color: ${(props) => (props.isSelected ? `${props.theme.colors.textHover}` : `${props.theme.colors.borderFocused}`)};
-    cursor: pointer;
+const CaretSlot = styled.div`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 14px;
     margin-right: 6px;
+`;
+
+const StyledCaretRight = styled(CaretRight)<{ $isSelected: boolean }>`
+    color: ${(props) => (props.$isSelected ? props.theme.colors.iconSelected : props.theme.colors.icon)};
+    cursor: pointer;
     line-height: 0;
+    flex-shrink: 0;
+
     :hover {
-        stroke: ${(props) =>
-            props.isSelected ? `${props.theme.colors.textHover}` : `${props.theme.colors.borderFocused}`};
+        color: ${(props) => props.theme.colors.iconHover};
     }
 `;
 
-const StyledDownOutlined = styled(KeyboardArrowDownRounded)<{ isSelected: boolean }>`
-    color: ${(props) => (props.isSelected ? `${props.theme.colors.textHover}` : `${props.theme.colors.textActive}`)};
+const StyledCaretDown = styled(CaretDown)<{ $isSelected: boolean }>`
+    color: ${(props) => (props.$isSelected ? props.theme.colors.iconSelected : props.theme.colors.icon)};
     cursor: pointer;
-    margin-right: 6px;
     line-height: 0;
+    flex-shrink: 0;
+
     :hover {
-        stroke: ${(props) =>
-            props.isSelected ? `${props.theme.colors.textHover}` : `${props.theme.colors.textActive}`};
+        color: ${(props) => props.theme.colors.iconHover};
     }
 `;
 
 const ChildrenWrapper = styled.div``;
-
-const LoadingWrapper = styled.div`
-    padding: 8px;
-    display: flex;
-    justify-content: center;
-
-    svg {
-        height: 15px;
-        width: 15px;
-    }
-`;
 
 const ChildrenCount = styled.div`
     padding: 0 8px;
@@ -122,6 +116,7 @@ interface Props {
     isChildNode?: boolean;
     depth: number;
     selectedUrns?: string[];
+    iconColor?: string;
 }
 
 function NodeItem(props: Props) {
@@ -137,6 +132,7 @@ function NodeItem(props: Props) {
         isChildNode,
         depth,
         selectedUrns,
+        iconColor,
     } = props;
     const shouldHideNode = nodeUrnToHide === node.urn;
 
@@ -183,28 +179,31 @@ function NodeItem(props: Props) {
 
     if (shouldHideNode) return null;
 
-    const glossaryColor = node.displayProperties?.colorHex || generateColor(node.urn);
+    const glossaryColor = iconColor || node.displayProperties?.colorHex || generateColor(node.urn);
+    const NodeIcon = iconColor ? BookmarkSimple : BookmarksSimple;
 
     return (
         <ItemWrapper $isSelected={entityData?.urn === node.urn} $isChildNode={isChildNode}>
-            {!isChildNode && <NodeBadge color={glossaryColor} />}
             <NodeWrapper $isSelected={entityData?.urn === node.urn} $depth={depth}>
-                {areChildrenVisible && (
-                    <StyledDownOutlined
-                        fontSize="inherit"
-                        viewBox="2 2 18 18"
-                        onClick={() => setAreChildrenVisible(false)}
-                        isSelected={entityData?.urn === node.urn}
-                    />
-                )}
-                {!areChildrenVisible && (
-                    <StyledRightOutlined
-                        fontSize="inherit"
-                        viewBox="2 2 18 18"
-                        onClick={() => setAreChildrenVisible(true)}
-                        isSelected={entityData?.urn === node.urn}
-                    />
-                )}
+                <CaretSlot>
+                    {noOfChildren > 0 &&
+                        (areChildrenVisible ? (
+                            <StyledCaretDown
+                                size={14}
+                                weight="regular"
+                                onClick={() => setAreChildrenVisible(false)}
+                                $isSelected={entityData?.urn === node.urn}
+                            />
+                        ) : (
+                            <StyledCaretRight
+                                size={14}
+                                weight="regular"
+                                onClick={() => setAreChildrenVisible(true)}
+                                $isSelected={entityData?.urn === node.urn}
+                            />
+                        ))}
+                </CaretSlot>
+                <StyledNodeIcon color={glossaryColor} icon={NodeIcon} size={24} iconSize={14} />
                 {!isSelecting && (
                     <NodeLink
                         to={`${entityRegistry.getEntityUrl(node.type, node.urn)}`}
@@ -227,11 +226,7 @@ function NodeItem(props: Props) {
             <StyledDivider depth={depth} />
             {areChildrenVisible && (
                 <>
-                    {!children.length && loading && (
-                        <LoadingWrapper>
-                            <LoadingOutlined />
-                        </LoadingWrapper>
-                    )}
+                    {!children.length && loading && <Loader size="xs" padding={8} />}
                     {children.length > 0 && (
                         <ChildrenWrapper>
                             {(childNodes as GlossaryNode[]).map((child) => (
@@ -247,6 +242,7 @@ function NodeItem(props: Props) {
                                     key={child.urn}
                                     depth={depth + 1}
                                     selectedUrns={selectedUrns}
+                                    iconColor={glossaryColor}
                                 />
                             ))}
                             {!hideTerms &&
@@ -259,6 +255,7 @@ function NodeItem(props: Props) {
                                             includeActiveTabPath
                                             depth={depth + 1}
                                             selectedUrns={selectedUrns}
+                                            iconColor={glossaryColor}
                                         />
                                         <StyledDivider depth={depth + 1} />
                                     </span>

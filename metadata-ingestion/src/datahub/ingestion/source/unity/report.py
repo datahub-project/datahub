@@ -81,6 +81,12 @@ class UnityCatalogReport(SQLSourceReport):
     num_metric_view_unparseable_sources: int = 0
     num_metric_view_skipped_dim_measure_entries: int = 0
     num_metric_view_expr_empty_tree: int = 0
+    num_metric_view_unresolved_measure_refs: int = 0
+    num_metric_view_display_name_truncated: int = 0
+    num_metric_view_synonyms_overflow: int = 0
+    num_metric_view_synonyms_truncated: int = 0
+    num_metric_view_synonyms_dropped_invalid: int = 0
+    num_metric_view_format_unknown_subkeys: int = 0
 
     # Platform resource repository for automatic cache statistics via SupportsAsObj
     tag_urn_resolver_cache: Optional["UnityCatalogPlatformResourceRepository"] = None

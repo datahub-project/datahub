@@ -90,6 +90,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8Sem
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.CustomQuery;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.Es8BulkListener;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.LegacyRangeQueryNormalizer;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -105,6 +106,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -241,6 +243,22 @@ import org.opensearch.search.suggest.SuggestionBuilder;
 @Slf4j
 public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<?>>
     implements ElasticSearchClientShim<ElasticsearchClient> {
+
+  /**
+   * ES8+ silently strips {@code doc_values: false} from {@code search_as_you_type} fields on
+   * round-trip. Including it in the authored mapping creates a permanent diff against what the
+   * cluster returns and triggers a reindex on every system update cycle, so we omit it here.
+   */
+  public static final Map<String, String> PARTIAL_NGRAM_CONFIG =
+      ImmutableMap.of(
+          "type", "search_as_you_type",
+          "max_shingle_size", "4");
+
+  /**
+   * ES8 injects {@code type: custom} on custom analyzers when settings are persisted, but authored
+   * V2 index settings omit {@code type} on analyzer definitions.
+   */
+  public static final String INJECTED_CUSTOM_ANALYZER_TYPE = "custom";
 
   @Getter private final ShimConfiguration shimConfiguration;
   private final SearchEngineType engineType;
@@ -540,7 +558,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     if (aggregations == null) {
       return Collections.emptyMap();
     }
-    JsonNode mappings = objectMapper.readTree(aggregations.toString());
+    JsonNode mappings = objectMapper.readTree(normalizeQueryJson(aggregations.toString()));
     return mappings.properties().stream()
         .collect(
             Collectors.toMap(
@@ -1424,20 +1442,52 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     return engineType;
   }
 
-  /**
-   * ES8+ silently strips {@code doc_values: false} from {@code search_as_you_type} fields on
-   * round-trip. Including it in the authored mapping creates a permanent diff against what the
-   * cluster returns and triggers a reindex on every system update cycle, so we omit it here.
-   */
-  public static final Map<String, String> PARTIAL_NGRAM_CONFIG =
-      ImmutableMap.of(
-          "type", "search_as_you_type",
-          "max_shingle_size", "4");
+  /** ES8-specific index analysis settings comparison rules for reindex detection. */
+  public static final class IndexSettingsComparison {
+    private IndexSettingsComparison() {}
+
+    @Nonnull
+    public static Set<String> storedNamesForComparison(
+        @Nonnull Map<String, Object> targetSettings, @Nonnull Settings storedSettings) {
+      Set<String> names = new HashSet<>(storedSettings.names());
+      if (!targetSettings.containsKey("type") && names.remove("type")) {
+        String typeValue = storedSettings.get("type");
+        if (typeValue == null || !INJECTED_CUSTOM_ANALYZER_TYPE.equalsIgnoreCase(typeValue)) {
+          names.add("type");
+        }
+      }
+      return names;
+    }
+
+    public static boolean valuesEqual(@Nullable Object targetValue, @Nullable String storedValue) {
+      if (com.linkedin.metadata.utils.elasticsearch.IndexSettingsComparison.Strict.INSTANCE
+          .indexSettingValuesEqual(targetValue, storedValue)) {
+        return true;
+      }
+      if (targetValue == null || storedValue == null) {
+        return false;
+      }
+      return targetValue.toString().equalsIgnoreCase(storedValue);
+    }
+  }
 
   @Nonnull
   @Override
   public Map<String, String> partialNgramConfig() {
     return PARTIAL_NGRAM_CONFIG;
+  }
+
+  @Nonnull
+  @Override
+  public Set<String> indexSettingNamesForComparison(
+      @Nonnull Map<String, Object> targetSettings, @Nonnull Settings storedSettings) {
+    return IndexSettingsComparison.storedNamesForComparison(targetSettings, storedSettings);
+  }
+
+  @Override
+  public boolean indexSettingValuesEqual(
+      @Nullable Object targetValue, @Nullable String storedValue) {
+    return IndexSettingsComparison.valuesEqual(targetValue, storedValue);
   }
 
   @Nonnull
@@ -1808,7 +1858,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     if (osQuery == null) {
       return null;
     }
-    String jsonString = osQuery.toString();
+    String jsonString = normalizeQueryJson(osQuery.toString());
     return Query.of(
         q ->
             q.withJson(
@@ -1817,12 +1867,21 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   private Rescore convertRescore(RescorerBuilder<?> rescorerBuilder) {
-    String jsonString = rescorerBuilder.toString();
+    String jsonString = normalizeQueryJson(rescorerBuilder.toString());
     return Rescore.of(
         q ->
             q.withJson(
                 jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
                 jacksonJsonpMapper));
+  }
+
+  /** Normalizes legacy OpenSearch HLRC JSON (queries, rescores, aggregations) for ES 8.18+. */
+  private String normalizeQueryJson(String jsonString) {
+    try {
+      return LegacyRangeQueryNormalizer.normalize(jsonString, objectMapper);
+    } catch (JsonProcessingException e) {
+      return jsonString;
+    }
   }
 
   private FieldSuggester convertSuggestion(SuggestionBuilder<?> suggestionBuilder) {

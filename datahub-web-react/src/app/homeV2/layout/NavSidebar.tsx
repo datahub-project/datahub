@@ -1,6 +1,7 @@
 import { Avatar } from '@components';
 import { Skeleton } from 'antd';
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -100,6 +101,7 @@ const NavSkeleton = () => {
 };
 
 export const NavSidebar = () => {
+    const { t } = useTranslation('home.v2');
     const appConfig = useAppConfig();
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
@@ -109,7 +111,7 @@ export const NavSidebar = () => {
     const customLogoUrl = appConfig.config.visualConfig.logoUrl;
     const hasCustomLogo = customLogoUrl && customLogoUrl !== DEFAULT_LOGO;
 
-    const logoComponent = hasCustomLogo ? <CustomLogo alt="logo" src={customLogoUrl} /> : <AcrylIcon />;
+    const logoComponent = hasCustomLogo ? <CustomLogo alt={t('navBar.logoAlt')} src={customLogoUrl} /> : <AcrylIcon />;
 
     return (
         <Container>

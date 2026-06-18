@@ -7,16 +7,23 @@ import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.inject.name.Named;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.ratelimit.GraphQLOperationNameResolver;
+import com.linkedin.metadata.ratelimit.RateLimitEngine;
+import com.linkedin.metadata.ratelimit.RateLimitHeaderWriter;
+import com.linkedin.metadata.ratelimit.model.RateLimitDecision;
+import com.linkedin.metadata.ratelimit.model.RateLimitLease;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
 import io.datahubproject.metadata.context.OperationContext;
@@ -29,10 +36,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -54,6 +63,8 @@ public class GraphQLController {
 
   @Inject MetricUtils metricUtils;
 
+  @Inject RateLimitEngine rateLimitEngine;
+
   @Nonnull
   @Inject
   @Named("systemOperationContext")
@@ -61,11 +72,13 @@ public class GraphQLController {
 
   private static final int MAX_LOG_WIDTH = 512;
 
-  @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
-  CompletableFuture<ResponseEntity<String>> postGraphQL(
-      HttpServletRequest request, HttpEntity<String> httpEntity) {
+  /**
+   * Serializes GraphQL execution results. Must not use {@link JsonInclude.Include#NON_NULL} —
+   * nullable fields are returned as explicit JSON nulls, and clients rely on that shape.
+   */
+  private static final ObjectMapper GRAPHQL_RESPONSE_MAPPER = createGraphQLResponseMapper();
 
-    String jsonStr = httpEntity.getBody();
+  private static ObjectMapper createGraphQLResponseMapper() {
     ObjectMapper mapper = new ObjectMapper();
     int maxSize =
         Integer.parseInt(
@@ -74,6 +87,16 @@ public class GraphQLController {
     mapper
         .getFactory()
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    mapper.registerModule(new Jdk8Module());
+    return mapper;
+  }
+
+  @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
+  CompletableFuture<ResponseEntity<String>> postGraphQL(
+      HttpServletRequest request, HttpEntity<String> httpEntity) {
+
+    String jsonStr = httpEntity.getBody();
+    ObjectMapper mapper = systemOperationContext.getObjectMapper();
     JsonNode bodyJson = null;
     try {
       bodyJson = mapper.readTree(jsonStr);
@@ -103,6 +126,7 @@ public class GraphQLController {
         (operationNameJson != null && !operationNameJson.isNull())
             ? operationNameJson.asText()
             : null;
+    final String resolvedOperationName = GraphQLOperationNameResolver.resolve(operationName, query);
 
     /*
      * Extract "variables" map
@@ -110,13 +134,9 @@ public class GraphQLController {
     JsonNode variablesJson = bodyJson.get("variables");
     final Map<String, Object> variables =
         (variablesJson != null && !variablesJson.isNull())
-            ? new ObjectMapper()
-                .convertValue(variablesJson, new TypeReference<Map<String, Object>>() {})
+            ? mapper.convertValue(variablesJson, new TypeReference<Map<String, Object>>() {})
             : Collections.emptyMap();
 
-    /*
-     * Init QueryContext
-     */
     Authentication authentication = AuthenticationContext.getAuthentication();
 
     SpringQueryContext context =
@@ -127,7 +147,7 @@ public class GraphQLController {
             systemOperationContext,
             configurationProvider,
             request,
-            operationName,
+            resolvedOperationName,
             query,
             variables);
     Span.current().setAttribute(ACTOR_URN_ATTR, context.getActorUrn());
@@ -136,62 +156,105 @@ public class GraphQLController {
     final String queryName = context.getQueryName();
     log.debug("Query: {}, variables: {}", query, variables);
 
-    return GraphQLConcurrencyUtils.supplyAsync(
-        () -> {
-          log.debug("Executing operation {} for {}", queryName, threadName);
+    RateLimitDecision rateLimitDecision =
+        rateLimitEngine.evaluateAndAcquireGraphQL(
+            request.getRequestURI(), request.getMethod(), resolvedOperationName);
+    if (!rateLimitDecision.isAllowed()) {
+      try {
+        HttpHeaders headers = new HttpHeaders();
+        RateLimitHeaderWriter.createHeaders(rateLimitDecision).forEach(headers::add);
+        return CompletableFuture.completedFuture(
+            new ResponseEntity<>(
+                mapper.writeValueAsString(Map.of("error", "Rate limit exceeded")),
+                headers,
+                HttpStatus.TOO_MANY_REQUESTS));
+      } catch (JsonProcessingException e) {
+        return CompletableFuture.completedFuture(
+            new ResponseEntity<>(HttpStatus.TOO_MANY_REQUESTS));
+      }
+    }
+    final RateLimitLease rateLimitLease = rateLimitEngine.toLease(rateLimitDecision);
+    final HttpHeaders rateLimitHeaders = new HttpHeaders();
+    RateLimitHeaderWriter.createHeaders(rateLimitDecision).forEach(rateLimitHeaders::add);
+    final AtomicBoolean executionSucceeded = new AtomicBoolean(false);
+    boolean asyncStarted = false;
+    try {
+      CompletableFuture<ResponseEntity<String>> executionFuture =
+          GraphQLConcurrencyUtils.supplyAsync(
+              () -> {
+                log.debug("Executing operation {} for {}", queryName, threadName);
 
-          /*
-           * Execute GraphQL Query
-           */
-          ExecutionResult executionResult =
-              _engine.execute(query, operationName, variables, context);
+                /*
+                 * Execute GraphQL Query
+                 */
+                ExecutionResult executionResult =
+                    _engine.execute(query, operationName, variables, context);
 
-          if (executionResult.getErrors().size() != 0) {
-            // There were GraphQL errors. Report in error logs.
-            log.error(
-                "Errors while executing query: {}, result: {}, errors: {}",
-                StringUtils.abbreviate(query, MAX_LOG_WIDTH),
-                executionResult.toSpecification(),
-                executionResult.getErrors());
-          }
+                executionSucceeded.set(executionResult.getErrors().isEmpty());
 
-          /*
-           * Format & Return Response
-           */
-          try {
-            long totalDuration = submitMetrics(executionResult);
-            // Remove tracing from response to reduce bulk, not used by the frontend
-            executionResult.getExtensions().remove("tracing");
-            String responseBodyStr =
-                new ObjectMapper().writeValueAsString(executionResult.toSpecification());
-            if (totalDuration
-                >= configurationProvider.getGraphQL().getQuery().getSlowQueryThresholdMs()) {
-              log.info(
-                  "Slow operation {} took {} ms (response size: {})",
-                  queryName,
-                  totalDuration,
-                  responseBodyStr.length());
-            } else if (totalDuration > 0) {
-              log.debug(
-                  "Executed operation {} in {} ms (response size: {})",
-                  queryName,
-                  totalDuration,
-                  responseBodyStr.length());
-            } else {
-              log.debug(
-                  "Executed operation {} (response size: {})", queryName, responseBodyStr.length());
-            }
-            log.trace("Execution result: {}", responseBodyStr);
-            return new ResponseEntity<>(responseBodyStr, HttpStatus.OK);
-          } catch (IllegalArgumentException | JsonProcessingException e) {
-            log.error(
-                "Failed to convert execution result {} into a JsonNode",
-                executionResult.toSpecification());
-            return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-          }
-        },
-        this.getClass().getSimpleName(),
-        "postGraphQL");
+                if (!executionSucceeded.get()) {
+                  // There were GraphQL errors. Report in error logs.
+                  log.error(
+                      "Errors while executing query: {}, result: {}, errors: {}",
+                      StringUtils.abbreviate(query, MAX_LOG_WIDTH),
+                      executionResult.toSpecification(),
+                      executionResult.getErrors());
+                }
+
+                /*
+                 * Format & Return Response
+                 */
+                try {
+                  long totalDuration = submitMetrics(executionResult);
+                  // Remove tracing from response to reduce bulk, not used by the frontend
+                  executionResult.getExtensions().remove("tracing");
+                  String responseBodyStr =
+                      GRAPHQL_RESPONSE_MAPPER.writeValueAsString(executionResult.toSpecification());
+                  if (totalDuration
+                      >= configurationProvider.getGraphQL().getQuery().getSlowQueryThresholdMs()) {
+                    log.info(
+                        "Slow operation {} took {} ms (response size: {})",
+                        queryName,
+                        totalDuration,
+                        responseBodyStr.length());
+                  } else if (totalDuration > 0) {
+                    log.debug(
+                        "Executed operation {} in {} ms (response size: {})",
+                        queryName,
+                        totalDuration,
+                        responseBodyStr.length());
+                  } else {
+                    log.debug(
+                        "Executed operation {} (response size: {})",
+                        queryName,
+                        responseBodyStr.length());
+                  }
+                  log.trace("Execution result: {}", responseBodyStr);
+                  return new ResponseEntity<>(responseBodyStr, rateLimitHeaders, HttpStatus.OK);
+                } catch (IllegalArgumentException | JsonProcessingException e) {
+                  log.error(
+                      "Failed to convert execution result {} into a JsonNode",
+                      executionResult.toSpecification());
+                  return new ResponseEntity<>(rateLimitHeaders, HttpStatus.SERVICE_UNAVAILABLE);
+                }
+              },
+              this.getClass().getSimpleName(),
+              "postGraphQL");
+      executionFuture.whenComplete(
+          (response, error) ->
+              rateLimitEngine.release(
+                  rateLimitLease,
+                  error == null
+                      && response != null
+                      && response.getStatusCode().is2xxSuccessful()
+                      && executionSucceeded.get()));
+      asyncStarted = true;
+      return executionFuture;
+    } finally {
+      if (!asyncStarted) {
+        rateLimitEngine.release(rateLimitLease, false);
+      }
+    }
   }
 
   @GetMapping("/graphql")
