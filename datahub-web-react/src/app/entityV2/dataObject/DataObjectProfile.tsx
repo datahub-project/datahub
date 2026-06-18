@@ -8,6 +8,7 @@ import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sid
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
+import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 
@@ -61,6 +62,12 @@ export const DataObjectProfile = ({ urn }: { urn: string }): JSX.Element => {
                 },
                 {
                     component: SidebarDomainSection,
+                    display: {
+                        visible: () => true,
+                    },
+                },
+                {
+                    component: SidebarStructuredProperties,
                     display: {
                         visible: () => true,
                     },
