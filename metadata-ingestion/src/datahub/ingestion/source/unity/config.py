@@ -367,6 +367,19 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    emit_queries: bool = pydantic.Field(
+        default=True,
+        description="Emit DataHub Query entities for statements reconstructed from "
+        "system tables. Only effective on the system-tables usage path.",
+    )
+
+    parse_unmatched_queries: bool = pydantic.Field(
+        default=True,
+        description="On the system-tables usage path, fall back to SQL parsing for "
+        "statements present in query history but without lineage rows (e.g. serverless "
+        "or best-effort misses). Disable to force a pure no-parse run.",
+    )
+
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
         UnityCatalogGEProfilerConfig,
@@ -470,12 +483,21 @@ class UnityCatalogSourceConfig(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )
 
-    @field_validator("start_time", mode="after")
-    @classmethod
-    def within_thirty_days(cls, v: datetime) -> datetime:
-        if (datetime.now(timezone.utc) - v).days > 30:
-            raise ValueError("Query history is only maintained for 30 days.")
-        return v
+    @model_validator(mode="after")
+    def validate_start_time_window(self) -> "UnityCatalogSourceConfig":
+        uses_system_tables = bool(self.warehouse_id) and (
+            self.usage_data_source != UsageDataSource.API
+            or self.lineage_data_source != LineageDataSource.API
+        )
+        # system.query.history / system.access.* retain ~365 days; the REST API is limited to 30.
+        max_days = 365 if uses_system_tables else 30
+        age_days = (datetime.now(timezone.utc) - self.start_time).days
+        if age_days > max_days:
+            raise ValueError(
+                f"start_time is {age_days} days old; the configured source retains at "
+                f"most {max_days} days of history."
+            )
+        return self
 
     @field_validator("workspace_url", mode="after")
     @classmethod

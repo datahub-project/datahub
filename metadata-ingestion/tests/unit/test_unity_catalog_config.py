@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 import time_machine
@@ -27,9 +27,7 @@ def test_within_thirty_days():
     )
     assert config.start_time == FROZEN_TIME - timedelta(days=30)
 
-    with pytest.raises(
-        ValueError, match="Query history is only maintained for 30 days."
-    ):
+    with pytest.raises(ValueError, match="retains at most 30 days of history"):
         UnityCatalogSourceConfig.model_validate(
             {
                 "token": "token",
@@ -602,3 +600,34 @@ def test_uses_table_level_profiler_helpers():
     assert cfg.is_sqlalchemy_profiling() is False
     assert cfg.is_ge_profiling() is False
     assert cfg.uses_table_level_profiler() is False
+
+
+def _base(**kw):
+    cfg = {
+        "workspace_url": "https://x.cloud.databricks.com",
+        "token": "t",
+        **kw,
+    }
+    return cfg
+
+
+def test_emit_and_parse_flags_default_true():
+    c = UnityCatalogSourceConfig.model_validate(_base())
+    assert c.emit_queries is True
+    assert c.parse_unmatched_queries is True
+
+
+def test_window_allows_365_days_with_warehouse_system_tables():
+    start = datetime.now(timezone.utc) - timedelta(days=120)
+    c = UnityCatalogSourceConfig.model_validate(
+        _base(warehouse_id="wh1", usage_data_source="SYSTEM_TABLES", start_time=start)
+    )
+    assert c.start_time == start
+
+
+def test_window_still_capped_at_30_days_for_api():
+    start = datetime.now(timezone.utc) - timedelta(days=120)
+    with pytest.raises(ValueError):
+        UnityCatalogSourceConfig.model_validate(
+            _base(usage_data_source="API", start_time=start)
+        )
