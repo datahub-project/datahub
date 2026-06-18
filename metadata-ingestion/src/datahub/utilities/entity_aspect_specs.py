@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, Optional, Set
+from typing import Any, Dict, Iterable, Optional, Set
 
 logger = logging.getLogger(__name__)
 
@@ -72,3 +72,20 @@ class EntityAspectSpecs:
         version = annotation.get("schemaVersion")
         if version is not None:
             self.aspect_schema_versions[name] = int(version)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to a JSON-friendly dict (sets become sorted lists)."""
+        return {
+            "entity_aspects": {k: sorted(v) for k, v in self.entity_aspects.items()},
+            "aspect_schema_versions": self.aspect_schema_versions,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "EntityAspectSpecs":
+        """Inverse of :meth:`to_dict`."""
+        return cls(
+            entity_aspects={k: set(v) for k, v in data["entity_aspects"].items()},
+            aspect_schema_versions={
+                k: int(v) for k, v in (data.get("aspect_schema_versions") or {}).items()
+            },
+        )

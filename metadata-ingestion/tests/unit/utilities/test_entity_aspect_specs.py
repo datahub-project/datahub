@@ -41,3 +41,13 @@ def test_schema_version_unregistered_aspect_raises() -> None:
     specs = EntityAspectSpecs(entity_aspects={"dataset": {"status"}})
     with pytest.raises(ValueError):
         specs.schema_version("chartInfo")
+
+
+def test_dict_roundtrip() -> None:
+    specs = EntityAspectSpecs(
+        entity_aspects={"dataset": {"ownership", "status"}},
+        aspect_schema_versions={"datasetProperties": 2},
+    )
+    restored = EntityAspectSpecs.from_dict(specs.to_dict())
+    assert restored.entity_aspects == specs.entity_aspects
+    assert restored.aspect_schema_versions == specs.aspect_schema_versions
