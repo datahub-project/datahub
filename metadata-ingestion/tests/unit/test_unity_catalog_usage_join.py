@@ -1,7 +1,7 @@
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import List
+from typing import Iterator, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -336,6 +336,8 @@ def test_observed_query_timestamps_normalized_to_utc(
     ts_plus2 = datetime(2026, 6, 1, 12, 0, tzinfo=timezone(timedelta(hours=2)))
     # +00:00 fixed-offset — same wall-clock as UTC but NOT the timezone.utc singleton
     ts_fixed_utc = datetime(2026, 6, 1, 10, 0, tzinfo=timezone(timedelta(0)))
+    # naive datetime (no tzinfo) — must be treated as UTC via replace(tzinfo=utc)
+    ts_naive = datetime(2026, 6, 1, 8, 30)
 
     config = MagicMock()
     config.emit_queries = True
@@ -346,13 +348,14 @@ def test_observed_query_timestamps_normalized_to_utc(
     proxy.get_query_history_via_system_tables.return_value = [
         _query_with_ts(ts_plus2, "q1"),
         _query_with_ts(ts_fixed_utc, "q2"),
+        _query_with_ts(ts_naive, "q3"),
     ]
     ex = _extractor(config, proxy)
 
     list(ex.get_usage_workunits(set()))
 
     agg = agg_instance[0]
-    assert len(agg.observed) == 2, f"expected 2 queries, got {len(agg.observed)}"
+    assert len(agg.observed) == 3, f"expected 3 queries, got {len(agg.observed)}"
 
     for obs in agg.observed:
         ts = obs.timestamp
@@ -361,6 +364,12 @@ def test_observed_query_timestamps_normalized_to_utc(
         assert ts.tzinfo is timezone.utc, (
             f"expected timezone.utc singleton, got {ts.tzinfo!r} for timestamp {ts}"
         )
+
+    # The naive timestamp (q3) must be treated as UTC via replace — wall-clock unchanged.
+    obs_naive = next(o for o in agg.observed if o.query == "SELECT q3")
+    assert obs_naive.timestamp == datetime(2026, 6, 1, 8, 30, tzinfo=timezone.utc), (
+        f"naive ts must be UTC-stamped without wall-clock adjustment, got {obs_naive.timestamp}"
+    )
 
 
 def test_use_system_tables_join_delegates_to_config() -> None:
@@ -908,6 +917,82 @@ def test_zero_queries_emits_no_usage_workunits(
     warning_messages = [w.message for w in ex.report.warnings]
     assert "no-queries-found" in warning_messages, (
         f"Expected 'no-queries-found' warning, got: {warning_messages}"
+    )
+
+
+def test_fetch_failure_reports_failure_and_no_usage_workunits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When num_queries == 0 AND a fetch failure was recorded during the run,
+    get_usage_workunits must call report_failure('usage-fetch-failed', ...) and
+    return without emitting any datasetUsageStatistics workunits or the benign
+    'no-queries-found' warning.
+
+    This guards the C1 fix: a swallowed streaming fetch failure must not look like
+    a normal empty-history run.
+    """
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            pass
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            pass
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.emit_queries = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+
+    report = UnityCatalogReport()
+
+    # Simulate a proxy whose _fetch_queries (via get_query_history_via_system_tables)
+    # swallows a streaming DB error: it yields no rows AND bumps the fetch-failure
+    # counter — exactly what _execute_sql_query_streaming does on exception.
+    def _failing_fetch(*_args: object, **_kw: object) -> Iterator[Query]:
+        report.num_usage_query_fetch_failures += 1
+        return iter([])
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.side_effect = _failing_fetch
+
+    ex = _extractor(config, proxy)
+    ex.report = report
+
+    ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+    workunits = list(ex.get_usage_workunits({ref}))
+
+    # (a) A 'usage-fetch-failed' failure must be recorded.
+    failure_keys = [getattr(f, "title", None) or f.message for f in report.failures]
+    assert any("usage-fetch-failed" in k for k in failure_keys), (
+        f"expected 'usage-fetch-failed' failure, got: {failure_keys}"
+    )
+
+    # (b) The benign 'no-queries-found' warning must NOT be emitted.
+    warning_messages = [w.message for w in report.warnings]
+    assert "no-queries-found" not in warning_messages, (
+        f"'no-queries-found' must not fire when a fetch failure occurred, "
+        f"got warnings: {warning_messages}"
+    )
+
+    # (c) No datasetUsageStatistics workunits must be emitted.
+    usage_wus = [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetUsageStatisticsClass) is not None
+    ]
+    assert not usage_wus, (
+        f"Expected NO datasetUsageStatistics workunits on fetch failure, "
+        f"but got {len(usage_wus)}: {[wu.id for wu in usage_wus]}"
     )
 
 

@@ -582,8 +582,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 if optional_query:
                     yield optional_query
             except Exception as e:
-                logger.warning(f"Error parsing query: {e}")
-                self.report.report_warning("query-parse", str(e))
+                logger.warning("Error parsing query", exc_info=True)
+                self.report.report_warning(
+                    "query-parse",
+                    context=f"query_id={getattr(query_info, 'query_id', None)}",
+                    exc=e,
+                )
 
     def _query_history(
         self,
