@@ -373,13 +373,6 @@ class UnityCatalogSourceConfig(
         "system tables. Only effective on the system-tables usage path.",
     )
 
-    parse_unmatched_queries: bool = pydantic.Field(
-        default=True,
-        description="On the system-tables usage path, fall back to SQL parsing for "
-        "statements present in query history but without lineage rows (e.g. serverless "
-        "or best-effort misses). Disable to force a pure no-parse run.",
-    )
-
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
         UnityCatalogGEProfilerConfig,

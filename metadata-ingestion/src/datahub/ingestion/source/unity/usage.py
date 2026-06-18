@@ -1,61 +1,21 @@
-import json
 import logging
-import time
-from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generic, Iterable, List, Optional, Set, TypeVar
+from typing import Callable, Iterable, Set
 
-import pyspark
-from databricks.sdk.service.sql import QueryStatementType
-
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.unity.config import (
-    UnityCatalogSourceConfig,
-    UsageDataSource,
-)
+from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
-from datahub.ingestion.source.unity.proxy_types import (
-    OPERATION_STATEMENT_TYPES,
-    Query,
-    QueryStatementInfo,
-    TableReference,
-)
+from datahub.ingestion.source.unity.proxy_types import Query, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
-from datahub.ingestion.source.usage.usage_common import UsageAggregator
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    OperationClass,
-    QueryLanguageClass,
-    QueryPropertiesClass,
-    QuerySourceClass,
-    QueryStatementClass,
-    QuerySubjectClass,
-    QuerySubjectsClass,
+from datahub.metadata.urns import CorpUserUrn
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    ObservedQuery,
+    SqlParsingAggregator,
 )
-from datahub.metadata.urns import QueryUrn
-from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
-from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
-from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
-
-_INGESTION_ACTOR_URN = "urn:li:corpuser:_ingestion"
-
-TableMap = Dict[str, List[TableReference]]
-T = TypeVar("T")
-
-
-@dataclass  # Dataclass over NamedTuple to support generic type annotations
-class GenericTableInfo(Generic[T]):
-    source_tables: List[T]
-    target_tables: List[T]
-
-
-StringTableInfo = GenericTableInfo[str]
-QueryTableInfo = GenericTableInfo[TableReference]
 
 
 @dataclass(eq=False)
@@ -67,409 +27,66 @@ class UnityCatalogUsageExtractor:
     user_urn_builder: Callable[[str], str]
     platform: str = "databricks"
 
-    def __post_init__(self):
-        self.usage_aggregator = UsageAggregator[TableReference](self.config)
-        self._spark_sql_parser: Optional[Any] = None
+    def _use_system_tables_join(self) -> bool:
+        return self.config.usage_uses_system_tables(self.proxy.warehouse_id)
 
-    @property
-    def spark_sql_parser(self):
-        """Lazily initializes the Spark SQL parser."""
-        if self._spark_sql_parser is None:
-            spark_context = pyspark.SparkContext.getOrCreate()
-            spark_session = pyspark.sql.SparkSession(spark_context)
-            self._spark_sql_parser = (
-                spark_session._jsparkSession.sessionState().sqlParser()
+    def _build_aggregator(self) -> SqlParsingAggregator:
+        schema_resolver = SchemaResolver(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+        # UnityCatalogSourceConfig extends BaseUsageConfig so self.config satisfies
+        # the usage_config parameter type.
+        return SqlParsingAggregator(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            schema_resolver=schema_resolver,
+            generate_lineage=False,  # lineage stays on system.access
+            generate_queries=self.config.emit_queries,
+            generate_query_usage_statistics=self.config.emit_queries,
+            generate_usage_statistics=True,
+            generate_operations=self.config.include_operational_stats,
+            usage_config=self.config,
+            format_queries=False,
+        )
+
+    def _fetch_queries(self) -> Iterable[Query]:
+        if self._use_system_tables_join():
+            return self.proxy.get_query_history_via_system_tables(
+                self.config.start_time, self.config.end_time
             )
-        return self._spark_sql_parser
+        return self.proxy.query_history(self.config.start_time, self.config.end_time)
 
     def get_usage_workunits(
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
+        aggregator = self._build_aggregator()
         try:
-            yield from self._get_workunits_internal(table_refs)
+            for query in self._fetch_queries():
+                self.report.num_queries += 1
+                aggregator.add_observed_query(
+                    ObservedQuery(
+                        query=query.query_text,
+                        timestamp=query.start_time,
+                        user=(
+                            CorpUserUrn.from_string(
+                                self.user_urn_builder(query.user_name)
+                            )
+                            if query.user_name
+                            else None
+                        ),
+                        default_db=None,
+                        default_schema=None,
+                    )
+                )
+            yield from auto_workunit(aggregator.gen_metadata())
         except Exception as e:
             logger.error("Error processing usage", exc_info=True)
             self.report.report_warning("usage-extraction", str(e))
         finally:
-            # Release the aggregator's temp SQLite database once usage emission is done.
-            # Guarded so a close() failure can't mask an exception from the generator body.
             try:
-                self.usage_aggregator.close()
+                aggregator.close()
             except Exception:
-                logger.warning("Failed to close usage aggregator", exc_info=True)
-
-    def _use_system_tables_join(self) -> bool:
-        return self.config.usage_uses_system_tables(self.proxy.warehouse_id)
-
-    def _track_unique_query(
-        self, query_text: str, query_hashes: "FileBackedDict[int]"
-    ) -> None:
-        query_hashes[get_query_fingerprint(query_text, "databricks", fast=True)] = 1
-        self.report.num_unique_queries = len(query_hashes)
-
-    def _get_workunits_internal(
-        self, table_refs: Set[TableReference]
-    ) -> Iterable[MetadataWorkUnit]:
-        table_map = defaultdict(list)
-        for ref in table_refs:
-            table_map[ref.table].append(ref)
-            table_map[f"{ref.schema}.{ref.table}"].append(ref)
-            table_map[ref.qualified_table_name].append(ref)
-
-        # Disk-backed sets bound memory at millions-of-statements scale.
-        # Value is always 1; we only use key membership and len().
-        matched_ids: FileBackedDict[int] = FileBackedDict()
-        query_hashes: FileBackedDict[int] = FileBackedDict()
-        try:
-            if self._use_system_tables_join():
-                with self.report.usage_perf_report.get_queries_timer:
-                    for info in self.proxy.get_query_usage_via_system_tables(
-                        self.config.start_time, self.config.end_time
-                    ):
-                        self.report.num_queries += 1
-                        self.report.num_queries_resolved_via_lineage += 1
-                        if info.query.query_id:
-                            matched_ids[info.query.query_id] = 1
-                        with self.report.usage_perf_report.query_fingerprinting_timer:
-                            self._track_unique_query(
-                                info.query.query_text, query_hashes
-                            )
-                        table_info = QueryTableInfo(
-                            source_tables=self._resolve_tables(
-                                info.source_tables, table_map
-                            ),
-                            target_tables=self._resolve_tables(
-                                info.target_tables, table_map
-                            ),
-                        )
-                        yield from self._aggregate_query_usage(info.query, table_info)
-                        if self.config.emit_queries:
-                            yield from self._emit_query_entity(info, table_map)
-
-                if self.config.parse_unmatched_queries:
-                    for query in self.proxy.get_query_history_via_system_tables(
-                        self.config.start_time, self.config.end_time
-                    ):
-                        if query.query_id in matched_ids:
-                            continue
-                        # Count every processed query (consistent with the lineage
-                        # branch and the API path) so the post-loop "no queries"
-                        # guard does not suppress usage emitted purely via fallback.
-                        self.report.num_queries += 1
-                        self.report.num_queries_missing_lineage += 1
-                        fallback_table_info = self._parse_query(query, table_map)
-                        if fallback_table_info is None:
-                            continue
-                        self.report.num_queries_resolved_via_parse_fallback += 1
-                        yield from self._aggregate_query_usage(
-                            query, fallback_table_info
-                        )
-            else:
-                with self.report.usage_perf_report.get_queries_timer as current_timer:
-                    for query in self._get_queries():
-                        self.report.num_queries += 1
-                        with current_timer.pause():
-                            with (
-                                self.report.usage_perf_report.query_fingerprinting_timer
-                            ):
-                                self._track_unique_query(query.query_text, query_hashes)
-                            parsed_table_info = self._parse_query(query, table_map)
-                            if parsed_table_info is not None:
-                                yield from self._aggregate_query_usage(
-                                    query, parsed_table_info
-                                )
-        finally:
-            try:
-                matched_ids.close()
-            except Exception:
-                logger.warning(
-                    "Failed to close matched_ids FileBackedDict", exc_info=True
-                )
-            try:
-                query_hashes.close()
-            except Exception:
-                logger.warning(
-                    "Failed to close query_hashes FileBackedDict", exc_info=True
-                )
-
-        if not self.report.num_queries:
-            logger.warning("No queries found in the given time range.")
-            if self._use_system_tables_join():
-                self.report.report_warning(
-                    "usage",
-                    "No queries found: ensure the service principal has SELECT access on "
-                    "system.access and system.query schemas, and that those schemas are "
-                    "enabled for this workspace.",
-                )
-            else:
-                self.report.report_warning(
-                    "usage",
-                    f"No queries found: "
-                    f"are you missing the CAN_MANAGE permission on SQL warehouse {self.proxy.warehouse_id}?",
-                )
-            return
-
-        yield from auto_empty_dataset_usage_statistics(
-            self.usage_aggregator.generate_workunits(
-                resource_urn_builder=self.table_urn_builder,
-                user_urn_builder=self.user_urn_builder,
-            ),
-            dataset_urns={self.table_urn_builder(ref) for ref in table_refs},
-            config=self.config,
-        )
-
-    def _aggregate_query_usage(
-        self, query: Query, table_info: QueryTableInfo
-    ) -> Iterable[MetadataWorkUnit]:
-        """Emit operational stats and aggregate usage events for a single query.
-
-        Extracted to eliminate duplication across the system-tables join branch,
-        the parse-fallback loop, and the REST-API path.
-        """
-        if self.config.include_operational_stats:
-            yield from self._generate_operation_workunit(query, table_info)
-        for source_table in table_info.source_tables:
-            with self.report.usage_perf_report.aggregator_add_event_timer:
-                self.usage_aggregator.aggregate_event(
-                    resource=source_table,
-                    start_time=query.start_time,
-                    query=query.query_text,
-                    user=query.user_name,
-                    fields=[],
-                )
-
-    def _generate_operation_workunit(
-        self, query: Query, table_info: QueryTableInfo
-    ) -> Iterable[MetadataWorkUnit]:
-        with self.report.usage_perf_report.gen_operation_timer:
-            if (
-                not query.statement_type
-                or query.statement_type not in OPERATION_STATEMENT_TYPES
-            ):
-                return None
-
-            # Not sure about behavior when there are multiple target tables. This is a best attempt.
-            for target_table in table_info.target_tables:
-                operation_aspect = OperationClass(
-                    timestampMillis=int(time.time() * 1000),
-                    lastUpdatedTimestamp=int(query.end_time.timestamp() * 1000),
-                    actor=(
-                        self.user_urn_builder(query.user_name)
-                        if query.user_name
-                        else None
-                    ),
-                    operationType=OPERATION_STATEMENT_TYPES[query.statement_type],
-                    affectedDatasets=[
-                        self.table_urn_builder(table)
-                        for table in table_info.source_tables
-                    ],
-                )
-                self.report.num_operational_stats_workunits_emitted += 1
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=self.table_urn_builder(target_table),
-                    aspect=operation_aspect,
-                ).as_workunit()
-
-    def _emit_query_entity(
-        self, info: QueryStatementInfo, table_map: TableMap
-    ) -> Iterable[MetadataWorkUnit]:
-        text = info.query.query_text
-        redacted = not text or text == "<Redacted>"
-        if redacted:
-            self.report.num_queries_text_redacted += 1
-
-        # Without a statement_id (query_id) we fall back to a content fingerprint.
-        # If the text is also redacted we have no stable identity for this Query entity:
-        # every redacted-no-id query would get the same URN and overwrite each other.
-        if not info.query.query_id and redacted:
-            return
-
-        query_id = info.query.query_id or get_query_fingerprint(
-            text, "databricks", fast=True
-        )
-        query_urn = QueryUrn(query_id).urn()
-        ts_ms = int(info.query.start_time.timestamp() * 1000)
-        audit = AuditStampClass(time=ts_ms, actor=_INGESTION_ACTOR_URN)
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=query_urn,
-            aspect=QueryPropertiesClass(
-                statement=QueryStatementClass(
-                    value="" if redacted else text,
-                    language=QueryLanguageClass.SQL,
-                ),
-                source=QuerySourceClass.SYSTEM,
-                created=audit,
-                lastModified=audit,
-            ),
-        ).as_workunit()
-
-        subject_urns = [
-            self.table_urn_builder(t)
-            for t in self._resolve_tables(
-                info.source_tables + info.target_tables, table_map
-            )
-        ]
-        if subject_urns:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=query_urn,
-                aspect=QuerySubjectsClass(
-                    subjects=[QuerySubjectClass(entity=u) for u in subject_urns]
-                ),
-            ).as_workunit()
-
-        self.report.num_query_entities_emitted += 1
-
-    def _validate_usage_data_source_config(self) -> None:
-        """Validate usage data source configuration before execution."""
-        usage_data_source = self.config.usage_data_source
-
-        if (
-            usage_data_source == UsageDataSource.SYSTEM_TABLES
-            and not self.proxy.warehouse_id
-        ):
-            raise ValueError(
-                "usage_data_source is set to SYSTEM_TABLES but warehouse_id is not configured. "
-                "Either set warehouse_id or use AUTO/API mode."
-            )
-
-    def _get_queries(self) -> Iterable[Query]:
-        try:
-            self._validate_usage_data_source_config()
-            usage_data_source = self.config.usage_data_source
-
-            if usage_data_source == UsageDataSource.AUTO:
-                if self.proxy.warehouse_id:
-                    logger.info(
-                        "Using system tables for usage query history (AUTO mode)"
-                    )
-                    yield from self.proxy.get_query_history_via_system_tables(
-                        self.config.start_time, self.config.end_time
-                    )
-                else:
-                    logger.info(
-                        "Using API for usage query history (AUTO mode, no warehouse)"
-                    )
-                    yield from self.proxy.query_history(
-                        self.config.start_time, self.config.end_time
-                    )
-            elif usage_data_source == UsageDataSource.SYSTEM_TABLES:
-                logger.info("Using system tables for usage query history (forced)")
-                yield from self.proxy.get_query_history_via_system_tables(
-                    self.config.start_time, self.config.end_time
-                )
-            elif usage_data_source == UsageDataSource.API:
-                logger.info("Using API for usage query history (forced)")
-                yield from self.proxy.query_history(
-                    self.config.start_time, self.config.end_time
-                )
-
-        except Exception as e:
-            logger.warning("Error getting queries", exc_info=True)
-            self.report.report_warning("get-queries", str(e))
-
-    def _parse_query(
-        self, query: Query, table_map: TableMap
-    ) -> Optional[QueryTableInfo]:
-        with self.report.usage_perf_report.sql_parsing_timer:
-            table_info = self._parse_query_via_sqlglot(query.query_text)
-            if table_info is None and query.statement_type == QueryStatementType.SELECT:
-                with self.report.usage_perf_report.spark_sql_parsing_timer:
-                    table_info = self._parse_query_via_spark_sql_plan(query.query_text)
-
-            if table_info is None:
-                self.report.num_queries_dropped_parse_failure += 1
-                return None
-            else:
-                return QueryTableInfo(
-                    source_tables=self._resolve_tables(
-                        table_info.source_tables, table_map
-                    ),
-                    target_tables=self._resolve_tables(
-                        table_info.target_tables, table_map
-                    ),
-                )
-
-    def _parse_query_via_sqlglot(self, query: str) -> Optional[StringTableInfo]:
-        try:
-            sql_parser_in_tables = create_lineage_sql_parsed_result(
-                query=query,
-                default_db=None,
-                platform=self.platform,
-                env=self.config.env,
-                platform_instance=None,
-            )
-
-            return GenericTableInfo(
-                source_tables=[
-                    self._parse_sqlglot_table(table)
-                    for table in sql_parser_in_tables.in_tables
-                ],
-                target_tables=[
-                    self._parse_sqlglot_table(table)
-                    for table in sql_parser_in_tables.out_tables
-                ],
-            )
-        except Exception as e:
-            logger.info(f"Could not parse query via sqlglot, {query}: {e!r}")
-            return None
-
-    @staticmethod
-    def _parse_sqlglot_table(table_urn: str) -> str:
-        full_table_name = DatasetUrn.from_string(table_urn).name
-        default_schema = "<default>."
-        if full_table_name.startswith(default_schema):
-            return full_table_name[len(default_schema) :]
-        else:
-            return full_table_name
-
-    def _parse_query_via_spark_sql_plan(self, query: str) -> Optional[StringTableInfo]:
-        """Parse query source tables via Spark SQL plan. This is a fallback option."""
-        # Would be more effective if we upgrade pyspark
-        # Does not work with CTEs or non-SELECT statements
-        try:
-            plan = json.loads(self.spark_sql_parser.parsePlan(query).toJSON())
-            tables = [self._parse_plan_item(item) for item in plan]
-            self.report.num_queries_parsed_by_spark_plan += 1
-            return GenericTableInfo(
-                source_tables=[t for t in tables if t], target_tables=[]
-            )
-        except Exception as e:
-            logger.info(f"Could not parse query via spark plan, {query}: {e!r}")
-            return None
-
-    @staticmethod
-    def _parse_plan_item(item: dict) -> Optional[str]:
-        if item["class"] == "org.apache.spark.sql.catalyst.analysis.UnresolvedRelation":
-            return ".".join(item["multipartIdentifier"].strip("[]").split(", "))
-        return None
-
-    def _resolve_tables(
-        self, tables: List[str], table_map: TableMap
-    ) -> List[TableReference]:
-        """Resolve tables to TableReferences, filtering out unrecognized or unresolvable table names."""
-
-        missing_table = False
-        duplicate_table = False
-        output = []
-        for table in tables:
-            table = str(table)
-            if table not in table_map:
-                logger.debug(f"Dropping query with unrecognized table: {table}")
-                missing_table = True
-            else:
-                refs = table_map[table]
-                if len(refs) == 1:
-                    output.append(refs[0])
-                else:
-                    logger.warning(
-                        f"Could not resolve table ref for {table}: {len(refs)} duplicates."
-                    )
-                    duplicate_table = True
-
-        if missing_table:
-            self.report.num_queries_missing_table += 1
-        if duplicate_table:
-            self.report.num_queries_duplicate_table += 1
-
-        return output
+                logger.warning("Failed to close SqlParsingAggregator", exc_info=True)
