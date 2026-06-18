@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import pytest
 import time_machine
@@ -617,17 +617,34 @@ def test_emit_and_parse_flags_default_true():
     assert c.parse_unmatched_queries is True
 
 
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_window_allows_365_days_with_warehouse_system_tables():
-    start = datetime.now(timezone.utc) - timedelta(days=120)
+    start = FROZEN_TIME - timedelta(days=120)
     c = UnityCatalogSourceConfig.model_validate(
         _base(warehouse_id="wh1", usage_data_source="SYSTEM_TABLES", start_time=start)
     )
     assert c.start_time == start
 
 
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_window_still_capped_at_30_days_for_api():
-    start = datetime.now(timezone.utc) - timedelta(days=120)
+    start = FROZEN_TIME - timedelta(days=120)
     with pytest.raises(ValueError):
         UnityCatalogSourceConfig.model_validate(
             _base(usage_data_source="API", start_time=start)
+        )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_window_capped_at_30_when_warehouse_set_but_all_api():
+    """warehouse_id is set, but both data sources are explicitly API → 30-day cap applies."""
+    start = FROZEN_TIME - timedelta(days=120)
+    with pytest.raises(ValueError, match="retains at most 30 days of history"):
+        UnityCatalogSourceConfig.model_validate(
+            _base(
+                warehouse_id="wh1",
+                usage_data_source="API",
+                lineage_data_source="API",
+                start_time=start,
+            )
         )
