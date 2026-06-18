@@ -1,0 +1,635 @@
+[
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.mp4,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "dataObjectProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "sample.mp4",
+            "qualifiedName": "gs://my-test-bucket/unstructured_media/sample.mp4",
+            "description": "",
+            "created": {
+                "time": 1586848000000,
+                "actor": "urn:li:corpuser:datahub"
+            },
+            "lastModified": {
+                "time": 1586848000000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "gcs",
+                "instance": "test-platform-instance",
+                "env": "UAT",
+                "bucket_name": "my-test-bucket"
+            },
+            "name": "my-test-bucket",
+            "env": "UAT"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.mp4,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Video"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.mp4,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gcs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.mp4,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "objectStorageProperties",
+    "aspect": {
+        "json": {
+            "mimeType": "video/mp4",
+            "sizeBytes": 26,
+            "storagePath": "gs://my-test-bucket/unstructured_media/sample.mp4"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gcs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "GCS bucket"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:c78c49720d1209075f10e2a386884b10"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.pdf,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "objectStorageProperties",
+    "aspect": {
+        "json": {
+            "mimeType": "application/pdf",
+            "sizeBytes": 29,
+            "storagePath": "gs://my-test-bucket/unstructured_media/sample.pdf"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "gcs",
+                "instance": "test-platform-instance",
+                "env": "UAT",
+                "folder_abs_path": "my-test-bucket/unstructured_media"
+            },
+            "name": "unstructured_media",
+            "env": "UAT"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.pdf,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+                    "urn": "urn:li:container:c78c49720d1209075f10e2a386884b10"
+                },
+                {
+                    "id": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0",
+                    "urn": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.pdf,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "dataObjectProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "sample.pdf",
+            "qualifiedName": "gs://my-test-bucket/unstructured_media/sample.pdf",
+            "description": "",
+            "created": {
+                "time": 1586848010000,
+                "actor": "urn:li:corpuser:datahub"
+            },
+            "lastModified": {
+                "time": 1586848010000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gcs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.pdf,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Document"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.pdf,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gcs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+                    "urn": "urn:li:container:c78c49720d1209075f10e2a386884b10"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.pdf,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.mp4,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.pdf,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.png,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "objectStorageProperties",
+    "aspect": {
+        "json": {
+            "mimeType": "image/png",
+            "sizeBytes": 22,
+            "storagePath": "gs://my-test-bucket/unstructured_media/sample.png"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.png,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+                    "urn": "urn:li:container:c78c49720d1209075f10e2a386884b10"
+                },
+                {
+                    "id": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0",
+                    "urn": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.png,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "dataObjectProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "sample.png",
+            "qualifiedName": "gs://my-test-bucket/unstructured_media/sample.png",
+            "description": "",
+            "created": {
+                "time": 1586848020000,
+                "actor": "urn:li:corpuser:datahub"
+            },
+            "lastModified": {
+                "time": 1586848020000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.mp4,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+                    "urn": "urn:li:container:c78c49720d1209075f10e2a386884b10"
+                },
+                {
+                    "id": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0",
+                    "urn": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.png,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Image"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.png,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gcs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.png,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:04e7224e8bf10f06f1227cb5d43c41e0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.png,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataObject",
+    "entityUrn": "urn:li:dataObject:(urn:li:dataPlatform:gcs,my-test-bucket/unstructured_media/sample.mp4,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "unstructured_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
