@@ -658,6 +658,29 @@ class S3Source(StatefulIngestionSourceBase):
                 )
             )
 
+        if table_data.is_s3 and (
+            self.source_config.use_s3_bucket_tags
+            or self.source_config.use_s3_object_tags
+        ):
+            bucket = get_bucket_name(table_data.table_path)
+            key_prefix = (
+                get_key_prefix(table_data.table_path)
+                if table_data.full_path == table_data.table_path
+                else None
+            )
+            s3_tags = get_s3_tags(
+                bucket,
+                key_prefix,
+                str(data_object_urn),
+                self.source_config.aws_config,
+                self.ctx,
+                self.source_config.use_s3_bucket_tags,
+                self.source_config.use_s3_object_tags,
+                self.source_config.verify_ssl,
+            )
+            if s3_tags:
+                aspects.append(s3_tags)
+
         for mcp in MetadataChangeProposalWrapper.construct_many(
             entityUrn=str(data_object_urn), aspects=aspects
         ):

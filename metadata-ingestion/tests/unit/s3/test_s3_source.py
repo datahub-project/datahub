@@ -799,6 +799,12 @@ def test_emit_data_object_emits_expected_aspects():
     assert "DataObjectPropertiesClass" in aspects
     assert "ObjectStoragePropertiesClass" in aspects
     assert "SubTypesClass" in aspects
+    subtype = next(
+        wu.metadata.aspect
+        for wu in wus
+        if type(getattr(wu.metadata, "aspect", None)).__name__ == "SubTypesClass"
+    )
+    assert subtype.typeNames == ["Video"]
     storage = next(
         wu.metadata.aspect
         for wu in wus
