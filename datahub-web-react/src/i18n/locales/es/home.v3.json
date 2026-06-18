@@ -1,0 +1,10 @@
+{
+    "defaultTemplateBar.editingWarning": "Editando la página de inicio predeterminada de la organización",
+    "error.failedToAddSummaryElement": "No se pudo añadir el elemento de resumen",
+    "error.failedToRemoveSummaryElement": "No se pudo eliminar el elemento de resumen",
+    "error.failedToReplaceSummaryElement": "No se pudo reemplazar el elemento de resumen",
+    "error.noTemplateAvailable": "No hay ninguna plantilla disponible para actualizar",
+    "header.discoverLabel": "Descubrir",
+    "toast.editedDescription": "Para restablecer su página de inicio, haga clic en \"Restablecer al valor predeterminado de la organización\"",
+    "toast.editedTitle": "Ha editado su página de inicio"
+}

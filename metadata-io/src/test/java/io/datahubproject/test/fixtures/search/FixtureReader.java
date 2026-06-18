@@ -4,6 +4,8 @@ import static io.datahubproject.test.fixtures.search.SearchFixtureUtils.OBJECT_M
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.Closeable;
@@ -30,6 +32,9 @@ public class FixtureReader {
   @NonNull private ESBulkProcessor bulkProcessor;
   @NonNull private String fixtureName;
   @Builder.Default private String targetIndexPrefix = "";
+
+  @Builder.Default
+  private OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
   private long refreshIntervalSeconds;
 
@@ -62,7 +67,7 @@ public class FixtureReader {
                           // threads (using a constant fallback would hotspot one thread).
                           String routingKey =
                               doc.urn != null ? doc.urn : String.valueOf(line.hashCode());
-                          bulkProcessor.add(routingKey, request);
+                          bulkProcessor.add(opContext, routingKey, request);
                         } catch (JsonProcessingException e) {
                           throw new RuntimeException(e);
                         }

@@ -30,7 +30,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -66,9 +65,6 @@ from datahub.ingestion.source.fabric.onelake.report import (
 from datahub.ingestion.source.fabric.onelake.usage import FabricUsageExtractor
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -240,14 +236,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # what SqlParsingAggregator (sqlglot) emits for view lineage. Display
         # names keep their original case for the UI.
         return name.lower() if self.config.convert_urns_to_lowercase else name
-
-    def get_workunit_processors(self) -> list[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_report(self) -> FabricOneLakeSourceReport:
         """Return the ingestion report."""

@@ -45,6 +45,13 @@ const CSS_NAMED_COLOR_REGEX = new RegExp(
 const MESSAGE =
     'Hardcoded color "{{color}}". Use semantic tokens: `${(props) => props.theme.colors.*}` in styled-components or `useTheme().colors.*` in components. See colorThemes/types.ts for available tokens.';
 
+// The alchemy `violet` and `primary` palettes are static — they bypass the configurable
+// brand color in ColorTheme. Brand/accent color must flow through ColorTheme tokens instead.
+const BRAND_PALETTE_MESSAGE =
+    'Static brand palette "{{value}}" bypasses the central theme. Use a ColorTheme brand token: ' +
+    '`color="iconBrand"`/`textBrand`/`hyperlinks` for Icon/Text, `color="primary"` for Button/Pill, ' +
+    'or `${(props) => props.theme.colors.*}` / `useTheme().colors.*` in styles. See colorThemes/types.ts.';
+
 function findMatches(regex, value) {
     const results = [];
     regex.lastIndex = 0;
@@ -66,6 +73,7 @@ module.exports = {
         schema: [],
         messages: {
             noHardcodedColor: MESSAGE,
+            noBrandPalette: BRAND_PALETTE_MESSAGE,
         },
     },
     create(context) {
@@ -88,6 +96,10 @@ module.exports = {
             });
         }
 
+        function reportBrandPalette(node, value) {
+            context.report({ node, messageId: 'noBrandPalette', data: { value } });
+        }
+
         return {
             Literal(node) {
                 if (typeof node.value === 'string') {
@@ -98,6 +110,30 @@ module.exports = {
                 node.quasis.forEach((quasi) => {
                     checkValue(quasi, quasi.value.raw);
                 });
+            },
+            // alchemy `<Icon|Text|Button|Pill color="violet">` — the static violet palette.
+            JSXAttribute(node) {
+                if (node.name?.name === 'color' && node.value?.type === 'Literal' && node.value.value === 'violet') {
+                    reportBrandPalette(node, 'violet');
+                }
+            },
+            // Object form, e.g. ModalButton `{ color: 'violet', variant: 'text' }`.
+            Property(node) {
+                const keyName = node.key?.name ?? node.key?.value;
+                if (keyName === 'color' && node.value?.type === 'Literal' && node.value.value === 'violet') {
+                    reportBrandPalette(node, 'violet');
+                }
+            },
+            // Raw palette access `colors.violet[...]` / `colors.primary[...]`.
+            MemberExpression(node) {
+                if (
+                    node.object?.type === 'Identifier' &&
+                    node.object.name === 'colors' &&
+                    !node.computed &&
+                    (node.property?.name === 'violet' || node.property?.name === 'primary')
+                ) {
+                    reportBrandPalette(node, `colors.${node.property.name}`);
+                }
             },
         };
     },
