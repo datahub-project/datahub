@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.types.domain;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.DisplayProperties;
 import com.linkedin.common.Forms;
 import com.linkedin.common.InstitutionalMemory;
@@ -17,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.types.common.mappers.AssetSettingsMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
@@ -103,6 +106,12 @@ public class DomainMapper {
       result.setDisplayProperties(
           DisplayPropertiesMapper.map(
               context, new DisplayProperties(envelopedDisplayProperties.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedDeprecation = aspects.get(DEPRECATION_ASPECT_NAME);
+    if (envelopedDeprecation != null) {
+      result.setDeprecation(
+          DeprecationMapper.map(context, new Deprecation(envelopedDeprecation.getValue().data())));
     }
 
     final EnvelopedAspect envelopedAssetSettings =

@@ -1,7 +1,7 @@
-import { Menu } from '@components';
-import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
+import { Menu, toast } from '@components';
 import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Envelope } from '@phosphor-icons/react/dist/csr/Envelope';
 import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import { FolderPlus } from '@phosphor-icons/react/dist/csr/FolderPlus';
@@ -14,12 +14,11 @@ import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Share } from '@phosphor-icons/react/dist/csr/Share';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
-import { message } from 'antd';
 import qs from 'query-string';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Redirect, useHistory } from 'react-router';
-import styled, { useTheme } from 'styled-components';
+import { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
@@ -32,6 +31,10 @@ import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal
 import MoveGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/MoveGlossaryEntityModal';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
+import {
+    DeprecationFormData,
+    useHandleDeprecateDomain,
+} from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import {
     isDeleteDisabled,
     isMoveDisabled,
@@ -59,18 +62,6 @@ import DeprecatedIcon from '@images/deprecated-status.svg?react';
 // Tab path segment passed to getEntityPath — a route identifier, not user-visible copy.
 const INCIDENTS_TAB_NAME = 'Incidents';
 
-const StyledMoreIcon = styled(MoreVertOutlinedIcon)`
-    &&& {
-        display: flex;
-        font-size: 20px;
-        padding: 2px;
-
-        :hover {
-            color: ${(p) => p.theme.styles['primary-color']};
-        }
-    }
-`;
-
 interface Options {
     hideDeleteMessage?: boolean;
     skipDeleteWait?: boolean;
@@ -88,6 +79,7 @@ interface Props {
     onDeleteEntity?: () => void;
     onEditEntity?: () => void;
     triggerType?: ('click' | 'contextMenu' | 'hover')[] | undefined;
+    refetchDeprecation?: (formData?: DeprecationFormData) => void;
 }
 
 const EntityDropdown = (props: Props) => {
@@ -109,6 +101,7 @@ const EntityDropdown = (props: Props) => {
         onEditEntity: onEdit,
         options,
         triggerType = ['click'],
+        refetchDeprecation,
     } = props;
     const { urn: entityProfileUrn, setDrawer } = useEntityContext();
     const onEntityProfile = entityProfileUrn === urn;
@@ -118,6 +111,7 @@ const EntityDropdown = (props: Props) => {
     const versioningEnabled = useAppConfig().config.featureFlags.entityVersioningEnabled;
 
     const [updateDeprecation] = useUpdateDeprecationMutation();
+    const { handleDeprecateDomainComplete } = useHandleDeprecateDomain(urn);
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(
@@ -141,7 +135,7 @@ const EntityDropdown = (props: Props) => {
     const [isChangeHistoryOpen, setIsChangeHistoryOpen] = useState(false);
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
-        message.loading({ content: tcf('updating') });
+        toast.loading(tcf('updating'));
         try {
             await updateDeprecation({
                 variables: {
@@ -153,20 +147,24 @@ const EntityDropdown = (props: Props) => {
                     },
                 },
             });
-            message.destroy();
-            message.success({ content: t('deprecation.updated'), duration: 2 });
+            toast.destroy();
+            toast.success(t('deprecation.updated'), { duration: 2 });
             analytics.event({
                 type: EventType.SetDeprecation,
                 entityUrns: [urn],
                 deprecated: deprecatedStatus,
             });
+            if (entityType === EntityType.Domain) {
+                handleDeprecateDomainComplete(deprecatedStatus);
+            } else if (!deprecatedStatus) {
+                // Mirror the deprecate-modal optimistic path for un-deprecate from this menu,
+                // so the badge and menu item flip immediately (no search refetch needed).
+                refetchDeprecation?.();
+            }
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error) {
-                message.error({
-                    content: t('deprecation.updateError', { errorMessage: e.message || '' }),
-                    duration: 2,
-                });
+                toast.error(t('deprecation.updateError', { errorMessage: e.message || '' }), { duration: 2 });
             }
         }
         refetchForEntity?.();
@@ -194,7 +192,7 @@ const EntityDropdown = (props: Props) => {
             icon: Link,
             onClick: () => {
                 navigator.clipboard.writeText(pageUrl);
-                message.info(t('menuItem.copiedUrl'), 1.2);
+                toast.info(t('menuItem.copiedUrl'), { duration: 1.2 });
             },
         });
     }
@@ -502,7 +500,7 @@ const EntityDropdown = (props: Props) => {
     return (
         <>
             <Menu items={menuItemsList} trigger={triggerType} overlayStyle={{ minWidth: 150 }}>
-                <StyledMoreIcon />
+                <DotsThreeVertical size={20} weight="bold" />
             </Menu>
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
@@ -533,7 +531,17 @@ const EntityDropdown = (props: Props) => {
                 <UpdateDeprecationModal
                     urns={[urn]}
                     onClose={() => setIsDeprecationModalVisible(false)}
-                    refetch={refetchForEntity}
+                    refetch={(formData) => {
+                        refetchForEntity?.();
+                        if (entityType === EntityType.Domain) {
+                            handleDeprecateDomainComplete(true, formData);
+                        } else {
+                            // For non-domain entities (e.g. data products), let the preview
+                            // optimistically update its local deprecation copy so the badge
+                            // shows up immediately without waiting on a search refetch.
+                            refetchDeprecation?.(formData);
+                        }
+                    }}
                 />
             )}
             {isEntityAnnouncementModalVisible && (
