@@ -85,6 +85,14 @@ class UnityCatalogUsageExtractor:
             except Exception:
                 logger.warning("Failed to close usage aggregator", exc_info=True)
 
+    def _use_system_tables_join(self) -> bool:
+        src = self.config.usage_data_source
+        if src == UsageDataSource.SYSTEM_TABLES:
+            return True
+        if src == UsageDataSource.AUTO:
+            return bool(self.proxy.warehouse_id)
+        return False
+
     def _get_workunits_internal(
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
@@ -95,34 +103,87 @@ class UnityCatalogUsageExtractor:
             table_map[f"{ref.schema}.{ref.table}"].append(ref)
             table_map[ref.qualified_table_name].append(ref)
 
-        with self.report.usage_perf_report.get_queries_timer as current_timer:
-            for query in self._get_queries():
-                self.report.num_queries += 1
-                with current_timer.pause():
-                    with self.report.usage_perf_report.query_fingerprinting_timer:
-                        query_hashes.add(
-                            get_query_fingerprint(
-                                query.query_text, "databricks", fast=True
-                            )
+        matched_ids: Set[str] = set()
+        if self._use_system_tables_join():
+            with self.report.usage_perf_report.get_queries_timer:
+                for info in self.proxy.get_query_usage_via_system_tables(
+                    self.config.start_time, self.config.end_time
+                ):
+                    self.report.num_queries += 1
+                    self.report.num_queries_resolved_via_lineage += 1
+                    if info.query.query_id:
+                        matched_ids.add(info.query.query_id)
+                    table_info = QueryTableInfo(
+                        source_tables=self._resolve_tables(
+                            info.source_tables, table_map
+                        ),
+                        target_tables=self._resolve_tables(
+                            info.target_tables, table_map
+                        ),
+                    )
+                    if self.config.include_operational_stats:
+                        yield from self._generate_operation_workunit(
+                            info.query, table_info
                         )
-                        self.report.num_unique_queries = len(query_hashes)
-                    table_info = self._parse_query(query, table_map)
-                    if table_info is not None:
-                        if self.config.include_operational_stats:
-                            yield from self._generate_operation_workunit(
-                                query, table_info
-                            )
-                        for source_table in table_info.source_tables:
-                            with (
-                                self.report.usage_perf_report.aggregator_add_event_timer
-                            ):
-                                self.usage_aggregator.aggregate_event(
-                                    resource=source_table,
-                                    start_time=query.start_time,
-                                    query=query.query_text,
-                                    user=query.user_name,
-                                    fields=[],
+                    for source_table in table_info.source_tables:
+                        self.usage_aggregator.aggregate_event(
+                            resource=source_table,
+                            start_time=info.query.start_time,
+                            query=info.query.query_text,
+                            user=info.query.user_name,
+                            fields=[],
+                        )
+
+            if self.config.parse_unmatched_queries:
+                for query in self.proxy.get_query_history_via_system_tables(
+                    self.config.start_time, self.config.end_time
+                ):
+                    if query.query_id in matched_ids:
+                        continue
+                    self.report.num_queries_missing_lineage += 1
+                    fallback_table_info = self._parse_query(query, table_map)
+                    if fallback_table_info is None:
+                        continue
+                    self.report.num_queries_resolved_via_parse_fallback += 1
+                    if self.config.include_operational_stats:
+                        yield from self._generate_operation_workunit(
+                            query, fallback_table_info
+                        )
+                    for source_table in fallback_table_info.source_tables:
+                        self.usage_aggregator.aggregate_event(
+                            resource=source_table,
+                            start_time=query.start_time,
+                            query=query.query_text,
+                            user=query.user_name,
+                            fields=[],
+                        )
+        else:
+            with self.report.usage_perf_report.get_queries_timer as current_timer:
+                for query in self._get_queries():
+                    self.report.num_queries += 1
+                    with current_timer.pause():
+                        with self.report.usage_perf_report.query_fingerprinting_timer:
+                            query_hashes.add(
+                                get_query_fingerprint(
+                                    query.query_text, "databricks", fast=True
                                 )
+                            )
+                            self.report.num_unique_queries = len(query_hashes)
+                        parsed_table_info = self._parse_query(query, table_map)
+                        if parsed_table_info is not None:
+                            if self.config.include_operational_stats:
+                                yield from self._generate_operation_workunit(
+                                    query, parsed_table_info
+                                )
+                            for source_table in parsed_table_info.source_tables:
+                                with self.report.usage_perf_report.aggregator_add_event_timer:
+                                    self.usage_aggregator.aggregate_event(
+                                        resource=source_table,
+                                        start_time=query.start_time,
+                                        query=query.query_text,
+                                        user=query.user_name,
+                                        fields=[],
+                                    )
 
         if not self.report.num_queries:
             logger.warning("No queries found in the given time range.")
