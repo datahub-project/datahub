@@ -490,8 +490,12 @@ class MatillionSource(StatefulIngestionSourceBase):
         else:
             custom_properties["is_published"] = "false"
 
-        external_url = MATILLION_PIPELINE_OBSERVABILITY_URL.format(
-            pipeline_name=quote_plus(extract_pipeline_file_name(pipeline_name))
+        external_url = (
+            MATILLION_PIPELINE_OBSERVABILITY_URL.format(
+                pipeline_name=quote_plus(extract_pipeline_file_name(pipeline_name))
+            )
+            if self.config.include_external_urls
+            else None
         )
 
         dataflow = DataFlow(
@@ -863,8 +867,12 @@ class MatillionSource(StatefulIngestionSourceBase):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             display_name=display_name,
-            external_url=MATILLION_PIPELINE_OBSERVABILITY_URL.format(
-                pipeline_name=quote_plus(extract_pipeline_file_name(full_path))
+            external_url=(
+                MATILLION_PIPELINE_OBSERVABILITY_URL.format(
+                    pipeline_name=quote_plus(extract_pipeline_file_name(full_path))
+                )
+                if self.config.include_external_urls
+                else None
             ),
             custom_properties={
                 "pipeline_name": full_path,
@@ -1375,7 +1383,11 @@ class MatillionSource(StatefulIngestionSourceBase):
             except (ValueError, AttributeError):
                 pass
 
-        execution_url = MATILLION_DPI_OBSERVABILITY_URL.format(execution_id=exec_id)
+        execution_url = (
+            MATILLION_DPI_OBSERVABILITY_URL.format(execution_id=exec_id)
+            if self.config.include_external_urls
+            else None
+        )
 
         properties = DataProcessInstancePropertiesClass(
             name=f"{pipeline.name}-{step.name}-{exec_id[:8]}",
@@ -1531,7 +1543,11 @@ class MatillionSource(StatefulIngestionSourceBase):
             type=DPI_TYPE_BATCH_SCHEDULED
             if execution.trigger == MATILLION_TRIGGER_SCHEDULE
             else DPI_TYPE_BATCH_AD_HOC,
-            externalUrl=MATILLION_DPI_OBSERVABILITY_URL.format(execution_id=exec_id),
+            externalUrl=(
+                MATILLION_DPI_OBSERVABILITY_URL.format(execution_id=exec_id)
+                if self.config.include_external_urls
+                else None
+            ),
             customProperties=custom_properties,
         )
         yield MetadataChangeProposalWrapper(

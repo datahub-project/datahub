@@ -116,7 +116,11 @@ class MatillionContainerHandler:
             name=project.name,
             description=project.description,
             sub_types=[DatasetContainerSubTypes.MATILLION_PROJECT],
-            external_url=MATILLION_PROJECT_URL.format(project_id=project.id),
+            external_url=(
+                MATILLION_PROJECT_URL.format(project_id=project.id)
+                if self.config.include_external_urls
+                else None
+            ),
             extra_properties={"project_id": project.id},
         )
         self._containers_emitted.add(container_urn)

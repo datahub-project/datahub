@@ -272,6 +272,46 @@ def test_published_pipelines_emitted_when_unpublished_disabled(
     assert len(workunits) > 0
 
 
+def test_external_urls_suppressed_when_disabled(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """include_external_urls=False must omit every Matillion console link."""
+    config.include_external_urls = False
+    config.include_unpublished_pipelines = False
+    source = MatillionSource(config, pipeline_context)
+
+    mock_projects = [MatillionProject(id="proj-1", name="Test Project")]
+    mock_environments = [
+        MatillionEnvironment(name="Production", default_agent_id="agent-1")
+    ]
+    mock_pipelines = [MatillionPipeline(name="ingest/staging/Pipeline A.orch.yaml")]
+
+    with (
+        patch.object(source.api_client, "get_projects", return_value=mock_projects),
+        patch.object(
+            source.api_client, "get_environments", return_value=mock_environments
+        ),
+        patch.object(source.api_client, "get_pipelines", return_value=mock_pipelines),
+        patch.object(source.api_client, "get_streaming_pipelines", return_value=[]),
+        patch.object(source.api_client, "get_schedules", return_value=[]),
+        patch.object(
+            source.api_client, "get_pipeline_execution_steps", return_value=[]
+        ),
+    ):
+        workunits = list(
+            source._discover_and_process_pipelines_from_executions(mock_projects)
+        )
+
+    external_urls = [
+        getattr(wu.metadata.aspect, "externalUrl", None)
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspect is not None
+    ]
+    assert external_urls, "expected aspects that can carry an external URL"
+    assert all(url is None for url in external_urls)
+
+
 def test_execution_discovery_bounded_by_time_window(
     config: MatillionSourceConfig, pipeline_context: PipelineContext
 ) -> None:
