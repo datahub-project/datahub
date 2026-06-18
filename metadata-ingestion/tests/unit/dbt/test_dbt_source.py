@@ -59,9 +59,11 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
     StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
     SubTypesClass,
 )
 from datahub.testing.doctest import assert_doctest
+from datahub.utilities.mapping import Constants, OperationProcessor
 from tests.unit.dbt.test_helpers import (  # type: ignore[import-untyped]
     create_mock_dbt_node,
 )
@@ -3866,8 +3868,6 @@ def _make_dbt_node_with_meta(
 
 def test_dbt_meta_mapping_add_structured_property_model_level():
     """meta_mapping with add_structured_property emits a StructuredProperties aspect on the dataset."""
-    from datahub.utilities.mapping import OperationProcessor
-
     config_dict = create_base_dbt_config()
     config_dict["enable_meta_mapping"] = True
     config_dict["meta_mapping"] = {
@@ -3910,7 +3910,9 @@ def test_dbt_meta_mapping_add_structured_property_model_level():
 
 
 def test_dbt_meta_mapping_add_structured_property_disabled_when_meta_mapping_off():
-    """When enable_meta_mapping=False, the aspect should not be emitted."""
+    """With enable_meta_mapping=False, a populated SP aspect in meta_aspects must
+    still be dropped. Feeding a non-empty aspect (not {}) ensures the test
+    exercises the flag guard rather than short-circuiting on a None lookup."""
     config_dict = create_base_dbt_config()
     config_dict["enable_meta_mapping"] = False  # disabled
     config_dict["meta_mapping"] = {
@@ -3927,13 +3929,24 @@ def test_dbt_meta_mapping_add_structured_property_disabled_when_meta_mapping_off
     source = DBTCoreSource(DBTCoreConfig(**config_dict), PipelineContext(run_id="t"))
     node = _make_dbt_node_with_meta({"data_load_frequency": "hourly"})
 
-    # When meta_mapping is disabled, _process_meta_aspects returns an empty dict.
+    pre_computed_sp_aspect = StructuredPropertiesClass(
+        properties=[
+            StructuredPropertyValueAssignmentClass(
+                propertyUrn="urn:li:structuredProperty:io.acme.data_load_frequency",
+                values=["hourly"],
+            )
+        ]
+    )
     aspects = source._generate_base_dbt_aspects(
         node,
         additional_custom_props_filtered={},
         mce_platform="dbt",
-        meta_aspects={},
+        meta_aspects={
+            Constants.ADD_STRUCTURED_PROPERTY_OPERATION: pre_computed_sp_aspect,
+        },
     )
+
+    # Guard must drop the aspect because enable_meta_mapping is False.
     assert not any(isinstance(a, StructuredPropertiesClass) for a in aspects)
 
 
@@ -4099,6 +4112,65 @@ def test_dbt_column_meta_mapping_add_structured_property_lowercases_field_name()
     mcps = list(source._create_column_structured_property_mcps(node, dataset_urn))
     assert len(mcps) == 1
     assert mcps[0].entityUrn == f"urn:li:schemaField:({dataset_urn},customeremail)"
+
+
+def test_dbt_column_meta_processed_once_per_column_across_schema_and_sp():
+    """When a pre-computed column_meta_aspects dict is threaded in, neither
+    get_schema_metadata nor _create_column_structured_property_mcps may re-run
+    the processor on column.meta. Regression guard for the DRY/perf fix."""
+    config_dict = create_base_dbt_config()
+    config_dict["enable_meta_mapping"] = True
+    config_dict["column_meta_mapping"] = {
+        "pii": {
+            "match": True,
+            "operation": "add_structured_property",
+            "config": {
+                "structured_property_urn": "urn:li:structuredProperty:io.acme.pii",
+                "value": "true",
+            },
+        },
+    }
+    source = DBTCoreSource(DBTCoreConfig(**config_dict), PipelineContext(run_id="t"))
+    node = _make_dbt_node_with_meta(
+        meta={},
+        columns=[
+            DBTColumn(
+                name=f"col_{i}",
+                comment="",
+                description="",
+                index=i,
+                data_type="VARCHAR",
+                meta={"pii": True},
+            )
+            for i in range(5)
+        ],
+    )
+
+    column_meta_aspects = source._extract_column_meta_aspects(node)
+    assert set(column_meta_aspects.keys()) == {f"col_{i}" for i in range(5)}
+
+    # Patch the cached processor's `process` to fail if called again after
+    # the pre-computation above.
+    with mock.patch.object(
+        source._column_meta_action_processor,
+        "process",
+        side_effect=AssertionError("process() must not be called again"),
+    ):
+        source._generate_base_dbt_aspects(
+            node,
+            additional_custom_props_filtered={},
+            mce_platform="dbt",
+            meta_aspects={},
+            column_meta_aspects=column_meta_aspects,
+        )
+        mcps = list(
+            source._create_column_structured_property_mcps(
+                node,
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,my_db.public.orders,PROD)",
+                column_meta_aspects=column_meta_aspects,
+            )
+        )
+        assert len(mcps) == 5
 
 
 def _make_dbt_model_node(dbt_name: str, upstream_nodes: List[str]) -> DBTNode:

@@ -4,7 +4,7 @@ import operator
 import re
 import time
 from functools import reduce
-from typing import Any, Dict, List, Mapping, Match, Optional, Union, cast
+from typing import Any, Dict, List, Mapping, Match, Optional, TypedDict, Union, cast
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter import mce_builder
@@ -59,6 +59,13 @@ def _make_owner_category_list(
 
 
 _match_regexp = re.compile(r"{{\s*\$match\s*}}", flags=re.MULTILINE)
+
+
+class _StructuredPropertyEntry(TypedDict):
+    """One structured-property value assignment flowing through operations_map."""
+
+    urn: str
+    value: Union[str, float]
 
 
 def _insert_match_value(original_value: str, match_value: str) -> str:
@@ -342,11 +349,21 @@ class OperationProcessor:
         """Translate `datahub.structured_properties` shorthand entries into the
         flat `{"urn": ..., "value": ...}` form that `convert_to_aspects` consumes."""
         for prop_id, prop_value in raw_properties.items():
-            urn = make_structured_property_urn(prop_id)
+            # Wrap per-property so one bad key (e.g. urn:li:tag:...) doesn't
+            # abort the whole bag and silently drop the surviving entries.
+            try:
+                urn = make_structured_property_urn(prop_id)
+            except Exception as e:
+                logger.warning(
+                    f"Skipping datahub.structured_properties entry '{prop_id}': "
+                    f"could not build structured property URN: {e}"
+                )
+                continue
             for coerced in _coerce_structured_property_values(prop_value):
+                entry: _StructuredPropertyEntry = {"urn": urn, "value": coerced}
                 operations_map.setdefault(
                     Constants.ADD_STRUCTURED_PROPERTY_OPERATION, []
-                ).append({"urn": urn, "value": coerced})
+                ).append(entry)
 
     def convert_to_aspects(self, operation_map: Dict[str, list]) -> Dict[str, Any]:
         aspect_map: Dict[str, Any] = {}
@@ -401,10 +418,18 @@ class OperationProcessor:
             grouped_values: Dict[str, List[Union[str, float]]] = {}
             for entry in operation_map[Constants.ADD_STRUCTURED_PROPERTY_OPERATION]:
                 if not isinstance(entry, dict):
+                    logger.warning(
+                        f"Dropping malformed structured-property entry "
+                        f"(expected dict, got {type(entry).__name__}): {entry!r}"
+                    )
                     continue
                 urn = entry.get("urn")
                 value = entry.get("value")
                 if not urn or value is None:
+                    logger.warning(
+                        f"Dropping incomplete structured-property entry "
+                        f"(urn={urn!r}, value={value!r})"
+                    )
                     continue
                 values_list = grouped_values.setdefault(urn, [])
                 if value not in values_list:
@@ -415,7 +440,7 @@ class OperationProcessor:
                     properties=[
                         StructuredPropertyValueAssignmentClass(
                             propertyUrn=urn,
-                            values=cast(List[Union[str, float]], values_list),
+                            values=values_list,
                         )
                         for urn, values_list in sorted(grouped_values.items())
                     ]
@@ -477,7 +502,9 @@ class OperationProcessor:
         operation_config: Dict,
         match: Match,
         raw_props_value: Any = None,
-    ) -> Optional[Union[str, Dict, List[str], List[Dict]]]:
+    ) -> Optional[
+        Union[str, Dict, List[str], List[Dict], List[_StructuredPropertyEntry]]
+    ]:
         if (
             operation_type == Constants.ADD_TAG_OPERATION
             and operation_config[Constants.TAG]
@@ -598,8 +625,18 @@ class OperationProcessor:
 
             coerced_values = _coerce_structured_property_values(raw_value)
             if not coerced_values:
+                # Matched but no coercible value — warn so it isn't a silent no-op.
+                logger.warning(
+                    f"add_structured_property rule '{operation_key}' matched "
+                    f"but produced no usable value for "
+                    f"{Constants.STRUCTURED_PROPERTY_URN}='{property_urn}' "
+                    f"(raw value: {raw_value!r}); skipping."
+                )
                 return None
-            return [{"urn": property_urn, "value": v} for v in coerced_values]
+            entries: List[_StructuredPropertyEntry] = [
+                {"urn": property_urn, "value": v} for v in coerced_values
+            ]
+            return entries
         return None
 
     def sanitize_owner_ids(self, owner_id: str) -> str:
