@@ -332,6 +332,7 @@ snowflake_common = {
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
+    *path_spec_common,
 }
 
 trino = {
