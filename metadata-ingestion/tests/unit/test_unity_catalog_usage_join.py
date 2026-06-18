@@ -227,6 +227,11 @@ def _extractor(config: MagicMock, proxy: MagicMock) -> UnityCatalogUsageExtracto
     )
     ex.user_urn_builder = lambda u: f"urn:li:corpuser:{u}"
     ex.platform = "databricks"
+    ex.schema_resolver = SchemaResolver(
+        platform="databricks",
+        platform_instance=None,
+        env="PROD",
+    )
     return ex
 
 
@@ -493,6 +498,11 @@ def test_is_allowed_table_predicate_platform_instance_safe(
     )
     ex.user_urn_builder = lambda u: f"urn:li:corpuser:{u}"
     ex.platform = "databricks"
+    ex.schema_resolver = SchemaResolver(
+        platform="databricks",
+        platform_instance="core_finance",
+        env="PROD",
+    )
 
     ref = TableReference(
         metastore=None, catalog="main", schema="lineagedemo", table="price"
@@ -710,11 +720,11 @@ def test_default_db_none_for_empty_table_refs(
     )
 
 
-def test_schema_resolver_none_falls_back_to_empty_resolver(
+def test_schema_resolver_explicit_empty_resolver_passed_through(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """When schema_resolver is None (e.g. unit tests), _build_aggregator must create
-    a fresh empty resolver — preserving existing behavior.
+    """When an explicit empty SchemaResolver is provided, _build_aggregator must pass
+    THAT instance to SqlParsingAggregator without modification.
     """
     captured: dict = {}
 
@@ -743,15 +753,18 @@ def test_schema_resolver_none_falls_back_to_empty_resolver(
     proxy.warehouse_id = "wh1"
     proxy.get_query_history_via_system_tables.return_value = []
 
+    resolver = SchemaResolver(
+        platform="databricks",
+        platform_instance=None,
+        env="PROD",
+    )
     ex = _extractor(config, proxy)
-    # schema_resolver is not set on _extractor() instances (defaults to None via
-    # the dataclass default); confirm the fallback creates a SchemaResolver instance.
-    assert ex.schema_resolver is None
+    ex.schema_resolver = resolver
 
     list(ex.get_usage_workunits(set()))
 
-    assert isinstance(captured["kwargs"]["schema_resolver"], SchemaResolver), (
-        "fallback must provide a SchemaResolver instance when schema_resolver is None"
+    assert captured["kwargs"]["schema_resolver"] is resolver, (
+        "_build_aggregator must pass the provided SchemaResolver instance to SqlParsingAggregator"
     )
 
 
@@ -948,14 +961,14 @@ def test_gen_metadata_raises_does_not_propagate(
         f"expected no workunits on gen_metadata failure: {workunits}"
     )
 
-    # A warning must have been recorded.
-    warning_titles_and_messages = [
-        (getattr(w, "title", None), w.message) for w in ex.report.warnings
+    # A failure must have been recorded (gen_metadata raises → outer except → report_failure).
+    failure_titles_and_messages = [
+        (getattr(f, "title", None), f.message) for f in ex.report.failures
     ]
     assert any(
         "usage-extraction" in (title or "") or "usage-extraction" in msg
-        for title, msg in warning_titles_and_messages
-    ), f"expected 'usage-extraction' warning, got: {warning_titles_and_messages}"
+        for title, msg in failure_titles_and_messages
+    ), f"expected 'usage-extraction' failure, got: {failure_titles_and_messages}"
 
 
 def test_aggregator_close_raises_does_not_propagate(

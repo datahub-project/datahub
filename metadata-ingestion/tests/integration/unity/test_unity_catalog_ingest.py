@@ -586,6 +586,7 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
                     "token": "fake",
                     "include_ownership": True,
                     "include_hive_metastore": True,
+                    "include_usage_statistics": False,
                     "warehouse_id": "test",
                     "emit_siblings": True,
                     "delta_lake_options": {
@@ -679,6 +680,7 @@ def test_ml_model_with_signature_and_run_details(pytestconfig, tmp_path, request
                         "token": "fake",
                         "include_ownership": True,
                         "include_hive_metastore": True,
+                        "include_usage_statistics": False,
                         "warehouse_id": "test",
                         "include_ml_model_aliases": True,
                     },

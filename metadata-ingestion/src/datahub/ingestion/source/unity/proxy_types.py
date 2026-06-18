@@ -281,7 +281,7 @@ class Query:
     query_id: Optional[str]
     query_text: str
     statement_type: Optional[QueryStatementType]
-    start_time: datetime
+    start_time: Optional[datetime]
     end_time: datetime
     # User who ran the query
     user_id: Optional[int]

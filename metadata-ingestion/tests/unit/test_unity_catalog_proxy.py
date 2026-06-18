@@ -1828,41 +1828,60 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert len(mock_proxy.report.warnings) > 0
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_row_parse_error(
         self, mock_execute, mock_proxy
     ):
-        """Test error handling when individual row parsing fails."""
+        """Test error handling when individual row parsing fails.
+
+        A bad row must record a 'query-parse-system-table' warning but must NOT abort
+        iteration — good rows that follow must still be yielded.
+        """
+        from types import SimpleNamespace
+
         from databricks.sql.types import Row
 
-        mock_data = [
-            Row(
-                statement_id="query_126",
-                statement_text="SELECT * FROM valid_table",
-                statement_type="SELECT",
-                start_time=datetime(2023, 1, 1, 10, 0, 0),
-                end_time=datetime(2023, 1, 1, 10, 0, 30),
-                executed_by="user@example.com",
-                executed_as="user@example.com",
-                executed_by_user_id=123,
-                executed_as_user_id=123,
-            )
-        ]
-        mock_execute.return_value = mock_data
+        # bad_row: statement_type is an invalid enum value, causing QueryStatementType()
+        # construction to raise ValueError — a realistic per-row parse failure.
+        bad_row = SimpleNamespace(
+            statement_id="query_bad",
+            statement_text="SELECT * FROM bad_table",
+            statement_type="NOT_A_VALID_TYPE",
+            start_time=datetime(2023, 1, 1, 10, 0, 0),
+            end_time=datetime(2023, 1, 1, 10, 0, 30),
+            executed_by="user@example.com",
+            executed_as="user@example.com",
+            executed_by_user_id=123,
+            executed_as_user_id=123,
+        )
+        good_row = Row(
+            statement_id="query_126",
+            statement_text="SELECT * FROM valid_table",
+            statement_type="SELECT",
+            start_time=datetime(2023, 1, 1, 11, 0, 0),
+            end_time=datetime(2023, 1, 1, 11, 0, 30),
+            executed_by="user@example.com",
+            executed_as="user@example.com",
+            executed_by_user_id=123,
+            executed_as_user_id=123,
+        )
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [bad_row, good_row])
 
-        with patch(
-            "datahub.ingestion.source.unity.proxy_types.Query.__init__",
-            side_effect=Exception("Query creation failed"),
-        ):
-            start_time = datetime(2023, 1, 1)
-            end_time = datetime(2023, 1, 31)
-            result = list(
-                mock_proxy.get_query_history_via_system_tables(start_time, end_time)
-            )
+        start_time = datetime(2023, 1, 1)
+        end_time = datetime(2023, 1, 31)
+        result = list(
+            mock_proxy.get_query_history_via_system_tables(start_time, end_time)
+        )
 
-            assert len(result) == 0
-            assert len(mock_proxy.report.warnings) > 0
+        # The bad row must be skipped and a warning recorded.
+        warning_messages = [str(w.message) for w in mock_proxy.report.warnings]
+        assert any("query-parse-system-table" in m for m in warning_messages), (
+            f"expected 'query-parse-system-table' warning, got: {warning_messages}"
+        )
+        # The good row must still be yielded — iteration must continue past the bad row.
+        assert len(result) == 1, f"expected 1 good query, got {len(result)}: {result}"
+        assert result[0].query_id == "query_126"
 
     @patch(
         "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"

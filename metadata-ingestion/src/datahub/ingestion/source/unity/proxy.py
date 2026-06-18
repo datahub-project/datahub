@@ -679,7 +679,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     )
                 except Exception as e:
                     logger.warning(f"Error parsing query from system table: {e}")
-                    self.report.report_warning("query-parse-system-table", str(e))
+                    self.report.report_warning(
+                        "query-parse-system-table",
+                        context=f"statement_id={getattr(row, 'statement_id', None)}: {e}",
+                        exc=e,
+                    )
 
     def _build_datetime_where_conditions(
         self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
@@ -1446,6 +1450,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         except Exception as e:
             self._report_sql_query_failure(e, query, params, proxy_env_debug)
+            self.report.num_usage_query_fetch_failures += 1
 
     @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_schema_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:

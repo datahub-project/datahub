@@ -29,8 +29,8 @@ class UnityCatalogUsageExtractor:
     proxy: UnityCatalogApiProxy
     table_urn_builder: Callable[[TableReference], str]
     user_urn_builder: Callable[[str], str]
+    schema_resolver: SchemaResolver
     platform: str = "databricks"
-    schema_resolver: Optional[SchemaResolver] = None
 
     def _use_system_tables_join(self) -> bool:
         return self.config.usage_uses_system_tables(self.proxy.warehouse_id)
@@ -39,22 +39,13 @@ class UnityCatalogUsageExtractor:
         self,
         is_allowed_table: Optional[Callable[[str], bool]] = None,
     ) -> SqlParsingAggregator:
-        # Use the pre-populated resolver passed from the source so that
-        # unqualified / partial table references in queries are resolved against
-        # the schemas ingested in this run.  Fall back to a fresh empty resolver
-        # when none is provided (e.g. unit tests).
-        schema_resolver = self.schema_resolver or SchemaResolver(
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
         # UnityCatalogSourceConfig extends BaseUsageConfig so self.config satisfies
         # the usage_config parameter type.
         return SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            schema_resolver=schema_resolver,
+            schema_resolver=self.schema_resolver,
             generate_lineage=False,  # lineage stays on system.access
             generate_queries=self.config.emit_queries,
             generate_query_usage_statistics=self.config.emit_queries,
@@ -95,17 +86,28 @@ class UnityCatalogUsageExtractor:
         catalogs = {ref.catalog for ref in table_refs}
         default_db: Optional[str] = next(iter(catalogs)) if len(catalogs) == 1 else None
 
+        # Snapshot before the feed loop so we can detect fetch failures that occurred
+        # during iteration (proxy increments this counter inside _execute_sql_query_streaming).
+        fetch_failures_before = self.report.num_usage_query_fetch_failures
+
         aggregator: Optional[SqlParsingAggregator] = None
         try:
             aggregator = self._build_aggregator(is_allowed_table=is_allowed_table)
             for query in self._fetch_queries():
                 self.report.num_queries += 1
-                # Defensive: query.start_time is annotated as non-Optional datetime but
-                # arrives unvalidated from a Databricks SDK row and may be None/naive in
-                # practice.  Guard here so SqlParsingAggregator's tzinfo assertion holds.
+                # query.start_time may be None (see proxy_types.Query) or naive in
+                # practice despite the annotation.  Normalize to timezone.utc so
+                # SqlParsingAggregator's tzinfo assertion holds:
+                #   - aware datetime  → astimezone(utc) preserves the instant
+                #   - naive datetime  → replace(tzinfo=utc) treats it as UTC
+                #   - None            → passed through unchanged
                 ts = query.start_time
-                if ts is not None and ts.tzinfo is not None:
-                    ts = ts.astimezone(timezone.utc)
+                if ts is not None:
+                    ts = (
+                        ts.astimezone(timezone.utc)
+                        if ts.tzinfo is not None
+                        else ts.replace(tzinfo=timezone.utc)
+                    )
                 try:
                     aggregator.add_observed_query(
                         ObservedQuery(
@@ -134,8 +136,19 @@ class UnityCatalogUsageExtractor:
                     self.report.report_warning(
                         "usage-query-dropped",
                         context=f"query_id={query.query_id}",
+                        exc=per_query_exc,
                     )
             if self.report.num_queries == 0:
+                if self.report.num_usage_query_fetch_failures > fetch_failures_before:
+                    # The query-history fetch failed (proxy reported a sql-query-failed
+                    # warning and incremented the counter).  Surface this as a run failure
+                    # so operators are not misled by a seemingly successful but empty run.
+                    self.report.report_failure(
+                        "usage-fetch-failed",
+                        "Query-history fetch failed; see the 'sql-query-failed' warning "
+                        "for details. Usage statistics were not updated.",
+                    )
+                    return
                 if self._use_system_tables_join():
                     hint = (
                         "verify SELECT privilege on system.query and system.access "
@@ -161,7 +174,7 @@ class UnityCatalogUsageExtractor:
             )
         except Exception as e:
             logger.error("Error processing usage", exc_info=True)
-            self.report.report_warning(
+            self.report.report_failure(
                 "usage-extraction",
                 f"Usage extraction failed: {e!r}",
                 exc=e,

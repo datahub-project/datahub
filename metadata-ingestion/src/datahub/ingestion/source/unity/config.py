@@ -485,17 +485,12 @@ class UnityCatalogSourceConfig(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )
 
-    @model_validator(mode="after")
-    def validate_start_time_window(self) -> "UnityCatalogSourceConfig":
-        # Read the profiling fallback directly rather than relying on self.warehouse_id,
-        # because set_warehouse_id_from_profiling may not have run yet (Pydantic v2 runs
-        # after-validators in definition order, and this validator is defined first).
-        effective_warehouse = self.warehouse_id or (
-            self.profiling.warehouse_id if self.profiling else None
-        )
+    def _validate_start_time_window(self) -> None:
+        # Called at the end of set_warehouse_id_from_profiling so self.warehouse_id is
+        # already resolved from profiling before this check runs.
         # Intentionally checks BOTH usage and lineage data sources: either path using
         # system tables extends the allowed history window from 30 to 365 days.
-        uses_system_tables = bool(effective_warehouse) and (
+        uses_system_tables = bool(self.warehouse_id) and (
             self.usage_data_source != UsageDataSource.API
             or self.lineage_data_source != LineageDataSource.API
         )
@@ -507,7 +502,6 @@ class UnityCatalogSourceConfig(
                 f"start_time is {age_days} days old; the configured source retains at "
                 f"most {max_days} days of history."
             )
-        return self
 
     @field_validator("workspace_url", mode="after")
     @classmethod
@@ -552,6 +546,9 @@ class UnityCatalogSourceConfig(
 
         if profiling and profiling.enabled and not profiling.warehouse_id:
             raise ValueError("warehouse_id must be set when profiling is enabled.")
+
+        # Run after warehouse_id is resolved so the 30 vs 365-day cap is correct.
+        self._validate_start_time_window()
 
         return self
 
