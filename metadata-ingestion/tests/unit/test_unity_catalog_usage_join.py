@@ -443,3 +443,86 @@ def test_is_allowed_table_predicate_scopes_to_ingested_tables(
     assert predicate("other_catalog.schema.table") is False, (
         "predicate must return False for tables from catalogs not in this recipe"
     )
+
+
+def test_is_allowed_table_predicate_platform_instance_safe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """is_allowed_table must work correctly when a platform_instance is configured.
+
+    The aggregator's _name_from_urn strips the platform_instance prefix from the
+    dataset URN, yielding a bare "catalog.schema.table" string that it passes to
+    the predicate.  When a platform_instance (e.g. "core_finance") is present,
+    DatasetUrn.name returns "core_finance.main.lineagedemo.price" — WITH the prefix —
+    which never matches the bare name the aggregator passes.
+
+    The fix builds allowed_names from TableReference.qualified_table_name, which is
+    always the 3-part "catalog.schema.table" with NO platform_instance prefix.
+    This test proves the predicate accepts the bare name the aggregator actually passes.
+    """
+    import datahub.ingestion.source.unity.usage as usage_mod
+    from datahub.ingestion.source.unity.proxy_types import TableReference
+
+    captured: dict = {}
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            captured["kwargs"] = kw
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            pass
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.emit_queries = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = []
+
+    # Build an extractor whose table_urn_builder includes a platform_instance prefix
+    # in the URN — exactly what the connector does when platform_instance="core_finance".
+    ex = UnityCatalogUsageExtractor.__new__(UnityCatalogUsageExtractor)
+    ex.config = config
+    ex.report = MagicMock()
+    ex.proxy = proxy
+    ex.table_urn_builder = lambda ref: (
+        f"urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        f"core_finance.{ref.qualified_table_name},PROD)"
+    )
+    ex.user_urn_builder = lambda u: f"urn:li:corpuser:{u}"
+    ex.platform = "databricks"
+
+    ref = TableReference(
+        metastore=None, catalog="main", schema="lineagedemo", table="price"
+    )
+    # qualified_table_name for this ref is "main.lineagedemo.price" — 3-part, no prefix.
+    assert ref.qualified_table_name == "main.lineagedemo.price"
+
+    list(ex.get_usage_workunits({ref}))
+
+    predicate = captured["kwargs"].get("is_allowed_table")
+    assert predicate is not None, (
+        "is_allowed_table predicate must be passed to the aggregator"
+    )
+
+    # The aggregator calls the predicate with the bare name (platform_instance stripped).
+    # The previous (broken) implementation would have built allowed_names from
+    # DatasetUrn.name = "core_finance.main.lineagedemo.price", causing a mismatch.
+    assert predicate("main.lineagedemo.price") is True, (
+        "predicate must accept bare catalog.schema.table name (platform_instance stripped)"
+    )
+    assert predicate("MAIN.LINEAGEDEMO.PRICE") is True, (
+        "predicate must be case-insensitive"
+    )
+    assert predicate("system.access.table_lineage") is False, (
+        "predicate must reject tables not in the ingested set"
+    )

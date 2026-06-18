@@ -9,7 +9,7 @@ from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
-from datahub.metadata.urns import CorpUserUrn, DatasetUrn
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
@@ -68,13 +68,12 @@ class UnityCatalogUsageExtractor:
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
         # Restrict emission to tables this recipe ingested, matching the old behavior.
-        # The predicate receives the dataset name extracted from the URN (catalog.schema.table
-        # with the platform instance prefix stripped), so we build the same names from the
-        # ingested refs via the connector's own URN builder and DatasetUrn.name.
-        allowed_names = {
-            DatasetUrn.from_string(self.table_urn_builder(ref)).name.lower()
-            for ref in table_refs
-        }
+        # The aggregator's _name_from_urn strips the platform_instance prefix from the URN,
+        # yielding a bare "catalog.schema.table" name that it passes to the predicate.
+        # TableReference.qualified_table_name returns the same 3-part bare form, so we use
+        # it directly — using DatasetUrn.name here would include the platform_instance prefix
+        # when one is configured, causing a mismatch that filters out all usage.
+        allowed_names = {ref.qualified_table_name.lower() for ref in table_refs}
         is_allowed_table: Optional[Callable[[str], bool]] = (
             (lambda name: name.lower() in allowed_names) if allowed_names else None
         )
