@@ -25,6 +25,8 @@
     "dashboard.lastChangedTooltip": "The time at which the dashboard was last changed in the source platform",
     "dashboard.name": "Dashboard",
     "dashboard.namePlural": "Dashboards",
+    "dataObject.name": "Data Object",
+    "dataObject.namePlural": "Data Objects",
     "dataContract.name": "Data Contract",
     "dataContract.namePlural": "Data Contracts",
     "dataContract.notImplemented": "Not Implemented",
