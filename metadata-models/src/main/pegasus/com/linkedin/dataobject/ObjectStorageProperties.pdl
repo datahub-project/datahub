@@ -1,0 +1,21 @@
+namespace com.linkedin.dataobject
+
+/**
+ * Storage-system facet of a data object (file in object storage). Optional;
+ * omitted for objects with no storage of their own (e.g. chunks).
+ */
+@Aspect = { "name": "objectStorageProperties" }
+record ObjectStorageProperties {
+  @Searchable = { "fieldType": "KEYWORD", "addToFilters": true, "filterNameOverride": "Media Type", "queryByDefault": false }
+  mimeType: optional string
+
+  sizeBytes: optional long
+
+  storageClass: optional string
+
+  storagePath: optional string
+
+  etag: optional string
+
+  contentEncoding: optional string
+}

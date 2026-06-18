@@ -1,0 +1,13 @@
+namespace com.linkedin.dataobject
+
+import com.linkedin.common.Urn
+
+/**
+ * The hierarchical parent data object (e.g. the file a chunk belongs to).
+ */
+@Aspect = { "name": "parentDataObject" }
+record ParentDataObject {
+  @Relationship = { "name": "IsChildOf", "entityTypes": ["dataObject"] }
+  @Searchable = { "fieldName": "parentDataObject", "fieldType": "URN", "queryByDefault": false }
+  object: Urn
+}

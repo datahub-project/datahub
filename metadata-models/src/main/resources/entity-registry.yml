@@ -357,6 +357,36 @@ entities:
       - semanticContent
       - institutionalMemory
       - documentation
+  - name: dataObject
+    doc: >-
+      A discrete object in a storage or content system - a file, blob, media asset,
+      or a sub-region (chunk) thereof. Cataloged by reference; DataHub does not store
+      the object's content. Folders/buckets are modeled as existing Container subtypes.
+    category: core
+    keyAspect: dataObjectKey
+    aspects:
+      - dataObjectProperties
+      - objectStorageProperties
+      - parentDataObject
+      - subTypes
+      - container
+      - ownership
+      - globalTags
+      - glossaryTerms
+      - domains
+      - structuredProperties
+      - institutionalMemory
+      - documentation
+      - forms
+      - status
+      - deprecation
+      - browsePathsV2
+      - dataPlatformInstance
+      - operation
+      - access
+      - upstreamLineage
+      - testResults
+      - siblings
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
