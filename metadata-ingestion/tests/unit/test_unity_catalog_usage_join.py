@@ -774,3 +774,83 @@ def test_schema_resolver_none_falls_back_to_empty_resolver(
     assert isinstance(captured["kwargs"]["schema_resolver"], SchemaResolver), (
         "fallback must provide a SchemaResolver instance when schema_resolver is None"
     )
+
+
+def test_auto_empty_usage_emitted_for_unqueried_tables(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Tables with no observed queries must still get a zero-usage datasetUsageStatistics aspect.
+
+    auto_empty_dataset_usage_statistics wraps the aggregator stream and emits empty
+    usage workunits for every URN in dataset_urns that had no usage in the window.
+    This test proves the wrap is applied in get_usage_workunits so the stale-usage
+    reset behavior is preserved.
+    """
+    import datahub.ingestion.source.unity.usage as usage_mod
+    from datahub.ingestion.source.unity.proxy_types import TableReference
+    from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
+
+    class FakeAgg:
+        """Produces no metadata — simulates a window where no queries touched the table."""
+
+        def __init__(self, **kw: object) -> None:
+            pass
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            pass
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    end = datetime(2026, 6, 2, tzinfo=timezone.utc)
+
+    config = MagicMock()
+    config.emit_queries = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+    # Provide real time-window values so auto_empty_dataset_usage_statistics can
+    # compute bucket timestamps via config.majority_buckets().
+    config.start_time = start
+    config.end_time = end
+    from datahub.configuration.time_window_config import BucketDuration
+
+    config.bucket_duration = BucketDuration.DAY
+    config.majority_buckets.return_value = [start]
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = []
+
+    ex = _extractor(config, proxy)
+
+    ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+    expected_urn = ex.table_urn_builder(ref)
+
+    workunits = list(ex.get_usage_workunits({ref}))
+
+    # At least one workunit must carry a DatasetUsageStatistics aspect for the
+    # unqueried table's URN — the zero-usage reset workunit.
+    usage_wus = [
+        wu
+        for wu in workunits
+        if wu.get_urn() == expected_urn
+        and wu.get_aspect_of_type(DatasetUsageStatisticsClass) is not None
+    ]
+    assert usage_wus, (
+        f"Expected a zero-usage DatasetUsageStatistics workunit for {expected_urn!r}, "
+        f"but none was emitted. Workunits: {[wu.id for wu in workunits]}"
+    )
+    usage_aspect = usage_wus[0].get_aspect_of_type(DatasetUsageStatisticsClass)
+    assert usage_aspect is not None
+    assert usage_aspect.totalSqlQueries == 0, (
+        f"Zero-usage aspect must have totalSqlQueries=0, got {usage_aspect.totalSqlQueries}"
+    )
+    assert usage_aspect.uniqueUserCount == 0, (
+        f"Zero-usage aspect must have uniqueUserCount=0, got {usage_aspect.uniqueUserCount}"
+    )

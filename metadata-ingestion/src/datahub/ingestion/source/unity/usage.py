@@ -3,7 +3,10 @@ from dataclasses import dataclass
 from datetime import timezone
 from typing import Callable, Iterable, Optional, Set
 
-from datahub.ingestion.api.source_helpers import auto_workunit
+from datahub.ingestion.api.source_helpers import (
+    auto_empty_dataset_usage_statistics,
+    auto_workunit,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
@@ -130,7 +133,11 @@ class UnityCatalogUsageExtractor:
                     "no-queries-found",
                     f"No queries found in the configured time range. {hint}.",
                 )
-            yield from auto_workunit(aggregator.gen_metadata())
+            yield from auto_empty_dataset_usage_statistics(
+                auto_workunit(aggregator.gen_metadata()),
+                dataset_urns={self.table_urn_builder(ref) for ref in table_refs},
+                config=self.config,
+            )
         except Exception as e:
             logger.error("Error processing usage", exc_info=True)
             self.report.report_warning("usage-extraction", str(e))
