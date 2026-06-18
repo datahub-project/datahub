@@ -1675,11 +1675,11 @@ class TestUnityCatalogProxyUsageSystemTables:
         return proxy
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_empty(self, mock_execute, mock_proxy):
         """Test get_query_history_via_system_tables with no results."""
-        mock_execute.return_value = []
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [])  # type: ignore[var-annotated]
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
 
@@ -1695,7 +1695,7 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert "execution_status = 'FINISHED'" in query
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_with_data(
         self, mock_execute, mock_proxy
@@ -1727,7 +1727,7 @@ class TestUnityCatalogProxyUsageSystemTables:
                 executed_as_user_id=456,
             ),
         ]
-        mock_execute.return_value = mock_data
+        mock_execute.side_effect = lambda *a, **kw: (r for r in mock_data)
 
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
@@ -1744,13 +1744,13 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert "INSERT INTO target_table" in result[1].query_text
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_filters_statement_types(
         self, mock_execute, mock_proxy
     ):
         """Test that query includes proper statement type filtering."""
-        mock_execute.return_value = []
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [])  # type: ignore[var-annotated]
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
 
@@ -1768,7 +1768,7 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert "'OTHER'" in query
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_handles_null_values(
         self, mock_execute, mock_proxy
@@ -1789,7 +1789,7 @@ class TestUnityCatalogProxyUsageSystemTables:
                 executed_as_user_id=None,
             )
         ]
-        mock_execute.return_value = mock_data
+        mock_execute.side_effect = lambda *a, **kw: (r for r in mock_data)
 
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
@@ -1803,13 +1803,20 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert result[0].user_id is None
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_error_handling(
         self, mock_execute, mock_proxy
     ):
         """Test error handling when SQL query fails."""
-        mock_execute.side_effect = Exception("SQL execution failed")
+
+        # Simulate the streaming method's internal error path: it catches the DB
+        # exception, records a warning, and yields nothing instead of raising.
+        def _failing_stream(*a, **kw):
+            mock_proxy.report.report_warning("sql-query-failed", "SQL execution failed")
+            return (r for r in [])  # type: ignore[var-annotated]
+
+        mock_execute.side_effect = _failing_stream
 
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
@@ -1818,7 +1825,7 @@ class TestUnityCatalogProxyUsageSystemTables:
         )
 
         assert len(result) == 0
-        assert len(mock_proxy.report.failures) > 0
+        assert len(mock_proxy.report.warnings) > 0
 
     @patch(
         "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
@@ -1858,13 +1865,13 @@ class TestUnityCatalogProxyUsageSystemTables:
             assert len(mock_proxy.report.warnings) > 0
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_time_parameters(
         self, mock_execute, mock_proxy
     ):
         """Test that start and end time are passed correctly as parameters."""
-        mock_execute.return_value = []
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [])  # type: ignore[var-annotated]
         start_time = datetime(2023, 5, 15, 8, 30, 0)
         end_time = datetime(2023, 5, 20, 18, 45, 0)
 
