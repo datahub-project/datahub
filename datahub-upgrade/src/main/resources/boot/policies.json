@@ -95,6 +95,85 @@
     }
   },
   {
+    "urn": "urn:li:dataHubPolicy:root-domain-manage-data-products-policy",
+    "info": {
+      "actors": {
+        "resourceOwners": false,
+        "allUsers": false,
+        "allGroups": false,
+        "users": [
+          "urn:li:corpuser:datahub"
+        ]
+      },
+      "privileges": [
+        "MANAGE_DATA_PRODUCTS"
+      ],
+      "resources": {
+        "type": "domain",
+        "allResources": true
+      },
+      "displayName": "Root User - Manage Data Products on All Domains",
+      "description": "Grants MANAGE_DATA_PRODUCTS on all domains to the root user for data product operations.",
+      "state": "ACTIVE",
+      "type": "METADATA",
+      "editable": false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:admin-domain-manage-data-products-policy",
+    "info": {
+      "actors": {
+        "resourceOwners": false,
+        "allUsers": false,
+        "allGroups": false,
+        "users": [],
+        "groups": [],
+        "roles": [
+          "urn:li:dataHubRole:Admin"
+        ]
+      },
+      "privileges": [
+        "MANAGE_DATA_PRODUCTS"
+      ],
+      "resources": {
+        "type": "domain",
+        "allResources": true
+      },
+      "displayName": "Admins - Manage Data Products on All Domains",
+      "description": "Grants MANAGE_DATA_PRODUCTS on all domains to Admin role holders.",
+      "state": "ACTIVE",
+      "type": "METADATA",
+      "editable": false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:editor-domain-manage-data-products-policy",
+    "info": {
+      "actors": {
+        "resourceOwners": false,
+        "allUsers": false,
+        "allGroups": false,
+        "users": [],
+        "groups": [],
+        "roles": [
+          "urn:li:dataHubRole:Editor"
+        ]
+      },
+      "privileges": [
+        "MANAGE_DATA_PRODUCTS"
+      ],
+      "resources": {
+        "type": "domain",
+        "allResources": true
+      },
+      "displayName": "Editors - Manage Data Products on All Domains",
+      "description": "Grants MANAGE_DATA_PRODUCTS on all domains to Editor role holders.",
+      "state": "ACTIVE",
+      "type": "METADATA",
+      "editable": false
+    }
+  },
+  {
     "urn": "urn:li:dataHubPolicy:7",
     "info": {
       "actors": {

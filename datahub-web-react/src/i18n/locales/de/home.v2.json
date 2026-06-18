@@ -6,7 +6,6 @@
     "documents.deleteConfirmButton": "Löschen",
     "documents.deleteText": "Möchtest du dieses Dokument wirklich löschen? Dadurch werden auch alle untergeordneten Dokumente gelöscht.",
     "documents.deleteTitle": "Dokument(e) löschen",
-    "documents.emptyState": "Noch keine Dokumente.",
     "documents.moveToRoot": "Auf oberste Ebene verschieben",
     "documents.newDocumentTooltip": "Neues Dokument",
     "documents.searchPlaceholder": "Kontext durchsuchen...",
