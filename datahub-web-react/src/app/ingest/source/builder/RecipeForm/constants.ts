@@ -222,6 +222,15 @@ import {
     SAC_TOKEN_URL,
 } from '@app/ingest/source/builder/RecipeForm/sac';
 import {
+    SHAREPOINT_CLIENT_ID,
+    SHAREPOINT_CLIENT_SECRET,
+    SHAREPOINT_HOSTNAME,
+    SHAREPOINT_MODE,
+    SHAREPOINT_SITE_ALLOW,
+    SHAREPOINT_SITE_DENY,
+    SHAREPOINT_TENANT_ID,
+} from '@app/ingest/source/builder/RecipeForm/sharepoint';
+import {
     SNOWFLAKE_ACCOUNT_ID,
     SNOWFLAKE_AUTHENTICATION_TYPE,
     SNOWFLAKE_PASSWORD,
@@ -288,6 +297,7 @@ import {
     OKTA,
     POWER_BI,
     SAC,
+    SHAREPOINT,
     VERTICA,
 } from '@app/ingest/source/builder/constants';
 import { BIGQUERY } from '@app/ingest/source/conf/bigquery/bigquery';
@@ -726,6 +736,19 @@ export const RECIPE_FIELDS: RecipeFields = {
         advancedFields: [],
         filterSectionTooltip:
             'Control which Confluence content is ingested by filtering spaces and pages. Leave empty to ingest all accessible content.',
+    },
+    [SHAREPOINT]: {
+        fields: [
+            SHAREPOINT_TENANT_ID,
+            SHAREPOINT_CLIENT_ID,
+            SHAREPOINT_CLIENT_SECRET,
+            SHAREPOINT_HOSTNAME,
+            SHAREPOINT_MODE,
+        ],
+        filterFields: [SHAREPOINT_SITE_ALLOW, SHAREPOINT_SITE_DENY],
+        advancedFields: [],
+        filterSectionTooltip:
+            'Control which SharePoint sites are ingested. Leave empty to ingest all accessible sites.',
     },
 };
 

@@ -1,0 +1,37 @@
+source:
+  type: sharepoint
+  config:
+    # Azure AD service principal credentials
+    auth:
+      tenant_id: "${AZURE_TENANT_ID}"
+      client_id: "${AZURE_CLIENT_ID}"
+      client_secret: "${AZURE_CLIENT_SECRET}"
+
+    # SharePoint hostname (your org's SharePoint domain)
+    site:
+      hostname: "myorg.sharepoint.com"
+      # Optionally restrict to specific sites
+      # site_pattern:
+      #   allow:
+      #     - "/sites/Engineering"
+      #     - "/sites/DataTeam"
+
+    # Mode: "data_lake" ingests structured files as Datasets
+    #       "document" ingests pages/documents as Document entities
+    #       "both"     runs both in a single pipeline
+    mode: data_lake
+
+    # File types to ingest in data_lake mode (default shown)
+    # file_types:
+    #   - csv
+    #   - parquet
+    #   - json
+    #   - avro
+    #   - xlsx
+
+    # Enable stateful ingestion for soft-deletion of removed entities
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  # sink configs

@@ -83,6 +83,9 @@ class DatasetContainerSubTypes(StrEnum):
     # Matillion
     MATILLION_PROJECT = "Project"
     MATILLION_ENVIRONMENT = "Environment"
+    # SharePoint
+    SHAREPOINT_SITE = "SharePoint Site"
+    SHAREPOINT_DOCUMENT_LIBRARY = "Document Library"
     # Microsoft Fabric
     FABRIC_LAKEHOUSE = "Fabric Lakehouse"
     FABRIC_WAREHOUSE = "Fabric Warehouse"
