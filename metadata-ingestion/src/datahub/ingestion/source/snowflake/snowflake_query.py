@@ -1,7 +1,6 @@
 import logging
 import re
-import textwrap
-from typing import AbstractSet, Iterable, Iterator, List, Optional
+from typing import AbstractSet, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
@@ -16,9 +15,6 @@ logger = logging.getLogger(__name__)
 SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
 
-# Snowflake's recommended per-query byte ceiling for retryable queries.
-SNOWFLAKE_MAX_QUERY_BYTES = 1_000_000
-
 
 def _escape_sql_string_literal(value: str) -> str:
     """Escape a value for embedding inside a single-quoted SQL string literal.
@@ -31,57 +27,6 @@ def _escape_sql_string_literal(value: str) -> str:
     object/schema name breaks out of the literal and injects SQL.
     """
     return value.replace("\\", "\\\\").replace("'", "''")
-
-
-def _escape_sql_literal_for_format_template(value: str) -> str:
-    """SQL-escape *value* (see :func:`_escape_sql_string_literal`) AND double any
-    ``{``/``}`` so it survives a later ``str.format()`` pass unchanged.
-
-    Used for identifiers embedded in a template that still carries an
-    ``{in_values}`` placeholder filled later via ``str.format()``. Without the
-    brace doubling, a literal brace in the identifier would be read as a format
-    field — e.g. a schema named ``{in_values}`` could displace the IN list, or a
-    stray ``{`` could crash ``.format()`` with KeyError/ValueError.
-    """
-    return _escape_sql_string_literal(value).replace("{", "{{").replace("}", "}}")
-
-
-def paginate_in_clause_values_by_byte_budget(
-    template: str,
-    names: Iterable[str],
-    max_bytes: int = SNOWFLAKE_MAX_QUERY_BYTES,
-) -> Iterator[str]:
-    """Yield complete SQL strings by paging IN-clause values under *max_bytes*.
-
-    ``template`` must contain exactly one ``{in_values}`` placeholder, which
-    receives a comma-separated list of single-quoted, SQL-escaped names. Byte
-    cost per entry is measured post-escape plus a 2-byte separator (``', '``).
-
-    Each emitted page's final SQL stays at or below *max_bytes* — EXCEPT when a
-    single escaped value plus the fixed template overhead already exceeds it: a
-    value cannot be split, so it is emitted alone on a page that may exceed the
-    limit. Callers must therefore size *max_bytes* well above the largest single
-    value (Snowflake identifiers are capped at 255 chars, far under the default
-    budget, so this does not arise in normal use).
-    """
-    base_cost = len(template.encode()) - len("{in_values}".encode())
-    budget = max_bytes - base_cost
-
-    page: List[str] = []
-    used = 0
-
-    for name in names:
-        entry = f"'{_escape_sql_string_literal(name)}'"
-        cost = len(entry.encode()) + (2 if page else 0)  # ", " separator
-        if page and used + cost > budget:
-            yield template.format(in_values=", ".join(page))
-            page = []
-            used = 0
-        page.append(entry)
-        used += len(entry.encode()) + (2 if len(page) > 1 else 0)
-
-    if page:
-        yield template.format(in_values=", ".join(page))
 
 
 # Snowflake unquoted-identifier names — single segments (``DB``, ``MY_SHARE``)
@@ -859,38 +804,6 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             "\nUNION ALL\n".join(selects)
             + """\nORDER BY table_name, ordinal_position"""
         )
-
-    @staticmethod
-    def columns_for_schema_in_template(schema_name: str, db_name: str) -> str:
-        """Return a SQL template with an ``{in_values}`` placeholder.
-
-        Pass to ``paginate_in_clause_values_by_byte_budget`` to generate
-        one or more complete queries that filter ``table_name IN (...)`` rather
-        than ``AND TRUE`` or ``LIKE 'prefix%'``.
-        """
-        # Identifiers are embedded now, but {in_values} is filled later via
-        # str.format(), so escape for both the SQL literal and the format pass.
-        escaped_schema = _escape_sql_literal_for_format_template(schema_name)
-        escaped_db = _escape_sql_literal_for_format_template(db_name)
-        return textwrap.dedent(f"""\
-            SELECT
-              table_catalog AS "TABLE_CATALOG",
-              table_schema AS "TABLE_SCHEMA",
-              table_name AS "TABLE_NAME",
-              column_name AS "COLUMN_NAME",
-              ordinal_position AS "ORDINAL_POSITION",
-              is_nullable AS "IS_NULLABLE",
-              data_type AS "DATA_TYPE",
-              comment AS "COMMENT",
-              character_maximum_length AS "CHARACTER_MAXIMUM_LENGTH",
-              numeric_precision AS "NUMERIC_PRECISION",
-              numeric_scale AS "NUMERIC_SCALE",
-              column_default AS "COLUMN_DEFAULT",
-              is_identity AS "IS_IDENTITY"
-            FROM "{escaped_db}".information_schema.columns
-            WHERE table_schema='{escaped_schema}'
-              AND table_name IN ({{in_values}})
-            ORDER BY table_name, ordinal_position""")
 
     @staticmethod
     def show_primary_keys_for_schema(schema_name: str, db_name: str) -> str:

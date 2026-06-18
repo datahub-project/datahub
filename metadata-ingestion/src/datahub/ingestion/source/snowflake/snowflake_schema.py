@@ -28,13 +28,12 @@ from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeCon
 from datahub.ingestion.source.snowflake.snowflake_query import (
     SHOW_COMMAND_MAX_PAGE_SIZE,
     SnowflakeQuery,
-    paginate_in_clause_values_by_byte_budget,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.prefix_batch_builder import build_prefix_batches
+from datahub.utilities.prefix_batch_builder import PrefixGroup, build_prefix_batches
 from datahub.utilities.serialized_lru_cache import serialized_lru_cache
 from datahub.utilities.str_enum import StrEnum
 
@@ -1621,44 +1620,36 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # For massive schemas, use a FileBackedDict to avoid memory issues.
             columns = FileBackedDict()
 
-        _COLUMN_FETCH_MAX_BATCH_SIZE = 10000
-        _COLUMN_FETCH_MAX_GROUPS_IN_BATCH = 6
+        # Single prefix table case (for streams)
+        if len(all_objects) == 1:
+            object_batches = [
+                [PrefixGroup(prefix=all_objects[0], names=[], exact_match=True)]
+            ]
+        else:
+            # Build batches for full schema scan
+            # Max object names per batch; bounds the WHERE clause size of the
+            # per-batch SELECT against information_schema.columns.
+            _COLUMN_FETCH_MAX_BATCH_SIZE = 10000
+            # Max prefix groups per batch; limits how many table_name LIKE
+            # clauses are OR'd together in one query.
+            _COLUMN_FETCH_MAX_GROUPS_IN_BATCH = 6
 
-        object_batches = build_prefix_batches(
-            all_objects,
-            max_batch_size=_COLUMN_FETCH_MAX_BATCH_SIZE,
-            max_groups_in_batch=_COLUMN_FETCH_MAX_GROUPS_IN_BATCH,
-        )
+            object_batches = build_prefix_batches(
+                all_objects,
+                max_batch_size=_COLUMN_FETCH_MAX_BATCH_SIZE,
+                max_groups_in_batch=_COLUMN_FETCH_MAX_GROUPS_IN_BATCH,
+            )
 
-        # Build a flat list of queries across all batches and groups.
-        # prefix_batch_builder populates .names on every group but columns_for_schema
-        # ignores them, generating LIKE 'prefix%' or AND TRUE instead. Use the known
-        # names directly via a byte-budget-paged IN clause for exact filtering.
-        # Only fall back to columns_for_schema for the degenerate empty-names case
-        # (all_objects was empty → full schema scan).
-        template = SnowflakeQuery.columns_for_schema_in_template(schema_name, db_name)
-        all_queries: List[str] = []
-        for object_batch in object_batches:
-            for prefix_group in object_batch:
-                if prefix_group.names:
-                    all_queries.extend(
-                        paginate_in_clause_values_by_byte_budget(
-                            template, prefix_group.names
-                        )
-                    )
-                else:
-                    all_queries.append(
-                        SnowflakeQuery.columns_for_schema(
-                            schema_name, db_name, [prefix_group]
-                        )
-                    )
-
-        for query_num, query in enumerate(all_queries):
-            if query_num > 0:
+        # Process batches
+        for batch_index, object_batch in enumerate(object_batches):
+            if batch_index > 0:
                 logger.info(
-                    f"Still fetching columns for {db_name}.{schema_name}"
-                    f" - query {query_num + 1} of {len(all_queries)}"
+                    f"Still fetching columns for {db_name}.{schema_name} - batch {batch_index + 1} of {len(object_batches)}"
                 )
+            query = SnowflakeQuery.columns_for_schema(
+                schema_name, db_name, object_batch
+            )
+
             cur = self.connection.query(query)
 
             for column in cur:
