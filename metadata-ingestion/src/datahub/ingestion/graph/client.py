@@ -87,6 +87,7 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.telemetry.telemetry import telemetry_instance
+from datahub.utilities.entity_aspect_specs import EntityAspectSpecs
 from datahub.utilities.urns.urn import guess_entity_type
 
 if TYPE_CHECKING:
@@ -181,6 +182,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         self.server_id: str = _MISSING_SERVER_ID
         self._query_projector: Optional["QueryProjector"] = None
         self._graphql_input_fields_cache: Dict[str, Set[str]] = {}
+        self._entity_aspect_specs: Optional["EntityAspectSpecs"] = None
 
     def _graphql_input_type_has_field(self, input_type: str, field_name: str) -> bool:
         if input_type not in self._graphql_input_fields_cache:
@@ -315,6 +317,17 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
     ) -> Dict:
         return self._send_restli_request("POST", url, json=payload_dict, params=params)
 
+    def _paginate_offset(self, url: str, *, page_size: int = 100) -> Iterator[dict]:
+        """Yield ``elements`` from an offset-paginated GMS endpoint (start/count/total)."""
+        start = 0
+        while True:
+            data = self._get_generic(url, params={"start": start, "count": page_size})
+            yield from data.get("elements", [])
+            count = data.get("count", 0)
+            start += count
+            if count == 0 or start >= data.get("total", 0):
+                break
+
     def _make_rest_sink_config(
         self, extra_config: Optional[Dict] = None
     ) -> "DatahubRestSinkConfig":
@@ -430,6 +443,28 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
 
     def get_config(self) -> Dict[str, Any]:
         return self.server_config.raw_config
+
+    def get_entity_aspect_specs(self) -> Optional["EntityAspectSpecs"]:
+        """The server's entity/aspect specs for capability detection (memoized).
+
+        Pages through the registry specifications endpoint once per client and
+        caches the result in memory. Returns ``None`` if the fetch fails.
+        """
+        if self._entity_aspect_specs is not None:
+            return self._entity_aspect_specs
+
+        url = f"{self._gms_server}/openapi/v1/registry/models/entity/specifications"
+        try:
+            elements = list(self._paginate_offset(url))
+        except Exception:
+            logger.warning(
+                "Could not fetch entity aspect specs for capability detection.",
+                exc_info=True,
+            )
+            return None
+
+        self._entity_aspect_specs = EntityAspectSpecs.from_registry_elements(elements)
+        return self._entity_aspect_specs
 
     def get_ownership(self, entity_urn: str) -> Optional[OwnershipClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=OwnershipClass)
