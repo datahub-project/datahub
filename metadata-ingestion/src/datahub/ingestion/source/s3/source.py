@@ -48,6 +48,7 @@ from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import (
+    SUPPORTED_FILE_TYPES,
     FolderTraversalMethod,
     PathSpec,
 )
@@ -591,6 +592,80 @@ class S3Source(StatefulIngestionSourceBase):
 
         if self.source_config.is_profiling_enabled():
             yield from self.profiler.get_table_profile(table_data, dataset_urn)
+
+    def emit_data_object(
+        self, table_data: TableData, path_spec: PathSpec
+    ) -> Iterable[MetadataWorkUnit]:
+        from datahub.ingestion.source.s3.data_object_utils import (
+            classify_extension,
+            guess_mime_type,
+        )
+        from datahub.metadata._urns.urn_defs import DataObjectUrn
+        from datahub.metadata.schema_classes import (
+            AuditStampClass,
+            DataObjectPropertiesClass,
+            ObjectStoragePropertiesClass,
+            SubTypesClass,
+        )
+
+        browse_path = re.sub(URI_SCHEME_REGEX, "", table_data.table_path).strip("/")
+        if self.source_config.convert_urns_to_lowercase:
+            browse_path = browse_path.lower()
+
+        data_object_urn = DataObjectUrn(
+            make_data_platform_urn(self.source_config.platform),
+            browse_path,
+            self.source_config.env,
+        )
+
+        ext = browse_path.rsplit(".", 1)[-1] if "." in browse_path else ""
+        subtype = classify_extension(ext)
+        mime = guess_mime_type(browse_path, table_data.content_type)
+
+        audit_stamp = (
+            AuditStampClass(
+                time=int(table_data.timestamp.timestamp() * 1000),
+                actor="urn:li:corpuser:datahub",
+            )
+            if table_data.timestamp
+            else None
+        )
+
+        aspects: List[_Aspect] = [
+            DataObjectPropertiesClass(
+                name=table_data.display_name,
+                qualifiedName=table_data.full_path,
+                description="",
+                created=audit_stamp,
+                lastModified=audit_stamp,
+            ),
+            ObjectStoragePropertiesClass(
+                mimeType=mime,
+                sizeBytes=table_data.size_in_bytes,
+                storagePath=table_data.full_path,
+            ),
+            SubTypesClass(typeNames=[subtype.value]),
+        ]
+
+        if self.source_config.platform_instance:
+            aspects.append(
+                DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.source_config.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.source_config.platform,
+                        self.source_config.platform_instance,
+                    ),
+                )
+            )
+
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+            entityUrn=str(data_object_urn), aspects=aspects
+        ):
+            yield mcp.as_workunit()
+
+        yield from self.container_WU_creator.create_container_hierarchy(
+            table_data.table_path, str(data_object_urn)
+        )
 
     def get_prefix(self, relative_path: str) -> str:
         index = re.search(r"[\*|\{]", relative_path)
@@ -1188,7 +1263,24 @@ class S3Source(StatefulIngestionSourceBase):
                             ].timestamp = table_data.timestamp
 
                 for _, table_data in table_dict.items():
-                    yield from self.ingest_table(table_data, path_spec)
+                    file_ext = (
+                        table_data.table_path.rsplit(".", 1)[-1].lower()
+                        if "." in table_data.table_path
+                        else ""
+                    )
+                    is_unstructured = (
+                        bool(self.source_config.unstructured_file_extensions)
+                        and file_ext
+                        in {
+                            e.lower()
+                            for e in self.source_config.unstructured_file_extensions
+                        }
+                        and file_ext not in {t.lower() for t in SUPPORTED_FILE_TYPES}
+                    )
+                    if is_unstructured:
+                        yield from self.emit_data_object(table_data, path_spec)
+                    else:
+                        yield from self.ingest_table(table_data, path_spec)
 
             if not self.source_config.is_profiling_enabled():
                 return

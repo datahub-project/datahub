@@ -760,3 +760,51 @@ def test_list_objects_recursive_paginates_with_continuation_token(s3_client):
     assert all(obj.bucket_name == "bucket" for obj in results)
     assert all(obj.key.startswith(prefix) for obj in results)
     assert all(obj.size == 1 for obj in results)
+
+
+def test_emit_data_object_emits_expected_aspects():
+    from datetime import datetime
+
+    from datahub.ingestion.source.s3.source import TableData
+
+    source = S3Source.create(
+        config_dict={
+            "path_specs": [{"include": "s3://my-test-bucket/media/*.*"}],
+            "unstructured_file_extensions": ["mp4"],
+            "aws_config": {
+                "aws_access_key_id": "test",
+                "aws_secret_access_key": "test",
+                "aws_region": "us-east-1",
+            },
+        },
+        ctx=PipelineContext(run_id="test-s3-data-object"),
+    )
+    table_data = TableData(
+        display_name="clip.mp4",
+        is_s3=True,
+        full_path="s3://my-test-bucket/media/clip.mp4",
+        table_path="s3://my-test-bucket/media/clip.mp4",
+        partitions=None,
+        timestamp=datetime(2020, 4, 14),
+        size_in_bytes=2048,
+        number_of_files=1,
+        content_type="video/mp4",
+    )
+    wus = list(source.emit_data_object(table_data, source.source_config.path_specs[0]))
+    aspects = {
+        type(wu.metadata.aspect).__name__
+        for wu in wus
+        if hasattr(wu.metadata, "aspect")
+    }
+    assert "DataObjectPropertiesClass" in aspects
+    assert "ObjectStoragePropertiesClass" in aspects
+    assert "SubTypesClass" in aspects
+    storage = next(
+        wu.metadata.aspect
+        for wu in wus
+        if type(getattr(wu.metadata, "aspect", None)).__name__
+        == "ObjectStoragePropertiesClass"
+    )
+    assert storage.mimeType == "video/mp4"
+    urns = {wu.metadata.entityUrn for wu in wus if hasattr(wu.metadata, "entityUrn")}
+    assert any(u.startswith("urn:li:dataObject:") for u in urns)
