@@ -465,6 +465,15 @@ class UnityCatalogSourceConfig(
             forced_disable_hive_metastore_extraction
         )
 
+    def usage_uses_system_tables(self, warehouse_id: Optional[str]) -> bool:
+        """Return True when usage data should come from the system-tables join path."""
+        src = self.usage_data_source
+        if src == UsageDataSource.SYSTEM_TABLES:
+            return True
+        if src == UsageDataSource.AUTO:
+            return bool(warehouse_id)
+        return False
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -491,6 +500,8 @@ class UnityCatalogSourceConfig(
         effective_warehouse = self.warehouse_id or (
             self.profiling.warehouse_id if self.profiling else None
         )
+        # Intentionally checks BOTH usage and lineage data sources: either path using
+        # system tables extends the allowed history window from 30 to 365 days.
         uses_system_tables = bool(effective_warehouse) and (
             self.usage_data_source != UsageDataSource.API
             or self.lineage_data_source != LineageDataSource.API

@@ -4,9 +4,11 @@ import pytest
 import time_machine
 
 from datahub.ingestion.source.unity.config import (
+    LineageDataSource,
     UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
     UnityCatalogSQLAlchemyProfilerConfig,
+    UsageDataSource,
 )
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 
@@ -393,8 +395,6 @@ def test_lineage_data_source_default():
             "include_tags": False,
         }
     )
-    from datahub.ingestion.source.unity.config import LineageDataSource
-
     assert config.lineage_data_source == LineageDataSource.AUTO
 
 
@@ -426,8 +426,6 @@ def test_lineage_data_source_api_does_not_require_warehouse():
             "lineage_data_source": "API",
         }
     )
-    from datahub.ingestion.source.unity.config import LineageDataSource
-
     assert config.lineage_data_source == LineageDataSource.API
     assert config.warehouse_id is None
 
@@ -442,8 +440,6 @@ def test_usage_data_source_default():
             "include_tags": False,
         }
     )
-    from datahub.ingestion.source.unity.config import UsageDataSource
-
     assert config.usage_data_source == UsageDataSource.AUTO
 
 
@@ -475,8 +471,6 @@ def test_usage_data_source_api_does_not_require_warehouse():
             "usage_data_source": "API",
         }
     )
-    from datahub.ingestion.source.unity.config import UsageDataSource
-
     assert config.usage_data_source == UsageDataSource.API
     assert config.warehouse_id is None
 
@@ -493,8 +487,6 @@ def test_usage_data_source_can_be_set_with_warehouse():
             "usage_data_source": "SYSTEM_TABLES",
         }
     )
-    from datahub.ingestion.source.unity.config import UsageDataSource
-
     assert config.usage_data_source == UsageDataSource.SYSTEM_TABLES
     assert config.warehouse_id == "test_warehouse"
 

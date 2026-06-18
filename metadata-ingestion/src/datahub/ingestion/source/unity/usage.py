@@ -97,12 +97,7 @@ class UnityCatalogUsageExtractor:
                 logger.warning("Failed to close usage aggregator", exc_info=True)
 
     def _use_system_tables_join(self) -> bool:
-        src = self.config.usage_data_source
-        if src == UsageDataSource.SYSTEM_TABLES:
-            return True
-        if src == UsageDataSource.AUTO:
-            return bool(self.proxy.warehouse_id)
-        return False
+        return self.config.usage_uses_system_tables(self.proxy.warehouse_id)
 
     def _get_workunits_internal(
         self, table_refs: Set[TableReference]
@@ -139,19 +134,7 @@ class UnityCatalogUsageExtractor:
                             info.target_tables, table_map
                         ),
                     )
-                    if self.config.include_operational_stats:
-                        yield from self._generate_operation_workunit(
-                            info.query, table_info
-                        )
-                    for source_table in table_info.source_tables:
-                        with self.report.usage_perf_report.aggregator_add_event_timer:
-                            self.usage_aggregator.aggregate_event(
-                                resource=source_table,
-                                start_time=info.query.start_time,
-                                query=info.query.query_text,
-                                user=info.query.user_name,
-                                fields=[],
-                            )
+                    yield from self._aggregate_query_usage(info.query, table_info)
                     if self.config.emit_queries:
                         yield from self._emit_query_entity(info, table_map)
 
@@ -166,19 +149,7 @@ class UnityCatalogUsageExtractor:
                     if fallback_table_info is None:
                         continue
                     self.report.num_queries_resolved_via_parse_fallback += 1
-                    if self.config.include_operational_stats:
-                        yield from self._generate_operation_workunit(
-                            query, fallback_table_info
-                        )
-                    for source_table in fallback_table_info.source_tables:
-                        with self.report.usage_perf_report.aggregator_add_event_timer:
-                            self.usage_aggregator.aggregate_event(
-                                resource=source_table,
-                                start_time=query.start_time,
-                                query=query.query_text,
-                                user=query.user_name,
-                                fields=[],
-                            )
+                    yield from self._aggregate_query_usage(query, fallback_table_info)
         else:
             with self.report.usage_perf_report.get_queries_timer as current_timer:
                 for query in self._get_queries():
@@ -193,27 +164,25 @@ class UnityCatalogUsageExtractor:
                             self.report.num_unique_queries = len(query_hashes)
                         parsed_table_info = self._parse_query(query, table_map)
                         if parsed_table_info is not None:
-                            if self.config.include_operational_stats:
-                                yield from self._generate_operation_workunit(
-                                    query, parsed_table_info
-                                )
-                            for source_table in parsed_table_info.source_tables:
-                                with self.report.usage_perf_report.aggregator_add_event_timer:
-                                    self.usage_aggregator.aggregate_event(
-                                        resource=source_table,
-                                        start_time=query.start_time,
-                                        query=query.query_text,
-                                        user=query.user_name,
-                                        fields=[],
-                                    )
+                            yield from self._aggregate_query_usage(
+                                query, parsed_table_info
+                            )
 
         if not self.report.num_queries:
             logger.warning("No queries found in the given time range.")
-            self.report.report_warning(
-                "usage",
-                f"No queries found: "
-                f"are you missing the CAN_MANAGE permission on SQL warehouse {self.proxy.warehouse_id}?",
-            )
+            if self._use_system_tables_join():
+                self.report.report_warning(
+                    "usage",
+                    "No queries found: ensure the service principal has SELECT access on "
+                    "system.access and system.query schemas, and that those schemas are "
+                    "enabled for this workspace.",
+                )
+            else:
+                self.report.report_warning(
+                    "usage",
+                    f"No queries found: "
+                    f"are you missing the CAN_MANAGE permission on SQL warehouse {self.proxy.warehouse_id}?",
+                )
             return
 
         yield from auto_empty_dataset_usage_statistics(
@@ -224,6 +193,26 @@ class UnityCatalogUsageExtractor:
             dataset_urns={self.table_urn_builder(ref) for ref in table_refs},
             config=self.config,
         )
+
+    def _aggregate_query_usage(
+        self, query: Query, table_info: QueryTableInfo
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit operational stats and aggregate usage events for a single query.
+
+        Extracted to eliminate duplication across the system-tables join branch,
+        the parse-fallback loop, and the REST-API path.
+        """
+        if self.config.include_operational_stats:
+            yield from self._generate_operation_workunit(query, table_info)
+        for source_table in table_info.source_tables:
+            with self.report.usage_perf_report.aggregator_add_event_timer:
+                self.usage_aggregator.aggregate_event(
+                    resource=source_table,
+                    start_time=query.start_time,
+                    query=query.query_text,
+                    user=query.user_name,
+                    fields=[],
+                )
 
     def _generate_operation_workunit(
         self, query: Query, table_info: QueryTableInfo

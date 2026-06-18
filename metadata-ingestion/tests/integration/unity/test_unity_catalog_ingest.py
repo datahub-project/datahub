@@ -1507,7 +1507,6 @@ def test_unity_catalog_usage_system_tables(pytestconfig, tmp_path, requests_mock
         ),
         source_tables=["quickstart_catalog.quickstart_schema.quickstart_table"],
         target_tables=[],
-        external_source_paths=[],
     )
     write_info = QueryStatementInfo(
         query=_make_query(
@@ -1521,7 +1520,6 @@ def test_unity_catalog_usage_system_tables(pytestconfig, tmp_path, requests_mock
             "quickstart_catalog.quickstart_schema.quickstart_table_external"
         ],
         target_tables=["quickstart_catalog.quickstart_schema.quickstart_table"],
-        external_source_paths=[],
     )
 
     # One extra history row not in the join (drives parse-fallback).

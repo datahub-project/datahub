@@ -1,23 +1,37 @@
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Iterable, List
 from unittest.mock import MagicMock
 
 import pytest
+from databricks.sdk.service.sql import QueryStatementType
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.unity.config import (
+    UnityCatalogSourceConfig,
+    UsageDataSource,
+)
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
-from datahub.ingestion.source.unity.proxy_types import Query, QueryStatementInfo
+from datahub.ingestion.source.unity.proxy_types import (
+    Query,
+    QueryStatementInfo,
+    TableReference,
+)
 from datahub.ingestion.source.unity.report import UnityCatalogReport
-from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
+from datahub.ingestion.source.unity.usage import (
+    QueryTableInfo,
+    UnityCatalogUsageExtractor,
+)
+from datahub.metadata.schema_classes import QueryPropertiesClass, QuerySubjectsClass
 
 _TS = datetime(2026, 6, 1, tzinfo=timezone.utc)
 REDACTED = "<Redacted>"
 
 
 def _row(**kw):
-    # databricks Row supports __getitem__ by column name; dict is a sufficient stand-in
-    return kw
+    # Databricks Row supports attribute access; SimpleNamespace replicates that.
+    return SimpleNamespace(**kw)
 
 
 def _make_proxy(rows):
@@ -64,7 +78,7 @@ def test_groups_read_write_and_external_rows_by_statement():
             target_table_full_name="cat.sch.tgt",
             target_type="TABLE",
         ),
-        # statement s2: read via external path
+        # statement s2: read via external path — contributes no source_table (no-op)
         _row(
             statement_id="s2",
             statement_text="SELECT ...",
@@ -93,7 +107,6 @@ def test_groups_read_write_and_external_rows_by_statement():
     s2 = out[1]
     assert s2.source_tables == []
     assert s2.target_tables == []
-    assert s2.external_source_paths == ["s3://b/p"]
 
 
 def test_empty_result_yields_nothing():
@@ -156,9 +169,24 @@ def test_invalid_statement_type_yields_row_with_none_type():
     )
 
 
-def _make_query(query_id: str, text: str = "SELECT 1") -> Query:
-    from databricks.sdk.service.sql import QueryStatementType
+def test_sql_contains_required_filters():
+    """Regression guard: the SQL built by get_query_usage_via_system_tables must include
+    the direct_access, statement_id IS NOT NULL, and NULL-timestamp filters."""
+    ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    proxy = _make_proxy([])
+    list(proxy.get_query_usage_via_system_tables(ts, ts))
 
+    assert proxy._execute_sql_query.called
+    sql_arg: str = proxy._execute_sql_query.call_args[0][0]
+    assert "direct_access = true" in sql_arg, "missing direct_access filter"
+    assert "statement_id IS NOT NULL" in sql_arg, (
+        "missing statement_id IS NOT NULL filter"
+    )
+    assert "start_time IS NOT NULL" in sql_arg, "missing NULL timestamp filter"
+    assert "end_time IS NOT NULL" in sql_arg, "missing NULL timestamp filter"
+
+
+def _make_query(query_id: str, text: str = "SELECT 1") -> Query:
     ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
     return Query(
         query_id=query_id,
@@ -175,12 +203,6 @@ def _make_query(query_id: str, text: str = "SELECT 1") -> Query:
 
 def _make_usage_extractor(fake_proxy: MagicMock) -> UnityCatalogUsageExtractor:
     """Build a UnityCatalogUsageExtractor with a fake proxy, bypassing real init."""
-    from datahub.ingestion.source.unity.config import (
-        UnityCatalogSourceConfig,
-        UsageDataSource,
-    )
-    from datahub.ingestion.source.unity.proxy_types import TableReference
-
     config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "fake",
@@ -215,9 +237,6 @@ def test_system_tables_path_aggregates_and_parse_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """s1 is lineage-matched; s2 is history-only and triggers parse-fallback."""
-    from datahub.ingestion.source.unity.proxy_types import TableReference
-    from datahub.ingestion.source.unity.usage import QueryTableInfo
-
     # Known table reference that lives in "table_refs"
     known_ref = TableReference(
         metastore=None,
@@ -233,7 +252,6 @@ def test_system_tables_path_aggregates_and_parse_fallback(
         query=q1,
         source_tables=["cat.sch.src"],
         target_tables=[],
-        external_source_paths=[],
     )
 
     # s2: history-only — no lineage rows, will go through parse fallback
@@ -293,12 +311,6 @@ def test_parse_unmatched_queries_disabled_skips_fallback(
 ) -> None:
     """When parse_unmatched_queries=False, the history API is never called and the
     parse-fallback counter stays at zero."""
-    from datahub.ingestion.source.unity.config import (
-        UnityCatalogSourceConfig,
-        UsageDataSource,
-    )
-    from datahub.ingestion.source.unity.proxy_types import TableReference
-
     known_ref = TableReference(
         metastore=None,
         catalog="cat",
@@ -312,7 +324,6 @@ def test_parse_unmatched_queries_disabled_skips_fallback(
         query=q1,
         source_tables=["cat.sch.src"],
         target_tables=[],
-        external_source_paths=[],
     )
 
     fake_proxy = MagicMock()
@@ -330,8 +341,6 @@ def test_parse_unmatched_queries_disabled_skips_fallback(
         }
     )
 
-    from datahub.ingestion.source.unity.report import UnityCatalogReport
-
     report = UnityCatalogReport()
 
     def table_urn_builder(ref: TableReference) -> str:
@@ -339,8 +348,6 @@ def test_parse_unmatched_queries_disabled_skips_fallback(
 
     def user_urn_builder(user: str) -> str:
         return f"urn:li:corpuser:{user}"
-
-    from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
 
     extractor = UnityCatalogUsageExtractor.__new__(UnityCatalogUsageExtractor)
     extractor.config = config
@@ -370,12 +377,6 @@ def test_parse_unmatched_queries_disabled_skips_fallback(
 
 def _make_extractor() -> UnityCatalogUsageExtractor:
     """Build an extractor without a proxy (unit-testing _emit_query_entity directly)."""
-    from datahub.ingestion.source.unity.config import (
-        UnityCatalogSourceConfig,
-        UsageDataSource,
-    )
-    from datahub.ingestion.source.unity.proxy_types import TableReference
-
     config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "fake",
@@ -421,7 +422,6 @@ def _make_info(
         ),
         source_tables=source_tables,
         target_tables=target_tables,
-        external_source_paths=[],
     )
 
 
@@ -450,7 +450,6 @@ def _get_mcp_by_aspect(
 def test_emit_query_entity_skips_text_when_redacted() -> None:
     """Redacted query text: emits queryProperties with empty statement, increments counter."""
     from datahub.ingestion.source.unity.usage import TableMap
-    from datahub.metadata.schema_classes import QueryPropertiesClass
 
     extractor = _make_extractor()
     info = _make_info(query_id="s9", text=REDACTED, source_tables=[], target_tables=[])
@@ -486,9 +485,7 @@ def test_emit_query_entity_skips_when_no_id_and_redacted() -> None:
 
 def test_emit_query_entity_real_text_with_tables() -> None:
     """Real query text + resolved tables: emits queryProperties + querySubjects, increments counter."""
-    from datahub.ingestion.source.unity.proxy_types import TableReference
     from datahub.ingestion.source.unity.usage import TableMap
-    from datahub.metadata.schema_classes import QueryPropertiesClass, QuerySubjectsClass
 
     extractor = _make_extractor()
 

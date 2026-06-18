@@ -716,6 +716,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 AND tl.event_date <= %s
                 AND tl.statement_id IS NOT NULL
                 AND tl.direct_access = true
+                AND qh.start_time IS NOT NULL
+                AND qh.end_time IS NOT NULL
             ORDER BY tl.statement_id
         """
         rows = self._execute_sql_query(query, (start_time, end_time))
@@ -723,50 +725,57 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         current_id: Optional[str] = None
         info: Optional[QueryStatementInfo] = None
         for row in rows:
-            sid = row["statement_id"]
-            if sid != current_id:
-                if info is not None:
-                    yield info
-                current_id = sid
-                raw_stmt_type = row["statement_type"]
-                statement_type: Optional[QueryStatementType] = None
-                if raw_stmt_type:
-                    try:
-                        statement_type = QueryStatementType(raw_stmt_type)
-                    except ValueError:
-                        logger.warning(
-                            f"Unrecognized statement_type {raw_stmt_type!r} for "
-                            f"statement {sid}; treating as None"
-                        )
-                        self.report.report_warning(
-                            "unknown-statement-type",
-                            f"statement_id={sid} statement_type={raw_stmt_type!r}",
-                        )
-                info = QueryStatementInfo(
-                    query=Query(
-                        query_id=sid,
-                        query_text=row["statement_text"] or "",
-                        statement_type=statement_type,
-                        start_time=row["start_time"],
-                        end_time=row["end_time"],
-                        user_id=row["executed_by_user_id"],
-                        user_name=row["executed_by"],
-                        executed_as_user_id=row["executed_as_user_id"],
-                        executed_as_user_name=row["executed_as"],
-                    ),
-                    source_tables=[],
-                    target_tables=[],
-                    external_source_paths=[],
+            try:
+                sid = row.statement_id
+                if sid != current_id:
+                    if info is not None:
+                        yield info
+                    current_id = sid
+                    raw_stmt_type = row.statement_type
+                    statement_type: Optional[QueryStatementType] = None
+                    if raw_stmt_type:
+                        try:
+                            statement_type = QueryStatementType(raw_stmt_type)
+                        except ValueError:
+                            logger.warning(
+                                f"Unrecognized statement_type {raw_stmt_type!r} for "
+                                f"statement {sid}; treating as None"
+                            )
+                            self.report.report_warning(
+                                "unknown-statement-type",
+                                f"statement_id={sid} statement_type={raw_stmt_type!r}",
+                            )
+                    info = QueryStatementInfo(
+                        query=Query(
+                            query_id=sid,
+                            query_text=row.statement_text or "",
+                            statement_type=statement_type,
+                            start_time=row.start_time,
+                            end_time=row.end_time,
+                            user_id=row.executed_by_user_id,
+                            user_name=row.executed_by,
+                            executed_as_user_id=row.executed_as_user_id,
+                            executed_as_user_name=row.executed_as,
+                        ),
+                        source_tables=[],
+                        target_tables=[],
+                    )
+                assert info is not None
+                # Read row: target_type is NULL. Write row: source_type is NULL.
+                if row.target_type is None and row.source_table_full_name:
+                    info.source_tables.append(row.source_table_full_name)
+                if row.source_type is None and row.target_table_full_name:
+                    info.target_tables.append(row.target_table_full_name)
+            except Exception as e:
+                sid_ctx = getattr(row, "statement_id", "<unknown>")
+                logger.warning(
+                    f"Error parsing system-table usage row for statement {sid_ctx!r}: {e}"
                 )
-            assert info is not None
-            # Read row: target_type is NULL. Write row: source_type is NULL.
-            if row["target_type"] is None:
-                if row["source_table_full_name"]:
-                    info.source_tables.append(row["source_table_full_name"])
-                elif row["source_path"]:
-                    info.external_source_paths.append(row["source_path"])
-            if row["source_type"] is None and row["target_table_full_name"]:
-                info.target_tables.append(row["target_table_full_name"])
+                self.report.report_warning(
+                    "usage-row-parse",
+                    f"statement_id={sid_ctx!r}: {e}",
+                )
+                continue
         if info is not None:
             yield info
 
@@ -1477,6 +1486,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     f"Proxy environment variables detected: {list(proxy_env_debug.keys())}"
                 )
 
+            self.report.report_warning(
+                "sql-query-failed",
+                f"SQL query failed: {e}. "
+                "Check that the service principal has SELECT on system.access and system.query schemas "
+                "and that the system schemas are enabled for this workspace.",
+            )
             return []
 
     @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
