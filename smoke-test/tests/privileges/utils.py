@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import get_admin_credentials, get_frontend_url, login_as
@@ -339,6 +340,66 @@ def assign_role(session, role_urn, actor_urns):
     assert res_data["data"]["batchAssignRole"]
     wait_for_writes_to_sync()
     return res_data["data"]["batchAssignRole"]
+
+
+def create_metadata_policy(
+    session,
+    *,
+    name: str,
+    description: str,
+    privileges: list,
+    user_urn: str,
+    resource_urn: Optional[str] = None,
+    resource_type: Optional[str] = None,
+):
+    """Create an active METADATA policy scoped to a user and optional resource URN."""
+    resources: dict
+    if resource_urn:
+        resources = {
+            "filter": {
+                "criteria": [
+                    {
+                        "field": "URN",
+                        "values": [resource_urn],
+                        "condition": "EQUALS",
+                    }
+                ]
+            }
+        }
+    elif resource_type:
+        resources = {"type": resource_type, "allResources": True}
+    else:
+        resources = {"filter": {"criteria": []}}
+
+    policy = {
+        "query": """mutation createPolicy($input: PolicyUpdateInput!) {
+            createPolicy(input: $input) }""",
+        "variables": {
+            "input": {
+                "type": "METADATA",
+                "name": name,
+                "description": description,
+                "state": "ACTIVE",
+                "resources": resources,
+                "privileges": privileges,
+                "actors": {
+                    "users": [user_urn],
+                    "resourceOwners": False,
+                    "allUsers": False,
+                    "allGroups": False,
+                },
+            }
+        },
+    }
+
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=policy)
+    response.raise_for_status()
+    res_data = response.json()
+    assert res_data.get("data") and res_data["data"].get("createPolicy"), (
+        f"createPolicy failed: {res_data}"
+    )
+    wait_for_writes_to_sync()
+    return res_data["data"]["createPolicy"]
 
 
 def create_user_policy(user_urn, privileges, session):

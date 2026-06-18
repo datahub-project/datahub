@@ -44,6 +44,7 @@ Requirements:
 
 ### Breaking Changes
 
+- **(GMS / Logical Models)** Linking a physical dataset to a logical parent now requires **Edit Entity** on both the **child dataset** (whose `logicalParent` aspect is written) and the **proposed parent** dataset. Clearing a logical parent requires **Edit Entity** on the child only. The [logical models feature guide](../features/feature-guides/logical-models/overview.md) previously stated only the child was checked; enforcement now matches [metadata policies](../authorization/policies.md#logical-parent-logicalparent-aspect). **Action:** Grant **Edit Entity** on logical parent datasets to principals who create or change logical-parent links, or update policies so those operations succeed.
 ### Known Issues
 
 ### Potential Downtime
