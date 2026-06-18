@@ -13,9 +13,11 @@ from databricks.sdk.service.catalog import (
     SchemaInfo,
 )
 from databricks.sdk.service.iam import ServicePrincipal
+from databricks.sdk.service.sql import QueryStatementType as _QueryStatementType
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
+from datahub.ingestion.source.unity.proxy_types import Query as _Query
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2021-12-07 07:00:00"
@@ -1435,3 +1437,175 @@ def test_constraints_exception_path(requests_mock):
 
         # The pipeline succeeded despite the exception — graceful degradation
         workspace_client.tables.get.assert_called()
+
+
+# ---------------------------------------------------------------------------
+# system-tables usage: join fetch + Query entities + parse-fallback
+# ---------------------------------------------------------------------------
+
+
+def _make_query(
+    query_id: str,
+    query_text: str,
+    statement_type: _QueryStatementType,
+    start_ts: datetime,
+    end_ts: datetime,
+    user_name: str = "test_user@example.com",
+) -> _Query:
+    """Build a proxy_types.Query for use in mock return values."""
+    return _Query(
+        query_id=query_id,
+        query_text=query_text,
+        statement_type=statement_type,
+        start_time=start_ts,
+        end_time=end_ts,
+        user_id=None,
+        user_name=user_name,
+        executed_as_user_id=None,
+        executed_as_user_name=user_name,
+    )
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_unity_catalog_usage_system_tables(pytestconfig, tmp_path, requests_mock):
+    """Golden test for system-tables usage path.
+
+    Exercises:
+    - join fetch via ``get_query_usage_via_system_tables`` (two QueryStatementInfo rows:
+      one read, one write)
+    - Query entity emission (``emit_queries=True``)
+    - parse-fallback via ``get_query_history_via_system_tables`` for a history-only query
+      that wasn't matched by the join (``parse_unmatched_queries=True``)
+    - emitted aspects: datasetUsageStatistics, operation, queryProperties, querySubjects
+    """
+    from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
+    from datahub.ingestion.source.unity.proxy_types import QueryStatementInfo
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+    register_mock_api(request_mock=requests_mock)
+    output_file_name = "unity_catalog_usage_system_tables_mcps.json"
+
+    frozen_dt = datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc)
+    # Timestamps within the default 7-day usage window
+    t_read_start = frozen_dt.replace(hour=2, minute=0, second=0)
+    t_read_end = frozen_dt.replace(hour=2, minute=0, second=5)
+    t_write_start = frozen_dt.replace(hour=3, minute=0, second=0)
+    t_write_end = frozen_dt.replace(hour=3, minute=0, second=10)
+    t_fallback_start = frozen_dt.replace(hour=4, minute=0, second=0)
+    t_fallback_end = frozen_dt.replace(hour=4, minute=0, second=3)
+
+    # Two QueryStatementInfo rows returned by the join: one read, one write.
+    read_info = QueryStatementInfo(
+        query=_make_query(
+            query_id="stmt-read-001",
+            query_text="SELECT columnA, columnB FROM quickstart_catalog.quickstart_schema.quickstart_table",
+            statement_type=_QueryStatementType.SELECT,
+            start_ts=t_read_start,
+            end_ts=t_read_end,
+        ),
+        source_tables=["quickstart_catalog.quickstart_schema.quickstart_table"],
+        target_tables=[],
+        external_source_paths=[],
+    )
+    write_info = QueryStatementInfo(
+        query=_make_query(
+            query_id="stmt-write-002",
+            query_text="INSERT INTO quickstart_catalog.quickstart_schema.quickstart_table SELECT * FROM quickstart_catalog.quickstart_schema.quickstart_table_external",
+            statement_type=_QueryStatementType.INSERT,
+            start_ts=t_write_start,
+            end_ts=t_write_end,
+        ),
+        source_tables=[
+            "quickstart_catalog.quickstart_schema.quickstart_table_external"
+        ],
+        target_tables=["quickstart_catalog.quickstart_schema.quickstart_table"],
+        external_source_paths=[],
+    )
+
+    # One extra history row not in the join (drives parse-fallback).
+    fallback_query = _make_query(
+        query_id="stmt-fallback-003",
+        query_text="SELECT columnB FROM quickstart_catalog.quickstart_schema.quickstart_table_external",
+        statement_type=_QueryStatementType.SELECT,
+        start_ts=t_fallback_start,
+        end_ts=t_fallback_end,
+    )
+
+    # Matching all query_ids so the fallback query (stmt-fallback-003) is the only unmatched one.
+    all_history: list[_Query] = [
+        _make_query(
+            query_id="stmt-read-001",
+            query_text="SELECT columnA, columnB FROM quickstart_catalog.quickstart_schema.quickstart_table",
+            statement_type=_QueryStatementType.SELECT,
+            start_ts=t_read_start,
+            end_ts=t_read_end,
+        ),
+        _make_query(
+            query_id="stmt-write-002",
+            query_text="INSERT INTO quickstart_catalog.quickstart_schema.quickstart_table SELECT * FROM quickstart_catalog.quickstart_schema.quickstart_table_external",
+            statement_type=_QueryStatementType.INSERT,
+            start_ts=t_write_start,
+            end_ts=t_write_end,
+        ),
+        fallback_query,
+    ]
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(
+            UnityCatalogApiProxy,
+            "get_query_usage_via_system_tables",
+            return_value=iter([read_info, write_info]),
+        ),
+        patch.object(
+            UnityCatalogApiProxy,
+            "get_query_history_via_system_tables",
+            return_value=iter(all_history),
+        ),
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        # warehouse_id is read from workspace_client.config.warehouse_id in the proxy ctor
+        workspace_client.config.warehouse_id = "test-warehouse-id"
+        mock_client.return_value = workspace_client
+        register_mock_data(workspace_client)
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-usage-system-tables-test",
+            "pipeline_name": "unity-catalog-usage-system-tables-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "warehouse_id": "test-warehouse-id",
+                    "include_usage_statistics": True,
+                    "usage_data_source": "SYSTEM_TABLES",
+                    "emit_queries": True,
+                    "parse_unmatched_queries": True,
+                    "include_operational_stats": True,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_hive_metastore": False,
+                    "include_ownership": False,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"/{tmp_path}/{output_file_name}",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"/{tmp_path}/{output_file_name}",
+            golden_path=f"{test_resources_dir}/unity_catalog_usage_system_tables_mces_golden.json",
+        )
