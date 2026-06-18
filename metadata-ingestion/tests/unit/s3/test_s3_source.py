@@ -814,3 +814,53 @@ def test_emit_data_object_emits_expected_aspects():
     assert storage.mimeType == "video/mp4"
     urns = {wu.metadata.entityUrn for wu in wus if hasattr(wu.metadata, "entityUrn")}
     assert any(u.startswith("urn:li:dataObject:") for u in urns)
+
+
+# ---------------------------------------------------------------------------
+# Tests for S3Source._is_unstructured_file routing predicate
+# ---------------------------------------------------------------------------
+
+
+def _make_source_with_unstructured_exts(exts):
+    """Helper: create an S3Source configured with the given unstructured_file_extensions."""
+    return S3Source.create(
+        config_dict={
+            "path_specs": [{"include": "s3://bucket/*.*"}],
+            "unstructured_file_extensions": exts,
+            "aws_config": {
+                "aws_access_key_id": "test",
+                "aws_secret_access_key": "test",
+                "aws_region": "us-east-1",
+            },
+        },
+        ctx=PipelineContext(run_id="test-routing"),
+    )
+
+
+def test_is_unstructured_file_empty_config_never_routes_to_data_object():
+    """With unstructured_file_extensions=[] (the default), no extension is unstructured.
+
+    This guards the zero-behavior-change invariant: existing deployments that have
+    not opted in must never accidentally emit DataObject work-units.
+    """
+    source = _make_source_with_unstructured_exts([])
+    # Even a media extension must not be considered unstructured when the list is empty.
+    assert not source._is_unstructured_file("mp4")
+    assert not source._is_unstructured_file("png")
+    assert not source._is_unstructured_file("csv")
+    assert not source._is_unstructured_file("")
+
+
+def test_is_unstructured_file_structured_ext_guard():
+    """Listing a structured extension in unstructured_file_extensions must NOT reclassify it.
+
+    The 'not in SUPPORTED_FILE_TYPES' clause is the safety guard: even if a user lists
+    'csv' in unstructured_file_extensions, DataHub can still infer a schema from it, so
+    it must stay on the dataset path.  A genuine media extension (mp4) listed alongside
+    it should still route correctly to DataObject.
+    """
+    source = _make_source_with_unstructured_exts(["csv", "mp4"])
+    # csv is in SUPPORTED_FILE_TYPES -> structured guard wins -> not unstructured
+    assert not source._is_unstructured_file("csv")
+    # mp4 is not in SUPPORTED_FILE_TYPES -> it is unstructured
+    assert source._is_unstructured_file("mp4")

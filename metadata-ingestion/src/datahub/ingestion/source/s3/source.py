@@ -1291,16 +1291,7 @@ class S3Source(StatefulIngestionSourceBase):
                         if "." in table_data.table_path
                         else ""
                     )
-                    is_unstructured = (
-                        bool(self.source_config.unstructured_file_extensions)
-                        and file_ext
-                        in {
-                            e.lower()
-                            for e in self.source_config.unstructured_file_extensions
-                        }
-                        and file_ext not in {t.lower() for t in SUPPORTED_FILE_TYPES}
-                    )
-                    if is_unstructured:
+                    if self._is_unstructured_file(file_ext):
                         yield from self.emit_data_object(table_data, path_spec)
                     else:
                         yield from self.ingest_table(table_data, path_spec)
@@ -1339,6 +1330,20 @@ class S3Source(StatefulIngestionSourceBase):
                     **time_percentiles,
                 },
             )
+
+    def _is_unstructured_file(self, file_ext: str) -> bool:
+        # Routes a file to emit_data_object only when ALL three conditions hold:
+        # 1. the config opt-in list is non-empty,
+        # 2. the extension is in that list, and
+        # 3. the extension is NOT a structured type DataHub can schema-infer.
+        # Condition 3 prevents accidentally treating csv/parquet/etc. as unstructured
+        # even if a user mistakenly lists them in unstructured_file_extensions.
+        return (
+            bool(self.source_config.unstructured_file_extensions)
+            and file_ext
+            in {e.lower() for e in self.source_config.unstructured_file_extensions}
+            and file_ext not in {t.lower() for t in SUPPORTED_FILE_TYPES}
+        )
 
     def is_s3_platform(self):
         return self.source_config.platform == "s3"
