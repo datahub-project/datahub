@@ -23,6 +23,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.data_lake_common.config import S3PathMode
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
@@ -213,10 +214,12 @@ class SnowflakeStagesExtractor:
         if not url:
             return None
         if url.startswith("s3://"):
-            # Stage URLs are directory prefixes; stripping the last component would target the parent folder.
-            return self.config.s3_lineage_config.get_s3_urn_for_lineage(
-                url, self.config.env, strip_filename=False
+            urn = self.config.s3_lineage_config.get_s3_urn_for_lineage(
+                url, self.config.env, mode=S3PathMode.DIRECTORY
             )
+            if urn is None:
+                self.report.num_stage_lineage_dropped_s3_path += 1
+            return urn
         if url.startswith("gcs://"):
             # Snowflake uses gcs:// but DataHub GCS platform expects the path without prefix
             path = url[len("gcs://") :]

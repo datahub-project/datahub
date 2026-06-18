@@ -275,6 +275,16 @@ class PathSpec(ConfigModel):
             table_glob, flags=pathlib.GLOBSTAR
         ):
             return None
+        # Check excludes against the original input path; the table_path
+        # truncation strips the segments a `**` suffix would match against.
+        if self.exclude:
+            for excl in self.exclude:
+                if pathlib.PurePath(path.rstrip("/")).globmatch(
+                    excl.rstrip("/"), flags=pathlib.GLOBSTAR
+                ):
+                    return None
+        if not self.tables_filter_pattern.allowed(parts[table_depth]):
+            return None
         return table_path
 
     @classmethod
