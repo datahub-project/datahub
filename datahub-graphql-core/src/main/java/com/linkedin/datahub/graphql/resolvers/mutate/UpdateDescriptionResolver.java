@@ -70,6 +70,8 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         return updateApplicationDescription(targetUrn, input, environment.getContext());
       case Constants.DOCUMENT_ENTITY_NAME:
         return updateDocumentDescription(targetUrn, input, environment.getContext());
+      case Constants.DATA_OBJECT_ENTITY_NAME:
+        return updateDataObjectDescription(targetUrn, input, environment.getContext());
       default:
         throw new RuntimeException(
             String.format(
@@ -683,5 +685,38 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         },
         this.getClass().getSimpleName(),
         "updateDocumentDescription");
+  }
+
+  // DataObject is read-only/ingestion-emitted but its editable description is stored in the same
+  // generic Documentation aspect used by Document, so reuse updateDocumentDescription.
+  private CompletableFuture<Boolean> updateDataObjectDescription(
+      Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> {
+          if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
+
+          try {
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+            DescriptionUtils.updateDocumentDescription(
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
+            return true;
+          } catch (Exception e) {
+            log.error(
+                "Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+            throw new RuntimeException(
+                String.format("Failed to perform update against input %s", input.toString()), e);
+          }
+        },
+        this.getClass().getSimpleName(),
+        "updateDataObjectDescription");
   }
 }

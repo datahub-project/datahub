@@ -2,16 +2,18 @@ import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { getFirstSubType } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { DataObject, EntityType, Owner } from '@types';
+import { DataObject, EntityType, Owner, SubTypes } from '@types';
 
 export const Preview = ({
     dataObject: _dataObject,
     urn,
     data,
     name,
+    subTypes,
     description,
     platformName,
     platformLogo,
@@ -24,6 +26,7 @@ export const Preview = ({
     urn: string;
     data: GenericEntityProperties | null;
     name: string;
+    subTypes?: SubTypes | null;
     description?: string | null;
     platformName?: string;
     platformLogo?: string | null;
@@ -44,6 +47,9 @@ export const Preview = ({
             data={data}
             description={truncatedDescription || ''}
             entityType={EntityType.DataObject}
+            // Data Object is a generic base type; show the subtype (Audio/Video/Image/...) as the
+            // displayed type, falling back to "Data Object" (via entityType) when none is present.
+            type={getFirstSubType({ subTypes }) || undefined}
             platform={platformName}
             logoUrl={platformLogo || undefined}
             platformInstanceId={platformInstanceId}

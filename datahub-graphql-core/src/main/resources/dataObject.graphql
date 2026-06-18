@@ -24,7 +24,7 @@ type DataObject implements Entity {
   """
   The name of the Data Object
   """
-  name: String
+  name: String!
 
   """
   The sub-types of the Data Object (e.g., "File", "Object", "Chunk")
@@ -151,7 +151,7 @@ type DataObjectProperties {
   """
   The name of the Data Object
   """
-  name: String
+  name: String!
 
   """
   The fully-qualified name of the Data Object

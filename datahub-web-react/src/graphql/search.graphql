@@ -366,6 +366,19 @@ fragment autoCompleteFields on Entity {
     ... on StructuredPropertyEntity {
         ...structuredPropertyFields
     }
+    ... on DataObject {
+        urn
+        type
+        subTypes {
+            typeNames
+        }
+        platform {
+            ...platformFields
+        }
+        properties {
+            name
+        }
+    }
     ... on Document {
         urn
         type
@@ -1180,6 +1193,46 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on Incident {
         ...incidentFields
+    }
+    ... on DataObject {
+        properties {
+            name
+            qualifiedName
+            description
+        }
+        storage {
+            mimeType
+            sizeBytes
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        subTypes {
+            typeNames
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on Document {
         urn

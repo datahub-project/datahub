@@ -60,6 +60,7 @@ public class DailyReport {
           EntityType.DATA_FLOW,
           EntityType.NOTEBOOK,
           EntityType.DOCUMENT,
+          EntityType.DATA_OBJECT,
 
           // Users & Organization
           EntityType.CORP_USER,

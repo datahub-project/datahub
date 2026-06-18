@@ -6,7 +6,10 @@ namespace com.linkedin.dataobject
  */
 @Aspect = { "name": "objectStorageProperties" }
 record ObjectStorageProperties {
-  @Searchable = { "fieldType": "KEYWORD", "addToFilters": true, "filterNameOverride": "Media Type", "queryByDefault": false }
+  // Indexed (KEYWORD) so MIME filtering is possible via the search API, but
+  // intentionally NOT addToFilters — media type is too granular for a top-level
+  // search facet; the subtype (Audio/Video/Image/...) covers UI filtering.
+  @Searchable = { "fieldType": "KEYWORD", "queryByDefault": false }
   mimeType: optional string
 
   sizeBytes: optional long

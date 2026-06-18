@@ -41,7 +41,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ReportOperationResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private static final List<String> SUPPORTED_ENTITY_TYPES = ImmutableList.of(DATASET_ENTITY_NAME);
+  private static final List<String> SUPPORTED_ENTITY_TYPES =
+      ImmutableList.of(DATASET_ENTITY_NAME, DATA_OBJECT_ENTITY_NAME);
 
   private final EntityClient _entityClient;
 

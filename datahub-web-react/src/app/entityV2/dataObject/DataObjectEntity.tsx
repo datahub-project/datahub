@@ -69,6 +69,7 @@ export class DataObjectEntity implements Entity<DataObject> {
                 urn={data.urn}
                 data={genericProperties}
                 name={this.displayName(data)}
+                subTypes={data.subTypes}
                 description={data.properties?.description}
                 platformName={
                     platform?.properties?.displayName || (platform?.name && capitalizeFirstLetterOnly(platform.name))
@@ -92,6 +93,7 @@ export class DataObjectEntity implements Entity<DataObject> {
                 urn={data.urn}
                 data={genericProperties}
                 name={this.displayName(data)}
+                subTypes={data.subTypes}
                 description={data.properties?.description}
                 platformName={
                     platform?.properties?.displayName || (platform?.name && capitalizeFirstLetterOnly(platform.name))

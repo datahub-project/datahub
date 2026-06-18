@@ -54,7 +54,8 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
           Constants.ML_MODEL_ENTITY_NAME,
           Constants.ML_FEATURE_ENTITY_NAME,
           Constants.ML_MODEL_GROUP_ENTITY_NAME,
-          Constants.ML_FEATURE_TABLE_ENTITY_NAME);
+          Constants.ML_FEATURE_TABLE_ENTITY_NAME,
+          Constants.DATA_OBJECT_ENTITY_NAME);
 
   private final SearchClientShim<?> _searchClient;
   private final IndexConvention _indexConvention;
