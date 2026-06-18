@@ -584,7 +584,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             except Exception as e:
                 logger.warning("Error parsing query", exc_info=True)
                 self.report.report_warning(
-                    "query-parse",
+                    title="Failed to parse query",
+                    message="A query from query history could not be parsed and was skipped.",
                     context=f"query_id={getattr(query_info, 'query_id', None)}",
                     exc=e,
                 )
@@ -684,8 +685,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 except Exception as e:
                     logger.warning(f"Error parsing query from system table: {e}")
                     self.report.report_warning(
-                        "query-parse-system-table",
-                        context=f"statement_id={getattr(row, 'statement_id', None)}: {e}",
+                        title="Failed to parse query from system tables",
+                        message="A statement read from system.query.history could not be parsed and was skipped.",
+                        context=f"statement_id={getattr(row, 'statement_id', None)}",
                         exc=e,
                     )
 
@@ -1379,10 +1381,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
 
         self.report.report_warning(
-            "sql-query-failed",
-            f"SQL query failed: {error}. "
-            "Check that the service principal has SELECT on system.access and system.query schemas "
-            "and that the system schemas are enabled for this workspace.",
+            title="Failed to run SQL query",
+            message=(
+                f"A SQL query against the Databricks warehouse failed: {error}. Check that the service principal has SELECT on the system.access and system.query schemas and that system schemas are enabled for this workspace."
+            ),
         )
 
     def _execute_sql_query(self, query: str, params: Sequence[Any] = ()) -> List[Row]:

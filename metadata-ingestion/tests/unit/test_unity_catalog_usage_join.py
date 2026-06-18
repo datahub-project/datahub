@@ -95,16 +95,16 @@ def test_streaming_reports_warning_on_error_and_does_not_raise() -> None:
         result = list(proxy._execute_sql_query_streaming("SELECT 1"))
 
     assert result == [], "expected no rows on error"
-    warning_messages = [str(w.message) for w in proxy.report.warnings]
-    assert any("sql-query-failed" in m for m in warning_messages), (
-        f"expected 'sql-query-failed' warning, got: {warning_messages}"
+    warning_titles = [str(w.title) for w in proxy.report.warnings]
+    assert any("Failed to run SQL query" in t for t in warning_titles), (
+        f"expected 'Failed to run SQL query' warning, got: {warning_titles}"
     )
 
 
 def test_streaming_mid_stream_error_reports_warning_and_closes_connection() -> None:
     """fetchmany succeeds on the first batch then raises on the second.
 
-    The consumer (list()) must not raise, 'sql-query-failed' must be reported,
+    The consumer (list()) must not raise, 'Failed to run SQL query' must be reported,
     and the connection/cursor context managers must still be exited (no leak).
     """
     first_batch = [_row(v=i) for i in range(3)]
@@ -138,9 +138,9 @@ def test_streaming_mid_stream_error_reports_warning_and_closes_connection() -> N
     # Only the first batch rows should be yielded; the error is swallowed
     assert result == first_batch, f"expected first-batch rows, got {result}"
     # Warning must be reported
-    warning_messages = [str(w.message) for w in proxy.report.warnings]
-    assert any("sql-query-failed" in m for m in warning_messages), (
-        f"expected 'sql-query-failed' warning, got: {warning_messages}"
+    warning_titles = [str(w.title) for w in proxy.report.warnings]
+    assert any("Failed to run SQL query" in t for t in warning_titles), (
+        f"expected 'Failed to run SQL query' warning, got: {warning_titles}"
     )
     # Connection/cursor must have been closed despite the mid-stream error
     conn.__exit__.assert_called_once()
@@ -913,10 +913,10 @@ def test_zero_queries_emits_no_usage_workunits(
         f"but got {len(usage_wus)}: {[wu.id for wu in usage_wus]}"
     )
 
-    # The no-queries-found warning must be reported.
-    warning_messages = [w.message for w in ex.report.warnings]
-    assert "no-queries-found" in warning_messages, (
-        f"Expected 'no-queries-found' warning, got: {warning_messages}"
+    # The "No queries found for usage" warning must be reported.
+    warning_titles = [w.title for w in ex.report.warnings]
+    assert any(t == "No queries found for usage" for t in warning_titles), (
+        f"Expected 'No queries found for usage' warning, got: {warning_titles}"
     )
 
 
@@ -924,9 +924,9 @@ def test_fetch_failure_reports_failure_and_no_usage_workunits(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """When num_queries == 0 AND a fetch failure was recorded during the run,
-    get_usage_workunits must call report_failure('usage-fetch-failed', ...) and
+    get_usage_workunits must call report_failure with 'Failed to fetch query history' and
     return without emitting any datasetUsageStatistics workunits or the benign
-    'no-queries-found' warning.
+    'No queries found for usage' warning.
 
     This guards the C1 fix: a swallowed streaming fetch failure must not look like
     a normal empty-history run.
@@ -971,17 +971,17 @@ def test_fetch_failure_reports_failure_and_no_usage_workunits(
     ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
     workunits = list(ex.get_usage_workunits({ref}))
 
-    # (a) A 'usage-fetch-failed' failure must be recorded.
+    # (a) A 'Failed to fetch query history' failure must be recorded.
     failure_keys = [getattr(f, "title", None) or f.message for f in report.failures]
-    assert any("usage-fetch-failed" in k for k in failure_keys), (
-        f"expected 'usage-fetch-failed' failure, got: {failure_keys}"
+    assert any("Failed to fetch query history" in k for k in failure_keys), (
+        f"expected 'Failed to fetch query history' failure, got: {failure_keys}"
     )
 
-    # (b) The benign 'no-queries-found' warning must NOT be emitted.
-    warning_messages = [w.message for w in report.warnings]
-    assert "no-queries-found" not in warning_messages, (
-        f"'no-queries-found' must not fire when a fetch failure occurred, "
-        f"got warnings: {warning_messages}"
+    # (b) The benign 'No queries found for usage' warning must NOT be emitted.
+    warning_titles = [w.title for w in report.warnings]
+    assert not any(t == "No queries found for usage" for t in warning_titles), (
+        f"'No queries found for usage' must not fire when a fetch failure occurred, "
+        f"got warnings: {warning_titles}"
     )
 
     # (c) No datasetUsageStatistics workunits must be emitted.
@@ -1051,9 +1051,9 @@ def test_gen_metadata_raises_does_not_propagate(
         (getattr(f, "title", None), f.message) for f in ex.report.failures
     ]
     assert any(
-        "usage-extraction" in (title or "") or "usage-extraction" in msg
+        "Usage extraction failed" in (title or "") or "Usage extraction failed" in msg
         for title, msg in failure_titles_and_messages
-    ), f"expected 'usage-extraction' failure, got: {failure_titles_and_messages}"
+    ), f"expected 'Usage extraction failed' failure, got: {failure_titles_and_messages}"
 
 
 def test_aggregator_close_raises_does_not_propagate(
@@ -1158,8 +1158,8 @@ def test_single_bad_query_skipped_others_still_fed(
         f"expected num_queries_dropped=1, got {ex.report.num_queries_dropped}"
     )
 
-    # A usage-query-dropped warning must have been recorded.
-    warning_messages = [w.message for w in ex.report.warnings]
-    assert any("usage-query-dropped" in m for m in warning_messages), (
-        f"expected 'usage-query-dropped' warning, got: {warning_messages}"
+    # A "Skipped query during usage extraction" warning must have been recorded.
+    warning_titles = [w.title for w in ex.report.warnings]
+    assert any(t == "Skipped query during usage extraction" for t in warning_titles), (
+        f"expected 'Skipped query during usage extraction' warning, got: {warning_titles}"
     )

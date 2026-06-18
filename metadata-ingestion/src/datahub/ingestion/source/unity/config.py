@@ -369,8 +369,12 @@ class UnityCatalogSourceConfig(
 
     emit_queries: bool = pydantic.Field(
         default=True,
-        description="Emit DataHub Query entities for statements reconstructed from "
-        "system tables. Only effective on the system-tables usage path.",
+        description=(
+            "Whether to emit DataHub Query entities for the SQL statements seen in query "
+            "history. A Query entity captures the statement text and the datasets it "
+            "reads/writes, and powers query-level usage. Only effective on the system-tables "
+            "usage path; identical statements are de-duplicated by fingerprint."
+        ),
     )
 
     # TODO: Remove `type:ignore` by refactoring config

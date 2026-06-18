@@ -134,7 +134,8 @@ class UnityCatalogUsageExtractor:
                         exc_info=True,
                     )
                     self.report.report_warning(
-                        "usage-query-dropped",
+                        title="Skipped query during usage extraction",
+                        message="A query from query history could not be processed and was skipped, so its usage is not counted.",
                         context=f"query_id={query.query_id}",
                         exc=per_query_exc,
                     )
@@ -144,9 +145,8 @@ class UnityCatalogUsageExtractor:
                     # warning and incremented the counter).  Surface this as a run failure
                     # so operators are not misled by a seemingly successful but empty run.
                     self.report.report_failure(
-                        "usage-fetch-failed",
-                        "Query-history fetch failed; see the 'sql-query-failed' warning "
-                        "for details. Usage statistics were not updated.",
+                        title="Failed to fetch query history",
+                        message="Could not read query history from system tables, so usage statistics were not updated. See the related SQL query failure warning for the underlying error.",
                     )
                     return
                 if self._use_system_tables_join():
@@ -160,8 +160,8 @@ class UnityCatalogUsageExtractor:
                         "and that the time window covers recent activity"
                     )
                 self.report.report_warning(
-                    "no-queries-found",
-                    f"No queries found in the configured time range. {hint}.",
+                    title="No queries found for usage",
+                    message=f"No queries were found in the configured time range. {hint}.",
                 )
                 # Skip resetting per-table usage when we couldn't read any queries at
                 # all (empty history or missing permission).  Emitting zero-usage aspects
@@ -175,8 +175,8 @@ class UnityCatalogUsageExtractor:
         except Exception as e:
             logger.error("Error processing usage", exc_info=True)
             self.report.report_failure(
-                "usage-extraction",
-                f"Usage extraction failed: {e!r}",
+                title="Usage extraction failed",
+                message=f"Usage extraction failed: {e!r}",
                 exc=e,
             )
         finally:

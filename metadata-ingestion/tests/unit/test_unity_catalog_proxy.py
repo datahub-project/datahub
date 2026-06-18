@@ -1813,7 +1813,10 @@ class TestUnityCatalogProxyUsageSystemTables:
         # Simulate the streaming method's internal error path: it catches the DB
         # exception, records a warning, and yields nothing instead of raising.
         def _failing_stream(*a, **kw):
-            mock_proxy.report.report_warning("sql-query-failed", "SQL execution failed")
+            mock_proxy.report.report_warning(
+                title="Failed to run SQL query",
+                message="A SQL query against the Databricks warehouse failed.",
+            )
             return (r for r in [])  # type: ignore[var-annotated]
 
         mock_execute.side_effect = _failing_stream
@@ -1835,7 +1838,7 @@ class TestUnityCatalogProxyUsageSystemTables:
     ):
         """Test error handling when individual row parsing fails.
 
-        A bad row must record a 'query-parse-system-table' warning but must NOT abort
+        A bad row must record a "Failed to parse query from system tables" warning but must NOT abort
         iteration — good rows that follow must still be yielded.
         """
         from types import SimpleNamespace
@@ -1875,9 +1878,11 @@ class TestUnityCatalogProxyUsageSystemTables:
         )
 
         # The bad row must be skipped and a warning recorded.
-        warning_messages = [str(w.message) for w in mock_proxy.report.warnings]
-        assert any("query-parse-system-table" in m for m in warning_messages), (
-            f"expected 'query-parse-system-table' warning, got: {warning_messages}"
+        warning_titles = [str(w.title) for w in mock_proxy.report.warnings]
+        assert any(
+            "Failed to parse query from system tables" in t for t in warning_titles
+        ), (
+            f"expected 'Failed to parse query from system tables' warning, got: {warning_titles}"
         )
         # The good row must still be yielded — iteration must continue past the bad row.
         assert len(result) == 1, f"expected 1 good query, got {len(result)}: {result}"
