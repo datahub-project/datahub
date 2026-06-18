@@ -14,95 +14,67 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { StatsTabPage } from '../../pages/stats-v2/stats-tab.page';
-import { getSampleProfile, getSampleUsageStats } from '../../factories/mock-responses/stats';
-import { TEST_DATASET_URN } from './stats-constants';
-
-const TEST_DATA = {
-  DATASET_URN: TEST_DATASET_URN,
-} as const;
-
-const mockDatasetResponse = (overrides?: Record<string, unknown>) => ({
-  dataset: {
-    __typename: 'Dataset',
-    urn: TEST_DATA.DATASET_URN,
-    latestFullTableProfile: [],
-    latestPartitionProfile: [],
-    usageStats: {
-      __typename: 'UsageQueryResult',
-      buckets: [],
-      aggregations: {
-        uniqueUserCount: 0,
-        totalSqlQueries: 0,
-        fields: [],
-        __typename: 'UsageQueryResultAggregations',
-      },
-    },
-    privileges: {
-      __typename: 'DatasetPrivileges',
-      canViewDatasetProfile: true,
-      canViewDatasetUsage: true,
-      canViewDatasetOperations: true,
-      canEditDatasetProperties: true,
-    },
-    ...overrides,
-  },
-});
+import {
+  getSampleProfile,
+  getSampleUsageStats,
+  getMinimalDatasetMock,
+  getDatasetMockWithProfile,
+} from '../../factories/mock-responses/stats';
+import { TEST_DATASET_URN } from '../../pages/stats-v2/stats.constants';
 
 test.use({ featureName: 'stats-v2' });
 
 test.describe('Stats Tab V2 - Tab Enable/Disable State', () => {
   let statsPage: StatsTabPage;
 
-  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+  test.beforeEach(async ({ page, logger, logDir }) => {
     statsPage = new StatsTabPage(page, logger, logDir);
-    await apiMock.setFeatureFlags({ showStatsTabRedesign: true });
   });
 
   test('should be disabled when entity has no latestFullTableProfile, latestPartitionProfile or usageStats', async ({
     apiMock,
   }) => {
-    await apiMock.mockGraphQL('getDataset', mockDatasetResponse());
-    await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
+    await apiMock.mockGraphQL('getDataset', { dataset: getMinimalDatasetMock(TEST_DATASET_URN) });
+    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 
     await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-disabled', 'true');
   });
 
   test('should be enabled when entity has latestFullTableProfile', async ({ apiMock }) => {
-    const sampleProfile = getSampleProfile(Date.now());
-    await apiMock.mockGraphQL(
-      'getDataset',
-      mockDatasetResponse({
-        latestFullTableProfile: [sampleProfile],
-      }),
-    );
+    const timestamp = Date.now();
+    await apiMock.mockGraphQL('getDataset', {
+      dataset: getDatasetMockWithProfile(TEST_DATASET_URN, timestamp),
+    });
 
-    await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
+    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
     await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-disabled', 'false');
   });
 
   test('should be enabled when entity has latestPartitionProfile', async ({ apiMock }) => {
-    const sampleProfile = getSampleProfile(Date.now());
-    await apiMock.mockGraphQL(
-      'getDataset',
-      mockDatasetResponse({
-        latestPartitionProfile: [sampleProfile],
-      }),
-    );
+    const timestamp = Date.now();
+    const profile = getSampleProfile(timestamp);
+    await apiMock.mockGraphQL('getDataset', {
+      dataset: {
+        ...getMinimalDatasetMock(TEST_DATASET_URN),
+        latestPartitionProfile: [profile],
+      },
+    });
 
-    await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
+    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
     await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-disabled', 'false');
   });
 
   test('should be enabled when entity has usageStats', async ({ apiMock }) => {
-    const sampleUsageStats = getSampleUsageStats(Date.now());
-    await apiMock.mockGraphQL(
-      'getDataset',
-      mockDatasetResponse({
-        usageStats: sampleUsageStats,
-      }),
-    );
+    const timestamp = Date.now();
+    const usageStats = getSampleUsageStats(timestamp);
+    await apiMock.mockGraphQL('getDataset', {
+      dataset: {
+        ...getMinimalDatasetMock(TEST_DATASET_URN),
+        usageStats,
+      },
+    });
 
-    await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
+    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
     await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-disabled', 'false');
   });
 });
@@ -114,17 +86,14 @@ test.describe('Stats Tab V2 - Tab Interaction', () => {
     statsPage = new StatsTabPage(page, logger, logDir);
 
     await apiMock.setFeatureFlags({ showStatsTabRedesign: true });
-    const sampleProfile = getSampleProfile(Date.now());
-    await apiMock.mockGraphQL(
-      'getDataset',
-      mockDatasetResponse({
-        latestFullTableProfile: [sampleProfile],
-      }),
-    );
+    const timestamp = Date.now();
+    await apiMock.mockGraphQL('getDataset', {
+      dataset: getDatasetMockWithProfile(TEST_DATASET_URN, timestamp),
+    });
   });
 
   test('should be clickable', async () => {
-    await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
+    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
     await statsPage.clickStatsTab();
 
     await expect(statsPage.getStatsTabElement()).toHaveAttribute('aria-selected', 'true');

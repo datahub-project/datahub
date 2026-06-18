@@ -15,11 +15,18 @@
  * Migrated from: smoke-test/tests/cypress/cypress/e2e/statsTabV2/operationsChart.js
  */
 
+import { expect } from '@playwright/test';
 import { test } from '../../fixtures/base-test';
 import { StatsTabPage } from '../../pages/stats-v2/stats-tab.page';
 import { ChangeHistoryChart } from '../../pages/stats-v2/change-history-chart.page';
-import { getSampleProfile } from '../../factories/mock-responses/stats';
-import { TIMEOUTS } from '../../utils/constants';
+import {
+  setupChangeHistoryWithData,
+  setupChangeHistoryEmpty,
+  setupChangeHistoryNoPermissions,
+  setupChangeHistoryWithOperations,
+} from '../../factories/mock-responses/stats';
+import { getStartOfDay, getDateString } from '../../utils/time-utils';
+import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
 import {
   TEST_DATASET_URN,
   DEFAULT_PRIVILEGES,
@@ -27,22 +34,8 @@ import {
   CUSTOM_OPERATION_PREFIX,
   CUSTOM_OPERATION_TYPE,
   CUSTOM_OPERATION_DISPLAY,
-} from './stats-constants';
-
-// Helper to get start of day and subtract days
-const getStartOfDay = (daysAgo = 0): number => {
-  const date = new Date();
-  date.setUTCHours(0, 0, 0, 0);
-  date.setDate(date.getDate() - daysAgo);
-  return date.getTime();
-};
-
-// Helper to format date as YYYY-MM-DD for testid
-const getDateString = (daysAgo = 0): string => {
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
-  return date.toISOString().split('T')[0];
-};
+  CHART_IDS,
+} from '../../pages/stats-v2/stats.constants';
 
 const TEST_DATA = {
   DATASET_URN: TEST_DATASET_URN,
@@ -61,234 +54,62 @@ test.describe('Change History Calendar', () => {
     await historyHelper.forceCloseDrawer();
   });
 
-  test('should be available when there are some data', async ({ apiMock }) => {
+  test('should be available when there is some data', async ({ apiMock }) => {
     const timestamp = Date.now();
-    const sampleProfile = getSampleProfile(timestamp);
-
-    await apiMock.mockGraphQL('getDataset', {
-      dataset: {
-        __typename: 'Dataset',
-        urn: TEST_DATA.DATASET_URN,
-        latestFullTableProfile: [sampleProfile],
-        latestPartitionProfile: [],
-        privileges: DEFAULT_PRIVILEGES,
-      },
-    });
-
-    await apiMock.mockGraphQL('getOperationsStats', {
-      dataset: {
-        __typename: 'Dataset',
-        operationsStats: {
-          __typename: 'OperationsAggregation',
-          aggregations: {
-            __typename: 'OperationsAggregationMetrics',
-            totalCreates: 1,
-            totalOperations: 1,
-          },
-        },
-      },
-    });
-
-    await apiMock.mockGraphQL('getOperationsStatsBuckets', {
-      dataset: {
-        __typename: 'Dataset',
-        operationsStats: {
-          __typename: 'OperationsAggregation',
-          aggregations: {
-            __typename: 'OperationsAggregationMetrics',
-            totalCreates: 1,
-          },
-          buckets: [
-            {
-              bucket: timestamp,
-              aggregations: {
-                __typename: 'OperationsAggregationMetrics',
-                totalCreates: 1,
-              },
-              __typename: 'OperationsAggregation',
-            },
-          ],
-        },
-      },
-    });
+    await setupChangeHistoryWithData(apiMock, timestamp, TEST_DATA.DATASET_URN, DEFAULT_PRIVILEGES);
 
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
     await statsPage.verifyChangeHistoryChartIsVisible();
   });
 
-  test('should be empty when there are no any data', async ({ apiMock }) => {
-    const sampleProfile = getSampleProfile(Date.now());
-
-    await apiMock.mockGraphQL('getDataset', {
-      dataset: {
-        __typename: 'Dataset',
-        urn: TEST_DATA.DATASET_URN,
-        latestFullTableProfile: [sampleProfile],
-        latestPartitionProfile: [],
-        privileges: DEFAULT_PRIVILEGES,
-      },
-    });
-
-    await apiMock.mockGraphQL('getOperationsStats', {
-      dataset: {
-        __typename: 'Dataset',
-        operationsStats: {
-          __typename: 'OperationsAggregation',
-          aggregations: {
-            __typename: 'OperationsAggregationMetrics',
-            totalCreates: 0,
-            totalOperations: 0,
-          },
-        },
-      },
-    });
-
-    await apiMock.mockGraphQL('getOperationsStatsBuckets', {
-      dataset: {
-        __typename: 'Dataset',
-        operationsStats: {
-          __typename: 'OperationsAggregation',
-          aggregations: {
-            __typename: 'OperationsAggregationMetrics',
-            totalCreates: 0,
-          },
-          buckets: [],
-        },
-      },
-    });
+  test('should be empty when there is no data', async ({ apiMock }) => {
+    await setupChangeHistoryEmpty(apiMock, TEST_DATA.DATASET_URN, DEFAULT_PRIVILEGES);
 
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
     await statsPage.verifyChangeHistoryChartIsEmpty();
   });
 
   test('should not be available when user has no permissions', async ({ apiMock }) => {
-    const timestamp = Date.now();
-    const sampleProfile = getSampleProfile(timestamp);
-
-    await apiMock.mockGraphQL('getDataset', {
-      dataset: {
-        __typename: 'Dataset',
-        urn: TEST_DATA.DATASET_URN,
-        latestFullTableProfile: [sampleProfile],
-        latestPartitionProfile: [],
-        privileges: {
-          __typename: 'DatasetPrivileges',
-          canViewDatasetProfile: true,
-          canViewDatasetUsage: true,
-          canViewDatasetOperations: false,
-          canEditDatasetProperties: true,
-        },
-      },
-    });
-
-    await apiMock.mockGraphQL('getOperationsStats', {
-      dataset: {
-        __typename: 'Dataset',
-        operationsStats: {
-          __typename: 'OperationsAggregation',
-          aggregations: {
-            __typename: 'OperationsAggregationMetrics',
-            totalCreates: 1,
-            totalOperations: 1,
-          },
-        },
-      },
-    });
+    await setupChangeHistoryNoPermissions(apiMock, TEST_DATA.DATASET_URN);
 
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
     // Chart should show no-permissions state
-    await statsPage.verifyNoPermissionsForChart('change-history-card');
+    await statsPage.verifyNoPermissionsForChart(CHART_IDS.CHANGE_HISTORY);
   });
 
   test('should show popover with correct information', async ({ apiMock, page }) => {
     const today = getStartOfDay(0);
-    const sampleProfile = getSampleProfile(today);
 
-    await apiMock.mockGraphQL('getDataset', {
-      dataset: {
-        __typename: 'Dataset',
-        urn: TEST_DATA.DATASET_URN,
-        latestFullTableProfile: [sampleProfile],
-        latestPartitionProfile: [],
-        privileges: DEFAULT_PRIVILEGES,
-      },
-    });
+    const aggregations = {
+      totalCreates: 1,
+      totalUpdates: 1,
+      totalDeletes: 1,
+      totalInserts: 1,
+      totalAlters: 1,
+      totalDrops: 1,
+      totalCustoms: 1,
+      totalOperations: 7,
+      customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
+    };
 
-    // Mock timeseries capability to provide oldestOperationTime
-    await apiMock.mockGraphQL('getDatasetTimeseriesCapability', {
-      dataset: {
-        __typename: 'Dataset',
-        timeseriesCapabilities: {
-          __typename: 'TimeseriesCapabilities',
-          assetStats: {
-            __typename: 'AssetStats',
-            oldestDatasetProfileTime: today,
-            oldestDatasetUsageTime: today,
-            oldestOperationTime: today,
-          },
-        },
+    const buckets = [
+      { bucket: today, aggregations: { totalCreates: 1 } },
+      { bucket: getStartOfDay(1), aggregations: { totalUpdates: 1 } },
+      { bucket: getStartOfDay(2), aggregations: { totalDeletes: 1 } },
+      { bucket: getStartOfDay(3), aggregations: { totalInserts: 1 } },
+      { bucket: getStartOfDay(4), aggregations: { totalAlters: 1 } },
+      { bucket: getStartOfDay(5), aggregations: { totalDrops: 1 } },
+      {
+        bucket: getStartOfDay(7),
+        aggregations: { totalCustoms: 1, customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }] },
       },
-    });
+    ];
 
-    await apiMock.mockGraphQL('getOperationsStats', {
-      dataset: {
-        __typename: 'Dataset',
-        operationsStats: {
-          __typename: 'OperationsAggregation',
-          aggregations: {
-            __typename: 'OperationsAggregationMetrics',
-            totalCreates: 1,
-            totalUpdates: 1,
-            totalDeletes: 1,
-            totalInserts: 1,
-            totalAlters: 1,
-            totalDrops: 1,
-            totalCustoms: 1,
-            totalOperations: 7,
-            customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
-          },
-        },
-      },
-    });
-
-    // Mock getOperationsStatsBuckets with exact data from Cypress (days 0, -1, -2, -3, -4, -5, -7)
-    // Each day has one operation type with count 1
-    await apiMock.mockGraphQL('getOperationsStatsBuckets', {
-      dataset: {
-        __typename: 'Dataset',
-        operationsStats: {
-          __typename: 'OperationsAggregation',
-          aggregations: {
-            __typename: 'OperationsAggregationMetrics',
-            totalCreates: 1,
-            totalUpdates: 1,
-            totalDeletes: 1,
-            totalInserts: 1,
-            totalAlters: 1,
-            totalDrops: 1,
-            totalCustoms: 1,
-            totalOperations: 7,
-            customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
-          },
-          buckets: [
-            { bucket: today, aggregations: { totalCreates: 1 } },
-            { bucket: getStartOfDay(1), aggregations: { totalUpdates: 1 } },
-            { bucket: getStartOfDay(2), aggregations: { totalDeletes: 1 } },
-            { bucket: getStartOfDay(3), aggregations: { totalInserts: 1 } },
-            { bucket: getStartOfDay(4), aggregations: { totalAlters: 1 } },
-            { bucket: getStartOfDay(5), aggregations: { totalDrops: 1 } },
-            {
-              bucket: getStartOfDay(7),
-              aggregations: { totalCustoms: 1, customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }] },
-            },
-          ],
-        },
-      },
-    });
+    await setupChangeHistoryWithOperations(apiMock, TEST_DATA.DATASET_URN, today, aggregations, buckets);
 
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
     await statsPage.verifyChangeHistoryChartIsVisible();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     // Test days 0-7 matching Cypress test exactly
     const daysWithOperations = [
@@ -304,22 +125,7 @@ test.describe('Change History Calendar', () => {
     for (const { offset, expectedOp, expectedCount } of daysWithOperations) {
       const dayDateStr = getDateString(offset);
       await historyHelper.hoverDay(dayDateStr);
-
-      const popover = historyHelper.getDayPopover(dayDateStr);
-      if ((await popover.count()) === 0) {
-        throw new Error(`Popover should open for day ${offset} (${dayDateStr})`);
-      }
-
-      const opElement = popover.getByTestId(expectedOp);
-      if ((await opElement.count()) === 0) {
-        const popoverContent = await popover.textContent();
-        throw new Error(`Day ${offset} should show ${expectedOp}. Popover content: "${popoverContent}"`);
-      }
-
-      const opText = await opElement.textContent();
-      if (!opText?.includes(expectedCount)) {
-        throw new Error(`Day ${offset} ${expectedOp} should show count ${expectedCount} but got: "${opText}"`);
-      }
+      await historyHelper.verifyOperationCountInDayPopover(dayDateStr, expectedOp, expectedCount);
     }
 
     // Test day with no operations (day 6 - within data range)
@@ -336,112 +142,58 @@ test.describe('Change History Calendar', () => {
 
   test('should allow to filter changes by types select', async ({ apiMock, page }) => {
     const today = getStartOfDay(0);
-    const sampleProfile = getSampleProfile(today);
+    const oldestDay = getStartOfDay(7);
 
-    await apiMock.mockGraphQL('getDataset', {
-      dataset: {
-        __typename: 'Dataset',
-        urn: TEST_DATA.DATASET_URN,
-        latestFullTableProfile: [sampleProfile],
-        latestPartitionProfile: [],
-        privileges: DEFAULT_PRIVILEGES,
-      },
-    });
+    const aggregations = {
+      totalCreates: 1,
+      totalUpdates: 1,
+      totalDeletes: 1,
+      totalInserts: 1,
+      totalAlters: 1,
+      totalDrops: 1,
+      totalCustoms: 1,
+      totalOperations: 7,
+      customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
+    };
 
-    // Mock timeseries capability to provide oldestOperationTime (going back 7 days)
-    await apiMock.mockGraphQL('getDatasetTimeseriesCapability', {
-      dataset: {
-        __typename: 'Dataset',
-        timeseriesCapabilities: {
-          __typename: 'TimeseriesCapabilities',
-          assetStats: {
-            __typename: 'AssetStats',
-            oldestDatasetProfileTime: getStartOfDay(7),
-            oldestDatasetUsageTime: getStartOfDay(7),
-            oldestOperationTime: getStartOfDay(7),
-          },
-        },
+    const buckets = [
+      { bucket: today, aggregations: { totalCreates: 1 } },
+      { bucket: getStartOfDay(1), aggregations: { totalUpdates: 1 } },
+      { bucket: getStartOfDay(2), aggregations: { totalDeletes: 1 } },
+      { bucket: getStartOfDay(3), aggregations: { totalInserts: 1 } },
+      { bucket: getStartOfDay(4), aggregations: { totalAlters: 1 } },
+      { bucket: getStartOfDay(5), aggregations: { totalDrops: 1 } },
+      {
+        bucket: getStartOfDay(7),
+        aggregations: { totalCustoms: 1, customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }] },
       },
-    });
+    ];
 
-    // Mock getOperationsQuery for drawer timeline display
-    await apiMock.mockGraphQL('getOperations', {
-      dataset: {
-        __typename: 'Dataset',
-        operations: [
-          {
-            __typename: 'Operation',
-            urn: 'urn:li:operation:custom1',
-            lastUpdatedTimestamp: getStartOfDay(7),
-            actor: 'urn:li:corpuser:test_user',
-            operationType: 'CUSTOM',
-            customOperationType: 'custom_type',
-            numAffectedRows: 10,
-            description: 'Custom operation',
-          },
-        ],
+    const operations = [
+      {
+        __typename: 'Operation',
+        urn: 'urn:li:operation:custom1',
+        lastUpdatedTimestamp: oldestDay,
+        actor: 'urn:li:corpuser:test_user',
+        operationType: 'CUSTOM',
+        customOperationType: 'custom_type',
+        numAffectedRows: 10,
+        description: 'Custom operation',
       },
-    });
+    ];
 
-    // Mock operations stats with all operation types (matching Cypress)
-    await apiMock.mockGraphQL('getOperationsStats', {
-      dataset: {
-        __typename: 'Dataset',
-        operationsStats: {
-          __typename: 'OperationsAggregation',
-          aggregations: {
-            __typename: 'OperationsAggregationMetrics',
-            totalCreates: 1,
-            totalUpdates: 1,
-            totalDeletes: 1,
-            totalInserts: 1,
-            totalAlters: 1,
-            totalDrops: 1,
-            totalCustoms: 1,
-            totalOperations: 7,
-            customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
-          },
-        },
-      },
-    });
-
-    // Mock complete 7 days of operations data (matching test 4 - each day has one operation type)
-    await apiMock.mockGraphQL('getOperationsStatsBuckets', {
-      dataset: {
-        __typename: 'Dataset',
-        operationsStats: {
-          __typename: 'OperationsAggregation',
-          aggregations: {
-            __typename: 'OperationsAggregationMetrics',
-            totalCreates: 1,
-            totalUpdates: 1,
-            totalDeletes: 1,
-            totalInserts: 1,
-            totalAlters: 1,
-            totalDrops: 1,
-            totalCustoms: 1,
-            totalOperations: 7,
-            customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
-          },
-          buckets: [
-            { bucket: today, aggregations: { totalCreates: 1 } },
-            { bucket: getStartOfDay(1), aggregations: { totalUpdates: 1 } },
-            { bucket: getStartOfDay(2), aggregations: { totalDeletes: 1 } },
-            { bucket: getStartOfDay(3), aggregations: { totalInserts: 1 } },
-            { bucket: getStartOfDay(4), aggregations: { totalAlters: 1 } },
-            { bucket: getStartOfDay(5), aggregations: { totalDrops: 1 } },
-            {
-              bucket: getStartOfDay(7),
-              aggregations: { totalCustoms: 1, customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }] },
-            },
-          ],
-        },
-      },
-    });
+    await setupChangeHistoryWithOperations(
+      apiMock,
+      TEST_DATA.DATASET_URN,
+      oldestDay,
+      aggregations,
+      buckets,
+      operations,
+    );
 
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
     await statsPage.verifyChangeHistoryChartIsVisible();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     // ──────────────────────────────────────────────────────────
     // TOGGLE: Turn OFF all 6 operation types (matching Cypress test)
@@ -459,7 +211,7 @@ test.describe('Change History Calendar', () => {
 
     // Close dropdown by clicking it again
     await historyHelper.typesSelect.click({ timeout: TIMEOUTS.SHORT });
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     // ──────────────────────────────────────────────────────────
@@ -472,10 +224,7 @@ test.describe('Change History Calendar', () => {
       // BEHAVIOR CHECK: After filtering all types, these days should have no operations
       const popover = historyHelper.getDayPopover(dayDateStr);
       if ((await popover.count()) > 0) {
-        const noOpsMsg = popover.getByTestId('no-changes-this-day');
-        if ((await noOpsMsg.count()) === 0) {
-          throw new Error(`Day ${dayOffset} should show "no changes this day" after filtering all types`);
-        }
+        await historyHelper.verifyNoChangesThisDayInDayPopover(popover);
       }
     }
 
@@ -484,16 +233,9 @@ test.describe('Change History Calendar', () => {
     // ──────────────────────────────────────────────────────────
     const day7DateStr = getDateString(7);
     await historyHelper.hoverDay(day7DateStr);
-
     const day7Popover = historyHelper.getDayPopover(day7DateStr);
-    if ((await day7Popover.count()) === 0) {
-      throw new Error(`Day -7 popover should be visible after filtering`);
-    }
-
-    const customOp = day7Popover.getByTestId(`${CUSTOM_OPERATION_PREFIX}${CUSTOM_OPERATION_TYPE}`);
-    if ((await customOp.count()) === 0) {
-      throw new Error('Day -7 should show custom_custom_type operation after filtering standard types');
-    }
+    const customOpTestId = `${CUSTOM_OPERATION_PREFIX}${CUSTOM_OPERATION_TYPE}`;
+    await historyHelper.verifyCustomOperationInDayPopover(day7Popover, customOpTestId);
 
     // ──────────────────────────────────────────────────────────
     // DAY -8: Should show "no data reported" (outside data range)
@@ -505,121 +247,64 @@ test.describe('Change History Calendar', () => {
 
   test('should allow to filter changes by pills', async ({ apiMock, page }) => {
     const today = getStartOfDay(0);
-    const sampleProfile = getSampleProfile(today);
+    const oldestDay = getStartOfDay(7);
 
-    await apiMock.mockGraphQL('getDataset', {
-      dataset: {
-        __typename: 'Dataset',
-        urn: TEST_DATA.DATASET_URN,
-        latestFullTableProfile: [sampleProfile],
-        latestPartitionProfile: [],
-        privileges: DEFAULT_PRIVILEGES,
-      },
-    });
+    const aggregations = {
+      totalCreates: 1,
+      totalUpdates: 1,
+      totalDeletes: 1,
+      totalInserts: 1,
+      totalAlters: 1,
+      totalDrops: 1,
+      totalCustoms: 1,
+      totalOperations: 7,
+      customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
+    };
 
-    // Mock timeseries capability to provide oldestOperationTime (going back 7 days)
-    await apiMock.mockGraphQL('getDatasetTimeseriesCapability', {
-      dataset: {
-        __typename: 'Dataset',
-        timeseriesCapabilities: {
-          __typename: 'TimeseriesCapabilities',
-          assetStats: {
-            __typename: 'AssetStats',
-            oldestDatasetProfileTime: getStartOfDay(7),
-            oldestDatasetUsageTime: getStartOfDay(7),
-            oldestOperationTime: getStartOfDay(7),
-          },
-        },
+    const buckets = [
+      { bucket: today, aggregations: { totalCreates: 1 } },
+      { bucket: getStartOfDay(1), aggregations: { totalUpdates: 1 } },
+      { bucket: getStartOfDay(2), aggregations: { totalDeletes: 1 } },
+      { bucket: getStartOfDay(3), aggregations: { totalInserts: 1 } },
+      { bucket: getStartOfDay(4), aggregations: { totalAlters: 1 } },
+      { bucket: getStartOfDay(5), aggregations: { totalDrops: 1 } },
+      {
+        bucket: getStartOfDay(7),
+        aggregations: { totalCustoms: 1, customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }] },
       },
-    });
+    ];
 
-    // Mock getOperationsQuery for drawer timeline display
-    await apiMock.mockGraphQL('getOperations', {
-      dataset: {
-        __typename: 'Dataset',
-        operations: [
-          {
-            __typename: 'Operation',
-            urn: 'urn:li:operation:custom1',
-            lastUpdatedTimestamp: getStartOfDay(7),
-            actor: 'urn:li:corpuser:test_user',
-            operationType: 'CUSTOM',
-            customOperationType: 'custom_type',
-            numAffectedRows: 10,
-            description: 'Custom operation',
-          },
-        ],
+    const operations = [
+      {
+        __typename: 'Operation',
+        urn: 'urn:li:operation:custom1',
+        lastUpdatedTimestamp: oldestDay,
+        actor: 'urn:li:corpuser:test_user',
+        operationType: 'CUSTOM',
+        customOperationType: 'custom_type',
+        numAffectedRows: 10,
+        description: 'Custom operation',
       },
-    });
+    ];
 
-    // Mock operations stats with all operation types (matching Cypress)
-    await apiMock.mockGraphQL('getOperationsStats', {
-      dataset: {
-        __typename: 'Dataset',
-        operationsStats: {
-          __typename: 'OperationsAggregation',
-          aggregations: {
-            __typename: 'OperationsAggregationMetrics',
-            totalCreates: 1,
-            totalUpdates: 1,
-            totalDeletes: 1,
-            totalInserts: 1,
-            totalAlters: 1,
-            totalDrops: 1,
-            totalCustoms: 1,
-            totalOperations: 7,
-            customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
-          },
-        },
-      },
-    });
-
-    // Mock complete 7 days of operations data (matching test 5)
-    await apiMock.mockGraphQL('getOperationsStatsBuckets', {
-      dataset: {
-        __typename: 'Dataset',
-        operationsStats: {
-          __typename: 'OperationsAggregation',
-          aggregations: {
-            __typename: 'OperationsAggregationMetrics',
-            totalCreates: 1,
-            totalUpdates: 1,
-            totalDeletes: 1,
-            totalInserts: 1,
-            totalAlters: 1,
-            totalDrops: 1,
-            totalCustoms: 1,
-            totalOperations: 7,
-            customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
-          },
-          buckets: [
-            { bucket: today, aggregations: { totalCreates: 1 } },
-            { bucket: getStartOfDay(1), aggregations: { totalUpdates: 1 } },
-            { bucket: getStartOfDay(2), aggregations: { totalDeletes: 1 } },
-            { bucket: getStartOfDay(3), aggregations: { totalInserts: 1 } },
-            { bucket: getStartOfDay(4), aggregations: { totalAlters: 1 } },
-            { bucket: getStartOfDay(5), aggregations: { totalDrops: 1 } },
-            {
-              bucket: getStartOfDay(7),
-              aggregations: { totalCustoms: 1, customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }] },
-            },
-          ],
-        },
-      },
-    });
+    await setupChangeHistoryWithOperations(
+      apiMock,
+      TEST_DATA.DATASET_URN,
+      oldestDay,
+      aggregations,
+      buckets,
+      operations,
+    );
 
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
     await statsPage.verifyChangeHistoryChartIsVisible();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     // ──────────────────────────────────────────────────────────
     // TOGGLE: Click the custom_custom_type summary pill to filter
     // ──────────────────────────────────────────────────────────
     const customPill = historyHelper.getSummaryPill(CUSTOM_OPERATION_DISPLAY);
-    if ((await customPill.count()) === 0) {
-      throw new Error('Custom summary pill should exist to test pill filtering');
-    }
-
+    await expect(customPill).toBeVisible();
     await historyHelper.toggleSummaryPill(CUSTOM_OPERATION_DISPLAY);
     await page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
@@ -633,10 +318,7 @@ test.describe('Change History Calendar', () => {
       // BEHAVIOR CHECK: After toggling custom pill, these days should have no standard operations
       const popover = historyHelper.getDayPopover(dayDateStr);
       if ((await popover.count()) > 0) {
-        const noOpsMsg = popover.getByTestId('no-changes-this-day');
-        if ((await noOpsMsg.count()) === 0) {
-          throw new Error(`Day ${dayOffset} should show "no changes this day" after custom pill toggle`);
-        }
+        await historyHelper.verifyNoChangesThisDayInDayPopover(popover);
       }
     }
 
@@ -645,16 +327,9 @@ test.describe('Change History Calendar', () => {
     // ──────────────────────────────────────────────────────────
     const day7DateStr = getDateString(7);
     await historyHelper.hoverDay(day7DateStr);
-
     const day7Popover = historyHelper.getDayPopover(day7DateStr);
-    if ((await day7Popover.count()) === 0) {
-      throw new Error(`Day -7 popover should be visible after custom pill toggle`);
-    }
-
-    const customOp = day7Popover.getByTestId(`${CUSTOM_OPERATION_PREFIX}${CUSTOM_OPERATION_TYPE}`);
-    if ((await customOp.count()) === 0) {
-      throw new Error('Day -7 should show custom_custom_type operation after custom pill toggle');
-    }
+    const customOpTestId = `${CUSTOM_OPERATION_PREFIX}${CUSTOM_OPERATION_TYPE}`;
+    await historyHelper.verifyCustomOperationInDayPopover(day7Popover, customOpTestId);
 
     // ──────────────────────────────────────────────────────────
     // DAY -8: Should show "no data reported" (outside data range)
@@ -666,236 +341,154 @@ test.describe('Change History Calendar', () => {
 
   test('should allow to open the day drawer', async ({ apiMock, page }) => {
     const today = getStartOfDay(0);
-    const sampleProfile = getSampleProfile(today);
 
-    await apiMock.mockGraphQL('getDataset', {
-      dataset: {
-        __typename: 'Dataset',
-        urn: TEST_DATA.DATASET_URN,
-        latestFullTableProfile: [sampleProfile],
-        latestPartitionProfile: [],
-        privileges: DEFAULT_PRIVILEGES,
-      },
-    });
+    const aggregations = {
+      totalCreates: 1,
+      totalUpdates: 1,
+      totalDeletes: 1,
+      totalInserts: 1,
+      totalAlters: 1,
+      totalDrops: 1,
+      totalCustoms: 1,
+      totalOperations: 7,
+      customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
+    };
 
-    // Mock timeseries capability to provide oldestOperationTime
-    await apiMock.mockGraphQL('getDatasetTimeseriesCapability', {
-      dataset: {
-        __typename: 'Dataset',
-        timeseriesCapabilities: {
-          __typename: 'TimeseriesCapabilities',
-          assetStats: {
-            __typename: 'AssetStats',
-            oldestDatasetProfileTime: today,
-            oldestDatasetUsageTime: today,
-            oldestOperationTime: today,
-          },
+    const buckets = [
+      {
+        bucket: today,
+        aggregations: {
+          totalCreates: 1,
+          totalUpdates: 0,
+          totalDeletes: 0,
+          totalInserts: 0,
+          totalAlters: 0,
+          totalDrops: 0,
+          totalCustoms: 0,
+          totalOperations: 1,
         },
       },
-    });
-
-    // Mock getOperationsQuery for drawer timeline display
-    await apiMock.mockGraphQL('getOperations', {
-      dataset: {
-        __typename: 'Dataset',
-        operations: [
-          {
-            __typename: 'Operation',
-            urn: 'urn:li:operation:create1',
-            lastUpdatedTimestamp: today,
-            actor: 'urn:li:corpuser:test_user',
-            operationType: 'CREATE',
-            numAffectedRows: 100,
-            description: 'Test create operation',
-          },
-          {
-            __typename: 'Operation',
-            urn: 'urn:li:operation:update1',
-            lastUpdatedTimestamp: today + 3600000,
-            actor: 'urn:li:corpuser:test_user',
-            operationType: 'UPDATE',
-            numAffectedRows: 50,
-            description: 'Test update operation',
-          },
-        ],
-      },
-    });
-
-    // Mock operations stats (matching Cypress)
-    await apiMock.mockGraphQL('getOperationsStats', {
-      dataset: {
-        __typename: 'Dataset',
-        operationsStats: {
-          __typename: 'OperationsAggregation',
-          aggregations: {
-            __typename: 'OperationsAggregationMetrics',
-            totalCreates: 1,
-            totalUpdates: 1,
-            totalDeletes: 1,
-            totalInserts: 1,
-            totalAlters: 1,
-            totalDrops: 1,
-            totalCustoms: 1,
-            totalOperations: 7,
-            customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
-          },
+      {
+        bucket: getStartOfDay(1),
+        aggregations: {
+          totalCreates: 0,
+          totalUpdates: 1,
+          totalDeletes: 0,
+          totalInserts: 0,
+          totalAlters: 0,
+          totalDrops: 0,
+          totalCustoms: 0,
+          totalOperations: 1,
         },
       },
-    });
-
-    // Mock complete 8 days of operations data (matching Cypress test)
-    await apiMock.mockGraphQL('getOperationsStatsBuckets', {
-      dataset: {
-        __typename: 'Dataset',
-        operationsStats: {
-          __typename: 'OperationsAggregation',
-          aggregations: {
-            __typename: 'OperationsAggregationMetrics',
-            totalCreates: 1,
-            totalUpdates: 1,
-            totalDeletes: 1,
-            totalInserts: 1,
-            totalAlters: 1,
-            totalDrops: 1,
-            totalCustoms: 1,
-          },
-          buckets: [
-            {
-              bucket: today,
-              aggregations: {
-                __typename: 'OperationsAggregationMetrics',
-                totalCreates: 1,
-                totalUpdates: 0,
-                totalDeletes: 0,
-                totalInserts: 0,
-                totalAlters: 0,
-                totalDrops: 0,
-                totalCustoms: 0,
-                totalOperations: 1,
-              },
-              __typename: 'OperationsAggregation',
-            },
-            {
-              bucket: getStartOfDay(1),
-              aggregations: {
-                __typename: 'OperationsAggregationMetrics',
-                totalCreates: 0,
-                totalUpdates: 1,
-                totalDeletes: 0,
-                totalInserts: 0,
-                totalAlters: 0,
-                totalDrops: 0,
-                totalCustoms: 0,
-                totalOperations: 1,
-              },
-              __typename: 'OperationsAggregation',
-            },
-            {
-              bucket: getStartOfDay(2),
-              aggregations: {
-                __typename: 'OperationsAggregationMetrics',
-                totalCreates: 0,
-                totalUpdates: 0,
-                totalDeletes: 1,
-                totalInserts: 0,
-                totalAlters: 0,
-                totalDrops: 0,
-                totalCustoms: 0,
-                totalOperations: 1,
-              },
-              __typename: 'OperationsAggregation',
-            },
-            {
-              bucket: getStartOfDay(3),
-              aggregations: {
-                __typename: 'OperationsAggregationMetrics',
-                totalCreates: 0,
-                totalUpdates: 0,
-                totalDeletes: 0,
-                totalInserts: 1,
-                totalAlters: 0,
-                totalDrops: 0,
-                totalCustoms: 0,
-                totalOperations: 1,
-              },
-              __typename: 'OperationsAggregation',
-            },
-            {
-              bucket: getStartOfDay(4),
-              aggregations: {
-                __typename: 'OperationsAggregationMetrics',
-                totalCreates: 0,
-                totalUpdates: 0,
-                totalDeletes: 0,
-                totalInserts: 0,
-                totalAlters: 1,
-                totalDrops: 0,
-                totalCustoms: 0,
-                totalOperations: 1,
-              },
-              __typename: 'OperationsAggregation',
-            },
-            {
-              bucket: getStartOfDay(5),
-              aggregations: {
-                __typename: 'OperationsAggregationMetrics',
-                totalCreates: 0,
-                totalUpdates: 0,
-                totalDeletes: 0,
-                totalInserts: 0,
-                totalAlters: 0,
-                totalDrops: 1,
-                totalCustoms: 0,
-                totalOperations: 1,
-              },
-              __typename: 'OperationsAggregation',
-            },
-            {
-              bucket: getStartOfDay(7),
-              aggregations: {
-                __typename: 'OperationsAggregationMetrics',
-                totalCreates: 0,
-                totalUpdates: 0,
-                totalDeletes: 0,
-                totalInserts: 0,
-                totalAlters: 0,
-                totalDrops: 0,
-                totalCustoms: 1,
-                totalOperations: 1,
-                customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
-              },
-              __typename: 'OperationsAggregation',
-            },
-          ],
+      {
+        bucket: getStartOfDay(2),
+        aggregations: {
+          totalCreates: 0,
+          totalUpdates: 0,
+          totalDeletes: 1,
+          totalInserts: 0,
+          totalAlters: 0,
+          totalDrops: 0,
+          totalCustoms: 0,
+          totalOperations: 1,
         },
       },
-    });
+      {
+        bucket: getStartOfDay(3),
+        aggregations: {
+          totalCreates: 0,
+          totalUpdates: 0,
+          totalDeletes: 0,
+          totalInserts: 1,
+          totalAlters: 0,
+          totalDrops: 0,
+          totalCustoms: 0,
+          totalOperations: 1,
+        },
+      },
+      {
+        bucket: getStartOfDay(4),
+        aggregations: {
+          totalCreates: 0,
+          totalUpdates: 0,
+          totalDeletes: 0,
+          totalInserts: 0,
+          totalAlters: 1,
+          totalDrops: 0,
+          totalCustoms: 0,
+          totalOperations: 1,
+        },
+      },
+      {
+        bucket: getStartOfDay(5),
+        aggregations: {
+          totalCreates: 0,
+          totalUpdates: 0,
+          totalDeletes: 0,
+          totalInserts: 0,
+          totalAlters: 0,
+          totalDrops: 1,
+          totalCustoms: 0,
+          totalOperations: 1,
+        },
+      },
+      {
+        bucket: getStartOfDay(7),
+        aggregations: {
+          totalCreates: 0,
+          totalUpdates: 0,
+          totalDeletes: 0,
+          totalInserts: 0,
+          totalAlters: 0,
+          totalDrops: 0,
+          totalCustoms: 1,
+          totalOperations: 1,
+          customOperationsMap: [{ key: CUSTOM_OPERATION_TYPE, value: 1 }],
+        },
+      },
+    ];
+
+    const operations = [
+      {
+        __typename: 'Operation',
+        urn: 'urn:li:operation:create1',
+        lastUpdatedTimestamp: today,
+        actor: 'urn:li:corpuser:test_user',
+        operationType: 'CREATE',
+        numAffectedRows: 100,
+        description: 'Test create operation',
+      },
+      {
+        __typename: 'Operation',
+        urn: 'urn:li:operation:update1',
+        lastUpdatedTimestamp: today + 3600000,
+        actor: 'urn:li:corpuser:test_user',
+        operationType: 'UPDATE',
+        numAffectedRows: 50,
+        description: 'Test update operation',
+      },
+    ];
+
+    await setupChangeHistoryWithOperations(apiMock, TEST_DATA.DATASET_URN, today, aggregations, buckets, operations);
 
     await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
     await statsPage.verifyChangeHistoryChartIsVisible();
 
     // Wait for calendar to be visible
     await historyHelper.calendar.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
-    // ──────────────────────────────────────────────────────────
-    // DRAWER: Verify drawer is accessible (test placeholder)
-    // Note: Drawer opening requires UI interaction that may vary
-    // ──────────────────────────────────────────────────────────
     const day0DateStr = getDateString(0);
 
-    // Hover day 0 to open popover and verify popover content
-    await historyHelper.hoverDay(day0DateStr);
-    const popover = historyHelper.getDayPopover(day0DateStr);
-    if ((await popover.count()) === 0) {
-      throw new Error('Popover should be visible when hovering day');
-    }
+    // Open the drawer by clicking on day 0
+    await historyHelper.openDayDrawer(day0DateStr);
 
-    // Verify the popover contains operation data
-    const createOpInPopover = popover.getByTestId('operation-CREATE');
-    if ((await createOpInPopover.count()) === 0) {
-      throw new Error('Popover should display operation information');
-    }
+    // Verify the drawer is visible after opening
+    await historyHelper.ensureDayDrawerIsVisible();
+
+    // Close the drawer via close button
+    await historyHelper.closeDayDrawer();
   });
 });

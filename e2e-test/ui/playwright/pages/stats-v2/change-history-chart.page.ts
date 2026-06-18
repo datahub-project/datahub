@@ -1,7 +1,7 @@
-import { Page, Locator } from '@playwright/test';
+import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from '../base.page';
 import type { DataHubLogger } from '../../utils/logger';
-import { TIMEOUTS } from '../../utils/constants';
+import { TIMEOUTS, KEYS, LOAD_STATES } from '../../utils/constants';
 
 /**
  * Change History Chart Page Object
@@ -19,52 +19,26 @@ import { TIMEOUTS } from '../../utils/constants';
  *   await changeHistory.verifyOperationInPopover('COLUMN_ADDED', '5');
  */
 export class ChangeHistoryChart extends BasePage {
-  readonly drawer: Locator;
-  readonly closeDrawerButton: Locator;
   readonly drawerTitleContainer: Locator;
+  readonly closeDrawerButton: Locator;
+  readonly noChangesMessage: Locator;
+  readonly noDataMessage: Locator;
 
   // Filters
-  readonly dateSwitch: Locator;
-  readonly usersSelect: Locator;
   readonly typesSelect: Locator;
 
   // Calendar
   readonly calendar: Locator;
 
-  // Popover
-  readonly popover: Locator;
-
-  // Popover Messages
-  readonly popoverNoOperations: Locator;
-  readonly popoverTotalChanges: Locator;
-  readonly popoverNoDataMessage: Locator;
-
-  // Date Switcher Input
-  readonly dateInput: Locator;
-
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
 
-    this.drawer = page.getByTestId('change-history-details');
-    this.closeDrawerButton = this.drawer.getByTestId('drawer-close-button');
     this.drawerTitleContainer = page.getByTestId('change-history-details-drawer-title-container');
-
-    this.dateSwitch = page.getByTestId('date-switcher');
-    this.usersSelect = page.getByTestId('users-select');
+    this.closeDrawerButton = page.getByTestId('drawer-close-button');
+    this.noChangesMessage = page.getByTestId('no-changes-this-day');
+    this.noDataMessage = page.getByTestId('no-data-reported');
     this.typesSelect = page.getByTestId('types-select');
-
-    // Calendar is rendered as days within the change-history-chart
     this.calendar = page.getByTestId('change-history-chart');
-
-    this.popover = page.getByRole('dialog');
-
-    // Popover Messages
-    this.popoverNoOperations = this.popover.getByTestId('no-operations-message');
-    this.popoverTotalChanges = this.popover.getByTestId('total-changes');
-    this.popoverNoDataMessage = this.popover.getByTestId('no-data-message');
-
-    // Date Switcher Input
-    this.dateInput = this.drawer.getByRole('textbox');
   }
 
   // ── Day Cell Access ────────────────────────────────────────────────────────
@@ -102,20 +76,61 @@ export class ChangeHistoryChart extends BasePage {
   // ── State Messages ──────────────────────────────────────────────────────────
 
   /**
-   * Get "no changes this day" message
+   * Get operation element in day popover
    */
-  getNoChangesMessage(): Locator {
-    return this.page.getByTestId('no-changes-this-day');
+  private getOperationInPopover(dayPopover: Locator, opTestId: string): Locator {
+    return dayPopover.getByTestId(opTestId);
   }
 
   /**
-   * Get "no data reported" message (outside data range)
+   * Get no-changes message in day popover
    */
-  getNoDataMessage(): Locator {
-    return this.page.getByTestId('no-data-reported');
+  private getNoChangesInPopover(dayPopover: Locator): Locator {
+    return dayPopover.getByTestId('no-changes-this-day');
+  }
+
+  /**
+   * Get "View Details" button in day popover
+   */
+  private getViewDetailsButton(dayPopover: Locator): Locator {
+    return dayPopover.getByRole('button', { name: /view|details/i });
   }
 
   // ── Drawer ────────────────────────────────────────────────────────────────
+
+  /**
+   * Open the day drawer via the "View Details" button in the popover
+   */
+  async openDayDrawer(dateString: string, timeout: number = TIMEOUTS.LONG): Promise<void> {
+    this.logger?.step('openDayDrawer', { dateString });
+    // Hover day to show popover
+    await this.hoverDay(dateString, timeout);
+    // Get the popover for this day
+    const dayPopover = this.getDayPopover(dateString);
+    await expect(dayPopover).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    // Click "View Details" button to open drawer
+    const viewDetailsBtn = this.getViewDetailsButton(dayPopover);
+    await viewDetailsBtn.click({ timeout: TIMEOUTS.SHORT });
+    // Wait for drawer title to be visible (indicates drawer is fully open)
+    await this.drawerTitleContainer.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+  }
+
+  /**
+   * Verify the day drawer is visible
+   */
+  async ensureDayDrawerIsVisible(timeout: number = TIMEOUTS.MEDIUM): Promise<void> {
+    this.logger?.step('ensureDayDrawerIsVisible');
+    await expect(this.drawerTitleContainer).toBeVisible({ timeout });
+  }
+
+  /**
+   * Close the day drawer via close button
+   */
+  async closeDayDrawer(timeout: number = TIMEOUTS.SHORT): Promise<void> {
+    this.logger?.step('closeDayDrawer');
+    await this.closeDrawerButton.click({ timeout });
+    await this.page.waitForTimeout(TIMEOUTS.QUICK);
+  }
 
   /**
    * Force-close any open drawers from previous tests
@@ -123,12 +138,8 @@ export class ChangeHistoryChart extends BasePage {
    */
   async forceCloseDrawer(): Promise<void> {
     this.logger?.step('forceCloseDrawer');
-    // Try closing via button
-    if ((await this.closeDrawerButton.count()) > 0) {
-      await this.closeDrawerButton.click({ timeout: 500 }).catch(() => {});
-    }
-    // Fallback: press Escape key
-    await this.page.keyboard.press('Escape').catch(() => {});
+    await this.closeDrawerButton.click({ timeout: TIMEOUTS.BETWEEN_OPS }).catch(() => {});
+    await this.page.keyboard.press(KEYS.ESCAPE);
   }
 
   // ── Interaction Helpers ────────────────────────────────────────────────────
@@ -147,9 +158,7 @@ export class ChangeHistoryChart extends BasePage {
    * Toggle operation type filter via dropdown
    */
   async toggleOperationType(opType: string, timeout: number = TIMEOUTS.SHORT): Promise<void> {
-    await this.getOperationTypeOption(opType)
-      .click({ timeout })
-      .catch(() => {});
+    await this.getOperationTypeOption(opType).click({ timeout });
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
@@ -159,24 +168,49 @@ export class ChangeHistoryChart extends BasePage {
   async toggleSummaryPill(opType: string, timeout: number = TIMEOUTS.SHORT): Promise<void> {
     const pill = this.getSummaryPill(opType);
     await pill.click({ timeout });
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
   /**
    * Verify "no changes this day" message appears
    */
   async verifyNoChangesThisDay(): Promise<void> {
-    if ((await this.getNoChangesMessage().count()) === 0) {
-      throw new Error('Should show "no changes this day" message');
-    }
+    await expect(this.noChangesMessage).toBeVisible();
   }
 
   /**
    * Verify "no data reported" message appears
    */
   async verifyNoDataReported(): Promise<void> {
-    if ((await this.getNoDataMessage().count()) === 0) {
-      throw new Error('Should show "no data reported" message (outside oldestOperationTime range)');
-    }
+    await expect(this.noDataMessage).toBeVisible();
+  }
+
+  // ── Popover Content Verification ────────────────────────────────────────
+
+  /**
+   * Verify operation appears in day popover with expected count
+   */
+  async verifyOperationCountInDayPopover(dayDateStr: string, opTestId: string, expectedCount: string): Promise<void> {
+    const dayPopover = this.getDayPopover(dayDateStr);
+    await expect(dayPopover).toBeVisible();
+    const opElement = this.getOperationInPopover(dayPopover, opTestId);
+    await expect(opElement).toContainText(expectedCount);
+  }
+
+  /**
+   * Verify custom operation appears in day popover
+   */
+  async verifyCustomOperationInDayPopover(dayPopover: Locator, customOpTestId: string): Promise<void> {
+    await expect(dayPopover).toBeVisible();
+    const opElement = this.getOperationInPopover(dayPopover, customOpTestId);
+    await expect(opElement).toBeVisible();
+  }
+
+  /**
+   * Verify "no changes this day" message appears in day popover
+   */
+  async verifyNoChangesThisDayInDayPopover(dayPopover: Locator): Promise<void> {
+    const msgElement = this.getNoChangesInPopover(dayPopover);
+    await expect(msgElement).toBeVisible();
   }
 }

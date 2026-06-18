@@ -114,6 +114,48 @@ export class StatsTabPage extends BasePage {
     return this.columnStatsContainer.getByTestId(`row-${columnName}`);
   }
 
+  /**
+   * Get a card from latest stats container
+   */
+  private getLatestStatsCard(cardTestId: string): Locator {
+    return this.latestStatsContainer.getByTestId(cardTestId);
+  }
+
+  /**
+   * Get a card from last month stats container
+   */
+  private getLastMonthStatsCard(cardTestId: string): Locator {
+    return this.lastMonthStatsContainer.getByTestId(cardTestId);
+  }
+
+  /**
+   * Get button from a card by testId
+   */
+  private getCardButton(card: Locator): Locator {
+    return card.getByRole('button');
+  }
+
+  /**
+   * Get button from changes card
+   */
+  private getChangesCardButton(): Locator {
+    return this.changesCard.getByRole('button');
+  }
+
+  /**
+   * Get cell from column row
+   */
+  private getCellFromRow(row: Locator, fieldTestId: string): Locator {
+    return row.getByTestId(fieldTestId);
+  }
+
+  /**
+   * Get no-permissions element from chart
+   */
+  private getNoPermissionsElement(chartTestId: string): Locator {
+    return this.page.getByTestId(chartTestId).getByTestId('no-permissions');
+  }
+
   // ── Navigation ────────────────────────────────────────────────────────────
 
   /**
@@ -154,7 +196,7 @@ export class StatsTabPage extends BasePage {
    */
   async verifyLatestStatsCard(cardTestId: string, expectedValue: string): Promise<void> {
     this.logger?.step('verifyLatestStatsCard', { cardTestId, expectedValue });
-    const card = this.latestStatsContainer.getByTestId(cardTestId);
+    const card = this.getLatestStatsCard(cardTestId);
     await expect(card).toContainText(expectedValue);
   }
 
@@ -163,7 +205,7 @@ export class StatsTabPage extends BasePage {
    */
   async verifyLastMonthStatsCard(cardTestId: string, expectedValue: string): Promise<void> {
     this.logger?.step('verifyLastMonthStatsCard', { cardTestId, expectedValue });
-    const card = this.lastMonthStatsContainer.getByTestId(cardTestId);
+    const card = this.getLastMonthStatsCard(cardTestId);
     await expect(card).toContainText(expectedValue);
   }
 
@@ -172,11 +214,8 @@ export class StatsTabPage extends BasePage {
    */
   async verifyLatestStatsCardDoesNotContain(cardTestId: string, unexpectedValue: string): Promise<void> {
     this.logger?.step('verifyLatestStatsCardDoesNotContain', { cardTestId, unexpectedValue });
-    const card = this.latestStatsContainer.getByTestId(cardTestId);
-    const text = await card.textContent();
-    if (text?.includes(unexpectedValue)) {
-      throw new Error(`Card ${cardTestId} should not contain "${unexpectedValue}" but text was: "${text}"`);
-    }
+    const card = this.getLatestStatsCard(cardTestId);
+    await expect(card).not.toContainText(unexpectedValue);
   }
 
   /**
@@ -200,7 +239,8 @@ export class StatsTabPage extends BasePage {
    */
   async verifyLatestStatsCardButtonVisible(cardTestId: string): Promise<void> {
     this.logger?.step('verifyLatestStatsCardButtonVisible', { cardTestId });
-    const button = this.latestStatsContainer.getByTestId(cardTestId).getByRole('button');
+    const card = this.getLatestStatsCard(cardTestId);
+    const button = this.getCardButton(card);
     await expect(button).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
@@ -209,7 +249,8 @@ export class StatsTabPage extends BasePage {
    */
   async verifyLastMonthStatsCardButtonVisible(cardTestId: string): Promise<void> {
     this.logger?.step('verifyLastMonthStatsCardButtonVisible', { cardTestId });
-    const button = this.lastMonthStatsContainer.getByTestId(cardTestId).getByRole('button');
+    const card = this.getLastMonthStatsCard(cardTestId);
+    const button = this.getCardButton(card);
     await expect(button).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
@@ -234,7 +275,7 @@ export class StatsTabPage extends BasePage {
    */
   async verifyChangesCardButtonVisible(): Promise<void> {
     this.logger?.step('verifyChangesCardButtonVisible');
-    const button = this.changesCard.getByRole('button');
+    const button = this.getChangesCardButton();
     await expect(button).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
@@ -327,10 +368,7 @@ export class StatsTabPage extends BasePage {
    */
   async verifyTimeRangeSelectorDoesNotExist(): Promise<void> {
     this.logger?.step('verifyTimeRangeSelectorDoesNotExist');
-    const count = await this.rowCountTimeRangeSelect.count();
-    if (count > 0) {
-      throw new Error('Time range selector should not be visible but was found');
-    }
+    await expect(this.rowCountTimeRangeSelect).toBeHidden();
   }
 
   // ── Time Range Verification ────────────────────────────────────────────────
@@ -348,14 +386,43 @@ export class StatsTabPage extends BasePage {
   }
 
   /**
+   * Verify multiple time range options are available
+   * Opens dropdown, checks all options exist, then closes dropdown
+   */
+  async verifyTimeRangeOptionsExist(timeRanges: string[]): Promise<void> {
+    this.logger?.step('verifyTimeRangeOptionsExist', { timeRanges });
+    // Open dropdown
+    await this.rowCountTimeRangeSelect.click();
+    // Verify each option is visible
+    for (const timeRange of timeRanges) {
+      await expect(this.getTimeRangeOption(timeRange)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    }
+    // Close dropdown
+    await this.rowCountTimeRangeSelect.click();
+  }
+
+  /**
    * Verify a specific time range option is NOT available
    */
   async verifyTimeRangeOptionDoesNotExist(timeRange: string): Promise<void> {
     this.logger?.step('verifyTimeRangeOptionDoesNotExist', { timeRange });
-    const count = await this.getTimeRangeOption(timeRange).count();
-    if (count > 0) {
-      throw new Error(`Time range option "${timeRange}" should not exist but was found`);
+    await expect(this.getTimeRangeOption(timeRange)).toBeHidden();
+  }
+
+  /**
+   * Verify multiple time range options are NOT available
+   * Opens dropdown, checks all options are hidden, then closes dropdown
+   */
+  async verifyTimeRangeOptionsDoNotExist(timeRanges: string[]): Promise<void> {
+    this.logger?.step('verifyTimeRangeOptionsDoNotExist', { timeRanges });
+    // Open dropdown
+    await this.rowCountTimeRangeSelect.click();
+    // Verify each option is hidden
+    for (const timeRange of timeRanges) {
+      await expect(this.getTimeRangeOption(timeRange)).toBeHidden();
     }
+    // Close dropdown
+    await this.rowCountTimeRangeSelect.click();
   }
 
   /**
@@ -387,7 +454,7 @@ export class StatsTabPage extends BasePage {
     await row.evaluate((el) => el.scrollIntoView());
 
     for (const [fieldTestId, expectedValue] of Object.entries(fields)) {
-      const cell = row.getByTestId(fieldTestId);
+      const cell = this.getCellFromRow(row, fieldTestId);
       await expect(cell).toContainText(expectedValue);
     }
   }
@@ -408,7 +475,7 @@ export class StatsTabPage extends BasePage {
    */
   async verifyNoPermissionsForChart(chartTestId: string): Promise<void> {
     this.logger?.step('verifyNoPermissionsForChart', { chartTestId });
-    const noPermission = this.page.getByTestId(chartTestId).getByTestId('no-permissions');
+    const noPermission = this.getNoPermissionsElement(chartTestId);
     await noPermission.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
   }
 }

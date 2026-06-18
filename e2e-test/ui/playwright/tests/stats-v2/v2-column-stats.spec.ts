@@ -13,21 +13,8 @@
 
 import { test } from '../../fixtures/base-test';
 import { StatsTabPage } from '../../pages/stats-v2/stats-tab.page';
-import { getSampleProfile, getSchemaMetadata, getExpectedColumnStats } from '../../factories/mock-responses/stats';
-import { TEST_DATASET_URN } from './stats-constants';
-
-const TEST_DATA = {
-  DATASET_URN: TEST_DATASET_URN,
-  COLUMNS: {
-    USER_ID: 'user_id',
-    USER_NAME: 'user_name',
-    EMAIL: 'email',
-    CREATED_AT: 'created_at',
-    UPDATED_AT: 'updated_at',
-    ORDER_COUNT: 'order_count',
-    LIFETIME_VALUE: 'lifetime_value',
-  },
-} as const;
+import { getFullDatasetMock, getExpectedColumnStats, getSchemaMetadata } from '../../factories/mock-responses/stats';
+import { TEST_DATASET_URN, COLUMN_NAMES } from '../../pages/stats-v2/stats.constants';
 
 test.use({ featureName: 'stats-v2' });
 
@@ -40,38 +27,27 @@ test.describe('Column Statistics Table', () => {
     expectedStats = getExpectedColumnStats();
 
     const timestamp = Date.now();
-    const sampleProfile = getSampleProfile(timestamp);
-    const schemaMetadata = getSchemaMetadata();
+    const schema = getSchemaMetadata();
 
     await apiMock.mockGraphQL('getDataset', {
       dataset: {
-        __typename: 'Dataset',
-        urn: TEST_DATA.DATASET_URN,
-        latestFullTableProfile: [sampleProfile],
-        latestPartitionProfile: [],
-        schemaMetadata,
-        privileges: {
-          __typename: 'DatasetPrivileges',
-          canViewDatasetProfile: true,
-          canViewDatasetUsage: true,
-          canViewDatasetOperations: true,
-          canEditDatasetProperties: true,
-        },
+        ...getFullDatasetMock(TEST_DATASET_URN, timestamp),
+        schemaMetadata: schema,
       },
     });
 
-    await statsPage.navigateToDatasetStats(TEST_DATA.DATASET_URN);
+    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
   });
 
   test('should show column stats in the table', async () => {
     // Verify all 7 columns with field values extracted from mock data
-    for (const [, columnName] of Object.entries(TEST_DATA.COLUMNS)) {
+    for (const [, columnName] of Object.entries(COLUMN_NAMES)) {
       await statsPage.verifyColumnFields(columnName, expectedStats[columnName]);
     }
   });
 
   test('should open the column drawer by clicking on row', async () => {
-    await statsPage.clickColumnRow(TEST_DATA.COLUMNS.USER_ID);
+    await statsPage.clickColumnRow(COLUMN_NAMES.USER_ID);
     await statsPage.verifySchemaFieldDrawerOpen();
   });
 });

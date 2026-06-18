@@ -5,6 +5,8 @@
  * used across stats-v2 test suite to prevent magic strings and improve maintainability.
  */
 
+import { getTimestampDaysAgo } from '../../utils/time-utils';
+
 // Operation types matching the GraphQL schema
 export const OPERATION_TYPES = {
   CREATE: 'operation-CREATE',
@@ -48,4 +50,51 @@ export const EXPECTED_STATS = {
   USERS: '5',
   QUERIES: '25',
   CHANGES: '1',
+} as const;
+
+// Stat card test IDs (Latest Stats)
+export const LATEST_STATS_CARDS = {
+  ROWS: 'rows-card',
+  COLUMNS: 'columns-card',
+} as const;
+
+// Stat card test IDs (Last Month Stats)
+export const LAST_MONTH_STATS_CARDS = {
+  USERS: 'users-card',
+  QUERIES: 'queries-card',
+} as const;
+
+// Chart test IDs
+export const CHART_IDS = {
+  ROW_COUNT: 'row-count-card',
+  QUERY_COUNT: 'query-count-card',
+  STORAGE_SIZE: 'storage-size-card',
+  CHANGE_HISTORY: 'change-history-card',
+} as const;
+
+// Select element test IDs
+export const SELECT_IDS = {
+  USERS: 'users-select',
+  TYPES: 'types-select',
+  DATE_SWITCHER: 'date-switcher',
+} as const;
+
+// Column names for column stats tests
+export const COLUMN_NAMES = {
+  USER_ID: 'user_id',
+  USER_NAME: 'user_name',
+  EMAIL: 'email',
+  CREATED_AT: 'created_at',
+  UPDATED_AT: 'updated_at',
+  ORDER_COUNT: 'order_count',
+  LIFETIME_VALUE: 'lifetime_value',
+} as const;
+
+// Timestamp offsets for time-range testing
+export const TIMESTAMP_OFFSETS = {
+  ONE_YEAR_AGO: getTimestampDaysAgo(365),
+  SIX_MONTHS_AGO: getTimestampDaysAgo(6 * 30 + 7),
+  THREE_MONTHS_AGO: getTimestampDaysAgo(90),
+  ONE_MONTH_ONE_WEEK_AGO: getTimestampDaysAgo(30 + 7),
+  ONE_WEEK_ONE_DAY_AGO: getTimestampDaysAgo(7 + 1),
 } as const;
