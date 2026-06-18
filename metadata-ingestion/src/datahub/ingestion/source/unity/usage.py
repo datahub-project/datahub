@@ -9,7 +9,7 @@ from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
-from datahub.metadata.urns import CorpUserUrn
+from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
@@ -31,7 +31,10 @@ class UnityCatalogUsageExtractor:
     def _use_system_tables_join(self) -> bool:
         return self.config.usage_uses_system_tables(self.proxy.warehouse_id)
 
-    def _build_aggregator(self) -> SqlParsingAggregator:
+    def _build_aggregator(
+        self,
+        is_allowed_table: Optional[Callable[[str], bool]] = None,
+    ) -> SqlParsingAggregator:
         schema_resolver = SchemaResolver(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
@@ -51,6 +54,7 @@ class UnityCatalogUsageExtractor:
             generate_operations=self.config.include_operational_stats,
             usage_config=self.config,
             format_queries=False,
+            is_allowed_table=is_allowed_table,
         )
 
     def _fetch_queries(self) -> Iterable[Query]:
@@ -63,9 +67,21 @@ class UnityCatalogUsageExtractor:
     def get_usage_workunits(
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
+        # Restrict emission to tables this recipe ingested, matching the old behavior.
+        # The predicate receives the dataset name extracted from the URN (catalog.schema.table
+        # with the platform instance prefix stripped), so we build the same names from the
+        # ingested refs via the connector's own URN builder and DatasetUrn.name.
+        allowed_names = {
+            DatasetUrn.from_string(self.table_urn_builder(ref)).name.lower()
+            for ref in table_refs
+        }
+        is_allowed_table: Optional[Callable[[str], bool]] = (
+            (lambda name: name.lower() in allowed_names) if allowed_names else None
+        )
+
         aggregator: Optional[SqlParsingAggregator] = None
         try:
-            aggregator = self._build_aggregator()
+            aggregator = self._build_aggregator(is_allowed_table=is_allowed_table)
             for query in self._fetch_queries():
                 self.report.num_queries += 1
                 ts = query.start_time

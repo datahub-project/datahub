@@ -370,3 +370,76 @@ def test_use_system_tables_join_delegates_to_config() -> None:
 
     config.usage_uses_system_tables.return_value = False
     assert ex._use_system_tables_join() is False
+
+
+def test_is_allowed_table_predicate_scopes_to_ingested_tables(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """is_allowed_table passed to SqlParsingAggregator must accept ingested tables only.
+
+    The predicate must return True for any table name built from the ingested
+    table_refs and False for tables outside the ingested set (e.g. system tables
+    that appear in query history but were never ingested by this recipe).
+    """
+    import datahub.ingestion.source.unity.usage as usage_mod
+    from datahub.ingestion.source.unity.proxy_types import TableReference
+
+    captured: dict = {}
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            captured["kwargs"] = kw
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            pass
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.emit_queries = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = []
+
+    ex = _extractor(config, proxy)
+
+    ref_a = TableReference(
+        metastore=None, catalog="main", schema="sales", table="orders"
+    )
+    ref_b = TableReference(
+        metastore=None, catalog="main", schema="sales", table="customers"
+    )
+    table_refs = {ref_a, ref_b}
+
+    list(ex.get_usage_workunits(table_refs))
+
+    predicate = captured["kwargs"].get("is_allowed_table")
+    assert predicate is not None, (
+        "is_allowed_table predicate must be passed to the aggregator"
+    )
+
+    # Ingested table names (catalog.schema.table format as produced by DatasetUrn.name)
+    assert predicate("main.sales.orders") is True, (
+        "predicate must return True for ingested table main.sales.orders"
+    )
+    assert predicate("main.sales.customers") is True, (
+        "predicate must return True for ingested table main.sales.customers"
+    )
+    # Case-insensitive: Unity Catalog names may differ in case
+    assert predicate("MAIN.SALES.ORDERS") is True, "predicate must be case-insensitive"
+
+    # Non-ingested tables (system tables observed in query history but not in this recipe)
+    assert predicate("system.access.table_lineage") is False, (
+        "predicate must return False for system.access.table_lineage (not ingested)"
+    )
+    assert predicate("other_catalog.schema.table") is False, (
+        "predicate must return False for tables from catalogs not in this recipe"
+    )
