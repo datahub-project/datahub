@@ -137,6 +137,11 @@ type DataObject implements Entity {
   Whether or not this entity exists on DataHub
   """
   exists: Boolean
+
+  """
+  Documentation aspect containing editable description for this Data Object
+  """
+  documentation: Documentation
 }
 
 """

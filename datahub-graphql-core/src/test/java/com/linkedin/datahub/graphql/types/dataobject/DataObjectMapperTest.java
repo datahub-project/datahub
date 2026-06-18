@@ -5,6 +5,9 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Documentation;
+import com.linkedin.common.DocumentationAssociation;
+import com.linkedin.common.DocumentationAssociationArray;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Status;
 import com.linkedin.common.TagAssociation;
@@ -38,7 +41,7 @@ public class DataObjectMapperTest {
       "urn:li:dataObject:(urn:li:dataPlatform:s3,b/clip.mp4,PROD)";
   private static final String TEST_PLATFORM_URN = "urn:li:dataPlatform:s3";
   private static final String TEST_PARENT_URN =
-      "urn:li:dataObject:(urn:li:dataPlatform:s3,b/clip.mp4,PROD)";
+      "urn:li:dataObject:(urn:li:dataPlatform:s3,b/parent,PROD)";
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:testuser";
   private static final Long TEST_TIMESTAMP = 1640995200000L;
 
@@ -185,6 +188,26 @@ public class DataObjectMapperTest {
 
       assertSame(result, restricted);
     }
+  }
+
+  @Test
+  public void testMapDocumentationAspect() {
+    EntityResponse response = createBasicEntityResponse();
+
+    Documentation documentation = new Documentation();
+    DocumentationAssociation association = new DocumentationAssociation();
+    association.setDocumentation("A detailed description of this data object.");
+    documentation.setDocumentations(new DocumentationAssociationArray(association));
+    addAspectToResponse(response, DOCUMENTATION_ASPECT_NAME, documentation);
+
+    DataObject result = DataObjectMapper.map(null, response);
+
+    assertNotNull(result.getDocumentation());
+    assertNotNull(result.getDocumentation().getDocumentations());
+    assertFalse(result.getDocumentation().getDocumentations().isEmpty());
+    assertEquals(
+        result.getDocumentation().getDocumentations().get(0).getDocumentation(),
+        "A detailed description of this data object.");
   }
 
   private EntityResponse createBasicEntityResponse() {

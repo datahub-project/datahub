@@ -55,7 +55,9 @@ public class DataObjectType
           Constants.BROWSE_PATHS_V2_ASPECT_NAME,
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
           Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
-          Constants.FORMS_ASPECT_NAME);
+          Constants.FORMS_ASPECT_NAME,
+          Constants.OPERATION_ASPECT_NAME,
+          Constants.DOCUMENTATION_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 

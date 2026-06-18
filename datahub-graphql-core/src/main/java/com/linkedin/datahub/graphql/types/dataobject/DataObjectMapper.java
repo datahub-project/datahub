@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canV
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.Documentation;
 import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -22,6 +23,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
@@ -206,6 +208,14 @@ public class DataObjectMapper {
     if (envelopedForms != null) {
       result.setForms(
           FormsMapper.map(new Forms(envelopedForms.getValue().data()), entityUrn.toString()));
+    }
+
+    // Map Documentation aspect
+    final EnvelopedAspect envelopedDocumentation = aspects.get(Constants.DOCUMENTATION_ASPECT_NAME);
+    if (envelopedDocumentation != null) {
+      result.setDocumentation(
+          DocumentationMapper.map(
+              context, new Documentation(envelopedDocumentation.getValue().data())));
     }
 
     // Map Browse Paths V2 aspect
