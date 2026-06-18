@@ -6,7 +6,6 @@
     "documents.deleteConfirmButton": "Eliminar",
     "documents.deleteText": "¿Está seguro de que desea eliminar este documento? Esto también eliminará todos los documentos secundarios.",
     "documents.deleteTitle": "Eliminar documento(s)",
-    "documents.emptyState": "Aún no hay documentos.",
     "documents.moveToRoot": "Mover a la raíz",
     "documents.newDocumentTooltip": "Nuevo documento",
     "documents.searching": "Buscando...",
