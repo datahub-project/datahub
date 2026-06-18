@@ -705,7 +705,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 tl.target_table_full_name AS target_table_full_name,
                 tl.target_type AS target_type
             FROM system.access.table_lineage tl
-            LEFT JOIN system.query.history qh
+            -- INNER JOIN: query.history fields (timestamps, user, statement_text) are
+            -- required for usage attribution; lineage rows without a matching history
+            -- entry have no usable usage data and are handled by the parse-fallback
+            -- path. statement_id is set only for SQL-warehouse queries, which are
+            -- always present in query.history.
+            INNER JOIN system.query.history qh
                 ON tl.statement_id = qh.statement_id
             WHERE tl.event_date >= %s
                 AND tl.event_date <= %s

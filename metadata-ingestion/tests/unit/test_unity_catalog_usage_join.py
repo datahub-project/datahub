@@ -80,4 +80,11 @@ def test_groups_read_write_and_external_rows_by_statement():
     assert s1.query.statement_type is not None
     s2 = out[1]
     assert s2.source_tables == []
+    assert s2.target_tables == []
     assert s2.external_source_paths == ["s3://b/p"]
+
+
+def test_empty_result_yields_nothing():
+    ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    proxy = _make_proxy([])
+    assert list(proxy.get_query_usage_via_system_tables(ts, ts)) == []
