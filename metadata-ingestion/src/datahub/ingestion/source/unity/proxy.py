@@ -7,8 +7,9 @@ import json
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, cast
+from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
 from unittest.mock import patch
 
 import cachetools
@@ -648,26 +649,29 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             ORDER BY start_time
         """
 
-        for row in self._execute_sql_query_streaming(query, (start_time, end_time)):
-            try:
-                yield Query(
-                    query_id=row.statement_id,
-                    query_text=row.statement_text,
-                    statement_type=(
-                        QueryStatementType(row.statement_type)
-                        if row.statement_type
-                        else None
-                    ),
-                    start_time=row.start_time,
-                    end_time=row.end_time,
-                    user_id=row.executed_by_user_id,
-                    user_name=row.executed_by,
-                    executed_as_user_id=row.executed_as_user_id,
-                    executed_as_user_name=row.executed_as,
-                )
-            except Exception as e:
-                logger.warning(f"Error parsing query from system table: {e}")
-                self.report.report_warning("query-parse-system-table", str(e))
+        with closing(
+            self._execute_sql_query_streaming(query, (start_time, end_time))
+        ) as rows:
+            for row in rows:
+                try:
+                    yield Query(
+                        query_id=row.statement_id,
+                        query_text=row.statement_text,
+                        statement_type=(
+                            QueryStatementType(row.statement_type)
+                            if row.statement_type
+                            else None
+                        ),
+                        start_time=row.start_time,
+                        end_time=row.end_time,
+                        user_id=row.executed_by_user_id,
+                        user_name=row.executed_by,
+                        executed_as_user_id=row.executed_as_user_id,
+                        executed_as_user_name=row.executed_as,
+                    )
+                except Exception as e:
+                    logger.warning(f"Error parsing query from system table: {e}")
+                    self.report.report_warning("query-parse-system-table", str(e))
 
     def get_query_usage_via_system_tables(
         self,
@@ -708,66 +712,67 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 AND qh.end_time IS NOT NULL
             ORDER BY tl.statement_id
         """
-        rows = self._execute_sql_query_streaming(query, (start_time, end_time))
-
         current_id: Optional[str] = None
         info: Optional[QueryStatementInfo] = None
-        for row in rows:
-            try:
-                sid = row.statement_id
-                if sid != current_id:
-                    raw_stmt_type = row.statement_type
-                    statement_type: Optional[QueryStatementType] = None
-                    if raw_stmt_type:
-                        try:
-                            statement_type = QueryStatementType(raw_stmt_type)
-                        except ValueError:
-                            logger.warning(
-                                f"Unrecognized statement_type {raw_stmt_type!r} for "
-                                f"statement {sid}; treating as None"
-                            )
-                            self.report.report_warning(
-                                "unknown-statement-type",
-                                f"statement_id={sid} statement_type={raw_stmt_type!r}",
-                            )
-                    # Build new_info first; only advance current_id/info once construction
-                    # succeeds. If construction raises, current_id and info stay on the
-                    # previous statement so subsequent rows are not mis-attributed.
-                    new_info = QueryStatementInfo(
-                        query=Query(
-                            query_id=sid,
-                            query_text=row.statement_text or "",
-                            statement_type=statement_type,
-                            start_time=row.start_time,
-                            end_time=row.end_time,
-                            user_id=row.executed_by_user_id,
-                            user_name=row.executed_by,
-                            executed_as_user_id=row.executed_as_user_id,
-                            executed_as_user_name=row.executed_as,
-                        ),
-                        source_tables=[],
-                        target_tables=[],
+        with closing(
+            self._execute_sql_query_streaming(query, (start_time, end_time))
+        ) as rows:
+            for row in rows:
+                try:
+                    sid = row.statement_id
+                    if sid != current_id:
+                        raw_stmt_type = row.statement_type
+                        statement_type: Optional[QueryStatementType] = None
+                        if raw_stmt_type:
+                            try:
+                                statement_type = QueryStatementType(raw_stmt_type)
+                            except ValueError:
+                                logger.warning(
+                                    f"Unrecognized statement_type {raw_stmt_type!r} for "
+                                    f"statement {sid}; treating as None"
+                                )
+                                self.report.report_warning(
+                                    "unknown-statement-type",
+                                    f"statement_id={sid} statement_type={raw_stmt_type!r}",
+                                )
+                        # Build new_info first; only advance current_id/info once construction
+                        # succeeds. If construction raises, current_id and info stay on the
+                        # previous statement so subsequent rows are not mis-attributed.
+                        new_info = QueryStatementInfo(
+                            query=Query(
+                                query_id=sid,
+                                query_text=row.statement_text or "",
+                                statement_type=statement_type,
+                                start_time=row.start_time,
+                                end_time=row.end_time,
+                                user_id=row.executed_by_user_id,
+                                user_name=row.executed_by,
+                                executed_as_user_id=row.executed_as_user_id,
+                                executed_as_user_name=row.executed_as,
+                            ),
+                            source_tables=[],
+                            target_tables=[],
+                        )
+                        if info is not None:
+                            yield info
+                        info = new_info
+                        current_id = sid
+                    assert info is not None
+                    # Read row: target_type is NULL. Write row: source_type is NULL.
+                    if row.target_type is None and row.source_table_full_name:
+                        info.source_tables.append(row.source_table_full_name)
+                    if row.source_type is None and row.target_table_full_name:
+                        info.target_tables.append(row.target_table_full_name)
+                except Exception as e:
+                    sid_ctx = getattr(row, "statement_id", "<unknown>")
+                    logger.warning(
+                        f"Error parsing system-table usage row for statement {sid_ctx!r}: {e}"
                     )
-                    if info is not None:
-                        yield info
-                    info = new_info
-                    current_id = sid
-                assert info is not None
-                # Read row: target_type is NULL. Write row: source_type is NULL.
-                if row.target_type is None and row.source_table_full_name:
-                    info.source_tables.append(row.source_table_full_name)
-                if row.source_type is None and row.target_table_full_name:
-                    info.target_tables.append(row.target_table_full_name)
-            except Exception as e:
-                sid_ctx = getattr(row, "statement_id", "<unknown>")
-                logger.warning(
-                    f"Error parsing system-table usage row for statement {sid_ctx!r}: {e}"
-                )
-                self.report.report_warning(
-                    "usage-row-parse",
-                    f"statement_id={sid_ctx!r}: {e}",
-                )
-                continue
+                    self.report.report_warning(
+                        "usage-row-parse",
+                        f"statement_id={sid_ctx!r}: {e}",
+                    )
+                    continue
         if info is not None:
             yield info
 
@@ -1491,7 +1496,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         query: str,
         params: Sequence[Any] = (),
         batch_size: int = 10000,
-    ) -> Iterable[Row]:
+    ) -> Generator[Row, None, None]:
         """Streaming variant of _execute_sql_query that yields rows in batches.
 
         The connection stays open for the lifetime of iteration — bounded memory in
@@ -1499,6 +1504,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         generator to release the connection.
         On failure, reports a warning and yields nothing (does not raise).
         """
+        logger.debug(f"Executing SQL query (streaming) with {len(params)} parameters")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Full SQL query: {query}")
+            if params:
+                logger.debug(f"Query parameters: {params}")
+
         if not self.warehouse_id:
             self.report.report_warning(
                 "Cannot execute SQL query",

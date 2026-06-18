@@ -39,9 +39,10 @@ def _make_proxy(rows):
     proxy = UnityCatalogApiProxy.__new__(UnityCatalogApiProxy)
     proxy.warehouse_id = "wh1"
     proxy.report = UnityCatalogReport()
-    # Both usage methods now use the streaming fetch; side_effect gives a fresh
-    # iterator on each call so the mock can be called multiple times in one test.
-    _streaming_mock = MagicMock(side_effect=lambda *a, **kw: iter(rows))
+    # Both usage methods wrap iteration in contextlib.closing(), which calls .close()
+    # on the returned object when the with-block exits. list_iterator has no .close(),
+    # so we use a generator expression to get a closeable iterator each call.
+    _streaming_mock = MagicMock(side_effect=lambda *a, **kw: (r for r in rows))
     proxy._execute_sql_query_streaming = _streaming_mock  # type: ignore[method-assign]
     return proxy
 
@@ -728,3 +729,103 @@ def test_streaming_reports_warning_on_error_and_does_not_raise() -> None:
     assert any("sql-query-failed" in m for m in warning_messages), (
         f"expected 'sql-query-failed' warning, got: {warning_messages}"
     )
+
+
+def test_streaming_mid_stream_error_reports_warning_and_closes_connection() -> None:
+    """fetchmany succeeds on the first batch then raises on the second.
+
+    The consumer (list()) must not raise, 'sql-query-failed' must be reported,
+    and the connection/cursor context managers must still be exited (no leak).
+    """
+    first_batch = [_row(v=i) for i in range(3)]
+
+    cursor = MagicMock()
+    cursor.__enter__ = MagicMock(return_value=cursor)
+    cursor.__exit__ = MagicMock(return_value=False)
+    # First call returns a batch; second call raises mid-stream
+    cursor.fetchmany = MagicMock(
+        side_effect=[first_batch, RuntimeError("mid-stream DB error")]
+    )
+
+    conn = MagicMock()
+    conn.__enter__ = MagicMock(return_value=conn)
+    conn.__exit__ = MagicMock(return_value=False)
+    conn.cursor = MagicMock(return_value=cursor)
+
+    proxy = _make_streaming_proxy()
+    with (
+        patch(
+            "datahub.ingestion.source.unity.proxy.get_sql_connection_params",
+            return_value={},
+        ),
+        patch(
+            "datahub.ingestion.source.unity.proxy.connect",
+            return_value=conn,
+        ),
+    ):
+        result = list(proxy._execute_sql_query_streaming("SELECT 1"))
+
+    # Only the first batch rows should be yielded; the error is swallowed
+    assert result == first_batch, f"expected first-batch rows, got {result}"
+    # Warning must be reported
+    warning_messages = [str(w.message) for w in proxy.report.warnings]
+    assert any("sql-query-failed" in m for m in warning_messages), (
+        f"expected 'sql-query-failed' warning, got: {warning_messages}"
+    )
+    # Connection/cursor must have been closed despite the mid-stream error
+    conn.__exit__.assert_called_once()
+    cursor.__exit__.assert_called_once()
+
+
+def test_streaming_no_warehouse_id_yields_nothing_and_warns() -> None:
+    """When warehouse_id is None the streaming method must yield nothing and report a warning."""
+    proxy = _make_streaming_proxy()
+    proxy.warehouse_id = None  # type: ignore[assignment]
+
+    result = list(proxy._execute_sql_query_streaming("SELECT 1"))
+
+    assert result == [], "expected no rows when warehouse_id is absent"
+    # The no-warehouse path uses message "Cannot execute SQL query" (same as the
+    # non-streaming sibling _execute_sql_query).
+    warning_messages = [str(w.message) for w in proxy.report.warnings]
+    assert any("Cannot execute SQL query" in m for m in warning_messages), (
+        f"expected 'Cannot execute SQL query' warning, got: {warning_messages}"
+    )
+
+
+def test_closing_wrapper_ensures_connection_closed_on_early_abort() -> None:
+    """Consumer breaks after the first row; closing() must still close the connection.
+
+    This proves the fix in get_query_usage_via_system_tables and
+    get_query_history_via_system_tables: wrapping iteration in closing() causes
+    the inner generator's close() to be called when the outer with-block exits,
+    which triggers the streaming method's 'with connect(...)' __exit__ and
+    releases the DB connection deterministically.
+    """
+    all_rows = [_row(v=i) for i in range(5)]
+    batches = [all_rows[:3], all_rows[3:]]
+    cursor = _make_mock_cursor(batches)
+    conn = _make_mock_connection(cursor)
+
+    proxy = _make_streaming_proxy()
+    with (
+        patch(
+            "datahub.ingestion.source.unity.proxy.get_sql_connection_params",
+            return_value={},
+        ),
+        patch(
+            "datahub.ingestion.source.unity.proxy.connect",
+            return_value=conn,
+        ),
+    ):
+        from contextlib import closing as _closing
+
+        # Simulate a consumer that abandons iteration after the first row
+        gen = proxy._execute_sql_query_streaming("SELECT 1")
+        with _closing(gen) as rows:
+            for _row_val in rows:
+                break  # early abort after one row
+
+    # Even though the consumer stopped early, the connection must be closed
+    conn.__exit__.assert_called_once()
+    cursor.__exit__.assert_called_once()
