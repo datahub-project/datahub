@@ -275,11 +275,12 @@ class TestSnowflakeStagesExtractor:
             )
         )
         stage = _make_external_stage(url="s3://my-bucket/data/")
-        _, extractor, _ = _collect_workunits([stage], config=config)
+        _, extractor, report = _collect_workunits([stage], config=config)
 
         entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
         assert entry is not None
         assert entry.dataset_urn is None
+        assert report.num_stage_lineage_dropped_s3_path == 1
 
     def test_lookup_is_case_insensitive(self) -> None:
         stage = _make_internal_stage("My_Stage")

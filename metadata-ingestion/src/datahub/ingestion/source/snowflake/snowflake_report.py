@@ -107,6 +107,7 @@ class SnowflakeV2Report(
     streamlit_apps_scanned: int = 0
     semantic_views_scanned: int = 0
     stages_scanned: int = 0
+    num_stage_lineage_dropped_s3_path: int = 0
     tasks_scanned: int = 0
     pipes_scanned: int = 0
 
