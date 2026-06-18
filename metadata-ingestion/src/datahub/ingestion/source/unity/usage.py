@@ -146,6 +146,8 @@ class UnityCatalogUsageExtractor:
                             context=f"query_id={query.query_id}",
                             exc=per_query_exc,
                         )
+            except (MemoryError, SystemExit, KeyboardInterrupt):
+                raise
             except Exception as e:
                 logger.error("Error processing usage", exc_info=True)
                 self.report.report_failure(

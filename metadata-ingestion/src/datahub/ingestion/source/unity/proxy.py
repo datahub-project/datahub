@@ -1333,8 +1333,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         if self.warehouse_id:
             return True
         self.report.report_warning(
-            "Cannot execute SQL query",
-            "warehouse_id is not configured. SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration",
+            title="Cannot execute SQL query",
+            message="warehouse_id is not configured. SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration.",
         )
         logger.warning(
             "Cannot execute SQL query: warehouse_id is not configured. "
@@ -1356,7 +1356,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         error: Exception,
         query: str,
         params: Sequence[Any],
-        proxy_env_debug: Dict[str, str],
+        *,
+        count_as_fetch_failure: bool = False,
     ) -> None:
         """Log and report a SQL execution failure, flagging likely proxy issues."""
         logger.warning(f"Failed to execute SQL query: {error}", exc_info=True)
@@ -1376,6 +1377,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 "connect",
             ]
         ):
+            # Lazy: only collect proxy env vars when the error looks proxy-related.
+            proxy_env_debug = self._detected_proxy_env_vars()
             logger.error(
                 "SQL query failure appears to be proxy-related. "
                 "Please check proxy configuration and authentication. "
@@ -1388,6 +1391,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 f"A SQL query against the Databricks warehouse failed: {error}. Check that the service principal has SELECT on the system.access and system.query schemas and that system schemas are enabled for this workspace."
             ),
         )
+        if count_as_fetch_failure:
+            self.report.num_usage_query_fetch_failures += 1
 
     def _execute_sql_query(self, query: str, params: Sequence[Any] = ()) -> List[Row]:
         """Execute SQL query using databricks-sql connector and materialize all rows.
@@ -1406,7 +1411,6 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             return []
 
         sql_connection_params = get_sql_connection_params(self._workspace_client)
-        proxy_env_debug = self._detected_proxy_env_vars()
 
         try:
             with (
@@ -1416,7 +1420,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 cursor.execute(query, list(params))
                 return cursor.fetchall()
         except Exception as e:
-            self._report_sql_query_failure(e, query, params, proxy_env_debug)
+            self._report_sql_query_failure(e, query, params)
             return []
 
     def _execute_sql_query_streaming(
@@ -1444,21 +1448,22 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             return
 
         sql_connection_params = get_sql_connection_params(self._workspace_client)
-        proxy_env_debug = self._detected_proxy_env_vars()
 
         try:
             connection = connect(**sql_connection_params)
         except Exception as e:
-            self._report_sql_query_failure(e, query, params, proxy_env_debug)
-            self.report.num_usage_query_fetch_failures += 1
+            self._report_sql_query_failure(
+                e, query, params, count_as_fetch_failure=True
+            )
             return
         with closing(connection):
             try:
                 cursor = connection.cursor()
                 cursor.execute(query, list(params))
             except Exception as e:
-                self._report_sql_query_failure(e, query, params, proxy_env_debug)
-                self.report.num_usage_query_fetch_failures += 1
+                self._report_sql_query_failure(
+                    e, query, params, count_as_fetch_failure=True
+                )
                 return
             with closing(cursor):
                 while True:
@@ -1466,9 +1471,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         batch = cursor.fetchmany(batch_size)
                     except Exception as e:
                         self._report_sql_query_failure(
-                            e, query, params, proxy_env_debug
+                            e, query, params, count_as_fetch_failure=True
                         )
-                        self.report.num_usage_query_fetch_failures += 1
                         return
                     if not batch:
                         break

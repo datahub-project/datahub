@@ -155,11 +155,11 @@ def test_streaming_no_warehouse_id_yields_nothing_and_warns() -> None:
     result = list(proxy._execute_sql_query_streaming("SELECT 1"))
 
     assert result == [], "expected no rows when warehouse_id is absent"
-    # The no-warehouse path uses message "Cannot execute SQL query" (same as the
+    # The no-warehouse path reports title="Cannot execute SQL query" (same as the
     # non-streaming sibling _execute_sql_query).
-    warning_messages = [str(w.message) for w in proxy.report.warnings]
-    assert any("Cannot execute SQL query" in m for m in warning_messages), (
-        f"expected 'Cannot execute SQL query' warning, got: {warning_messages}"
+    warning_titles = [str(w.title) for w in proxy.report.warnings]
+    assert any("Cannot execute SQL query" in t for t in warning_titles), (
+        f"expected 'Cannot execute SQL query' warning title, got: {warning_titles}"
     )
 
 
@@ -352,17 +352,21 @@ def test_observed_query_timestamps_normalized_to_utc(
         _query_with_ts(ts_plus2, "q1"),
         _query_with_ts(ts_fixed_utc, "q2"),
         _query_with_ts(ts_naive, "q3"),
+        # None start_time: must pass through as-is without crashing.
+        _query_with_ts(None, "q4"),  # type: ignore[arg-type]
     ]
     ex = _extractor(config, proxy)
 
     list(ex.get_usage_workunits(set()))
 
     agg = agg_instance[0]
-    assert len(agg.observed) == 3, f"expected 3 queries, got {len(agg.observed)}"
+    assert len(agg.observed) == 4, f"expected 4 queries, got {len(agg.observed)}"
 
     for obs in agg.observed:
         ts = obs.timestamp
-        assert ts is not None, "timestamp must not be None"
+        if ts is None:
+            # None start_time passes through unchanged — checked separately below.
+            continue
         # Must satisfy the SqlParsingAggregator assertion: tzinfo in {None, timezone.utc}
         assert ts.tzinfo is timezone.utc, (
             f"expected timezone.utc singleton, got {ts.tzinfo!r} for timestamp {ts}"
@@ -372,6 +376,12 @@ def test_observed_query_timestamps_normalized_to_utc(
     obs_naive = next(o for o in agg.observed if o.query == "SELECT q3")
     assert obs_naive.timestamp == datetime(2026, 6, 1, 8, 30, tzinfo=timezone.utc), (
         f"naive ts must be UTC-stamped without wall-clock adjustment, got {obs_naive.timestamp}"
+    )
+
+    # None start_time must be passed through as-is — no crash, no coercion.
+    obs_none = next(o for o in agg.observed if o.query == "SELECT q4")
+    assert obs_none.timestamp is None, (
+        f"None start_time must yield timestamp=None, got {obs_none.timestamp!r}"
     )
 
 
