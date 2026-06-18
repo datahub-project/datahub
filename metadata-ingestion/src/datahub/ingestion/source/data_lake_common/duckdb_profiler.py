@@ -7,6 +7,7 @@ import tempfile
 import weakref
 from typing import TYPE_CHECKING, Iterable, Optional, Protocol, Set
 
+import duckdb
 import sqlalchemy as sa
 
 if TYPE_CHECKING:
@@ -278,6 +279,43 @@ class DuckDBProfiler:
                 parts.append(quoted)
         return ", ".join(parts)
 
+    @staticmethod
+    def _raw_connection(conn: sa.engine.Connection) -> "duckdb.DuckDBPyConnection":
+        """Return the underlying ``duckdb.DuckDBPyConnection`` behind a SQLAlchemy
+        connection, so we can use DuckDB's relational (Python) API. duckdb-engine
+        wraps the real connection in a private attribute; access it defensively
+        and fail loudly if that internal ever changes."""
+        dbapi = conn.connection.dbapi_connection
+        raw = getattr(dbapi, "_ConnectionWrapper__c", None)
+        if not isinstance(raw, duckdb.DuckDBPyConnection):
+            raise RuntimeError(
+                "Could not access the underlying DuckDB connection for profiling "
+                f"(duckdb-engine internals changed: {type(dbapi).__name__})."
+            )
+        return raw
+
+    def _open_relation(
+        self, raw: "duckdb.DuckDBPyConnection", ext: str, path: str
+    ) -> "duckdb.DuckDBPyRelation":
+        """Open the source as a DuckDB relation via the Python relational API.
+
+        The file path is passed as a native Python argument — it is never
+        concatenated into a SQL string — and the per-format reader options match
+        the SQL table-functions this replaced. Avro has no ``read_avro()`` method,
+        so ``table_function`` passes the path as a bound argument instead.
+        """
+        if ext == "parquet":
+            return raw.read_parquet(path, union_by_name=True)
+        if ext == "csv":
+            return raw.read_csv(path, strict_mode=False)
+        if ext == "tsv":
+            return raw.read_csv(path, sep="\t", strict_mode=False)
+        if ext in ("json", "jsonl"):
+            return raw.read_json(path)
+        if ext == "avro":
+            return raw.table_function("read_avro", [path])
+        raise ValueError(f"Unsupported format for DuckDB profiling: {ext!r}")
+
     def _create_profile_table(
         self,
         conn: sa.engine.Connection,
@@ -287,24 +325,30 @@ class DuckDBProfiler:
         select_list: str,
         sample_rows: Optional[int] = None,
     ) -> None:
-        """Materialize the source rows into a temp DuckDB table.
+        """Materialize the source rows into a temp DuckDB table via DuckDB's
+        relational API.
 
-        The file path is bound as a ``:path`` parameter — DuckDB rejects
-        parameters in ``CREATE VIEW`` DDL but accepts them in
-        ``CREATE TABLE AS SELECT``, so the path is never concatenated into SQL.
-        Materializing also reads the source once instead of re-reading it on
-        every per-column profiler scan (a notable win for remote object stores).
-        ``table`` is a fixed internal constant and ``select_list`` is built from
-        identifier-quoted column names.
+        No SQL query string is built: the file path and the destination table
+        name are native Python arguments, so there is nothing to concatenate and
+        no SQL-injection surface. Materializing also reads the source once instead
+        of re-reading it on every per-column profiler scan (a win for remote
+        object stores). ``select_list`` is the identifier-quoted projection
+        (scalar columns plus nested→JSON casts); ``"*"`` means "no projection".
+        Sampling is applied as ``.limit(n)`` (a cheap first-n bound) rather than a
+        reservoir ``USING SAMPLE``; profiling only needs a representative subset
+        and the true row count is reported separately.
         """
-        suffix = f" USING SAMPLE {sample_rows} ROWS" if sample_rows is not None else ""
-        conn.execute(
-            sa.text(
-                f"CREATE OR REPLACE TABLE {table} AS "
-                f"SELECT {select_list} FROM {self._reader_sql(ext)}{suffix}"
-            ),
-            {"path": path},
-        )
+        raw = self._raw_connection(conn)
+        rel = self._open_relation(raw, ext, path)
+        if select_list != "*":
+            rel = rel.project(select_list)
+        if sample_rows is not None:
+            rel = rel.limit(sample_rows)
+        # `table` is the fixed internal constant "profile_target"; replace any
+        # table left from a previous file in this run. The name is not
+        # interpolated from external input.
+        conn.execute(sa.text("DROP TABLE IF EXISTS profile_target"))
+        rel.to_table(table)
 
     def get_table_profile(
         self, table_data: "TableData", dataset_urn: str
