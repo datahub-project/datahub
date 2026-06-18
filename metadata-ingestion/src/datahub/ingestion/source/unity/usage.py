@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from datetime import timezone
 from typing import Callable, Iterable, Optional, Set
 
 from datahub.ingestion.api.source_helpers import auto_workunit
@@ -67,10 +68,13 @@ class UnityCatalogUsageExtractor:
             aggregator = self._build_aggregator()
             for query in self._fetch_queries():
                 self.report.num_queries += 1
+                ts = query.start_time
+                if ts is not None and ts.tzinfo is not None:
+                    ts = ts.astimezone(timezone.utc)
                 aggregator.add_observed_query(
                     ObservedQuery(
                         query=query.query_text,
-                        timestamp=query.start_time,
+                        timestamp=ts,
                         user=(
                             CorpUserUrn.from_string(
                                 self.user_urn_builder(query.user_name)

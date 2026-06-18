@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import List
 from unittest.mock import MagicMock, patch
@@ -283,6 +283,80 @@ def test_builds_aggregator_and_feeds_observed_queries(
     observed_texts = [o.query for o in agg.observed]
     assert "SELECT * FROM main.s.t" in observed_texts
     assert "SELECT * FROM main.s.t2" in observed_texts
+
+
+def test_observed_query_timestamps_normalized_to_utc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Timestamps with non-UTC-singleton tzinfo must be normalized to timezone.utc.
+
+    SqlParsingAggregator asserts `timestamp.tzinfo in {None, timezone.utc}`.
+    Databricks returns tz-aware datetimes with a fixed-offset tzinfo that is NOT
+    the timezone.utc singleton (even when the offset is +00:00), triggering an
+    AssertionError that silently drops all usage. This test proves the fix.
+    """
+    import datahub.ingestion.source.unity.usage as usage_mod
+
+    agg_instance: list = []
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            self.observed: list = []
+            agg_instance.append(self)
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            self.observed.append(observed)
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    def _query_with_ts(ts: datetime, qid: str) -> Query:
+        return Query(
+            query_id=qid,
+            query_text=f"SELECT {qid}",
+            statement_type=None,
+            start_time=ts,
+            end_time=ts,
+            user_id=1,
+            user_name="u@x.io",
+            executed_as_user_id=None,
+            executed_as_user_name=None,
+        )
+
+    # +02:00 fixed-offset — clearly not timezone.utc singleton
+    ts_plus2 = datetime(2026, 6, 1, 12, 0, tzinfo=timezone(timedelta(hours=2)))
+    # +00:00 fixed-offset — same wall-clock as UTC but NOT the timezone.utc singleton
+    ts_fixed_utc = datetime(2026, 6, 1, 10, 0, tzinfo=timezone(timedelta(0)))
+
+    config = MagicMock()
+    config.emit_queries = True
+    config.include_operational_stats = True
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = [
+        _query_with_ts(ts_plus2, "q1"),
+        _query_with_ts(ts_fixed_utc, "q2"),
+    ]
+    ex = _extractor(config, proxy)
+
+    list(ex.get_usage_workunits(set()))
+
+    agg = agg_instance[0]
+    assert len(agg.observed) == 2, f"expected 2 queries, got {len(agg.observed)}"
+
+    for obs in agg.observed:
+        ts = obs.timestamp
+        assert ts is not None, "timestamp must not be None"
+        # Must satisfy the SqlParsingAggregator assertion: tzinfo in {None, timezone.utc}
+        assert ts.tzinfo is timezone.utc, (
+            f"expected timezone.utc singleton, got {ts.tzinfo!r} for timestamp {ts}"
+        )
 
 
 def test_use_system_tables_join_delegates_to_config() -> None:
