@@ -418,7 +418,7 @@ public class ESAggregatedStatsDAO {
 
     try {
       final SearchResponse searchResponse =
-          searchClient.search(searchRequest, RequestOptions.DEFAULT);
+          searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
       return generateResponseFromElastic(
           searchResponse, groupingBuckets, aggregationSpecs, aspectSpec);
     } catch (Exception e) {

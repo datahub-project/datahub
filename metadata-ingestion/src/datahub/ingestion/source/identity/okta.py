@@ -26,6 +26,11 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.identity.corp_user_status import (
+    corp_user_info_active_from_status,
+    derive_corp_user_status_from_okta,
+    make_corp_user_status_aspect,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -553,8 +558,10 @@ class OktaSource(StatefulIngestionSourceBase):
                 urn=corp_user_urn,
                 aspects=[],
             )
-            corp_user_info = self._map_okta_user_profile(okta_user.profile)
+            user_status = derive_corp_user_status_from_okta(okta_user)
+            corp_user_info = self._map_okta_user_profile(okta_user.profile, user_status)
             corp_user_snapshot.aspects.append(corp_user_info)
+            corp_user_snapshot.aspects.append(make_corp_user_status_aspect(user_status))
             yield corp_user_snapshot
 
     # Creates DataHub CorpUser Urn from Okta User Profile
@@ -600,12 +607,14 @@ class OktaSource(StatefulIngestionSourceBase):
         }
 
     # Converts Okta User Profile into a CorpUserInfo.
-    def _map_okta_user_profile(self, profile: UserProfile) -> CorpUserInfoClass:
+    def _map_okta_user_profile(
+        self, profile: UserProfile, user_status: str
+    ) -> CorpUserInfoClass:
         # TODO: Extract user's manager if provided.
         # Source: https://developer.okta.com/docs/reference/api/users/#default-profile-properties
         full_name = f"{profile.firstName} {profile.lastName}"
         return CorpUserInfoClass(
-            active=True,
+            active=corp_user_info_active_from_status(user_status),
             displayName=(
                 profile.displayName if profile.displayName is not None else full_name
             ),

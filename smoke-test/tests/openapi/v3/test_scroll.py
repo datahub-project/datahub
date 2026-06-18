@@ -10,6 +10,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RawSearchFilter
 from datahub.ingestion.graph.openapi import RelationshipDirection, SortCriterionDict
 from datahub.metadata.schema_classes import DatasetKeyClass
+from tests.utils import with_test_retry
 
 logger = logging.getLogger(__name__)
 
@@ -198,20 +199,26 @@ def test_scroll_entities_with_sort_criteria(graph_client: DataHubGraph) -> None:
 def test_scroll_entities_with_query(graph_client: DataHubGraph) -> None:
     """query= narrows results by full-text search; searching for "alpha" within the
     scrolltest platform should include ALPHA and exclude unrelated datasets."""
-    result = graph_client.scroll_entities(
-        entity_names=["dataset"],
-        filter=SCROLLTEST_FILTER,
-        aspects=["datasetKey"],
-        query="alpha",
-        count=10,
-    )
-    assert result.total_count > 0
-    assert ALPHA in result.entities, (
-        f"ALPHA should appear in query='alpha' results, got: {set(result.entities)}"
-    )
-    logger.info(
-        f"scroll_entities with_query: query='alpha' returned {result.total_count} result(s)"
-    )
+
+    @with_test_retry(max_attempts=10)
+    def _assert() -> None:
+        result = graph_client.scroll_entities(
+            entity_names=["dataset"],
+            filter=SCROLLTEST_FILTER,
+            aspects=["datasetKey"],
+            query="alpha",
+            count=10,
+        )
+        assert result.total_count > 0
+        assert ALPHA in result.entities, (
+            f"ALPHA should appear in query='alpha' results, got: {set(result.entities)}"
+            f"\ntotal_count={result.total_count}"
+        )
+        logger.info(
+            f"scroll_entities with_query: query='alpha' returned {result.total_count} result(s)"
+        )
+
+    _assert()
 
 
 def test_scroll_entities_with_system_metadata(graph_client: DataHubGraph) -> None:

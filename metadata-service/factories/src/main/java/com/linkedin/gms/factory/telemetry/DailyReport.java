@@ -138,22 +138,31 @@ public class DailyReport {
     DateRange monthRange =
         new DateRange(String.valueOf(lastMonth.getMillis()), String.valueOf(endDate.getMillis()));
 
+    // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no per-event
+    // context available
     int dailyActiveUsers =
         analyticsService.getHighlights(
+            systemOperationContext,
             analyticsService.getUsageIndexName(),
             Optional.of(dayRange),
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.of("browserId"));
+    // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no per-event
+    // context available
     int weeklyActiveUsers =
         analyticsService.getHighlights(
+            systemOperationContext,
             analyticsService.getUsageIndexName(),
             Optional.of(weekRange),
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.of("browserId"));
+    // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no per-event
+    // context available
     int monthlyActiveUsers =
         analyticsService.getHighlights(
+            systemOperationContext,
             analyticsService.getUsageIndexName(),
             Optional.of(monthRange),
             ImmutableMap.of(),
@@ -221,7 +230,10 @@ public class DailyReport {
       searchSourceBuilder.trackTotalHits(true);
       searchRequest.source(searchSourceBuilder);
 
-      SearchResponse searchResponse = _elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+      // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
+      // per-event context available
+      SearchResponse searchResponse =
+          _elasticClient.search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
       return (int) searchResponse.getHits().getTotalHits().value;
     } catch (Exception e) {
       log.warn("Failed to count users for telemetry: {}", e.getMessage());
@@ -250,7 +262,10 @@ public class DailyReport {
       searchSourceBuilder.trackTotalHits(true);
       searchRequest.source(searchSourceBuilder);
 
-      SearchResponse searchResponse = _elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+      // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
+      // per-event context available
+      SearchResponse searchResponse =
+          _elasticClient.search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
       return (int) searchResponse.getHits().getTotalHits().value;
     } catch (Exception e) {
       log.warn("Failed to count service accounts for telemetry: {}", e.getMessage());
@@ -313,8 +328,11 @@ public class DailyReport {
     for (EntityType entityType : REPORTING_ENTITY_TYPES) {
       try {
         String index = analyticsService.getEntityIndexName(entityType);
+        // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
+        // per-event context available
         int count =
             analyticsService.getHighlights(
+                systemOperationContext,
                 index,
                 Optional.empty(), // No date range
                 ImmutableMap.of(), // No filters
@@ -343,8 +361,11 @@ public class DailyReport {
   private void collectPlatformStatistics(AnalyticsService analyticsService, JSONObject report) {
     try {
       // Query for platform distribution
+      // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
+      // per-event context available
       List<NamedBar> platformBars =
           analyticsService.getBarChart(
+              systemOperationContext,
               analyticsService.getAllEntityIndexName(),
               Optional.empty(),
               ImmutableList.of("platform.keyword"),

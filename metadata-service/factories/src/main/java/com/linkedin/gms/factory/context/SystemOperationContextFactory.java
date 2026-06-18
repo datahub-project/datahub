@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.context;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.group.GroupService;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
@@ -57,6 +58,8 @@ public class SystemOperationContextFactory {
       @Qualifier("systemEntityClient") @Nonnull final SystemEntityClient systemEntityClient,
       @Qualifier("mappingsBuilder") @Nonnull final MappingsBuilder mappingsBuilder,
       @Nonnull final SystemTelemetryContext systemTelemetryContext,
+      @Autowired(required = false) @Qualifier("groupService") @Nullable
+          final GroupService groupService,
       @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver) {
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
@@ -87,7 +90,10 @@ public class SystemOperationContextFactory {
             operationContextConfig,
             systemAuthentication,
             entityServiceAspectRetriever.getEntityRegistry(),
-            ServicesRegistryContext.builder().restrictedService(restrictedService).build(),
+            ServicesRegistryContext.builder()
+                .restrictedService(restrictedService)
+                .actorGroupMembershipService(groupService)
+                .build(),
             searchContext,
             RetrieverContext.builder()
                 .aspectRetriever(entityServiceAspectRetriever)
@@ -133,6 +139,8 @@ public class SystemOperationContextFactory {
       @Nonnull final ConfigurationProvider configurationProvider,
       @Nonnull final SystemTelemetryContext systemTelemetryContext,
       @Qualifier("mappingsBuilder") @Nonnull final MappingsBuilder mappingsBuilder,
+      @Autowired(required = false) @Qualifier("groupService") @Nullable
+          final GroupService groupService,
       @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver) {
 
     EntityClientAspectRetriever entityClientAspectRetriever =
@@ -157,7 +165,10 @@ public class SystemOperationContextFactory {
             operationContextConfig,
             systemAuthentication,
             entityRegistry,
-            ServicesRegistryContext.builder().restrictedService(restrictedService).build(),
+            ServicesRegistryContext.builder()
+                .restrictedService(restrictedService)
+                .actorGroupMembershipService(groupService)
+                .build(),
             searchContext,
             RetrieverContext.builder()
                 .cachingAspectRetriever(entityClientAspectRetriever)

@@ -378,21 +378,21 @@ These privileges are to view & modify any entity within DataHub.
 
 #### Aspect Privileges
 
-| Aspect Privileges             | Description                                                        |
-| ----------------------------- | ------------------------------------------------------------------ |
-| Edit Tags                     | Allow actor to add and remove tags to an asset.                    |
-| Edit Glossary Terms           | Allow actor to add and remove glossary terms to an asset.          |
-| Edit Description              | Allow actor to edit the description (documentation) of an entity.  |
-| Edit Links                    | Allow actor to edit links associated with an entity.               |
-| Edit Status                   | Allow actor to edit the status of an entity (soft deleted or not). |
-| Edit Domain                   | Allow actor to edit the Domain of an entity.                       |
-| Edit Data Product             | Allow actor to edit the Data Product of an entity.                 |
-| Edit Deprecation              | Allow actor to edit the Deprecation status of an entity.           |
-| Edit Incidents                | Allow actor to create and remove incidents for an entity.          |
-| Edit Lineage                  | Allow actor to add and remove lineage edges for this entity.       |
-| Edit Properties               | Allow actor to edit the properties for an entity.                  |
-| Edit Owners                   | Allow actor to add and remove owners of an entity.                 |
-| Get Timeseries Aspect API[^3] | Allow actor to use the GET Timeseries Aspect API.                  |
+| Aspect Privileges             | Description                                                                                                                                                                                                                                                                                        |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Edit Tags                     | Allow actor to add and remove tags to an asset.                                                                                                                                                                                                                                                    |
+| Edit Glossary Terms           | Allow actor to add and remove glossary terms to an asset.                                                                                                                                                                                                                                          |
+| Edit Description              | Allow actor to edit the description (documentation) of an entity.                                                                                                                                                                                                                                  |
+| Edit Links                    | Allow actor to edit links associated with an entity.                                                                                                                                                                                                                                               |
+| Edit Status                   | Allow actor to edit the status of an entity (soft deleted or not).                                                                                                                                                                                                                                 |
+| Edit Domain                   | Allow actor to edit the Domain of an entity.                                                                                                                                                                                                                                                       |
+| Edit Data Product             | Allow actor to add or remove Data Product membership **from an asset** (asset profile / `batchAddToDataProducts`, `batchRemoveFromDataProducts`, unset via `batchSetDataProduct`). Does not authorize editing a Data Product's `assets` list from the product page — see **Manage Data Products**. |
+| Edit Deprecation              | Allow actor to edit the Deprecation status of an entity.                                                                                                                                                                                                                                           |
+| Edit Incidents                | Allow actor to create and remove incidents for an entity.                                                                                                                                                                                                                                          |
+| Edit Lineage                  | Allow actor to add and remove lineage edges for this entity.                                                                                                                                                                                                                                       |
+| Edit Properties               | Allow actor to edit the properties for an entity.                                                                                                                                                                                                                                                  |
+| Edit Owners                   | Allow actor to add and remove owners of an entity.                                                                                                                                                                                                                                                 |
+| Get Timeseries Aspect API[^3] | Allow actor to use the GET Timeseries Aspect API.                                                                                                                                                                                                                                                  |
 
 #### Proposals
 
@@ -422,6 +422,58 @@ These privileges are to view & modify any entity within DataHub.
 | Manage Dataset Column Glossary Term Proposals[^1] | Allow actor to manage a proposal to add a glossary term to dataset schema field (column).       |
 | Manage Dataset Column Property Proposals[^1]      | Allow actor to manage a proposal to add a structured property to dataset schema field (column). |
 
+### Derived authorization rules
+
+Some APIs authorize against **related** entities rather than only the URN in the request. These rules apply across GraphQL, Rest.li, and MCP ingestion (unless the change uses a system ingestion source).
+
+#### Data Products
+
+| Operation                                                                             | Privilege evaluated                                                                                | Resource                                        |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Create Data Product                                                                   | **Manage Data Products**                                                                           | Domain from create input                        |
+| Update / delete Data Product                                                          | **Manage Data Products**                                                                           | **At least one** Domain on the product          |
+| Change `dataProductProperties.assets` (MCP / ingestion)                               | **Manage Data Products** on any product Domain **or** **Edit Data Product** on every changed asset | Product Domain(s) and/or each changed **asset** |
+| Change `dataProductProperties.assets` (product page / `batchSetDataProduct` with urn) | **Manage Data Products**                                                                           | **At least one** Domain on the product          |
+| Add/remove Data Product from asset profile                                            | **Edit Data Product**                                                                              | Target **asset**                                |
+| Rename Data Product (`updateName`)                                                    | **Manage Data Products** on any Domain **or** **Edit Entity** on the Data Product                  | Domains and/or product URN                      |
+
+Domain URNs are read from the product's `domains` aspect, preferring `domainAssociations` and falling back to the legacy `domains` array. Duplicate entries are deduplicated. Products with no Domain associations are denied for product-side manage operations. Product and asset Domains do not need to match — authorization succeeds when either product-side manage or asset-side edit checks pass.
+
+**Known issue:** Domain alignment is not enforced after membership is written. Changing a product's or asset's `domains` aspect does not re-validate or prune existing `assets` links.
+
+#### Query entities
+
+| Operation                                                           | Privilege evaluated                                  | Resource                                     |
+| ------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------- |
+| Create / update / delete Query                                      | **Edit Dataset Queries** (or **Edit Entity**)        | Each subject dataset in `querySubjects`      |
+| Read Query metadata (GraphQL, Rest.li, search when view auth is on) | **View Entity Page** **or** **Edit Dataset Queries** | **Every** subject dataset in `querySubjects` |
+
+Query entities with **no subjects** are not readable when view authorization is enabled (fail-closed). Schema field subjects are resolved to their parent dataset for authorization. **Edit Entity** on a subject dataset also grants read access (same disjunction as write).
+
+View authorization is controlled by `VIEW_AUTHORIZATION_ENABLED` (see [Environment Variables](../deploy/environment-vars.md)).
+
+#### Logical parent (`logicalParent` aspect)
+
+Setting a logical parent requires **Edit Entity** on **both** the child and the proposed parent.
+Clearing a logical parent requires **Edit Entity** on the child side only. There is no OR between
+child and parent — access to only one side is insufficient when setting a link.
+
+Each side is evaluated **independently**. For a **dataset**, that side passes when the actor has
+**Edit Entity** on that dataset. For a **schema field**, that side passes when the actor has **Edit
+Entity** on the containing dataset **or** on the schema field URN. Child and parent may satisfy
+their respective checks via different grant types (for example, dataset grant on the physical side
+and schema-field grant on the logical side).
+
+| Child entity  | Parent entity (when set) | How access is evaluated                                                                 |
+| ------------- | ------------------------ | --------------------------------------------------------------------------------------- |
+| `dataset`     | `dataset`                | Edit Entity on child dataset **and** parent dataset                                     |
+| `schemaField` | `schemaField`            | Edit Entity on each side (containing dataset or schema field URN), independently        |
+| `dataset`     | `schemaField`            | Edit Entity on child dataset **and** on parent (containing dataset or schema field URN) |
+| `schemaField` | `dataset`                | Edit Entity on child (containing dataset or schema field URN) **and** parent dataset    |
+
+Applies to MCP ingestion, GraphQL (`setLogicalParent`), and OpenAPI logical-model relationship
+endpoints.
+
 ### Specific Entity-level Privileges
 
 These privileges are not generalizable.
@@ -439,40 +491,40 @@ These privileges are not generalizable.
 
 #### Dataset
 
-| Entity       | Privilege                                 | Description                                                                                                                                                                       |
-| ------------ | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dataset      | View Dataset Usage                        | Allow actor to access dataset usage information (includes usage statistics and queries).                                                                                          |
-| Dataset      | View Dataset Profile                      | Allow actor to access dataset profile (snapshot statistics)                                                                                                                       |
-| Dataset      | Edit Dataset Column Descriptions          | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                             |
-| Dataset      | Edit Dataset Column Tags                  | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                                     |
-| Dataset      | Edit Dataset Column Glossary Terms        | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                           |
-| Dataset      | Edit Dataset Column Properties            | Allow actor to edit the column (field) properties associated with a dataset schema.                                                                                               |
-| Dataset      | Propose Dataset Column Glossary Terms[^1] | Allow actor to propose column (field) glossary terms associated with a dataset schema.                                                                                            |
-| Dataset      | Propose Dataset Column Tags[^1]           | Allow actor to propose new column (field) tags associated with a dataset schema.                                                                                                  |
-| Dataset      | Manage Dataset Column Glossary Terms[^1]  | Allow actor to manage column (field) glossary term proposals associated with a dataset schema.                                                                                    |
-| Dataset      | Propose Dataset Column Descriptions[^1]   | Allow actor to propose new descriptions associated with a dataset schema.                                                                                                         |
-| Dataset      | Manage Dataset Column Tag Proposals[^1]   | Allow actor to manage column (field) tag proposals associated with a dataset schema.                                                                                              |
-| Dataset      | Edit Assertions                           | Allow actor to add and remove assertions from an entity.                                                                                                                          |
-| Dataset      | Edit Dataset Queries                      | Allow actor to edit the Queries for a Dataset.                                                                                                                                    |
-| Dataset      | View Dataset Operations                   | Allow actor to view operations on a Dataset.                                                                                                                                      |
-| Dataset      | Create erModelRelationship                | Allow actor to add erModelRelationship on a dataset.                                                                                                                              |
-| Dataset      | Edit Monitors[^1]                         | Allow actor to edit monitors for the entity.                                                                                                                                      |
-| Dataset      | Edit SQL Assertion Monitors[^1]           | Allow actor to edit custom SQL assertion monitors for the entity. Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care. |
-| Dataset      | Edit Data Contract[^1]                    | Allow actor to edit the Data Contract for an entity.                                                                                                                              |
-| Dataset      | Manage Data Contract Proposals[^1]        | Allow actor to manage a proposal for a Data Contract                                                                                                                              |
-| Tag          | Edit Tag Color                            | Allow actor to change the color of a Tag.                                                                                                                                         |
-| Domain       | Manage Data Products                      | Allow actor to create, edit, and delete Data Products within a Domain                                                                                                             |
-| GlossaryNode | Manage Direct Glossary Children           | Allow actor to create and delete the direct children of this entity.                                                                                                              |
-| GlossaryNode | Manage All Glossary Children              | Allow actor to create and delete everything underneath this entity.                                                                                                               |
+| Entity       | Privilege                                 | Description                                                                                                                                                                                                                                |
+| ------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Dataset      | View Dataset Usage                        | Allow actor to access dataset usage information (includes usage statistics and queries).                                                                                                                                                   |
+| Dataset      | View Dataset Profile                      | Allow actor to access dataset profile (snapshot statistics)                                                                                                                                                                                |
+| Dataset      | Edit Dataset Column Descriptions          | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                                                                                      |
+| Dataset      | Edit Dataset Column Tags                  | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                                                                                              |
+| Dataset      | Edit Dataset Column Glossary Terms        | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                                                                                    |
+| Dataset      | Edit Dataset Column Properties            | Allow actor to edit the column (field) properties associated with a dataset schema.                                                                                                                                                        |
+| Dataset      | Propose Dataset Column Glossary Terms[^1] | Allow actor to propose column (field) glossary terms associated with a dataset schema.                                                                                                                                                     |
+| Dataset      | Propose Dataset Column Tags[^1]           | Allow actor to propose new column (field) tags associated with a dataset schema.                                                                                                                                                           |
+| Dataset      | Manage Dataset Column Glossary Terms[^1]  | Allow actor to manage column (field) glossary term proposals associated with a dataset schema.                                                                                                                                             |
+| Dataset      | Propose Dataset Column Descriptions[^1]   | Allow actor to propose new descriptions associated with a dataset schema.                                                                                                                                                                  |
+| Dataset      | Manage Dataset Column Tag Proposals[^1]   | Allow actor to manage column (field) tag proposals associated with a dataset schema.                                                                                                                                                       |
+| Dataset      | Edit Assertions                           | Allow actor to add and remove assertions from an entity.                                                                                                                                                                                   |
+| Dataset      | Edit Dataset Queries                      | Allow actor to edit the Queries for a Dataset. Query entity **read** visibility is derived from **View Entity Page** or **Edit Dataset Queries** (or **Edit Entity**) on all subject datasets linked via `querySubjects`.                  |
+| Dataset      | View Dataset Operations                   | Allow actor to view operations on a Dataset.                                                                                                                                                                                               |
+| Dataset      | Create erModelRelationship                | Allow actor to add erModelRelationship on a dataset.                                                                                                                                                                                       |
+| Dataset      | Edit Monitors[^1]                         | Allow actor to edit monitors for the entity.                                                                                                                                                                                               |
+| Dataset      | Edit SQL Assertion Monitors[^1]           | Allow actor to edit custom SQL assertion monitors for the entity. Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care.                                                          |
+| Dataset      | Edit Data Contract[^1]                    | Allow actor to edit the Data Contract for an entity.                                                                                                                                                                                       |
+| Dataset      | Manage Data Contract Proposals[^1]        | Allow actor to manage a proposal for a Data Contract                                                                                                                                                                                       |
+| Tag          | Edit Tag Color                            | Allow actor to change the color of a Tag.                                                                                                                                                                                                  |
+| Domain       | Manage Data Products                      | Allow actor to create, update, and delete Data Products scoped to a Domain, including changing a product's `assets` membership from the product side when the actor has this privilege on at least one Domain associated with the product. |
+| GlossaryNode | Manage Direct Glossary Children           | Allow actor to create and delete the direct children of this entity.                                                                                                                                                                       |
+| GlossaryNode | Manage All Glossary Children              | Allow actor to create and delete everything underneath this entity.                                                                                                                                                                        |
 
 #### Misc
 
-| Entity       | Privilege                       | Description                                                           |
-| ------------ | ------------------------------- | --------------------------------------------------------------------- |
-| Tag          | Edit Tag Color                  | Allow actor to change the color of a Tag.                             |
-| Domain       | Manage Data Products            | Allow actor to create, edit, and delete Data Products within a Domain |
-| GlossaryNode | Manage Direct Glossary Children | Allow actor to create and delete the direct children of this entity.  |
-| GlossaryNode | Manage All Glossary Children    | Allow actor to create and delete everything underneath this entity.   |
+| Entity       | Privilege                       | Description                                                                                                                                                                                                                                |
+| ------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Tag          | Edit Tag Color                  | Allow actor to change the color of a Tag.                                                                                                                                                                                                  |
+| Domain       | Manage Data Products            | Allow actor to create, update, and delete Data Products scoped to a Domain, including changing a product's `assets` membership from the product side when the actor has this privilege on at least one Domain associated with the product. |
+| GlossaryNode | Manage Direct Glossary Children | Allow actor to create and delete the direct children of this entity.                                                                                                                                                                       |
+| GlossaryNode | Manage All Glossary Children    | Allow actor to create and delete everything underneath this entity.                                                                                                                                                                        |
 
 ## Coming Soon
 
