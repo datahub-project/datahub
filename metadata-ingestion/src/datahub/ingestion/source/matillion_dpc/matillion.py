@@ -58,6 +58,7 @@ from datahub.ingestion.source.matillion_dpc.matillion_utils import (
     build_data_job_custom_properties,
     extract_base_pipeline_name,
     extract_folder_segments,
+    extract_pipeline_file_name,
     make_dataset_urn_from_matillion_dataset,
     make_execution_dpi_urn,
     make_step_dpi_urn,
@@ -490,7 +491,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             custom_properties["is_published"] = "false"
 
         external_url = MATILLION_PIPELINE_OBSERVABILITY_URL.format(
-            pipeline_name=quote_plus(pipeline_name)
+            pipeline_name=quote_plus(extract_pipeline_file_name(pipeline_name))
         )
 
         dataflow = DataFlow(
@@ -863,7 +864,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             env=self.config.env,
             display_name=display_name,
             external_url=MATILLION_PIPELINE_OBSERVABILITY_URL.format(
-                pipeline_name=quote_plus(full_path)
+                pipeline_name=quote_plus(extract_pipeline_file_name(full_path))
             ),
             custom_properties={
                 "pipeline_name": full_path,

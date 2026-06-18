@@ -8,6 +8,7 @@ from datahub.ingestion.source.matillion_dpc.config import (
 from datahub.ingestion.source.matillion_dpc.matillion_utils import (
     MatillionUrnBuilder,
     extract_folder_segments,
+    extract_pipeline_file_name,
 )
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionEnvironment,
@@ -94,6 +95,18 @@ def test_make_environment_container_urn(urn_builder: MatillionUrnBuilder) -> Non
 )
 def test_extract_folder_segments(job_name: str, expected: list) -> None:
     assert extract_folder_segments(job_name) == expected
+
+
+@pytest.mark.parametrize(
+    "job_name,expected",
+    [
+        ("ingest/staging/orders/load.orch.yaml", "load.orch.yaml"),
+        ("folder/pipeline.tran.yaml", "pipeline.tran.yaml"),
+        ("pipeline.orch.yaml", "pipeline.orch.yaml"),
+    ],
+)
+def test_extract_pipeline_file_name(job_name: str, expected: str) -> None:
+    assert extract_pipeline_file_name(job_name) == expected
 
 
 @pytest.mark.parametrize(

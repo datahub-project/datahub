@@ -116,7 +116,8 @@ LOWERCASE_FIELD_PLATFORMS = {"snowflake"}
 
 # Matillion Data Productivity Cloud console (Maia) deep links. The console is a
 # single global host (app.matillion.com); the account is selected at login and is
-# not part of the URL, so these links are fully derivable without configuration.
+# not part of the URL. The observability search matches the pipeline file name, not
+# the folder path, so callers must pass the leaf file name.
 MATILLION_PIPELINE_OBSERVABILITY_URL = (
     "https://app.matillion.com/observability-dashboard?search={pipeline_name}"
 )

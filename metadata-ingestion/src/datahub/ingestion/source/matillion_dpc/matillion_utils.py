@@ -75,6 +75,14 @@ def extract_base_pipeline_name(job_name: str) -> str:
     return base_name
 
 
+def extract_pipeline_file_name(job_name: str) -> str:
+    """Return the leaf file name, dropping any folder path.
+
+    The console observability search matches the file name, not the folder path.
+    """
+    return job_name.split("/")[-1]
+
+
 def extract_folder_segments(job_name: str) -> List[str]:
     """Return the folder path segments that precede the pipeline file name.
 
