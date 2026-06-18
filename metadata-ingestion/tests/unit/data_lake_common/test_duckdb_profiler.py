@@ -227,6 +227,39 @@ def test_small_table_not_sampled(tmp_path):
     assert not any("sampl" in t.lower() for t in _warning_texts(report))
 
 
+def test_sampling_is_random_not_first_n(tmp_path):
+    """Sampling must take a reservoir (random) sample, not the first-N rows.
+
+    Regression guard: on append-/date-ordered data-lake files, a first-n
+    `.limit()` biases every statistic toward the smallest values (a ~100x error
+    on large tables). With an ordered 0..999 column sampled down to 100 rows,
+    first-n would give max=99, whereas a random sample's max is almost surely in
+    the high hundreds.
+    """
+    path = os.path.join(str(tmp_path), "ordered.parquet")
+    con = duckdb.connect()
+    con.execute(
+        f"COPY (SELECT range AS n FROM range(1000)) TO '{path}' (FORMAT PARQUET)"
+    )
+    con.close()
+    cfg = _sampling_config(
+        use_sampling=True, sample_size=100, profile_table_row_limit=100
+    )
+    report = DataLakeSourceReport()
+    profiler = DuckDBProfiler(aws_config=None, report=report, profiling_config=cfg)
+    profile = _extract_profile(
+        profiler.get_table_profile(
+            _table_data(path), "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"
+        )
+    )
+    profiler.close()
+    assert profile is not None
+    assert profile.rowCount == 1000  # true count, not the sample size
+    fields = {f.fieldPath: f for f in profile.fieldProfiles}
+    # first-n would cap max at 99; a random sample of 100/1000 effectively never does.
+    assert int(fields["n"].max) > 200
+
+
 def test_path_and_ext_empty_extension_falls_through(tmp_path):
     """For a file with no extension, _path_and_ext returns full_path (not a bad glob)."""
     full_path = str(tmp_path / "datafile")

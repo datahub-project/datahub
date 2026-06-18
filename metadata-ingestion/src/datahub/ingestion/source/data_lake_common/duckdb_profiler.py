@@ -328,27 +328,38 @@ class DuckDBProfiler:
         """Materialize the source rows into a temp DuckDB table via DuckDB's
         relational API.
 
-        No SQL query string is built: the file path and the destination table
-        name are native Python arguments, so there is nothing to concatenate and
-        no SQL-injection surface. Materializing also reads the source once instead
-        of re-reading it on every per-column profiler scan (a win for remote
-        object stores). ``select_list`` is the identifier-quoted projection
-        (scalar columns plus nested→JSON casts); ``"*"`` means "no projection".
-        Sampling is applied as ``.limit(n)`` (a cheap first-n bound) rather than a
-        reservoir ``USING SAMPLE``; profiling only needs a representative subset
-        and the true row count is reported separately.
+        The file path and the destination table name are native Python arguments,
+        so no SQL query string is built from external input. Materializing also
+        reads the source once instead of re-reading it on every per-column
+        profiler scan (a win for remote object stores). ``select_list`` is the
+        identifier-quoted projection (scalar columns plus nested→JSON casts);
+        ``"*"`` means "no projection". (The caller drops any pre-existing
+        ``profile_target`` before this runs.)
+
+        Sampling uses a reservoir ``USING SAMPLE`` (a *random* sample) rather than
+        a first-n ``.limit()`` — on append-/date-ordered data-lake files, first-n
+        would bias every statistic (min/max/mean/quantiles) toward the oldest
+        rows. DuckDB's sample clause accepts only a constant count (no bind
+        parameter), so the validated ``int`` sample size is the single inlined
+        value; it is never external input. The relation is registered under a
+        fixed internal name and read via an otherwise-constant query.
         """
         raw = self._raw_connection(conn)
         rel = self._open_relation(raw, ext, path)
         if select_list != "*":
             rel = rel.project(select_list)
-        if sample_rows is not None:
-            rel = rel.limit(sample_rows)
-        # `table` is the fixed internal constant "profile_target"; replace any
-        # table left from a previous file in this run. The name is not
-        # interpolated from external input.
-        conn.execute(sa.text("DROP TABLE IF EXISTS profile_target"))
-        rel.to_table(table)
+        if sample_rows is None:
+            rel.to_table(table)
+            return
+        raw.register("__datahub_profile_src", rel)
+        try:
+            raw.execute(
+                "CREATE OR REPLACE TABLE profile_target AS "
+                "SELECT * FROM __datahub_profile_src "
+                f"USING SAMPLE {int(sample_rows)} ROWS"
+            )
+        finally:
+            raw.unregister("__datahub_profile_src")
 
     def get_table_profile(
         self, table_data: "TableData", dataset_urn: str
@@ -373,6 +384,10 @@ class DuckDBProfiler:
         row_estimate: Optional[int] = None
         try:
             with engine.begin() as conn:
+                # Drop any table left by a previous file up front, so a failure
+                # later in this call can never leave a stale `profile_target` to
+                # be reflected/profiled under the next file's URN.
+                conn.execute(sa.text("DROP TABLE IF EXISTS profile_target"))
                 self._apply_extension_directory(conn)
                 if self._is_remote(path):
                     self._load_extension(conn, "httpfs")
@@ -433,6 +448,19 @@ class DuckDBProfiler:
                         entityUrn=dataset_urn, aspect=profile
                     ).as_workunit()
 
+        except RuntimeError as e:
+            # A RuntimeError here is structural, not data-specific — e.g.
+            # _raw_connection could not reach the underlying DuckDB connection
+            # (duckdb-engine internals changed). It would recur for every table,
+            # so surface it as a failure (deduped by title) rather than burying a
+            # platform-wide breakage in per-table warnings.
+            self.report.report_failure(
+                "DuckDB profiling could not access the database connection; "
+                "no tables can be profiled.",
+                context=dataset_urn,
+                title="DuckDB profiling unavailable",
+                exc=e,
+            )
         except Exception as e:
             self.report.report_warning(
                 f"DuckDB profiling failed for {dataset_urn}",
