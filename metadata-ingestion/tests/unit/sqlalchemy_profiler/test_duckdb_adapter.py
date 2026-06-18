@@ -1,6 +1,6 @@
 import os
 import tempfile
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import sqlalchemy as sa
@@ -112,7 +112,8 @@ def test_summarize_failure_fallback():
     with eng.begin() as conn:
         conn.execute("CREATE TABLE t AS SELECT * FROM (VALUES (1),(2),(3)) AS v(num)")
     with eng.connect() as conn:
-        adapter = DuckDBAdapter(ProfilingConfig(), SQLSourceReport(), eng)
+        report = SQLSourceReport()
+        adapter = DuckDBAdapter(ProfilingConfig(), report, eng)
         with patch.object(
             DuckDBAdapter, "_run_summarize", side_effect=RuntimeError("forced fail")
         ):
@@ -122,6 +123,8 @@ def test_summarize_failure_fallback():
         # After failure, cache must be empty.
         assert adapter._summary == {}
         assert adapter._row_count is None
+        # The fall-back must be surfaced (deduped by title), not silently degraded.
+        assert any("SUMMARIZE" in (w.title or "") for w in report.warnings)
 
         # SQL fallback must still return correct values — no crash.
         table = ctx.sql_table
@@ -188,3 +191,15 @@ def test_round_sig_suppresses_float_noise(value, expected):
     from datahub.ingestion.source.sqlalchemy_profiler.adapters.duckdb import _round_sig
 
     assert _round_sig(value) == expected
+
+
+def test_quantiles_non_iterable_result_returns_nulls():
+    """If quantile_cont returns a non-list scalar, get_column_quantiles degrades to
+    null quantiles instead of raising/mis-indexing."""
+    eng = _engine()
+    adapter = DuckDBAdapter(ProfilingConfig(), SQLSourceReport(), eng)
+    table = sa.Table("t", sa.MetaData(), sa.Column("num", sa.Integer))
+    conn = MagicMock()
+    conn.execute.return_value.scalar.return_value = 3.0  # non-list scalar
+    result = adapter.get_column_quantiles(table, "num", conn, [0.25, 0.5, 0.75])
+    assert result == [None, None, None]

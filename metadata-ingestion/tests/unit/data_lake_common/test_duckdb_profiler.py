@@ -9,7 +9,10 @@ import duckdb
 import sqlalchemy as sa
 
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-from datahub.ingestion.source.data_lake_common.duckdb_profiler import DuckDBProfiler
+from datahub.ingestion.source.data_lake_common.duckdb_profiler import (
+    DuckDBExtensionError,
+    DuckDBProfiler,
+)
 from datahub.ingestion.source.data_lake_common.duckdb_secrets import build_s3_secret_sql
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
@@ -38,6 +41,13 @@ def _make_avro(tmp: str) -> str:
         f"TO '{path}' (FORMAT avro)"
     )
     con.close()
+    return path
+
+
+def _make_tsv(tmp: str) -> str:
+    path = os.path.join(tmp, "data.tsv")
+    with open(path, "w") as f:
+        f.write("num\ttxt\n1\ta\n2\tb\n3\ta\n")
     return path
 
 
@@ -310,18 +320,6 @@ def test_profiles_local_avro(tmp_path):
     assert profile.columnCount == 2
 
 
-def test_reader_sql_uses_bound_parameter():
-    """The reader SQL must reference a bound :path param, never the raw path."""
-    profiler = DuckDBProfiler(
-        aws_config=None,
-        report=DataLakeSourceReport(),
-        profiling_config=_profiling_config(),
-    )
-    sql = profiler._reader_sql("parquet")
-    profiler.close()
-    assert ":path" in sql
-
-
 def test_path_with_single_quote_is_handled_via_binding(tmp_path):
     """A file path containing a single quote profiles correctly — the path is a
     bound parameter, so no SQL injection / escaping concern."""
@@ -523,8 +521,9 @@ def test_nested_column_is_profiled_as_json(tmp_path):
 
 
 def test_load_extension_airgapped_error_is_actionable():
-    """When INSTALL+LOAD fails (air-gapped, not pre-staged), the error must
-    mention pre-staging and the duckdb_extension_directory config."""
+    """When INSTALL+LOAD fails (air-gapped, not pre-staged), it must raise the
+    structural DuckDBExtensionError (so it escalates to a run failure) with an
+    actionable message mentioning pre-staging and the duckdb_extension_directory."""
     profiler = DuckDBProfiler(
         aws_config=None,
         report=DataLakeSourceReport(),
@@ -535,11 +534,14 @@ def test_load_extension_airgapped_error_is_actionable():
     try:
         try:
             profiler._load_extension(conn, "httpfs")
-            raise AssertionError("expected ValueError")
-        except ValueError as e:
+            raise AssertionError("expected DuckDBExtensionError")
+        except DuckDBExtensionError as e:
             msg = str(e)
             assert "duckdb_extension_directory" in msg
             assert "air-gapped" in msg
+        # It must be a RuntimeError subtype so get_table_profile routes it to
+        # report_failure, not the per-table warning arm.
+        assert issubclass(DuckDBExtensionError, RuntimeError)
     finally:
         profiler.close()
 
@@ -625,3 +627,96 @@ def test_load_extension_still_installs_when_extension_directory_set():
     profiler.close()
     sql = str(conn.execute.call_args[0][0])
     assert "INSTALL httpfs" in sql
+
+
+def test_profiles_local_tsv(tmp_path):
+    """TSV must be read with a tab delimiter (distinct from csv); a dropped
+    delimiter would collapse to one column and silently mis-profile."""
+    tsv = _make_tsv(str(tmp_path))
+    profiler = DuckDBProfiler(
+        aws_config=None,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+    )
+    urn = "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"
+    profile = _extract_profile(
+        profiler.get_table_profile(_table_data(tsv, display_name="data.tsv"), urn)
+    )
+    profiler.close()
+    assert profile is not None
+    assert profile.columnCount == 2  # would be 1 if the tab delimiter were dropped
+    fields = {f.fieldPath: f for f in profile.fieldProfiles}
+    assert int(fields["num"].min) == 1
+    assert int(fields["num"].max) == 3
+
+
+def test_profiling_time_is_recorded(tmp_path):
+    """Per-table profiling duration is appended to the shared times list (drives
+    the 'Profiling N table(s)' summary + telemetry, which were stuck at 0)."""
+    parquet = _make_parquet(str(tmp_path))
+    times: list = []
+    profiler = DuckDBProfiler(
+        aws_config=None,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+        times_taken=times,
+    )
+    list(
+        profiler.get_table_profile(
+            _table_data(parquet), "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"
+        )
+    )
+    profiler.close()
+    assert len(times) == 1
+    assert times[0] >= 0
+
+
+def test_raw_connection_failure_is_reported_as_failure(tmp_path, monkeypatch):
+    """A structural RuntimeError (raw DuckDB connection unreachable) must surface
+    as a report failure — not a per-table warning — so a platform-wide breakage
+    isn't hidden among warnings."""
+    parquet = _make_parquet(str(tmp_path))
+    report = DataLakeSourceReport()
+    profiler = DuckDBProfiler(
+        aws_config=None, report=report, profiling_config=_profiling_config()
+    )
+
+    def _boom(conn):
+        raise RuntimeError("raw connection unreachable")
+
+    monkeypatch.setattr(profiler, "_raw_connection", _boom)
+    wus = list(
+        profiler.get_table_profile(
+            _table_data(parquet), "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"
+        )
+    )
+    profiler.close()
+    assert wus == []
+    assert len(report.failures) == 1
+    assert any(f.title == "DuckDB profiling unavailable" for f in report.failures)
+    assert len(report.warnings) == 0
+
+
+def test_extension_load_failure_is_reported_as_failure(tmp_path, monkeypatch):
+    """An extension that can't load (air-gapped) raises DuckDBExtensionError, which
+    must escalate to a report failure (deduped by title), not a per-table warning.
+    Also verifies the DuckDBExtensionError arm precedes the RuntimeError arm."""
+    parquet = _make_parquet(str(tmp_path))
+    report = DataLakeSourceReport()
+    profiler = DuckDBProfiler(
+        aws_config=None, report=report, profiling_config=_profiling_config()
+    )
+
+    def _raise_ext(*args, **kwargs):
+        raise DuckDBExtensionError("avro extension unavailable; pre-stage it")
+
+    monkeypatch.setattr(profiler, "_build_select_list", _raise_ext)
+    wus = list(
+        profiler.get_table_profile(
+            _table_data(parquet), "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"
+        )
+    )
+    profiler.close()
+    assert wus == []
+    assert any(f.title == "DuckDB profiling unavailable" for f in report.failures)
+    assert len(report.warnings) == 0

@@ -6,10 +6,12 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 import sqlalchemy as sa
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
+from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
@@ -101,8 +103,10 @@ class DuckDBAdapter(PlatformAdapter):
        all columns in one table scan, cached per-table for subsequent metric reads.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self, config: ProfilingConfig, report: SQLSourceReport, base_engine: Engine
+    ) -> None:
+        super().__init__(config, report, base_engine)
         # Per-table cache: column_name -> parsed SUMMARIZE stats. A fresh adapter is
         # created per table in _generate_single_profile, so instance state is safe.
         self._summary: Dict[str, _ColumnSummary] = {}

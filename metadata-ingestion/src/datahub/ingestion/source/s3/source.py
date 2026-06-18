@@ -289,6 +289,7 @@ class S3Source(StatefulIngestionSourceBase):
                 report=self.report,
                 profiling_config=config.profiling,
                 platform=self.source_config.platform,
+                times_taken=self.profiling_times_taken,
             )
 
     @classmethod

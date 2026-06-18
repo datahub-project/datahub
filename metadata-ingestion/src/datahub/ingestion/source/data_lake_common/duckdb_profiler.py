@@ -5,7 +5,7 @@ import os
 import shutil
 import tempfile
 import weakref
-from typing import TYPE_CHECKING, Iterable, Optional, Protocol, Set
+from typing import TYPE_CHECKING, Iterable, List, Optional, Protocol, Set
 
 import duckdb
 import sqlalchemy as sa
@@ -25,8 +25,21 @@ from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
+
+
+class DuckDBExtensionError(RuntimeError):
+    """A required DuckDB extension could not be installed/loaded.
+
+    Subclasses ``RuntimeError`` so it routes to ``report_failure`` in
+    ``get_table_profile``: an extension that can't load (e.g. httpfs/aws/avro in
+    an air-gapped environment without a staged binary) is a structural,
+    platform-wide failure that recurs for every table — not a per-table data
+    issue like an unsupported format or an unresolvable path (which stay
+    warnings).
+    """
 
 
 class _ProfilerReport(Protocol):
@@ -66,21 +79,6 @@ _REMOTE_SCHEMES = (
     "abfss://",
 )
 
-# Extension (lowercased, no dot) -> DuckDB reader template. ``{path}`` is replaced
-# with a bound ``:path`` parameter (never the raw path), so the file path is never
-# concatenated into SQL.
-_READERS = {
-    "parquet": "read_parquet({path}, union_by_name=true)",
-    # strict_mode=false tolerates messy real-world CSVs (multi-line quoted
-    # headers, ragged rows, unicode) that DuckDB's strict sniffer rejects but
-    # Spark/Deequ used to read.
-    "csv": "read_csv_auto({path}, strict_mode=false)",
-    "tsv": "read_csv_auto({path}, delim='\\t', strict_mode=false)",
-    "json": "read_json_auto({path})",
-    "jsonl": "read_json_auto({path})",
-    "avro": "read_avro({path})",
-}
-
 # Map a file extension to the DuckDB core extension required to read it.
 # Unlike httpfs (remote-only), format extensions are needed for local files too.
 _FORMAT_EXTENSIONS = {"avro": "avro"}
@@ -102,11 +100,16 @@ class DuckDBProfiler:
         report: _ProfilerReport,
         profiling_config: GEProfilingConfig,
         platform: str = "s3",
+        times_taken: Optional[List[float]] = None,
     ) -> None:
         self.aws_config = aws_config
         self.report = report
         self.profiling_config = profiling_config
         self.platform = platform
+        # Shared list the source reports per-table profiling durations on (drives
+        # the "Profiling N table(s)" summary + telemetry percentiles). Appended to
+        # once per profiled table; None disables timing collection.
+        self._times_taken = times_taken
         self._tmpdir = tempfile.mkdtemp(prefix="datahub-duckdb-profile-")
         self._db_path = os.path.join(self._tmpdir, "profile.duckdb")
         # Remove the temp dir even if close() is never called (uncaught
@@ -168,7 +171,7 @@ class DuckDBProfiler:
         try:
             conn.execute(sa.text(f"INSTALL {extension}; LOAD {extension};"))
         except Exception as e:
-            raise ValueError(
+            raise DuckDBExtensionError(
                 f"Could not load or install the DuckDB '{extension}' extension. "
                 f"DuckDB downloads it on first use, which fails in air-gapped "
                 f"environments. Pre-stage the matching '{extension}.duckdb_extension' "
@@ -225,22 +228,14 @@ class DuckDBProfiler:
             path = table_data.full_path
         return path, ext
 
-    def _reader_sql(self, ext: str) -> str:
-        """DuckDB table-function for ``ext`` with the file path as a bound
-        ``:path`` parameter, so the path is never concatenated into SQL."""
-        template = _READERS.get(ext)
-        if template is None:
-            raise ValueError(f"Unsupported format for DuckDB profiling: {ext!r}")
-        return template.format(path=":path")
-
     def _estimate_row_count(
         self, conn: sa.engine.Connection, ext: str, path: str
     ) -> int:
-        result = conn.execute(
-            sa.text(f"SELECT COUNT(*) FROM {self._reader_sql(ext)}"),
-            {"path": path},
-        ).scalar()
-        return int(result) if result is not None else 0
+        """Row count via the relational API (no SQL string built; `_open_relation`
+        is the single source of per-format reader logic)."""
+        raw = self._raw_connection(conn)
+        result = self._open_relation(raw, ext, path).aggregate("count(*)").fetchone()
+        return int(result[0]) if result and result[0] is not None else 0
 
     @staticmethod
     def _is_nested_duckdb_type(column_type: str) -> bool:
@@ -256,22 +251,22 @@ class DuckDBProfiler:
     def _build_select_list(
         self, conn: sa.engine.Connection, ext: str, path: str
     ) -> str:
-        """Build the SELECT list, casting nested columns to JSON text.
+        """Build the SELECT-list projection, casting nested columns to JSON text.
 
-        Scalar columns pass through unchanged; nested columns are rendered as
-        clean JSON strings via ``CAST(CAST(col AS JSON) AS VARCHAR)`` so the
-        SQLAlchemy profiler can compute statistics on them. Column names are
-        identifier-quoted; the file path is a bound parameter.
+        Column names/types come from the relation's ``.columns``/``.types`` (no
+        ``DESCRIBE`` query). Scalar columns pass through unchanged; nested columns
+        are rendered as clean JSON strings via ``CAST(CAST(col AS JSON) AS
+        VARCHAR)`` so the SQLAlchemy profiler can compute statistics on them.
+        Column names are identifier-quoted. ``"*"`` means "no projection".
         """
-        rows = conn.execute(
-            sa.text(f"DESCRIBE SELECT * FROM {self._reader_sql(ext)}"),
-            {"path": path},
-        ).fetchall()
-        if not rows:
+        raw = self._raw_connection(conn)
+        rel = self._open_relation(raw, ext, path)
+        columns = rel.columns
+        column_types = [str(t) for t in rel.types]
+        if not columns:
             return "*"
         parts = []
-        for row in rows:
-            name, column_type = row[0], row[1]
+        for name, column_type in zip(columns, column_types, strict=True):
             quoted = '"' + name.replace('"', '""') + '"'
             if self._is_nested_duckdb_type(column_type):
                 parts.append(f"CAST(CAST({quoted} AS JSON) AS VARCHAR) AS {quoted}")
@@ -382,6 +377,8 @@ class DuckDBProfiler:
         # get re-forwarded on subsequent calls.
         profiler_report = SQLSourceReport()
         row_estimate: Optional[int] = None
+        timer = PerfTimer()
+        timer.start()
         try:
             with engine.begin() as conn:
                 # Drop any table left by a previous file up front, so a failure
@@ -448,6 +445,19 @@ class DuckDBProfiler:
                         entityUrn=dataset_urn, aspect=profile
                     ).as_workunit()
 
+        except DuckDBExtensionError as e:
+            # A required extension (httpfs/aws/avro) could not be installed or
+            # loaded — structural and platform-wide (it recurs for every table),
+            # so surface it as a failure (deduped by title), not a per-table
+            # warning. (DuckDBExtensionError subclasses RuntimeError, so this arm
+            # must precede the RuntimeError arm below.)
+            self.report.report_failure(
+                "A required DuckDB extension could not be loaded; profiling is "
+                "unavailable.",
+                context=dataset_urn,
+                title="DuckDB profiling unavailable",
+                exc=e,
+            )
         except RuntimeError as e:
             # A RuntimeError here is structural, not data-specific — e.g.
             # _raw_connection could not reach the underlying DuckDB connection
@@ -468,6 +478,10 @@ class DuckDBProfiler:
                 exc=e,
             )
         finally:
+            # Record this table's profiling duration on the shared list (drives
+            # the run summary + telemetry percentiles).
+            if self._times_taken is not None:
+                self._times_taken.append(timer.elapsed_seconds())
             # Fold the profiler-local report's entries into the main DataLake
             # report so operators see them in the run summary. Preserve the
             # `title` (category) and forward failures as failures, not warnings,
