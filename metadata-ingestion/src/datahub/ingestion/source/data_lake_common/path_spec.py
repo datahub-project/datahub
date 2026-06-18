@@ -261,6 +261,22 @@ class PathSpec(ConfigModel):
                     return False
         return True
 
+    def fold_dir_to_table(self, path: str) -> Optional[str]:
+        """Fold a directory prefix up to this spec's ``{table}`` component, or ``None`` if it does not lie under the spec."""
+        if "{table}" not in self.include:
+            return None
+        table_depth = self.include.count("/", 0, self.include.find("{table}"))
+        parts = path.rstrip("/").split("/")
+        if len(parts) <= table_depth:
+            return None
+        table_path = "/".join(parts[: table_depth + 1])
+        table_glob = "/".join(self.glob_include.split("/")[: table_depth + 1])
+        if not pathlib.PurePath(table_path).globmatch(
+            table_glob, flags=pathlib.GLOBSTAR
+        ):
+            return None
+        return table_path
+
     @classmethod
     def get_parsable_include(cls, include: str) -> str:
         parsable_include = include
