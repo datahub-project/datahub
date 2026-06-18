@@ -41,7 +41,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ReportOperationResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private static final List<String> SUPPORTED_ENTITY_TYPES =
+  // Package-private (not private) so ReportOperationResolverEntityCoverageTest can assert this
+  // list stays in sync with the entities that declare the `operation` aspect in the registry.
+  static final List<String> SUPPORTED_ENTITY_TYPES =
       ImmutableList.of(DATASET_ENTITY_NAME, DATA_OBJECT_ENTITY_NAME);
 
   private final EntityClient _entityClient;
