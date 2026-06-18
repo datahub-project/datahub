@@ -134,7 +134,7 @@ public class DataHubUsageEventsProcessor {
             events.add(
                 new DataHubUsageEventIndexer.IndexableUsageEvent(eventDocument.get(), documentId));
           }
-          usageEventIndexer.indexBatch(events);
+          usageEventIndexer.indexBatch(sliceContext, events);
         },
         MetricUtils.DROPWIZARD_NAME,
         MetricUtils.name(this.getClass(), "consume"));

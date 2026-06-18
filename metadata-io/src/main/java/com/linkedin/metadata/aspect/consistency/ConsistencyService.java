@@ -326,6 +326,7 @@ public class ConsistencyService {
     // Scroll system metadata index
     SearchResponse response =
         esSystemMetadataDAO.scroll(
+            opContext,
             query,
             request.isIncludeSoftDeleted(),
             request.getScrollId(),

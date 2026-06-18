@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
@@ -90,7 +91,8 @@ public class Es7CompatibilitySearchClientShim extends OpenSearch2SearchClientShi
 
   @Nonnull
   @Override
-  public KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) {
+  public KnnSearchResponse searchKnn(
+      @Nonnull OperationFingerprint opContext, @Nonnull KnnSearchRequest request) {
     throw new UnsupportedOperationException(
         "Semantic search requires Elasticsearch 8.18+; this cluster is on 7.x compatibility mode");
   }
@@ -102,7 +104,8 @@ public class Es7CompatibilitySearchClientShim extends OpenSearch2SearchClientShi
   }
 
   @Override
-  public void indexEmbeddings(@Nonnull EmbeddingBatch batch) {
+  public void indexEmbeddings(
+      @Nonnull OperationFingerprint opContext, @Nonnull EmbeddingBatch batch) {
     throw new UnsupportedOperationException(
         "Semantic search requires Elasticsearch 8.18+; this cluster is on 7.x compatibility mode");
   }
