@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import AbstractSet, List, Optional
+from typing import AbstractSet, Iterator, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 
 SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
+
+# Snowflake rejects query text beyond ~1 MB. The composed allow/deny filter is the
+# dominant variable-length part of the object-listing queries.
+SNOWFLAKE_MAX_QUERY_BYTES = 1_000_000
 
 
 def _escape_sql_string_literal(value: str) -> str:
@@ -71,6 +75,52 @@ def _make_composable(pattern: str) -> Optional[str]:
     except re.error:
         return None
     return wrapped
+
+
+def _compose_deny(
+    deny_patterns: List[str],
+    col_expr: str,
+    ignore_case: bool,
+    deny_budget: int,
+) -> Optional[str]:
+    """Compose deny patterns into a single capped ``NOT RLIKE`` alternation.
+
+    Server-side deny is a best-effort row-reduction optimization, not the source of
+    truth — the caller always re-applies the full allow/deny patterns client-side.
+    So this includes only the patterns that are parsable as a Snowflake regex AND
+    fit within ``deny_budget`` bytes; patterns that are unparsable (would break
+    RLIKE) or past the budget (deny can't be paged) are simply left out, and the
+    client-side pass catches them. Returns ``None`` when no pattern qualifies.
+    """
+    kept: List[str] = []
+    skipped = 0
+
+    def _clause(wrapped: List[str]) -> Optional[str]:
+        if not wrapped:
+            return None
+        alternation = _escape_sql_string_literal("|".join(wrapped))
+        return f"{col_expr} NOT RLIKE '{alternation}'"
+
+    for p in deny_patterns:
+        wrapped = _make_composable(p.upper() if ignore_case else p)
+        if wrapped is None:
+            skipped += 1  # unparsable — handled client-side
+            continue
+        candidate = _clause([*kept, wrapped])
+        if candidate is not None and len(candidate.encode()) > deny_budget:
+            skipped += 1  # past the byte budget — handled client-side
+        else:
+            kept.append(wrapped)
+
+    if skipped:
+        logger.debug(
+            "%d of %d deny patterns not pushed server-side (unparsable or past the "
+            "%d-byte budget); the client-side deny pass applies them.",
+            skipped,
+            len(deny_patterns),
+            deny_budget,
+        )
+    return _clause(kept)
 
 
 def create_deny_regex_sql_filter(
@@ -140,10 +190,25 @@ class SnowflakeQuery:
 
         col_expr = f"UPPER({column_expr})" if pattern.ignoreCase else column_expr
 
-        conditions: List[str] = []
+        # Compose DENY first, capped at half the per-query byte budget (deny can't
+        # be paged, so the other half is reserved for the pageable allow clause).
+        # Server-side deny is best-effort: unparsable or over-budget patterns are
+        # left out and caught by the caller's mandatory client-side deny pass.
+        deny_budget = SNOWFLAKE_MAX_QUERY_BYTES // 2
+        deny_clause = _compose_deny(
+            pattern.deny, col_expr, bool(pattern.ignoreCase), deny_budget
+        )
 
+        # Compose the ALLOW patterns handed to THIS call into one clause. Allow
+        # can't be truncated — a dropped allow pattern silently misses tables, and
+        # unlike deny there's no client-side pass that recovers an under-selection.
+        # So when the full allow list is too large for one query, the CALLER pages
+        # it: it splits the allow patterns into byte-sized chunks (sized against the
+        # budget left after the deny holdback) and calls this once per chunk,
+        # running one query per page and merging the results. Each call here emits
+        # exactly one page's allow clause.
+        allow_clause: Optional[str] = None
         has_allow_all = ".*" in pattern.allow
-
         if not has_allow_all and pattern.allow:
             composable: List[str] = []
             for p in pattern.allow:
@@ -161,25 +226,16 @@ class SnowflakeQuery:
                 # Single RLIKE alternation: ~5s for 500 patterns vs OR-chain ~30s.
                 combined = "|".join(composable)
                 sql_escaped = _escape_sql_string_literal(combined)
-                conditions.append(f"{col_expr} RLIKE '{sql_escaped}'")
+                allow_clause = f"{col_expr} RLIKE '{sql_escaped}'"
             else:
                 # Allow patterns were provided but none could be composed. Fail
                 # CLOSED (match nothing) rather than emitting no condition — an
                 # empty filter would allow everything, silently widening an
                 # allow-list scoped away from sensitive objects.
-                conditions.append("FALSE")
+                allow_clause = "FALSE"
 
-        if pattern.deny:
-            deny_conditions: List[str] = []
-            for p in pattern.deny:
-                escaped = _escape_sql_string_literal(transform(p))
-                deny_conditions.append(f"{col_expr} NOT RLIKE '{escaped}'")
-
-            if len(deny_conditions) == 1:
-                conditions.append(deny_conditions[0])
-            else:
-                conditions.append(f"({' AND '.join(deny_conditions)})")
-
+        # Emit allow before deny (allow AND deny), matching the original order.
+        conditions = [clause for clause in (allow_clause, deny_clause) if clause]
         return " AND ".join(conditions) if conditions else ""
 
     @staticmethod
@@ -210,6 +266,67 @@ class SnowflakeQuery:
         """
         column_expr = "CONCAT(table_catalog, '.', table_schema, '.', table_name)"
         return SnowflakeQuery._build_pattern_filter(table_pattern, column_expr)
+
+    @staticmethod
+    def build_table_filter_pages(
+        table_pattern: Optional[AllowDenyPattern],
+        query_template: str = "",
+    ) -> Iterator[str]:
+        """Yield one table-filter WHERE clause per page so each query stays under
+        Snowflake's ~1MB limit.
+
+        Deny can't be paged (splitting it across queries would leak excluded
+        objects), so its capped clause rides on every page; whatever deny doesn't
+        fit is caught by the caller's mandatory client-side deny pass. Allow IS
+        paged: when the composed filter is too large for one query, the allow
+        patterns are split into byte-sized chunks and one clause is yielded per
+        chunk. The caller runs one query per page and merges the results.
+
+        Yields exactly one clause when the whole filter fits one query — the common
+        case, and every degenerate one (no pattern, empty or allow-all allow list),
+        since those all compose to a small clause that fits.
+        """
+        column_expr = "CONCAT(table_catalog, '.', table_schema, '.', table_name)"
+        # The clause shares the query with the scaffolding, so the budget for the
+        # clause itself is the limit minus the template bytes.
+        budget = SNOWFLAKE_MAX_QUERY_BYTES - len(query_template.encode())
+
+        full_clause = SnowflakeQuery._build_pattern_filter(table_pattern, column_expr)
+        if len(full_clause.encode()) <= budget:
+            # Fits in one query — a single page, no chunking. Also covers every
+            # case with no chunkable allow list (no pattern, empty, allow-all),
+            # whose clauses are always small enough to fit here.
+            yield full_clause
+            return
+
+        # Too large → page the allow patterns. Reaching here means the allow clause
+        # is the culprit, so table_pattern has a real, chunkable allow list.
+        assert table_pattern is not None
+
+        def _page_clause(allow_chunk: List[str]) -> str:
+            return SnowflakeQuery._build_pattern_filter(
+                AllowDenyPattern(
+                    allow=allow_chunk,
+                    deny=table_pattern.deny,
+                    ignoreCase=table_pattern.ignoreCase,
+                ),
+                column_expr,
+            )
+
+        # Greedily fill each page's allow chunk; close it when adding the next
+        # pattern would push the page (allow chunk + the replicated deny clause)
+        # over the budget. A single pattern too big to fit alone is emitted on its
+        # own page (it can't be split) — the query may then exceed the limit, but
+        # that's far rarer than the limit mattering at all.
+        chunk: List[str] = []
+        for p in table_pattern.allow:
+            if chunk and len(_page_clause(chunk + [p]).encode()) > budget:
+                yield _page_clause(chunk)
+                chunk = [p]
+            else:
+                chunk.append(p)
+        if chunk:
+            yield _page_clause(chunk)
 
     @staticmethod
     def build_view_filter(view_pattern: Optional[AllowDenyPattern]) -> str:

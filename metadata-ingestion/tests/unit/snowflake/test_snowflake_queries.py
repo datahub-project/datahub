@@ -2567,37 +2567,37 @@ class TestBuildPatternFilter:
             pytest.param(
                 AllowDenyPattern(deny=[".*_TEMP"]),
                 "col",
-                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                "UPPER(col) NOT RLIKE '(.*_TEMP)'",
                 id="single_deny_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(deny=[".*_TEMP", ".*_BACKUP"]),
                 "col",
-                "(UPPER(col) NOT RLIKE '.*_TEMP' AND UPPER(col) NOT RLIKE '.*_BACKUP')",
+                "UPPER(col) NOT RLIKE '(.*_TEMP)|(.*_BACKUP)'",
                 id="multiple_deny_patterns",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB"], deny=[".*_TEMP"]),
                 "col",
-                "UPPER(col) RLIKE '(PROD_DB)' AND UPPER(col) NOT RLIKE '.*_TEMP'",
+                "UPPER(col) RLIKE '(PROD_DB)' AND UPPER(col) NOT RLIKE '(.*_TEMP)'",
                 id="allow_and_deny_combined",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_.*"], deny=["PROD_TEMP", ".*_ARCHIVE"]),
                 "col",
-                "UPPER(col) RLIKE '(PROD_.*)' AND (UPPER(col) NOT RLIKE 'PROD_TEMP' AND UPPER(col) NOT RLIKE '.*_ARCHIVE')",
+                "UPPER(col) RLIKE '(PROD_.*)' AND UPPER(col) NOT RLIKE '(PROD_TEMP)|(.*_ARCHIVE)'",
                 id="single_allow_multiple_deny",
             ),
             pytest.param(
                 AllowDenyPattern(allow=[".*"], deny=[".*_TEMP"]),
                 "col",
-                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                "UPPER(col) NOT RLIKE '(.*_TEMP)'",
                 id="allow_all_with_deny",
             ),
             pytest.param(
                 AllowDenyPattern(allow=[".*", "PROD_DB"], deny=[".*_TEMP"]),
                 "col",
-                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                "UPPER(col) NOT RLIKE '(.*_TEMP)'",
                 id="allow_all_in_list_with_deny",
             ),
             pytest.param(
@@ -2655,14 +2655,14 @@ class TestBuildDatabaseFilter:
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_.*"], deny=[".*_TEMP"]),
-                "UPPER(database_name) RLIKE '(PROD_.*)' AND UPPER(database_name) NOT RLIKE '.*_TEMP'",
+                "UPPER(database_name) RLIKE '(PROD_.*)' AND UPPER(database_name) NOT RLIKE '(.*_TEMP)'",
                 id="pattern_with_deny",
             ),
             pytest.param(
                 AllowDenyPattern(
                     deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
                 ),
-                "(UPPER(database_name) NOT RLIKE '^UTIL_DB$' AND UPPER(database_name) NOT RLIKE '^SNOWFLAKE$' AND UPPER(database_name) NOT RLIKE '^SNOWFLAKE_SAMPLE_DATA$')",
+                "UPPER(database_name) NOT RLIKE '(^UTIL_DB$)|(^SNOWFLAKE$)|(^SNOWFLAKE_SAMPLE_DATA$)'",
                 id="default_snowflake_deny_pattern",
             ),
         ],
@@ -2718,8 +2718,7 @@ class TestGetDatabasesQueryWithFilter:
 
         # Verify filter components are present
         assert "RLIKE '(PROD_.*)|(DEV_.*)'" in query
-        assert "NOT RLIKE '.*_TEMP'" in query
-        assert "NOT RLIKE '.*_BACKUP'" in query
+        assert "NOT RLIKE '(.*_TEMP)|(.*_BACKUP)'" in query
 
 
 class TestBuildSchemaFilter:
@@ -2802,7 +2801,7 @@ class TestBuildSchemaFilter:
                 AllowDenyPattern(allow=["PUBLIC"], deny=[".*_TEMP"]),
                 "PROD_DB",
                 False,
-                "UPPER(schema_name) RLIKE '(PUBLIC)' AND UPPER(schema_name) NOT RLIKE '.*_TEMP'",
+                "UPPER(schema_name) RLIKE '(PUBLIC)' AND UPPER(schema_name) NOT RLIKE '(.*_TEMP)'",
                 id="allow_and_deny_fqn_false",
             ),
             pytest.param(
@@ -2908,7 +2907,7 @@ class TestBuildTableFilter:
                 AllowDenyPattern(
                     allow=["PROD_DB\\.PUBLIC\\..*"], deny=[".*_TEMP$", ".*_BACKUP$"]
                 ),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB\\\\.PUBLIC\\\\..*)' AND (UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_TEMP$' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_BACKUP$')",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB\\\\.PUBLIC\\\\..*)' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '(.*_TEMP$)|(.*_BACKUP$)'",
                 id="allow_with_deny",
             ),
             pytest.param(
@@ -2954,7 +2953,7 @@ class TestBuildViewFilter:
                 AllowDenyPattern(
                     allow=["PROD_DB.REPORTING..*"], deny=[".*_DEPRECATED$"]
                 ),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB.REPORTING..*)' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_DEPRECATED$'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB.REPORTING..*)' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '(.*_DEPRECATED$)'",
                 id="view_allow_with_deny",
             ),
         ],
@@ -3543,14 +3542,16 @@ def _all_rlike_literals(sql: str) -> list:
 
 
 class TestDenyPatternInjection:
-    """Deny patterns are recipe-controlled (untrusted). Each NOT RLIKE literal
-    must stay self-contained, and deny patterns must never be silently dropped."""
+    """Deny patterns are recipe-controlled (untrusted). Every NOT RLIKE literal we
+    push to the server must stay self-contained (no string-literal breakout). A
+    pattern that can't be pushed safely — unparsable as a regex, or over the byte
+    budget — is left out of the server clause and caught by the client-side deny
+    pass instead of being sent to a query it would break."""
 
     @pytest.mark.parametrize(
         "deny",
         [
             "SECRET.*'; DROP TABLE t; --",
-            "SECRET\\",  # trailing backslash — would eat the closing quote if unescaped
             "O\\'BRIEN_SECRET",  # backslash + quote
             "X\\\\",  # double backslash
             ".*_TEMP' OR '1'='1",
@@ -3563,32 +3564,60 @@ class TestDenyPatternInjection:
             AllowDenyPattern(deny=[deny], ignoreCase=False), FQN_EXPR
         )
         literals = _all_rlike_literals(result)  # raises on breakout
-        assert deny in literals, (
+        # Composable deny patterns are now wrapped in (...) before alternation, so the
+        # recovered literal is "(deny)" rather than "deny"; the pattern must still be
+        # present intact inside some literal (uncomposable ones stay unwrapped).
+        assert any(deny in lit for lit in literals), (
             f"deny pattern {deny!r} not recovered intact from: {result!r}"
         )
 
     def test_backslash_deny_is_escaped(self):
+        # A composable pattern containing a backslash must have it doubled for the
+        # SQL literal (a lone backslash would otherwise consume the closing quote).
         result = SnowflakeQuery._build_pattern_filter(
-            AllowDenyPattern(deny=["SECRET\\"]), FQN_EXPR
+            AllowDenyPattern(deny=["A\\.B"]), FQN_EXPR
         )
         assert "\\\\" in result  # backslash doubled for the SQL literal
         _all_rlike_literals(result)  # well-formed
 
     def test_allow_and_deny_both_literals_well_formed(self):
         result = SnowflakeQuery._build_pattern_filter(
-            AllowDenyPattern(allow=["DB.GOOD.*$"], deny=["DB.SECRET\\", "X'Y"]),
+            AllowDenyPattern(allow=["DB.GOOD.*$"], deny=["DB.SECRET.*", "X'Y"]),
             FQN_EXPR,
         )
         literals = _all_rlike_literals(result)
         assert any("GOOD" in lit for lit in literals)
         assert "NOT RLIKE" in result and " AND " in result
 
-    def test_uncomposable_deny_is_not_silently_dropped(self):
-        """A deny pattern an allow pattern would drop (unbalanced paren) must NOT
-        vanish from the deny path — it should still be emitted (failing loudly at
-        Snowflake), never silently widening collection to excluded objects."""
+    def test_unparsable_deny_is_skipped_server_side(self):
+        """A deny pattern that isn't parsable as a regex (e.g. an unbalanced paren)
+        must NOT be sent to the server — RLIKE would reject it and break the whole
+        query. It is left out of the server clause and caught by the mandatory
+        client-side deny pass instead."""
         result = SnowflakeQuery._build_pattern_filter(
-            AllowDenyPattern(deny=["SECRET("]), FQN_EXPR
+            AllowDenyPattern(allow=["GOOD.*"], deny=["SECRET("], ignoreCase=False),
+            "col",
         )
-        assert "NOT RLIKE" in result, f"deny pattern was silently dropped: {result!r}"
-        assert "SECRET(" in _all_rlike_literals(result)
+        assert "SECRET(" not in result  # skipped, not pushed to the server
+        assert result == "col RLIKE '(GOOD.*)'"  # allow still composes
+        _all_rlike_literals(result)  # well-formed
+
+    def test_composable_denies_compose_into_single_clause(self):
+        """Composable deny patterns are routed through _make_composable and composed
+        (by De Morgan) into a single NOT RLIKE alternation, each wrapped in (...)."""
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=["A.*", "B.*"], ignoreCase=False), "col"
+        )
+        assert result == "col NOT RLIKE '(A.*)|(B.*)'"
+        _all_rlike_literals(result)  # well-formed
+
+    def test_mixed_composable_and_unparsable_denies(self):
+        """With a mix, only the composable deny patterns are pushed to the server
+        (in one alternation); the unparsable ones are skipped server-side and left
+        to the client-side deny pass."""
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=["GOOD.*", "SECRET("], ignoreCase=False), "col"
+        )
+        _all_rlike_literals(result)  # raises on breakout
+        assert result == "col NOT RLIKE '(GOOD.*)'"  # only the composable one
+        assert "SECRET(" not in result

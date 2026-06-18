@@ -1017,16 +1017,22 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
                 self.report.report_entity_scanned(table_identifier)
 
+                # Always apply the canonical pattern filter client-side. With
+                # pushdown the server has already narrowed by allow + best-effort
+                # deny, so this is the mandatory backstop that catches any deny
+                # pattern the server query couldn't fit (allow is then a no-op).
+                # Without pushdown it is the only filter.
                 if self.config.push_down_metadata_patterns:
+                    allowed = self._is_table_allowed(db_name, schema_name, table.name)
+                else:
+                    allowed = self.filters.filter_config.table_pattern.allowed(
+                        table_identifier
+                    )
+
+                if allowed:
                     tables.append(table)
                 else:
-                    # Filter in Python when pushdown is disabled
-                    if not self.filters.filter_config.table_pattern.allowed(
-                        table_identifier
-                    ):
-                        self.report.report_dropped(table_identifier)
-                    else:
-                        tables.append(table)
+                    self.report.report_dropped(table_identifier)
             snowflake_schema.tables = [table.name for table in tables]
             return tables
         except Exception as e:
