@@ -100,24 +100,41 @@ class UnityCatalogUsageExtractor:
             aggregator = self._build_aggregator(is_allowed_table=is_allowed_table)
             for query in self._fetch_queries():
                 self.report.num_queries += 1
+                # Defensive: query.start_time is annotated as non-Optional datetime but
+                # arrives unvalidated from a Databricks SDK row and may be None/naive in
+                # practice.  Guard here so SqlParsingAggregator's tzinfo assertion holds.
                 ts = query.start_time
                 if ts is not None and ts.tzinfo is not None:
                     ts = ts.astimezone(timezone.utc)
-                aggregator.add_observed_query(
-                    ObservedQuery(
-                        query=query.query_text,
-                        timestamp=ts,
-                        user=(
-                            CorpUserUrn.from_string(
-                                self.user_urn_builder(query.user_name)
-                            )
-                            if query.user_name
-                            else None
-                        ),
-                        default_db=default_db,
-                        default_schema=None,
+                try:
+                    aggregator.add_observed_query(
+                        ObservedQuery(
+                            query=query.query_text,
+                            timestamp=ts,
+                            user=(
+                                CorpUserUrn.from_string(
+                                    self.user_urn_builder(query.user_name)
+                                )
+                                if query.user_name
+                                else None
+                            ),
+                            default_db=default_db,
+                            default_schema=None,
+                        )
                     )
-                )
+                except Exception as per_query_exc:
+                    self.report.num_queries_dropped += 1
+                    logger.warning(
+                        "Skipping query due to error during add_observed_query "
+                        "(query_id=%s): %r",
+                        query.query_id,
+                        per_query_exc,
+                        exc_info=True,
+                    )
+                    self.report.report_warning(
+                        "usage-query-dropped",
+                        context=f"query_id={query.query_id}",
+                    )
             if self.report.num_queries == 0:
                 if self._use_system_tables_join():
                     hint = (
@@ -144,7 +161,11 @@ class UnityCatalogUsageExtractor:
             )
         except Exception as e:
             logger.error("Error processing usage", exc_info=True)
-            self.report.report_warning("usage-extraction", str(e))
+            self.report.report_warning(
+                "usage-extraction",
+                f"Usage extraction failed: {e!r}",
+                exc=e,
+            )
         finally:
             if aggregator is not None:
                 try:

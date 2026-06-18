@@ -1312,44 +1312,89 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             executed_as_user_name=info.executed_as_user_name,
         )
 
-    def _execute_sql_query(self, query: str, params: Sequence[Any] = ()) -> List[Row]:
-        """Execute SQL query using databricks-sql connector for better performance"""
-        logger.debug(f"Executing SQL query with {len(params)} parameters")
-        if logger.isEnabledFor(logging.DEBUG):
-            # Only log full query in debug mode to avoid performance overhead
-            logger.debug(f"Full SQL query: {query}")
-            if params:
-                logger.debug(f"Query parameters: {params}")
+    def _check_warehouse_configured(self) -> bool:
+        """Return True if a warehouse is configured for SQL operations.
 
-        # Check if warehouse_id is available for SQL operations
-        if not self.warehouse_id:
-            self.report.report_warning(
-                "Cannot execute SQL query",
-                "warehouse_id is not configured. SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration",
-            )
-            logger.warning(
-                "Cannot execute SQL query: warehouse_id is not configured. "
-                "SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration."
-            )
-            return []
+        Reports a warning and returns False otherwise, so callers can short-circuit
+        with an empty result instead of raising.
+        """
+        if self.warehouse_id:
+            return True
+        self.report.report_warning(
+            "Cannot execute SQL query",
+            "warehouse_id is not configured. SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration",
+        )
+        logger.warning(
+            "Cannot execute SQL query: warehouse_id is not configured. "
+            "SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration."
+        )
+        return False
 
-        # Log connection parameters (with masked token)
-        sql_connection_params = get_sql_connection_params(self._workspace_client)
-        logger.debug(f"Using connection parameters: {sql_connection_params}")
-
-        # Log proxy environment variables that affect SQL connections
+    def _detected_proxy_env_vars(self) -> Dict[str, str]:
+        """Return proxy-related env vars (masked) that affect SQL connections."""
         proxy_env_debug = {}
         for var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
             value = os.environ.get(var)
             if value:
                 proxy_env_debug[var] = mask_proxy_credentials(value)
+        return proxy_env_debug
 
-        if proxy_env_debug:
-            logger.debug(
-                f"SQL connection will use proxy environment variables: {proxy_env_debug}"
+    def _report_sql_query_failure(
+        self,
+        error: Exception,
+        query: str,
+        params: Sequence[Any],
+        proxy_env_debug: Dict[str, str],
+    ) -> None:
+        """Log and report a SQL execution failure, flagging likely proxy issues."""
+        logger.warning(f"Failed to execute SQL query: {error}", exc_info=True)
+        if logger.isEnabledFor(logging.DEBUG):
+            # Only log failed query details in debug mode for security
+            logger.debug(f"SQL query that failed: {query}")
+            logger.debug(f"SQL query parameters: {params}")
+
+        error_str = str(error).lower()
+        if any(
+            proxy_keyword in error_str
+            for proxy_keyword in [
+                "proxy",
+                "407",
+                "authentication required",
+                "tunnel",
+                "connect",
+            ]
+        ):
+            logger.error(
+                "SQL query failure appears to be proxy-related. "
+                "Please check proxy configuration and authentication. "
+                f"Proxy environment variables detected: {list(proxy_env_debug.keys())}"
             )
-        else:
-            logger.debug("No proxy environment variables detected for SQL connection")
+
+        self.report.report_warning(
+            "sql-query-failed",
+            f"SQL query failed: {error}. "
+            "Check that the service principal has SELECT on system.access and system.query schemas "
+            "and that the system schemas are enabled for this workspace.",
+        )
+
+    def _execute_sql_query(self, query: str, params: Sequence[Any] = ()) -> List[Row]:
+        """Execute SQL query using databricks-sql connector and materialize all rows.
+
+        Used by the small-result metadata queries (catalogs, schemas, columns, tags).
+        For large result sets (e.g. query history) prefer _execute_sql_query_streaming,
+        which bounds memory by yielding rows in batches instead of buffering everything.
+        """
+        logger.debug(f"Executing SQL query with {len(params)} parameters")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Full SQL query: {query}")
+            if params:
+                logger.debug(f"Query parameters: {params}")
+
+        if not self._check_warehouse_configured():
+            return []
+
+        sql_connection_params = get_sql_connection_params(self._workspace_client)
+        proxy_env_debug = self._detected_proxy_env_vars()
 
         try:
             with (
@@ -1357,43 +1402,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 connection.cursor() as cursor,
             ):
                 cursor.execute(query, list(params))
-                rows = cursor.fetchall()
-                logger.debug(
-                    f"SQL query executed successfully, returned {len(rows)} rows"
-                )
-                return rows
-
+                return cursor.fetchall()
         except Exception as e:
-            logger.warning(f"Failed to execute SQL query: {e}", exc_info=True)
-            if logger.isEnabledFor(logging.DEBUG):
-                # Only log failed query details in debug mode for security
-                logger.debug(f"SQL query that failed: {query}")
-                logger.debug(f"SQL query parameters: {params}")
-
-            # Check if this might be a proxy-related error
-            error_str = str(e).lower()
-            if any(
-                proxy_keyword in error_str
-                for proxy_keyword in [
-                    "proxy",
-                    "407",
-                    "authentication required",
-                    "tunnel",
-                    "connect",
-                ]
-            ):
-                logger.error(
-                    "SQL query failure appears to be proxy-related. "
-                    "Please check proxy configuration and authentication. "
-                    f"Proxy environment variables detected: {list(proxy_env_debug.keys())}"
-                )
-
-            self.report.report_warning(
-                "sql-query-failed",
-                f"SQL query failed: {e}. "
-                "Check that the service principal has SELECT on system.access and system.query schemas "
-                "and that the system schemas are enabled for this workspace.",
-            )
+            self._report_sql_query_failure(e, query, params, proxy_env_debug)
             return []
 
     def _execute_sql_query_streaming(
@@ -1402,7 +1413,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         params: Sequence[Any] = (),
         batch_size: int = 10000,
     ) -> Generator[Row, None, None]:
-        """Streaming variant of _execute_sql_query that yields rows in batches.
+        """Execute a SQL query and yield rows in batches.
 
         The connection stays open for the lifetime of iteration — bounded memory in
         exchange for a longer-held connection. Callers must fully consume or close the
@@ -1415,24 +1426,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             if params:
                 logger.debug(f"Query parameters: {params}")
 
-        if not self.warehouse_id:
-            self.report.report_warning(
-                "Cannot execute SQL query",
-                "warehouse_id is not configured. SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration",
-            )
-            logger.warning(
-                "Cannot execute SQL query: warehouse_id is not configured. "
-                "SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration."
-            )
+        if not self._check_warehouse_configured():
             return
 
         sql_connection_params = get_sql_connection_params(self._workspace_client)
-
-        proxy_env_debug = {}
-        for var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
-            value = os.environ.get(var)
-            if value:
-                proxy_env_debug[var] = mask_proxy_credentials(value)
+        proxy_env_debug = self._detected_proxy_env_vars()
 
         try:
             with (
@@ -1447,36 +1445,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     yield from batch
 
         except Exception as e:
-            logger.warning(
-                f"Failed to execute SQL query (streaming): {e}", exc_info=True
-            )
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"SQL query that failed: {query}")
-                logger.debug(f"SQL query parameters: {params}")
-
-            error_str = str(e).lower()
-            if any(
-                proxy_keyword in error_str
-                for proxy_keyword in [
-                    "proxy",
-                    "407",
-                    "authentication required",
-                    "tunnel",
-                    "connect",
-                ]
-            ):
-                logger.error(
-                    "SQL query failure appears to be proxy-related. "
-                    "Please check proxy configuration and authentication. "
-                    f"Proxy environment variables detected: {list(proxy_env_debug.keys())}"
-                )
-
-            self.report.report_warning(
-                "sql-query-failed",
-                f"SQL query failed: {e}. "
-                "Check that the service principal has SELECT on system.access and system.query schemas "
-                "and that the system schemas are enabled for this workspace.",
-            )
+            self._report_sql_query_failure(e, query, params, proxy_env_debug)
 
     @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_schema_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:

@@ -33,6 +33,7 @@ class UnityCatalogReport(SQLSourceReport):
     num_external_upstreams_unsupported: int = 0
 
     num_queries: int = 0
+    num_queries_dropped: int = 0
 
     # Distinguish from Operations emitted for created / updated timestamps
     num_operational_stats_workunits_emitted: int = 0

@@ -1,3 +1,4 @@
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import List
@@ -5,10 +6,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import datahub.ingestion.source.unity.usage as usage_mod
+from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
-from datahub.ingestion.source.unity.proxy_types import Query
+from datahub.ingestion.source.unity.proxy_types import Query, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
+from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 
 def _row(**kw):
@@ -181,11 +186,9 @@ def test_closing_wrapper_ensures_connection_closed_on_early_abort() -> None:
             return_value=conn,
         ),
     ):
-        from contextlib import closing as _closing
-
         # Simulate a consumer that abandons iteration after the first row
         gen = proxy._execute_sql_query_streaming("SELECT 1")
-        with _closing(gen) as rows:
+        with closing(gen) as rows:
             for _row_val in rows:
                 break  # early abort after one row
 
@@ -230,8 +233,6 @@ def _extractor(config: MagicMock, proxy: MagicMock) -> UnityCatalogUsageExtracto
 def test_builds_aggregator_and_feeds_observed_queries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import datahub.ingestion.source.unity.usage as usage_mod
-
     captured: dict = {}
     agg_instance: list = []  # single-element list so the closure can capture it
 
@@ -295,8 +296,6 @@ def test_observed_query_timestamps_normalized_to_utc(
     the timezone.utc singleton (even when the offset is +00:00), triggering an
     AssertionError that silently drops all usage. This test proves the fix.
     """
-    import datahub.ingestion.source.unity.usage as usage_mod
-
     agg_instance: list = []
 
     class FakeAgg:
@@ -381,9 +380,6 @@ def test_is_allowed_table_predicate_scopes_to_ingested_tables(
     table_refs and False for tables outside the ingested set (e.g. system tables
     that appear in query history but were never ingested by this recipe).
     """
-    import datahub.ingestion.source.unity.usage as usage_mod
-    from datahub.ingestion.source.unity.proxy_types import TableReference
-
     captured: dict = {}
 
     class FakeAgg:
@@ -460,9 +456,6 @@ def test_is_allowed_table_predicate_platform_instance_safe(
     always the 3-part "catalog.schema.table" with NO platform_instance prefix.
     This test proves the predicate accepts the bare name the aggregator actually passes.
     """
-    import datahub.ingestion.source.unity.usage as usage_mod
-    from datahub.ingestion.source.unity.proxy_types import TableReference
-
     captured: dict = {}
 
     class FakeAgg:
@@ -534,9 +527,6 @@ def test_schema_resolver_passed_to_aggregator(
     """When schema_resolver is set on the extractor, _build_aggregator must pass
     THAT instance to SqlParsingAggregator rather than creating a fresh empty one.
     """
-    import datahub.ingestion.source.unity.usage as usage_mod
-    from datahub.sql_parsing.schema_resolver import SchemaResolver
-
     captured: dict = {}
 
     class FakeAgg:
@@ -583,9 +573,6 @@ def test_default_db_set_to_single_catalog(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """When all table_refs share one catalog, every ObservedQuery.default_db must equal it."""
-    import datahub.ingestion.source.unity.usage as usage_mod
-    from datahub.ingestion.source.unity.proxy_types import TableReference
-
     agg_instance: list = []
 
     class FakeAgg:
@@ -639,9 +626,6 @@ def test_default_db_none_for_multi_catalog(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """When table_refs span two catalogs, every ObservedQuery.default_db must be None."""
-    import datahub.ingestion.source.unity.usage as usage_mod
-    from datahub.ingestion.source.unity.proxy_types import TableReference
-
     agg_instance: list = []
 
     class FakeAgg:
@@ -688,8 +672,6 @@ def test_default_db_none_for_empty_table_refs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """When table_refs is empty, default_db must be None and no crash must occur."""
-    import datahub.ingestion.source.unity.usage as usage_mod
-
     agg_instance: list = []
 
     class FakeAgg:
@@ -734,9 +716,6 @@ def test_schema_resolver_none_falls_back_to_empty_resolver(
     """When schema_resolver is None (e.g. unit tests), _build_aggregator must create
     a fresh empty resolver — preserving existing behavior.
     """
-    import datahub.ingestion.source.unity.usage as usage_mod
-    from datahub.sql_parsing.schema_resolver import SchemaResolver
-
     captured: dict = {}
 
     class FakeAgg:
@@ -786,9 +765,6 @@ def test_auto_empty_usage_emitted_for_unqueried_tables(
     The test feeds ONE query for a *different* table so num_queries > 0 (auto_empty
     runs), then checks that the *unqueried* table still receives a zero-usage workunit.
     """
-    import datahub.ingestion.source.unity.usage as usage_mod
-    from datahub.ingestion.source.unity.proxy_types import TableReference
-    from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
 
     class FakeAgg:
         """Produces no metadata — simulates a window where no queries touched the table."""
@@ -818,8 +794,6 @@ def test_auto_empty_usage_emitted_for_unqueried_tables(
     # compute bucket timestamps via config.majority_buckets().
     config.start_time = start
     config.end_time = end
-    from datahub.configuration.time_window_config import BucketDuration
-
     config.bucket_duration = BucketDuration.DAY
     config.majority_buckets.return_value = [start]
 
@@ -833,8 +807,6 @@ def test_auto_empty_usage_emitted_for_unqueried_tables(
 
     ex = _extractor(config, proxy)
     # Use a real report so num_queries reflects actual query count.
-    from datahub.ingestion.source.unity.report import UnityCatalogReport
-
     ex.report = UnityCatalogReport()
 
     # ref_unqueried is the table that had no matching query in this window.
@@ -877,9 +849,6 @@ def test_zero_queries_emits_no_usage_workunits(
     usage stats in DataHub (e.g. when the warehouse has no recent activity or the
     connector lacks SELECT privilege on query history tables).
     """
-    import datahub.ingestion.source.unity.usage as usage_mod
-    from datahub.ingestion.source.unity.proxy_types import TableReference
-    from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
 
     class FakeAgg:
         def __init__(self, **kw: object) -> None:
@@ -907,8 +876,6 @@ def test_zero_queries_emits_no_usage_workunits(
 
     ex = _extractor(config, proxy)
     # Use a real report so num_queries starts at 0 and the comparison works correctly.
-    from datahub.ingestion.source.unity.report import UnityCatalogReport
-
     ex.report = UnityCatalogReport()
 
     ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
@@ -928,4 +895,173 @@ def test_zero_queries_emits_no_usage_workunits(
     warning_messages = [w.message for w in ex.report.warnings]
     assert "no-queries-found" in warning_messages, (
         f"Expected 'no-queries-found' warning, got: {warning_messages}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Error-path tests
+# ---------------------------------------------------------------------------
+
+
+def test_gen_metadata_raises_does_not_propagate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If gen_metadata() raises, get_usage_workunits must NOT propagate the exception.
+
+    A 'usage-extraction' warning (or failure) must be recorded instead.
+    """
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            pass
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            pass
+
+        def gen_metadata(self):  # type: ignore[return]
+            raise RuntimeError("gen_metadata boom")
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.emit_queries = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    # Supply one query so num_queries > 0 and gen_metadata() is actually reached.
+    proxy.get_query_history_via_system_tables.return_value = [
+        _query("SELECT 1", "q1"),
+    ]
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+
+    # Must not raise.
+    workunits = list(ex.get_usage_workunits(set()))
+
+    # No usage workunits should have been emitted (gen_metadata failed).
+    assert workunits == [], (
+        f"expected no workunits on gen_metadata failure: {workunits}"
+    )
+
+    # A warning must have been recorded.
+    warning_titles_and_messages = [
+        (getattr(w, "title", None), w.message) for w in ex.report.warnings
+    ]
+    assert any(
+        "usage-extraction" in (title or "") or "usage-extraction" in msg
+        for title, msg in warning_titles_and_messages
+    ), f"expected 'usage-extraction' warning, got: {warning_titles_and_messages}"
+
+
+def test_aggregator_close_raises_does_not_propagate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If aggregator.close() raises in the finally block, the exception must be swallowed.
+
+    The finally guard must log a warning but not allow the close() error to propagate,
+    even when the main try-block completed normally.
+    """
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            pass
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            pass
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            raise RuntimeError("close boom")
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.emit_queries = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = []
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+
+    # Must not raise (the close() error is swallowed by the finally guard).
+    list(ex.get_usage_workunits(set()))
+
+
+def test_single_bad_query_skipped_others_still_fed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A single add_observed_query failure must skip that query (incrementing
+    num_queries_dropped) and continue feeding the remaining queries.
+
+    The overall run must not raise, and the other queries must still appear in the
+    aggregator's observed list.
+    """
+    observed: list = []
+    call_count = [0]  # mutable cell so the closure can increment it
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            pass
+
+        def add_observed_query(self, obs: object, **kw: object) -> None:
+            call_count[0] += 1
+            # Raise on the first call only; subsequent calls succeed.
+            if call_count[0] == 1:
+                raise ValueError("bad query")
+            observed.append(obs)
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.emit_queries = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = [
+        _query("SELECT bad", "q_bad"),  # will raise in add_observed_query
+        _query("SELECT ok1", "q_ok1"),  # must still be fed
+        _query("SELECT ok2", "q_ok2"),  # must still be fed
+    ]
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+
+    # Must not raise.
+    list(ex.get_usage_workunits(set()))
+
+    # The two good queries must have been observed.
+    observed_texts = [o.query for o in observed]
+    assert "SELECT ok1" in observed_texts, (
+        f"expected 'SELECT ok1' in observed, got: {observed_texts}"
+    )
+    assert "SELECT ok2" in observed_texts, (
+        f"expected 'SELECT ok2' in observed, got: {observed_texts}"
+    )
+
+    # The dropped query must be counted.
+    assert ex.report.num_queries_dropped == 1, (
+        f"expected num_queries_dropped=1, got {ex.report.num_queries_dropped}"
+    )
+
+    # A usage-query-dropped warning must have been recorded.
+    warning_messages = [w.message for w in ex.report.warnings]
+    assert any("usage-query-dropped" in m for m in warning_messages), (
+        f"expected 'usage-query-dropped' warning, got: {warning_messages}"
     )
