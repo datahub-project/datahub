@@ -1,11 +1,10 @@
-from functools import partial
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.kinesis.kinesis import KinesisSource
 from datahub.ingestion.source.kinesis.kinesis_config import KinesisSourceConfig
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    auto_stale_entity_removal,
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 
 
@@ -34,17 +33,13 @@ def test_stale_entity_removal_handler_is_in_workunit_processors(mock_session):
         graph=MagicMock(),
     )
     source = KinesisSource(config, ctx)
+    # get_workunit_processors() returns bound `process` methods of the enabled
+    # WorkunitProcessor instances. With stateful ingestion configured, exactly one
+    # of them must belong to AutoStaleEntityRemovalProcessor.
     processors = source.get_workunit_processors()
-    # Structural check: one of the processors must be functools.partial(auto_stale_entity_removal, <handler>)
-    # where <handler> is the source's stale_entity_removal_handler. We compare by the
-    # handler identity (the bound arg) rather than partial-object equality (functools.partial
-    # has no __eq__ so direct `in` would compare by identity and fail across .property accesses).
-    handler = source.stale_entity_removal_handler
     matching = [
         p
         for p in processors
-        if isinstance(p, partial)
-        and p.func is auto_stale_entity_removal
-        and p.args == (handler,)
+        if isinstance(getattr(p, "__self__", None), AutoStaleEntityRemovalProcessor)
     ]
     assert len(matching) == 1

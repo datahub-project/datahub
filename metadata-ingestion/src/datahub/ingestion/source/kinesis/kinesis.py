@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -31,9 +31,6 @@ from datahub.ingestion.source.kinesis.kinesis_schema_registry import (
     KinesisGlueSchemaRegistry,
 )
 from datahub.ingestion.source.kinesis.kinesis_stream import KinesisStreamExtractor
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -119,10 +116,9 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
         self.report.include_firehose = config.include_firehose
         self.report.glue_schema_registry_enabled = config.glue_schema_registry.enabled
 
-        # Stale entity removal (deletion detection)
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, self.ctx
-        )
+        # Stale entity removal (deletion detection) is wired automatically by the base
+        # Source.get_workunit_processors() because KinesisSourceReport subclasses
+        # StaleEntityRemovalSourceReport and this source exposes a state_provider.
 
         # Shared boto3 session (KDS / KDF / Glue clients are lazily constructed per extractor).
         self._session = config.aws_config.get_session()
@@ -184,12 +180,6 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "KinesisSource":
         config = KinesisSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List:
-        return [
-            *(super().get_workunit_processors() or []),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Defer the regional Container until at least one KDS stream materialises.
