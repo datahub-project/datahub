@@ -203,7 +203,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         )
         return False
 
-    def _extract_field_path_length(self, field: SchemaFieldClass) -> int:
+    def _extract_field_path_depth(self, field: SchemaFieldClass) -> int:
         return len(
             [t for t in re.sub(r"\[[^]]*]", "", field.fieldPath).split(".") if t]
         )
@@ -236,7 +236,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
 
         total_fields_size = self._schema_size_without_fields(schema)
         accepted_fields: List[SchemaFieldClass] = []
-        sorted_fields = sorted(schema.fields, key=self._extract_field_path_length)
+        sorted_fields = sorted(schema.fields, key=self._extract_field_path_depth)
         for schema_field in sorted_fields:
             field_size = len(json.dumps(pre_json_transform(schema_field.to_obj())))
             if total_fields_size + field_size >= self.schema_size_constraint:
