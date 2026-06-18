@@ -29,6 +29,8 @@ public class UpdateDescriptionResolverTest {
   private static final String TEST_DATASET_URN =
       "urn:li:dataset:(urn:li:dataPlatform:mysql,test.table,PROD)";
   private static final String TEST_DOCUMENT_URN = "urn:li:document:test-document";
+  private static final String TEST_DATA_OBJECT_URN =
+      "urn:li:dataObject:(urn:li:dataPlatform:s3,test-bucket/clip.mp4,PROD)";
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:test";
   private static final String TEST_DESCRIPTION = "Updated test description";
 
@@ -166,6 +168,76 @@ public class UpdateDescriptionResolverTest {
                 }),
             any(),
             eq(false));
+  }
+
+  @Test
+  public void testUpdateDataObjectDescription() throws Exception {
+    // dataObject is read-only/ingestion-emitted and (like document) carries the generic
+    // `documentation` aspect rather than editableDatasetProperties, so editing its description
+    // must route through the documentation-aspect path.
+    Mockito.when(
+            mockEntityService.exists(
+                any(), eq(Urn.createFromString(TEST_DATA_OBJECT_URN)), eq(true)))
+        .thenReturn(true);
+
+    Mockito.when(
+            mockEntityService.getAspect(
+                any(),
+                eq(Urn.createFromString(TEST_DATA_OBJECT_URN)),
+                eq(DOCUMENTATION_ASPECT_NAME),
+                eq(0L)))
+        .thenReturn(new Documentation());
+
+    QueryContext mockContext = getMockAllowContext(TEST_ACTOR_URN);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+
+    DescriptionUpdateInput input = new DescriptionUpdateInput();
+    input.setResourceUrn(TEST_DATA_OBJECT_URN);
+    input.setDescription(TEST_DESCRIPTION);
+
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Boolean result = resolver.get(mockEnv).get();
+    assertTrue(result);
+
+    Mockito.verify(mockEntityService, Mockito.times(1))
+        .ingestProposal(
+            any(),
+            Mockito.argThat(
+                proposal -> {
+                  if (proposal instanceof MetadataChangeProposal) {
+                    MetadataChangeProposal mcp = (MetadataChangeProposal) proposal;
+                    return mcp.getAspectName().equals(DOCUMENTATION_ASPECT_NAME)
+                        && mcp.getEntityUrn().toString().equals(TEST_DATA_OBJECT_URN);
+                  }
+                  return false;
+                }),
+            any(),
+            eq(false));
+  }
+
+  @Test
+  public void testUpdateDataObjectDescriptionUnauthorized() throws Exception {
+    Mockito.when(
+            mockEntityService.exists(
+                any(), eq(Urn.createFromString(TEST_DATA_OBJECT_URN)), eq(true)))
+        .thenReturn(true);
+
+    QueryContext mockContext = getMockDenyContext(TEST_ACTOR_URN);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+
+    DescriptionUpdateInput input = new DescriptionUpdateInput();
+    input.setResourceUrn(TEST_DATA_OBJECT_URN);
+    input.setDescription(TEST_DESCRIPTION);
+
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(Exception.class, () -> resolver.get(mockEnv).get());
+
+    Mockito.verify(mockEntityService, Mockito.never())
+        .ingestProposal(any(), any(), any(), eq(false));
   }
 
   @Test
