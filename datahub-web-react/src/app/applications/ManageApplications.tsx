@@ -109,7 +109,7 @@ const ManageApplications = () => {
                     mouseLeaveDelay={0.1}
                 >
                     <span>
-                        <Button size="md" color="violet" icon={{ icon: Plus }} disabled>
+                        <Button size="md" color="primary" icon={{ icon: Plus }} disabled>
                             {t('applications.createButton')}
                         </Button>
                     </span>
@@ -118,7 +118,7 @@ const ManageApplications = () => {
         }
 
         return (
-            <Button onClick={() => setShowCreateApplicationModal(true)} size="md" color="violet" icon={{ icon: Plus }}>
+            <Button onClick={() => setShowCreateApplicationModal(true)} size="md" color="primary" icon={{ icon: Plus }}>
                 {t('applications.createButton')}
             </Button>
         );

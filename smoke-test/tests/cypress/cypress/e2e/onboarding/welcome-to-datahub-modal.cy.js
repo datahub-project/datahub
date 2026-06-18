@@ -1,6 +1,7 @@
 import { aliasQuery, hasOperationName } from "../utils";
 
-describe("WelcomeToDataHubModal", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("WelcomeToDataHubModal", () => {
   const SKIP_WELCOME_MODAL_KEY = "skipWelcomeModal";
 
   beforeEach(() => {

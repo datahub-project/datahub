@@ -149,6 +149,16 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:tidb",
+        "name": "tidb",
+        "displayName": "TiDB",
+        "description": "Import Tables, Views, Databases, Schemas, and statistics from TiDB.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/tidb/",
+        "recipe": "source: \n    type: tidb\n    config: \n        # Coordinates\n        host_port: # Your TiDB host and port, e.g. tidb:4000\n        database: # Your TiDB database name, e.g. datahub\n    \n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your TiDB username, e.g. admin\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "Database",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:postgres",
         "name": "postgres",
         "displayName": "Postgres",
@@ -544,7 +554,7 @@
         "description": "Import Dashboards, Charts, and Data sources from Grafana",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/grafana/",
         "recipe": "source:\n    type: \"grafana\"\n    config:\n        url: \"https://grafana.company.com:443\"\n        service_account_token: token\n        verify_ssl: true",
-        "category": "Miscellaneous",
+        "category": "BI & Analytics",
         "isPopular": false
     },
     {
@@ -554,7 +564,7 @@
         "description": "Import Charts and Dashboards from Preset",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/preset/",
         "recipe": "source:\n  type: preset\n  config:\n    # Coordinates\n    connect_uri: Preset workspace URL\n    manager_uri: https://api.app.preset.io\n\n    # Credentials\n    api_key: Preset API Key\n    api_secret: Preset API Secret",
-        "category": "Miscellaneous",
+        "category": "BI & Analytics",
         "isPopular": false
     },
     {
