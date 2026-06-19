@@ -73,6 +73,11 @@ query getFormsForEntity($urn: String!) {
                 ...formsFields
             }
         }
+        ... on DataObject {
+            forms {
+                ...formsFields
+            }
+        }
         ... on MLFeature {
             forms {
                 ...formsFields

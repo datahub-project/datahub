@@ -143,6 +143,9 @@ export class DataObjectEntity implements Entity<DataObject> {
             // source of truth — there is no parallel hardcoded allowlist that could drift.
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.FORMS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.SOFT_DELETE,
         ]);
     };
 

@@ -52,6 +52,15 @@ query getDataObject($urn: String!) {
         domain {
             ...entityDomain
         }
+        applications {
+            ...entityApplication
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        status {
+            removed
+        }
         structuredProperties {
             properties {
                 ...structuredPropertiesFields
