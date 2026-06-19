@@ -29,7 +29,7 @@ export const BodyContainer = styled.div`
 `;
 
 export const WhiteButton = styled(Button)`
-    background-color: white;
-    color: ${(props) => props.theme.styles['primary-color']};
+    background-color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.textBrand};
     text-shadow: none;
 `;

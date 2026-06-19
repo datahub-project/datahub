@@ -281,8 +281,8 @@ class Query:
     query_id: Optional[str]
     query_text: str
     statement_type: Optional[QueryStatementType]
-    start_time: datetime
-    end_time: datetime
+    start_time: Optional[datetime]
+    end_time: datetime  # guaranteed non-null by the SQL filter (execution_status='FINISHED' AND end_time <= ...)
     # User who ran the query
     user_id: Optional[int]
     user_name: Optional[str]  # Email or username
