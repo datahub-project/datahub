@@ -220,6 +220,14 @@ def _query(text: str, qid: str = "s1") -> Query:
 
 
 def _extractor(config: MagicMock, proxy: MagicMock) -> UnityCatalogUsageExtractor:
+    # MagicMock attributes are truthy; set explicit defaults for newer bool flags.
+    if isinstance(config.skip_sqlglot_when_system_table_lineage_missing, MagicMock):
+        config.skip_sqlglot_when_system_table_lineage_missing = False
+    if isinstance(config.push_down_database_pattern_access_history, MagicMock):
+        config.push_down_database_pattern_access_history = False
+    if isinstance(config.catalog_pattern, MagicMock):
+        config.catalog_pattern = None
+
     ex = UnityCatalogUsageExtractor.__new__(UnityCatalogUsageExtractor)
     ex.config = config
     ex.report = UnityCatalogReport()
@@ -1307,7 +1315,7 @@ def test_midstream_fetch_failure_with_some_queries_reports_failure(
     ex.report = report
 
     ref = TableReference(metastore=None, catalog="main", schema="s", table="t")
-    list(ex.get_usage_workunits({ref}))
+    workunits = list(ex.get_usage_workunits({ref}))
 
     # num_queries > 0 (one query was processed) AND fetch_failed → must report_failure
     assert report.num_queries >= 1, (
@@ -1317,6 +1325,15 @@ def test_midstream_fetch_failure_with_some_queries_reports_failure(
     assert any("Failed to fetch query history" in k for k in failure_keys), (
         f"expected 'Failed to fetch query history' failure when mid-stream failure occurs "
         f"with num_queries>0, got: {failure_keys}"
+    )
+
+    usage_wus = [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetUsageStatisticsClass) is not None
+    ]
+    assert not usage_wus, (
+        "fetch failure must return before emitting usage workunits (W2)"
     )
 
 
@@ -1565,6 +1582,8 @@ def test_sqlglot_when_no_system_table_lineage(
     assert ex.report.num_queries_without_system_table_lineage == 1
     assert ex.report.num_queries_observed_sqlglot == 1
     assert ex.report.num_queries_preparsed_from_lineage == 0
+    warning_titles = [str(w.title) for w in ex.report.warnings]
+    assert any("Queries missing system-table lineage" in t for t in warning_titles)
 
 
 def test_get_query_history_via_system_tables_groups_lineage_rows() -> None:
@@ -1712,6 +1731,8 @@ def test_get_query_history_row_parse_error_does_not_corrupt_lineage() -> None:
     assert result[1].query_id == "s3"
     assert result[1].source_table_full_names == ["main.s.t3"]
     assert proxy.report.num_queries_missing_info == 1
+    warning_titles = [str(w.title) for w in proxy.report.warnings]
+    assert warning_titles.count("Failed to parse queries from system tables") == 1
 
 
 # ---------------------------------------------------------------------------
@@ -1771,8 +1792,8 @@ def test_get_query_history_with_catalog_pushdown_adds_semi_join() -> None:
     query_sql = captured["query"]
     assert "tl2.statement_id" in query_sql
     assert "system.access.table_lineage tl2" in query_sql
-    assert "UPPER(tl2.source_table_catalog) RLIKE '^main$'" in query_sql
-    assert "UPPER(tl2.target_table_catalog) RLIKE '^main$'" in query_sql
+    assert "UPPER(tl2.source_table_catalog) RLIKE '^MAIN$'" in query_sql
+    assert "UPPER(tl2.target_table_catalog) RLIKE '^MAIN$'" in query_sql
     assert len(captured["params"]) == 6
 
 
@@ -1802,7 +1823,7 @@ def test_get_query_history_catalog_pushdown_deny_pattern() -> None:
         )
 
     query_sql = captured["query"]
-    assert "NOT RLIKE '^system$'" in query_sql
+    assert "NOT RLIKE '^SYSTEM$'" in query_sql
 
 
 def test_fetch_queries_passes_catalog_pattern_when_pushdown_enabled(
@@ -2212,7 +2233,7 @@ def test_get_query_history_catalog_pushdown_escapes_single_quotes() -> None:
 
     sql = _build_catalog_column_filter(
         "tl2.source_table_catalog",
-        AllowDenyPattern(allow=["^main'catalog$"], deny=[]),
+        AllowDenyPattern(allow=["^main'catalog$"], deny=[], ignoreCase=False),
     )
     assert "RLIKE '^main''catalog$'" in sql
 
@@ -2228,3 +2249,349 @@ def test_usage_statement_types_select_only_when_ops_disabled() -> None:
     assert read_types == frozenset({QueryStatementType.SELECT})
     assert QueryStatementType.INSERT in all_types
     assert QueryStatementType.SELECT in all_types
+
+
+def test_skip_sqlglot_when_system_table_lineage_missing_skips_query(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    agg_instance: list = []
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            self.observed: list = []
+            self.preparsed: list = []
+            agg_instance.append(self)
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            self.observed.append(observed)
+
+        def add_preparsed_query(self, parsed: object, **kw: object) -> None:
+            self.preparsed.append(parsed)
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.include_queries = False
+    config.include_query_usage_statistics = False
+    config.include_operational_stats = False
+    config.skip_sqlglot_when_system_table_lineage_missing = True
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = [
+        Query(
+            query_id="s-no-lineage",
+            query_text="SELECT COUNT(*) FROM fivetran.smoke.base_table",
+            statement_type=QueryStatementType.SELECT,
+            start_time=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            end_time=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            user_id=1,
+            user_name="u@x.io",
+            executed_as_user_id=None,
+            executed_as_user_name=None,
+            source_table_full_names=[],
+            target_table_full_names=[],
+        ),
+    ]
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+    list(ex.get_usage_workunits(set()))
+
+    agg = agg_instance[0]
+    assert len(agg.observed) == 0
+    assert len(agg.preparsed) == 0
+    assert ex.report.num_queries_skipped_without_system_table_lineage == 1
+    assert ex.report.num_queries_without_system_table_lineage == 0
+    assert ex.report.num_queries_observed_sqlglot == 0
+    warning_titles = [str(w.title) for w in ex.report.warnings]
+    assert any(
+        "Queries skipped without system-table lineage" in t for t in warning_titles
+    )
+
+
+def test_api_fetch_passes_include_operational_stats(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            pass
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            pass
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.include_queries = False
+    config.include_query_usage_statistics = False
+    config.include_operational_stats = True
+    config.usage_uses_system_tables.return_value = False
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.query_history.return_value = [_query("SELECT 1", "q1")]
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+    list(ex.get_usage_workunits(set()))
+
+    proxy.query_history.assert_called_once()
+    _, kwargs = proxy.query_history.call_args
+    assert kwargs.get("include_operational_stats") is True
+
+
+def test_mixed_routing_counters(monkeypatch: pytest.MonkeyPatch) -> None:
+    agg_instance: list = []
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            self.observed: list = []
+            self.preparsed: list = []
+            agg_instance.append(self)
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            self.observed.append(observed)
+
+        def add_preparsed_query(self, parsed: object, **kw: object) -> None:
+            self.preparsed.append(parsed)
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.include_queries = False
+    config.include_query_usage_statistics = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = [
+        _query_with_lineage(
+            "SELECT * FROM main.sales.orders",
+            "preparsed",
+            sources=["main.sales.orders"],
+        ),
+        Query(
+            query_id="no-lineage",
+            query_text="SELECT 1",
+            statement_type=QueryStatementType.SELECT,
+            start_time=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            end_time=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            user_id=1,
+            user_name="u@x.io",
+            executed_as_user_id=None,
+            executed_as_user_name=None,
+            source_table_full_names=[],
+            target_table_full_names=[],
+        ),
+        _query_with_lineage(
+            "SELECT * FROM unknown.cat.table",
+            "urn-fallback",
+            sources=["not_a_valid_name"],
+        ),
+    ]
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+    list(ex.get_usage_workunits(set()))
+
+    assert ex.report.num_queries == 3
+    assert ex.report.num_queries_preparsed_from_lineage == 1
+    assert ex.report.num_queries_without_system_table_lineage == 1
+    assert ex.report.num_queries_preparsed_fallback_to_sqlglot == 1
+    assert ex.report.num_queries_observed_sqlglot == 2
+    assert (
+        ex.report.num_queries
+        == ex.report.num_queries_preparsed_from_lineage
+        + ex.report.num_queries_observed_sqlglot
+        + ex.report.num_queries_skipped_without_system_table_lineage
+    )
+
+
+def test_groups_target_lineage_rows() -> None:
+    """Two joined rows with the same statement_id but different targets group correctly."""
+    ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    rows = [
+        _row(
+            statement_id="s1",
+            statement_text="INSERT INTO main.s.t1 SELECT * FROM main.s.src",
+            statement_type="INSERT",
+            start_time=ts,
+            end_time=ts,
+            executed_by="u@x.io",
+            executed_as="u@x.io",
+            executed_by_user_id=1,
+            executed_as_user_id=1,
+            source_table_full_name="main.s.src",
+            target_table_full_name="main.s.t1",
+        ),
+        _row(
+            statement_id="s1",
+            statement_text="INSERT INTO main.s.t1 SELECT * FROM main.s.src",
+            statement_type="INSERT",
+            start_time=ts,
+            end_time=ts,
+            executed_by="u@x.io",
+            executed_as="u@x.io",
+            executed_by_user_id=1,
+            executed_as_user_id=1,
+            source_table_full_name="main.s.src",
+            target_table_full_name="main.s.t2",
+        ),
+    ]
+
+    cursor = _make_mock_cursor([rows])
+    conn = _make_mock_connection(cursor)
+    proxy = _make_streaming_proxy()
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.proxy.get_sql_connection_params",
+            return_value={},
+        ),
+        patch(
+            "datahub.ingestion.source.unity.proxy.connect",
+            return_value=conn,
+        ),
+    ):
+        result = list(
+            proxy.get_query_history_via_system_tables(
+                datetime(2026, 6, 1, tzinfo=timezone.utc),
+                datetime(2026, 6, 2, tzinfo=timezone.utc),
+                include_operational_stats=True,
+            )
+        )
+
+    assert len(result) == 1
+    assert sorted(result[0].target_table_full_names) == ["main.s.t1", "main.s.t2"]
+
+
+def test_build_catalog_column_filter_respects_ignore_case_false() -> None:
+    from datahub.configuration.common import AllowDenyPattern
+    from datahub.ingestion.source.unity.proxy import _build_catalog_column_filter
+
+    sql = _build_catalog_column_filter(
+        "tl2.source_table_catalog",
+        AllowDenyPattern(allow=["^Main$"], deny=[], ignoreCase=False),
+    )
+    assert "UPPER" not in sql
+    assert "RLIKE '^Main$'" in sql
+
+
+def test_get_query_history_catalog_pushdown_ignore_case_true() -> None:
+    from datahub.configuration.common import AllowDenyPattern
+
+    captured: dict = {}
+
+    def _capture_streaming(query: str, params: tuple) -> Iterator[object]:
+        captured["query"] = query
+        yield from []
+
+    catalog_pattern = AllowDenyPattern(allow=["^main$"], deny=[])
+
+    proxy = _make_streaming_proxy()
+    with patch.object(
+        proxy, "_execute_sql_query_streaming", side_effect=_capture_streaming
+    ):
+        list(
+            proxy.get_query_history_via_system_tables(
+                datetime(2026, 6, 1, tzinfo=timezone.utc),
+                datetime(2026, 6, 2, tzinfo=timezone.utc),
+                catalog_pattern=catalog_pattern,
+            )
+        )
+
+    query_sql = captured["query"]
+    assert "UPPER(tl2.source_table_catalog) RLIKE '^MAIN$'" in query_sql
+    assert "UPPER(tl2.target_table_catalog) RLIKE '^MAIN$'" in query_sql
+
+
+def test_aggregate_parse_failure_warning() -> None:
+    """All unparseable rows must produce one summary warning, not one per row."""
+    ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    rows = [
+        _row(
+            statement_id="s1",
+            statement_text=None,
+            statement_type="SELECT",
+            start_time=ts,
+            end_time=ts,
+            executed_by="u@x.io",
+            executed_as="u@x.io",
+            executed_by_user_id=1,
+            executed_as_user_id=1,
+            source_table_full_name=None,
+            target_table_full_name=None,
+        ),
+        _row(
+            statement_id="s2",
+            statement_text="SELECT 1",
+            statement_type="SELECT",
+            start_time=None,
+            end_time=ts,
+            executed_by="u@x.io",
+            executed_as="u@x.io",
+            executed_by_user_id=1,
+            executed_as_user_id=1,
+            source_table_full_name=None,
+            target_table_full_name=None,
+        ),
+    ]
+
+    cursor = _make_mock_cursor([rows])
+    conn = _make_mock_connection(cursor)
+    proxy = _make_streaming_proxy()
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.proxy.get_sql_connection_params",
+            return_value={},
+        ),
+        patch(
+            "datahub.ingestion.source.unity.proxy.connect",
+            return_value=conn,
+        ),
+    ):
+        result = list(
+            proxy.get_query_history_via_system_tables(
+                datetime(2026, 6, 1, tzinfo=timezone.utc),
+                datetime(2026, 6, 2, tzinfo=timezone.utc),
+            )
+        )
+
+    assert result == []
+    assert proxy.report.num_queries_missing_info == 2
+    warning_titles = [str(w.title) for w in proxy.report.warnings]
+    assert warning_titles.count("Failed to parse queries from system tables") == 1
+
+
+def test_full_name_to_urn_quoted_identifier() -> None:
+    config = MagicMock()
+    proxy = MagicMock()
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+
+    quoted = "main.`schema.with.dots`.orders"
+    urn = ex._full_name_to_urn(quoted)
+
+    assert urn is not None
+    assert "main.schema.with.dots.orders" in urn
+    assert ex.report.num_lineage_tables_unresolvable == 0
