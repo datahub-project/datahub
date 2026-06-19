@@ -1,6 +1,7 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Button as AntButton } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import AddLinkModalUpdated from '@app/entityV2/shared/components/links/AddLinkModal';
 import { Button } from '@src/alchemy-components';
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export const AddLinkModal = ({ buttonProps, buttonType }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
     const [isModalVisible, setIsModalVisible] = useState(false);
 
     const showModal = () => {
@@ -26,7 +28,7 @@ export const AddLinkModal = ({ buttonProps, buttonType }: Props) => {
             return (
                 <Button data-testid="add-link-button" variant="outline" onClick={showModal} {...buttonProps}>
                     <PlusOutlined />
-                    Add Link
+                    {t('links.addLink')}
                 </Button>
             );
         }
@@ -34,14 +36,14 @@ export const AddLinkModal = ({ buttonProps, buttonType }: Props) => {
             return (
                 <AntButton data-testid="add-link-button" onClick={showModal} type="text">
                     <PlusOutlined />
-                    Add Link
+                    {t('links.addLink')}
                 </AntButton>
             );
         }
         return (
             <Button variant="outline" data-testid="add-link-button" onClick={showModal} {...buttonProps}>
                 <PlusOutlined />
-                Add Link
+                {t('links.addLink')}
             </Button>
         );
     };

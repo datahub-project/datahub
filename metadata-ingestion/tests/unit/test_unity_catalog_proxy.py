@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime
 from unittest.mock import MagicMock, patch
@@ -6,6 +7,7 @@ import pytest
 
 from datahub.ingestion.source.unity.proxy import (
     ExternalUpstream,
+    QueryFilterWithStatementTypes,
     TableLineageInfo,
     TableUpstream,
     UnityCatalogApiProxy,
@@ -1673,11 +1675,11 @@ class TestUnityCatalogProxyUsageSystemTables:
         return proxy
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_empty(self, mock_execute, mock_proxy):
         """Test get_query_history_via_system_tables with no results."""
-        mock_execute.return_value = []
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [])  # type: ignore[var-annotated]
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
 
@@ -1693,7 +1695,7 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert "execution_status = 'FINISHED'" in query
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_with_data(
         self, mock_execute, mock_proxy
@@ -1725,7 +1727,7 @@ class TestUnityCatalogProxyUsageSystemTables:
                 executed_as_user_id=456,
             ),
         ]
-        mock_execute.return_value = mock_data
+        mock_execute.side_effect = lambda *a, **kw: (r for r in mock_data)
 
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
@@ -1742,13 +1744,13 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert "INSERT INTO target_table" in result[1].query_text
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_filters_statement_types(
         self, mock_execute, mock_proxy
     ):
         """Test that query includes proper statement type filtering."""
-        mock_execute.return_value = []
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [])  # type: ignore[var-annotated]
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
 
@@ -1766,7 +1768,7 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert "'OTHER'" in query
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_handles_null_values(
         self, mock_execute, mock_proxy
@@ -1787,7 +1789,7 @@ class TestUnityCatalogProxyUsageSystemTables:
                 executed_as_user_id=None,
             )
         ]
-        mock_execute.return_value = mock_data
+        mock_execute.side_effect = lambda *a, **kw: (r for r in mock_data)
 
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
@@ -1801,13 +1803,23 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert result[0].user_id is None
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_error_handling(
         self, mock_execute, mock_proxy
     ):
         """Test error handling when SQL query fails."""
-        mock_execute.side_effect = Exception("SQL execution failed")
+
+        # Simulate the streaming method's internal error path: it catches the DB
+        # exception, records a warning, and yields nothing instead of raising.
+        def _failing_stream(*a, **kw):
+            mock_proxy.report.report_warning(
+                title="Failed to run SQL query",
+                message="A SQL query against the Databricks warehouse failed.",
+            )
+            return (r for r in [])  # type: ignore[var-annotated]
+
+        mock_execute.side_effect = _failing_stream
 
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
@@ -1816,53 +1828,74 @@ class TestUnityCatalogProxyUsageSystemTables:
         )
 
         assert len(result) == 0
-        assert len(mock_proxy.report.failures) > 0
+        assert len(mock_proxy.report.warnings) > 0
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_row_parse_error(
         self, mock_execute, mock_proxy
     ):
-        """Test error handling when individual row parsing fails."""
+        """Test error handling when individual row parsing fails.
+
+        A bad row must record a "Failed to parse query from system tables" warning but must NOT abort
+        iteration — good rows that follow must still be yielded.
+        """
+        from types import SimpleNamespace
+
         from databricks.sql.types import Row
 
-        mock_data = [
-            Row(
-                statement_id="query_126",
-                statement_text="SELECT * FROM valid_table",
-                statement_type="SELECT",
-                start_time=datetime(2023, 1, 1, 10, 0, 0),
-                end_time=datetime(2023, 1, 1, 10, 0, 30),
-                executed_by="user@example.com",
-                executed_as="user@example.com",
-                executed_by_user_id=123,
-                executed_as_user_id=123,
-            )
-        ]
-        mock_execute.return_value = mock_data
+        # bad_row: statement_type is an invalid enum value, causing QueryStatementType()
+        # construction to raise ValueError — a realistic per-row parse failure.
+        bad_row = SimpleNamespace(
+            statement_id="query_bad",
+            statement_text="SELECT * FROM bad_table",
+            statement_type="NOT_A_VALID_TYPE",
+            start_time=datetime(2023, 1, 1, 10, 0, 0),
+            end_time=datetime(2023, 1, 1, 10, 0, 30),
+            executed_by="user@example.com",
+            executed_as="user@example.com",
+            executed_by_user_id=123,
+            executed_as_user_id=123,
+        )
+        good_row = Row(
+            statement_id="query_126",
+            statement_text="SELECT * FROM valid_table",
+            statement_type="SELECT",
+            start_time=datetime(2023, 1, 1, 11, 0, 0),
+            end_time=datetime(2023, 1, 1, 11, 0, 30),
+            executed_by="user@example.com",
+            executed_as="user@example.com",
+            executed_by_user_id=123,
+            executed_as_user_id=123,
+        )
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [bad_row, good_row])
 
-        with patch(
-            "datahub.ingestion.source.unity.proxy_types.Query.__init__",
-            side_effect=Exception("Query creation failed"),
-        ):
-            start_time = datetime(2023, 1, 1)
-            end_time = datetime(2023, 1, 31)
-            result = list(
-                mock_proxy.get_query_history_via_system_tables(start_time, end_time)
-            )
+        start_time = datetime(2023, 1, 1)
+        end_time = datetime(2023, 1, 31)
+        result = list(
+            mock_proxy.get_query_history_via_system_tables(start_time, end_time)
+        )
 
-            assert len(result) == 0
-            assert len(mock_proxy.report.warnings) > 0
+        # The bad row must be skipped and a warning recorded.
+        warning_titles = [str(w.title) for w in mock_proxy.report.warnings]
+        assert any(
+            "Failed to parse query from system tables" in t for t in warning_titles
+        ), (
+            f"expected 'Failed to parse query from system tables' warning, got: {warning_titles}"
+        )
+        # The good row must still be yielded — iteration must continue past the bad row.
+        assert len(result) == 1, f"expected 1 good query, got {len(result)}: {result}"
+        assert result[0].query_id == "query_126"
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_time_parameters(
         self, mock_execute, mock_proxy
     ):
         """Test that start and end time are passed correctly as parameters."""
-        mock_execute.return_value = []
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [])  # type: ignore[var-annotated]
         start_time = datetime(2023, 5, 15, 8, 30, 0)
         end_time = datetime(2023, 5, 20, 18, 45, 0)
 
@@ -1871,3 +1904,87 @@ class TestUnityCatalogProxyUsageSystemTables:
         call_args = mock_execute.call_args
         params = call_args[0][1]
         assert params == (start_time, end_time)
+
+
+class TestQueryFilterWithStatementTypesSerialisation:
+    """Regression tests for QueryFilterWithStatementTypes.as_dict().
+
+    Bug: before the fix, as_dict() serialised statement_types as raw
+    QueryStatementType enum objects.  json.dumps() raised
+    ``TypeError: Object of type QueryStatementType is not JSON serializable``,
+    which caused the REST query-history request to fail and produced zero usage.
+    """
+
+    def test_as_dict_statement_types_are_strings(self) -> None:
+        """as_dict() must return statement_types as plain strings, not enum objects."""
+        from databricks.sdk.service.sql import QueryStatementType
+
+        f = QueryFilterWithStatementTypes.from_dict(
+            {
+                "query_start_time_range": {
+                    "start_time_ms": 1_700_000_000_000,
+                    "end_time_ms": 1_700_086_400_000,
+                },
+                "statuses": ["FINISHED"],
+                "statement_types": [
+                    QueryStatementType.SELECT.value,
+                    QueryStatementType.INSERT.value,
+                ],
+            }
+        )
+
+        result = f.as_dict()
+        assert "statement_types" in result
+        for item in result["statement_types"]:
+            assert isinstance(item, str), (
+                f"Expected str in statement_types, got {type(item)!r}: {item!r}"
+            )
+
+    def test_as_dict_is_json_serializable(self) -> None:
+        """json.dumps(filter.as_dict()) must not raise.
+
+        Pre-fix this raised ``TypeError: Object of type QueryStatementType is not
+        JSON serializable``, blocking every REST query-history call.
+        """
+        from databricks.sdk.service.sql import QueryStatementType
+
+        f = QueryFilterWithStatementTypes.from_dict(
+            {
+                "query_start_time_range": {
+                    "start_time_ms": 1_700_000_000_000,
+                    "end_time_ms": 1_700_086_400_000,
+                },
+                "statuses": ["FINISHED"],
+                "statement_types": [
+                    QueryStatementType.SELECT.value,
+                    QueryStatementType.MERGE.value,
+                ],
+            }
+        )
+
+        # Must not raise TypeError: Object of type QueryStatementType is not JSON serializable
+        serialised = json.dumps(f.as_dict())
+        parsed = json.loads(serialised)
+        assert parsed["statement_types"] == [
+            QueryStatementType.SELECT.value,
+            QueryStatementType.MERGE.value,
+        ]
+
+    def test_as_dict_preserves_enum_values_round_trip(self) -> None:
+        """Values produced by as_dict() must equal the .value strings of the enums."""
+        from databricks.sdk.service.sql import QueryStatementType
+
+        types_in = [
+            QueryStatementType.SELECT,
+            QueryStatementType.INSERT,
+            QueryStatementType.UPDATE,
+            QueryStatementType.DELETE,
+        ]
+        f = QueryFilterWithStatementTypes.from_dict(
+            {
+                "statement_types": [t.value for t in types_in],
+            }
+        )
+
+        result_types = f.as_dict()["statement_types"]
+        assert result_types == [t.value for t in types_in]

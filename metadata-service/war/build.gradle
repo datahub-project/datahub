@@ -15,6 +15,7 @@ ext.apiProject = project(':metadata-service:restli-api')
 
 dependencies {
   implementation project(':metadata-service:factories')
+  implementation project(':metadata-service:rate-limit')
   implementation project(':metadata-service:auth-filter')
   implementation project(':metadata-service:servlet')
   implementation project(':metadata-service:auth-servlet-impl')

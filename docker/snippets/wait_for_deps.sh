@@ -63,3 +63,12 @@ datahub_wait_endpoint() {
   local t="${ep#tcp://}"
   datahub_wait_tcp "tcp://${t}"
 }
+
+# Run the startup HTTP wait for Elasticsearch/OpenSearch when the app expects it to be used
+# (${ELASTICSEARCH_ENABLED:-true}; false/0 means no Elasticsearch integration). Optionally set
+# SKIP_ELASTICSEARCH_CHECK=true to skip the wait even when Elasticsearch is enabled.
+datahub_should_wait_elasticsearch() {
+  case "${SKIP_ELASTICSEARCH_CHECK:-}" in true|TRUE|True|1) return 1 ;; esac
+  case "${ELASTICSEARCH_ENABLED:-true}" in false|FALSE|False|0|no|NO|off|OFF) return 1 ;; esac
+  return 0
+}

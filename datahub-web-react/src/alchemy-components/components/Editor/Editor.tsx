@@ -29,6 +29,7 @@ import { useTheme } from 'styled-components';
 
 import { EditorContainer, getEditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
+import RemirrorLocaleProvider from '@components/components/Editor/RemirrorLocaleProvider';
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
@@ -41,6 +42,9 @@ import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
 import { EditorProps } from '@components/components/Editor/types';
 
 import { notEmpty } from '@app/entityV2/shared/utils';
+
+// CSS class applied to the editor surface for antd typography styling.
+const EDITOR_CLASS_NAMES = ['ant-typography'];
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
     const {
@@ -62,6 +66,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     } = props;
     const styledTheme = useTheme();
     const editorTheme = useMemo(() => getEditorTheme(styledTheme), [styledTheme]);
+
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -123,29 +128,31 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             $compact={compact}
         >
             <ThemeProvider theme={editorTheme}>
-                <Remirror
-                    classNames={['ant-typography']}
-                    editable={!readOnly}
-                    manager={manager}
-                    initialContent={state}
-                    placeholder={placeholder || ''}
-                >
-                    {!readOnly && (
-                        <>
-                            {!hideToolbar && (
-                                <>
-                                    <Toolbar styles={toolbarStyles} fixedBottom={fixedBottomToolbar} />
-                                    <CodeBlockToolbar />
-                                    {!hideHighlightToolbar && <FloatingToolbar />}
-                                    <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
-                                </>
-                            )}
-                            <MentionsComponent renderOutsideEditor={compact} />
-                            {onChange && <OnChangeMarkdown onChange={onChange} />}
-                        </>
-                    )}
-                    <EditorComponent />
-                </Remirror>
+                <RemirrorLocaleProvider>
+                    <Remirror
+                        classNames={EDITOR_CLASS_NAMES}
+                        editable={!readOnly}
+                        manager={manager}
+                        initialContent={state}
+                        placeholder={placeholder || ''}
+                    >
+                        {!readOnly && (
+                            <>
+                                {!hideToolbar && (
+                                    <>
+                                        <Toolbar styles={toolbarStyles} fixedBottom={fixedBottomToolbar} />
+                                        <CodeBlockToolbar />
+                                        {!hideHighlightToolbar && <FloatingToolbar />}
+                                        <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
+                                    </>
+                                )}
+                                <MentionsComponent renderOutsideEditor={compact} />
+                                {onChange && <OnChangeMarkdown onChange={onChange} />}
+                            </>
+                        )}
+                        <EditorComponent />
+                    </Remirror>
+                </RemirrorLocaleProvider>
             </ThemeProvider>
         </EditorContainer>
     );

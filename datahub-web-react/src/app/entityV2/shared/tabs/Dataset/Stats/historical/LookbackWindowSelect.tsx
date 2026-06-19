@@ -1,5 +1,6 @@
 import { SelectValue } from 'antd/lib/select';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import PrefixedSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/shared/PrefixedSelect';
 import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
@@ -10,6 +11,8 @@ type Props = {
 };
 
 export default function LookbackWindowSelect({ lookbackWindow, setLookbackWindow }: Props) {
+    const { t } = useTranslation('entity.profile.stats');
+
     const onChangeLookbackWindow = (value: SelectValue) => {
         const newLookbackWindow = Object.values(LOOKBACK_WINDOWS).filter((window) => window.text === value?.valueOf());
         setLookbackWindow(newLookbackWindow[0]);
@@ -21,11 +24,13 @@ export default function LookbackWindowSelect({ lookbackWindow, setLookbackWindow
      * Additionally, the 'HOUR' option is not utilized in the historical stats view.
      * It can be added back when needed in the future.
      */
-    const filteredLookbackWindows = Object.values(LOOKBACK_WINDOWS).filter((window) => window.text !== '1 hour');
+    const filteredLookbackWindows = Object.values(LOOKBACK_WINDOWS).filter(
+        (window) => window.text !== t('lookbackWindowOptions.hour'),
+    );
 
     return (
         <PrefixedSelect
-            prefixText="Profiling history for past "
+            prefixText={t('lookbackWindowSelect.profilingHistoryForPast')}
             values={filteredLookbackWindows.map((window) => window.text)}
             value={lookbackWindow.text}
             setValue={onChangeLookbackWindow}

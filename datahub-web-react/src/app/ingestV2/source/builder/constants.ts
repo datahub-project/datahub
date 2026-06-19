@@ -13,6 +13,7 @@ import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
 import dbtLogo from '@images/dbtlogo.png';
 import dltLogo from '@images/dltlogo.svg';
+import documentdbLogo from '@images/documentdblogo.svg';
 import dremioLogo from '@images/dremiologo.png';
 import druidLogo from '@images/druidlogo.png';
 import dynamodbLogo from '@images/dynamodblogo.png';
@@ -61,6 +62,7 @@ import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.svg';
 import thoughtspotLogo from '@images/thoughtspotlogo.svg';
+import tidbLogo from '@images/tidblogo.svg';
 import timescaledbLogo from '@images/timescalelogo.png';
 import trinoLogo from '@images/trinologo.png';
 import vertexAI from '@images/vertexai.png';
@@ -85,6 +87,8 @@ const DAGSTER = 'dagster';
 const DAGSTER_URN = `urn:li:dataPlatform:${DAGSTER}`;
 const DBT = 'dbt';
 export const DBT_URN = `urn:li:dataPlatform:${DBT}`;
+const DOCUMENTDB = 'documentdb';
+const DOCUMENTDB_URN = `urn:li:dataPlatform:${DOCUMENTDB}`;
 const DREMIO = 'dremio';
 const DREMIO_URN = `urn:li:dataPlatform:${DREMIO}`;
 const DRUID = 'druid';
@@ -102,7 +106,7 @@ const GRAFANA = 'grafana';
 const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
 const GLUE = 'glue';
 const GLUE_URN = `urn:li:dataPlatform:${GLUE}`;
-const HEX = 'hex';
+export const HEX = 'hex';
 const HEX_URN = `urn:li:dataPlatform:${HEX}`;
 const HIVE = 'hive';
 const HIVE_URN = `urn:li:dataPlatform:${HIVE}`;
@@ -162,6 +166,8 @@ const TABLEAU = 'tableau';
 const TABLEAU_URN = `urn:li:dataPlatform:${TABLEAU}`;
 export const THOUGHTSPOT = 'thoughtspot';
 export const THOUGHTSPOT_URN = `urn:li:dataPlatform:${THOUGHTSPOT}`;
+const TIDB = 'tidb';
+const TIDB_URN = `urn:li:dataPlatform:${TIDB}`;
 const TIMESCALEDB = 'timescaledb';
 const TIMESCALEDB_URN = `urn:li:dataPlatform:${TIMESCALEDB}`;
 const TRINO = 'trino';
@@ -228,6 +234,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [DAGSTER_URN]: dagsterLogo,
     [DBT_URN]: dbtLogo,
     [DLT_URN]: dltLogo,
+    [DOCUMENTDB_URN]: documentdbLogo,
     [DREMIO_URN]: dremioLogo,
     [DRUID_URN]: druidLogo,
     [DYNAMODB_URN]: dynamodbLogo,
@@ -266,6 +273,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [SPARK_URN]: sparkLogo,
     [TABLEAU_URN]: tableauLogo,
     [THOUGHTSPOT_URN]: thoughtspotLogo,
+    [TIDB_URN]: tidbLogo,
     [TIMESCALEDB_URN]: timescaledbLogo,
     [TRINO_URN]: trinoLogo,
     [SUPERSET_URN]: supersetLogo,

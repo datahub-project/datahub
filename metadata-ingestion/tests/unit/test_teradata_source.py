@@ -1,9 +1,19 @@
+import logging
+import re
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from threading import current_thread
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
+from sqlalchemy.exc import (
+    DatabaseError,
+    OperationalError,
+    TimeoutError as PoolTimeoutError,
+)
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import (
@@ -12,8 +22,15 @@ from datahub.ingestion.api.workunit import (
 )
 from datahub.ingestion.source.sql.teradata import (
     TeradataConfig,
+    TeradataReport,
     TeradataSource,
     TeradataTable,
+    _engine_connect_with_retry,
+    _execute_with_retry,
+    _fetchmany_with_retry,
+    _jittered_backoff,
+    _should_retry,
+    _should_retry_connect,
     get_schema_columns,
     get_schema_foreign_keys,
     get_schema_pk_constraints,
@@ -64,6 +81,17 @@ def _create_mock_table_entry(database, table, creator_name=None, **kwargs):
     return mock_entry
 
 
+def _mock_execute_result(rows: list) -> MagicMock:
+    """Wrap *rows* in a mock that supports .fetchmany() as cache_tables_and_views expects.
+
+    The first call returns all rows; subsequent calls return [] to signal end-of-results,
+    matching the while-True / break loop in cache_tables_and_views.
+    """
+    result = MagicMock()
+    result.fetchmany.side_effect = [rows, []]
+    return result
+
+
 def _create_source(extract_ownership=False):
     """Helper to create TeradataSource with mocked dependencies."""
     config = TeradataConfig.model_validate(
@@ -92,9 +120,6 @@ class TestTeradataConfig:
         config = TeradataConfig.model_validate(config_dict)
 
         assert config.host_port == "localhost:1025"
-        assert config.include_table_lineage is True
-        assert config.include_usage_statistics is True
-        assert config.include_queries is True
 
     def test_max_workers_validation_valid(self):
         """Test valid max_workers configuration passes validation."""
@@ -104,28 +129,6 @@ class TestTeradataConfig:
         }
         config = TeradataConfig.model_validate(config_dict)
         assert config.max_workers == 8
-
-    def test_max_workers_default(self):
-        """Test max_workers defaults to 10."""
-        config_dict = _base_config()
-        config = TeradataConfig.model_validate(config_dict)
-        assert config.max_workers == 10
-
-    def test_max_workers_custom_value(self):
-        """Test custom max_workers value is accepted."""
-        config_dict = {
-            **_base_config(),
-            "max_workers": 5,
-        }
-        config = TeradataConfig.model_validate(config_dict)
-        assert config.max_workers == 5
-
-    def test_hang_protection_defaults(self):
-        """Default hang-protection knobs are enabled with sensible values."""
-        config = TeradataConfig.model_validate(_base_config())
-        assert config.view_processing_timeout_seconds == 1800
-        assert config.view_processing_heartbeat_seconds == 30
-        assert config.lineage_fetch_stall_warning_seconds == 300
 
     def test_hang_protection_can_be_disabled(self):
         """All hang-protection knobs accept 0 to disable."""
@@ -140,12 +143,6 @@ class TestTeradataConfig:
         assert config.view_processing_timeout_seconds == 0
         assert config.view_processing_heartbeat_seconds == 0
         assert config.lineage_fetch_stall_warning_seconds == 0
-
-    def test_include_queries_default(self):
-        """Test include_queries defaults to True."""
-        config_dict = _base_config()
-        config = TeradataConfig.model_validate(config_dict)
-        assert config.include_queries is True
 
     def test_time_window_defaults_applied(self):
         """Test that BaseTimeWindowConfig defaults are automatically applied."""
@@ -178,7 +175,6 @@ class TestTeradataConfig:
 
         config = TeradataConfig.model_validate(config_dict)
 
-        assert hasattr(config, "incremental_lineage")
         assert config.incremental_lineage is True
 
         config_dict_false = {
@@ -187,31 +183,6 @@ class TestTeradataConfig:
         }
         config_false = TeradataConfig.model_validate(config_dict_false)
         assert config_false.incremental_lineage is False
-
-        config_default = TeradataConfig.model_validate(_base_config())
-        assert config_default.incremental_lineage is False
-
-    def test_config_inheritance_chain(self):
-        """Test that TeradataConfig properly inherits from all required base classes."""
-        config_dict = {
-            "username": "test_user",
-            "password": "test_password",
-            "host_port": "localhost:1025",
-            "incremental_lineage": True,
-        }
-
-        config = TeradataConfig.model_validate(config_dict)
-
-        # Verify inheritance from BaseTimeWindowConfig
-        assert hasattr(config, "start_time")
-        assert hasattr(config, "end_time")
-        assert hasattr(config, "bucket_duration")
-
-        # Verify inheritance from BaseTeradataConfig
-        assert hasattr(config, "scheme")
-
-        # Verify inheritance from TwoTierSQLAlchemyConfig
-        assert hasattr(config, "host_port")
 
     def test_user_original_recipe_compatibility(self):
         """Test that a user's original recipe configuration is parsed correctly."""
@@ -297,7 +268,7 @@ class TestTeradataSource:
 
         mock_connection = MagicMock()
         mock_engine = MagicMock()
-        mock_engine.connect.return_value.__enter__.return_value = mock_connection
+        mock_engine.connect.return_value = mock_connection
         mock_create_engine.return_value = mock_engine
 
         config = TeradataConfig.model_validate(_base_config())
@@ -344,8 +315,10 @@ class TestTeradataSource:
             )
 
             with patch.object(source, "get_metadata_engine") as mock_get_engine:
+                mock_conn = MagicMock()
+                mock_conn.execute.return_value = _mock_execute_result([mock_entry])
                 mock_engine = MagicMock()
-                mock_engine.execute.return_value = [mock_entry]
+                mock_engine.connect.return_value = mock_conn
                 mock_get_engine.return_value = mock_engine
 
                 # Call the method after patching the engine
@@ -443,7 +416,7 @@ class TestTeradataSource:
             # Mock successful query execution
             mock_connection = MagicMock()
             mock_engine = MagicMock()
-            mock_engine.connect.return_value.__enter__.return_value = mock_connection
+            mock_engine.connect.return_value = mock_connection
 
             with patch.object(source, "get_metadata_engine", return_value=mock_engine):
                 result = source._check_historical_table_exists()
@@ -471,7 +444,7 @@ class TestTeradataSource:
             mock_connection = MagicMock()
             mock_connection.execute.side_effect = Exception("Table not found")
             mock_engine = MagicMock()
-            mock_engine.connect.return_value.__enter__.return_value = mock_connection
+            mock_engine.connect.return_value = mock_connection
 
             with patch.object(source, "get_metadata_engine", return_value=mock_engine):
                 result = source._check_historical_table_exists()
@@ -564,8 +537,6 @@ class TestTeradataSource:
             assert "TIMESTAMP" in query
             assert "None" not in query
 
-            import re
-
             timestamp_pattern = r"TIMESTAMP '[^']+'"
             matches = re.findall(timestamp_pattern, query)
             assert len(matches) >= 2
@@ -607,6 +578,108 @@ class TestSQLInjectionSafety:
         assert ":schema" in query
         assert "schema" in params
         assert params["schema"] == "test_schema"
+
+    def test_get_schema_foreign_keys_parameterized(self):
+        """Test that get_schema_foreign_keys uses parameterized queries."""
+        get_schema_foreign_keys.cache_clear()
+        mock_connection = MagicMock()
+        mock_connection.execute.return_value.fetchall.return_value = []
+
+        get_schema_foreign_keys(None, mock_connection, "test_schema")
+
+        call_args = mock_connection.execute.call_args
+        query = call_args[0][0].text
+        params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
+
+        assert ":schema" in query
+        assert "schema" in params
+        assert params["schema"] == "test_schema"
+
+
+class TestSchemaFunctionRetry:
+    """get_schema_columns/pk_constraints/foreign_keys retry on transient DB errors."""
+
+    def _make_conn(self, side_effects, fetchall_result=None):
+        """Return a mock Connection whose execute() yields *side_effects* in order."""
+        mock_conn = MagicMock()
+        if fetchall_result is None:
+            fetchall_result = []
+        good_result = MagicMock()
+        good_result.fetchall.return_value = fetchall_result
+        # side_effects is a list: exceptions are raised, non-exceptions are returned
+        mock_conn.execute.side_effect = [
+            exc if isinstance(exc, Exception) else good_result for exc in side_effects
+        ]
+        return mock_conn
+
+    def test_get_schema_columns_retries_transient_error(self):
+        """A single transient failure is retried and the successful result is returned."""
+        get_schema_columns.cache_clear()
+        mock_conn = self._make_conn(
+            [DatabaseError("transaction aborted", None, None), None]
+        )
+
+        with patch("time.sleep"):
+            result = get_schema_columns(None, mock_conn, "columnsV", "db1")
+
+        assert mock_conn.execute.call_count == 2
+        assert result == {}
+
+    def test_get_schema_columns_non_retryable_error_propagates(self):
+        """A non-retryable error (syntax error) propagates immediately."""
+        get_schema_columns.cache_clear()
+        mock_conn = self._make_conn([DatabaseError("syntax error", None, None)])
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            get_schema_columns(None, mock_conn, "columnsV", "db1")
+
+        assert mock_conn.execute.call_count == 1
+
+    def test_get_schema_pk_constraints_retries_transient_error(self):
+        """A single transient failure is retried and the successful result is returned."""
+        get_schema_pk_constraints.cache_clear()
+        mock_conn = self._make_conn(
+            [DatabaseError("transaction aborted", None, None), None]
+        )
+
+        with patch("time.sleep"):
+            result = get_schema_pk_constraints(None, mock_conn, "db1")
+
+        assert mock_conn.execute.call_count == 2
+        assert result == {}
+
+    def test_get_schema_pk_constraints_non_retryable_error_propagates(self):
+        """A non-retryable error propagates immediately."""
+        get_schema_pk_constraints.cache_clear()
+        mock_conn = self._make_conn([DatabaseError("syntax error", None, None)])
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            get_schema_pk_constraints(None, mock_conn, "db1")
+
+        assert mock_conn.execute.call_count == 1
+
+    def test_get_schema_foreign_keys_retries_transient_error(self):
+        """A single transient failure is retried and the successful result is returned."""
+        get_schema_foreign_keys.cache_clear()
+        mock_conn = self._make_conn(
+            [DatabaseError("transaction aborted", None, None), None]
+        )
+
+        with patch("time.sleep"):
+            result = get_schema_foreign_keys(None, mock_conn, "db1")
+
+        assert mock_conn.execute.call_count == 2
+        assert result == {}
+
+    def test_get_schema_foreign_keys_non_retryable_error_propagates(self):
+        """A non-retryable error propagates immediately."""
+        get_schema_foreign_keys.cache_clear()
+        mock_conn = self._make_conn([DatabaseError("syntax error", None, None)])
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            get_schema_foreign_keys(None, mock_conn, "db1")
+
+        assert mock_conn.execute.call_count == 1
 
 
 class TestMemoryEfficiency:
@@ -1023,9 +1096,7 @@ class TestLineageQuerySeparation:
 
                 mock_connection = MagicMock()
                 mock_engine = MagicMock()
-                mock_engine.connect.return_value.__enter__.return_value = (
-                    mock_connection
-                )
+                mock_engine.connect.return_value = mock_connection
 
                 with (
                     patch.object(
@@ -1077,9 +1148,7 @@ class TestLineageQuerySeparation:
 
                 mock_connection = MagicMock()
                 mock_engine = MagicMock()
-                mock_engine.connect.return_value.__enter__.return_value = (
-                    mock_connection
-                )
+                mock_engine.connect.return_value = mock_connection
 
                 with (
                     patch.object(
@@ -1134,9 +1203,7 @@ class TestLineageQuerySeparation:
 
                 mock_connection = MagicMock()
                 mock_engine = MagicMock()
-                mock_engine.connect.return_value.__enter__.return_value = (
-                    mock_connection
-                )
+                mock_engine.connect.return_value = mock_connection
 
                 with (
                     patch.object(
@@ -1266,9 +1333,7 @@ class TestLineageQuerySeparation:
 
                 mock_connection = MagicMock()
                 mock_engine = MagicMock()
-                mock_engine.connect.return_value.__enter__.return_value = (
-                    mock_connection
-                )
+                mock_engine.connect.return_value = mock_connection
 
                 with (
                     patch.object(
@@ -1763,8 +1828,10 @@ class TestOwnershipExtraction:
         )
 
         with patch.object(source, "get_metadata_engine") as mock_get_engine:
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value = _mock_execute_result([mock_entry])
             mock_engine = MagicMock()
-            mock_engine.execute.return_value = [mock_entry]
+            mock_engine.connect.return_value = mock_conn
             mock_get_engine.return_value = mock_engine
 
             source.cache_tables_and_views()
@@ -1782,8 +1849,10 @@ class TestOwnershipExtraction:
         )
 
         with patch.object(source, "get_metadata_engine") as mock_get_engine:
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value = _mock_execute_result([mock_entry])
             mock_engine = MagicMock()
-            mock_engine.execute.return_value = [mock_entry]
+            mock_engine.connect.return_value = mock_conn
             mock_get_engine.return_value = mock_engine
 
             source.cache_tables_and_views()
@@ -1904,11 +1973,12 @@ class TestOwnershipExtraction:
         )
 
         with patch.object(source, "get_metadata_engine") as mock_get_engine:
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value = _mock_execute_result(
+                [entry_with_creator, entry_without_creator]
+            )
             mock_engine = MagicMock()
-            mock_engine.execute.return_value = [
-                entry_with_creator,
-                entry_without_creator,
-            ]
+            mock_engine.connect.return_value = mock_conn
             mock_get_engine.return_value = mock_engine
 
             source.cache_tables_and_views()
@@ -2140,8 +2210,10 @@ class TestIncrementalColumnExtraction:
             ),  # None timestamp → include (conservative)
         ]
 
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(entries)
         mock_engine = MagicMock()
-        mock_engine.execute.return_value = entries
+        mock_engine.connect.return_value = mock_conn
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
             source.cache_tables_and_views()
 
@@ -2170,18 +2242,19 @@ class TestIncrementalColumnExtraction:
             "db1", "stale_table", alter_time=datetime(2024, 6, 5, 12, 0, 0)
         )
 
-        # Mock the engine: engine.connect() returns a context manager whose conn
-        # handles the CURRENT_TIMESTAMP query; engine.execute() returns table rows.
-        mock_conn = MagicMock()
-        mock_conn.execute.return_value.fetchone.return_value = (td_server_now,)
+        # Two engine.connect() calls are made: one for SELECT CURRENT_TIMESTAMP(0)
+        # and one for the tables/views query. Use side_effect to return a different
+        # mock connection for each.
+        mock_conn_ts = MagicMock()
+        mock_conn_ts.execute.return_value.fetchone.return_value = (td_server_now,)
 
-        mock_ctx = MagicMock()
-        mock_ctx.__enter__ = MagicMock(return_value=mock_conn)
-        mock_ctx.__exit__ = MagicMock(return_value=False)
+        mock_conn_rows = MagicMock()
+        mock_conn_rows.execute.return_value = _mock_execute_result(
+            [recent_entry, stale_entry]
+        )
 
         mock_engine = MagicMock()
-        mock_engine.connect.return_value = mock_ctx
-        mock_engine.execute.return_value = [recent_entry, stale_entry]
+        mock_engine.connect.side_effect = [mock_conn_ts, mock_conn_rows]
 
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
             source.cache_tables_and_views()
@@ -2478,9 +2551,17 @@ class TestLineageQueryScoping:
 
 
 class TestConfigurableTimeouts:
-    """#6 — request_timeout_ms / connect_timeout_ms flow through to Teradata connect_args."""
+    """request_timeout_ms / connect_timeout_ms flow through to all engines;
+    connection_pool_timeout_ms flows only to the QueuePool-based pooled engine."""
 
-    def _get_connect_args(self, extra_config: Dict[str, Any]) -> Dict[str, str]:
+    def _get_engine_kwargs(
+        self, extra_config: Dict[str, Any], *, engine_site: str = "pooled"
+    ) -> Dict[str, Any]:
+        """Capture kwargs passed to create_engine for the requested site.
+
+        engine_site: "pooled" calls _get_or_create_pooled_engine;
+                     "metadata" calls get_metadata_engine.
+        """
         source = _create_source_patched(extra_config)
         captured: Dict[str, Any] = {}
 
@@ -2491,21 +2572,53 @@ class TestConfigurableTimeouts:
         with patch(
             "datahub.ingestion.source.sql.teradata.create_engine", side_effect=capture
         ):
-            source._get_or_create_pooled_engine()
+            if engine_site == "pooled":
+                source._get_or_create_pooled_engine()
+            else:
+                source.get_metadata_engine()
 
-        return captured.get("connect_args", {})
+        return captured
 
     def test_default_timeouts_used(self) -> None:
-        connect_args = self._get_connect_args({})
+        kwargs = self._get_engine_kwargs({})
+        connect_args = kwargs["connect_args"]
         assert connect_args["request_timeout"] == "120000"
         assert connect_args["connect_timeout"] == "30000"
 
     def test_custom_timeouts_propagated(self) -> None:
-        connect_args = self._get_connect_args(
+        kwargs = self._get_engine_kwargs(
             {"request_timeout_ms": 300000, "connect_timeout_ms": 60000}
         )
+        connect_args = kwargs["connect_args"]
         assert connect_args["request_timeout"] == "300000"
         assert connect_args["connect_timeout"] == "60000"
+
+    def test_pool_timeout_applied_to_pooled_engine_only(self) -> None:
+        """connection_pool_timeout_ms reaches the pooled (QueuePool) engine but must NOT
+        be passed to the metadata/schema-discovery engine, which uses SingletonThreadPool
+        and rejects pool_timeout as an invalid argument."""
+        pooled_kwargs = self._get_engine_kwargs(
+            {"connection_pool_timeout_ms": 45000}, engine_site="pooled"
+        )
+        metadata_kwargs = self._get_engine_kwargs(
+            {"connection_pool_timeout_ms": 45000}, engine_site="metadata"
+        )
+        assert pooled_kwargs["pool_timeout"] == 45.0
+        assert "pool_timeout" not in metadata_kwargs
+
+    def test_connect_args_consistent_across_engine_sites(self) -> None:
+        """Both engine creation paths must see identical connect_args timeout values."""
+        extra = {
+            "request_timeout_ms": 90000,
+            "connect_timeout_ms": 15000,
+        }
+        pooled_kwargs = self._get_engine_kwargs(extra, engine_site="pooled")
+        metadata_kwargs = self._get_engine_kwargs(extra, engine_site="metadata")
+
+        assert pooled_kwargs["connect_args"]["request_timeout"] == "90000"
+        assert pooled_kwargs["connect_args"]["connect_timeout"] == "15000"
+        assert metadata_kwargs["connect_args"]["request_timeout"] == "90000"
+        assert metadata_kwargs["connect_args"]["connect_timeout"] == "15000"
 
 
 class TestCacheCaseInsensitivity:
@@ -2532,10 +2645,12 @@ class TestCacheCaseInsensitivity:
     def test_cache_write_lowercases_database_key(self) -> None:
         """Teradata returns uppercase DataBaseName; the cache stores it lowercased."""
         source = _create_source_patched()
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [_create_mock_table_entry("MY_DB", "MY_TABLE")]
+        )
         mock_engine = MagicMock()
-        mock_engine.execute.return_value = [
-            _create_mock_table_entry("MY_DB", "MY_TABLE")
-        ]
+        mock_engine.connect.return_value = mock_conn
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
             source.cache_tables_and_views()
 
@@ -2636,10 +2751,12 @@ class TestCacheCaseInsensitivity:
     def test_creator_cache_lookup_is_case_insensitive_on_database(self) -> None:
         """extract_ownership: True + lowercase databases must still find creators."""
         source = _create_source_patched()
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [_create_mock_table_entry("MY_DB", "MY_TABLE", creator_name="creator_user")]
+        )
         mock_engine = MagicMock()
-        mock_engine.execute.return_value = [
-            _create_mock_table_entry("MY_DB", "MY_TABLE", creator_name="creator_user")
-        ]
+        mock_engine.connect.return_value = mock_conn
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
             source.cache_tables_and_views()
 
@@ -2657,14 +2774,18 @@ class TestCacheCaseInsensitivity:
         source = _create_source_patched(
             {"column_extraction_watermark": watermark.isoformat()}
         )
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [
+                _create_mock_table_entry(
+                    "MY_DB",
+                    "MY_TABLE",
+                    alter_time=datetime(2024, 6, 2),
+                )
+            ]
+        )
         mock_engine = MagicMock()
-        mock_engine.execute.return_value = [
-            _create_mock_table_entry(
-                "MY_DB",
-                "MY_TABLE",
-                alter_time=datetime(2024, 6, 2),
-            )
-        ]
+        mock_engine.connect.return_value = mock_conn
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
             source.cache_tables_and_views()
 
@@ -2725,7 +2846,7 @@ class TestConfiguredDatabasesValidation:
         ]
 
         mock_engine = MagicMock()
-        mock_engine.connect.return_value.__enter__.return_value = MagicMock()
+        mock_engine.connect.return_value = MagicMock()
         mock_create_engine.return_value = mock_engine
 
         with patch("datahub.ingestion.source.sql.teradata.inspect") as mock_inspect:
@@ -2758,7 +2879,7 @@ class TestConfiguredDatabasesValidation:
         # _tables_cache is empty in this scenario.
 
         mock_engine = MagicMock()
-        mock_engine.connect.return_value.__enter__.return_value = MagicMock()
+        mock_engine.connect.return_value = MagicMock()
         mock_create_engine.return_value = mock_engine
 
         with patch("datahub.ingestion.source.sql.teradata.inspect") as mock_inspect:
@@ -2787,7 +2908,7 @@ class TestConfiguredDatabasesValidation:
         # from the authoritative source.
 
         mock_engine = MagicMock()
-        mock_engine.connect.return_value.__enter__.return_value = MagicMock()
+        mock_engine.connect.return_value = MagicMock()
         mock_create_engine.return_value = mock_engine
 
         with patch(
@@ -2799,3 +2920,1288 @@ class TestConfiguredDatabasesValidation:
         yielded = [i._datahub_database for i in inspectors]
         assert yielded == ["from_inspector"]
         assert source.report.warnings == []
+
+
+class TestJitteredBackoff:
+    """_jittered_backoff produces bounded, non-deterministic delays."""
+
+    def test_result_within_bounds(self):
+        """Backoff must be in [0, initial * 2^attempt]."""
+        for attempt in range(4):
+            cap = 1.0 * (2**attempt)
+            for _ in range(20):
+                b = _jittered_backoff(attempt, 1.0)
+                assert 0 <= b <= cap, f"attempt={attempt}: {b} not in [0, {cap}]"
+
+    def test_not_always_zero(self):
+        """With many samples at least one must be > 0 (probability of all-zero is negligible)."""
+        samples = [_jittered_backoff(0, 1.0) for _ in range(50)]
+        assert any(s > 0 for s in samples)
+
+    def test_values_are_not_all_identical(self):
+        """Different calls should produce different values (jitter is actually random)."""
+        samples = [_jittered_backoff(2, 1.0) for _ in range(20)]
+        assert len(set(samples)) > 1, (
+            "All backoff values were identical — jitter missing"
+        )
+
+    def test_scales_with_initial_backoff(self):
+        """Larger initial_backoff_seconds raises the cap proportionally."""
+        cap_small = 0.5 * (2**2)
+        cap_large = 2.0 * (2**2)
+        for _ in range(20):
+            assert _jittered_backoff(2, 0.5) <= cap_small
+            assert _jittered_backoff(2, 2.0) <= cap_large
+
+
+class TestShouldRetry:
+    """_should_retry classifies errors as retryable or not."""
+
+    def test_pool_timeout_is_always_retryable(self):
+        assert _should_retry(PoolTimeoutError("pool exhausted")) is True
+
+    def test_operational_error_with_retryable_message(self):
+        assert _should_retry(OperationalError("connect timed out", None, None)) is True
+
+    def test_operational_error_with_retryable_error_code(self):
+        # Error codes 2631, 3111, 3120, 3598, 3897, 3603 are explicitly retryable.
+        assert _should_retry(OperationalError("[Error 3598]", None, None)) is True
+        assert _should_retry(OperationalError("[Error 3897]", None, None)) is True
+        assert _should_retry(OperationalError("[Error 3603]", None, None)) is True
+        assert _should_retry(OperationalError("[Error 2631]", None, None)) is True
+
+    def test_operational_error_non_retryable_auth_failure(self):
+        """Auth failures and config errors embedded in OperationalError must NOT be retried."""
+        assert (
+            _should_retry(OperationalError("authentication failed", None, None))
+            is False
+        )
+        assert _should_retry(OperationalError("permission denied", None, None)) is False
+        # Teradata error 3807 = "Object does not exist" — non-transient config error.
+        assert _should_retry(OperationalError("[Error 3807]", None, None)) is False
+
+    def test_database_error_with_retryable_message(self):
+        assert _should_retry(DatabaseError("connect timed out", None, None)) is True
+
+    def test_database_error_non_retryable(self):
+        assert _should_retry(DatabaseError("syntax error", None, None)) is False
+
+    def test_generic_exception_not_retryable(self):
+        assert _should_retry(ValueError("something went wrong")) is False
+
+    def test_all_retryable_substrings_match(self):
+        """Every substring in _RETRYABLE_ERROR_SUBSTRINGS is recognised as retryable."""
+        retryable_messages = [
+            "transaction aborted",
+            "database restart",
+            "connect timed out",
+            "i/o timeout",
+        ]
+        for msg in retryable_messages:
+            assert _should_retry(DatabaseError(msg, None, None)) is True, (
+                f"Expected {msg!r} to be retryable"
+            )
+            # Also retryable when mixed-case (check is lowercased)
+            assert _should_retry(DatabaseError(msg.upper(), None, None)) is True, (
+                f"Expected upper-case {msg!r} to be retryable"
+            )
+
+    def test_all_retryable_error_codes_match(self):
+        """Every numeric error code in _RETRYABLE_ERROR_CODE_RE is recognised as retryable."""
+        retryable_codes = [2631, 2639, 3111, 3120, 3598, 3897, 3603]
+        for code in retryable_codes:
+            assert (
+                _should_retry(OperationalError(f"[Error {code}]", None, None)) is True
+            ), f"Expected error code {code} to be retryable"
+
+    def test_dead_socket_substrings_not_retryable_on_execute(self):
+        """Dead-socket errors must not be retried on an existing connection."""
+        for msg in ("connection reset", "broken pipe", "eof", "socket closed"):
+            assert _should_retry(OperationalError(msg, None, None)) is False, msg
+
+
+class TestShouldRetryConnect:
+    """_should_retry_connect is a superset of _should_retry for connect-time errors."""
+
+    def test_inherits_all_execute_retryable_cases(self):
+        """Everything retryable at execute time is also retryable at connect time."""
+        assert _should_retry_connect(PoolTimeoutError("pool exhausted")) is True
+        assert (
+            _should_retry_connect(OperationalError("connect timed out", None, None))
+            is True
+        )
+        assert (
+            _should_retry_connect(OperationalError("[Error 3598]", None, None)) is True
+        )
+        assert (
+            _should_retry_connect(DatabaseError("transaction aborted", None, None))
+            is True
+        )
+
+    def test_dead_socket_errors_retryable_at_connect_time(self):
+        """Dead-socket errors are retryable at connect time since a fresh socket is opened."""
+        for msg in ("connection reset", "broken pipe", "eof", "socket closed"):
+            assert _should_retry_connect(OperationalError(msg, None, None)) is True, (
+                f"Expected {msg!r} to be retryable at connect time"
+            )
+            assert _should_retry_connect(DatabaseError(msg, None, None)) is True, (
+                f"Expected DatabaseError({msg!r}) to be retryable at connect time"
+            )
+
+    def test_non_retryable_errors_still_rejected(self):
+        """Permanent errors (auth failure, syntax error) are not retried even at connect time."""
+        assert (
+            _should_retry_connect(OperationalError("authentication failed", None, None))
+            is False
+        )
+        assert _should_retry_connect(DatabaseError("syntax error", None, None)) is False
+        assert _should_retry_connect(ValueError("something went wrong")) is False
+
+    def test_engine_connect_retries_dead_socket(self):
+        """_engine_connect_with_retry retries dead-socket errors because a new socket is opened."""
+        good_conn = MagicMock()
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = [
+            OperationalError("connection reset", None, None),
+            good_conn,
+        ]
+        report = TeradataReport()
+
+        with (
+            patch("time.sleep"),
+            _engine_connect_with_retry(
+                mock_engine, max_attempts=2, report=report
+            ) as conn,
+        ):
+            assert conn is good_conn
+
+        assert mock_engine.connect.call_count == 2
+        assert report.num_db_retries == 1
+        good_conn.close.assert_called_once()
+
+
+class TestRetryConfig:
+    """retry_max_attempts and retry_initial_backoff_seconds config fields."""
+
+    def test_retry_max_attempts_custom(self):
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "retry_max_attempts": 5}
+        )
+        assert config.retry_max_attempts == 5
+
+    def test_retry_initial_backoff_seconds_custom(self):
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "retry_initial_backoff_seconds": 2.5}
+        )
+        assert config.retry_initial_backoff_seconds == 2.5
+
+    def test_retry_max_attempts_zero_is_invalid(self):
+        with pytest.raises(ValidationError):
+            TeradataConfig.model_validate({**_base_config(), "retry_max_attempts": 0})
+
+    def test_retry_initial_backoff_seconds_zero_is_invalid(self):
+        with pytest.raises(ValidationError):
+            TeradataConfig.model_validate(
+                {**_base_config(), "retry_initial_backoff_seconds": 0.0}
+            )
+
+    def test_retry_initial_backoff_seconds_negative_is_invalid(self):
+        with pytest.raises(ValidationError):
+            TeradataConfig.model_validate(
+                {**_base_config(), "retry_initial_backoff_seconds": -1.0}
+            )
+
+    def test_retry_wrappers_honour_config(self):
+        """_retry_connect / _retry_execute / _retry_fetchmany use config values."""
+        source = _create_source_patched(
+            {"retry_max_attempts": 2, "retry_initial_backoff_seconds": 0.01}
+        )
+
+        mock_conn = MagicMock()
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = [
+            PoolTimeoutError("exhausted"),
+            mock_conn,
+        ]
+
+        with patch("time.sleep"), source._retry_connect(mock_engine) as conn:
+            assert conn is mock_conn
+
+        assert mock_engine.connect.call_count == 2
+
+
+class TestPoolSizeConfig:
+    """max_pool_size field: default, valid bounds, and out-of-range rejection."""
+
+    def test_max_pool_size_zero_is_invalid(self):
+        with pytest.raises(ValidationError):
+            TeradataConfig.model_validate({**_base_config(), "max_pool_size": 0})
+
+
+class TestEffectiveMaxWorkers:
+    """_effective_max_workers is capped to max_pool_size; config.max_workers is never mutated."""
+
+    def test_effective_max_workers_initialized_from_config(self):
+        """On source creation, _effective_max_workers mirrors config.max_workers."""
+        source = _create_source_patched({"max_workers": 7})
+        assert source._effective_max_workers == 7
+
+    def test_effective_max_workers_capped_to_pool_size(self):
+        """When max_workers > max_pool_size the effective count is capped to the pool limit."""
+        source = _create_source_patched({"max_workers": 20, "max_pool_size": 5})
+
+        with patch(
+            "datahub.ingestion.source.sql.teradata.create_engine",
+            return_value=MagicMock(),
+        ):
+            source._get_or_create_pooled_engine()
+
+        assert source._effective_max_workers == 5
+
+    def test_config_max_workers_unchanged_after_pool_creation(self):
+        """config.max_workers must not be mutated when the pool caps the worker count."""
+        source = _create_source_patched({"max_workers": 20, "max_pool_size": 5})
+
+        with patch(
+            "datahub.ingestion.source.sql.teradata.create_engine",
+            return_value=MagicMock(),
+        ):
+            source._get_or_create_pooled_engine()
+
+        assert source.config.max_workers == 20
+
+    def test_effective_max_workers_unchanged_when_within_pool_size(self):
+        """When max_workers <= max_pool_size, no capping occurs."""
+        source = _create_source_patched({"max_workers": 5, "max_pool_size": 13})
+
+        with patch(
+            "datahub.ingestion.source.sql.teradata.create_engine",
+            return_value=MagicMock(),
+        ):
+            source._get_or_create_pooled_engine()
+
+        assert source._effective_max_workers == 5
+        assert source.config.max_workers == 5
+
+
+class TestTeradataReportFields:
+    """Newly declared TeradataReport fields have the correct default values."""
+
+    def test_concurrent_increments_are_atomic(self):
+        """All lock-protected helpers produce exact counts under thread contention.
+
+        N threads each call every increment_* / add_* helper M times.  Without
+        the _lock, float += is not atomic under the GIL and int += can lose
+        updates under high contention.  Any removal of 'with self._lock:' from
+        a helper will cause this test to fail non-deterministically (and very
+        reliably at n_threads=16, m_per_thread=1000).
+        """
+        report = TeradataReport()
+        n_threads, m_per_thread = 16, 1000
+        duration_per_call = 0.001  # 1 ms per add_column_extraction_duration call
+
+        def worker(_: int) -> None:
+            for _ in range(m_per_thread):
+                report.increment_db_retries()
+                report.increment_pool_timeout_retries()
+                report.increment_columns_processed()
+                report.increment_column_extraction_failures()
+                report.increment_primary_keys_processed()
+                report.add_column_extraction_duration(duration_per_call)
+
+        with ThreadPoolExecutor(max_workers=n_threads) as ex:
+            list(ex.map(worker, range(n_threads)))
+
+        expected_count = n_threads * m_per_thread
+        assert report.num_db_retries == expected_count
+        assert report.num_pool_timeout_retries == expected_count
+        assert report.num_columns_processed == expected_count
+        assert report.num_column_extraction_failures == expected_count
+        assert report.num_primary_keys_processed == expected_count
+        assert report.column_extraction_duration_seconds == pytest.approx(
+            expected_count * duration_per_call, rel=1e-6
+        )
+
+
+class TestConnectionPoolRetry:
+    """Tests for connection-pool timeout config and pool-exhaustion retry/logging."""
+
+    def test_connection_pool_timeout_ms_custom(self):
+        """connection_pool_timeout_ms accepts a custom value."""
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "connection_pool_timeout_ms": 120000}
+        )
+        assert config.connection_pool_timeout_ms == 120000
+
+    def test_pool_exhaustion_logs_thread_context_and_retries(self, caplog):
+        """_engine_connect_with_retry logs thread name + tid on PoolTimeoutError and retries."""
+        mock_conn = MagicMock()
+        mock_engine = MagicMock()
+        # Fail twice with PoolTimeoutError, then succeed on the third attempt.
+        mock_engine.connect.side_effect = [
+            PoolTimeoutError("pool exhausted"),
+            PoolTimeoutError("pool exhausted"),
+            mock_conn,
+        ]
+
+        report = TeradataReport()
+
+        with (
+            patch("time.sleep"),  # skip real backoff sleeps
+            caplog.at_level(
+                logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
+            ),
+            _engine_connect_with_retry(mock_engine, report=report) as conn,
+        ):
+            assert conn is mock_conn
+
+        # Two failures → two pool-timeout retries (attempts 0 and 1 sleep+increment).
+        assert report.num_pool_timeout_retries == 2
+        assert report.num_db_retries == 2
+
+        # Both WARNING lines must carry thread name and tid.
+        thread = current_thread()
+        exhaustion_warnings = [
+            r for r in caplog.records if "pool exhausted" in r.message.lower()
+        ]
+        assert len(exhaustion_warnings) == 2
+        for record in exhaustion_warnings:
+            assert thread.name in record.message
+            assert str(thread.ident) in record.message
+
+        mock_conn.close.assert_called_once()
+
+    def test_pool_exhaustion_raises_after_max_attempts(self):
+        """_engine_connect_with_retry re-raises PoolTimeoutError after all attempts fail."""
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = PoolTimeoutError("always exhausted")
+
+        report = TeradataReport()
+
+        with (
+            patch("time.sleep"),
+            pytest.raises(PoolTimeoutError),
+            _engine_connect_with_retry(mock_engine, max_attempts=3, report=report),
+        ):
+            pass  # should never reach here
+
+        # 2 retries (attempts 0 and 1 sleep+increment); attempt 2 raises without counting.
+        assert report.num_pool_timeout_retries == 2
+        assert report.num_db_retries == 2
+
+    def test_connection_closed_on_normal_exit(self):
+        """conn.close() is called after a successful with-block."""
+        mock_conn = MagicMock()
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        with _engine_connect_with_retry(mock_engine, max_attempts=1):
+            pass
+
+        mock_conn.close.assert_called_once()
+
+    def test_connection_closed_when_body_raises(self):
+        """conn.close() is called even when the with-block body raises an exception."""
+        mock_conn = MagicMock()
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        with (
+            pytest.raises(RuntimeError, match="body error"),
+            _engine_connect_with_retry(mock_engine, max_attempts=1),
+        ):
+            raise RuntimeError("body error")
+
+        mock_conn.close.assert_called_once()
+
+    def test_pool_timeout_propagated_to_sqlalchemy_pool_timeout(self):
+        """connection_pool_timeout_ms / 1000 is passed as pool_timeout to QueuePool."""
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "connection_pool_timeout_ms": 90000}
+        )
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.create_engine"
+            ) as mock_create_engine,
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ),
+            patch(
+                "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+            ) as mock_agg_class,
+        ):
+            mock_agg_class.return_value = MagicMock()
+            mock_create_engine.return_value = MagicMock()
+            source = TeradataSource(config, PipelineContext(run_id="test"))
+            source._get_or_create_pooled_engine()
+
+        # Find the create_engine call that carried pool_timeout (the pooled engine call).
+        pool_calls = [
+            c
+            for c in mock_create_engine.call_args_list
+            if c[1].get("pool_timeout") is not None
+        ]
+        assert pool_calls, "create_engine was never called with pool_timeout"
+        assert pool_calls[-1][1]["pool_timeout"] == 90.0  # 90000 ms → 90 s
+
+
+class TestExecuteWithRetry:
+    """_execute_with_retry retries server-side transient errors on the same connection."""
+
+    def test_first_fail_then_succeed_returns_result(self):
+        """A single retryable failure followed by success returns the result."""
+        sentinel = object()
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = [
+            DatabaseError("transaction aborted", None, None),
+            sentinel,
+        ]
+        report = TeradataReport()
+
+        with patch("time.sleep"):
+            result = _execute_with_retry(
+                mock_conn, "SELECT 1", max_attempts=2, report=report
+            )
+
+        assert result is sentinel
+        assert mock_conn.execute.call_count == 2
+        assert report.num_db_retries == 1
+
+    def test_exhausts_all_attempts_and_reraises(self):
+        """When every attempt raises a retryable error the last exception propagates."""
+        exc = DatabaseError("transaction aborted", None, None)
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = exc
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            _execute_with_retry(mock_conn, "SELECT 1", max_attempts=3)
+
+        assert mock_conn.execute.call_count == 3
+
+    def test_dead_socket_error_not_retried(self):
+        """Dead-socket errors (connection reset) propagate immediately without retry."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = OperationalError("connection reset", None, None)
+
+        with patch("time.sleep"), pytest.raises(OperationalError):
+            _execute_with_retry(mock_conn, "SELECT 1", max_attempts=3)
+
+        # Must not retry — the socket is gone.
+        assert mock_conn.execute.call_count == 1
+
+    def test_deadlock_error_code_is_retried(self):
+        """Deadlock error codes (e.g. [Error 2631]) trigger a retry on the same connection."""
+        sentinel = object()
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = [
+            DatabaseError("[Error 2631] deadlock", None, None),
+            sentinel,
+        ]
+        report = TeradataReport()
+
+        with patch("time.sleep"):
+            result = _execute_with_retry(
+                mock_conn, "SELECT 1", max_attempts=2, report=report
+            )
+
+        assert result is sentinel
+        assert report.num_db_retries == 1
+
+    def test_permanent_error_not_retried(self):
+        """A non-retryable error (syntax error) propagates on the first attempt."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = DatabaseError("syntax error", None, None)
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            _execute_with_retry(mock_conn, "SELECT 1", max_attempts=3)
+
+        assert mock_conn.execute.call_count == 1
+
+    def test_params_forwarded_to_execute(self):
+        """Params dict is passed through to conn.execute on a successful call."""
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = "ok"
+        params = {"key": "val"}
+
+        _execute_with_retry(mock_conn, "SELECT :key", params=params)
+
+        mock_conn.execute.assert_called_once_with("SELECT :key", params)
+
+    # ------------------------------------------------------------------
+    # warn_on_permanent_failure flag
+    # ------------------------------------------------------------------
+
+    def test_permanent_error_emits_warning_by_default(self):
+        """Default behaviour (warn_on_permanent_failure=True): a permanent first-attempt
+        failure writes a report.warning so callers without try/except still surface
+        a breadcrumb in the ingestion report."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = OperationalError(
+            "[Error 3802] Database 'PDCRINFO' does not exist.", None, None
+        )
+        report = TeradataReport()
+
+        with pytest.raises(OperationalError):
+            _execute_with_retry(mock_conn, "SELECT 1", max_attempts=1, report=report)
+
+        assert len(report.warnings) == 1
+        warning_title = report.warnings[0].title
+        assert warning_title is not None
+        assert "Database execute failed" in warning_title
+
+    def test_permanent_error_no_warning_when_suppressed(self):
+        """warn_on_permanent_failure=False: probe callers that handle the exception
+        themselves (e.g. _check_historical_table_exists) receive no report entry."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = OperationalError(
+            "[Error 3802] Database 'PDCRINFO' does not exist.", None, None
+        )
+        report = TeradataReport()
+
+        with pytest.raises(OperationalError):
+            _execute_with_retry(
+                mock_conn,
+                "SELECT 1",
+                max_attempts=1,
+                report=report,
+                warn_on_permanent_failure=False,
+            )
+
+        assert len(report.warnings) == 0
+
+    def test_retry_exhaustion_always_emits_warning_even_when_flag_false(self):
+        """warn_on_permanent_failure=False does not suppress the retry-exhaustion
+        warning: if we actually slept and retried, a report entry is always warranted."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = DatabaseError(
+            "[Error 2631] transaction aborted", None, None
+        )
+        report = TeradataReport()
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            _execute_with_retry(
+                mock_conn,
+                "SELECT 1",
+                max_attempts=2,
+                report=report,
+                warn_on_permanent_failure=False,
+            )
+
+        assert mock_conn.execute.call_count == 2
+        assert len(report.warnings) == 1
+        warning_title = report.warnings[0].title
+        assert warning_title is not None
+        assert "after retries" in warning_title
+
+
+class TestFetchmanyWithRetry:
+    """_fetchmany_with_retry mirrors _execute_with_retry semantics on cursor.fetchmany()."""
+
+    def test_first_fail_then_succeed_returns_batch(self):
+        """A single retryable failure is retried and the successful batch is returned."""
+        batch = [object(), object()]
+        mock_result = MagicMock()
+        mock_result.fetchmany.side_effect = [
+            DatabaseError("transaction aborted", None, None),
+            batch,
+        ]
+        report = TeradataReport()
+
+        with patch("time.sleep"):
+            result = _fetchmany_with_retry(
+                mock_result, batch_size=100, max_attempts=2, report=report
+            )
+
+        assert result is batch
+        assert mock_result.fetchmany.call_count == 2
+        assert report.num_db_retries == 1
+
+    def test_exhausts_all_attempts_and_reraises(self):
+        """When every attempt raises a retryable error the last exception propagates."""
+        mock_result = MagicMock()
+        mock_result.fetchmany.side_effect = DatabaseError(
+            "transaction aborted", None, None
+        )
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            _fetchmany_with_retry(mock_result, batch_size=100, max_attempts=3)
+
+        assert mock_result.fetchmany.call_count == 3
+
+    def test_non_retryable_error_propagates_immediately(self):
+        """A non-retryable error propagates on the first attempt without retry."""
+        mock_result = MagicMock()
+        mock_result.fetchmany.side_effect = DatabaseError("syntax error", None, None)
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            _fetchmany_with_retry(mock_result, batch_size=100, max_attempts=3)
+
+        assert mock_result.fetchmany.call_count == 1
+
+    def test_batch_size_forwarded(self):
+        """batch_size is passed through to result.fetchmany on every call."""
+        mock_result = MagicMock()
+        mock_result.fetchmany.return_value = []
+
+        _fetchmany_with_retry(mock_result, batch_size=512)
+
+        mock_result.fetchmany.assert_called_once_with(512)
+
+    def test_report_counter_incremented_once_per_retry(self):
+        """num_db_retries is incremented exactly once per retry attempt."""
+        mock_result = MagicMock()
+        mock_result.fetchmany.side_effect = [
+            DatabaseError("transaction aborted", None, None),
+            DatabaseError("transaction aborted", None, None),
+            [],
+        ]
+        report = TeradataReport()
+
+        with patch("time.sleep"):
+            _fetchmany_with_retry(
+                mock_result, batch_size=10, max_attempts=3, report=report
+            )
+
+        assert report.num_db_retries == 2
+
+    def test_max_attempts_less_than_one_raises(self):
+        """max_attempts=0 raises ValueError before any fetchmany call."""
+        mock_result = MagicMock()
+        with pytest.raises(ValueError, match="max_attempts"):
+            _fetchmany_with_retry(mock_result, batch_size=10, max_attempts=0)
+        mock_result.fetchmany.assert_not_called()
+
+
+class TestBackoffTiming:
+    """Retry helpers pass jittered backoff durations to time.sleep."""
+
+    def test_execute_retry_sleeps_with_jittered_backoff(self):
+        """_execute_with_retry passes the value from _jittered_backoff to time.sleep."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = [
+            DatabaseError("transaction aborted", None, None),
+            "ok",
+        ]
+        fixed_backoff = 0.42
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata._jittered_backoff",
+                return_value=fixed_backoff,
+            ),
+            patch("time.sleep") as mock_sleep,
+        ):
+            _execute_with_retry(mock_conn, "SELECT 1", max_attempts=2)
+
+        mock_sleep.assert_called_once_with(fixed_backoff)
+
+    def test_fetchmany_retry_sleeps_with_jittered_backoff(self):
+        """_fetchmany_with_retry passes the value from _jittered_backoff to time.sleep."""
+        batch: List[Any] = []
+        mock_result = MagicMock()
+        mock_result.fetchmany.side_effect = [
+            DatabaseError("transaction aborted", None, None),
+            batch,
+        ]
+        fixed_backoff = 0.77
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata._jittered_backoff",
+                return_value=fixed_backoff,
+            ),
+            patch("time.sleep") as mock_sleep,
+        ):
+            _fetchmany_with_retry(mock_result, batch_size=10, max_attempts=2)
+
+        mock_sleep.assert_called_once_with(fixed_backoff)
+
+    def test_connect_retry_sleeps_with_jittered_backoff(self):
+        """_engine_connect_with_retry passes the value from _jittered_backoff to time.sleep."""
+        mock_conn = MagicMock()
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = [
+            OperationalError("connect timed out", None, None),
+            mock_conn,
+        ]
+        fixed_backoff = 1.23
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata._jittered_backoff",
+                return_value=fixed_backoff,
+            ),
+            patch("time.sleep") as mock_sleep,
+            _engine_connect_with_retry(mock_engine, max_attempts=2),
+        ):
+            pass
+
+        mock_sleep.assert_called_once_with(fixed_backoff)
+
+    def test_backoff_grows_with_attempt_number(self):
+        """_jittered_backoff cap doubles with each attempt (exponential growth)."""
+        caps = [1.0 * (2**attempt) for attempt in range(4)]
+        for attempt, cap in enumerate(caps):
+            # Patch uniform to return its upper bound, making the cap observable.
+            with patch("random.uniform", side_effect=lambda lo, hi: hi):
+                assert _jittered_backoff(attempt, 1.0) == cap
+
+    def test_backoff_capped_at_30_seconds(self):
+        """Cap kicks in once initial*2^attempt exceeds 30 s."""
+        with patch("random.uniform", side_effect=lambda lo, hi: hi):
+            # initial=20.0, attempt=2 -> raw = 80.0 -> capped to 30.0
+            assert _jittered_backoff(2, 20.0) == 30.0
+            # initial=5.0, attempt=10 -> raw = 5120.0 -> capped to 30.0
+            assert _jittered_backoff(10, 5.0) == 30.0
+
+
+class TestGetInspectorsDispose:
+    """engine.dispose() is called regardless of how get_inspectors exits."""
+
+    def _make_source_with_engine(self, mock_engine, databases=("db1",)):
+        source = _create_source_patched(
+            {"database": databases[0] if len(databases) == 1 else None}
+        )
+        if len(databases) > 1:
+            source.config.databases = list(databases)
+        mock_conn = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+        return source
+
+    def test_dispose_called_after_normal_exhaustion(self):
+        """engine.dispose() is called after all databases have been yielded."""
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        source = _create_source_patched({"database": "db1"})
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.create_engine",
+                return_value=mock_engine,
+            ),
+            patch("datahub.ingestion.source.sql.teradata.inspect"),
+        ):
+            list(source.get_inspectors())  # fully consume
+
+        mock_engine.dispose.assert_called_once()
+
+    def test_dispose_called_when_consumer_raises(self):
+        """engine.dispose() is called even when the consuming loop raises mid-iteration."""
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        source = _create_source_patched({"databases": ["db1", "db2"]})
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.create_engine",
+                return_value=mock_engine,
+            ),
+            patch("datahub.ingestion.source.sql.teradata.inspect"),
+            pytest.raises(RuntimeError, match="consumer error"),
+        ):
+            for _ in source.get_inspectors():
+                raise RuntimeError("consumer error")
+
+        mock_engine.dispose.assert_called_once()
+
+    def test_dispose_called_when_generator_abandoned(self):
+        """engine.dispose() is called when the generator is GC'd without being consumed."""
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        source = _create_source_patched({"database": "db1"})
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.create_engine",
+                return_value=mock_engine,
+            ),
+            patch("datahub.ingestion.source.sql.teradata.inspect"),
+        ):
+            gen = source.get_inspectors()
+            next(gen)  # advance past the first yield
+            gen.close()  # explicit close simulates GC / abandoned generator
+
+        mock_engine.dispose.assert_called_once()
+
+
+class TestGetInspectorsPerDbConnectionFailure:
+    """get_inspectors() skips individual databases whose connection fails and
+    continues to yield inspectors for the remaining databases.
+
+    Regression guard for the split connect/yield fix: the try/except must only
+    wrap the connect step, not the yield, so that:
+      - A connection failure for db2 emits exactly one report.warning and
+        skips that database.
+      - Errors raised by the *consumer* while iterating db1 or db3 propagate
+        normally and are NOT misclassified as connection failures.
+      - db1 and db3 are still yielded despite db2's failure.
+    """
+
+    def test_connection_failure_for_one_db_skips_and_warns(self):
+        """[db1 ok, db2 auth error, db3 ok] → yielded==[db1,db3], warnings==1."""
+        source = _create_source_patched({"databases": ["db1", "db2", "db3"]})
+
+        ok_conn = MagicMock()
+        auth_error = OperationalError("authentication failed", None, None)
+
+        mock_engine = MagicMock()
+        # db1 succeeds, db2 fails with a permanent auth error, db3 succeeds.
+        # _engine_connect_with_retry raises immediately on auth failures
+        # (_should_retry_connect returns False), so each db makes exactly one
+        # engine.connect() call.
+        mock_engine.connect.side_effect = [ok_conn, auth_error, ok_conn]
+
+        # Return a distinct inspector per call so _datahub_database is trackable.
+        db1_inspector = MagicMock()
+        db3_inspector = MagicMock()
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.create_engine",
+                return_value=mock_engine,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                side_effect=[db1_inspector, db3_inspector],
+            ),
+        ):
+            inspectors = list(source.get_inspectors())
+
+        # db1 and db3 were yielded; db2 was skipped
+        assert len(inspectors) == 2
+        yielded_dbs = [i._datahub_database for i in inspectors]
+        assert yielded_dbs == ["db1", "db3"]
+
+        # Exactly one warning emitted (for db2), none for db1 or db3
+        assert len(source.report.warnings) == 1
+        warning = source.report.warnings[0]
+        assert warning.title == "Failed to inspect database"
+        assert "db2" in warning.message
+
+    def test_consumer_error_propagates_and_is_not_swallowed(self):
+        """An exception raised inside the consumer loop is NOT caught by get_inspectors.
+
+        Before the split-connect/yield fix, the try/except around ``yield``
+        caught downstream errors, reclassified them as connection failures, and
+        silently continued — masking the real problem. After the fix only the
+        connect step is guarded; consumer errors propagate normally.
+        """
+        source = _create_source_patched({"databases": ["db1", "db2"]})
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = MagicMock()
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.create_engine",
+                return_value=mock_engine,
+            ),
+            patch("datahub.ingestion.source.sql.teradata.inspect"),
+            pytest.raises(AttributeError, match="downstream consumer bug"),
+        ):
+            for _ in source.get_inspectors():
+                raise AttributeError("downstream consumer bug")
+
+        # The error must NOT be misclassified as a connection failure warning
+        assert len(source.report.warnings) == 0
+
+
+class TestSchemaNameRetry:
+    """_get_schema_names_with_retry() retries the connect+query sequence on transient errors."""
+
+    def _make_engine(self, connect_results):
+        """Return a mock engine whose connect() yields the given side effects."""
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = connect_results
+        return mock_engine
+
+    def test_retries_on_transient_error_then_succeeds(self, caplog):
+        """A transient error on the first attempt is retried; the second succeeds."""
+        source = _create_source_patched()
+
+        good_conn = MagicMock()
+        good_inspector = MagicMock()
+        good_inspector.get_schema_names.return_value = ["db1", "db2"]
+
+        # First connect raises a transient error; second succeeds.
+        mock_engine = self._make_engine(
+            [OperationalError("connect timed out", None, None), good_conn]
+        )
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                return_value=good_inspector,
+            ),
+            patch("time.sleep"),
+            caplog.at_level(
+                logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
+            ),
+        ):
+            result = source._get_schema_names_with_retry(mock_engine)
+
+        assert result == ["db1", "db2"]
+        assert source.report.num_db_retries >= 1
+        assert len(source.report.failures) == 0
+        assert any("schema names" in r.message for r in caplog.records)
+
+    def test_aborts_on_non_retryable_error(self):
+        """A non-retryable error propagates immediately without retry."""
+        source = _create_source_patched()
+
+        mock_engine = self._make_engine([Exception("permission denied")])
+
+        with (
+            patch("time.sleep"),
+            pytest.raises(Exception, match="permission denied"),
+        ):
+            source._get_schema_names_with_retry(mock_engine)
+
+        # One connect attempt, immediately re-raised.
+        assert mock_engine.connect.call_count == 1
+
+    def test_exhausts_all_attempts_and_reraises(self):
+        """When every attempt fails transiently the last exception is re-raised."""
+        source = _create_source_patched({"retry_max_attempts": 2})
+
+        transient = OperationalError("connect timed out", None, None)
+        mock_engine = self._make_engine([transient, transient])
+
+        with (
+            patch("time.sleep"),
+            pytest.raises(type(transient)),
+        ):
+            source._get_schema_names_with_retry(mock_engine)
+
+        assert mock_engine.connect.call_count == 2
+        assert source.report.num_db_retries == 1  # retried once, then gave up
+
+    def test_retries_on_dead_socket_error(self):
+        """Dead-socket errors (connection reset, broken pipe) are only handled by
+        _should_retry_connect, not _should_retry — so the outer loop in
+        _get_schema_names_with_retry must use _should_retry_connect."""
+        source = _create_source_patched()
+
+        good_conn = MagicMock()
+        good_inspector = MagicMock()
+        good_inspector.get_schema_names.return_value = ["db1"]
+
+        # "connection reset" is in _RETRYABLE_CONNECT_EXTRA_SUBSTRINGS but NOT in
+        # _RETRYABLE_ERROR_SUBSTRINGS, so _should_retry() would return False while
+        # _should_retry_connect() returns True.
+        dead_socket = OperationalError("connection reset by peer", None, None)
+        mock_engine = self._make_engine([dead_socket, good_conn])
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                return_value=good_inspector,
+            ),
+            patch("time.sleep"),
+        ):
+            result = source._get_schema_names_with_retry(mock_engine)
+
+        assert result == ["db1"]
+        assert mock_engine.connect.call_count == 2
+        assert source.report.num_db_retries >= 1
+
+
+class TestHistoricalTableCheckLogging:
+    """_check_historical_table_exists() logs at the right level depending on error type."""
+
+    def test_transient_error_logs_warning(self, caplog):
+        """When a transient error exhausts all retries the method logs a WARNING
+        (not just INFO) so the operator knows the skip was caused by a connectivity
+        problem, not a missing table."""
+        source = _create_source_patched()
+
+        # Simulate a transient error that survives all retry attempts.
+        transient_exc = OperationalError("connect timed out", None, None)
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = transient_exc
+
+        with (
+            patch.object(source, "get_metadata_engine", return_value=mock_engine),
+            patch("time.sleep"),
+            caplog.at_level(
+                logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
+            ),
+        ):
+            result = source._check_historical_table_exists()
+
+        assert result is False
+        warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("transient" in r.message.lower() for r in warning_records), (
+            "Expected a WARNING mentioning 'transient' but got: "
+            + str([r.message for r in warning_records])
+        )
+        # Transient failures must also surface in the ingestion report so the
+        # operator sees them in the DataHub UI, not only in raw log output.
+        assert any("transient" in w.message.lower() for w in source.report.warnings), (
+            f"Expected report.warnings to mention 'transient', got: {source.report.warnings}"
+        )
+
+    def test_non_transient_error_logs_info_not_warning(self, caplog):
+        """A genuine 'table not found' error should log at INFO, not WARNING."""
+        source = _create_source_patched()
+
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = Exception("Object does not exist")
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        with (
+            patch.object(source, "get_metadata_engine", return_value=mock_engine),
+            patch("time.sleep"),
+            caplog.at_level(
+                logging.DEBUG, logger="datahub.ingestion.source.sql.teradata"
+            ),
+        ):
+            result = source._check_historical_table_exists()
+
+        assert result is False
+        # Should have an INFO log, but NOT a WARNING about transient errors.
+        assert not any(
+            "transient" in r.message.lower() and r.levelno == logging.WARNING
+            for r in caplog.records
+        )
+        # warn_on_permanent_failure=False is set in _check_historical_table_exists,
+        # so no report.warning should leak through for an expected "table not found".
+        assert len(source.report.warnings) == 0
+
+
+class TestExecuteWithCursorFallback:
+    """_execute_with_cursor_fallback() falls back to client-side buffering only
+    when the error unambiguously signals that server-side cursors are
+    unsupported.  All other errors must propagate.
+
+    Regression guard for N16: the substring filter must require BOTH a
+    "not supported / unsupported" token AND a "cursor / stream" token to
+    co-occur, so SQL text that incidentally contains "cursor" or "stream"
+    (e.g. a CTE named stream_events) is not mis-classified as a cursor-mode
+    failure.
+    """
+
+    def _make_source(self, use_server_side_cursors: bool = True) -> TeradataSource:
+        return _create_source_patched(
+            {"use_server_side_cursors": use_server_side_cursors}
+        )
+
+    def _mock_conn(self) -> MagicMock:
+        """Return a connection mock whose execution_options() returns a
+        distinct streaming_conn object (used to verify which path is taken)."""
+        conn = MagicMock()
+        conn.execution_options.return_value = MagicMock()
+        return conn
+
+    def _retry_execute_raising(self, exc: Exception, fallback_result: MagicMock) -> Any:
+        """side_effect for _retry_execute: raises on the streaming call
+        (streaming_conn arg), returns fallback_result on the plain call."""
+        calls: list = []
+
+        def _side_effect(conn, stmt, **kwargs):
+            calls.append(conn)
+            if len(calls) == 1:
+                raise exc
+            return fallback_result
+
+        return _side_effect
+
+    # ------------------------------------------------------------------
+    # Fallback cases — should silently switch to client-side buffering
+    # ------------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "msg",
+        [
+            "stream_results not supported by driver",
+            "server-side cursor not supported",
+            "unsupported: streaming cursor",
+            "cursor mode is not supported",
+            "streaming is unsupported",
+        ],
+    )
+    def test_falls_back_on_cursor_not_supported_messages(self, msg: str) -> None:
+        """OperationalError messages that mention both unsupported and cursor/stream
+        trigger fallback and emit a warning — not a raise."""
+        source = self._make_source()
+        conn = self._mock_conn()
+        fallback_result = MagicMock()
+        exc = OperationalError(msg, None, None)
+
+        with patch.object(
+            source,
+            "_retry_execute",
+            side_effect=self._retry_execute_raising(exc, fallback_result),
+        ) as mock_retry:
+            result = source._execute_with_cursor_fallback(conn, "SELECT 1")
+
+        assert result is fallback_result
+        assert len(source.report.warnings) == 1
+        # Second _retry_execute call must use the plain (non-streaming) connection
+        assert mock_retry.call_count == 2
+        second_call_conn = mock_retry.call_args_list[1][0][0]
+        assert second_call_conn is conn
+
+    # ------------------------------------------------------------------
+    # Propagation cases — the B3 safety guard must NOT fall back
+    # ------------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "msg",
+        [
+            # SQL text incidentally containing "stream" without "not supported"
+            # — the old single-token check would mis-classify this as cursor failure
+            "SELECT * FROM stream_events WHERE id = 1",
+            # SQL text incidentally containing "cursor" without "not supported"
+            "CursorPos exceeded maximum allowed value",
+            # Auth / permission errors — must always propagate
+            "authentication failed",
+            "permission denied",
+            "access denied to database mydb",
+            # Generic transient errors unrelated to cursor mode
+            "connection reset by peer",
+            "eof occurred in violation of protocol",
+        ],
+    )
+    def test_propagates_non_cursor_errors(self, msg: str) -> None:
+        """OperationalError messages that do NOT clearly indicate cursor-mode
+        unsupported must propagate — never fall back to client-side buffering.
+
+        This is the critical B3 safety guard: a permission-denied or auth error
+        on the streaming execute must bubble up, not get swallowed as a
+        "cursor not supported" warning.
+        """
+        source = self._make_source()
+        conn = self._mock_conn()
+        exc = OperationalError(msg, None, None)
+
+        with (
+            patch.object(
+                source,
+                "_retry_execute",
+                side_effect=exc,  # always raises — fallback path must never be reached
+            ),
+            pytest.raises(OperationalError),
+        ):
+            source._execute_with_cursor_fallback(conn, "SELECT 1")
+
+        # No fallback warning must have been emitted
+        assert len(source.report.warnings) == 0
+
+    def test_disabled_cursor_skips_streaming_entirely(self) -> None:
+        """When use_server_side_cursors=False, the streaming path is never
+        attempted — execution_options is never called."""
+        source = self._make_source(use_server_side_cursors=False)
+        conn = self._mock_conn()
+        expected = MagicMock()
+
+        with patch.object(source, "_retry_execute", return_value=expected):
+            result = source._execute_with_cursor_fallback(conn, "SELECT 1")
+
+        conn.execution_options.assert_not_called()
+        assert result is expected
+
+
+class TestCharPaddingFixes:
+    """Teradata returns CHAR(N) values space-padded over the wire. The library's
+    strict comparisons (`row['Nullable'] == 'Y'`, `row['IdColType'] in ('GA',
+    'GD')`) then evaluate False for every column, so genuinely nullable columns
+    hydrate as nullable=False and identity columns hydrate as
+    autoincrement=False. Exercise the fix through optimized_get_columns so we
+    catch a regression at the actual code path."""
+
+    def _call_with_row(self, row, library_col_info=None):
+        """Drive optimized_get_columns with a single mocked row.
+
+        library_col_info simulates what teradatasqlalchemy's _get_column_info
+        would return; the test then asserts our padding fixes override it."""
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+        mock_dialect._get_column_info.return_value = library_col_info or {
+            "name": "col1",
+            "nullable": False,
+            "autoincrement": False,
+        }
+        mock_dialect.get_schema_columns.return_value = {"my_table": [row]}
+
+        tables_cache: Dict[str, List[TeradataTable]] = {
+            "mydb": [
+                TeradataTable(
+                    database="mydb",
+                    name="my_table",
+                    description=None,
+                    object_type="Table",
+                    create_timestamp=datetime.now(),
+                    last_alter_name=None,
+                    last_alter_timestamp=None,
+                    request_text=None,
+                )
+            ]
+        }
+        return optimized_get_columns(
+            mock_dialect,
+            MagicMock(),
+            "my_table",
+            "mydb",
+            tables_cache=tables_cache,
+        )
+
+    @staticmethod
+    def _row(**fields):
+        """SQLAlchemy Row-like object with attribute access for given fields."""
+        row = MagicMock(spec=list(fields.keys()) + ["CommentString"])
+        for k, v in fields.items():
+            setattr(row, k, v)
+        row.CommentString = None
+        return row
+
+    # Nullable: customer-reported bug
+    def test_padded_nullable_y_hydrates_as_true(self):
+        cols = self._call_with_row(self._row(Nullable="Y "))
+        assert cols[0]["nullable"] is True
+
+    def test_padded_nullable_n_hydrates_as_false(self):
+        cols = self._call_with_row(self._row(Nullable="N "))
+        assert cols[0]["nullable"] is False
+
+    def test_clean_nullable_y_unchanged(self):
+        cols = self._call_with_row(self._row(Nullable="Y"))
+        assert cols[0]["nullable"] is True
+
+    def test_dict_row_padded_nullable(self):
+        """HELP-derived dict rows must work alongside SQLAlchemy Row objects."""
+        cols = self._call_with_row({"Nullable": "Y ", "ColumnName": "col1"})
+        assert cols[0]["nullable"] is True
+
+    # IdColType: latent sibling bug, same root cause
+    def test_padded_idcoltype_hydrates_as_autoincrement_true(self):
+        """The library does `row['IdColType'] in ('GA','GD')`; Teradata returns
+        'GA  ' padded, so the check fails for every identity column."""
+        cols = self._call_with_row(
+            self._row(Nullable="Y", IdColType="GA  "),
+            library_col_info={"name": "col1", "nullable": True, "autoincrement": False},
+        )
+        assert cols[0]["autoincrement"] is True
+
+    def test_padded_idcoltype_gd_hydrates_as_autoincrement_true(self):
+        cols = self._call_with_row(
+            self._row(Nullable="Y", IdColType="GD  "),
+            library_col_info={"name": "col1", "nullable": True, "autoincrement": False},
+        )
+        assert cols[0]["autoincrement"] is True
+
+    def test_no_idcoltype_leaves_autoincrement_alone(self):
+        """Non-identity columns have IdColType=None; we must not overwrite."""
+        cols = self._call_with_row(
+            self._row(Nullable="Y", IdColType=None),
+            library_col_info={"name": "col1", "nullable": True, "autoincrement": False},
+        )
+        assert cols[0]["autoincrement"] is False

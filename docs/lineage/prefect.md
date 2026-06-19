@@ -35,6 +35,30 @@ Blocks in Prefect are primitives that enable the storage of configuration and pr
    - Prefect Cloud: `https://api.prefect.cloud/api/accounts/<account_id>/workspaces/<workspace_id>`
    - Self-hosted: `http://<host>:<port>/api`
 
+## Upgrading from Prefect v2
+
+`prefect-datahub` ≥ 1.0.0 requires **Prefect v3** and contains two breaking changes for existing users.
+
+**Module path changed.** The emitter moved from `prefect_datahub.prefect_datahub` to `prefect_datahub.datahub_emitter`. Update any direct imports:
+
+```python
+# Before (Prefect v2)
+from prefect_datahub.prefect_datahub import DatahubEmitter
+
+# After (Prefect v3)
+from prefect_datahub.datahub_emitter import DatahubEmitter
+```
+
+**Saved blocks must be re-registered.** Blocks previously saved to Prefect Cloud or a self-hosted server under the old entry point (`prefect_datahub.prefect_datahub:DatahubEmitter`) will fail to load after the upgrade because that module no longer exists. Re-register by running `.save()` again:
+
+```python
+from prefect_datahub.datahub_emitter import DatahubEmitter
+
+DatahubEmitter(datahub_rest_url="...", env="PROD").save("MY-DATAHUB-BLOCK", overwrite=True)
+```
+
+In Prefect v3, block types are discovered automatically when the collection package is imported — the entry point no longer needs to reference the class explicitly.
+
 ## Setup Instructions
 
 ### 1. Installation
@@ -45,7 +69,7 @@ Install `prefect-datahub` using pip:
 pip install 'prefect-datahub'
 ```
 
-Note: Requires Python 3.10+
+Note: Requires Python 3.10+ and Prefect 3.x (`>=3.0.0,<4.0.0`). Prefect 2.x is not supported. If you are upgrading from Prefect 2.x, upgrade Prefect first and re-register the DataHub block (see [Upgrading from Prefect v2](#upgrading-from-prefect-v2)).
 
 ### 2. Saving Configurations to a Block
 

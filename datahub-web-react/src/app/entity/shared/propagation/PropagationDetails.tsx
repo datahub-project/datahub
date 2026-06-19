@@ -1,6 +1,7 @@
 import { Popover } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import { Trans, useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import PropagationEntityLink from '@app/entity/shared/propagation/PropagationEntityLink';
 import { PropagateThunderbolt, PropagateThunderboltFilled } from '@app/entity/shared/propagation/PropagationIcon';
@@ -17,13 +18,13 @@ const PopoverTitle = styled.div`
     font-weight: bold;
     font-size: 14px;
     padding: 6px 0px;
-    color: #eeecfa;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
 `;
 
 const PopoverDescription = styled.div`
     max-width: 340px;
     font-size: 14px;
-    color: #eeecfa;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     display: inline;
     padding: 0px 0px 8px 0px;
 `;
@@ -39,7 +40,7 @@ const PopoverAttribute = styled.div`
 
 const PopoverAttributeTitle = styled.div`
     font-size: 14px;
-    color: #eeecfa;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     font-weight: bold;
     margin: 8px 0px;
     overflow: hidden;
@@ -55,6 +56,8 @@ interface Props {
 }
 
 export default function PropagationDetails({ sourceDetail }: Props) {
+    const { t } = useTranslation('shared.propagation');
+    const theme = useTheme();
     const {
         isPropagated,
         origin: { entity: originEntity },
@@ -67,25 +70,30 @@ export default function PropagationDetails({ sourceDetail }: Props) {
         originEntity || viaEntity ? (
             <PopoverWrapper>
                 <PopoverDescription>
-                    This description was automatically propagated from an upstream column.{' '}
-                    <PopoverDocumentation
-                        target="_blank"
-                        rel="noreferrer"
-                        href="https://docs.datahub.com/docs/automations/docs-propagation?utm_source=datahub_core&utm_medium=docs&utm_campaign=propagation_details"
-                    >
-                        Learn more
-                    </PopoverDocumentation>
+                    <Trans
+                        t={t}
+                        i18nKey="autoPropagatedDescription"
+                        components={{
+                            learnMore: (
+                                <PopoverDocumentation
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    href="https://docs.datahub.com/docs/automations/docs-propagation?utm_source=datahub_core&utm_medium=docs&utm_campaign=propagation_details"
+                                />
+                            ),
+                        }}
+                    />
                 </PopoverDescription>
                 <PopoverAttributes>
                     {originEntity && originEntity.urn !== viaEntity?.urn && (
                         <PopoverAttribute>
-                            <PopoverAttributeTitle>Origin</PopoverAttributeTitle>
+                            <PopoverAttributeTitle>{t('originLabel')}</PopoverAttributeTitle>
                             <PropagationEntityLink entity={originEntity} />
                         </PopoverAttribute>
                     )}
                     {viaEntity && (
                         <PopoverAttribute>
-                            <PopoverAttributeTitle>Via</PopoverAttributeTitle>
+                            <PopoverAttributeTitle>{t('viaLabel')}</PopoverAttributeTitle>
                             <PropagationEntityLink entity={viaEntity} />
                         </PopoverAttribute>
                     )}
@@ -95,12 +103,12 @@ export default function PropagationDetails({ sourceDetail }: Props) {
 
     return (
         <Popover
-            overlayInnerStyle={{ backgroundColor: '#272D48' }}
+            overlayInnerStyle={{ backgroundColor: theme.colors.bgTooltip }}
             showArrow={false}
             title={
                 <PopoverTitle>
                     <PropagateThunderboltFilled />
-                    Propagated Description
+                    {t('propagatedDescriptionTitle')}
                 </PopoverTitle>
             }
             content={popoverContent}

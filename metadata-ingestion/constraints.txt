@@ -301,7 +301,7 @@ cramjam==2.11.0
     #   python-snappy
 croniter==6.0.0
     # via acryl-datahub-cloud
-cryptography==46.0.7
+cryptography==48.0.1
     # via
     #   acryl-datahub
     #   acryl-great-expectations
@@ -809,7 +809,6 @@ looker-sdk==25.20.0
     # via acryl-datahub
 lxml==5.4.0
     # via
-    #   pyodata
     #   redshift-connector
     #   unstructured
     #   zeep
@@ -1243,11 +1242,9 @@ pymysql==1.1.2
     # via
     #   acryl-datahub
     #   starrocks
-pyodata==1.11.2
-    # via acryl-datahub
 pyodbc==5.3.0
     # via acryl-datahub
-pyopenssl==26.0.0
+pyopenssl==26.2.0
     # via
     #   acryl-datahub
     #   snowflake-connector-python

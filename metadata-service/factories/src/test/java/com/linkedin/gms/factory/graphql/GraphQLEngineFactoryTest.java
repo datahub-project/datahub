@@ -24,6 +24,7 @@ import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlySearchedSource;
@@ -163,6 +164,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @MockitoBean
   @Qualifier("gitVersion")
   private GitVersion gitVersion;
+
+  @MockitoBean
+  @Qualifier("ingestionCliVersionMatrixService")
+  private IngestionCliVersionMatrixService versionMatrixService;
 
   @MockitoBean
   @Qualifier("timelineService")
@@ -369,6 +374,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "entityRegistry", entityRegistry);
     setField(factoryWithAnalytics, "configProvider", configurationProvider);
     setField(factoryWithAnalytics, "gitVersion", gitVersion);
+    setField(factoryWithAnalytics, "versionMatrixService", versionMatrixService);
     setField(factoryWithAnalytics, "timelineService", timelineService);
     setField(factoryWithAnalytics, "nativeUserService", nativeUserService);
     setField(factoryWithAnalytics, "groupService", groupService);

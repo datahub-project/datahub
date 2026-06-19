@@ -1,4 +1,5 @@
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -63,9 +64,9 @@ export class DocumentEntity implements Entity<Document> {
 
     getPathName = () => 'document';
 
-    getEntityName = () => 'Document';
+    getEntityName = () => i18next.t('entity.types:document.name');
 
-    getCollectionName = () => 'Documents';
+    getCollectionName = () => i18next.t('entity.types:document.namePlural');
 
     useEntityQuery = useGetDocumentQuery;
 

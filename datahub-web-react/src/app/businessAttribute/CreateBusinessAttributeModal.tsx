@@ -2,6 +2,7 @@ import { EditOutlined } from '@ant-design/icons';
 import { Button, Collapse, Form, Input, Modal, Select, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -54,6 +55,10 @@ const StyledButton = styled(Button)`
 const DATA_TYPES = Object.values(SchemaFieldDataType);
 
 export default function CreateBusinessAttributeModal({ open, onClose, onCreateBusinessAttribute }: Props) {
+    const { t } = useTranslation('misc');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
+    const { t: tl } = useTranslation('common.labels');
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
 
     const [createBusinessAttribute] = useCreateBusinessAttributeMutation();
@@ -85,14 +90,16 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
         };
         createBusinessAttribute({ variables: { input } })
             .then(() => {
-                message.loading({ content: 'Updating...', duration: 2 });
+                message.loading({ content: tf('updating'), duration: 2 });
                 setTimeout(() => {
                     analytics.event({
                         type: EventType.CreateBusinessAttributeEvent,
                         name,
                     });
                     message.success({
-                        content: `Created ${entityRegistry.getEntityName(EntityType.BusinessAttribute)}!`,
+                        content: t('businessAttribute.createSuccess', {
+                            entityName: entityRegistry.getEntityName(EntityType.BusinessAttribute),
+                        }),
                         duration: 2,
                     });
                     if (onCreateBusinessAttribute) {
@@ -102,7 +109,10 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to create: \n ${e.message || ''}`, duration: 3 });
+                message.error({
+                    content: t('businessAttribute.createError', { error: e.message || '' }),
+                    duration: 3,
+                });
             });
         onModalClose();
         setDocumentation('');
@@ -121,7 +131,7 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
     return (
         <>
             <Modal
-                title="Create Business Attribute"
+                title={t('businessAttribute.createModalTitle')}
                 open={open}
                 onCancel={onModalClose}
                 footer={
@@ -131,7 +141,7 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                             type="text"
                             data-testid="cancel-create-business-attribute-button"
                         >
-                            Cancel
+                            {tc('cancel')}
                         </Button>
                         <Button
                             id="createBusinessAttributeButton"
@@ -139,7 +149,7 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                             disabled={createButtonEnabled}
                             data-testid="create-business-attribute-button"
                         >
-                            Create
+                            {tc('create')}
                         </Button>
                     </>
                 }
@@ -152,13 +162,13 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                         setCreateButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
                     }
                 >
-                    <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
+                    <Form.Item label={<Typography.Text strong>{tl('name')}</Typography.Text>}>
                         <Form.Item
                             name="name"
                             rules={[
                                 {
                                     required: true,
-                                    message: 'Enter a business attribute name.',
+                                    message: t('businessAttribute.nameRequiredError'),
                                 },
                                 { whitespace: true },
                                 { min: 1, max: 100 },
@@ -166,25 +176,25 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                             hasFeedback
                         >
                             <Input
-                                placeholder="A name for business attribute"
+                                placeholder={t('businessAttribute.namePlaceholder')}
                                 data-testid="create-business-attribute-name"
                             />
                         </Form.Item>
                     </Form.Item>
                     <DataTypeSelectContainer>
-                        <Form.Item label={<Typography.Text strong>Data Type</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>{t('businessAttribute.dataType')}</Typography.Text>}>
                             <Form.Item
                                 rules={[
                                     {
                                         required: true,
-                                        message: 'Select business attribute datatype.',
+                                        message: t('businessAttribute.dataTypeRequiredError'),
                                     },
                                 ]}
                                 name="dataType"
                                 data-testid="select-data-type"
                                 noStyle
                             >
-                                <DataTypeSelect placeholder="A data type for business attribute">
+                                <DataTypeSelect placeholder={t('businessAttribute.dataTypePlaceholder')}>
                                     {DATA_TYPES.map((dataType: SchemaFieldDataType) => (
                                         <Select.Option key={dataType} value={dataType}>
                                             {dataType}
@@ -197,17 +207,23 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                     <StyledItem
                         label={
                             <Typography.Text strong>
-                                Documentation <OptionalWrapper>(optional)</OptionalWrapper>
+                                <Trans
+                                    t={t}
+                                    i18nKey="businessAttribute.documentationOptionalLabel"
+                                    components={{ optional: <OptionalWrapper /> }}
+                                />
                             </Typography.Text>
                         }
                     >
                         <StyledButton type="link" onClick={() => setIsDocumentationModalVisible(true)}>
                             <EditOutlined />
-                            {documentation ? 'Edit' : 'Add'} Documentation
+                            {documentation
+                                ? t('businessAttribute.editDocumentation')
+                                : t('businessAttribute.addDocumentation')}
                         </StyledButton>
                         {isDocumentationModalVisible && (
                             <DescriptionModal
-                                title="Add Documentation"
+                                title={t('businessAttribute.addDocumentation')}
                                 onClose={() => setIsDocumentationModalVisible(false)}
                                 onSubmit={addDocumentation}
                                 description={documentation}
@@ -215,20 +231,24 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                         )}
                     </StyledItem>
                     <Collapse ghost>
-                        <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
+                        <Collapse.Panel
+                            header={
+                                <Typography.Text type="secondary">
+                                    {t('businessAttribute.advancedSection')}
+                                </Typography.Text>
+                            }
+                            key="1"
+                        >
                             <Form.Item
                                 label={
                                     <Typography.Text strong>
-                                        {entityRegistry.getEntityName(EntityType.BusinessAttribute)} Id
+                                        {t('businessAttribute.entityIdLabel', {
+                                            entityName: entityRegistry.getEntityName(EntityType.BusinessAttribute),
+                                        })}
                                     </Typography.Text>
                                 }
                             >
-                                <Typography.Paragraph>
-                                    By default, a random UUID will be generated to uniquely identify this entity. If
-                                    you&apos;d like to provide a custom id, you may provide it here. Note that it should
-                                    be unique across the entire Business Attributes. Be careful, you cannot easily
-                                    change the id after creation.
-                                </Typography.Paragraph>
+                                <Typography.Paragraph>{t('businessAttribute.customIdHelp')}</Typography.Paragraph>
                                 <Form.Item
                                     name="id"
                                     rules={[
@@ -237,13 +257,13 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                                                 if (value && validateCustomUrnId(value)) {
                                                     return Promise.resolve();
                                                 }
-                                                return Promise.reject(new Error('Please enter a valid entity id'));
+                                                return Promise.reject(new Error(t('businessAttribute.invalidIdError')));
                                             },
                                         }),
                                     ]}
                                 >
                                     <Input
-                                        placeholder="classification"
+                                        placeholder={t('businessAttribute.customIdPlaceholder')}
                                         onChange={(event) => setStagedId(event.target.value)}
                                     />
                                 </Form.Item>

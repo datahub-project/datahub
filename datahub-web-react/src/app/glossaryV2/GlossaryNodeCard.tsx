@@ -2,6 +2,7 @@ import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
@@ -69,6 +70,7 @@ interface Props {
 const MAX_DEPTH_QUERIED = 4;
 
 const GlossaryNodeCard = (props: Props) => {
+    const { t } = useTranslation('governance.glossary');
     const { name, description, termCount, nodeCount, displayProperties, urn, maxDepth } = props;
     const generateColor = useGenerateGlossaryColorFromPalette();
     const glossaryColor = displayProperties?.colorHex || generateColor(urn);
@@ -99,11 +101,13 @@ const GlossaryNodeCard = (props: Props) => {
                     <CardDescription>{description}</CardDescription>
                 </Tooltip>
             ) : (
+                /* eslint-disable i18next/no-literal-string -- (untranslated-text) placeholder dash, not translatable prose */
                 <CardDescription>--</CardDescription>
+                /* eslint-enable i18next/no-literal-string */
             )}
             <Icons>
                 <Tooltip
-                    title={`Contains ${nodeCount} ${props.nodeCount === 1 ? 'term group' : 'term groups'}`}
+                    title={t('card.nodeGroupCountTooltip', { count: nodeCount })}
                     placement="top"
                     showArrow={false}
                 >
@@ -116,11 +120,7 @@ const GlossaryNodeCard = (props: Props) => {
                         </CountText>
                     </GlossaryItemCount>
                 </Tooltip>
-                <Tooltip
-                    title={`Contains ${termCount} ${props.termCount === 1 ? 'term' : 'terms'}`}
-                    placement="top"
-                    showArrow={false}
-                >
+                <Tooltip title={t('card.termCountTooltip', { count: termCount })} placement="top" showArrow={false}>
                     <GlossaryItemCount count={termCount}>
                         <BookmarkSimple />
                         <CountText>

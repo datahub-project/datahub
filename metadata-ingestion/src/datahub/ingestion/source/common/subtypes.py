@@ -76,8 +76,10 @@ class DatasetContainerSubTypes(StrEnum):
     ABS_CONTAINER = "ABS container"
     KEYSPACE = "Keyspace"  # Cassandra
     NAMESPACE = "Namespace"  # Iceberg
+    # Dremio
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
+    DREMIO_FOLDER = "Dremio Folder"
     # Matillion
     MATILLION_PROJECT = "Project"
     MATILLION_ENVIRONMENT = "Environment"

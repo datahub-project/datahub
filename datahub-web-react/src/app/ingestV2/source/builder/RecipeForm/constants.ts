@@ -131,6 +131,12 @@ import {
     GLUE_REMOVE_STALE_METADATA_ENABLED,
 } from '@app/ingestV2/source/builder/RecipeForm/glue';
 import {
+    HEX_PROJECT_ALLOW,
+    HEX_PROJECT_DENY,
+    HEX_TOKEN,
+    HEX_WORKSPACE_NAME,
+} from '@app/ingestV2/source/builder/RecipeForm/hex';
+import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,
     HIVE_PASSWORD,
@@ -309,6 +315,13 @@ import {
     TABLEAU_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/tableau';
 import {
+    TIDB,
+    TIDB_DATABASE,
+    TIDB_HOST_PORT,
+    TIDB_PASSWORD,
+    TIDB_USERNAME,
+} from '@app/ingestV2/source/builder/RecipeForm/tidb';
+import {
     TRINO,
     TRINO_DATABASE,
     TRINO_HOST_PORT,
@@ -352,6 +365,7 @@ import {
     VERTICA,
 } from '@app/ingestV2/source/builder/constants';
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
+import { HEX } from '@app/ingestV2/source/conf/hex/hex';
 import { HIVE } from '@app/ingestV2/source/conf/hive/hive';
 import { KAFKA } from '@app/ingestV2/source/conf/kafka/kafka';
 import { LOOKER } from '@app/ingestV2/source/conf/looker/looker';
@@ -592,6 +606,18 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
+    [TIDB]: {
+        fields: [TIDB_HOST_PORT, TIDB_USERNAME, TIDB_PASSWORD, TIDB_DATABASE],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [
+            INCLUDE_TABLES,
+            INCLUDE_VIEWS,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
+    },
     [DORIS]: {
         fields: [DORIS_HOST_PORT, DORIS_USERNAME, DORIS_PASSWORD, DORIS_DATABASE],
         filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
@@ -711,6 +737,12 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
             SKIP_USERS_WITHOUT_GROUP,
         ],
+    },
+    [HEX]: {
+        fields: [HEX_WORKSPACE_NAME, HEX_TOKEN],
+        filterFields: [HEX_PROJECT_ALLOW, HEX_PROJECT_DENY],
+        advancedFields: [STATEFUL_INGESTION_ENABLED],
+        filterSectionTooltip: 'Include or exclude specific Hex Projects from ingestion.',
     },
     [NOTION]: {
         fields: [NOTION_API_KEY, NOTION_PAGE_IDS],

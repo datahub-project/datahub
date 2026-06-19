@@ -180,7 +180,10 @@ public class RestoreStorageStep implements UpgradeStep {
       try {
         aspectRecord =
             EntityUtils.toSystemAspect(
-                    context.opContext().getRetrieverContext(), aspect.toEntityAspect(), false)
+                    context.opContext(),
+                    context.opContext().getRetrieverContext(),
+                    aspect.toEntityAspect(),
+                    false)
                 .get()
                 .getRecordTemplate();
       } catch (Exception e) {

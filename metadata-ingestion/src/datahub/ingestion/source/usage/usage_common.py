@@ -1,11 +1,9 @@
 import dataclasses
 import logging
-from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import (
     Callable,
     Counter,
-    Dict,
     Generic,
     Iterable,
     List,
@@ -26,12 +24,19 @@ from datahub.configuration.time_window_config import (
     get_time_bucket,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DatasetFieldUsageCountsClass,
     DatasetUsageStatisticsClass,
     DatasetUserUsageCountsClass,
     TimeWindowSizeClass,
+)
+from datahub.utilities.file_backed_collections import (
+    ConnectionWrapper,
+    FileBackedCounter,
+    FileBackedDict,
+    GroupedItemCounter,
 )
 from datahub.utilities.sql_formatter import format_sql_query, trim_query
 
@@ -240,14 +245,83 @@ class BaseUsageConfig(BaseTimeWindowConfig):
         return v
 
 
-class UsageAggregator(Generic[ResourceType]):
+class _Dim:
+    """The counted dimensions, stored as item-key prefixes in the usage counter."""
+
+    USER = "user"
+    QUERY = "query"
+    COLUMN = "column"
+
+
+class _UsageKeys:
+    """Single source of truth for the usage counter's (group_key, item_key) encoding.
+
+    Keys are colon-joined. The prefixes -- an integer bucket and a fixed dim name --
+    never contain ':', so str.partition(':') round-trips arbitrary resource/value content.
+    """
+
+    # Item key recording group existence even when there are no real counts (denied or
+    # empty events), so the group still emits an (empty) workunit.
+    EXISTENCE = ""
+
+    @staticmethod
+    def group(bucket_millis: int, resource_key: str) -> str:
+        return f"{bucket_millis}:{resource_key}"
+
+    @staticmethod
+    def split_group(group_key: str) -> Tuple[int, str]:
+        bucket_str, _, resource_key = group_key.partition(":")
+        return int(bucket_str), resource_key
+
+    @staticmethod
+    def item(dim: str, value: str) -> str:
+        return f"{dim}:{value}"
+
+    @staticmethod
+    def split_item(item_key: str) -> Tuple[str, str]:
+        dim, _, value = item_key.partition(":")
+        return dim, value
+
+
+class UsageAggregator(Generic[ResourceType], Closeable):
+    """Aggregates usage events into per-(bucket, resource) workunits.
+
+    Single-writer per instance: ``aggregate_event`` must not be called concurrently on
+    the same aggregator. The counter (``FileBackedCounter``) is thread-safe, but the
+    resource store (``FileBackedDict``) is not, so a shared instance would need an
+    external lock. For parallel ingestion, use one aggregator per worker.
+    """
+
     # TODO: Move over other connectors to use this class
 
-    def __init__(self, config: BaseUsageConfig):
+    def __init__(
+        self,
+        config: BaseUsageConfig,
+        *,
+        shared_connection: Optional[ConnectionWrapper] = None,
+        batch_size: int = 50000,
+        counter: Optional[GroupedItemCounter] = None,
+    ) -> None:
         self.config = config
-        self.aggregation: Dict[
-            datetime, Dict[ResourceType, GenericAggregatedDataset[ResourceType]]
-        ] = defaultdict(dict)
+        self._closed = False
+        # Counts of (query|user|column) items per (bucket, resource). Defaults to the
+        # disk-backed counter; an in-memory counter can be injected (e.g. for tests or
+        # small workloads).
+        self._counts: GroupedItemCounter = counter or FileBackedCounter(
+            shared_connection=shared_connection,
+            tablename="usage_counts",
+            batch_size=batch_size,
+        )
+        # Resource objects, pickled to disk keyed by resource_key, so heap memory stays
+        # flat regardless of resource cardinality.
+        self._resources: FileBackedDict[ResourceType] = FileBackedDict(
+            shared_connection=shared_connection,
+            tablename="usage_resources",
+        )
+
+    @staticmethod
+    def _bucket_millis(start_time: datetime, bucket_duration: BucketDuration) -> int:
+        return int(get_time_bucket(start_time, bucket_duration).timestamp() * 1000)
 
     def aggregate_event(
         self,
@@ -259,34 +333,95 @@ class UsageAggregator(Generic[ResourceType]):
         fields: List[str],
         count: int = 1,
     ) -> None:
-        floored_ts: datetime = get_time_bucket(start_time, self.config.bucket_duration)
-        self.aggregation[floored_ts].setdefault(
-            resource,
-            GenericAggregatedDataset[ResourceType](
-                bucket_start_time=floored_ts,
-                resource=resource,
-            ),
-        ).add_read_entry(
-            user,
-            query,
-            fields,
-            user_email_pattern=self.config.user_email_pattern,
-            count=count,
+        bucket = self._bucket_millis(start_time, self.config.bucket_duration)
+        # str(resource) is the identity key; resources whose str() are equal are
+        # intentionally aggregated together (holds for UrnStr and usage-path
+        # TableReference, whose last_updated is unset).
+        resource_key = str(resource)
+        group_key = _UsageKeys.group(bucket, resource_key)
+
+        # FileBackedDict's bounded in-memory cache acts as the write buffer and dedups
+        # repeated sets of the same key, so set unconditionally (last-write-wins; an
+        # immaterial divergence from the prior first-write-wins, since resources with
+        # equal str() are interchangeable).
+        self._resources[resource_key] = resource
+        self._add_read_entry(
+            group_key, user=user, query=query, fields=fields, count=count
         )
+
+    def _add_read_entry(
+        self,
+        group_key: str,
+        *,
+        user: Optional[str],
+        query: Optional[str],
+        fields: List[str],
+        count: int,
+    ) -> None:
+        # Record the group's existence even for denied/empty events, so they still emit
+        # an empty workunit (mirrors GenericAggregatedDataset.add_read_entry, which
+        # always creates the aggregate before its denied-user early return).
+        self._counts.increment(group_key, _UsageKeys.EXISTENCE, count=0)
+        # A denied user records nothing further.
+        if user and not self.config.user_email_pattern.allowed(user):
+            return
+        if user:
+            self._counts.increment(group_key, _UsageKeys.item(_Dim.USER, user), count)
+        if query:
+            self._counts.increment(group_key, _UsageKeys.item(_Dim.QUERY, query), count)
+        for field in fields:
+            self._counts.increment(
+                group_key, _UsageKeys.item(_Dim.COLUMN, field), count
+            )
 
     def generate_workunits(
         self,
         resource_urn_builder: Callable[[ResourceType], str],
         user_urn_builder: Optional[Callable[[str], str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        for time_bucket in self.aggregation.values():
-            for aggregate in time_bucket.values():
-                yield aggregate.make_usage_workunit(
-                    bucket_duration=self.config.bucket_duration,
-                    top_n_queries=self.config.top_n_queries,
-                    format_sql_queries=self.config.format_sql_queries,
-                    include_top_n_queries=self.config.include_top_n_queries,
-                    resource_urn_builder=resource_urn_builder,
-                    user_urn_builder=user_urn_builder,
-                    queries_character_limit=self.config.queries_character_limit,
-                )
+        for group_key, items in self._counts.most_common_by_group():
+            bucket_millis, resource_key = _UsageKeys.split_group(group_key)
+            resource = self._resources[resource_key]
+
+            query_freq: List[Tuple[str, int]] = []
+            user_freq: List[Tuple[str, int]] = []
+            column_freq: List[Tuple[str, int]] = []
+            query_count = 0
+            for item_key, cnt in items:
+                dim, item = _UsageKeys.split_item(item_key)
+                if dim == _Dim.QUERY:
+                    query_freq.append((item, cnt))
+                    query_count += cnt
+                elif dim == _Dim.USER:
+                    user_freq.append((item, cnt))
+                elif dim == _Dim.COLUMN:
+                    column_freq.append((item, cnt))
+                # dim == "" -> existence sentinel, skip
+
+            yield make_usage_workunit(
+                bucket_start_time=datetime.fromtimestamp(
+                    bucket_millis / 1000, tz=timezone.utc
+                ),
+                resource=resource,
+                query_count=query_count,
+                query_freq=(
+                    query_freq[: self.config.top_n_queries]
+                    if self.config.include_top_n_queries
+                    else None
+                ),
+                user_freq=user_freq,
+                column_freq=column_freq,
+                bucket_duration=self.config.bucket_duration,
+                resource_urn_builder=resource_urn_builder,
+                user_urn_builder=user_urn_builder,
+                top_n_queries=self.config.top_n_queries,
+                format_sql_queries=self.config.format_sql_queries,
+                queries_character_limit=self.config.queries_character_limit,
+            )
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._counts.close()
+        self._resources.close()
+        self._closed = True

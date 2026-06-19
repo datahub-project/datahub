@@ -9,9 +9,11 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Dataset, Entity, EntityType } from '@types';
 
+const BREADCRUMB_SEPARATOR = '>';
+
 const ContentWrapper = styled.div`
     font-size: 12px;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
 `;
 
 const Container = styled.span`
@@ -40,7 +42,9 @@ export default function AutoCompleteTooltipContent({ entity }: Props) {
                         <>
                             <FolderOpenOutlined />
                             <Container>{entityRegistry.getDisplayName(EntityType.Container, container)}</Container>
-                            {index !== parentContainers.length - 1 && <ArrowWrapper>{'>'}</ArrowWrapper>}
+                            {index !== parentContainers.length - 1 && (
+                                <ArrowWrapper>{BREADCRUMB_SEPARATOR}</ArrowWrapper>
+                            )}
                         </>
                     ))}
                 </>

@@ -138,12 +138,16 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     )
 
     profile_if_updated_since_days: Annotated[
-        Optional[pydantic.PositiveFloat], SupportedSources(["snowflake", "bigquery"])
+        Optional[pydantic.PositiveFloat],
+        SupportedSources(["snowflake", "bigquery", "dremio"]),
     ] = Field(
         default=None,
         description="Profile table only if it has been updated since these many number of days. "
         "If set to `null`, no constraint of last modified time for tables to profile. "
-        "Supported only in `snowflake` and `BigQuery`.",
+        "Supported in `Snowflake`, `BigQuery`, and `Dremio`. "
+        "Note: for Dremio this compares against DataHub's last-profiled timestamp "
+        "(Dremio exposes no table modification time), so it controls profile frequency "
+        "rather than reacting to upstream change.",
     )
 
     profile_table_size_limit: Annotated[

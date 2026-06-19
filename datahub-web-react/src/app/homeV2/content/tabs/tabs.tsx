@@ -37,6 +37,7 @@ export const ANNOUNCEMENTS_TAB: Tab = {
     }, // icon: NotificationOutlined,
     component: <AnnouncementsTab />,
     id: V2_HOME_PAGE_ANNOUNCEMENTS_ID,
+    dataTestId: V2_HOME_PAGE_ANNOUNCEMENTS_ID,
 };
 
 export const DEFAULT_TAB = TabType.Discover;

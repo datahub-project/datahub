@@ -17,6 +17,7 @@ import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.kafka.config.CDCProcessorCondition;
+import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -26,7 +27,6 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.annotation.PostConstruct;
 import java.net.URISyntaxException;
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -40,14 +40,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Import;
-import org.springframework.kafka.annotation.EnableKafka;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@EnableKafka
 @Conditional(CDCProcessorCondition.class)
 @Import({
   RestliEntityClientFactory.class,
@@ -70,8 +66,8 @@ public class CDCProcessor {
   private static final String CDC_CREATED_FOR_FIELD = "createdfor";
   private static final String CDC_VERSION_FIELD = "version";
 
-  // Constants for consumer configuration
-  private static final String CDC_CONSUMER_GROUP_ID = "cdc-consumer-job-client";
+  /** Kafka listener id / default consumer group (see {@link CDCKafkaListener}). */
+  public static final String CDC_CONSUMER_GROUP_ID = "cdc-consumer-job-client";
 
   private final OperationContext systemOperationContext;
 
@@ -80,8 +76,8 @@ public class CDCProcessor {
   @Qualifier("kafkaThrottle")
   private final ThrottleSensor kafkaThrottle;
 
-  private final KafkaListenerEndpointRegistry registry;
   private final ConfigurationProvider provider;
+  private final ConsumerPauseSupport consumerPauseSupport;
 
   @Value("${mclProcessing.cdcSource.enabled:false}")
   @VisibleForTesting
@@ -97,39 +93,27 @@ public class CDCProcessor {
   @PostConstruct
   public void registerConsumerThrottle() {
     if (cdcMclProcessingEnabled) {
-      KafkaListenerUtil.registerThrottle(kafkaThrottle, provider, registry, cdcConsumerGroupId);
+      KafkaListenerUtil.registerThrottle(
+          kafkaThrottle, provider, consumerPauseSupport, cdcConsumerGroupId);
     }
   }
 
-  @KafkaListener(
-      id = CDC_CONSUMER_GROUP_ID,
-      topics =
-          "#{${mclProcessing.cdcSource.enabled:true}?'${kafka.topics.cdcTopic.name:datahub.datahub.metadata_aspect_v2}' : null}",
-      containerFactory = CDC_EVENT_CONSUMER_NAME,
-      autoStartup = "false")
-  public void consume(final ConsumerRecord<String, String> consumerRecord) {
+  /** Used by {@link CDCKafkaListener}. */
+  public void consumeKafka(final ConsumerRecord<String, String> consumerRecord) {
     try {
 
       systemOperationContext
           .getMetricUtils()
           .ifPresent(
-              metricUtils -> {
-                long queueTimeMs = System.currentTimeMillis() - consumerRecord.timestamp();
-
-                // Dropwizard legacy
-                metricUtils.histogram(this.getClass(), "kafkaLag", queueTimeMs);
-
-                // Micrometer with tags
-                metricUtils
-                    .getRegistry()
-                    .timer(
-                        MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-                        "topic",
-                        consumerRecord.topic(),
-                        "consumer.group",
-                        cdcConsumerGroupId)
-                    .record(Duration.ofMillis(queueTimeMs));
-              });
+              metricUtils ->
+                  MetricUtils.recordInboundMessageQueueLag(
+                      metricUtils,
+                      this.getClass(),
+                      consumerRecord.topic(),
+                      cdcConsumerGroupId,
+                      consumerRecord.timestamp(),
+                      MetricUtils.MESSAGING_SYSTEM_KAFKA,
+                      null));
 
       final String record = consumerRecord.value();
 
