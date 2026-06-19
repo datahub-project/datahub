@@ -145,14 +145,18 @@ class KinesisGlueSchemaRegistryConfig(ConfigModel):
     def warn_if_configured_but_disabled(self) -> "KinesisGlueSchemaRegistryConfig":
         """Surface configured-but-disabled state as a config error.
 
-        Setting stream_schema_map without enabled=True is silently inert —
-        user almost certainly meant to enable GSR.
+        Both activation knobs — ``stream_schema_map`` and
+        ``use_naming_convention`` — are silently inert when ``enabled=False``
+        (``get_schema_metadata`` short-circuits on ``enabled``), and a user who
+        set either almost certainly meant to enable GSR. ``registry_name`` is
+        excluded because it has a non-empty default and isn't an activation
+        signal.
         """
-        if not self.enabled and self.stream_schema_map:
+        if not self.enabled and (self.stream_schema_map or self.use_naming_convention):
             raise ValueError(
-                "glue_schema_registry has stream_schema_map set but enabled=False. "
-                "Set enabled=True to use Glue Schema Registry, OR remove the "
-                "stream_schema_map field."
+                "glue_schema_registry has stream_schema_map and/or "
+                "use_naming_convention set but enabled=False. Set enabled=True to "
+                "use Glue Schema Registry, OR remove those fields."
             )
         return self
 

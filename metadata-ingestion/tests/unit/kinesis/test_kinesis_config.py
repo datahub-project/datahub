@@ -29,19 +29,14 @@ class TestDestinationPlatformDetail:
 
 class TestKinesisGlueSchemaRegistryConfig:
     def test_disabled_gsr_means_resolve_returns_none_for_any_stream(self):
-        """Behavioral contract of `enabled=False`: even when stream_schema_map
-        is configured (which would normally route to a specific schema),
-        disabling GSR short-circuits the entire resolution path. Verifies the
-        actual code branch at `kinesis_schema_registry.py::get_schema_metadata`
-        line 1, not just the field default.
+        """Behavioral contract of `enabled=False`: `get_schema_metadata`
+        short-circuits before any Glue call. Verifies the actual code branch at
+        `kinesis_schema_registry.py::get_schema_metadata` line 1, not just the
+        field default. (A disabled config can't carry stream_schema_map or
+        use_naming_convention — the validator rejects that — so the disabled
+        config here is the bare default.)
         """
-        # enabled=False but with a populated map — the map would normally
-        # successfully resolve a stream. The disabled flag must override.
-        cfg = KinesisGlueSchemaRegistryConfig(
-            enabled=False,
-            stream_schema_map={},  # empty since validator rejects map-with-disabled
-            use_naming_convention=True,
-        )
+        cfg = KinesisGlueSchemaRegistryConfig(enabled=False)
         reg = KinesisGlueSchemaRegistry(
             config=cfg,
             glue_client=MagicMock(),
@@ -99,6 +94,17 @@ class TestKinesisGlueSchemaRegistryConfig:
             "enabled=False" in str(exc_info.value)
             or "enable" in str(exc_info.value).lower()
         )
+
+    def test_naming_convention_enabled_but_gsr_disabled_rejected_at_startup(self):
+        # use_naming_convention is the other activation knob — setting it while
+        # disabled is equally inert and must be rejected, symmetric with the
+        # stream_schema_map case.
+        with pytest.raises(ValidationError) as exc_info:
+            KinesisGlueSchemaRegistryConfig(
+                enabled=False,
+                use_naming_convention=True,
+            )
+        assert "enable" in str(exc_info.value).lower()
 
 
 class TestKinesisSourceConfig:
