@@ -72,7 +72,7 @@ const IconGroup = styled.div`
     color: ${(props) => props.theme.colors.text};
 
     &:hover {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrand};
         cursor: pointer;
     }
 `;
