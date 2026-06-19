@@ -143,6 +143,9 @@ class _FakeResolver:
     def resolve_table(self, table: object) -> tuple:
         return self._urn, self._schema_info
 
+    def resolve_urn(self, urn: str) -> tuple:
+        return self._urn, self._schema_info
+
 
 def test_warehouse_columns_snapped_to_gms_casing() -> None:
     # With a schema in GMS, casing is reconciled to it ("amount" -> "Amount")
@@ -179,3 +182,50 @@ def test_warehouse_columns_snapped_to_gms_casing() -> None:
     assert lineage.fineGrainedLineages is not None
     upstreams = lineage.fineGrainedLineages[0].upstreams
     assert any(f.endswith(",Amount)") for f in upstreams)
+
+
+def test_core_column_lineage_name_matched_to_warehouse_schema() -> None:
+    # Cube Core members carry no column references. When the warehouse schema is
+    # in DataHub, members are matched by name to real columns; members that do
+    # not correspond to a column (e.g. count, total_amount) are not linked.
+    canonical_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics.public.orders,PROD)"
+    )
+    fake = _FakeResolver(
+        canonical_urn, {"id": "NUMBER", "status": "STRING", "created_at": "TIME"}
+    )
+    entity = CubeEntity(
+        name="orders",
+        sql="SELECT * FROM public.orders",
+        measures=[
+            CubeMember(name="count", is_measure=True),
+            CubeMember(name="total_amount", is_measure=True),
+        ],
+        dimensions=[
+            CubeMember(name="id", is_measure=False),
+            CubeMember(name="status", is_measure=False),
+        ],
+    )
+    builder = _builder(
+        warehouse_platform="postgres",
+        warehouse_database="analytics",
+        parse_sql_for_lineage=True,
+    )
+    builder.ctx.graph = object()  # type: ignore[assignment]
+    with (
+        patch(
+            "datahub.ingestion.source.cube.cube_lineage.create_and_cache_schema_resolver",
+            return_value=fake,
+        ),
+        patch.object(builder, "_parse_sql_tables", return_value=[canonical_urn]),
+    ):
+        lineage = builder.build(entity)
+
+    assert lineage is not None
+    assert lineage.fineGrainedLineages is not None
+    linked = {f for fg in lineage.fineGrainedLineages for f in fg.upstreams}
+    assert any(f.endswith(",id)") for f in linked)
+    assert any(f.endswith(",status)") for f in linked)
+    assert not any("total_amount" in f or "count" in f for f in linked)
+    # Only the two name-matched dimensions produce column lineage.
+    assert len(lineage.fineGrainedLineages) == 2

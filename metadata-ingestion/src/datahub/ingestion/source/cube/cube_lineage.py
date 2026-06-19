@@ -170,23 +170,63 @@ class CubeLineageBuilder:
     ) -> None:
         if not (self.warehouse_platform and self.config.include_column_lineage):
             return
-        for member in entity.visible_members(self.config.include_hidden):
+        members = entity.visible_members(self.config.include_hidden)
+
+        # Cube Core's /v1/meta gives no per-member column references. As a
+        # fallback, match member names to the columns of the cube's single
+        # upstream table (Cube's convention: a member's name is its column);
+        # members without a matching column (e.g. aggregate measures) are
+        # skipped. Cloud carries explicit references, so this only runs when none
+        # are present.
+        has_explicit_refs = any(m.column_references for m in members)
+        base = None if has_explicit_refs else self._single_warehouse_schema(entity)
+
+        for member in members:
             upstream_fields: List[str] = []
-            for ref in member.column_references:
-                if not ref.column:
-                    continue
-                resolved = self._resolve_table(ref)
-                upstream_urns.append(resolved.urn)
-                (resolved_column,) = self._resolve_columns(
-                    resolved.schema_info, [ref.column]
-                )
-                upstream_fields.append(
-                    SchemaFieldUrn(resolved.urn, resolved_column).urn()
-                )
+            if member.column_references:
+                for ref in member.column_references:
+                    if not ref.column:
+                        continue
+                    resolved = self._resolve_table(ref)
+                    upstream_urns.append(resolved.urn)
+                    (resolved_column,) = self._resolve_columns(
+                        resolved.schema_info, [ref.column]
+                    )
+                    upstream_fields.append(
+                        SchemaFieldUrn(resolved.urn, resolved_column).urn()
+                    )
+            elif base is not None and base.schema_info is not None:
+                column = self._match_member_to_column(base.schema_info, member.name)
+                if column is not None:
+                    upstream_urns.append(base.urn)
+                    upstream_fields.append(SchemaFieldUrn(base.urn, column).urn())
             if upstream_fields:
                 fine_grained.append(
                     self._field_lineage(downstream_urn, member, upstream_fields)
                 )
+
+    def _single_warehouse_schema(
+        self, entity: CubeEntity
+    ) -> Optional[ResolvedWarehouseTable]:
+        # The cube's single upstream warehouse table, only when its schema is
+        # known in DataHub. Used to name-match Core members to columns.
+        urns = self._warehouse_table_urns(entity)
+        if len(urns) != 1:
+            return None
+        resolver = self._get_resolver()
+        if resolver is None:
+            return None
+        _, schema_info = resolver.resolve_urn(urns[0])
+        if not schema_info:
+            return None
+        return ResolvedWarehouseTable(urn=urns[0], schema_info=schema_info)
+
+    @staticmethod
+    def _match_member_to_column(
+        schema_info: SchemaInfo, member_name: str
+    ) -> Optional[str]:
+        by_lower = {column.lower(): column for column in schema_info}
+        return by_lower.get(member_name.lower())
 
     def _add_cube_reference_lineage(
         self,

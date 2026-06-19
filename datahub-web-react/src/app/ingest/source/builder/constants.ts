@@ -9,6 +9,7 @@ import clickhouseLogo from '@images/clickhouselogo.png';
 import cockroachdbLogo from '@images/cockroachdblogo.png';
 import confluenceLogo from '@images/confluencelogo.svg';
 import csvLogo from '@images/csv-logo.png';
+import cubeLogo from '@images/cubelogo.png';
 import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
 import dbtLogo from '@images/dbtlogo.png';
@@ -84,6 +85,8 @@ const COCKROACHDB = 'cockroachdb';
 const COCKROACHDB_URN = `urn:li:dataPlatform:${COCKROACHDB}`;
 export const CONFLUENCE = 'confluence';
 const CONFLUENCE_URN = `urn:li:dataPlatform:${CONFLUENCE}`;
+export const CUBE = 'cube';
+const CUBE_URN = `urn:li:dataPlatform:${CUBE}`;
 const DBT = 'dbt';
 export const DBT_URN = `urn:li:dataPlatform:${DBT}`;
 const DREMIO = 'dremio';
@@ -220,6 +223,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [CLICKHOUSE_URN]: clickhouseLogo,
     [COCKROACHDB_URN]: cockroachdbLogo,
     [CONFLUENCE_URN]: confluenceLogo,
+    [CUBE_URN]: cubeLogo,
     [DBT_URN]: dbtLogo,
     [DREMIO_URN]: dremioLogo,
     [DRUID_URN]: druidLogo,
