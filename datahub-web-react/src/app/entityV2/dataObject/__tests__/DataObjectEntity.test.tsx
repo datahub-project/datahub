@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { DataObjectEntity } from '@app/entityV2/dataObject/DataObjectEntity';
 
 import { EntityType } from '@types';
@@ -31,5 +32,24 @@ describe('DataObjectEntity', () => {
 
     it('isSearchEnabled returns true', () => {
         expect(e.isSearchEnabled()).toBe(true);
+    });
+
+    it('supportedCapabilities declares exactly the intended set', () => {
+        // Locks the capability declaration: these drive UI affordances (Add-to-Data-Product/
+        // Application pickers, forms, deprecate, soft-delete). A silently dropped capability is a
+        // regression with no other guard, since the "Add Assets" pickers are capability-derived.
+        expect(e.supportedCapabilities()).toEqual(
+            new Set([
+                EntityCapabilityType.OWNERS,
+                EntityCapabilityType.TAGS,
+                EntityCapabilityType.GLOSSARY_TERMS,
+                EntityCapabilityType.DOMAINS,
+                EntityCapabilityType.DATA_PRODUCTS,
+                EntityCapabilityType.APPLICATIONS,
+                EntityCapabilityType.FORMS,
+                EntityCapabilityType.DEPRECATION,
+                EntityCapabilityType.SOFT_DELETE,
+            ]),
+        );
     });
 });

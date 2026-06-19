@@ -4,17 +4,31 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.Documentation;
 import com.linkedin.common.DocumentationAssociation;
 import com.linkedin.common.DocumentationAssociationArray;
+import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTermAssociation;
+import com.linkedin.common.GlossaryTermAssociationArray;
+import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.url.Url;
+import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -23,11 +37,14 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.dataobject.DataObjectProperties;
 import com.linkedin.dataobject.ObjectStorageProperties;
 import com.linkedin.dataobject.ParentDataObject;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DataObjectKey;
+import com.linkedin.structured.StructuredProperties;
+import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
@@ -208,6 +225,97 @@ public class DataObjectMapperTest {
     assertEquals(
         result.getDocumentation().getDocumentations().get(0).getDocumentation(),
         "A detailed description of this data object.");
+  }
+
+  @Test
+  public void testMapApplicationMembership() throws URISyntaxException {
+    // The applications capability is declared on dataObject but was once fetched-and-dropped /
+    // never mapped. This asserts the membership URN survives mapping end-to-end -- the assertion
+    // that catches a regression of that gap.
+    EntityResponse response = createBasicEntityResponse();
+
+    final String applicationUrn = "urn:li:application:test-app";
+    Applications applications = new Applications();
+    applications.setApplications(new UrnArray(Urn.createFromString(applicationUrn)));
+    addAspectToResponse(response, APPLICATION_MEMBERSHIP_ASPECT_NAME, applications);
+
+    // context == null bypasses the per-URN canView filter in ApplicationAssociationMapper.
+    DataObject result = DataObjectMapper.map(null, response);
+
+    assertNotNull(result.getApplications());
+    assertEquals(result.getApplications().size(), 1);
+    assertEquals(result.getApplications().get(0).getApplication().getUrn(), applicationUrn);
+    assertEquals(result.getApplications().get(0).getAssociatedUrn(), TEST_DATA_OBJECT_URN);
+  }
+
+  @Test
+  public void testMapGovernanceAspects() throws URISyntaxException {
+    EntityResponse response = createBasicEntityResponse();
+
+    Ownership ownership = new Ownership();
+    ownership.setOwners(
+        new OwnerArray(new Owner().setType(OwnershipType.DATAOWNER).setOwner(actorUrn)));
+    addAspectToResponse(response, OWNERSHIP_ASPECT_NAME, ownership);
+
+    final Urn domainUrn = Urn.createFromString("urn:li:domain:marketing");
+    Domains domains = new Domains();
+    domains.setDomains(new UrnArray(domainUrn));
+    domains.setDomainAssociations(
+        new com.linkedin.domain.DomainAssociationArray(
+            new com.linkedin.domain.DomainAssociation().setDomain(domainUrn)));
+    addAspectToResponse(response, DOMAINS_ASPECT_NAME, domains);
+
+    GlossaryTerms glossaryTerms = new GlossaryTerms();
+    glossaryTerms.setTerms(
+        new GlossaryTermAssociationArray(
+            new GlossaryTermAssociation().setUrn(new GlossaryTermUrn("Classification.PII"))));
+    addAspectToResponse(response, GLOSSARY_TERMS_ASPECT_NAME, glossaryTerms);
+
+    Deprecation deprecation = new Deprecation();
+    deprecation.setDeprecated(true);
+    deprecation.setNote("retired");
+    deprecation.setActor(actorUrn);
+    addAspectToResponse(response, DEPRECATION_ASPECT_NAME, deprecation);
+
+    Forms forms = new Forms();
+    forms.setIncompleteForms(new com.linkedin.common.FormAssociationArray());
+    forms.setCompletedForms(new com.linkedin.common.FormAssociationArray());
+    addAspectToResponse(response, FORMS_ASPECT_NAME, forms);
+
+    StructuredProperties structuredProperties = new StructuredProperties();
+    structuredProperties.setProperties(new StructuredPropertyValueAssignmentArray());
+    addAspectToResponse(response, STRUCTURED_PROPERTIES_ASPECT_NAME, structuredProperties);
+
+    com.linkedin.container.Container container = new com.linkedin.container.Container();
+    container.setContainer(Urn.createFromString("urn:li:container:bucket-1"));
+    addAspectToResponse(response, CONTAINER_ASPECT_NAME, container);
+
+    SubTypes subTypes = new SubTypes();
+    subTypes.setTypeNames(new StringArray("File"));
+    addAspectToResponse(response, SUB_TYPES_ASPECT_NAME, subTypes);
+
+    DataObject result = DataObjectMapper.map(null, response);
+
+    assertNotNull(result.getOwnership());
+    assertEquals(result.getOwnership().getOwners().size(), 1);
+
+    assertNotNull(result.getDomain());
+
+    assertNotNull(result.getGlossaryTerms());
+    assertEquals(result.getGlossaryTerms().getTerms().size(), 1);
+
+    assertNotNull(result.getDeprecation());
+    assertTrue(result.getDeprecation().getDeprecated());
+
+    assertNotNull(result.getForms());
+
+    assertNotNull(result.getStructuredProperties());
+
+    assertNotNull(result.getContainer());
+    assertEquals(result.getContainer().getUrn(), "urn:li:container:bucket-1");
+
+    assertNotNull(result.getSubTypes());
+    assertEquals(result.getSubTypes().getTypeNames().get(0), "File");
   }
 
   private EntityResponse createBasicEntityResponse() {

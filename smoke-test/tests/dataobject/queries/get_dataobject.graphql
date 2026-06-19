@@ -1,0 +1,24 @@
+query getDataObject($urn: String!) {
+  dataObject(urn: $urn) {
+    urn
+    type
+    name
+    exists
+    subTypes {
+      typeNames
+    }
+    properties {
+      name
+      qualifiedName
+      description
+    }
+    platform {
+      urn
+    }
+    applications {
+      application {
+        urn
+      }
+    }
+  }
+}
