@@ -2806,6 +2806,42 @@ ORDER by DataBaseName, TableName;
             default_schema=default_database,  # Set default_schema for unqualified table references
         )
 
+    def _report_slow_lineage_query(
+        self, query_label: str, query_db_elapsed: float, sql: str
+    ) -> None:
+        """Emit the slow-query metric + warning when *query_db_elapsed* exceeds the threshold.
+
+        Deliberately invoked from the normal-completion path rather than a
+        ``finally``: the fetch loop yields rows from inside a ``try``, so a
+        consumer that abandons the generator raises ``GeneratorExit`` at the
+        suspended ``yield``. Firing this from ``finally`` would log a false
+        slow-query warning for a query the user voluntarily cut short.
+        """
+        if (
+            self.config.lineage_slow_query_log_seconds <= 0
+            or query_db_elapsed <= self.config.lineage_slow_query_log_seconds
+        ):
+            return
+
+        self.report.increment_lineage_slow_query()
+        with self.report.atomic():
+            self.report.warning(
+                title="Slow lineage query detected",
+                message="A lineage query exceeded the slow-query threshold. Consider tuning the query or increasing lineage_slow_query_log_seconds.",
+                context=f"{query_label}: {query_db_elapsed:.1f}s DB time (threshold: {self.config.lineage_slow_query_log_seconds}s)",
+            )
+        # sql is a connector-generated DBC.QryLogV SQL string assembled entirely
+        # from config values (time range, database names, cursor type). It
+        # contains no user-supplied text and no PII, so logging a snippet is safe.
+        sql_snippet = sql[:500].replace("\n", " ")
+        if len(sql) > 500:
+            sql_snippet += " …"
+        logger.warning(
+            f"Slow lineage query detected: {query_label} took "
+            f"{query_db_elapsed:.1f}s DB time (threshold: {self.config.lineage_slow_query_log_seconds}s). "
+            f"SQL (first 500 chars): {sql_snippet}"
+        )
+
     def _fetch_lineage_entries_chunked(self) -> Iterable[Any]:
         """Fetch lineage entries using server-side cursor to handle large result sets efficiently."""
         queries = self._make_lineage_queries()
@@ -2946,38 +2982,23 @@ ORDER by DataBaseName, TableName;
                             f"Completed lineage {query_label}: {query_total_count} entries "
                             f"in {batch_count} batches ({query_db_elapsed:.1f}s DB time)"
                         )
+                        # Normal-completion path only. The slow-query check is
+                        # deliberately NOT in `finally`: `yield from batch`
+                        # suspends inside this try, so a consumer that abandons
+                        # the generator raises GeneratorExit there, and a
+                        # finally-based check would emit a false slow-query
+                        # warning for a query the user voluntarily cut short.
+                        # See _report_slow_lineage_query.
+                        self._report_slow_lineage_query(
+                            query_label, query_db_elapsed, lineage_query.sql
+                        )
                     finally:
-                        # Record timing and check the slow-query threshold regardless of
-                        # whether the query succeeded or failed — a query that takes 5
-                        # minutes before raising is exactly what the slow-query metric
-                        # is meant to surface.
+                        # Timing is recorded unconditionally — including on
+                        # GeneratorExit — because elapsed DB time is always a
+                        # valid measurement regardless of how the query exits.
                         self.report.record_lineage_query_timing(
                             query_label, query_db_elapsed
                         )
-
-                        if (
-                            self.config.lineage_slow_query_log_seconds > 0
-                            and query_db_elapsed
-                            > self.config.lineage_slow_query_log_seconds
-                        ):
-                            self.report.increment_lineage_slow_query()
-                            self.report.warning(
-                                title="Slow lineage query detected",
-                                message="A lineage query exceeded the slow-query threshold. Consider tuning the query or increasing lineage_slow_query_log_seconds.",
-                                context=f"{query_label}: {query_db_elapsed:.1f}s DB time (threshold: {self.config.lineage_slow_query_log_seconds}s)",
-                            )
-                            # lineage_query.sql is a connector-generated DBC.QryLogV SQL
-                            # string assembled entirely from config values (time range,
-                            # database names, cursor type). It contains no user-supplied
-                            # text and no PII, so logging a snippet here is safe.
-                            sql_snippet = lineage_query.sql[:500].replace("\n", " ")
-                            if len(lineage_query.sql) > 500:
-                                sql_snippet += " …"
-                            logger.warning(
-                                f"Slow lineage query detected: {query_label} took "
-                                f"{query_db_elapsed:.1f}s DB time (threshold: {self.config.lineage_slow_query_log_seconds}s). "
-                                f"SQL (first 500 chars): {sql_snippet}"
-                            )
 
                 logger.info(
                     f"Completed fetching all queries: {total_count_all_queries} total lineage entries from {len(queries)} queries"
