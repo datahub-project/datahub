@@ -742,6 +742,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             searchFlags: {
               skipHighlighting: true,
               skipAggregates: true
+              includeHiddenLifecycleStages: true
             }
           }) {
             nextScrollId

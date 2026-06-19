@@ -2577,12 +2577,27 @@ class TestFetchDocumentsPagination:
             assert len(documents) == 1000
             assert mock_execute.call_count == 1
 
+    def test_requests_hidden_lifecycle_stages(self, ctx, config, mock_graph):
+        """Document backfills request hidden-lifecycle stages so hidden documents are included."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            response = self._make_scroll_page(0, 0, next_scroll_id=None)
+
+            with patch.object(
+                source.graph, "execute_graphql", return_value=response
+            ) as mock_execute:
+                source._fetch_documents_graphql()
+
+            query = mock_execute.call_args[0][0]
+            assert "includeHiddenLifecycleStages: true" in query
+
     def test_empty_result_set(self, ctx, config, mock_graph):
         """Zero documents returns empty list after one call."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            response = {
+            response: dict[str, Any] = {
                 "scrollAcrossEntities": {
                     "nextScrollId": None,
                     "searchResults": [],

@@ -10,8 +10,10 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ScrollAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.ScrollResults;
+import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
@@ -20,6 +22,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.concurrent.CompletionException;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -117,6 +120,95 @@ public class ScrollAcrossEntitiesResolverTest {
   }
 
   @Test
+  public void testIncludeHiddenLifecycleStagesSkipsDocumentDefaultFiltersForDocumentManagers()
+      throws Exception {
+    ScrollResult mockResult = new ScrollResult();
+    mockResult.setPageSize(0);
+    mockResult.setNumEntities(0);
+    mockResult.setMetadata(new SearchResultMetadata());
+    mockResult.setEntities(new SearchEntityArray());
+
+    SearchFlags searchFlags = new SearchFlags();
+    searchFlags.setIncludeHiddenLifecycleStages(true);
+
+    ScrollAcrossEntitiesInput input = new ScrollAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DOCUMENT));
+    input.setQuery("*");
+    input.setCount(10);
+    input.setSearchFlags(searchFlags);
+
+    QueryContext context = getMockAllowContext();
+    Mockito.when(_env.getArgument("input")).thenReturn(input);
+    Mockito.when(_env.getContext()).thenReturn(context);
+    Mockito.when(
+            _entityClient.scrollAcrossEntities(
+                any(), any(), eq("*"), any(), eq(null), eq("5m"), any(), eq(10)))
+        .thenReturn(mockResult);
+
+    ScrollResults result = _resolver.get(_env).get();
+
+    assertNotNull(result);
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(_entityClient)
+        .scrollAcrossEntities(
+            any(),
+            eq(Collections.singletonList(Constants.DOCUMENT_ENTITY_NAME)),
+            eq("*"),
+            filterCaptor.capture(),
+            eq(null),
+            eq("5m"),
+            eq(Collections.emptyList()),
+            eq(10));
+    assertNull(filterCaptor.getValue());
+  }
+
+  @Test
+  public void testIncludeHiddenLifecycleStagesKeepsDocumentDefaultFiltersWithoutManageDocuments()
+      throws Exception {
+    ScrollResult mockResult = new ScrollResult();
+    mockResult.setPageSize(0);
+    mockResult.setNumEntities(0);
+    mockResult.setMetadata(new SearchResultMetadata());
+    mockResult.setEntities(new SearchEntityArray());
+
+    SearchFlags searchFlags = new SearchFlags();
+    searchFlags.setIncludeHiddenLifecycleStages(true);
+
+    ScrollAcrossEntitiesInput input = new ScrollAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DOCUMENT));
+    input.setQuery("*");
+    input.setCount(10);
+    input.setSearchFlags(searchFlags);
+
+    QueryContext context = getMockDenyContext();
+    Mockito.when(_env.getArgument("input")).thenReturn(input);
+    Mockito.when(_env.getContext()).thenReturn(context);
+    Mockito.when(
+            _entityClient.scrollAcrossEntities(
+                any(), any(), eq("*"), any(), eq(null), eq("5m"), any(), eq(10)))
+        .thenReturn(mockResult);
+
+    ScrollResults result = _resolver.get(_env).get();
+
+    assertNotNull(result);
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(_entityClient)
+        .scrollAcrossEntities(
+            any(),
+            eq(Collections.singletonList(Constants.DOCUMENT_ENTITY_NAME)),
+            eq("*"),
+            filterCaptor.capture(),
+            eq(null),
+            eq("5m"),
+            eq(Collections.emptyList()),
+            eq(10));
+    assertTrue(filterContainsField(filterCaptor.getValue(), "state"));
+    assertTrue(filterContainsField(filterCaptor.getValue(), "showInGlobalContext"));
+  }
+
+  @Test
   public void testGetExceptionThrowsRuntimeException() throws Exception {
     ScrollAcrossEntitiesInput input = new ScrollAcrossEntitiesInput();
     input.setTypes(Collections.singletonList(EntityType.DATASET));
@@ -138,5 +230,14 @@ public class ScrollAcrossEntitiesResolverTest {
       assertTrue(e.getCause() instanceof RuntimeException);
       assertTrue(e.getCause().getMessage().contains("Failed to execute search"));
     }
+  }
+
+  private static boolean filterContainsField(Filter filter, String field) {
+    if (filter == null || !filter.hasOr()) {
+      return false;
+    }
+    return filter.getOr().stream()
+        .flatMap(conjunction -> conjunction.getAnd().stream())
+        .anyMatch(criterion -> field.equals(criterion.getField()));
   }
 }
