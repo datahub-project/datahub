@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, FrozenSet, List, Optional, Set, Union, cast
+from typing import Dict, FrozenSet, List, Optional, Set, Union
 
 from databricks.sdk.service.catalog import (
     CatalogType,
@@ -79,7 +79,9 @@ OPERATION_STATEMENT_TYPES = {
     QueryStatementType.DROP: OperationTypeClass.DROP,
     QueryStatementType.OTHER: OperationTypeClass.UNKNOWN,
 }
-ALLOWED_STATEMENT_TYPES = {*OPERATION_STATEMENT_TYPES.keys(), QueryStatementType.SELECT}
+ALLOWED_STATEMENT_TYPES: FrozenSet[QueryStatementType] = frozenset(
+    {*OPERATION_STATEMENT_TYPES.keys(), QueryStatementType.SELECT}
+)
 
 USAGE_READ_STATEMENT_TYPES: FrozenSet[QueryStatementType] = frozenset(
     {QueryStatementType.SELECT}
@@ -96,7 +98,7 @@ def usage_statement_types(
     since they do not contribute to read-side usage statistics.
     """
     if include_operational_stats:
-        return cast(FrozenSet[QueryStatementType], frozenset(ALLOWED_STATEMENT_TYPES))
+        return ALLOWED_STATEMENT_TYPES
     return USAGE_READ_STATEMENT_TYPES
 
 
