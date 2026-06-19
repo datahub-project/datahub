@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Union
 
@@ -419,6 +420,19 @@ class UnityCatalogSourceConfig(
             "parses every query). Takes precedence over "
             "push_down_database_pattern_access_history and "
             "skip_sqlglot_when_system_table_lineage_missing, which are ignored when set."
+        ),
+    )
+
+    local_temp_path: HiddenFromDocs[Optional[pathlib.Path]] = pydantic.Field(
+        default=None,
+        description=(
+            "Advanced/dev only. Local directory in which to persist the drained "
+            "query-history audit log (SQLite). When set, the audit log is kept across "
+            "runs so the next run over the same time window reloads it and skips "
+            "re-fetching (including after a crash). The file name is keyed by the usage "
+            "source and time window so it never serves a stale window; files for other "
+            "windows are not pruned automatically. When unset, an ephemeral, "
+            "self-cleaning buffer is used and no caching occurs."
         ),
     )
 

@@ -1,4 +1,5 @@
 import logging
+import pathlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Iterable, List, Optional, Set
@@ -25,7 +26,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
-from datahub.utilities.file_backed_collections import FileBackedList
+from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,14 @@ class UnityCatalogUsageExtractor:
             format_queries=False,
             is_allowed_table=is_allowed_table,
         )
+
+    def _audit_log_filename(self) -> str:
+        # Key the cache file by usage source and time window so a file left behind by a
+        # crashed run is only reused for an identical window, never a stale one.
+        mode = "systables" if self._use_system_tables_join() else "api"
+        start = int(self.config.start_time.timestamp())
+        end = int(self.config.end_time.timestamp())
+        return f"unity_usage_audit_log_{mode}_{start}_{end}.sqlite"
 
     def _fetch_queries(self) -> Iterable[Query]:
         include_ops = self.config.include_operational_stats
@@ -482,6 +491,7 @@ class UnityCatalogUsageExtractor:
         fetch_failures_before = self.report.num_usage_query_fetch_failures
 
         aggregator: Optional[SqlParsingAggregator] = None
+        shared_connection: Optional[ConnectionWrapper] = None
         # Drain all rows from _fetch_queries() into a disk-backed buffer before
         # parsing. Holding the Databricks warehouse cursor open across slow per-query
         # sqlglot parsing (~20-30 min for large histories) causes the server-side
@@ -489,17 +499,42 @@ class UnityCatalogUsageExtractor:
         # Draining is near-instant; the cursor/connection is released as soon as the
         # generator is fully consumed. Parsing then runs against the buffer.
         # Ref: https://github.com/databricks/databricks-sql-python/pull/785
+        #
+        # When local_temp_path is set the buffer is a named, window-keyed SQLite file
+        # that persists across runs: the next run over the same window reloads it and
+        # skips the fetch (use_cached_audit_log) — including after a crash. The
+        # window-keyed name keeps it from ever serving a stale window (a different
+        # window or usage source resolves to a different file). Without local_temp_path
+        # the buffer is an ephemeral, self-cleaning FileBackedList and no caching occurs.
+        audit_log_file: Optional[pathlib.Path] = None
+        if isinstance(self.config.local_temp_path, pathlib.Path):
+            audit_log_file = self.config.local_temp_path / self._audit_log_filename()
+        use_cached_audit_log = audit_log_file is not None and audit_log_file.exists()
+
         buffered_queries: Optional[FileBackedList[Query]] = None
         try:
             try:
                 aggregator = self._build_aggregator(is_allowed_table=is_allowed_table)
-                buffered_queries = FileBackedList[Query]()
-                with self.report.usage_query_fetch_timer:
-                    for query in self._fetch_queries():
-                        # Drain only — the cursor/connection is released once the
-                        # generator is fully consumed here.
-                        self.report.num_queries += 1
-                        buffered_queries.append(query)
+                if use_cached_audit_log:
+                    assert audit_log_file is not None
+                    logger.info(
+                        "Using cached query-history audit log at %s", audit_log_file
+                    )
+                    shared_connection = ConnectionWrapper(audit_log_file)
+                    buffered_queries = FileBackedList(shared_connection)
+                else:
+                    if audit_log_file is not None:
+                        audit_log_file.unlink(missing_ok=True)
+                        shared_connection = ConnectionWrapper(audit_log_file)
+                        buffered_queries = FileBackedList(shared_connection)
+                    else:
+                        buffered_queries = FileBackedList[Query]()
+                    with self.report.usage_query_fetch_timer:
+                        for query in self._fetch_queries():
+                            # Drain only — the cursor/connection is released once the
+                            # generator is fully consumed here.
+                            buffered_queries.append(query)
+                self.report.num_queries = len(buffered_queries)
             except (MemoryError, SystemExit, KeyboardInterrupt):
                 raise
             except Exception as e:
@@ -572,6 +607,12 @@ class UnityCatalogUsageExtractor:
         finally:
             if buffered_queries is not None:
                 buffered_queries.close()
+            if shared_connection is not None:
+                # Closing flushes the SQLite file but does NOT delete it (it is a named
+                # file, not the auto-cleaned temp-dir case). The window-keyed file is
+                # intentionally left behind so the next run over the same window reloads
+                # it (use_cached_audit_log) — including after a crash.
+                shared_connection.close()
             if aggregator is not None:
                 try:
                     aggregator.close()

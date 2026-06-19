@@ -1,3 +1,4 @@
+import pathlib
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -15,6 +16,7 @@ from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
 from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
 
 
 def _row(**kw):
@@ -3076,3 +3078,98 @@ def test_queries_drained_before_parsing(
     assert ex.report.num_queries == 3, (
         f"expected 3 queries counted, got {ex.report.num_queries}"
     )
+
+
+def _audit_log_config(tmp_path: pathlib.Path) -> MagicMock:
+    """A MagicMock config wired for the system-tables usage path with a real
+    local_temp_path (so the named/window-keyed audit-log cache is exercised)."""
+    start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    end = datetime(2026, 6, 2, tzinfo=timezone.utc)
+    config = MagicMock()
+    config.include_queries = False
+    config.include_query_usage_statistics = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+    config.local_temp_path = tmp_path
+    config.start_time = start
+    config.end_time = end
+    config.bucket_duration = BucketDuration.DAY
+    config.majority_buckets.return_value = [start]
+    return config
+
+
+def test_audit_log_persists_and_second_run_reloads(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """With local_temp_path set, the audit log persists after a run, and a second run
+    over the same window reloads it and skips the fetch (the reload-from-file route)."""
+    _no_op_aggregator(monkeypatch)
+    config = _audit_log_config(tmp_path)
+
+    fetch_calls: List[int] = []
+
+    def _fetch(*_a: object, **_k: object) -> Iterator[Query]:
+        fetch_calls.append(1)
+        return iter([_query("SELECT * FROM main.sales.orders", "q1")])
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.side_effect = _fetch
+    ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+
+    # First run: cache miss -> fetches, and leaves the audit log behind.
+    ex1 = _extractor(config, proxy)
+    ex1.report = UnityCatalogReport()
+    list(ex1.get_usage_workunits({ref}))
+    assert len(fetch_calls) == 1, "first run must fetch"
+    assert ex1.report.num_queries == 1
+    assert len(list(tmp_path.glob("unity_usage_audit_log_*.sqlite"))) == 1, (
+        "audit log must persist after a successful run so a re-run can reload it"
+    )
+
+    # Second run, same window: cache hit -> reloads from file, no new fetch.
+    ex2 = _extractor(config, proxy)
+    ex2.report = UnityCatalogReport()
+    list(ex2.get_usage_workunits({ref}))
+    assert len(fetch_calls) == 1, "second run must reload from file, not re-fetch"
+    assert ex2.report.num_queries == 1, "the cached query must be read back"
+
+
+def test_audit_log_cache_hit_skips_fetch(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """When a window-keyed audit log already exists, the run reads it and skips the
+    fetch entirely; the cached file is left in place for re-use."""
+    _no_op_aggregator(monkeypatch)
+    config = _audit_log_config(tmp_path)
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+
+    # Pre-populate the exact window-keyed file the extractor will look for.
+    audit_file = tmp_path / ex._audit_log_filename()
+    conn = ConnectionWrapper(audit_file)
+    cached: FileBackedList[Query] = FileBackedList(conn)
+    cached.append(_query("SELECT * FROM main.sales.orders", "cached1"))
+    cached.close()
+    conn.close()
+    assert audit_file.exists()
+
+    fetch_calls: List[int] = []
+
+    def _fetch(*_a: object, **_k: object) -> Iterator[Query]:
+        fetch_calls.append(1)
+        return iter([])
+
+    proxy.get_query_history_via_system_tables.side_effect = _fetch
+
+    ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+    list(ex.get_usage_workunits({ref}))
+
+    assert not fetch_calls, "fetch must be skipped on a cache hit"
+    assert ex.report.num_queries == 1, "the one cached query must be read from the file"
+    # A cached run leaves the file in place (only non-cached runs remove it).
+    assert audit_file.exists()
