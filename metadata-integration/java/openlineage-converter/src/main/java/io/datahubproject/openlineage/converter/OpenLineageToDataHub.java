@@ -149,10 +149,6 @@ public class OpenLineageToDataHub {
           if (symlink.getNamespace().startsWith("aws:glue:")
               || symlink.getNamespace().startsWith("arn:aws:glue:")) {
             namespace = "glue";
-            // The Glue ARN carries the owning account + region; keep it as the connection key so
-            // the URN gets that catalog's instance instead of collapsing every catalog to one.
-            // (The symlink rewrites namespace to "glue", so we can't recover it downstream.)
-            connectionKey = parseGlueArnAuthority(symlink.getNamespace());
           } else {
             namespace = mappingConfig.getHivePlatformAlias();
           }
@@ -161,6 +157,10 @@ public class OpenLineageToDataHub {
           } else {
             datasetName = symlink.getName();
           }
+          // Derive the connection-instance map key from the symlink's own namespace before it is
+          // flattened above (e.g. the Glue ARN, which "glue" alone can't recover). toConnectionKey
+          // dispatches on the namespace protocol — it is not Glue-specific.
+          connectionKey = toConnectionKey(symlink.getNamespace());
         }
       }
       Optional<DatasetUrn> symlinkedUrn =
@@ -238,15 +238,12 @@ public class OpenLineageToDataHub {
       platform = namespace;
     }
 
-    // The connection key is the canonical OpenLineage namespace authority. For Glue it's supplied
-    // by
-    // the caller (the symlink rewrites the namespace to "glue", losing the ARN); for other URI
-    // namespaces (snowflake://acct, postgres://host:port, ...) the namespace itself is the key and
-    // its scheme already identifies the platform.
-    String connectionKey = connectionKeyOverride;
-    if (connectionKey == null && namespace.contains(SCHEME_SEPARATOR)) {
-      connectionKey = namespace;
-    }
+    // The connection key drives per-connection platform_instance/env resolution. The caller
+    // supplies
+    // it for the symlink (Glue) case where `namespace` was flattened; otherwise derive it from the
+    // namespace via the same protocol-dispatching utility.
+    String connectionKey =
+        connectionKeyOverride != null ? connectionKeyOverride : toConnectionKey(namespace);
     String platformInstance = getPlatformInstance(mappingConfig, platform, connectionKey);
     FabricType env = getEnv(mappingConfig, platform, connectionKey);
     DatasetUrn urn = DatahubUtils.createDatasetUrn(platform, platformInstance, datasetName, env);
@@ -254,21 +251,34 @@ public class OpenLineageToDataHub {
   }
 
   /**
-   * Normalizes an OpenLineage Glue namespace to its canonical ARN authority {@code
-   * arn:aws:glue:{region}:{account}}, accepting both the modern {@code arn:aws:glue:...} and the
-   * pre-0.17.1 {@code aws:glue:...} forms. This authority (account + region) is the catalog's
-   * unique identity and the registry-canonical key. Returns null if the namespace is not a Glue
-   * ARN.
+   * Converts an OpenLineage dataset namespace to the connection-instance map key, dispatching on
+   * the namespace's protocol. Not platform-specific:
+   *
+   * <ul>
+   *   <li>Glue arrives as an ARN ({@code arn:aws:glue:{region}:{account}}, or the pre-0.17.1 {@code
+   *       aws:glue:...} form) rather than a {@code scheme://authority} URI — normalized to the
+   *       canonical ARN authority (account + region).
+   *   <li>URI namespaces ({@code snowflake://...}, {@code postgres://host:port}, {@code
+   *       kafka://...}, …) carry the connection authority directly and are used verbatim.
+   *   <li>A bare platform name (e.g. {@code hive}, or the symlink-flattened {@code glue}) has no
+   *       connection authority.
+   * </ul>
+   *
+   * Returns null when no connection key applies. This is the single place that decides, per
+   * protocol, how a namespace maps to a key — extend it here for new protocols.
    */
-  static String parseGlueArnAuthority(String glueNamespace) {
-    if (glueNamespace == null) {
+  public static String toConnectionKey(String olNamespace) {
+    if (olNamespace == null) {
       return null;
     }
-    Matcher matcher = GLUE_ARN_PATTERN.matcher(glueNamespace);
-    if (!matcher.find()) {
-      return null;
+    Matcher glueArn = GLUE_ARN_PATTERN.matcher(olNamespace);
+    if (glueArn.find()) {
+      return "arn:aws:glue:" + glueArn.group(1) + ":" + glueArn.group(2);
     }
-    return "arn:aws:glue:" + matcher.group(1) + ":" + matcher.group(2);
+    if (olNamespace.contains(SCHEME_SEPARATOR)) {
+      return olNamespace;
+    }
+    return null;
   }
 
   private static FabricType getEnv(

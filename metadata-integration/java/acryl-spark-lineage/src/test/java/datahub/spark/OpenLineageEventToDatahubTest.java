@@ -2,6 +2,7 @@ package datahub.spark;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.linkedin.common.FabricType;
@@ -591,6 +592,26 @@ public class OpenLineageEventToDatahubTest {
           "urn:li:dataset:(urn:li:dataPlatform:hive,my_glue_database.my_output_glue_table,DEV)",
           dataset.getUrn().toString());
     }
+  }
+
+  @Test
+  public void testToConnectionKeyDispatchesByProtocol() {
+    // Glue arrives as an ARN (both pre- and post-0.17.1 forms) -> canonical ARN authority.
+    assertEquals(
+        "arn:aws:glue:us-west-2:123456789012",
+        OpenLineageToDataHub.toConnectionKey("aws:glue:us-west-2:123456789012"));
+    assertEquals(
+        "arn:aws:glue:us-east-1:111122223333",
+        OpenLineageToDataHub.toConnectionKey("arn:aws:glue:us-east-1:111122223333"));
+    // URI namespaces carry the connection authority directly -> used verbatim.
+    assertEquals(
+        "snowflake://acme-prod", OpenLineageToDataHub.toConnectionKey("snowflake://acme-prod"));
+    assertEquals(
+        "postgres://pg.example.com:5432",
+        OpenLineageToDataHub.toConnectionKey("postgres://pg.example.com:5432"));
+    // Bare platform name / null -> no connection key.
+    assertNull(OpenLineageToDataHub.toConnectionKey("hive"));
+    assertNull(OpenLineageToDataHub.toConnectionKey(null));
   }
 
   @Test
