@@ -25,6 +25,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
+from datahub.utilities.file_backed_collections import FileBackedList
 
 logger = logging.getLogger(__name__)
 
@@ -439,38 +440,23 @@ class UnityCatalogUsageExtractor:
         fetch_failures_before = self.report.num_usage_query_fetch_failures
 
         aggregator: Optional[SqlParsingAggregator] = None
+        # Drain all rows from _fetch_queries() into a disk-backed buffer before
+        # parsing. Holding the Databricks warehouse cursor open across slow per-query
+        # sqlglot parsing (~20-30 min for large histories) causes the server-side
+        # operation handle to be evicted with a non-retryable RESOURCE_DOES_NOT_EXIST.
+        # Draining is near-instant; the cursor/connection is released as soon as the
+        # generator is fully consumed. Parsing then runs against the buffer.
+        # Ref: https://github.com/databricks/databricks-sql-python/pull/785
+        buffered_queries: Optional[FileBackedList[Query]] = None
         try:
             try:
                 aggregator = self._build_aggregator(is_allowed_table=is_allowed_table)
+                buffered_queries = FileBackedList[Query]()
                 for query in self._fetch_queries():
+                    # Drain only — the cursor/connection is released once the
+                    # generator is fully consumed here.
                     self.report.num_queries += 1
-                    try:
-                        self._add_query_to_aggregator(
-                            aggregator, query, default_db=default_db
-                        )
-                    except (
-                        MemoryError,
-                        SystemExit,
-                        KeyboardInterrupt,
-                    ):  # never swallow system-level errors as a "dropped query"
-                        raise
-                    except Exception as per_query_exc:
-                        self.report.num_queries_dropped += 1
-                        logger.warning(
-                            "Skipping query due to error during usage processing "
-                            "(query_id=%s): %r",
-                            query.query_id,
-                            per_query_exc,
-                            exc_info=True,
-                        )
-                        self.report.report_warning(
-                            title="Skipped query during usage extraction",
-                            message="A query from query history could not be processed and was skipped, so its usage is not counted.",
-                            context=f"query_id={query.query_id}",
-                            exc=per_query_exc,
-                        )
-                self._log_usage_routing_summary()
-                self._report_usage_lineage_warnings()
+                    buffered_queries.append(query)
             except (MemoryError, SystemExit, KeyboardInterrupt):
                 raise
             except Exception as e:
@@ -536,12 +522,44 @@ class UnityCatalogUsageExtractor:
                 # in that case would wrongly wipe existing usage stats in DataHub.
                 return
 
+            assert buffered_queries is not None
+            for query in buffered_queries:
+                try:
+                    self._add_query_to_aggregator(
+                        aggregator, query, default_db=default_db
+                    )
+                except (
+                    MemoryError,
+                    SystemExit,
+                    KeyboardInterrupt,
+                ):  # never swallow system-level errors as a "dropped query"
+                    raise
+                except Exception as per_query_exc:
+                    self.report.num_queries_dropped += 1
+                    logger.warning(
+                        "Skipping query due to error during usage processing "
+                        "(query_id=%s): %r",
+                        query.query_id,
+                        per_query_exc,
+                        exc_info=True,
+                    )
+                    self.report.report_warning(
+                        title="Skipped query during usage extraction",
+                        message="A query from query history could not be processed and was skipped, so its usage is not counted.",
+                        context=f"query_id={query.query_id}",
+                        exc=per_query_exc,
+                    )
+            self._log_usage_routing_summary()
+            self._report_usage_lineage_warnings()
+
             yield from auto_empty_dataset_usage_statistics(
                 auto_workunit(aggregator.gen_metadata()),
                 dataset_urns={self.table_urn_builder(ref) for ref in table_refs},
                 config=self.config,
             )
         finally:
+            if buffered_queries is not None:
+                buffered_queries.close()
             if aggregator is not None:
                 try:
                     aggregator.close()

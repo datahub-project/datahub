@@ -2959,3 +2959,89 @@ def test_fetch_queries_omits_catalog_pattern_when_column_usage_stats_enabled(
         catalog_pattern=None,
         include_operational_stats=False,
     )
+
+
+def test_queries_drained_before_parsing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fetch generator must be fully consumed before the first _add_query_to_aggregator
+    call (drain-before-parse invariant).
+
+    Holding the Databricks warehouse cursor open across slow per-query sqlglot parsing
+    causes the server-side operation handle to be evicted with a non-retryable
+    RESOURCE_DOES_NOT_EXIST error. The fix drains all rows into a FileBackedList first
+    (releasing the cursor/connection in seconds), then routes/parses from the buffer.
+    Ref: https://github.com/databricks/databricks-sql-python/pull/785
+
+    This test FAILS on the old interleaved code (first route call happens mid-fetch,
+    before the generator is exhausted, so fetch_exhausted would be False).
+    """
+    fetch_exhausted = [False]
+    fetch_exhausted_at_first_route: list = []
+
+    def _fake_fetch_queries() -> Iterator[Query]:
+        ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
+        for i in range(3):
+            yield Query(
+                query_id=f"q{i}",
+                query_text=f"SELECT {i}",
+                statement_type=None,
+                start_time=ts,
+                end_time=ts,
+                user_id=1,
+                user_name="u@x.io",
+                executed_as_user_id=None,
+                executed_as_user_name=None,
+            )
+        # Only set after the last item is yielded (generator fully consumed).
+        fetch_exhausted[0] = True
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            self.observed: list = []
+
+        def add_observed_query(self, obs: object, **kw: object) -> None:
+            # Record the drain state at the moment of the very first routing call.
+            if not fetch_exhausted_at_first_route:
+                fetch_exhausted_at_first_route.append(fetch_exhausted[0])
+            self.observed.append(obs)
+
+        def add_preparsed_query(self, parsed: object, **kw: object) -> None:
+            if not fetch_exhausted_at_first_route:
+                fetch_exhausted_at_first_route.append(fetch_exhausted[0])
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.include_queries = False
+    config.include_query_usage_statistics = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+    monkeypatch.setattr(ex, "_fetch_queries", _fake_fetch_queries)
+
+    list(ex.get_usage_workunits(set()))
+
+    # All three queries must have been routed.
+    assert len(fetch_exhausted_at_first_route) == 1, (
+        "expected exactly one first-route observation"
+    )
+    # Key assertion: fetch was fully exhausted BEFORE the first route call.
+    assert fetch_exhausted_at_first_route[0] is True, (
+        "fetch generator was not fully drained before the first _add_query_to_aggregator call; "
+        "the old interleaved code would cause this to be False"
+    )
+    # All three queries must still have been routed despite the drain-first change.
+    assert ex.report.num_queries == 3, (
+        f"expected 3 queries counted, got {ex.report.num_queries}"
+    )
