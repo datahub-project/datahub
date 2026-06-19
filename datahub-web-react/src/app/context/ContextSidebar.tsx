@@ -6,7 +6,7 @@ import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Divider } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory } from 'react-router-dom';
+import { matchPath, useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
@@ -27,6 +27,7 @@ import {
     getAvailablePlatforms,
     getDistinctCreators,
 } from '@app/document/utils/documentTreeFilters';
+import { decodeUrn } from '@app/entityV2/shared/utils';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -235,7 +236,20 @@ export default function ContextSidebar({
     const { expandNode, getNode, nodes } = useDocumentTree();
     const { loadChildren } = useLoadDocumentTree();
     const history = useHistory();
+    const location = useLocation();
     const entityRegistry = useEntityRegistry();
+
+    const importParentDocumentUrn = useMemo(() => {
+        if (!isEntityProfile) {
+            return undefined;
+        }
+        const documentPath = `/${entityRegistry.getPathName(EntityType.Document)}/:urn`;
+        const match = matchPath<{ urn: string }>(location.pathname, { path: documentPath });
+        if (!match?.params.urn) {
+            return undefined;
+        }
+        return decodeUrn(match.params.urn);
+    }, [entityRegistry, isEntityProfile, location.pathname]);
 
     const { canCreate: canCreateDocuments } = useContextDocumentsPermissions();
 
@@ -375,7 +389,12 @@ export default function ContextSidebar({
             <HeaderControls $isCollapsed={isCollapsed}>
                 {!isCollapsed && <SidebarTitle>{t('context.documentsSidebarTitle')}</SidebarTitle>}
                 <HeaderButtons>
-                    {!isCollapsed && canCreateDocuments && <ImportDocumentsButton onSuccess={handleImportSuccess} />}
+                    {!isCollapsed && canCreateDocuments && (
+                        <ImportDocumentsButton
+                            onSuccess={handleImportSuccess}
+                            parentDocumentUrn={importParentDocumentUrn}
+                        />
+                    )}
                     {!isCollapsed && (
                         <Tooltip
                             title={

@@ -24,7 +24,12 @@ export function useImportFromFiles() {
     const [importMutation, { loading }] = useImportDocumentsFromFilesMutation();
 
     const importFiles = useCallback(
-        async (files: File[], showInGlobalContext: boolean, useCase: ImportUseCase) => {
+        async (
+            files: File[],
+            showInGlobalContext: boolean,
+            useCase: ImportUseCase,
+            parentDocumentUrn?: string | null,
+        ) => {
             setError(null);
             setResult(null);
 
@@ -48,6 +53,7 @@ export function useImportFromFiles() {
                             documents,
                             showInGlobalContext,
                             useCase: mapImportUseCase(useCase),
+                            ...(parentDocumentUrn ? { parentDocumentUrn } : {}),
                         },
                     },
                 });

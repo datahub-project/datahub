@@ -145,4 +145,37 @@ describe('useImportFromFiles', () => {
         expect(result.current.result).toEqual(mutationResult);
         expect(result.current.error).toBeNull();
     });
+
+    it('includes parentDocumentUrn in the mutation when provided', async () => {
+        mockedExtractText.mockResolvedValue('content');
+        mockImportMutation.mockResolvedValue({
+            data: {
+                importDocumentsFromFiles: {
+                    createdCount: 1,
+                    updatedCount: 0,
+                    failedCount: 0,
+                    errors: [],
+                    documentUrns: ['urn:li:document:child'],
+                },
+            },
+        });
+
+        const { result } = renderHook(() => useImportFromFiles());
+        const parentUrn = 'urn:li:document:parent';
+
+        await act(async () => {
+            await result.current.importFiles([makeFile('notes.txt')], true, ImportUseCase.CONTEXT_DOCUMENT, parentUrn);
+        });
+
+        expect(mockImportMutation).toHaveBeenCalledWith({
+            variables: {
+                input: {
+                    documents: [{ fileName: 'notes.txt', content: 'content' }],
+                    showInGlobalContext: true,
+                    useCase: DocumentImportUseCase.ContextDocument,
+                    parentDocumentUrn: parentUrn,
+                },
+            },
+        });
+    });
 });

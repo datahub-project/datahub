@@ -1,4 +1,6 @@
-### Example: context documents under a parent folder
+### Capabilities
+
+#### Context documents under a parent folder
 
 ```yaml
 source:
@@ -20,7 +22,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-### Example: read-only external references
+#### Read-only external references
 
 ```yaml
 source:
@@ -38,7 +40,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-### Plain-body serialization
+#### Plain-body serialization
 
 GitHub files are imported as **plain markdown or text**. Document metadata (title, tags, ownership, etc.) lives in DataHub aspects and `customProperties` — not in YAML frontmatter or other file headers.
 
@@ -54,7 +56,7 @@ Each imported file document stores these `customProperties` keys:
 
 Cloud sync-back may additionally write `last_exported_content_hash` to prevent re-import loops after export.
 
-### Stateful ingestion
+#### Stateful ingestion
 
 Enable `stateful_ingestion.enabled: true` (recommended for scheduled syncs) to soft-delete documents that disappear from the GitHub tree between runs. Unchanged file bodies are skipped when a graph connection is available and the stored `content_hash` matches.
 
@@ -64,6 +66,7 @@ Enable `stateful_ingestion.enabled: true` (recommended for scheduled syncs) to s
 - Requires network access from the ingestion executor to `api.github.com`.
 - Binary formats are not parsed; use text/markdown files.
 - GitHub may truncate recursive tree listings for very large repositories; narrow `path_prefix` or split across sources.
+- Imports are capped by `max_files` (default 500) per run.
 
 ### Troubleshooting
 
@@ -71,3 +74,4 @@ Enable `stateful_ingestion.enabled: true` (recommended for scheduled syncs) to s
 - **Branch not found**: Confirm the branch exists and is spelled correctly.
 - **No files imported**: Check `path_prefix` and `file_extensions` filters.
 - **Documents not removed after GitHub delete**: Ensure `stateful_ingestion.enabled: true` and the pipeline has a graph connection for checkpoint storage.
+- **Partial import on large repos**: Check ingestion report warnings for `github-tree-truncated` or `github-files-truncated`.

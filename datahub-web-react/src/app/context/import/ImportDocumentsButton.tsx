@@ -17,11 +17,13 @@ const StyledButton = styled(Button)`
 
 type ImportDocumentsButtonProps = {
     useCase?: ImportUseCase;
+    parentDocumentUrn?: string | null;
     onSuccess?: () => void;
 };
 
 export default function ImportDocumentsButton({
     useCase = ImportUseCase.CONTEXT_DOCUMENT,
+    parentDocumentUrn,
     onSuccess,
 }: ImportDocumentsButtonProps) {
     const { t } = useTranslation('misc');
@@ -45,6 +47,7 @@ export default function ImportDocumentsButton({
                 visible={isOpen}
                 onClose={() => setIsOpen(false)}
                 useCase={useCase}
+                parentDocumentUrn={parentDocumentUrn}
                 onSuccess={onSuccess}
             />
         </>

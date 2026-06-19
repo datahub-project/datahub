@@ -19,6 +19,7 @@ type ImportDocumentsModalProps = {
     visible: boolean;
     onClose: () => void;
     useCase?: ImportUseCase;
+    parentDocumentUrn?: string | null;
     onSuccess?: () => void;
 };
 
@@ -32,6 +33,7 @@ export default function ImportDocumentsModal({
     visible,
     onClose,
     useCase = ImportUseCase.CONTEXT_DOCUMENT,
+    parentDocumentUrn,
     onSuccess,
 }: ImportDocumentsModalProps) {
     const { t } = useTranslation('misc');
@@ -79,7 +81,7 @@ export default function ImportDocumentsModal({
     const handleImport = useCallback(async () => {
         setStep('importing');
         try {
-            const importResult = await importFiles(uploadFiles, true, useCase);
+            const importResult = await importFiles(uploadFiles, true, useCase, parentDocumentUrn);
             if (importResult && sourceType) {
                 analytics.event({
                     type: EventType.ImportDocumentsEvent,
@@ -94,7 +96,7 @@ export default function ImportDocumentsModal({
         } catch {
             setStep('result');
         }
-    }, [sourceType, importFiles, uploadFiles, useCase, onSuccess]);
+    }, [sourceType, importFiles, uploadFiles, useCase, parentDocumentUrn, onSuccess]);
 
     const canImport = useMemo(
         () => sourceType === ImportSourceType.FILE_UPLOAD && uploadFiles.length > 0,
