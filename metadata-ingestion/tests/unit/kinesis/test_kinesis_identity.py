@@ -2,8 +2,8 @@
 
 The connector resolves an effective platform_instance at init time:
   - explicit config.platform_instance wins (no AWS call)
-  - otherwise, sts:GetCallerIdentity provides account_id and the resolved value is
-    f"{account_id}-{region}" — disambiguating both account and region
+  - otherwise, sts:GetCallerIdentity provides the account_id, which becomes the
+    platform_instance (region is encoded in the dataset name / DataFlow id, not here)
   - sts denial leaves platform_instance unset; a warning is recorded so users know
     why their URNs lack the account_id segment
 """

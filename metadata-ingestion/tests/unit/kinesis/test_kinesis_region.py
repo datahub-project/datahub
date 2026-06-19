@@ -1,4 +1,10 @@
-from datahub.ingestion.source.kinesis.kinesis import KinesisRegionKey
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.kinesis.kinesis import KinesisRegionKey, KinesisSource
+from datahub.ingestion.source.kinesis.kinesis_config import KinesisSourceConfig
 
 
 class TestKinesisRegionKey:
@@ -24,3 +30,38 @@ class TestKinesisRegionKey:
             region="us-west-2", platform="kinesis", env="PROD", instance="acct-1"
         )
         assert east.guid() != west.guid()
+
+
+class TestRegionResolutionAtInit:
+    @patch(
+        "datahub.ingestion.source.kinesis.kinesis_config.AwsConnectionConfig.get_session"
+    )
+    def test_region_snapped_from_session_when_unset(self, mock_session):
+        """When aws_region isn't in the recipe, the connector snaps the boto3
+        session's resolved region onto the config so downstream extractors see a
+        concrete region rather than None."""
+        session = MagicMock()
+        session.region_name = "us-west-2"
+        mock_session.return_value = session
+        # platform_instance set so __init__ doesn't attempt the sts fallback.
+        config = KinesisSourceConfig.model_validate(
+            {"aws_config": {}, "platform_instance": "acct"}
+        )
+        source = KinesisSource(config, PipelineContext(run_id="test"))
+        assert source.config.aws_config.aws_region == "us-west-2"
+
+    @patch(
+        "datahub.ingestion.source.kinesis.kinesis_config.AwsConnectionConfig.get_session"
+    )
+    def test_unresolvable_region_raises(self, mock_session):
+        """No region in the recipe AND none resolvable from the session must fail
+        fast — otherwise the source would emit malformed URNs like
+        kinesis,None.events,PROD."""
+        session = MagicMock()
+        session.region_name = None
+        mock_session.return_value = session
+        config = KinesisSourceConfig.model_validate(
+            {"aws_config": {}, "platform_instance": "acct"}
+        )
+        with pytest.raises(ValueError):
+            KinesisSource(config, PipelineContext(run_id="test"))

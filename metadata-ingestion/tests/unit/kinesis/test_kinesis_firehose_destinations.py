@@ -140,6 +140,21 @@ class TestOpenSearchDestination:
             "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,events-index,PROD)"
         ]
 
+    def test_legacy_elasticsearch_key_still_matches(self):
+        # Older accounts return the pre-rebrand `ElasticsearchDestinationDescription`
+        # key; the dual-key handler must still resolve lineage for them.
+        h = OpenSearchDestination()
+        d = {"ElasticsearchDestinationDescription": {"IndexName": "legacy-index"}}
+        assert h.matches(d) is True
+        assert h.build_urns(d, _urn_builder) == [
+            "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,legacy-index,PROD)"
+        ]
+
+    def test_refuses_to_emit_when_index_name_missing(self):
+        h = OpenSearchDestination()
+        d = {"AmazonopensearchserviceDestinationDescription": {"DomainARN": "arn:..."}}
+        assert h.build_urns(d, _urn_builder) == []
+
 
 class TestSnowflakeDestination:
     def test_handler_emits_name_as_is(self):
@@ -265,6 +280,13 @@ class TestMongoDBDestination:
         assert urns == [
             "urn:li:dataset:(urn:li:dataPlatform:mongodb,analytics.events,PROD)"
         ]
+
+    def test_refuses_to_emit_when_collection_missing(self):
+        # Same matched-but-empty discipline as S3/Redshift/Snowflake: a missing
+        # CollectionName must not produce urn:li:dataset:(mongodb,analytics.,PROD).
+        h = MongoDBDestination()
+        d = {"MongoDBDestinationDescription": {"DatabaseName": "analytics"}}
+        assert h.build_urns(d, _urn_builder) == []
 
 
 class TestDestinationHandlerRegistry:

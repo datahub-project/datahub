@@ -361,6 +361,39 @@ class TestFirehoseLineage:
         warnings_text = " ".join(str(w) for w in ex.report.warnings)
         assert "events-to-s3" in warnings_text
 
+    def test_iceberg_partial_table_drop_is_reported(self):
+        """A multi-table Iceberg destination with one entry missing
+        DestinationTableName emits the valid edge(s) AND surfaces the dropped
+        one — a partial loss returns a non-empty list, so it would otherwise
+        slip past the matched-but-empty safety net silently."""
+        ex = _make_extractor()
+        delivery_desc = {
+            "DeliveryStreamName": "events-to-iceberg",
+            "DeliveryStreamType": "DirectPut",
+            "Destinations": [
+                {
+                    "IcebergDestinationDescription": {
+                        "DestinationTableConfigurationList": [
+                            {
+                                "DestinationDatabaseName": "lake",
+                                "DestinationTableName": "events",
+                            },
+                            {"DestinationDatabaseName": "lake"},  # missing table name
+                        ]
+                    }
+                }
+            ],
+        }
+        edges = ex.build_input_output(
+            cast("DeliveryStreamDescriptionTypeDef", delivery_desc)
+        )
+        assert edges.outputDatasets == [
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,lake.events,PROD)"
+        ]
+        warnings_text = " ".join(str(w) for w in ex.report.warnings)
+        assert "events-to-iceberg" in warnings_text
+        assert list(ex.report.destination_parse_failures)
+
     def test_matched_handler_but_empty_urns_emits_warning_and_counter(self):
         """Regression for the matched-but-empty-build_urns silent path. When a
         handler matches a destination but build_urns() returns [] (e.g.,

@@ -26,6 +26,7 @@ from datahub.ingestion.source.kinesis.kinesis_config import (
 from datahub.ingestion.source.kinesis.kinesis_firehose_destinations import (
     DESTINATION_HANDLERS,
     ExtendedS3Destination,
+    IcebergDestination,
 )
 from datahub.ingestion.source.kinesis.kinesis_report import KinesisSourceReport
 from datahub.ingestion.source.kinesis.kinesis_tagging import (
@@ -52,8 +53,8 @@ class KinesisFirehoseExtractor:
     """Extract Kinesis Firehose delivery streams as a DataFlow + DataJobs.
 
     One DataFlow per region; one DataJob per delivery stream. Lineage edges
-    are added in a follow-up task (Task 10) using the destination handlers
-    from Task 8.
+    (source Kinesis stream -> destination platform) are built via the
+    destination handler registry in kinesis_firehose_destinations.
     """
 
     def __init__(
@@ -335,6 +336,34 @@ class KinesisFirehoseExtractor:
             )
         outputs.extend(urns)
 
+        # Iceberg can target multiple tables; the matched-but-empty branch above
+        # only catches a FULLY empty result. A *partial* drop (some tables valid,
+        # one missing DestinationTableName) returns a non-empty list, so surface
+        # it here — otherwise the user sees N-1 edges with no signal why one is
+        # missing. (Handler-internal reporting would need the report handle; the
+        # orchestrator already narrows on handler type for the Extended-S3 case.)
+        if isinstance(handler, IcebergDestination) and urns:
+            configured = len(
+                (dest.get("IcebergDestinationDescription") or {}).get(
+                    "DestinationTableConfigurationList"
+                )
+                or []
+            )
+            dropped = configured - len(urns)
+            if dropped > 0:
+                self.report.report_destination_parse_failure(
+                    ds_name,
+                    f"IcebergDestination ({dropped} table(s) missing DestinationTableName)",
+                )
+                self.report.warning(
+                    title="Firehose Iceberg destination table skipped",
+                    message=(
+                        f"{dropped} Iceberg table config(s) lacked DestinationTableName; "
+                        "lineage edge(s) for those tables are missing."
+                    ),
+                    context=f"delivery_stream={ds_name}",
+                )
+
         # Extended S3 destinations may carry SchemaConfiguration in
         # DataFormatConversionConfiguration — a Glue table reference that
         # governs the Parquet/ORC output schema. Surfaced as an UPSTREAM (the
@@ -377,7 +406,6 @@ class KinesisFirehoseExtractor:
             desc = self.describe_delivery_stream(name)
             if desc is None:
                 continue
-            # Task 2 fix-up: report_delivery_stream_scanned() takes no args.
             self.report.report_delivery_stream_scanned()
             job_urn = self.datajob_urn(name)
             region = self.config.aws_config.aws_region
@@ -412,12 +440,10 @@ class KinesisFirehoseExtractor:
             # Tags. DataJob has no SDK V2 wrapper yet — emit as a direct MCP
             # against the DataJob URN. (Ownership is derived from these tags by
             # the extract_ownership_from_tags transformer, not by this source.)
+            # fetch_tags() already returns [] when extract_tags is disabled, and
+            # build_global_tags_from_aws_tags([]) returns None — no extra guard.
             tags = self.fetch_tags(name)
-            global_tags = (
-                build_global_tags_from_aws_tags(tags)
-                if self.config.extract_tags
-                else None
-            )
+            global_tags = build_global_tags_from_aws_tags(tags)
             if global_tags is not None:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=job_urn, aspect=global_tags

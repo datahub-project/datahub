@@ -289,3 +289,35 @@ class TestEmitDatasetSchemaAttachment:
             and isinstance(wu.metadata.aspect, SchemaMetadataClass)
         ]
         assert schema_aspects == []
+
+
+class TestCustomProperties:
+    def test_on_demand_stream_mode_surfaced(self):
+        props = KinesisStreamExtractor._custom_properties(
+            cast(
+                "StreamDescriptionTypeDef",
+                {
+                    "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/events",
+                    "StreamModeDetails": {"StreamMode": "ON_DEMAND"},
+                    "Shards": [{"ShardId": "shardId-0"}],
+                },
+            )
+        )
+        assert props["stream_mode"] == "ON_DEMAND"
+        assert props["shard_count"] == "1"
+
+    def test_stream_mode_defaults_to_provisioned_when_details_absent(self):
+        # StreamModeDetails is omitted for classic provisioned streams; the
+        # connector must default to PROVISIONED rather than emit an empty value.
+        props = KinesisStreamExtractor._custom_properties(
+            cast(
+                "StreamDescriptionTypeDef",
+                {
+                    "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/events",
+                    "Shards": [],
+                },
+            )
+        )
+        assert props["stream_mode"] == "PROVISIONED"
+        # Empty values (e.g. missing KeyId) are stripped, not emitted as "".
+        assert "key_id" not in props

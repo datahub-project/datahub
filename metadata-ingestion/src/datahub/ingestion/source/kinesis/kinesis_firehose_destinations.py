@@ -341,9 +341,10 @@ class IcebergDestination(DestinationHandler):
             db = t.get("DestinationDatabaseName", "")
             name = t.get("DestinationTableName", "")
             if not name:
-                # Skip malformed table entries silently — they don't represent
-                # a real lineage edge. Other valid entries in the list still
-                # produce their URNs.
+                # Skip table entries with no DestinationTableName; other valid
+                # entries still produce URNs. A partial drop (fewer URNs than
+                # configured tables) is surfaced by the orchestrator's
+                # _process_destination so it isn't silent.
                 continue
             full = f"{db}.{name}" if db else name
             urns.append(urn_builder(platform="iceberg", name=full))

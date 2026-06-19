@@ -32,7 +32,7 @@ class KinesisStreamExtractor:
     Responsibilities:
       - List streams (with pattern filtering)
       - Describe each stream (status, shards, encryption, retention)
-      - List tags (used by Task 11 for globalTags + ownership)
+      - List tags (emitted as globalTags)
       - Emit Dataset entities via SDK V2
     """
 
@@ -130,10 +130,10 @@ class KinesisStreamExtractor:
     def _emit_dataset(
         self, stream_name: str, desc: "StreamDescriptionTypeDef"
     ) -> Iterable[MetadataWorkUnit]:
+        # fetch_tags() already returns [] when extract_tags is disabled, and
+        # build_global_tags_from_aws_tags([]) returns None — no extra guard needed.
         tags = self.fetch_tags(stream_name)
-        global_tags = (
-            build_global_tags_from_aws_tags(tags) if self.config.extract_tags else None
-        )
+        global_tags = build_global_tags_from_aws_tags(tags)
         # Glue Schema Registry lookup is opt-in (config.glue_schema_registry.enabled).
         # When disabled, schema_registry is None and we skip the lookup entirely.
         schema_metadata = (
