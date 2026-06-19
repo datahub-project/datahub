@@ -22,7 +22,7 @@ history. The `usage_source` config selects the history source:
   Requires `general_log=ON`, `log_output=TABLE`, and
   `grant select on mysql.general_log to 'USERNAME'@'%'`. Adds general-log overhead but provides
   per-user attribution and exact query text. If logins are LDAP/database usernames rather than
-  emails, set `user_email_domain` (e.g. `corp.com`) so usage maps to the correct user.
+  emails, set `email_domain` (e.g. `corp.com`) so usage maps to the correct user.
 
 #### AWS RDS IAM Authentication
 

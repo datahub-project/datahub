@@ -205,7 +205,7 @@ def test_general_log_maps_username_to_email_with_domain(mock_create_engine):
 
     observed = list(
         _source(
-            usage_source="general_log", user_email_domain="corp.com"
+            usage_source="general_log", email_domain="corp.com"
         )._fetch_general_log_queries()
     )
 
@@ -225,7 +225,7 @@ def test_general_log_keeps_raw_username_without_email_domain(mock_create_engine)
 
     observed = list(_source(usage_source="general_log")._fetch_general_log_queries())
 
-    # No user_email_domain configured: the raw login is kept as-is.
+    # No email_domain configured: the raw login is kept as-is.
     assert str(observed[0].user) == str(CorpUserUrn("jdoe"))
 
 

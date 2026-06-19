@@ -35,6 +35,5 @@ the logging overhead.
   SET GLOBAL general_log = 1;
   ```
 - Grant the ingestion user read access: `GRANT SELECT ON mysql.general_log TO 'USERNAME'@'%'`.
-- If logins are LDAP/database usernames rather than emails, set `user_email_domain` so usage
-  attributes to the correct user (e.g. `user_email_domain: corp.com` maps `jdoe` to
-  `jdoe@corp.com`).
+- If logins are LDAP/database usernames rather than emails, set `email_domain` so usage attributes
+  to the correct user (e.g. `email_domain: corp.com` maps `jdoe` to `jdoe@corp.com`).

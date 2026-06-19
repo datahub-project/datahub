@@ -193,10 +193,10 @@ class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
         description="Usage statistics config. Only used when `include_usage_statistics` is enabled.",
     )
 
-    user_email_domain: Optional[str] = Field(
+    email_domain: Optional[str] = Field(
         default=None,
-        description="Domain appended to `general_log` usernames (e.g. LDAP logins) to build user "
-        "emails, so usage attributes to the right user. Ignored if the username already looks like "
+        description="Email domain of your organisation, appended to `general_log` usernames "
+        "(e.g. LDAP logins) so users display correctly. Ignored if the username already looks like "
         "an email. Only used with `usage_source: general_log`.",
     )
 
@@ -512,6 +512,6 @@ class MySQLSource(TwoTierSQLAlchemySource):
             return None
         # LDAP/db logins are not emails; append the configured domain so usage maps
         # to the real user. Leave it alone if it already looks like an email.
-        if "@" not in user and self.config.user_email_domain:
-            user = f"{user}@{self.config.user_email_domain}"
+        if "@" not in user and self.config.email_domain:
+            user = f"{user}@{self.config.email_domain}"
         return CorpUserUrn(user)
