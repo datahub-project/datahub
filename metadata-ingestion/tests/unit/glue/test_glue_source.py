@@ -365,6 +365,48 @@ def test_catalog_to_platform_instance_is_region_specific():
     )
 
 
+def test_resource_link_emits_upstream_edge_to_owner():
+    # A Lake Formation resource link (shared-transactions) points at transactions in the owner
+    # account 432143214321. The consumer-instance table should get an upstream edge to the owner's
+    # table URN, stamped with the owner account's instance.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-east-1:123412341234": {
+                    "platform_instance": "consumer_inst"
+                },
+                "arn:aws:glue:us-east-1:432143214321": {
+                    "platform_instance": "owner_inst"
+                },
+            },
+        ),
+    )
+    consumer_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.mixed-database.shared-transactions,PROD)"
+    )
+
+    wus = list(
+        source._gen_resource_link_lineage(
+            resource_link_table_in_mixed_database, consumer_urn
+        )
+    )
+
+    upstream_aspects = [
+        wu.metadata.aspect
+        for wu in wus
+        if hasattr(wu.metadata, "aspect")
+        and isinstance(wu.metadata.aspect, models.UpstreamLineageClass)
+    ]
+    assert len(upstream_aspects) == 1
+    upstream_datasets = [u.dataset for u in upstream_aspects[0].upstreams]
+    assert upstream_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
+    ]
+
+
 def test_extract_urns_from_query_applies_target_platform_instance():
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),

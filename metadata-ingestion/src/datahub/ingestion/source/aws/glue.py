@@ -652,6 +652,40 @@ class GlueSource(StatefulIngestionSourceBase):
                     env = detail.env
         return TargetPlatformConfig(platform_instance=instance, env=env)
 
+    def _gen_resource_link_lineage(
+        self, table: Dict, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a cross-account upstream edge from a Lake Formation resource link to its owner.
+
+        A resource-link table carries a ``TargetTable`` pointing at the shared table in the owning
+        account. We emit the link as a consumer-instance table (handled by the normal flow) with an
+        upstream edge to the owner's table URN — stamped with the owner account's instance — so the
+        shared dataset stitches back to its source instead of appearing as an unrelated duplicate.
+        """
+        target = table.get("TargetTable")
+        if not target:
+            return
+
+        owner = self._resolve_platform_instance(target.get("CatalogId"))
+        owner_name = f"{target['DatabaseName']}.{target['Name']}"
+        owner_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=owner_name,
+            env=owner.env or self.env,
+            platform_instance=owner.platform_instance,
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        dataset=owner_urn,
+                        type=DatasetLineageTypeClass.COPY,
+                    )
+                ]
+            ),
+        ).as_workunit()
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = GlueSourceConfig.model_validate(config_dict)
@@ -1790,6 +1824,8 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
         yield from self._extract_record(dataset_urn, table, full_table_name)
+        # For Lake Formation resource links, stitch the shared table back to its owning account.
+        yield from self._gen_resource_link_lineage(table, dataset_urn)
         # generate a Dataset snapshot
         # We also want to assign "table" subType to the dataset representing glue table - unfortunately it is not
         # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp.
