@@ -123,7 +123,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           // Phase 2 and resumed runs skip it.
           if (!config.exists()) {
             log.info("Index {} does not exist; creating directly", config.name());
-            indexBuilder.buildIndex(config);
+            indexBuilder.buildIndex(opContext, config);
             long createTime = System.currentTimeMillis();
             upgradeState =
                 IncrementalReindexState.setPhase1State(
@@ -168,6 +168,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             // Stall-retry will re-submit with fresh optimal settings if needed.
             ESIndexBuilder.PollReindexResult pollResult =
                 indexBuilder.pollReindexCompletion(
+                    opContext,
                     config.name(),
                     existingNextIndex.get(),
                     () -> persistedSourceDocCount,
@@ -187,11 +188,12 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             }
             // Restore settings after successful resume
             indexBuilder.undoReindexOptimalSettings(
-                existingNextIndex.get(), config, pollResult.latestReindexInfo());
+                opContext, existingNextIndex.get(), config, pollResult.latestReindexInfo());
 
             // Swap alias to next index so new code reads from the updated schema
             boolean swapped =
-                indexBuilder.validateAndSwapAlias(config.name(), existingNextIndex.get());
+                indexBuilder.validateAndSwapAlias(
+                    opContext, config.name(), existingNextIndex.get());
             if (!swapped) {
               log.error(
                   "Alias swap failed for {} -> {} after resume: doc count mismatch",
@@ -207,12 +209,12 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           log.info("Starting incremental reindex for index: {}", config.name());
 
           // Resolve old backing index before creating the next one
-          Set<String> oldBackingIndices = indexBuilder.getBackingIndices(config.name());
+          Set<String> oldBackingIndices = indexBuilder.getBackingIndices(opContext, config.name());
           String oldBackingIndexName =
               oldBackingIndices.size() == 1 ? oldBackingIndices.iterator().next() : null;
 
           IncrementalReindexResult result =
-              indexBuilder.buildIndexIncremental(config, upgradeVersion);
+              indexBuilder.buildIndexIncremental(opContext, config, upgradeVersion);
 
           upgradeState =
               IncrementalReindexState.setPhase1State(
@@ -236,7 +238,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             // Still need to swap the alias so new code reads from the next index with correct
             // mappings, even though both indices have 0 docs.
             boolean swapped =
-                indexBuilder.validateAndSwapAlias(config.name(), result.nextIndexName());
+                indexBuilder.validateAndSwapAlias(opContext, config.name(), result.nextIndexName());
             if (!swapped) {
               log.error(
                   "Alias swap failed for {} -> {} (empty index): doc count mismatch",
@@ -252,6 +254,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           final long sourceDocCount = result.sourceDocCount();
           ESIndexBuilder.PollReindexResult pollResult =
               indexBuilder.pollReindexCompletion(
+                  opContext,
                   config.name(),
                   result.nextIndexName(),
                   () -> sourceDocCount,
@@ -271,11 +274,11 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           }
           // Restore normal index settings after successful reindex
           indexBuilder.undoReindexOptimalSettings(
-              result.nextIndexName(), config, pollResult.latestReindexInfo());
+              opContext, result.nextIndexName(), config, pollResult.latestReindexInfo());
 
           // Swap alias to next index so new code reads from the updated schema
           boolean swapped =
-              indexBuilder.validateAndSwapAlias(config.name(), result.nextIndexName());
+              indexBuilder.validateAndSwapAlias(opContext, config.name(), result.nextIndexName());
           if (!swapped) {
             log.error(
                 "Alias swap failed for {} -> {} after reindex: doc count mismatch",
@@ -301,7 +304,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           if (indexBuilder != null) {
             // Since these do not require reindexing this will just do the non-disruptive
             // settings/mappings apply
-            indexBuilder.buildIndex(config);
+            indexBuilder.buildIndex(opContext, config);
           }
         }
 
@@ -338,7 +341,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           IncrementalReindexState.Status.FAILED.name());
       checkpoint(context, upgradeState, DataHubUpgradeState.FAILED);
       try {
-        indexBuilder.deleteActionWithRetry(nextIndexName);
+        indexBuilder.deleteActionWithRetry(opContext, nextIndexName);
         log.info("Cleaned up failed next index: {}", nextIndexName);
       } catch (Exception e) {
         log.warn(

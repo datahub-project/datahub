@@ -367,6 +367,23 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    include_queries: bool = pydantic.Field(
+        default=True,
+        description=(
+            "If enabled, emit DataHub Query entities for the SQL statements seen in query "
+            "history (the statement text and the datasets it reads/writes). Only effective "
+            "on the system-tables usage path; identical statements are de-duplicated by "
+            "fingerprint."
+        ),
+    )
+    include_query_usage_statistics: bool = pydantic.Field(
+        default=True,
+        description=(
+            "If enabled, emit per-query usage/popularity statistics (queryUsageStatistics) "
+            "for the emitted Query entities. Only effective when include_queries is enabled."
+        ),
+    )
+
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
         UnityCatalogGEProfilerConfig,
@@ -452,6 +469,15 @@ class UnityCatalogSourceConfig(
             forced_disable_hive_metastore_extraction
         )
 
+    def usage_uses_system_tables(self, warehouse_id: Optional[str]) -> bool:
+        """Return True when usage data should come from the system-tables join path."""
+        src = self.usage_data_source
+        if src == UsageDataSource.SYSTEM_TABLES:
+            return True
+        if src == UsageDataSource.AUTO:
+            return bool(warehouse_id)
+        return False
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -470,12 +496,23 @@ class UnityCatalogSourceConfig(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )
 
-    @field_validator("start_time", mode="after")
-    @classmethod
-    def within_thirty_days(cls, v: datetime) -> datetime:
-        if (datetime.now(timezone.utc) - v).days > 30:
-            raise ValueError("Query history is only maintained for 30 days.")
-        return v
+    def _validate_start_time_window(self) -> None:
+        # Called at the end of set_warehouse_id_from_profiling so self.warehouse_id is
+        # already resolved from profiling before this check runs.
+        # Intentionally checks BOTH usage and lineage data sources: either path using
+        # system tables extends the allowed history window from 30 to 365 days.
+        uses_system_tables = bool(self.warehouse_id) and (
+            self.usage_data_source != UsageDataSource.API
+            or self.lineage_data_source != LineageDataSource.API
+        )
+        # system.query.history / system.access.* retain ~365 days; the REST API is limited to 30.
+        max_days = 365 if uses_system_tables else 30
+        age_days = (datetime.now(timezone.utc) - self.start_time).days
+        if age_days > max_days:
+            raise ValueError(
+                f"start_time is {age_days} days old; the configured source retains at "
+                f"most {max_days} days of history."
+            )
 
     @field_validator("workspace_url", mode="after")
     @classmethod
@@ -520,6 +557,9 @@ class UnityCatalogSourceConfig(
 
         if profiling and profiling.enabled and not profiling.warehouse_id:
             raise ValueError("warehouse_id must be set when profiling is enabled.")
+
+        # Run after warehouse_id is resolved so the 30 vs 365-day cap is correct.
+        self._validate_start_time_window()
 
         return self
 

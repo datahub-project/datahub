@@ -6,7 +6,6 @@
     "documents.deleteConfirmButton": "Excluir",
     "documents.deleteText": "Tem certeza que deseja excluir este documento? Isso também excluirá todos os documentos filhos.",
     "documents.deleteTitle": "Excluir Documento(s)",
-    "documents.emptyState": "Nenhum documento ainda.",
     "documents.moveToRoot": "Mover para Raiz",
     "documents.newDocumentTooltip": "Novo documento",
     "documents.searchPlaceholder": "Pesquisar contexto...",

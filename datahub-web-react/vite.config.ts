@@ -2,6 +2,7 @@ import { codecovVitePlugin } from '@codecov/vite-plugin';
 import federation from '@originjs/vite-plugin-federation';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react-swc';
+import * as fs from 'fs';
 import * as path from 'path';
 import { PluginOption, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
@@ -36,6 +37,28 @@ export function stripDotSlashFromAssets() {
         name: 'strip-dot-slash',
         transformIndexHtml(html) {
             return html.replace(/src="\.\//g, 'src="').replace(/href="\.\//g, 'href="');
+        },
+    };
+}
+
+// Fails fast with a clear message if lazy icon stubs haven't been generated.
+// Prevents silent fallback-to-AppWindow when running outside Gradle.
+function assertLazyIconsGenerated(): PluginOption {
+    return {
+        name: 'assert-lazy-icons-generated',
+        buildStart() {
+            const iconsDir = path.resolve(__dirname, 'src/app/mfeframework/lazy-icons');
+            const hasStubs =
+                fs.existsSync(iconsDir) &&
+                fs.readdirSync(iconsDir).some((f) => f.endsWith('.ts'));
+            if (!hasStubs) {
+                throw new Error(
+                    '\n\n  [Lazy Icons] Icon stubs are missing. Generate them before starting:\n\n' +
+                        '    ./gradlew :datahub-web-react:generateLazyIconStubs\n' +
+                        '    — or —\n' +
+                        '    node datahub-web-react/scripts/generate-lazy-icon-stubs.js\n\n',
+                );
+            }
         },
     };
 }
@@ -117,6 +140,7 @@ export default defineConfig(async ({ mode }) => {
         appType: 'spa',
         base: './', // Always use root - runtime base path detection handles deployment paths
         plugins: [
+            assertLazyIconsGenerated(),
             ...devPlugins,
             react(),
             federation({

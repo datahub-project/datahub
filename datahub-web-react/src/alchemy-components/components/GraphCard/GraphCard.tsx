@@ -69,7 +69,11 @@ export function GraphCard({
 
             {!loading && (
                 <GraphCardBody>
-                    <GraphContainer $height={graphHeight} $isEmpty={isEmpty}>
+                    <GraphContainer
+                        $height={graphHeight}
+                        $isEmpty={isEmpty}
+                        data-testid={isEmpty ? `${dataTestId}-chart-empty` : `${dataTestId}-chart`}
+                    >
                         {renderGraph()}
                     </GraphContainer>
                     {isEmpty &&
@@ -83,7 +87,7 @@ export function GraphCard({
                                     )}
                                     <Text>{resolvedEmptyMessage}</Text>
                                     {moreInfoModalContent && (
-                                        <LinkText color="primary" onClick={() => setShowInfoModal(true)}>
+                                        <LinkText color="hyperlinks" onClick={() => setShowInfoModal(true)}>
                                             {t('graphCard.moreInfo')}
                                         </LinkText>
                                     )}

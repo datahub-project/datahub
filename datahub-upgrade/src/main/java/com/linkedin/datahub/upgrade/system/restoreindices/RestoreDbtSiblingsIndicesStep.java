@@ -47,25 +47,14 @@ public class RestoreDbtSiblingsIndicesStep implements UpgradeStep {
       EntityKeyUtils.convertEntityKeyToUrn(
           new DataHubUpgradeKey().setId(UPGRADE_ID), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   private static final Integer BATCH_SIZE = 1000;
-  static final Integer SLEEP_SECONDS = 120;
 
   private final EntityService<?> _entityService;
   private final boolean _enabled;
-  private final int _sleepSeconds;
 
-  public RestoreDbtSiblingsIndicesStep(
-      @Nonnull final EntityService<?> entityService, final boolean enabled) {
-    this(entityService, enabled, SLEEP_SECONDS);
-  }
-
-  // Package-private constructor used in tests to avoid the deployment-wait sleep
   RestoreDbtSiblingsIndicesStep(
-      @Nonnull final EntityService<?> entityService,
-      final boolean enabled,
-      final int sleepSeconds) {
+      @Nonnull final EntityService<?> entityService, final boolean enabled) {
     _entityService = entityService;
     _enabled = enabled;
-    _sleepSeconds = sleepSeconds;
   }
 
   @Override
@@ -100,11 +89,8 @@ public class RestoreDbtSiblingsIndicesStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return context -> {
       log.info("Attempting to run RestoreDbtSiblingsIndices upgrade..");
-      log.info(String.format("Waiting %s seconds..", _sleepSeconds));
 
       try {
-        // Sleep to ensure deployment process finishes.
-        Thread.sleep(_sleepSeconds * 1000L);
 
         log.info("Bootstrapping sibling aspects");
 

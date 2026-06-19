@@ -44,6 +44,54 @@ Requirements:
 
 ### Breaking Changes
 
+- **(GMS / Logical Models)** Linking a physical dataset to a logical parent now requires **Edit Entity** on both the **child dataset** (whose `logicalParent` aspect is written) and the **proposed parent** dataset. Clearing a logical parent requires **Edit Entity** on the child only. The [logical models feature guide](../features/feature-guides/logical-models/overview.md) previously stated only the child was checked; enforcement now matches [metadata policies](../authorization/policies.md#logical-parent-logicalparent-aspect). **Action:** Grant **Edit Entity** on logical parent datasets to principals who create or change logical-parent links, or update policies so those operations succeed.
+
+- #17852: **(Ingestion framework)** Workunit processor helper functions have been removed and replaced with `WorkunitProcessor` classes. If you were directly calling these functions in custom code, you must update to use the processor class API. **Migration:** Import the processor class, create a `WorkunitProcessorContext`, instantiate the processor via `Processor.create(ctx)`, and call `.process(stream)`. Additionally, some processors have been renamed to follow a consistent naming convention:
+
+  **Renamed processors (old → new):**
+
+  - `AutoFixDuplicateSchemaFieldPathsProcessor` → `ValidateDuplicateSchemaFieldPathsProcessor`
+  - `AutoFixEmptyFieldPathsProcessor` → `ValidateEmptySchemaFieldPathsProcessor`
+  - `StaleEntityRemovalProcessor` → `AutoStaleEntityRemovalProcessor`
+
+  **Removed standalone functions (use processor classes instead):**
+
+  - `auto_status_aspect()` → Use `AutoStatusAspectProcessor` from `datahub.ingestion.workunit_processors.auto_status_aspect`
+  - `auto_workunit_reporter()` → Use `AutoWorkunitsReporterProcessor` from `datahub.ingestion.workunit_processors.auto_workunits_reporter`
+  - `auto_lowercase_urns()` → Use `AutoLowercaseUrnsProcessor` from `datahub.ingestion.workunit_processors.auto_lowercase_urns`
+  - `auto_materialize_referenced_tags_terms()` → Use `AutoMaterializeReferencedTagsTermsProcessor` from `datahub.ingestion.workunit_processors.auto_materialize_referenced_tags_terms`
+  - `auto_fix_duplicate_schema_field_paths()` → Use `ValidateDuplicateSchemaFieldPathsProcessor` from `datahub.ingestion.workunit_processors.validate_duplicate_schema_field_paths`
+  - `auto_fix_empty_field_paths()` → Use `ValidateEmptySchemaFieldPathsProcessor` from `datahub.ingestion.workunit_processors.validate_empty_schema_field_paths`
+  - `auto_browse_path_v2()` → Use `AutoBrowsePathV2Processor` from `datahub.ingestion.workunit_processors.auto_browse_path_v2`
+  - `auto_incremental_lineage()` → Use `AutoIncrementalLineageProcessor` from `datahub.ingestion.workunit_processors.auto_incremental_lineage`
+  - `auto_incremental_ownership()` → Use `AutoIncrementalOwnershipProcessor` from `datahub.ingestion.workunit_processors.auto_incremental_ownership`
+  - `auto_incremental_properties()` → Use `AutoIncrementalPropertiesProcessor` from `datahub.ingestion.workunit_processors.auto_incremental_properties`
+  - `auto_patch_last_modified()` → Use `AutoPatchLastModifiedProcessor` from `datahub.ingestion.workunit_processors.auto_patch_last_modified`
+
+  **Example migration:**
+
+  ```python
+  # OLD (removed):
+  from datahub.ingestion.workunit_processors.auto_status_aspect import auto_status_aspect
+  result = list(auto_status_aspect(stream))
+
+  # NEW (required):
+  from unittest.mock import MagicMock
+  from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
+  from datahub.ingestion.workunit_processors.auto_status_aspect import AutoStatusAspectProcessor
+
+  ctx = WorkunitProcessorContext(
+      source_report=report,
+      pipeline_context=MagicMock(),
+      source_config=config,
+      platform="myplatform"
+  )
+  processor = AutoStatusAspectProcessor.create(ctx)
+  result = list(processor.process(stream))
+  ```
+
+  **Naming convention:** Processors follow a consistent pattern: `Auto*Processor` (enrichment), `Validate*Processor` (validation/cleanup), `Ensure*Processor` (constraint enforcement). See `WorkunitProcessor` base class documentation for details.
+
 - **(GMS rate limiting)** Renamed `rateLimits.defaultRetryAfterSeconds` / `RATE_LIMITS_DEFAULT_RETRY_AFTER` to `minRetryAfterSeconds` / `RATE_LIMITS_MIN_RETRY_AFTER`. The value is now the **minimum** `Retry-After` floor; endpoint (token-bucket) denials may return a longer wait derived from Bucket4j refill timing. Added `retryAfterJitterPercent` / `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT` (default `10`) to spread endpoint retry timing. **Action:** update env vars and external rate-limit YAML if you set the old names; capacity denials still use the flat minimum.
 
 - **(Ingestion / Airflow plugin) Dropped support for Airflow 2.x.** `acryl-datahub-airflow-plugin` now requires Airflow 3.0+. The package's `apache-airflow` floor is bumped to `>=3.0.0`. The legacy standalone `openlineage-airflow` package is no longer used at all — the plugin always uses `apache-airflow-providers-openlineage`, which is now an unconditional dependency (`>=2.1.0` — the version that added Airflow 3 listener support). Drop `openlineage-airflow` from your constraints if it was pinned. The `[airflow2]` install extra is gone; `[airflow3]` is retained as a backward-compatible no-op (it installs the same as the bare package), so existing `pip install 'acryl-datahub-airflow-plugin[airflow3]'` commands keep working. The `taskinstance` value for `datajob_url_link` (an Airflow 2-only URL format) is no longer accepted; use `tasks` (default) or `grid`. The `patch_snowflake_schema` config option has been removed — it patched a Snowflake schema bug in the deprecated `openlineage-airflow` `SnowflakeExtractor` and has no effect under the OpenLineage provider, which handles Snowflake schema resolution natively; remove the setting from `airflow.cfg` if present (it is silently ignored). If you are still on Airflow 2.7–2.10, pin `acryl-datahub-airflow-plugin <= 1.6.0` (the last release with Airflow 2 support) — see the [compatibility section in the Airflow integration docs](../lineage/airflow.md#compatibility) for the full version ladder.
@@ -57,6 +105,8 @@ Requirements:
 - **Docker image tags (`:head` removed, `:quickstart` and `:sha-*` added):** The floating `:head` tag is no longer published to Docker Hub because images were tagged per-service at different times, so `:head` often referred to a mixed set of commits. **Action for Docker Compose / local quickstart:** use `DATAHUB_VERSION=quickstart` (or `datahub docker quickstart --version head`, which resolves to the `quickstart` tag via the version manifest). Immutable `sha-<short_sha>` tags are published during the coordinated depot bake on `master`; the `:quickstart` tag is updated only after the full image matrix passes smoke tests, so all services move together. **Action for Kubernetes / Helm / production:** pin an immutable tag — a release (`v*`) or a commit tag `sha-<7-char short SHA>` (e.g. `sha-38960ae`). Do not use `quickstart` in cluster deployments; it can change on the next green `master` build. Bare short SHA tags (`:abc1234`) are now prefixed: use `:sha-abc1234`. Old CLIs using `--version head` continue to work when they load an updated [`quickstart_version_mapping.yaml`](https://github.com/datahub-project/datahub/blob/master/docker/quickstart/quickstart_version_mapping.yaml) with `docker_tag: quickstart` under the `head` key.
 
 - #17376: **(Ingestion / Hex)** Hex Components are now ingested as **Chart** entities instead of **Dashboard** entities. A Hex Component defines its own visualisation that importing projects cannot override, so it maps to a Chart (analogous to a Looker `Look` or a PowerBI `Tile`), with the project remaining a Dashboard that links to its Components via `DashboardInfo.charts`. **Migration:** if you ran the old version with stateful ingestion enabled, stale-entity removal soft-deletes the pre-existing legacy `Dashboard`-typed Components on the next run in most cases. Because every Component changes URN type, a component-heavy workspace can exceed the stale-removal fail-safe (`stateful_ingestion.fail_safe_threshold`, default 75%), in which case raise the threshold or perform a one-time bulk cleanup via the DataHub UI or CLI. Either way, Component URNs change entity type, so any saved views, glossary/tag/ownership assignments, and policies that targeted the old Dashboard-typed Component URNs **will be lost and must be manually reapplied** to the new Chart URNs.
+
+- #17443 **(Ingestion / MongoDB)** AWS DocumentDB can now be ingested as its own data platform. The MongoDB source has a new opt-in config field `platform` (default `mongodb`). Set `platform: documentdb` together with `hostingEnvironment: AWS_DOCUMENTDB` to emit entities under the new `documentdb` data platform URN instead of `mongodb`; setting `platform: documentdb` with any other hosting environment is rejected at config validation time. The default is unchanged, so existing recipes continue to emit `mongodb` URNs even when pointed at AWS DocumentDB. If enabled on an existing recipe, both the dataset URNs and the database-level container URNs will change, and the stale `mongodb` entities will need to be cleaned up via stateful ingestion (if enabled) or manual soft-delete.
 
 ### Known Issues
 
@@ -80,6 +130,8 @@ Requirements:
 - #17812 **(Ingestion / Glue)** When `extract_lakeformation_tags` is enabled, the Glue connector now also extracts **column-level** Lake Formation tags by default (new `extract_lakeformation_column_tags`, default `true`) and can propagate a database's Lake Formation tags down to its tables and columns (new `propagate_lakeformation_tags`, default `false`). Existing recipes with `extract_lakeformation_tags: true` will start emitting directly-assigned column tags after upgrade with no config change; set `extract_lakeformation_column_tags: false` to retain the previous (table/database-only) behavior. Inherited (propagated) tags are marked with propagation attribution and a `propagated` context so they can be distinguished from directly-assigned tags. No additional AWS API calls are made — all tag levels come from the existing per-table `GetResourceLFTags` response.
 
 - #17860 **(CLI / Python SDK)** Mutual TLS (mTLS) client authentication is now supported for outbound HTTPS calls from the CLI.
+
+- **(Ingestion / Databricks Unity Catalog)** When `usage_data_source` is set to `SYSTEM_TABLES` (or `AUTO` with a SQL warehouse configured), the connector now reads query history from `system.query.history` and derives usage statistics, operational stats, and query entities by parsing those statements through the shared SQL parsing aggregator (the same component used by the Snowflake, BigQuery, and Redshift connectors), which deduplicates identical statements by fingerprint so each distinct query is parsed only once. Table and column lineage continue to be sourced natively from `system.access.table_lineage` and `system.access.column_lineage` and are unaffected. Query entities are now emitted for warehouse statements on this path (`include_queries`, default `true`; `include_query_usage_statistics`, default `true`). The usage and lineage history window on the system-tables path may extend up to 365 days (the previous cap was 30 days, which applied only to the REST API path). Existing Databricks Unity Catalog ingestions that set a `warehouse_id` or use `usage_data_source: SYSTEM_TABLES` are affected; no recipe changes are required unless you want to opt out (`usage_data_source: API`). **Known limitation:** Databricks query history does not record the catalog or schema that was active when each query ran. As a result, queries that reference tables by a short (one-part) name only — typical of ad-hoc notebook queries — cannot be attributed to a specific table, and usage or operation counts for those queries may be lower than in previous releases.
 
 ## v1.6.0
 

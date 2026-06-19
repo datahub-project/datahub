@@ -19,7 +19,7 @@ import { Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/type
 
 const AddButton = styled.div<{ isV1Drawer?: boolean }>`
     border-radius: 200px;
-    background-color: ${(props) => props.theme.styles['primary-color']};
+    background-color: ${(props) => props.theme.colors.buttonFillBrand};
     width: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     height: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     display: flex;
