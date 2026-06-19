@@ -19,6 +19,7 @@ from threading import Event, Lock, Thread, current_thread
 from typing import (
     Any,
     Dict,
+    FrozenSet,
     Iterable,
     List,
     MutableMapping,
@@ -264,12 +265,18 @@ _RETRYABLE_ERROR_CODE_RE: re.Pattern = re.compile(
     r"\[Error (?:2631|2639|3111|3120|3598|3897|3603)\]"
 )
 
+# Extracts the authoritative numeric code from a Teradata error message.
+# teradatasql (verified v20.0.0.52) exposes no structured code attribute — the
+# code lives only in the message string, formatted as "[Error NNNN]: <text>" —
+# so the code must be parsed out of str(exc).
+_ERROR_CODE_RE: re.Pattern = re.compile(r"\[Error (\d+)\]")
+
 # Teradata error codes that indicate a SQL syntax / parse failure.
 #   3706 — Syntax error: <detail>.
 #   3707 — Syntax error, expected something between <X> and <Y>.
 #
 # Source: Teradata Database Messages, doc B035-1096.
-_PARSE_ERROR_CODE_RE: re.Pattern = re.compile(r"\[Error (?:3706|3707)\]")
+_PARSE_CODES: FrozenSet[int] = frozenset({3706, 3707})
 
 # Substrings that identify SQL parse / syntax failures in cases where the
 # driver omits the numeric error code.
@@ -285,7 +292,7 @@ _PARSE_ERROR_KEYWORDS: Tuple[str, ...] = (
 #   3524 — <user> does not have <access type> access to database <db>.
 #   8017 — The UserId, Password or Account is invalid (auth failure).
 #   3003 — Logon failed / Invalid password (auth failure).
-_PERMISSION_ERROR_CODE_RE: re.Pattern = re.compile(r"\[Error (?:3523|3524|8017|3003)\]")
+_PERMISSION_CODES: FrozenSet[int] = frozenset({3523, 3524, 8017, 3003})
 
 # Substrings from _PERMANENT_ERROR_SUBSTRINGS that specifically indicate a
 # permission / authentication denial (used for categorisation only).
@@ -298,6 +305,17 @@ _PERMISSION_ERROR_KEYWORDS: Tuple[str, ...] = (
     "invalid logon",
     "invalid user",
 )
+
+
+def _error_code(exc: BaseException) -> Optional[int]:
+    """Extract the Teradata ``[Error NNNN]`` numeric code from *exc*, if present.
+
+    Returns ``None`` when the message carries no bracketed code (e.g. a
+    driver-level failure before a session is established, or a wrapped error
+    where the original ``[Error N]`` tag did not propagate).
+    """
+    m = _ERROR_CODE_RE.search(str(exc))
+    return int(m.group(1)) if m else None
 
 
 class ViewErrorCategory(StrEnum):
@@ -316,36 +334,36 @@ def _categorize_view_error(exc: BaseException) -> ViewErrorCategory:
         ``PARSE``      — SQL syntax / parse error.
         ``UNKNOWN``    — none of the above.
 
-    Classification uses the same signals as :func:`_should_retry` /
-    :func:`_should_retry_connect` so the categories align with the existing
-    retry logic.  Timeout is checked first because a timed-out query can also
-    carry an OperationalError wrapper that might otherwise match permission or
-    parse keywords.
+    The Teradata ``[Error NNNN]`` code is authoritative, so classification is
+    by numeric code first.  Keyword / ``isinstance`` checks are kept only as a
+    fallback for code-less errors (the driver omits the bracketed code in some
+    wrapped or pre-session failures): matching keywords anywhere in the
+    stringified exception is unreliable because the SQL text, object names, or a
+    wrapped inner message can incidentally contain words like "access denied",
+    "cursor", or "timeout".  Within the fallback, timeout precedence is kept
+    first because a code-less message can carry both "timed out" and a
+    permission/parse phrase.
     """
     # Timeout: SQLAlchemy pool exhaustion, Python built-in, or Future timeout.
     if isinstance(exc, (PoolTimeoutError, TimeoutError)):
         return ViewErrorCategory.TIMEOUT
 
-    raw = str(exc)
-    msg = raw.lower()
+    # Authoritative classification by numeric code.
+    code = _error_code(exc)
+    if code in _PERMISSION_CODES:
+        return ViewErrorCategory.PERMISSION
+    if code in _PARSE_CODES:
+        return ViewErrorCategory.PARSE
 
-    # Timeout by message when the exception type is a generic DB error.
-    # "timed out" is checked alongside "timeout" because "timed out" does not
-    # contain the substring "timeout" and would not otherwise be caught.
+    # Fallback for code-less errors only: match keywords / types in the message.
+    # Timeout-first precedence is intentional (see docstring).
+    msg = str(exc).lower()
     if any(k in msg for k in ("timed out", "timeout")):
         return ViewErrorCategory.TIMEOUT
-
-    # Permission / auth denial.
-    if _PERMISSION_ERROR_CODE_RE.search(raw) or any(
-        k in msg for k in _PERMISSION_ERROR_KEYWORDS
-    ):
+    if any(k in msg for k in _PERMISSION_ERROR_KEYWORDS):
         return ViewErrorCategory.PERMISSION
-
-    # SQL parse / syntax error.
-    if (
-        _PARSE_ERROR_CODE_RE.search(raw)
-        or any(k in msg for k in _PARSE_ERROR_KEYWORDS)
-        or isinstance(exc, NotSupportedError)
+    if any(k in msg for k in _PARSE_ERROR_KEYWORDS) or isinstance(
+        exc, NotSupportedError
     ):
         return ViewErrorCategory.PARSE
 

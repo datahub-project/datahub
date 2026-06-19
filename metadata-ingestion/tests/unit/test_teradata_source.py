@@ -4278,6 +4278,25 @@ class TestCategorizeViewError:
                 "permission",
             ),
             (DatabaseError("invalid sql: missing FROM clause", None, None), "parse"),
+            # Authoritative code wins over incidental keywords in the detail
+            # text: a parse [Error 3706] whose message also contains "timeout"
+            # must classify as PARSE, not TIMEOUT.
+            (
+                DatabaseError(
+                    "[Error 3706] Syntax error near 'timeout' column.", None, None
+                ),
+                "parse",
+            ),
+            # Likewise a permission [Error 3523] whose detail text mentions
+            # "cursor timeout" must classify as PERMISSION, not TIMEOUT.
+            (
+                DatabaseError(
+                    "[Error 3523] user lacks access; cursor timeout in context",
+                    None,
+                    None,
+                ),
+                "permission",
+            ),
         ],
         ids=[
             "pool_timeout",
@@ -4301,6 +4320,8 @@ class TestCategorizeViewError:
             "error_3003",
             "authentication_failed",
             "invalid_sql_keyword",
+            "parse_code_beats_timeout_keyword",
+            "permission_code_beats_timeout_keyword",
         ],
     )
     def test_categorize(self, exc: BaseException, expected: str) -> None:
