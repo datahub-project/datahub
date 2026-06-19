@@ -17,4 +17,6 @@ source:
 sink:
   type: file
   config:
-    filename: ${OUTPUT_FILE}
+    # Relative path: run_datahub_cmd executes in an isolated filesystem rooted at
+    # the test's tmp_path, so the output lands there for golden-file comparison.
+    filename: kinesis_mces.json
