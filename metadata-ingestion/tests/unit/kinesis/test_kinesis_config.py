@@ -21,6 +21,11 @@ class TestDestinationPlatformDetail:
         with pytest.raises(ValidationError):
             DestinationPlatformDetail(env="NOTAFABRIC")
 
+    def test_env_is_uppercased_like_top_level_env(self):
+        # Lowercase env must be normalized (not rejected), matching EnvConfigMixin's
+        # handling of the top-level `env`.
+        assert DestinationPlatformDetail(env="prod").env == "PROD"
+
 
 class TestKinesisGlueSchemaRegistryConfig:
     def test_disabled_gsr_means_resolve_returns_none_for_any_stream(self):

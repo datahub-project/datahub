@@ -150,8 +150,13 @@ class KinesisGlueSchemaRegistry:
                     )
                 )
             if data_format == "PROTOBUF":
+                # AWS allows dots in stream names ([a-zA-Z0-9_.-]), but grpc.protos()
+                # derives a Python module name from this filename, and dots break that
+                # import (e.g. "orders.v2" -> failed parse). Sanitize like the Confluent
+                # Schema Registry path does (topic.replace(".", "_")).
+                proto_name = stream_name.replace(".", "_")
                 return protobuf_util.protobuf_schema_to_mce_fields(
-                    ProtobufSchema(f"{stream_name}.proto", schema_def),
+                    ProtobufSchema(f"{proto_name}.proto", schema_def),
                     imported_schemas=[],
                     is_key_schema=False,
                 )

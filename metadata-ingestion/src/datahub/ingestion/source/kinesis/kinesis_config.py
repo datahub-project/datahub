@@ -8,6 +8,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.emitter.mce_builder import ALL_ENV_TYPES
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -15,7 +16,17 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-from datahub.metadata.schema_classes import FabricTypeClass
+
+# DataHub platform ids. Defined here (the lowest-level module in the connector)
+# so both kinesis.py and kinesis_firehose.py can share them without a circular
+# import (kinesis.py imports kinesis_firehose, so the firehose module can't own them).
+PLATFORM_NAME = "kinesis"
+# DataFlows / DataJobs representing Firehose delivery streams live under their own
+# DataHub platform (matching AWS, which treats Kinesis Data Streams and Kinesis Data
+# Firehose as separate services with separate API namespaces, IAM prefixes, and ARN
+# formats). This keeps cross-service lineage visually distinct: Stream(kinesis) ->
+# DataJob(kinesis-firehose) -> destination(s3 / redshift / ...).
+FIREHOSE_PLATFORM_NAME = "kinesis-firehose"
 
 # Closed set of URN-target platforms our Firehose extractor produces lineage edges
 # to. Used as the key type for `destination_platform_map` (pydantic v2 enforces the
@@ -32,11 +43,8 @@ DestinationPlatform = Literal[
 # (endpoint override + retry config). Narrowing this from `str` catches
 # typos at typecheck time: `make_client(session, "firhose")` fails the
 # Literal check instead of returning a misconfigured boto3 client whose
-# first API call surfaces an unhelpful botocore error. "sts" intentionally
-# omitted — `_resolve_account_id` constructs it directly via
-# `session.client("sts")` because it runs before the rest of the config is
-# loaded.
-AwsService = Literal["kinesis", "firehose", "glue"]
+# first API call surfaces an unhelpful botocore error.
+AwsService = Literal["kinesis", "firehose", "glue", "sts"]
 
 
 class DestinationPlatformDetail(ConfigModel):
@@ -81,15 +89,13 @@ class DestinationPlatformDetail(ConfigModel):
     def validate_env(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return v
-        # Validate against FabricType enum values (PROD, DEV, QA, etc.)
-        valid = {
-            k
-            for k, val in vars(FabricTypeClass).items()
-            if not k.startswith("_") and isinstance(val, str)
-        }
-        if v not in valid:
+        # Normalize and validate against the DataHub FabricType values (PROD, DEV,
+        # QA, etc.). Uppercasing matches EnvConfigMixin's handling of the top-level
+        # `env`, so `env: prod` is accepted consistently here too.
+        v = v.upper()
+        if v not in ALL_ENV_TYPES:
             raise ValueError(
-                f"env must be a valid DataHub FabricType (one of {sorted(valid)}); got {v!r}"
+                f"env must be a valid DataHub FabricType (one of {sorted(ALL_ENV_TYPES)}); got {v!r}"
             )
         return v
 
@@ -221,8 +227,8 @@ class KinesisSourceConfig(
             default_factory=dict,
             description=(
                 "Map destination platform name (one of 's3', 'redshift', 'snowflake', "
-                "'iceberg', 'mongodb', 'elasticsearch') to platform_instance + env "
-                "overrides. REQUIRED when the destination platform was ingested with "
+                "'iceberg', 'mongodb', 'elasticsearch', 'glue') to platform_instance + "
+                "env overrides. REQUIRED when the destination platform was ingested with "
                 "a platform_instance — without this, lineage edges reference "
                 "non-existent URNs (silent failure mode). Unknown platform keys are "
                 "rejected at parse time by the DestinationPlatform Literal."

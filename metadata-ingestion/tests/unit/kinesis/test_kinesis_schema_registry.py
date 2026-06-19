@@ -77,6 +77,24 @@ class TestGsrAvroParsing:
         assert any("id" in fp for fp in field_paths)
 
 
+PROTOBUF_SCHEMA_STR = 'syntax = "proto3";\nmessage Order { string id = 1; }\n'
+
+
+class TestGsrProtobufParsing:
+    def test_protobuf_stream_name_with_dots_is_sanitized(self):
+        # AWS allows dots in stream names; grpc.protos() derives a module name from
+        # the proto filename, so an un-sanitized "orders.v2.proto" fails to parse.
+        # The connector replaces dots before building the ProtobufSchema name.
+        reg = _make_registry(stream_schema_map={"orders.v2": "orders-schema"})
+        reg._glue.get_schema_version.return_value = {
+            "SchemaDefinition": PROTOBUF_SCHEMA_STR,
+            "DataFormat": "PROTOBUF",
+        }
+        result = reg.get_schema_metadata("orders.v2")
+        assert result is not None
+        assert any("id" in f.fieldPath for f in result.fields)
+
+
 class TestGsrReportWiring:
     def test_naming_convention_miss_records_as_quiet_miss_not_warning(self):
         """When use_naming_convention is true and the probed schema doesn't exist

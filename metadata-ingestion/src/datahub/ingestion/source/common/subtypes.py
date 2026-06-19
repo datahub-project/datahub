@@ -60,6 +60,8 @@ class GenericContainerSubTypes(StrEnum):
 
     # Microsoft Fabric
     FABRIC_WORKSPACE = "Fabric Workspace"
+    # AWS Kinesis
+    KINESIS_REGION = "Region"
 
 
 class DatasetContainerSubTypes(StrEnum):
@@ -200,9 +202,13 @@ class MLAssetSubTypes(StrEnum):
 class DataFlowSubTypes(StrEnum):
     # dlt
     DLT_PIPELINE = "dlt Pipeline"
+    # AWS Kinesis
+    KINESIS_FIREHOSE = "Firehose"
 
 
 class DataJobSubTypes(StrEnum):
+    # AWS Kinesis
+    KINESIS_FIREHOSE_DELIVERY_STREAM = "Firehose Delivery Stream"
     # ADF Activity Types
     ADF_COPY_ACTIVITY = "Copy Activity"
     ADF_DATA_FLOW_ACTIVITY = "Data Flow Activity"

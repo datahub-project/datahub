@@ -12,8 +12,14 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import (
+    DataFlowSubTypes,
+    DataJobSubTypes,
+)
 from datahub.ingestion.source.kinesis.kinesis_aws_utils import aws_error_code
 from datahub.ingestion.source.kinesis.kinesis_config import (
+    FIREHOSE_PLATFORM_NAME,
+    PLATFORM_NAME,
     DestinationPlatform,
     KinesisSourceConfig,
 )
@@ -41,13 +47,6 @@ if TYPE_CHECKING:
     from mypy_boto3_firehose.type_defs import DeliveryStreamDescriptionTypeDef
 
 logger = logging.getLogger(__name__)
-
-# KDS streams (the *upstream* in Firehose lineage) live under platform="kinesis".
-PLATFORM_NAME = "kinesis"
-# Firehose delivery streams (the DataFlow + DataJobs we emit here) live under their
-# own platform so the catalog mirrors AWS's split between Kinesis Data Streams and
-# Kinesis Data Firehose. See kinesis.py for the design rationale.
-FIREHOSE_PLATFORM_NAME = "kinesis-firehose"
 
 
 class KinesisFirehoseExtractor:
@@ -188,7 +187,7 @@ class KinesisFirehoseExtractor:
         ).as_workunit()
         yield MetadataChangeProposalWrapper(
             entityUrn=flow_urn,
-            aspect=SubTypesClass(typeNames=["Firehose"]),
+            aspect=SubTypesClass(typeNames=[DataFlowSubTypes.KINESIS_FIREHOSE.value]),
         ).as_workunit()
 
     def _destination_urn(
@@ -425,7 +424,9 @@ class KinesisFirehoseExtractor:
             ).as_workunit()
             yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
-                aspect=SubTypesClass(typeNames=["Firehose Delivery Stream"]),
+                aspect=SubTypesClass(
+                    typeNames=[DataJobSubTypes.KINESIS_FIREHOSE_DELIVERY_STREAM.value]
+                ),
             ).as_workunit()
             if self.config.include_table_lineage:
                 yield MetadataChangeProposalWrapper(

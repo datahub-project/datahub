@@ -14,14 +14,6 @@ The connector is API-based (boto3 + AWS IAM SigV4) and **region-scoped per recip
 
 ### Prerequisites
 
-#### Installation
-
-The Kinesis source ships in the base `acryl-datahub` package — `boto3` is already a core dependency, so there is no separate `[kinesis]` extra:
-
-```shell
-pip install 'acryl-datahub'
-```
-
 #### AWS IAM Permissions
 
 The connector needs read-only access to the Kinesis, Firehose, and (optionally) Glue services. The minimum policy is:
@@ -75,7 +67,7 @@ The connector needs read-only access to the Kinesis, Firehose, and (optionally) 
 
 Notes on each statement:
 
-- **`AccountIdentityRead`** — used at source init to call `sts:GetCallerIdentity` and resolve the AWS account ID. The connector uses the account ID as part of the default `platform_instance` (`<account_id>-<region>`) so URNs disambiguate across accounts and regions. If you omit this statement (or `sts:GetCallerIdentity` is denied), the connector logs a warning and continues with `platform_instance=None`; URNs then won't include the account ID, so cross-account collision-safety depends on you setting `platform_instance` explicitly in the recipe.
+- **`AccountIdentityRead`** — used at source init to call `sts:GetCallerIdentity` and resolve the AWS account ID. The connector uses the account ID as the default `platform_instance` (`<account_id>`) so URNs disambiguate across accounts; the region is encoded in the dataset name and DataFlow id rather than the `platform_instance`. If you omit this statement (or `sts:GetCallerIdentity` is denied), the connector logs a warning and continues with `platform_instance=None`; URNs then won't include the account ID, so cross-account collision-safety depends on you setting `platform_instance` explicitly in the recipe.
 - **`KinesisFirehoseRead`** — required only when `include_firehose: true` (the default). If you don't have these permissions and Firehose extraction is enabled, the connector logs a warning ("Permission denied for Firehose") and continues with KDS only — Firehose section is skipped, KDS ingestion proceeds normally.
 - **`GlueSchemaRegistryRead`** — required only when `glue_schema_registry.enabled: true`. AWS also provides a ready-made managed policy ([`AWSGlueSchemaRegistryReadonlyAccess`](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AWSGlueSchemaRegistryReadonlyAccess.html)) you can attach instead.
 - **`KinesisDataStreamsRead`** — denial of `kinesis:ListStreams` on the first page is logged as a warning and the KDS section is skipped (the user may intentionally have Firehose-only IAM). A mid-pagination failure escalates to `report.failure` to prevent stateful ingestion from soft-deleting un-listed streams on the next run.

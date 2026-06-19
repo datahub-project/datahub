@@ -20,8 +20,10 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
 from datahub.ingestion.source.kinesis.kinesis_aws_utils import aws_error_code
 from datahub.ingestion.source.kinesis.kinesis_config import (
+    PLATFORM_NAME,
     AwsService,
     KinesisSourceConfig,
 )
@@ -39,14 +41,6 @@ if TYPE_CHECKING:
     from mypy_boto3_glue import GlueClient
 
 logger = logging.getLogger(__name__)
-
-PLATFORM_NAME = "kinesis"
-# DataFlows / DataJobs representing Firehose delivery streams live under their own
-# DataHub platform (matching AWS, which treats Kinesis Data Streams and Kinesis Data
-# Firehose as separate services with separate API namespaces, IAM prefixes, and ARN
-# formats). This keeps cross-service lineage visually distinct: Stream(kinesis) ->
-# DataJob(kinesis-firehose) -> destination(s3 / redshift / ...).
-FIREHOSE_PLATFORM_NAME = "kinesis-firehose"
 
 
 class KinesisRegionKey(ContainerKey):
@@ -205,7 +199,7 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
         yield from gen_containers(
             container_key=region_key,
             name=region,
-            sub_types=["Region"],
+            sub_types=[GenericContainerSubTypes.KINESIS_REGION.value],
             description=f"AWS region {region}",
             external_url=f"https://console.aws.amazon.com/kinesis/home?region={region}",
         )
@@ -223,7 +217,11 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
         # degrade gracefully — the user sees the same actionable warning and
         # ingestion proceeds with platform_instance=None.
         try:
-            sts = self._session.client("sts")
+            # Route through make_client so a configured aws_endpoint_url applies to
+            # STS too (consistent with every other client) — important when pointing
+            # at a non-default endpoint, where public STS would otherwise resolve a
+            # real account id that doesn't match the data source.
+            sts = self.config.make_client(self._session, "sts")
             return sts.get_caller_identity()["Account"]
         except (ClientError, BotoCoreError) as e:
             code = aws_error_code(e)
@@ -239,8 +237,10 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
             return None
 
     def _region_key(self) -> KinesisRegionKey:
+        region = self.config.aws_config.aws_region
+        assert region is not None  # validated (raises) in __init__
         return KinesisRegionKey(
-            region=self.config.aws_config.aws_region or "unknown",
+            region=region,
             platform=PLATFORM_NAME,
             instance=self.config.platform_instance,
             env=self.config.env,
