@@ -314,5 +314,9 @@
   {
     "filePath": "manage_tagsV2/search_bar_placeholder.js",
     "duration": "2.284s"
+  },
+  {
+    "filePath": "glossaryV2/v2_glossary_import.js",
+    "duration": "55.000s"
   }
 ]

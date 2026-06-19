@@ -39,7 +39,11 @@ describe.skip("glossary", () => {
     cy.login();
     cy.skipIntroducePage();
     nevigateGlossaryPage();
-    cy.clickOptionWithTestId("add-term-group-button-v2");
+    cy.clickOptionWithTestId("create-glossary-object-button");
+    cy.waitTextVisible("Create Glossary");
+    cy.get(".ant-dropdown-menu-title-content")
+      .contains("Create Glossary")
+      .click();
     cy.addViaModal(
       glossaryTermGroup,
       "Create Glossary",
