@@ -46,6 +46,14 @@ class GitHubDocumentsSourceConfig(
         default_factory=lambda: [".md", ".txt"],
         description="File extensions to include (include the leading dot).",
     )
+    max_files: int = Field(
+        default=500,
+        ge=1,
+        description=(
+            "Maximum number of matching files to import per run. Additional matches are skipped "
+            "with a report warning."
+        ),
+    )
     create_repo_root_document: bool = Field(
         default=True,
         description=(

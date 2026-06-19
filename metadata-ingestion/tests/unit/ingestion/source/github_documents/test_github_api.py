@@ -1,6 +1,7 @@
 """Unit tests for GitHub API helpers."""
 
 import base64
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -200,8 +201,58 @@ def test_get_json_returns_none_on_http_error() -> None:
     client = GitHubApiClient("ghp_test")
     response = MagicMock()
     response.status_code = 404
+    response.headers = {}
+    response.text = "Not Found"
     with patch.object(client._session, "get", return_value=response):
         assert client._get_json("https://api.github.com/test") is None
+    assert client.last_api_error is not None
+    assert "404" in client.last_api_error
+
+
+def test_get_json_describes_auth_failure() -> None:
+    client = GitHubApiClient("ghp_test")
+    response = MagicMock()
+    response.status_code = 401
+    response.headers = {}
+    response.text = "Bad credentials"
+    with patch.object(client._session, "get", return_value=response):
+        assert client._get_json("https://api.github.com/test") is None
+    assert client.last_api_error is not None
+    assert "401" in client.last_api_error
+
+
+def test_get_json_retries_once_on_rate_limit() -> None:
+    client = GitHubApiClient("ghp_test")
+    rate_limited = MagicMock()
+    rate_limited.status_code = 403
+    rate_limited.headers = {
+        "X-RateLimit-Remaining": "0",
+        "X-RateLimit-Reset": str(int(time.time()) + 1),
+    }
+    rate_limited.text = "API rate limit exceeded"
+    success = MagicMock()
+    success.status_code = 200
+    success.json.return_value = {"ok": True}
+    with (
+        patch.object(client._session, "get", side_effect=[rate_limited, success]),
+        patch(
+            "datahub.ingestion.source.github_documents.github_api.time.sleep"
+        ) as mock_sleep,
+    ):
+        payload = client._get_json("https://api.github.com/test")
+    assert payload == {"ok": True}
+    mock_sleep.assert_called_once()
+
+
+def test_list_matching_files_includes_auth_error_detail() -> None:
+    client = GitHubApiClient("ghp_test")
+    response = MagicMock()
+    response.status_code = 401
+    response.headers = {}
+    response.text = "Bad credentials"
+    with patch.object(client._session, "get", return_value=response):
+        with pytest.raises(RuntimeError, match="401"):
+            client.list_matching_files("acme/docs", "main", "", [".md"])
 
 
 def test_get_text_returns_none_on_http_error() -> None:

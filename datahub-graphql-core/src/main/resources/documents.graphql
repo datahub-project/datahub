@@ -81,7 +81,6 @@ extend type Query {
   their document settings.
   """
   searchDocuments(input: SearchDocumentsInput!): SearchDocumentsResult!
-
 }
 
 """

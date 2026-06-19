@@ -159,6 +159,20 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             logger.info("No matching files found in %s (branch=%s)", owner_repo, branch)
             return
 
+        if len(files) > self.config.max_files:
+            total_matches = len(files)
+            files = files[: self.config.max_files]
+            self.report.files_truncated_by_limit = True
+            self.report.warning(
+                title="github-files-truncated",
+                message=(
+                    f"Found {total_matches} matching files in {owner_repo}@{branch} but "
+                    f"max_files is {self.config.max_files}; only the first "
+                    f"{self.config.max_files} will be imported."
+                ),
+                context=f"repository={owner_repo}, branch={branch}",
+            )
+
         commit_sha = self.client.get_latest_commit_sha(owner_repo, branch)
 
         if self._repo_root_source_id:

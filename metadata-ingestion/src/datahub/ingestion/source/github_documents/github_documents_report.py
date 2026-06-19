@@ -14,3 +14,4 @@ class GitHubDocumentsSourceReport(StaleEntityRemovalSourceReport):
     files_skipped: int = 0
     files_skipped_unchanged: int = 0
     tree_truncated: bool = False
+    files_truncated_by_limit: bool = False

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import logging
 import re
+import time
 from dataclasses import dataclass
 from typing import List, Optional, Protocol, Set, Tuple, Union
 from urllib.parse import quote
@@ -114,6 +115,11 @@ class GitHubApiClient:
             self._token_provider = token_or_provider
         self._session = requests.Session()
         self._timeout = timeout_seconds
+        self._last_api_error: Optional[str] = None
+
+    @property
+    def last_api_error(self) -> Optional[str]:
+        return self._last_api_error
 
     def _auth_headers(self) -> dict[str, str]:
         return {
@@ -135,8 +141,9 @@ class GitHubApiClient:
         )
         tree = self._get_json(tree_url)
         if tree is None or "tree" not in tree:
+            detail = self._last_api_error or "GitHub API request failed"
             raise RuntimeError(
-                f"Could not access branch '{branch}' in repository {owner_repo}"
+                f"Could not access branch '{branch}' in repository {owner_repo}: {detail}"
             )
         tree_truncated = bool(tree.get("truncated"))
 
@@ -171,7 +178,8 @@ class GitHubApiClient:
         )
         node = self._get_json(url)
         if node is None:
-            logger.warning("Failed to fetch file content for %s", file_path)
+            detail = self._last_api_error or "GitHub API request failed"
+            logger.warning("Failed to fetch file content for %s: %s", file_path, detail)
             return None
 
         size = node.get("size")
@@ -201,21 +209,80 @@ class GitHubApiClient:
             return node["commit"].get("sha", "unknown")
         return "unknown"
 
-    def _get_json(self, url: str) -> Optional[dict]:
+    def _get_json(
+        self, url: str, *, allow_rate_limit_retry: bool = True
+    ) -> Optional[dict]:
         try:
             response = self._session.get(
                 url, headers=self._auth_headers(), timeout=self._timeout
             )
-            if response.status_code != 200:
-                logger.warning(
-                    "GitHub API returned HTTP %s for %s", response.status_code, url
-                )
-                return None
-            payload = response.json()
-            return payload if isinstance(payload, dict) else None
-        except requests.RequestException as exc:
-            logger.warning("GitHub API request failed for %s: %s", url, exc)
+            if response.status_code == 200:
+                self._last_api_error = None
+                payload = response.json()
+                return payload if isinstance(payload, dict) else None
+
+            if (
+                allow_rate_limit_retry
+                and response.status_code == 403
+                and self._is_rate_limited(response)
+            ):
+                sleep_seconds = self._rate_limit_sleep_seconds(response)
+                if sleep_seconds > 0:
+                    logger.warning(
+                        "GitHub rate limit exceeded for %s; retrying after %s seconds",
+                        url,
+                        sleep_seconds,
+                    )
+                    time.sleep(sleep_seconds)
+                    return self._get_json(url, allow_rate_limit_retry=False)
+
+            self._last_api_error = self._describe_http_error(response)
+            logger.warning("%s for %s", self._last_api_error, url)
             return None
+        except requests.RequestException as exc:
+            self._last_api_error = f"GitHub API request failed: {exc}"
+            logger.warning("%s for %s", self._last_api_error, url)
+            return None
+
+    @staticmethod
+    def _is_rate_limited(response: requests.Response) -> bool:
+        remaining = response.headers.get("X-RateLimit-Remaining")
+        if remaining is not None and remaining.isdigit() and int(remaining) == 0:
+            return True
+        message = response.text.lower()
+        return "rate limit" in message or "api rate limit exceeded" in message
+
+    @staticmethod
+    def _rate_limit_sleep_seconds(response: requests.Response) -> int:
+        reset_header = response.headers.get("X-RateLimit-Reset")
+        if reset_header and reset_header.isdigit():
+            return min(max(int(reset_header) - int(time.time()) + 1, 1), 60)
+        return 1
+
+    @staticmethod
+    def _describe_http_error(response: requests.Response) -> str:
+        status = response.status_code
+        if status == 401:
+            return (
+                "GitHub authentication failed (HTTP 401). "
+                "Verify github_token is valid and has repository read access."
+            )
+        if status == 403:
+            if GitHubApiClient._is_rate_limited(response):
+                reset_header = response.headers.get("X-RateLimit-Reset")
+                if reset_header and reset_header.isdigit():
+                    return (
+                        "GitHub API rate limit exceeded (HTTP 403). "
+                        f"Retry after epoch {reset_header}."
+                    )
+                return "GitHub API rate limit exceeded (HTTP 403)."
+            return (
+                "GitHub access denied (HTTP 403). "
+                "Verify the token has permission to read this repository."
+            )
+        if status == 404:
+            return "GitHub resource not found (HTTP 404)."
+        return f"GitHub API returned HTTP {status}"
 
     def _get_text(self, url: str) -> Optional[str]:
         try:
@@ -224,13 +291,15 @@ class GitHubApiClient:
             )
             if response.status_code == 200:
                 return response.text
+            self._last_api_error = self._describe_http_error(response)
             logger.warning(
-                "Failed to download raw content from %s: HTTP %s",
+                "Failed to download raw content from %s: %s",
                 url,
-                response.status_code,
+                self._last_api_error,
             )
             return None
         except requests.RequestException as exc:
+            self._last_api_error = f"GitHub API request failed: {exc}"
             logger.warning("Failed to download raw content from %s: %s", url, exc)
             return None
 

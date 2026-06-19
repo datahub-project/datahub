@@ -185,6 +185,37 @@ def test_get_workunits_reports_truncated_tree(source: GitHubDocumentsSource) -> 
     )
 
 
+def test_get_workunits_truncates_files_at_max_files_limit() -> None:
+    config = GitHubDocumentsSourceConfig(
+        github_token=SecretStr("ghp_test"),
+        repository="acme/docs",
+        max_files=2,
+    )
+    ctx = PipelineContext(run_id="test-run")
+    source = GitHubDocumentsSource(config, ctx)
+    matching_files = [
+        GitHubFileInfo(path=f"docs/file-{index}.md", size=12) for index in range(5)
+    ]
+    source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
+        return_value=(matching_files, False)
+    )
+    source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
+        return_value="abc123"
+    )
+    source.client.fetch_file_content = MagicMock(  # type: ignore[method-assign]
+        return_value="# Hello"
+    )
+
+    list(source.get_workunits())
+
+    assert source.report.files_truncated_by_limit is True
+    assert source.report.files_processed == 2
+    assert source.client.fetch_file_content.call_count == 2
+    assert any(
+        "max_files" in (entry.message or "").lower() for entry in source.report.warnings
+    )
+
+
 @patch(
     "datahub.ingestion.source.github_documents.github_documents_source.GitHubApiClient.list_matching_files",
     side_effect=RuntimeError("branch missing"),
