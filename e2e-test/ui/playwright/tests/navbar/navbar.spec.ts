@@ -1,7 +1,7 @@
 /**
  * Navbar Redesign tests
  *
- * Tests the new navbar redesign (showNavBarRedesign: true) with all features:
+ * Tests the new navbar redesign:
  * - Navbar sidebar container
  * - Logo and branding
  * - Navigation menus (header, main, footer)
