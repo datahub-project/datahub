@@ -16,7 +16,6 @@ from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.metadata.urns import CorpUserUrn
-from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
@@ -117,8 +116,8 @@ class UnityCatalogUsageExtractor:
             self.report.lineage_tables_unresolvable_sample.append(full_name)
             return None
         catalog, schema, table = parts
-        urn, _ = self.schema_resolver.resolve_table(
-            _TableName(database=catalog, db_schema=schema, table=table)
+        urn, _ = self.schema_resolver.resolve_table_parts(
+            database=catalog, db_schema=schema, table=table
         )
         if urn is None:
             logger.debug(
@@ -320,42 +319,48 @@ class UnityCatalogUsageExtractor:
             self.report.report_warning(
                 title="Queries missing system-table lineage",
                 message=(
-                    f"{self.report.num_queries_without_system_table_lineage} queries "
-                    "had no matching rows in system.access.table_lineage and were "
-                    "parsed with sqlglot instead."
+                    "Queries had no matching rows in system.access.table_lineage and "
+                    "were parsed with sqlglot instead."
+                ),
+                context=(
+                    f"count={self.report.num_queries_without_system_table_lineage}"
                 ),
             )
         if self.report.num_queries_skipped_without_system_table_lineage > 0:
             self.report.report_warning(
                 title="Queries skipped without system-table lineage",
                 message=(
-                    f"{self.report.num_queries_skipped_without_system_table_lineage} "
-                    "queries had no matching rows in system.access.table_lineage and "
+                    "Queries had no matching rows in system.access.table_lineage and "
                     "were skipped because "
                     "skip_sqlglot_when_system_table_lineage_missing is enabled."
+                ),
+                context=(
+                    f"count={self.report.num_queries_skipped_without_system_table_lineage}"
                 ),
             )
         if self.report.num_queries_preparsed_fallback_to_sqlglot > 0:
             self.report.report_warning(
                 title="System-table lineage fell back to SQL parsing",
                 message=(
-                    f"{self.report.num_queries_preparsed_fallback_to_sqlglot} "
-                    "queries had table lineage from system tables but no resolvable "
+                    "Queries had table lineage from system tables but no resolvable "
                     "dataset URNs; those queries were parsed with sqlglot instead."
+                ),
+                context=(
+                    f"count={self.report.num_queries_preparsed_fallback_to_sqlglot}"
                 ),
             )
         if self.report.num_lineage_tables_unresolvable > 0:
             sample = list(self.report.lineage_tables_unresolvable_sample)
-            sample_text = ""
+            context = f"count={self.report.num_lineage_tables_unresolvable}"
             if sample:
-                sample_text = f" Examples: {', '.join(sample[:3])}."
+                context += f"; examples={', '.join(sample[:3])}"
             self.report.report_warning(
                 title="Unresolvable lineage table names",
                 message=(
-                    f"{self.report.num_lineage_tables_unresolvable} table name(s) "
-                    "from system.access.table_lineage could not be mapped to dataset "
-                    f"URNs and were omitted from preparsed usage.{sample_text}"
+                    "Table names from system.access.table_lineage could not be mapped "
+                    "to dataset URNs and were omitted from preparsed usage."
                 ),
+                context=context,
             )
 
     def get_usage_workunits(
@@ -446,10 +451,10 @@ class UnityCatalogUsageExtractor:
                         self.report.report_warning(
                             title="Query history rows could not be parsed",
                             message=(
-                                f"{self.report.num_queries_missing_info} statement(s) "
-                                "from system.query.history could not be parsed and were "
-                                "skipped, so no usage was extracted."
+                                "Statements from system.query.history could not be "
+                                "parsed and were skipped, so no usage was extracted."
                             ),
+                            context=(f"count={self.report.num_queries_missing_info}"),
                         )
                     else:
                         if self._use_system_tables_join():
@@ -472,7 +477,11 @@ class UnityCatalogUsageExtractor:
                             )
                         self.report.report_warning(
                             title="No queries found for usage",
-                            message=f"No queries were found in the configured time range. {hint}.",
+                            message=(
+                                "No queries were found in the configured time range "
+                                "for usage extraction."
+                            ),
+                            context=hint,
                         )
                 # Skip resetting per-table usage when we couldn't read any queries at
                 # all (empty history or missing permission).  Emitting zero-usage aspects

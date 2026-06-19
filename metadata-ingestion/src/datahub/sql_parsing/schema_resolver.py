@@ -232,6 +232,18 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         return (urn_lower if self._prefers_urn_lower() else urn), None
 
+    def resolve_table_parts(
+        self,
+        *,
+        database: Optional[str],
+        db_schema: Optional[str],
+        table: str,
+    ) -> Tuple[str, Optional[SchemaInfo]]:
+        """Resolve a table URN from catalog/schema/table parts without importing _TableName."""
+        return self.resolve_table(
+            _TableName(database=database, db_schema=db_schema, table=table)
+        )
+
     def _prefers_urn_lower(self) -> bool:
         return self.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 
