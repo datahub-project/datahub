@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, FrozenSet, List, Optional, Set, Union
+from typing import Dict, FrozenSet, List, Optional, Set, Union, cast
 
 from databricks.sdk.service.catalog import (
     CatalogType,
@@ -80,6 +80,24 @@ OPERATION_STATEMENT_TYPES = {
     QueryStatementType.OTHER: OperationTypeClass.UNKNOWN,
 }
 ALLOWED_STATEMENT_TYPES = {*OPERATION_STATEMENT_TYPES.keys(), QueryStatementType.SELECT}
+
+USAGE_READ_STATEMENT_TYPES: FrozenSet[QueryStatementType] = frozenset(
+    {QueryStatementType.SELECT}
+)
+
+
+def usage_statement_types(
+    include_operational_stats: bool,
+) -> FrozenSet[QueryStatementType]:
+    """Statement types to fetch for usage aggregation.
+
+    When operational stats are disabled, only SELECT queries are fetched
+    (BigQuery-style). DML/DDL statements are omitted from the history fetch
+    since they do not contribute to read-side usage statistics.
+    """
+    if include_operational_stats:
+        return cast(FrozenSet[QueryStatementType], frozenset(ALLOWED_STATEMENT_TYPES))
+    return USAGE_READ_STATEMENT_TYPES
 
 
 NotebookId = int
@@ -289,6 +307,13 @@ class Query:
     # User whose credentials were used to run the query
     executed_as_user_id: Optional[int]
     executed_as_user_name: Optional[str]
+    # Pre-resolved table refs from system.access.table_lineage (system-tables usage path).
+    source_table_full_names: List[str] = field(default_factory=list)
+    target_table_full_names: List[str] = field(default_factory=list)
+
+    @property
+    def has_system_table_lineage(self) -> bool:
+        return bool(self.source_table_full_names or self.target_table_full_names)
 
 
 @dataclass

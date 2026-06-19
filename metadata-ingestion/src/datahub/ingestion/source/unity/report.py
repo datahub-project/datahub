@@ -34,6 +34,11 @@ class UnityCatalogReport(SQLSourceReport):
 
     num_queries: int = 0
     num_queries_dropped: int = 0
+    num_queries_preparsed_from_lineage: int = 0
+    num_queries_observed_sqlglot: int = 0
+    num_queries_preparsed_fallback_to_sqlglot: int = 0
+    num_lineage_tables_unresolvable: int = 0
+    num_lineage_row_field_read_errors: int = 0
     num_usage_query_fetch_failures: int = 0
 
     profile_table_timeouts: LossyList[str] = field(default_factory=LossyList)

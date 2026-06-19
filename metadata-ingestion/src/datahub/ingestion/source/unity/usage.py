@@ -1,7 +1,9 @@
 import logging
 from dataclasses import dataclass
-from datetime import timezone
-from typing import Callable, Iterable, Optional, Set
+from datetime import datetime, timezone
+from typing import Callable, Iterable, List, Optional, Set
+
+from databricks.sdk.service.sql import QueryStatementType
 
 from datahub.ingestion.api.source_helpers import (
     auto_empty_dataset_usage_statistics,
@@ -13,13 +15,30 @@ from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.metadata.urns import CorpUserUrn
+from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
+    PreparsedQuery,
     SqlParsingAggregator,
+    UrnStr,
 )
+from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 
 logger = logging.getLogger(__name__)
+
+_STATEMENT_TYPE_TO_QUERY_TYPE = {
+    QueryStatementType.SELECT: QueryType.SELECT,
+    QueryStatementType.INSERT: QueryType.INSERT,
+    QueryStatementType.COPY: QueryType.INSERT,
+    QueryStatementType.UPDATE: QueryType.UPDATE,
+    QueryStatementType.MERGE: QueryType.MERGE,
+    QueryStatementType.DELETE: QueryType.DELETE,
+    QueryStatementType.TRUNCATE: QueryType.DELETE,
+    QueryStatementType.CREATE: QueryType.CREATE_TABLE_AS_SELECT,
+    QueryStatementType.REPLACE: QueryType.CREATE_TABLE_AS_SELECT,
+}
 
 
 @dataclass(eq=False)
@@ -57,11 +76,165 @@ class UnityCatalogUsageExtractor:
         )
 
     def _fetch_queries(self) -> Iterable[Query]:
+        include_ops = self.config.include_operational_stats
         if self._use_system_tables_join():
-            return self.proxy.get_query_history_via_system_tables(
-                self.config.start_time, self.config.end_time
+            catalog_pattern = (
+                self.config.catalog_pattern
+                if self.config.push_down_database_pattern_access_history
+                else None
             )
-        return self.proxy.query_history(self.config.start_time, self.config.end_time)
+            return self.proxy.get_query_history_via_system_tables(
+                self.config.start_time,
+                self.config.end_time,
+                catalog_pattern=catalog_pattern,
+                include_operational_stats=include_ops,
+            )
+        return self.proxy.query_history(
+            self.config.start_time,
+            self.config.end_time,
+            include_operational_stats=include_ops,
+        )
+
+    @staticmethod
+    def _normalize_timestamp(ts: Optional[datetime]) -> Optional[datetime]:
+        if ts is None:
+            return None
+        if ts.tzinfo is not None:
+            return ts.astimezone(timezone.utc)
+        return ts.replace(tzinfo=timezone.utc)
+
+    def _user_urn(self, query: Query) -> Optional[CorpUserUrn]:
+        if not query.user_name:
+            return None
+        return CorpUserUrn.from_string(self.user_urn_builder(query.user_name))
+
+    def _full_name_to_urn(self, full_name: str) -> Optional[UrnStr]:
+        parts = full_name.split(".")
+        if len(parts) != 3:
+            logger.debug("Skipping unexpected table full name: %s", full_name)
+            self.report.num_lineage_tables_unresolvable += 1
+            return None
+        catalog, schema, table = parts
+        urn, _ = self.schema_resolver.resolve_table(
+            _TableName(database=catalog, db_schema=schema, table=table)
+        )
+        if urn is None:
+            self.report.num_lineage_tables_unresolvable += 1
+        return urn
+
+    def _resolve_table_urns(self, full_names: Iterable[str]) -> List[UrnStr]:
+        urns: List[UrnStr] = []
+        seen: Set[UrnStr] = set()
+        for full_name in full_names:
+            urn = self._full_name_to_urn(full_name)
+            if urn and urn not in seen:
+                seen.add(urn)
+                urns.append(urn)
+        return urns
+
+    @staticmethod
+    def _query_type(statement_type: Optional[QueryStatementType]) -> QueryType:
+        if statement_type is None:
+            return QueryType.UNKNOWN
+        return _STATEMENT_TYPE_TO_QUERY_TYPE.get(statement_type, QueryType.UNKNOWN)
+
+    def _can_use_preparsed_query(self, query: Query) -> bool:
+        return self._use_system_tables_join() and query.has_system_table_lineage
+
+    def _to_preparsed_queries(self, query: Query) -> List[PreparsedQuery]:
+        upstreams = self._resolve_table_urns(query.source_table_full_names)
+        targets = self._resolve_table_urns(query.target_table_full_names)
+        ts = self._normalize_timestamp(query.start_time)
+        user = self._user_urn(query)
+        query_type = self._query_type(query.statement_type)
+        query_id = get_query_fingerprint(query.query_text, self.platform, fast=True)
+
+        if not targets:
+            return [
+                PreparsedQuery(
+                    query_id=query_id,
+                    query_text=query.query_text,
+                    upstreams=upstreams,
+                    downstream=None,
+                    confidence_score=1.0,
+                    query_count=1,
+                    user=user,
+                    timestamp=ts,
+                    query_type=query_type,
+                )
+            ]
+
+        preparsed: List[PreparsedQuery] = []
+        for i, downstream in enumerate(targets):
+            secondary_id = downstream if len(targets) > 1 else None
+            preparsed.append(
+                PreparsedQuery(
+                    query_id=get_query_fingerprint(
+                        query.query_text,
+                        self.platform,
+                        fast=True,
+                        secondary_id=secondary_id,
+                    ),
+                    query_text=query.query_text,
+                    upstreams=upstreams,
+                    downstream=downstream,
+                    confidence_score=1.0,
+                    query_count=1 if i == 0 else 0,
+                    user=user,
+                    timestamp=ts,
+                    query_type=query_type,
+                )
+            )
+        return preparsed
+
+    def _add_query_to_aggregator(
+        self,
+        aggregator: SqlParsingAggregator,
+        query: Query,
+        default_db: Optional[str],
+    ) -> None:
+        if self._can_use_preparsed_query(query):
+            preparsed_queries = self._to_preparsed_queries(query)
+            if preparsed_queries and (
+                any(p.upstreams for p in preparsed_queries)
+                or any(p.downstream for p in preparsed_queries)
+            ):
+                for preparsed in preparsed_queries:
+                    aggregator.add_preparsed_query(preparsed)
+                self.report.num_queries_preparsed_from_lineage += 1
+                return
+            self.report.num_queries_preparsed_fallback_to_sqlglot += 1
+
+        aggregator.add_observed_query(
+            ObservedQuery(
+                query=query.query_text,
+                timestamp=self._normalize_timestamp(query.start_time),
+                user=self._user_urn(query),
+                default_db=default_db,
+                default_schema=None,
+            )
+        )
+        self.report.num_queries_observed_sqlglot += 1
+
+    def _report_usage_lineage_warnings(self) -> None:
+        if self.report.num_queries_preparsed_fallback_to_sqlglot > 0:
+            self.report.report_warning(
+                title="System-table lineage fell back to SQL parsing",
+                message=(
+                    f"{self.report.num_queries_preparsed_fallback_to_sqlglot} "
+                    "queries had table lineage from system tables but no resolvable "
+                    "dataset URNs; those queries were parsed with sqlglot instead."
+                ),
+            )
+        if self.report.num_lineage_tables_unresolvable > 0:
+            self.report.report_warning(
+                title="Unresolvable lineage table names",
+                message=(
+                    f"{self.report.num_lineage_tables_unresolvable} table name(s) "
+                    "from system.access.table_lineage could not be mapped to dataset "
+                    "URNs and were omitted from preparsed usage."
+                ),
+            )
 
     def get_usage_workunits(
         self, table_refs: Set[TableReference]
@@ -96,34 +269,9 @@ class UnityCatalogUsageExtractor:
                 aggregator = self._build_aggregator(is_allowed_table=is_allowed_table)
                 for query in self._fetch_queries():
                     self.report.num_queries += 1
-                    # query.start_time may be None (see proxy_types.Query) or naive in
-                    # practice despite the annotation.  Normalize to timezone.utc so
-                    # SqlParsingAggregator's tzinfo assertion holds:
-                    #   - aware datetime  → astimezone(utc) preserves the instant
-                    #   - naive datetime  → replace(tzinfo=utc) treats it as UTC
-                    #   - None            → passed through unchanged
-                    ts = query.start_time
-                    if ts is not None:
-                        ts = (
-                            ts.astimezone(timezone.utc)
-                            if ts.tzinfo is not None
-                            else ts.replace(tzinfo=timezone.utc)
-                        )
                     try:
-                        aggregator.add_observed_query(
-                            ObservedQuery(
-                                query=query.query_text,
-                                timestamp=ts,
-                                user=(
-                                    CorpUserUrn.from_string(
-                                        self.user_urn_builder(query.user_name)
-                                    )
-                                    if query.user_name
-                                    else None
-                                ),
-                                default_db=default_db,
-                                default_schema=None,
-                            )
+                        self._add_query_to_aggregator(
+                            aggregator, query, default_db=default_db
                         )
                     except (
                         MemoryError,
@@ -134,7 +282,7 @@ class UnityCatalogUsageExtractor:
                     except Exception as per_query_exc:
                         self.report.num_queries_dropped += 1
                         logger.warning(
-                            "Skipping query due to error during add_observed_query "
+                            "Skipping query due to error during usage processing "
                             "(query_id=%s): %r",
                             query.query_id,
                             per_query_exc,
@@ -146,6 +294,7 @@ class UnityCatalogUsageExtractor:
                             context=f"query_id={query.query_id}",
                             exc=per_query_exc,
                         )
+                self._report_usage_lineage_warnings()
             except (MemoryError, SystemExit, KeyboardInterrupt):
                 raise
             except Exception as e:
@@ -174,6 +323,14 @@ class UnityCatalogUsageExtractor:
                             "verify SELECT privilege on system.query and system.access "
                             "and that the time window covers recent activity"
                         )
+                        if (
+                            self.config.push_down_database_pattern_access_history
+                            and self.config.catalog_pattern is not None
+                        ):
+                            hint += (
+                                "; if catalog pushdown is enabled, also verify "
+                                "catalog_pattern allow/deny rules are not over-restrictive"
+                            )
                     else:
                         hint = (
                             "verify CAN_MANAGE privilege on the SQL warehouse "

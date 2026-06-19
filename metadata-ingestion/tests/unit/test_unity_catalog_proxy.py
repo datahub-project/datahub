@@ -1754,7 +1754,11 @@ class TestUnityCatalogProxyUsageSystemTables:
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
 
-        list(mock_proxy.get_query_history_via_system_tables(start_time, end_time))
+        list(
+            mock_proxy.get_query_history_via_system_tables(
+                start_time, end_time, include_operational_stats=True
+            )
+        )
 
         call_args = mock_execute.call_args
         query = call_args[0][0]
@@ -1766,6 +1770,28 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert "'MERGE'" in query
         assert "'CREATE'" in query
         assert "'OTHER'" in query
+
+    @patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
+    )
+    def test_get_query_history_via_system_tables_select_only_when_ops_disabled(
+        self, mock_execute, mock_proxy
+    ):
+        """When operational stats are off, only SELECT statements are fetched."""
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [])  # type: ignore[var-annotated]
+        start_time = datetime(2023, 1, 1)
+        end_time = datetime(2023, 1, 31)
+
+        list(
+            mock_proxy.get_query_history_via_system_tables(
+                start_time, end_time, include_operational_stats=False
+            )
+        )
+
+        query = mock_execute.call_args[0][0]
+        assert "'SELECT'" in query
+        assert "'INSERT'" not in query
+        assert "'UPDATE'" not in query
 
     @patch(
         "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
@@ -1903,7 +1929,7 @@ class TestUnityCatalogProxyUsageSystemTables:
 
         call_args = mock_execute.call_args
         params = call_args[0][1]
-        assert params == (start_time, end_time)
+        assert params == (start_time, end_time, start_time, end_time)
 
 
 class TestQueryFilterWithStatementTypesSerialisation:

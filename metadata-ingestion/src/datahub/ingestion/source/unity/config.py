@@ -384,6 +384,17 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    push_down_database_pattern_access_history: bool = Field(
+        default=False,
+        description=(
+            "If enabled, pushes down catalog pattern filtering to system.access.table_lineage "
+            "for improved performance during usage extraction. This filters on source and target "
+            "catalogs in table_lineage. Maps to Snowflake's database_pattern semantics via "
+            "catalog_pattern (Unity catalog = Snowflake database). Only applies when usage is "
+            "fetched via system tables (usage_data_source AUTO with warehouse or SYSTEM_TABLES)."
+        ),
+    )
+
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
         UnityCatalogGEProfilerConfig,
