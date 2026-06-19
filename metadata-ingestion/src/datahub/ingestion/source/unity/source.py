@@ -327,7 +327,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     unity_catalog_api_proxy: UnityCatalogApiProxy
     platform: str = "databricks"
     platform_instance_name: Optional[str]
-    sql_parser_schema_resolver: Optional[SchemaResolver] = None
+    sql_parser_schema_resolver: SchemaResolver
     platform_resource_repository: Optional[UnityCatalogPlatformResourceRepository] = (
         None
     )
@@ -341,6 +341,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         self.config = config
         self.report: UnityCatalogReport = UnityCatalogReport()
+
+        # Always create the schema resolver up front so that every processed
+        # table (UC and hive-metastore) can register its schema for SQL parsing.
+        # The usage extractor receives this instance so unqualified table refs
+        # in queries are resolved correctly.
+        self.sql_parser_schema_resolver = SchemaResolver(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
 
         self.init_hive_metastore_proxy()
 
@@ -431,11 +441,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.hive_metastore_catalog_found = True
 
                 if self.config.include_table_lineage:
-                    self.sql_parser_schema_resolver = SchemaResolver(
-                        platform=self.platform,
-                        platform_instance=self.config.platform_instance,
-                        env=self.config.env,
-                    )
+                    # Reuse the resolver created unconditionally in __init__; do
+                    # not overwrite it so UC tables registered before this point
+                    # are preserved.
                     self.sql_parsing_aggregator = SqlParsingAggregator(
                         platform=self.platform,
                         platform_instance=self.config.platform_instance,
@@ -516,6 +524,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     proxy=self.unity_catalog_api_proxy,
                     table_urn_builder=self.gen_dataset_urn,
                     user_urn_builder=self.gen_user_urn,
+                    schema_resolver=self.sql_parser_schema_resolver,
                 )
                 yield from usage_extractor.get_usage_workunits(
                     self.table_refs | self.view_refs
@@ -824,25 +833,26 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         table.ref, self.notebooks[str(notebook_id)]
                     )
 
-        # Sql parsing is required only for hive metastore view lineage
+        # Register every processed table's schema so that the SQL parsing
+        # aggregator (used for both hive-metastore view lineage and UC usage)
+        # can resolve unqualified / partial table references in queries.
+        self.sql_parser_schema_resolver.add_schema_metadata(
+            dataset_urn, schema_metadata
+        )
+        # Hive-metastore views also need their definitions fed to the lineage
+        # aggregator so view lineage can be derived via SQL parsing.
         if (
-            self.sql_parser_schema_resolver
-            and table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG
+            table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG
+            and table.view_definition
+            and self.sql_parsing_aggregator
+            and not (table.is_metric_view and self.config.include_metric_views)
         ):
-            self.sql_parser_schema_resolver.add_schema_metadata(
-                dataset_urn, schema_metadata
+            self.sql_parsing_aggregator.add_view_definition(
+                view_urn=dataset_urn,
+                view_definition=table.view_definition,
+                default_db=table.ref.catalog,
+                default_schema=table.ref.schema,
             )
-            if (
-                table.view_definition
-                and self.sql_parsing_aggregator
-                and not (table.is_metric_view and self.config.include_metric_views)
-            ):
-                self.sql_parsing_aggregator.add_view_definition(
-                    view_urn=dataset_urn,
-                    view_definition=table.view_definition,
-                    default_db=table.ref.catalog,
-                    default_schema=table.ref.schema,
-                )
 
         if (
             table_props.customProperties.get("table_type")
