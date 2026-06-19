@@ -575,6 +575,17 @@ class UnityCatalogSourceConfig(
             )
         return workspace_url
 
+    @field_validator("local_temp_path", mode="after")
+    @classmethod
+    def local_temp_path_must_be_dir(
+        cls, v: Optional[pathlib.Path]
+    ) -> Optional[pathlib.Path]:
+        # Fail fast with a clear message instead of a confusing extraction error when
+        # the audit-log cache directory doesn't exist (matches Snowflake/BigQuery).
+        if v is not None and not v.is_dir():
+            raise ValueError(f"local_temp_path must be an existing directory, got: {v}")
+        return v
+
     @field_validator("include_metastore", mode="after")
     @classmethod
     def include_metastore_warning(cls, v: bool) -> bool:

@@ -3173,3 +3173,131 @@ def test_audit_log_cache_hit_skips_fetch(
     assert ex.report.num_queries == 1, "the one cached query must be read from the file"
     # A cached run leaves the file in place (only non-cached runs remove it).
     assert audit_file.exists()
+
+
+def test_audit_log_filename_keyed_by_version_window_and_mode(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The cache filename encodes format version, usage source, and time window so a
+    leftover file is never reused for a different window/mode/version."""
+    config = _audit_log_config(tmp_path)
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    ex = _extractor(config, proxy)
+
+    name = ex._audit_log_filename()
+    assert name.startswith("unity_usage_audit_log_v"), name
+    assert "_systables_" in name, name
+    assert ex._audit_log_filename() == name, "stable for identical inputs"
+
+    # Different time window -> different filename.
+    config.end_time = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    assert ex._audit_log_filename() != name
+
+    # Different usage source (api vs systables) -> different filename.
+    config.usage_uses_system_tables.return_value = False
+    assert "_api_" in ex._audit_log_filename()
+
+
+def test_audit_log_different_window_does_not_reuse_cache(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """A file left from window A must NOT be reused for window B (stale-window guard)."""
+    _no_op_aggregator(monkeypatch)
+    config = _audit_log_config(tmp_path)
+
+    fetch_calls: List[int] = []
+
+    def _fetch(*_a: object, **_k: object) -> Iterator[Query]:
+        fetch_calls.append(1)
+        return iter([_query("SELECT * FROM main.sales.orders", "q1")])
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.side_effect = _fetch
+    ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+
+    # Window A: fetch + persist.
+    ex1 = _extractor(config, proxy)
+    ex1.report = UnityCatalogReport()
+    list(ex1.get_usage_workunits({ref}))
+    assert len(fetch_calls) == 1
+
+    # Window B (same local_temp_path): must re-fetch, not reuse window A's file.
+    config.start_time = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    config.end_time = datetime(2026, 7, 2, tzinfo=timezone.utc)
+    config.majority_buckets.return_value = [config.start_time]
+    ex2 = _extractor(config, proxy)
+    ex2.report = UnityCatalogReport()
+    list(ex2.get_usage_workunits({ref}))
+    assert len(fetch_calls) == 2, (
+        "a different window must re-fetch, not reuse the cache"
+    )
+    assert len(list(tmp_path.glob("unity_usage_audit_log_*.sqlite"))) == 2
+
+
+def test_no_caching_when_local_temp_path_unset(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """With local_temp_path unset, the buffer is ephemeral — no named file persists."""
+    _no_op_aggregator(monkeypatch)
+    config = _audit_log_config(tmp_path)
+    config.local_temp_path = None  # disable caching
+
+    fetch_calls: List[int] = []
+
+    def _fetch(*_a: object, **_k: object) -> Iterator[Query]:
+        fetch_calls.append(1)
+        return iter([_query("SELECT * FROM main.sales.orders", "q1")])
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.side_effect = _fetch
+    ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+    list(ex.get_usage_workunits({ref}))
+
+    assert len(fetch_calls) == 1
+    assert list(tmp_path.glob("unity_usage_audit_log_*.sqlite")) == [], (
+        "no named cache file should be created when local_temp_path is unset"
+    )
+
+
+def test_corrupt_cached_audit_log_discarded_and_refetched(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """A corrupt/unreadable cached file must be discarded and re-fetched with a warning,
+    not crash the run or be served as valid."""
+    _no_op_aggregator(monkeypatch)
+    config = _audit_log_config(tmp_path)
+
+    fetch_calls: List[int] = []
+
+    def _fetch(*_a: object, **_k: object) -> Iterator[Query]:
+        fetch_calls.append(1)
+        return iter([_query("SELECT * FROM main.sales.orders", "q1")])
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.side_effect = _fetch
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+
+    # Plant a non-SQLite file at the exact window-keyed path so use_cached is True but
+    # opening/reading it fails.
+    audit_file = tmp_path / ex._audit_log_filename()
+    audit_file.write_bytes(b"this is not a sqlite database")
+
+    ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+    list(ex.get_usage_workunits({ref}))
+
+    assert len(fetch_calls) == 1, "a corrupt cache must trigger a re-fetch"
+    warning_titles = [w.title for w in ex.report.warnings]
+    assert "Discarded unreadable cached audit log" in warning_titles, warning_titles
+    failure_titles = [getattr(f, "title", "") for f in ex.report.failures]
+    assert not any("Usage extraction failed" in t for t in failure_titles), (
+        "corrupt cache must not surface as a run failure; it should re-fetch"
+    )

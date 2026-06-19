@@ -30,6 +30,11 @@ from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBac
 
 logger = logging.getLogger(__name__)
 
+# Bump whenever the on-disk shape of a buffered Query (or its pickling) changes, so a
+# cache written by an older build resolves to a different filename — a clean miss that
+# re-fetches, rather than a deserialization error when reloading an incompatible Query.
+_AUDIT_LOG_FORMAT_VERSION = 1
+
 _STATEMENT_TYPE_TO_QUERY_TYPE = {
     QueryStatementType.SELECT: QueryType.SELECT,
     QueryStatementType.INSERT: QueryType.INSERT,
@@ -78,12 +83,16 @@ class UnityCatalogUsageExtractor:
         )
 
     def _audit_log_filename(self) -> str:
-        # Key the cache file by usage source and time window so a file left behind by a
-        # crashed run is only reused for an identical window, never a stale one.
+        # Key the cache file by format version, usage source, and time window so a file
+        # left behind by a crashed run is only reused for an identical window+format,
+        # never a stale window or an incompatible serialization.
         mode = "systables" if self._use_system_tables_join() else "api"
         start = int(self.config.start_time.timestamp())
         end = int(self.config.end_time.timestamp())
-        return f"unity_usage_audit_log_{mode}_{start}_{end}.sqlite"
+        return (
+            f"unity_usage_audit_log_v{_AUDIT_LOG_FORMAT_VERSION}"
+            f"_{mode}_{start}_{end}.sqlite"
+        )
 
     def _fetch_queries(self) -> Iterable[Query]:
         include_ops = self.config.include_operational_stats
@@ -462,6 +471,65 @@ class UnityCatalogUsageExtractor:
             context=hint,
         )
 
+    def _parse_buffered_queries(
+        self,
+        aggregator: SqlParsingAggregator,
+        buffered_queries: FileBackedList[Query],
+        default_db: Optional[str],
+    ) -> None:
+        # Iterate by index so a single unreadable row (e.g. a corrupt cached entry) can
+        # be skipped without aborting the rest — a generator closes on the first raise.
+        # buffered_queries[i] deserializes the row, which happens before the per-query
+        # try below, so reading it needs its own guard.
+        #
+        # Per-row failures use report.warning(log=False): the structured report groups
+        # them by title (bounded sample + count) WITHOUT emitting a log line per row, so
+        # a pathological run (e.g. every query unparseable) can't flood the logs. The
+        # full traceback stays available at DEBUG.
+        for i in range(len(buffered_queries)):
+            try:
+                query = buffered_queries[i]
+            except (MemoryError, SystemExit, KeyboardInterrupt):
+                raise
+            except Exception as read_exc:
+                self.report.num_queries_dropped += 1
+                logger.debug(
+                    "Skipping buffered query that could not be read back (index=%s)",
+                    i,
+                    exc_info=True,
+                )
+                self.report.warning(
+                    title="Skipped unreadable buffered query",
+                    message="A buffered query could not be read back from the audit-log "
+                    "buffer and was skipped, so its usage is not counted.",
+                    context=f"index={i}",
+                    exc=read_exc,
+                    log=False,
+                )
+                continue
+            try:
+                self._add_query_to_aggregator(aggregator, query, default_db=default_db)
+            except (
+                MemoryError,
+                SystemExit,
+                KeyboardInterrupt,
+            ):  # never swallow system-level errors as a "dropped query"
+                raise
+            except Exception as per_query_exc:
+                self.report.num_queries_dropped += 1
+                logger.debug(
+                    "Skipping query due to error during usage processing (query_id=%s)",
+                    query.query_id,
+                    exc_info=True,
+                )
+                self.report.warning(
+                    title="Skipped query during usage extraction",
+                    message="A query from query history could not be processed and was skipped, so its usage is not counted.",
+                    context=f"query_id={query.query_id}",
+                    exc=per_query_exc,
+                    log=False,
+                )
+
     def get_usage_workunits(
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
@@ -508,12 +576,35 @@ class UnityCatalogUsageExtractor:
                 aggregator = self._build_aggregator(is_allowed_table=is_allowed_table)
                 if use_cached_audit_log:
                     assert audit_log_file is not None
-                    logger.info(
-                        "Using cached query-history audit log at %s", audit_log_file
-                    )
-                    shared_connection = ConnectionWrapper(audit_log_file)
-                    buffered_queries = FileBackedList(shared_connection)
-                else:
+                    try:
+                        logger.info(
+                            "Using cached query-history audit log at %s", audit_log_file
+                        )
+                        shared_connection = ConnectionWrapper(audit_log_file)
+                        buffered_queries = FileBackedList(shared_connection)
+                    except (MemoryError, SystemExit, KeyboardInterrupt):
+                        raise
+                    except Exception as cache_exc:
+                        # The persisted cache could not be opened (corrupt, or written by
+                        # an incompatible build despite the version-keyed name). Discard
+                        # it and re-fetch rather than failing the run.
+                        if buffered_queries is not None:
+                            buffered_queries.close()
+                        if shared_connection is not None:
+                            shared_connection.close()
+                        buffered_queries = None
+                        shared_connection = None
+                        audit_log_file.unlink(missing_ok=True)
+                        use_cached_audit_log = False
+                        self.report.report_warning(
+                            title="Discarded unreadable cached audit log",
+                            message="The persisted query-history cache could not be read "
+                            "and was discarded; re-fetching query history.",
+                            context=str(audit_log_file),
+                            exc=cache_exc,
+                        )
+
+                if not use_cached_audit_log:
                     if audit_log_file is not None:
                         audit_log_file.unlink(missing_ok=True)
                         shared_connection = ConnectionWrapper(audit_log_file)
@@ -525,11 +616,16 @@ class UnityCatalogUsageExtractor:
                             # Drain only — the cursor/connection is released once the
                             # generator is fully consumed here.
                             buffered_queries.append(query)
+                assert buffered_queries is not None
                 self.report.num_queries = len(buffered_queries)
             except (MemoryError, SystemExit, KeyboardInterrupt):
                 raise
             except Exception as e:
                 logger.error("Error processing usage", exc_info=True)
+                # Drop a partially-written named file so it cannot be mistaken for a
+                # valid cache on the next run.
+                if audit_log_file is not None:
+                    audit_log_file.unlink(missing_ok=True)
                 self.report.report_failure(
                     title="Usage extraction failed",
                     message=f"Usage extraction failed: {e!r}",
@@ -557,32 +653,7 @@ class UnityCatalogUsageExtractor:
 
             assert buffered_queries is not None
             with self.report.usage_parsing_timer:
-                for query in buffered_queries:
-                    try:
-                        self._add_query_to_aggregator(
-                            aggregator, query, default_db=default_db
-                        )
-                    except (
-                        MemoryError,
-                        SystemExit,
-                        KeyboardInterrupt,
-                    ):  # never swallow system-level errors as a "dropped query"
-                        raise
-                    except Exception as per_query_exc:
-                        self.report.num_queries_dropped += 1
-                        logger.warning(
-                            "Skipping query due to error during usage processing "
-                            "(query_id=%s): %r",
-                            query.query_id,
-                            per_query_exc,
-                            exc_info=True,
-                        )
-                        self.report.report_warning(
-                            title="Skipped query during usage extraction",
-                            message="A query from query history could not be processed and was skipped, so its usage is not counted.",
-                            context=f"query_id={query.query_id}",
-                            exc=per_query_exc,
-                        )
+                self._parse_buffered_queries(aggregator, buffered_queries, default_db)
             self._log_usage_routing_summary()
             self._report_usage_lineage_warnings()
 
@@ -592,14 +663,24 @@ class UnityCatalogUsageExtractor:
                 config=self.config,
             )
         finally:
-            if buffered_queries is not None:
-                buffered_queries.close()
-            if shared_connection is not None:
-                # Closing flushes the SQLite file but does NOT delete it (it is a named
-                # file, not the auto-cleaned temp-dir case). The window-keyed file is
-                # intentionally left behind so the next run over the same window reloads
-                # it (use_cached_audit_log) — including after a crash.
-                shared_connection.close()
+            # Closing a shared connection also closes its dependent FileBackedList, so
+            # close exactly one to avoid a redundant double-close. Closing flushes the
+            # SQLite file but does NOT delete a named file — the window-keyed cache is
+            # intentionally left for the next run to reload (use_cached_audit_log).
+            buffer_closeable = shared_connection or buffered_queries
+            if buffer_closeable is not None:
+                try:
+                    buffer_closeable.close()
+                except (
+                    Exception
+                ) as close_exc:  # surface close failures in the report, not just logs
+                    logger.warning("Failed to close audit-log buffer", exc_info=True)
+                    self.report.report_warning(
+                        title="Failed to close usage buffer",
+                        message="The query-history buffer failed to close cleanly; its "
+                        "temporary resources may not have been released.",
+                        exc=close_exc,
+                    )
             if aggregator is not None:
                 try:
                     aggregator.close()
