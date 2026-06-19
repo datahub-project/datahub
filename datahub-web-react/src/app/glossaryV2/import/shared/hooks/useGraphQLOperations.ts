@@ -319,7 +319,7 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
 
                 // Using smaller batch size due to deep nested relationship data to avoid timeout
                 // Can be configured via environment variable or constant
-                const BATCH_SIZE = parseInt(process.env.REACT_APP_GLOSSARY_QUERY_BATCH_SIZE || '50', 10);
+                const BATCH_SIZE = parseInt(import.meta.env.REACT_APP_GLOSSARY_QUERY_BATCH_SIZE || '50', 10);
 
                 while (hasMore) {
                     // eslint-disable-next-line no-await-in-loop
