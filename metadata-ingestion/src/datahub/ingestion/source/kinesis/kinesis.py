@@ -57,6 +57,10 @@ class KinesisRegionKey(ContainerKey):
 @capability(SourceCapability.LINEAGE_COARSE, "Firehose -> destination lineage")
 @capability(SourceCapability.OWNERSHIP, "From AWS resource tags (configurable key)")
 @capability(SourceCapability.TAGS, "From AWS resource tags")
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
+)
 @capability(SourceCapability.DELETION_DETECTION, "Via stateful ingestion")
 class KinesisSource(StatefulIngestionSourceBase, TestableSource):
     """DataHub ingestion source for AWS Kinesis.

@@ -1,7 +1,9 @@
 ### Overview
 
-> **Looking for Amazon Data Firehose (formerly Kinesis Data Firehose)?**
-> You're in the right place — Firehose delivery streams are ingested by this same `kinesis` connector. See the `kinesis-firehose` platform section below.
+:::info Looking for Amazon Data Firehose (formerly Kinesis Data Firehose)?
+
+You're in the right place — Firehose delivery streams are ingested by this same `kinesis` connector. See the `kinesis-firehose` platform section below.
+:::
 
 This connector ingests both AWS streaming services with one recipe, one IAM policy, and one ingestion job:
 
@@ -10,7 +12,7 @@ This connector ingests both AWS streaming services with one recipe, one IAM poli
 
 Cross-service lineage (e.g. `KDS Stream → Firehose Delivery Stream → S3`) is rendered in the DataHub lineage viewer as edges crossing platform boundaries, making the data flow immediately legible.
 
-The connector is API-based (boto3 + AWS IAM SigV4) and **region-scoped per recipe** — a multi-region setup runs multiple recipes, one per region, each with its own `platform_instance`.
+The connector is API-based (boto3 + AWS IAM SigV4) and **region-scoped per recipe** — a multi-region setup runs multiple recipes, one per region. The region is encoded in dataset names and the Firehose DataFlow id, so multiple regions of the same account share one `platform_instance` (the account ID, by default) without colliding on URN.
 
 ### Prerequisites
 
@@ -34,8 +36,6 @@ The connector needs read-only access to the Kinesis, Firehose, and (optionally) 
       "Action": [
         "kinesis:ListStreams",
         "kinesis:DescribeStream",
-        "kinesis:DescribeStreamSummary",
-        "kinesis:ListShards",
         "kinesis:ListTagsForStream"
       ],
       "Resource": "*"
@@ -53,12 +53,7 @@ The connector needs read-only access to the Kinesis, Firehose, and (optionally) 
     {
       "Sid": "GlueSchemaRegistryRead",
       "Effect": "Allow",
-      "Action": [
-        "glue:ListRegistries",
-        "glue:ListSchemas",
-        "glue:GetSchema",
-        "glue:GetSchemaVersion"
-      ],
+      "Action": ["glue:ListRegistries", "glue:GetSchemaVersion"],
       "Resource": "*"
     }
   ]

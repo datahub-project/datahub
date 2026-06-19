@@ -2,9 +2,12 @@ pipeline_name: "kinesis_ingestion"
 source:
   type: "kinesis"
   config:
-    # One recipe per AWS region. Set a distinct platform_instance so
-    # streams in different regions / accounts do not collide on URN.
-    # platform_instance: "us-east-1-prod"
+    # One recipe per AWS region. platform_instance defaults to the AWS
+    # account ID (resolved via sts:GetCallerIdentity); set it explicitly
+    # only to disambiguate across accounts. The region is already encoded
+    # in dataset names and the Firehose DataFlow id, so different regions
+    # of the same account never collide on URN.
+    # platform_instance: "prod-account"
     env: "PROD"
 
     # Standard DataHub AWS connection config. Credentials are resolved by
@@ -86,10 +89,11 @@ source:
       # Off by default (no AWS-defined convention). Enable only if your
       # organization has adopted schema-name == stream-name as an internal
       # convention.
-      use_naming_convention: true
+      use_naming_convention: false
 
     # --- Stateful ingestion (deletion detection) ----------------------
-    # Requires platform_instance to be set (it is, above).
+    # Soft-deletes entities that have disappeared from AWS since the last
+    # successful run (diffed per ingestion job — independent of platform_instance).
     stateful_ingestion:
       enabled: true
       remove_stale_metadata: true

@@ -1,20 +1,6 @@
 ### Capabilities
 
-:::note
-Stateful Ingestion (deletion detection) requires a `platform_instance` to be set on this source.
-:::
-
-Use the **Important Capabilities** table above the page as the source of truth for which capabilities are supported and which require additional configuration.
-
-| Capability           | Notes                                                                                                                                                                                                  |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `DESCRIPTIONS`       | Enabled by default. Stream and delivery-stream metadata is surfaced via `datasetProperties` / `dataJobInfo`.                                                                                           |
-| `CONTAINERS`         | One regional Container per recipe — parent of all streams and Firehose delivery streams.                                                                                                               |
-| `LINEAGE_COARSE`     | Firehose delivery streams emit `dataJobInputOutput` edges from the source Kinesis stream to the destination platform (custom-upstream, coarse-grained lineage).                                        |
-| `TAGS`               | AWS resource tags on streams and delivery streams are emitted as `globalTags`. Gated by `extract_tags`.                                                                                                |
-| `OWNERSHIP`          | The value of a configurable AWS resource-tag key (default `owner_tag_key: owner`) becomes a DataHub owner. Gated by `extract_owners`.                                                                  |
-| `SCHEMA_METADATA`    | Opt-in. With `glue_schema_registry.enabled: true`, Avro / JSON / Protobuf schemas are fetched from AWS Glue Schema Registry. Requires the `GlueSchemaRegistryRead` IAM statement in the prerequisites. |
-| `DELETION_DETECTION` | Via stateful ingestion. Entities removed from AWS since the last successful run are soft-deleted in DataHub. Requires `platform_instance`.                                                             |
+See the **Important Capabilities** table above for the full list of supported capabilities. The sections below cover the connector-specific configuration behind them.
 
 #### Firehose lineage — supported destinations
 
@@ -94,7 +80,7 @@ stream_pattern:
 
 #### Tags-as-ownership
 
-The connector reads owner information from a single AWS resource-tag key (default `owner`). Set `owner_tag_key` to whatever convention your organization uses (e.g. `team`, `data_owner`). The tag value is used verbatim as the owner identifier and emitted as a `urn:li:corpuser:<value>` owner — DataHub's identity layer handles group-membership mapping at the platform level if the value names a group rather than an individual user.
+The connector reads owner information from a single AWS resource-tag key (default `owner`). Set `owner_tag_key` to whatever convention your organization uses (e.g. `team`, `data_owner`). The tag value is used verbatim as the owner identifier and emitted as a `urn:li:corpuser:<value>` owner.
 
 #### Glue Schema Registry
 
