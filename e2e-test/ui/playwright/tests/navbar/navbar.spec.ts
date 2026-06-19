@@ -47,16 +47,16 @@ test.describe('navbar redesign', () => {
 
     // Check initial state (expanded)
     let isCollapsed = await navbarPage.isNavbarCollapsed();
-    expect(isCollapsed).toBe(false);
+    expect(isCollapsed).toEqual(false);
 
     // Toggle to collapse
     await navbarPage.toggleNavbar();
     isCollapsed = await navbarPage.isNavbarCollapsed();
-    expect(isCollapsed).toBe(true);
+    expect(isCollapsed).toEqual(true);
 
     // Toggle to expand
     await navbarPage.toggleNavbar();
     isCollapsed = await navbarPage.isNavbarCollapsed();
-    expect(isCollapsed).toBe(false);
+    expect(isCollapsed).toEqual(false);
   });
 });
