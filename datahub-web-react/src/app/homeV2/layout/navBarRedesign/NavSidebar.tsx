@@ -482,7 +482,12 @@ export const NavSidebar = () => {
     return (
         <Container>
             {renderSvgSelectedGradientForReusingInIcons()}
-            <Content id={NAV_SIDEBAR_ID} data-collapsed={isCollapsed} $isCollapsed={isCollapsed}>
+            <Content
+                id={NAV_SIDEBAR_ID}
+                data-testid="nav-sidebar"
+                data-collapsed={isCollapsed}
+                $isCollapsed={isCollapsed}
+            >
                 {showSkeleton ? (
                     <NavSkeleton isCollapsed={isCollapsed} />
                 ) : (
