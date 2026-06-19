@@ -925,15 +925,17 @@ def test_auto_empty_usage_emitted_for_unqueried_tables(
     )
 
 
-def test_zero_queries_emits_no_usage_workunits(
+def test_zero_queries_emits_empty_usage_for_idle_window(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """When the query history is empty (num_queries == 0), NO datasetUsageStatistics
-    workunit must be emitted, and the no-queries-found warning must fire.
+    """When the query history is genuinely empty (num_queries == 0 and no fetch
+    failure), the ingested tables must still receive a zero-usage aspect for the
+    window, and the no-queries-found warning must fire.
 
-    Emitting zero-usage aspects on a query-less run would wrongly wipe existing
-    usage stats in DataHub (e.g. when the warehouse has no recent activity or the
-    connector lacks SELECT privilege on query history tables).
+    A genuinely idle window should record a current-bucket zero datapoint (via
+    auto_empty_dataset_usage_statistics) rather than leaving stale usage stats —
+    fetch *failures* are handled separately and short-circuit before this point
+    (see test_fetch_failure_reports_failure_and_no_usage_workunits).
     """
 
     class FakeAgg:
@@ -951,11 +953,20 @@ def test_zero_queries_emits_no_usage_workunits(
 
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
+    start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    end = datetime(2026, 6, 2, tzinfo=timezone.utc)
+
     config = MagicMock()
     config.include_queries = False
     config.include_query_usage_statistics = False
     config.include_operational_stats = False
     config.usage_uses_system_tables.return_value = True
+    # Real time-window values so auto_empty_dataset_usage_statistics can compute
+    # bucket timestamps via config.majority_buckets().
+    config.start_time = start
+    config.end_time = end
+    config.bucket_duration = BucketDuration.DAY
+    config.majority_buckets.return_value = [start]
 
     proxy = MagicMock()
     proxy.warehouse_id = "wh1"
@@ -966,19 +977,39 @@ def test_zero_queries_emits_no_usage_workunits(
     ex.report = UnityCatalogReport()
 
     ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+    expected_urn = ex.table_urn_builder(ref)
     workunits = list(ex.get_usage_workunits({ref}))
 
+    # The idle window must still stamp a zero-usage aspect for the ingested table.
     usage_wus = [
         wu
         for wu in workunits
-        if wu.get_aspect_of_type(DatasetUsageStatisticsClass) is not None
+        if wu.get_urn() == expected_urn
+        and wu.get_aspect_of_type(DatasetUsageStatisticsClass) is not None
     ]
-    assert not usage_wus, (
-        f"Expected NO datasetUsageStatistics workunits when num_queries == 0, "
-        f"but got {len(usage_wus)}: {[wu.id for wu in usage_wus]}"
+    assert usage_wus, (
+        f"Expected a zero-usage DatasetUsageStatistics workunit for {expected_urn!r} "
+        f"on an idle window, but none was emitted. Workunits: {[wu.id for wu in workunits]}"
     )
+    usage_aspect = usage_wus[0].get_aspect_of_type(DatasetUsageStatisticsClass)
+    assert usage_aspect is not None
+    assert usage_aspect.totalSqlQueries == 0
+    assert usage_aspect.uniqueUserCount == 0
 
-    # The "No queries found for usage" warning must be reported.
+    # Zeros must be scoped to the ingested table set, not over-stamped onto
+    # tables this recipe didn't ingest.
+    other_urn = ex.table_urn_builder(
+        TableReference(
+            metastore=None, catalog="main", schema="sales", table="not_ingested"
+        )
+    )
+    assert not any(
+        wu.get_urn() == other_urn
+        and wu.get_aspect_of_type(DatasetUsageStatisticsClass) is not None
+        for wu in workunits
+    ), "idle window must not stamp usage for non-ingested tables"
+
+    # The "No queries found for usage" warning must still be reported.
     warning_titles = [w.title for w in ex.report.warnings]
     assert any(t == "No queries found for usage" for t in warning_titles), (
         f"Expected 'No queries found for usage' warning, got: {warning_titles}"

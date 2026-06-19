@@ -412,6 +412,48 @@ class UnityCatalogUsageExtractor:
                 context=context,
             )
 
+    def _report_no_queries(self) -> None:
+        # Called when query history yielded zero usable queries (and no fetch
+        # failure occurred). Distinguishes "rows were present but unparseable"
+        # from "no rows at all", and tailors the permission hint to the path.
+        if self.report.num_queries_missing_info > 0:
+            self.report.report_warning(
+                title="Query history rows could not be parsed",
+                message=(
+                    "Statements from system.query.history could not be "
+                    "parsed and were skipped, so no usage was extracted."
+                ),
+                context=f"count={self.report.num_queries_missing_info}",
+            )
+            return
+
+        if self._use_system_tables_join():
+            hint = (
+                "verify SELECT privilege on system.query and system.access "
+                "and that the time window covers recent activity"
+            )
+            if (
+                self.config.push_down_database_pattern_access_history
+                and self.config.catalog_pattern is not None
+            ):
+                hint += (
+                    "; if catalog pushdown is enabled, also verify "
+                    "catalog_pattern allow/deny rules are not over-restrictive"
+                )
+        else:
+            hint = (
+                "verify CAN_MANAGE privilege on the SQL warehouse "
+                "and that the time window covers recent activity"
+            )
+        self.report.report_warning(
+            title="No queries found for usage",
+            message=(
+                "No queries were found in the configured time range "
+                "for usage extraction."
+            ),
+            context=hint,
+        )
+
     def get_usage_workunits(
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
@@ -452,11 +494,12 @@ class UnityCatalogUsageExtractor:
             try:
                 aggregator = self._build_aggregator(is_allowed_table=is_allowed_table)
                 buffered_queries = FileBackedList[Query]()
-                for query in self._fetch_queries():
-                    # Drain only — the cursor/connection is released once the
-                    # generator is fully consumed here.
-                    self.report.num_queries += 1
-                    buffered_queries.append(query)
+                with self.report.usage_query_fetch_timer:
+                    for query in self._fetch_queries():
+                        # Drain only — the cursor/connection is released once the
+                        # generator is fully consumed here.
+                        self.report.num_queries += 1
+                        buffered_queries.append(query)
             except (MemoryError, SystemExit, KeyboardInterrupt):
                 raise
             except Exception as e:
@@ -480,75 +523,44 @@ class UnityCatalogUsageExtractor:
                 )
                 return
             if self.report.num_queries == 0:
-                if not fetch_failed:
-                    if self.report.num_queries_missing_info > 0:
-                        self.report.report_warning(
-                            title="Query history rows could not be parsed",
-                            message=(
-                                "Statements from system.query.history could not be "
-                                "parsed and were skipped, so no usage was extracted."
-                            ),
-                            context=(f"count={self.report.num_queries_missing_info}"),
-                        )
-                    else:
-                        if self._use_system_tables_join():
-                            hint = (
-                                "verify SELECT privilege on system.query and system.access "
-                                "and that the time window covers recent activity"
-                            )
-                            if (
-                                self.config.push_down_database_pattern_access_history
-                                and self.config.catalog_pattern is not None
-                            ):
-                                hint += (
-                                    "; if catalog pushdown is enabled, also verify "
-                                    "catalog_pattern allow/deny rules are not over-restrictive"
-                                )
-                        else:
-                            hint = (
-                                "verify CAN_MANAGE privilege on the SQL warehouse "
-                                "and that the time window covers recent activity"
-                            )
-                        self.report.report_warning(
-                            title="No queries found for usage",
-                            message=(
-                                "No queries were found in the configured time range "
-                                "for usage extraction."
-                            ),
-                            context=hint,
-                        )
-                # Skip resetting per-table usage when we couldn't read any queries at
-                # all (empty history or missing permission).  Emitting zero-usage aspects
-                # in that case would wrongly wipe existing usage stats in DataHub.
-                return
+                # No usable queries, but the fetch itself succeeded — a fetch
+                # failure would have returned at the fetch_failed check above.
+                # Emit a diagnostic warning, then fall through so
+                # auto_empty_dataset_usage_statistics stamps zero-usage for the
+                # idle window, matching Snowflake/BigQuery/Redshift (which call
+                # auto_empty whenever the read succeeded). datasetUsageStatistics
+                # is a timeseries aspect and the empty aspect is UPSERTed (a
+                # current-bucket zero datapoint); it does not delete prior history.
+                self._report_no_queries()
 
             assert buffered_queries is not None
-            for query in buffered_queries:
-                try:
-                    self._add_query_to_aggregator(
-                        aggregator, query, default_db=default_db
-                    )
-                except (
-                    MemoryError,
-                    SystemExit,
-                    KeyboardInterrupt,
-                ):  # never swallow system-level errors as a "dropped query"
-                    raise
-                except Exception as per_query_exc:
-                    self.report.num_queries_dropped += 1
-                    logger.warning(
-                        "Skipping query due to error during usage processing "
-                        "(query_id=%s): %r",
-                        query.query_id,
-                        per_query_exc,
-                        exc_info=True,
-                    )
-                    self.report.report_warning(
-                        title="Skipped query during usage extraction",
-                        message="A query from query history could not be processed and was skipped, so its usage is not counted.",
-                        context=f"query_id={query.query_id}",
-                        exc=per_query_exc,
-                    )
+            with self.report.usage_parsing_timer:
+                for query in buffered_queries:
+                    try:
+                        self._add_query_to_aggregator(
+                            aggregator, query, default_db=default_db
+                        )
+                    except (
+                        MemoryError,
+                        SystemExit,
+                        KeyboardInterrupt,
+                    ):  # never swallow system-level errors as a "dropped query"
+                        raise
+                    except Exception as per_query_exc:
+                        self.report.num_queries_dropped += 1
+                        logger.warning(
+                            "Skipping query due to error during usage processing "
+                            "(query_id=%s): %r",
+                            query.query_id,
+                            per_query_exc,
+                            exc_info=True,
+                        )
+                        self.report.report_warning(
+                            title="Skipped query during usage extraction",
+                            message="A query from query history could not be processed and was skipped, so its usage is not counted.",
+                            context=f"query_id={query.query_id}",
+                            exc=per_query_exc,
+                        )
             self._log_usage_routing_summary()
             self._report_usage_lineage_warnings()
 
