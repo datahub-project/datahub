@@ -613,6 +613,41 @@ class UnityCatalogSourceConfig(
 
         return self
 
+    @model_validator(mode="after")
+    def warn_system_table_usage_flags_without_system_tables(self):
+        # These flags only affect the system.query.history + table_lineage path.
+        # warehouse_id is already resolved here (set_warehouse_id_from_profiling runs
+        # first), so we can tell whether usage will actually use system tables and
+        # warn — rather than fail — when the flags would be silent no-ops.
+        if self.usage_uses_system_tables(self.warehouse_id):
+            return self
+
+        set_flags = [
+            name
+            for name, enabled in (
+                (
+                    "push_down_database_pattern_access_history",
+                    self.push_down_database_pattern_access_history,
+                ),
+                (
+                    "skip_sqlglot_when_system_table_lineage_missing",
+                    self.skip_sqlglot_when_system_table_lineage_missing,
+                ),
+            )
+            if enabled
+        ]
+        if set_flags:
+            msg = (
+                f"{', '.join(set_flags)} only affect the system-tables usage path "
+                "but usage is not configured to use system tables "
+                f"(usage_data_source={self.usage_data_source.value}, "
+                f"warehouse_id={'set' if self.warehouse_id else 'unset'}). "
+                "These options will have no effect."
+            )
+            logger.warning(msg)
+            add_global_warning(msg)
+        return self
+
     @field_validator("schema_pattern", mode="after")
     @classmethod
     def schema_pattern_should__always_deny_information_schema(
