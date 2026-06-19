@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 
 
@@ -19,6 +20,22 @@ def _row(
     row.DIGEST_TEXT = digest_text
     row.COUNT_STAR = count_star
     row.LAST_SEEN = last_seen
+    return row
+
+
+def _glog_row(
+    user_host: Optional[str],
+    thread_id: int,
+    command_type: str,
+    argument: str,
+    event_time: Optional[datetime.datetime] = None,
+) -> MagicMock:
+    row = MagicMock()
+    row.user_host = user_host
+    row.thread_id = thread_id
+    row.command_type = command_type
+    row.argument = argument
+    row.event_time = event_time or datetime.datetime(2023, 6, 1, 10, 30, 0)
     return row
 
 
@@ -132,3 +149,110 @@ def test_usage_workunits_generated_for_two_tier_table():
     assert usage_stats, "expected a datasetUsageStatistics aspect to be emitted"
     assert all("appdb.orders" in urn for urn, _ in usage_stats)
     assert any(aspect.totalSqlQueries == 12 for _, aspect in usage_stats)
+
+
+@patch("datahub.ingestion.source.sql.mysql.create_engine")
+def test_general_log_maps_literal_queries_with_user(mock_create_engine):
+    event_time = datetime.datetime(2023, 6, 1, 10, 30, 0)
+    mock_create_engine.return_value = _patch_rows(
+        [
+            _glog_row("root[root] @ localhost []", 5, "Init DB", "appdb"),
+            _glog_row(
+                "analyst[analyst] @ 10.0.0.1 [10.0.0.1]",
+                5,
+                "Query",
+                "SELECT id FROM orders WHERE id = 42",
+                event_time,
+            ),
+        ]
+    )
+
+    observed = list(_source(usage_source="general_log")._fetch_general_log_queries())
+
+    assert len(observed) == 1
+    query = observed[0]
+    # Literal text is preserved (not normalized to `?`).
+    assert query.query == "SELECT id FROM orders WHERE id = 42"
+    # Login user is parsed from user_host and attributed.
+    assert str(query.user) == str(CorpUserUrn("analyst"))
+    # Init DB row set the session's current database for two-tier resolution.
+    assert query.default_schema == "appdb"
+    assert query.usage_multiplier == 1
+    assert query.timestamp == event_time.replace(tzinfo=datetime.timezone.utc)
+
+
+@patch("datahub.ingestion.source.sql.mysql.create_engine")
+def test_general_log_maps_username_to_email_with_domain(mock_create_engine):
+    mock_create_engine.return_value = _patch_rows(
+        [
+            _glog_row("svc[svc] @ host []", 1, "Init DB", "appdb"),
+            _glog_row("svc[svc] @ host []", 1, "Query", "SELECT id FROM orders"),
+            # Already an email-like login: left untouched.
+            _glog_row(
+                "jane@corp.com[jane@corp.com] @ host []",
+                2,
+                "Init DB",
+                "appdb",
+            ),
+            _glog_row(
+                "jane@corp.com[jane@corp.com] @ host []",
+                2,
+                "Query",
+                "SELECT id FROM orders",
+            ),
+        ]
+    )
+
+    observed = list(
+        _source(
+            usage_source="general_log", email_domain="corp.com"
+        )._fetch_general_log_queries()
+    )
+
+    users = [str(q.user) for q in observed]
+    assert str(CorpUserUrn("svc@corp.com")) in users
+    assert str(CorpUserUrn("jane@corp.com")) in users
+
+
+@patch("datahub.ingestion.source.sql.mysql.create_engine")
+def test_general_log_tracks_use_and_skips_non_dml(mock_create_engine):
+    mock_create_engine.return_value = _patch_rows(
+        [
+            _glog_row("root[root] @ localhost []", 7, "Query", "SET autocommit=1"),
+            _glog_row("root[root] @ localhost []", 7, "Query", "USE sales"),
+            _glog_row("root[root] @ localhost []", 7, "Query", "SHOW TABLES"),
+            _glog_row(
+                "root[root] @ localhost []",
+                7,
+                "Query",
+                "INSERT INTO summary SELECT * FROM orders",
+            ),
+        ]
+    )
+
+    observed = list(_source(usage_source="general_log")._fetch_general_log_queries())
+
+    # SET and SHOW are dropped; only the INSERT...SELECT survives, scoped to the
+    # database set by the preceding USE statement.
+    assert [q.query for q in observed] == ["INSERT INTO summary SELECT * FROM orders"]
+    assert observed[0].default_schema == "sales"
+
+
+@patch("datahub.ingestion.source.sql.mysql.create_engine")
+def test_general_log_filters_system_schema_and_database_pattern(mock_create_engine):
+    rows = [
+        _glog_row("root[root] @ localhost []", 1, "Init DB", "mysql"),
+        _glog_row("root[root] @ localhost []", 1, "Query", "SELECT * FROM user"),
+        _glog_row("root[root] @ localhost []", 2, "Init DB", "drop_db"),
+        _glog_row("root[root] @ localhost []", 2, "Query", "SELECT * FROM t"),
+        _glog_row("root[root] @ localhost []", 3, "Init DB", "keep_db"),
+        _glog_row("root[root] @ localhost []", 3, "Query", "SELECT * FROM t"),
+    ]
+    mock_create_engine.return_value = _patch_rows(rows)
+
+    source = _source(
+        usage_source="general_log", database_pattern={"allow": ["keep_db"]}
+    )
+    observed = list(source._fetch_general_log_queries())
+
+    assert [q.default_schema for q in observed] == ["keep_db"]

@@ -11,11 +11,18 @@ Grant the following privileges to the ingestion user:
 
 #### Usage Statistics
 
-Set `include_usage_statistics: true` to derive usage statistics and query-based lineage from
-`performance_schema.events_statements_summary_by_digest` instead of the general query log. This
-requires the `statements_digest` consumer to be enabled (the `performance_schema` default) and
-`grant select on performance_schema.* to 'USERNAME'@'%'`. Usage counts are aggregated across users
-and accumulate until the digest table is reset; see the Limitations section for details.
+Set `include_usage_statistics: true` to derive usage statistics and query-based lineage from query
+history. The `usage_source` config selects the history source:
+
+- **`performance_schema`** (default): reads normalized digests from
+  `events_statements_summary_by_digest`. Requires the `statements_digest` consumer (the
+  `performance_schema` default) and `grant select on performance_schema.* to 'USERNAME'@'%'`. Usage
+  counts are aggregated across users and accumulate until the digest table is reset.
+- **`general_log`**: reads literal statements with user and timestamp from `mysql.general_log`.
+  Requires `general_log=ON`, `log_output=TABLE`, and
+  `grant select on mysql.general_log to 'USERNAME'@'%'`. Adds general-log overhead but provides
+  per-user attribution and exact query text. If logins are LDAP/database usernames rather than
+  emails, set `email_domain` (e.g. `corp.com`) so usage maps to the correct user.
 
 #### AWS RDS IAM Authentication
 
