@@ -1864,7 +1864,7 @@ class TestUnityCatalogProxyUsageSystemTables:
     ):
         """Test error handling when individual row parsing fails.
 
-        A bad row must record a "Failed to parse query from system tables" warning but must NOT abort
+        A bad row must record a "Failed to parse queries from system tables" warning but must NOT abort
         iteration — good rows that follow must still be yielded.
         """
         from types import SimpleNamespace
@@ -1894,6 +1894,8 @@ class TestUnityCatalogProxyUsageSystemTables:
             executed_as="user@example.com",
             executed_by_user_id=123,
             executed_as_user_id=123,
+            source_table_full_name=None,
+            target_table_full_name=None,
         )
         mock_execute.side_effect = lambda *a, **kw: (r for r in [bad_row, good_row])
 
@@ -1906,9 +1908,9 @@ class TestUnityCatalogProxyUsageSystemTables:
         # The bad row must be skipped and a warning recorded.
         warning_titles = [str(w.title) for w in mock_proxy.report.warnings]
         assert any(
-            "Failed to parse query from system tables" in t for t in warning_titles
+            "Failed to parse queries from system tables" in t for t in warning_titles
         ), (
-            f"expected 'Failed to parse query from system tables' warning, got: {warning_titles}"
+            f"expected 'Failed to parse queries from system tables' warning, got: {warning_titles}"
         )
         # The good row must still be yielded — iteration must continue past the bad row.
         assert len(result) == 1, f"expected 1 good query, got {len(result)}: {result}"
