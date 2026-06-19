@@ -96,8 +96,9 @@ def test_summarize_cache_miss_falls_back():
         ("3.5", "DECIMAL(10,2)", 3.5, float),
         ("3.5", "FLOAT", 3.5, float),
         ("abc", "VARCHAR", "abc", str),
-        # Malformed numeric falls back to the original string.
-        ("notanumber", "BIGINT", "notanumber", str),
+        # Malformed numeric bound yields None, not the raw string, so a numeric
+        # column never leaks a str into downstream arithmetic.
+        ("notanumber", "BIGINT", None, type(None)),
     ],
 )
 def test_convert_bound(value, col_type, expected, expected_type):
@@ -191,6 +192,16 @@ def test_round_sig_suppresses_float_noise(value, expected):
     from datahub.ingestion.source.sqlalchemy_profiler.adapters.duckdb import _round_sig
 
     assert _round_sig(value) == expected
+
+
+def test_quantiles_out_of_range_raises():
+    """An out-of-range quantile fraction is rejected up front (matching the base
+    adapter) rather than passed to quantile_cont, which would return garbage."""
+    eng = _engine()
+    adapter = DuckDBAdapter(ProfilingConfig(), SQLSourceReport(), eng)
+    table = sa.Table("t", sa.MetaData(), sa.Column("num", sa.Integer))
+    with pytest.raises(ValueError):
+        adapter.get_column_quantiles(table, "num", MagicMock(), [0.5, 1.5])
 
 
 def test_quantiles_non_iterable_result_returns_nulls():

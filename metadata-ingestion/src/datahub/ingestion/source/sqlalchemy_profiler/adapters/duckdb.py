@@ -58,7 +58,12 @@ def _convert_bound(value: Any, column_type: Optional[str]) -> _Bound:
     """Convert a SUMMARIZE min/max (always VARCHAR) to a numeric Python type for
     numeric columns, so downstream arithmetic (e.g. histogram bucketing) works.
     Non-numeric columns (VARCHAR, DATE, TIMESTAMP, BOOLEAN) are left as-is.
-    ``value`` is Any because it is a raw value off the DB cursor."""
+    ``value`` is Any because it is a raw value off the DB cursor.
+
+    If a numeric column's bound can't be parsed as a number, return None rather
+    than the raw string: the ``_Bound`` contract is "numeric for numeric
+    columns", so leaking a str here would feed a string into arithmetic that
+    expects a number."""
     if value is None:
         return None
     t = (column_type or "").upper()
@@ -68,7 +73,7 @@ def _convert_bound(value: Any, column_type: Optional[str]) -> _Bound:
         if t.startswith(_FLOAT_TYPE_PREFIXES):
             return float(value)
     except (TypeError, ValueError):
-        return value
+        return None
     return value
 
 
@@ -234,6 +239,15 @@ class DuckDBAdapter(PlatformAdapter):
         """
         if quantiles is None:
             quantiles = DEFAULT_QUANTILES
+        # Validate the range up front, matching the base adapter — an
+        # out-of-range fraction makes quantile_cont return garbage rather than
+        # raise, so guard here instead of silently producing a bad stat.
+        for q in quantiles:
+            if not (0 <= q <= 1):
+                raise ValueError(
+                    f"Quantiles must be in [0, 1], got {q}. "
+                    f"Quantiles represent percentiles as decimals (e.g., 0.5 for median)."
+                )
         # DuckDB returns all quantiles in one call: quantile_cont(col, [..]) -> list.
         expr = sa.func.quantile_cont(sa.column(column), sa.literal(quantiles))
         query = sa.select([expr]).select_from(table)
