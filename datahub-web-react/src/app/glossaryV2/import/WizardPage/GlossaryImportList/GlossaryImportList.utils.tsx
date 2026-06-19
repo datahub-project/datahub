@@ -1,4 +1,4 @@
-import { Button, Input, Pill, SimpleSelect } from '@components';
+import { Button, Input, SimpleSelect } from '@components';
 import type { TFunction } from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
@@ -9,6 +9,28 @@ import { Entity } from '@app/glossaryV2/import/glossary.types';
 
 const EmptyCell = styled.div`
     color: ${(props) => props.theme.colors.textTertiary};
+`;
+
+// Status chip with a consistent subtle fill + border per status, so every status reads as a
+// pill (the shared Pill's filled tints are too faint to distinguish on a white row).
+const StatusPill = styled.span<{ $status: string }>`
+    display: inline-block;
+    padding: 0 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    line-height: 20px;
+    white-space: nowrap;
+    ${({ theme, $status }) => {
+        const c = theme.colors;
+        const map: Record<string, { bg: string; text: string; border: string }> = {
+            new: { bg: c.bgSurfaceSuccess, text: c.textSuccess, border: c.borderSuccess },
+            updated: { bg: c.bgSurfaceInfo, text: c.textInformation, border: c.borderInformation },
+            conflict: { bg: c.bgSurfaceError, text: c.textError, border: c.borderError },
+            existing: { bg: c.bgSurface, text: c.textSecondary, border: c.border },
+        };
+        const s = map[$status] || map.existing;
+        return `background: ${s.bg}; color: ${s.text}; border: 1px solid ${s.border};`;
+    }}
 `;
 
 // ============================================
@@ -261,26 +283,8 @@ function createStatusColumn(t: TFunction): Column<Entity> {
         title: t('import.list.columnStatus'),
         key: 'status',
         render: (record: Entity) => {
-            type PillColor = 'green' | 'blue' | 'red' | 'gray';
-            const statusColors: Record<string, PillColor> = {
-                new: 'green',
-                updated: 'blue',
-                conflict: 'red',
-                existing: 'gray',
-            };
-
-            const getStatusLabel = (status: string) => {
-                return status.charAt(0).toUpperCase() + status.slice(1);
-            };
-
-            return (
-                <Pill
-                    label={getStatusLabel(record.status)}
-                    color={statusColors[record.status] || 'gray'}
-                    size="sm"
-                    variant="filled"
-                />
-            );
+            const label = record.status.charAt(0).toUpperCase() + record.status.slice(1);
+            return <StatusPill $status={record.status}>{label}</StatusPill>;
         },
         width: '100px',
         minWidth: '80px',
