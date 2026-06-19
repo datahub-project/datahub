@@ -16,6 +16,7 @@ from typing import (
     Literal,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Type,
     Union,
@@ -179,6 +180,37 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         )
         self.server_id: str = _MISSING_SERVER_ID
         self._query_projector: Optional["QueryProjector"] = None
+        self._graphql_input_fields_cache: Dict[str, Set[str]] = {}
+
+    def _graphql_input_type_has_field(self, input_type: str, field_name: str) -> bool:
+        if input_type not in self._graphql_input_fields_cache:
+            response = self.execute_graphql(
+                textwrap.dedent(
+                    """
+                    query inputTypeFields($name: String!) {
+                      __type(name: $name) {
+                        inputFields {
+                          name
+                        }
+                      }
+                    }
+                    """
+                ),
+                variables={"name": input_type},
+            )
+            input_fields = (response.get("__type") or {}).get("inputFields") or []
+            self._graphql_input_fields_cache[input_type] = {
+                field["name"] for field in input_fields if field.get("name")
+            }
+
+        return field_name in self._graphql_input_fields_cache[input_type]
+
+    def _ensure_search_flag_supported(self, field_name: str) -> None:
+        if not self._graphql_input_type_has_field("SearchFlags", field_name):
+            raise ValueError(
+                f"SearchFlags.{field_name} is not supported by this DataHub server. "
+                "Upgrade GMS or disable the corresponding option."
+            )
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -967,6 +999,27 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             extra_or_filters=extra_or_filters,
         )
 
+        optional_variable_defs = ""
+        optional_search_flag_fields = ""
+        optional_variables: Dict[str, bool] = {}
+        if include_hidden_lifecycle_stages:
+            self._ensure_search_flag_supported("includeHiddenLifecycleStages")
+            optional_variable_defs += (
+                "\n                $includeHiddenLifecycleStages: Boolean!,"
+            )
+            optional_search_flag_fields += (
+                "\n                        includeHiddenLifecycleStages: "
+                "$includeHiddenLifecycleStages"
+            )
+            optional_variables["includeHiddenLifecycleStages"] = True
+        if include_draft:
+            self._ensure_search_flag_supported("includeDraft")
+            optional_variable_defs += "\n                $includeDraft: Boolean!,"
+            optional_search_flag_fields += (
+                "\n                        includeDraft: $includeDraft"
+            )
+            optional_variables["includeDraft"] = True
+
         graphql_query = textwrap.dedent(
             """
             query scrollUrnsWithFilters(
@@ -976,8 +1029,9 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $batchSize: Int!,
                 $scrollId: String,
                 $skipCache: Boolean!,
-                $includeHiddenLifecycleStages: Boolean!,
-                $includeDraft: Boolean!,
+            """
+            + optional_variable_defs
+            + """
                 $includeSoftDeleted: Boolean) {
 
                 scrollAcrossEntities(input: {
@@ -990,8 +1044,9 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                         skipHighlighting: true
                         skipAggregates: true
                         skipCache: $skipCache
-                        includeHiddenLifecycleStages: $includeHiddenLifecycleStages
-                        includeDraft: $includeDraft
+            """
+            + optional_search_flag_fields
+            + """
                         includeSoftDeleted: $includeSoftDeleted
                     }
                 }) {
@@ -1016,14 +1071,13 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "orFilters": orFilters,
             "batchSize": batch_size,
             "skipCache": skip_cache,
-            "includeHiddenLifecycleStages": include_hidden_lifecycle_stages,
-            "includeDraft": include_draft,
             "includeSoftDeleted": (
                 None
                 if status is None
                 else status != RemovedStatusFilter.NOT_SOFT_DELETED
             ),
         }
+        variables.update(optional_variables)
 
         for entity in self._scroll_across_entities(graphql_query, variables):
             yield entity["urn"]
