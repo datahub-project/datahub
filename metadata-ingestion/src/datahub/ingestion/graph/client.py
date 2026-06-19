@@ -924,6 +924,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
         extra_or_filters: Optional[RawSearchFilter] = None,
         skip_cache: bool = False,
+        include_hidden_lifecycle_stages: bool = False,
+        include_draft: bool = False,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -943,6 +945,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
         :param extraFilters: Additional filters to apply. If specified, the results will match all of the filters.
         :param skip_cache: Whether to bypass caching. Defaults to False.
+        :param include_hidden_lifecycle_stages: Whether to include entities hidden by lifecycle stage.
+        :param include_draft: Whether to include entities in DRAFT lifecycle state.
 
         :return: An iterable of urns that match the filters.
         """
@@ -972,6 +976,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $batchSize: Int!,
                 $scrollId: String,
                 $skipCache: Boolean!,
+                $includeHiddenLifecycleStages: Boolean!,
+                $includeDraft: Boolean!,
                 $includeSoftDeleted: Boolean) {
 
                 scrollAcrossEntities(input: {
@@ -984,6 +990,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                         skipHighlighting: true
                         skipAggregates: true
                         skipCache: $skipCache
+                        includeHiddenLifecycleStages: $includeHiddenLifecycleStages
+                        includeDraft: $includeDraft
                         includeSoftDeleted: $includeSoftDeleted
                     }
                 }) {
@@ -991,6 +999,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     searchResults {
                         entity {
                             urn
+                        }
+                        extraProperties {
+                            name
+                            value
                         }
                     }
                 }
@@ -1004,6 +1016,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "orFilters": orFilters,
             "batchSize": batch_size,
             "skipCache": skip_cache,
+            "includeHiddenLifecycleStages": include_hidden_lifecycle_stages,
+            "includeDraft": include_draft,
             "includeSoftDeleted": (
                 None
                 if status is None
