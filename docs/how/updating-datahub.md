@@ -44,6 +44,25 @@ Requirements:
 
 ### Breaking Changes
 
+- **(Python SDK / plugins / CLI)** The default emit mode for the Python REST emitter (`DataHubRestEmitter` and `DataHubGraph`) is now `ASYNC` instead of `SYNC_PRIMARY`. This changes the default for everything that emits metadata without explicitly setting an emit mode:
+
+  - Custom scripts using the Python SDK (`DataHubRestEmitter` / `DataHubGraph`) directly.
+  - The DataHub plugins for **Airflow**, **Dagster**, **Great Expectations**, and **Prefect**.
+  - `datahub` CLI write commands: `put`, `dataset` / `dataproduct` / `datacontract upsert`, `group`, `assertions`, and `migrate`.
+  - The high-level SDK clients (`entities.create` / `upsert` / `update`, lineage) and the API entity helpers (`corpuser`, `corpgroup`, `datajob`, `dataflow`, `dataproduct`, `forms`, structured properties, etc.).
+
+  Recipe-based ingestion through the `datahub-rest` sink is **not** changed — it has always defaulted to asynchronous emission (`mode: ASYNC_BATCH`).
+
+  With `ASYNC`, an `emit()` call returns as soon as DataHub accepts the request, rather than waiting for the change to be written to storage. This significantly reduces load on GMS and the database for high-volume emitters. Two behaviors change as a result:
+
+  - Failures are no longer raised at the call site. A rejected or invalid change is reported asynchronously (in the Failed MCP topic / consumer logs) instead of throwing an exception from `emit()`.
+  - Reads immediately following a write may not reflect the change yet, since it is applied a moment later.
+
+  **To keep the previous synchronous behavior:**
+
+  - In code (custom scripts, SDK clients, API helpers): pass `emit_mode=EmitMode.SYNC_PRIMARY` (or `SYNC_WAIT`) on the emit call.
+  - For the plugins and CLI (which do not expose a per-call option): set `DATAHUB_EMIT_MODE=SYNC_PRIMARY` in the environment of the process — e.g. your Airflow/Dagster workers, or the shell running the `datahub` CLI.
+
 - **(GMS / Logical Models)** Linking a physical dataset to a logical parent now requires **Edit Entity** on both the **child dataset** (whose `logicalParent` aspect is written) and the **proposed parent** dataset. Clearing a logical parent requires **Edit Entity** on the child only. The [logical models feature guide](../features/feature-guides/logical-models/overview.md) previously stated only the child was checked; enforcement now matches [metadata policies](../authorization/policies.md#logical-parent-logicalparent-aspect). **Action:** Grant **Edit Entity** on logical parent datasets to principals who create or change logical-parent links, or update policies so those operations succeed.
 
 - #17852: **(Ingestion framework)** Workunit processor helper functions have been removed and replaced with `WorkunitProcessor` classes. If you were directly calling these functions in custom code, you must update to use the processor class API. **Migration:** Import the processor class, create a `WorkunitProcessorContext`, instantiate the processor via `Processor.create(ctx)`, and call `.process(stream)`. Additionally, some processors have been renamed to follow a consistent naming convention:
