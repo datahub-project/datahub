@@ -13,6 +13,13 @@ source:
     # warehouse_platform: "snowflake"
     # warehouse_database: "ANALYTICS"
 
+    # Cube Cloud only: ingest reports as charts and workbooks as dashboards, and
+    # auto-mint a Metadata API token. cloud_api_key + deployment_id are required;
+    # environment_id is needed only for the Metadata API token.
+    # cloud_api_key: "${CUBE_CLOUD_API_KEY}"
+    # deployment_id: "12345"
+    # environment_id: "production"
+
     stateful_ingestion:
       enabled: true
 

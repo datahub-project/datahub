@@ -51,11 +51,23 @@ def test_meta_mapping_requires_operation_and_match() -> None:
         _config(meta_mapping={"owner": {"operation": "add_tag"}})
 
 
-def test_control_plane_credentials_required_together() -> None:
-    # A partial Control Plane configuration is rejected.
+def test_cloud_api_key_and_deployment_id_required_together() -> None:
     with pytest.raises(ValueError):
-        _config(cloud_api_key="k", deployment_id="1")
-    # The full trio is accepted.
-    cfg = _config(cloud_api_key="k", deployment_id="1", environment_id="2")
+        _config(cloud_api_key="k")
+    with pytest.raises(ValueError):
+        _config(deployment_id="1")
+
+
+def test_cloud_api_key_with_deployment_id_is_valid_for_platform_api() -> None:
+    # The Platform API (reports/workbooks) needs only the key + deployment id;
+    # environment_id is not required.
+    cfg = _config(cloud_api_key="k", deployment_id="1")
     assert cfg.deployment_id == "1"
+    assert cfg.environment_id is None
+
+
+def test_environment_id_requires_key_and_deployment_id() -> None:
+    with pytest.raises(ValueError):
+        _config(environment_id="2")
+    cfg = _config(cloud_api_key="k", deployment_id="1", environment_id="2")
     assert cfg.environment_id == "2"

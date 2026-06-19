@@ -1,10 +1,76 @@
 from datahub.ingestion.source.cube.models import (
     CloudEntitiesResponse,
     CloudEntity,
+    CloudReport,
+    CloudWorkbook,
     CoreMetaResponse,
     CubeEntity,
+    CubeReport,
+    CubeWorkbook,
     merge_entities,
 )
+
+
+def test_report_extracts_referenced_entities_from_json_query() -> None:
+    report = CubeReport.from_cloud(
+        CloudReport.model_validate(
+            {
+                "id": 1,
+                "publicId": "rpt1",
+                "name": "r1",
+                "jsonQuery": (
+                    '{"measures":["orders_view.count"],'
+                    '"dimensions":["orders_view.status"],'
+                    '"timeDimensions":[{"dimension":"orders.created_at","granularity":"day"}],'
+                    '"filters":[{"member":"customers.city","operator":"set"}]}'
+                ),
+                "user": {"id": 2, "email": "a@example.com"},
+                "workbookId": 7,
+            }
+        )
+    )
+    # Distinct cube/view prefixes across every member-bearing clause, dedup-ed
+    # while preserving first-seen order.
+    assert report.referenced_entities == ["orders_view", "orders", "customers"]
+    assert report.owner_email == "a@example.com"
+    assert report.workbook_id == 7
+
+
+def test_report_handles_missing_or_invalid_json_query() -> None:
+    assert (
+        CubeReport.from_cloud(
+            CloudReport.model_validate({"id": 1, "name": "r1"})
+        ).referenced_entities
+        == []
+    )
+    assert (
+        CubeReport.from_cloud(
+            CloudReport.model_validate({"id": 1, "name": "r1", "jsonQuery": "not-json"})
+        ).referenced_entities
+        == []
+    )
+
+
+def test_workbook_collects_report_ids_from_published_dashboard() -> None:
+    workbook = CubeWorkbook.from_cloud(
+        CloudWorkbook.model_validate(
+            {
+                "id": 9,
+                "name": "wb",
+                "dashboardPublished": {"title": "WB", "description": "desc"},
+                "publishedDashboard": {
+                    "reportSnapshots": [
+                        {"reportId": 1},
+                        {"reportId": 2},
+                        {"reportId": 1},
+                    ]
+                },
+            }
+        )
+    )
+    assert workbook.report_ids == [1, 2]
+    assert workbook.title == "WB"
+    assert workbook.description == "desc"
 
 
 def test_from_core_cube_normalizes_members_and_alias() -> None:

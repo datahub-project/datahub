@@ -118,6 +118,22 @@ class CubeSourceConfig(
         default=True,
         description="Whether to ingest views as datasets.",
     )
+    include_reports: bool = Field(
+        default=True,
+        description=(
+            "Cube Cloud only. Whether to ingest saved reports as DataHub charts, "
+            "with lineage to the cubes/views they query. Requires Platform API "
+            "access (`cloud_api_key` + `deployment_id`)."
+        ),
+    )
+    include_workbooks: bool = Field(
+        default=True,
+        description=(
+            "Cube Cloud only. Whether to ingest workbooks as DataHub dashboards "
+            "containing their reports' charts. Requires Platform API access "
+            "(`cloud_api_key` + `deployment_id`)."
+        ),
+    )
     cube_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for filtering cubes to ingest (matched on the cube name).",
@@ -125,6 +141,14 @@ class CubeSourceConfig(
     view_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for filtering views to ingest (matched on the view name).",
+    )
+    report_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for filtering reports to ingest (matched on the report name).",
+    )
+    workbook_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for filtering workbooks to ingest (matched on the workbook name).",
     )
 
     ingest_lineage: bool = Field(
@@ -174,23 +198,6 @@ class CubeSourceConfig(
             "Database name to prepend to upstream warehouse table references that do "
             "not already include one. If unset, it is taken from the Cube data source "
             "definition when available."
-        ),
-    )
-    emit_siblings: bool = Field(
-        default=True,
-        description=(
-            "Whether to emit a sibling relationship between a cube and its upstream "
-            "warehouse table when the cube is a 1:1 projection of a single table "
-            "(not a view, no joins to other cubes). Mirrors the dbt connector's "
-            "sibling behaviour so the cube and table are merged in the UI."
-        ),
-    )
-    cube_is_primary_sibling: bool = Field(
-        default=False,
-        description=(
-            "When a sibling relationship is emitted, controls whether the Cube "
-            "dataset or the warehouse table is the primary sibling. Defaults to the "
-            "warehouse table being primary."
         ),
     )
     convert_lineage_urns_to_lowercase: bool = Field(
@@ -307,18 +314,20 @@ class CubeSourceConfig(
         return v.rstrip("/")
 
     @model_validator(mode="after")
-    def validate_control_plane_trio(self) -> "CubeSourceConfig":
-        # cloud_api_key, deployment_id, and environment_id must be supplied
-        # together to mint a Metadata API token via the Control Plane API.
-        provided = [
-            bool(self.cloud_api_key),
-            bool(self.deployment_id),
-            bool(self.environment_id),
-        ]
-        if any(provided) and not all(provided):
+    def validate_cloud_api_credentials(self) -> "CubeSourceConfig":
+        # cloud_api_key + deployment_id together unlock the Platform API
+        # (reports/workbooks) and are the prerequisite for minting a Metadata
+        # API token. environment_id is additionally required only for the
+        # latter, so it may not be supplied on its own.
+        if bool(self.cloud_api_key) != bool(self.deployment_id):
             raise ValueError(
-                "cloud_api_key, deployment_id, and environment_id must all be set "
-                "together to mint a Metadata API token via the Control Plane API."
+                "cloud_api_key and deployment_id must be set together to access "
+                "the Cube Cloud Platform and Metadata APIs."
+            )
+        if self.environment_id and not (self.cloud_api_key and self.deployment_id):
+            raise ValueError(
+                "environment_id also requires cloud_api_key and deployment_id to "
+                "mint a Metadata API token via the Control Plane API."
             )
         return self
 
@@ -345,7 +354,12 @@ class CubeSourceReport(StaleEntityRemovalSourceReport):
     dimensions_scanned: int = 0
     lineage_edges_emitted: int = 0
     column_lineage_edges_emitted: int = 0
-    siblings_emitted: int = 0
+    reports_scanned: int = 0
+    reports_emitted: int = 0
+    workbooks_scanned: int = 0
+    workbooks_emitted: int = 0
+    filtered_reports: List[str] = dataclass_field(default_factory=list)
+    filtered_workbooks: List[str] = dataclass_field(default_factory=list)
     api_calls_count: int = 0
     data_sources_scanned: int = 0
     sql_parsing_failures: int = 0

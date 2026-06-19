@@ -9,7 +9,7 @@ The connector extracts the following metadata:
 - **Measure presentation hints** — each measure's `format`, drill-down members, and cumulative flag are stored on the schema field as `jsonProps`.
 - **Hidden members** — cubes, views, and members marked `public: false` / `isVisible: false` are skipped by default; set `include_hidden: true` to ingest them.
 - **Tags, glossary terms, owners, domains, and documentation links** — derived from the `meta` defined on cubes/views via `meta_mapping`, and from member `meta` via `column_meta_mapping` (same syntax as the dbt connector). Domains can also be assigned by name pattern via the `domain` config.
-- **Siblings** — a cube that is a 1:1 projection of a single warehouse table (not a view, no joins) is linked to that table as a DataHub sibling, mirroring the dbt connector (disable with `emit_siblings: false`).
+- **Reports and workbooks** (Cube Cloud only) — saved [reports](https://docs.cube.dev/api-reference/reports/list-reports) become DataHub **charts** with input lineage to the cubes/views they query, and [workbooks](https://docs.cube.dev/api-reference/workbooks/get-workbooks) become DataHub **dashboards** containing those charts. Owners and titles are carried across. Disable with `include_reports: false` / `include_workbooks: false`, and filter with `report_pattern` / `workbook_pattern`.
 
 #### Lineage
 
@@ -17,6 +17,7 @@ Lineage is emitted when `ingest_lineage` is enabled (the default):
 
 - **View to cube** — views are linked to the cubes they are built on, including column-level lineage derived from each member's `aliasMember`.
 - **Cube to warehouse** — on Cube Cloud with the Metadata API, table and column references are read directly. On Cube Core, table-level lineage is parsed from each cube's SQL definition when `parse_sql_for_lineage` and `warehouse_platform` are set.
+- **Report and workbook to view** — on Cube Cloud, charts (reports) carry input lineage to the cubes/views in their query, and dashboards (workbooks) contain those charts, extending the chain to `warehouse → cube → view → chart → dashboard`.
 
 Disable column-level lineage with `include_column_lineage: false`.
 
@@ -30,6 +31,10 @@ The Metadata API requires a metadata-scoped JWT. You can either:
 - Let the connector mint one automatically: set `cloud_api_key` (a Cube Cloud API key from Account → API keys) together with `deployment_id` and `environment_id`. The connector calls the Control Plane `tokens-for-meta-sync` endpoint to obtain a short-lived, metadata-only token. Override the Control Plane host with `cloud_api_url` if it differs from the `api_url` host, and embed a `security_context` to scope multi-tenant visibility.
 
 If the Metadata API cannot be reached, the connector logs a warning and continues with `/v1/meta` only (structural metadata and view-to-cube lineage, but no warehouse lineage).
+
+#### Reports and workbooks (Cube Cloud Platform API)
+
+Reports and workbooks are read from the Cube Cloud [Platform API](https://docs.cube.dev/api-reference/introduction), which is authenticated with a Cube Cloud API key as a `Bearer` token. Set `cloud_api_key` and `deployment_id` to enable this (`environment_id` is _not_ required for reports/workbooks — it is only needed when minting a Metadata API token). When these are absent, or for Cube Core, report/workbook ingestion is skipped silently. A failed Platform API call logs a warning and does not abort the run.
 
 #### Multi-tenancy and context variables
 

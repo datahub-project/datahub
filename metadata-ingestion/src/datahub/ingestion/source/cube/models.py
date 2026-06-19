@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -206,6 +207,93 @@ class CloudDataSourcesPayload(BaseModel):
 
 class CloudDataSourcesResponse(BaseModel):
     data: CloudDataSourcesPayload = Field(default_factory=CloudDataSourcesPayload)
+
+
+# Cloud Platform API raw models (reports -> charts, workbooks -> dashboards)
+
+
+class CloudResourceOwner(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[int] = None
+    email: Optional[str] = None
+
+
+class CloudPageInfo(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    end_cursor: Optional[str] = Field(default=None, alias="endCursor")
+    has_next_page: bool = Field(default=False, alias="hasNextPage")
+
+
+class CloudReport(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    id: int
+    public_id: Optional[str] = Field(default=None, alias="publicId")
+    name: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    json_query: Optional[str] = Field(default=None, alias="jsonQuery")
+    sql_query: Optional[str] = Field(default=None, alias="sqlQuery")
+    workbook_id: Optional[int] = Field(default=None, alias="workbookId")
+    folder_id: Optional[int] = Field(default=None, alias="folderId")
+    user: Optional[CloudResourceOwner] = None
+    created_at: Optional[str] = Field(default=None, alias="createdAt")
+    updated_at: Optional[str] = Field(default=None, alias="updatedAt")
+    meta: Optional[Dict[str, Any]] = None
+
+
+class CloudReportsResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    items: List[CloudReport] = Field(default_factory=list)
+    page_info: Optional[CloudPageInfo] = Field(default=None, alias="pageInfo")
+
+
+class CloudReportSnapshot(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    report_id: int = Field(alias="reportId")
+
+
+class CloudDashboardConfig(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    title: Optional[str] = None
+    description: Optional[str] = None
+
+
+class CloudPublishedDashboard(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    report_snapshots: List[CloudReportSnapshot] = Field(
+        default_factory=list, alias="reportSnapshots"
+    )
+
+
+class CloudWorkbook(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    id: int
+    name: str
+    user: Optional[CloudResourceOwner] = None
+    created_at: Optional[str] = Field(default=None, alias="createdAt")
+    updated_at: Optional[str] = Field(default=None, alias="updatedAt")
+    dashboard_published: Optional[CloudDashboardConfig] = Field(
+        default=None, alias="dashboardPublished"
+    )
+    published_dashboard: Optional[CloudPublishedDashboard] = Field(
+        default=None, alias="publishedDashboard"
+    )
+    meta: Optional[Dict[str, Any]] = None
+
+
+class CloudWorkbooksResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    items: List[CloudWorkbook] = Field(default_factory=list)
+    page_info: Optional[CloudPageInfo] = Field(default=None, alias="pageInfo")
 
 
 # Normalised domain models
@@ -429,6 +517,90 @@ def _overlay_lineage(base: CubeEntity, lineage: CubeEntity) -> None:
         # (view->cube) references when the Metadata API has none.
         if source.member_references:
             member.member_references = source.member_references
+
+
+def _entities_from_query_members(json_query: Optional[str]) -> List[str]:
+    # A report's jsonQuery references members as "<cube/view>.<member>"; the
+    # prefix identifies the cube/view the chart reads from. Collect the distinct
+    # prefixes across measures, dimensions, segments, time dimensions and filters.
+    if not json_query:
+        return []
+    try:
+        query = json.loads(json_query)
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(query, dict):
+        return []
+
+    members: List[str] = []
+    for key in ("measures", "dimensions", "segments"):
+        members.extend(m for m in (query.get(key) or []) if isinstance(m, str))
+    for time_dim in query.get("timeDimensions") or []:
+        if isinstance(time_dim, dict) and isinstance(time_dim.get("dimension"), str):
+            members.append(time_dim["dimension"])
+    for filter_ in query.get("filters") or []:
+        if isinstance(filter_, dict) and isinstance(filter_.get("member"), str):
+            members.append(filter_["member"])
+
+    entities = [m.split(".")[0] for m in members if "." in m]
+    return list(dict.fromkeys(entities))
+
+
+class CubeReport(BaseModel):
+    id: int
+    public_id: Optional[str] = None
+    name: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    referenced_entities: List[str] = Field(default_factory=list)
+    owner_email: Optional[str] = None
+    workbook_id: Optional[int] = None
+    updated_at: Optional[str] = None
+    sql_query: Optional[str] = None
+
+    @classmethod
+    def from_cloud(cls, report: CloudReport) -> "CubeReport":
+        return cls(
+            id=report.id,
+            public_id=report.public_id,
+            name=report.name,
+            title=report.title,
+            description=report.description,
+            referenced_entities=_entities_from_query_members(report.json_query),
+            owner_email=report.user.email if report.user else None,
+            workbook_id=report.workbook_id,
+            updated_at=report.updated_at,
+            sql_query=report.sql_query,
+        )
+
+
+class CubeWorkbook(BaseModel):
+    id: int
+    name: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    owner_email: Optional[str] = None
+    report_ids: List[int] = Field(default_factory=list)
+    updated_at: Optional[str] = None
+
+    @classmethod
+    def from_cloud(cls, workbook: CloudWorkbook) -> "CubeWorkbook":
+        config = workbook.dashboard_published
+        report_ids: List[int] = []
+        if workbook.published_dashboard:
+            report_ids = [
+                snapshot.report_id
+                for snapshot in workbook.published_dashboard.report_snapshots
+            ]
+        return cls(
+            id=workbook.id,
+            name=workbook.name,
+            title=config.title if config else None,
+            description=config.description if config else None,
+            owner_email=workbook.user.email if workbook.user else None,
+            report_ids=list(dict.fromkeys(report_ids)),
+            updated_at=workbook.updated_at,
+        )
 
 
 def merge_entities(

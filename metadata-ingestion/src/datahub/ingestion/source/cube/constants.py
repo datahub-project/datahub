@@ -28,6 +28,15 @@ CONTROL_PLANE_META_SYNC_TOKEN_PATH = (
     "tokens-for-meta-sync"
 )
 
+# Cube Cloud Platform API: lists saved reports (charts) and workbooks
+# (dashboards) for a deployment. Authenticated with the Cube Cloud API key as a
+# Bearer token, against the Control Plane host.
+API_ENDPOINT_REPORTS = "api/v1/deployments/{deployment_id}/reports"
+API_ENDPOINT_WORKBOOKS = "api/v1/deployments/{deployment_id}/workbooks"
+
+# Page size requested from the cursor-paginated Platform API list endpoints.
+PLATFORM_API_PAGE_SIZE = 100
+
 # Default base path. Configurable in Cube via the `basePath` option, but
 # `/cubejs-api` is the out-of-the-box value for the vast majority of deployments.
 DEFAULT_BASE_PATH = "/cubejs-api"

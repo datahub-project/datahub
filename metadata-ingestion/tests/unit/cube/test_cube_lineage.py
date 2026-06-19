@@ -131,36 +131,3 @@ def test_warehouse_urns_preserve_case_when_disabled() -> None:
 
     assert lineage is not None
     assert any("PUBLIC.ORDERS" in u.dataset for u in lineage.upstreams)
-
-
-def test_single_warehouse_table_urn_for_one_to_one_cube() -> None:
-    entity = CubeEntity(
-        name="orders",
-        table_references=[CubeColumnReference(schema_name="public", table="orders")],
-    )
-    urn = _builder(
-        warehouse_platform="postgres", warehouse_database="analytics"
-    ).single_warehouse_table_urn(entity)
-
-    assert urn is not None
-    assert "analytics.public.orders" in urn
-
-
-def test_single_warehouse_table_urn_none_for_view() -> None:
-    entity = CubeEntity(name="orders_view", is_view=True, cube_references=["orders"])
-    assert _builder().single_warehouse_table_urn(entity) is None
-
-
-def test_single_warehouse_table_urn_none_for_multi_table_join() -> None:
-    entity = CubeEntity(
-        name="orders",
-        table_references=[
-            CubeColumnReference(schema_name="public", table="orders"),
-            CubeColumnReference(schema_name="public", table="customers"),
-        ],
-    )
-    urn = _builder(
-        warehouse_platform="postgres", warehouse_database="analytics"
-    ).single_warehouse_table_urn(entity)
-
-    assert urn is None

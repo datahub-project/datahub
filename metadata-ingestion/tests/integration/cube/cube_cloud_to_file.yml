@@ -5,6 +5,9 @@ source:
     api_token: "test-token"
     deployment_type: "CLOUD"
     use_metadata_api: true
+    cloud_api_key: "test-cloud-api-key"
+    deployment_id: "1234"
+    environment_id: "production"
     env: "PROD"
     platform_instance: "cube_demo"
     warehouse_platform_instance: "pg_prod"

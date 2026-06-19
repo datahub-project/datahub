@@ -169,6 +169,8 @@ def test_cube_cloud_metadata_api(pytestconfig: pytest.Config, tmp_path: Any) -> 
     meta_response = _load(test_resources_dir, "cloud_meta.json")
     entities_response = _load(test_resources_dir, "cloud_entities.json")
     data_sources_response = _load(test_resources_dir, "cloud_data_sources.json")
+    reports_response = _load(test_resources_dir, "cloud_reports.json")
+    workbooks_response = _load(test_resources_dir, "cloud_workbooks.json")
 
     def mock_request(
         self: Any,
@@ -189,7 +191,20 @@ def test_cube_cloud_metadata_api(pytestconfig: pytest.Config, tmp_path: Any) -> 
             return {"data": {"entities": []}}
         return {}
 
-    with patch.object(CubeAPIClient, "_request", mock_request):
+    def mock_platform_request(
+        self: Any, endpoint: str, params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        # The Platform API serves reports (charts) and workbooks (dashboards).
+        if endpoint.endswith("reports"):
+            return reports_response
+        if endpoint.endswith("workbooks"):
+            return workbooks_response
+        return {}
+
+    with (
+        patch.object(CubeAPIClient, "_request", mock_request),
+        patch.object(CubeAPIClient, "_platform_request", mock_platform_request),
+    ):
         _run_pipeline(test_resources_dir / "cube_cloud_to_file.yml", output_path)
 
     mce_helpers.check_golden_file(

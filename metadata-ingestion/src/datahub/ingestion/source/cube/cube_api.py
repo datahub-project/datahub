@@ -11,6 +11,8 @@ from datahub.ingestion.source.cube.constants import (
     API_ENDPOINT_DATA_SOURCES,
     API_ENDPOINT_ENTITIES_ALL,
     API_ENDPOINT_META,
+    API_ENDPOINT_REPORTS,
+    API_ENDPOINT_WORKBOOKS,
     CONTROL_PLANE_META_SYNC_TOKEN_PATH,
     HTTP_CONTENT_TYPE_JSON,
     HTTP_HEADER_AUTHORIZATION,
@@ -23,13 +25,18 @@ from datahub.ingestion.source.cube.constants import (
     HTTP_RETRY_MAX_ATTEMPTS,
     HTTP_RETRY_STATUS_CODES,
     METADATA_API_PAGE_SIZE,
+    PLATFORM_API_PAGE_SIZE,
 )
 from datahub.ingestion.source.cube.models import (
     CloudDataSource,
     CloudDataSourcesResponse,
     CloudEntitiesResponse,
+    CloudReportsResponse,
+    CloudWorkbooksResponse,
     CoreMetaResponse,
     CubeEntity,
+    CubeReport,
+    CubeWorkbook,
     merge_entities,
 )
 
@@ -176,6 +183,82 @@ class CubeAPIClient:
             logger.info(f"Could not list Cube data sources: {e}")
             return []
         return CloudDataSourcesResponse.model_validate(raw).data.data_sources
+
+    def _can_use_platform_api(self) -> bool:
+        # The Platform API (reports/workbooks) is Cube Cloud only and is
+        # authenticated with the Cube Cloud API key against the Control Plane host.
+        return bool(
+            self.config.deployment_type == CubeDeploymentType.CLOUD
+            and self.config.cloud_api_key
+            and self.config.deployment_id
+        )
+
+    def _platform_request(
+        self, endpoint: str, params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        assert self.config.cloud_api_key is not None
+        response = self.session.get(
+            f"{self._control_plane_base()}/{endpoint}",
+            params=params,
+            headers={
+                HTTP_HEADER_AUTHORIZATION: f"Bearer {self.config.cloud_api_key.get_secret_value()}"
+            },
+            timeout=self.config.request_timeout_sec,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def get_reports(self) -> List[CubeReport]:
+        if not self._can_use_platform_api():
+            return []
+        endpoint = API_ENDPOINT_REPORTS.format(deployment_id=self.config.deployment_id)
+        reports: List[CubeReport] = []
+        cursor: Optional[str] = None
+        try:
+            while True:
+                params: Dict[str, Any] = {"first": PLATFORM_API_PAGE_SIZE}
+                if cursor:
+                    params["after"] = cursor
+                raw = self._platform_request(endpoint, params=params)
+                response = CloudReportsResponse.model_validate(raw)
+                reports.extend(CubeReport.from_cloud(r) for r in response.items)
+                page_info = response.page_info
+                if not page_info or not page_info.has_next_page:
+                    break
+                cursor = page_info.end_cursor
+                if not cursor:
+                    break
+        except requests.HTTPError as e:
+            logger.warning(f"Could not list Cube reports: {e}")
+            return []
+        return reports
+
+    def get_workbooks(self) -> List[CubeWorkbook]:
+        if not self._can_use_platform_api():
+            return []
+        endpoint = API_ENDPOINT_WORKBOOKS.format(
+            deployment_id=self.config.deployment_id
+        )
+        workbooks: List[CubeWorkbook] = []
+        cursor: Optional[str] = None
+        try:
+            while True:
+                params: Dict[str, Any] = {"first": PLATFORM_API_PAGE_SIZE}
+                if cursor:
+                    params["after"] = cursor
+                raw = self._platform_request(endpoint, params=params)
+                response = CloudWorkbooksResponse.model_validate(raw)
+                workbooks.extend(CubeWorkbook.from_cloud(w) for w in response.items)
+                page_info = response.page_info
+                if not page_info or not page_info.has_next_page:
+                    break
+                cursor = page_info.end_cursor
+                if not cursor:
+                    break
+        except requests.HTTPError as e:
+            logger.warning(f"Could not list Cube workbooks: {e}")
+            return []
+        return workbooks
 
     def test_connection(self) -> None:
         # /v1/meta is the universal connectivity check (available on Core and

@@ -373,25 +373,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,local_cube.customers,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "siblings",
-    "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,cube_demo.public.customers,PROD)"
-            ],
-            "primary": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1781864361056,
-        "runId": "cube-core-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,local_cube.customers,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
         "json": {
@@ -418,31 +399,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1781864361062,
-        "runId": "cube-core-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,cube_demo.public.customers,PROD)",
-    "changeType": "PATCH",
-    "aspectName": "siblings",
-    "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:cube,local_cube.customers,PROD)",
-                "value": "urn:li:dataset:(urn:li:dataPlatform:cube,local_cube.customers,PROD)"
-            },
-            {
-                "op": "add",
-                "path": "/primary",
-                "value": true
-            }
-        ]
-    },
-    "systemMetadata": {
-        "lastObserved": 1781864361058,
         "runId": "cube-core-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -705,31 +661,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1781864361059,
-        "runId": "cube-core-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,cube_demo.public.orders,PROD)",
-    "changeType": "PATCH",
-    "aspectName": "siblings",
-    "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:cube,local_cube.orders,PROD)",
-                "value": "urn:li:dataset:(urn:li:dataPlatform:cube,local_cube.orders,PROD)"
-            },
-            {
-                "op": "add",
-                "path": "/primary",
-                "value": true
-            }
-        ]
-    },
-    "systemMetadata": {
-        "lastObserved": 1781864361060,
         "runId": "cube-core-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1198,25 +1129,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1781864361062,
-        "runId": "cube-core-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,local_cube.orders,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "siblings",
-    "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,cube_demo.public.orders,PROD)"
-            ],
-            "primary": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1781864361059,
         "runId": "cube-core-test",
         "lastRunId": "no-run-id-provided"
     }

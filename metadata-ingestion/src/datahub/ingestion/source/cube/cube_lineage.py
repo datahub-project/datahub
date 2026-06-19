@@ -100,14 +100,6 @@ class CubeLineageBuilder:
             return self._parse_sql_tables(entity)
         return []
 
-    def single_warehouse_table_urn(self, entity: CubeEntity) -> Optional[str]:
-        # A cube is a 1:1 projection of a warehouse table only when it is not a
-        # view, references no other cubes, and resolves to exactly one table.
-        if entity.is_view or entity.cube_references:
-            return None
-        urns = list(dict.fromkeys(self._warehouse_table_urns(entity)))
-        return urns[0] if len(urns) == 1 else None
-
     def _add_warehouse_column_lineage(
         self,
         entity: CubeEntity,

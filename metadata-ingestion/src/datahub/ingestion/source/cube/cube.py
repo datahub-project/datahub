@@ -1,10 +1,12 @@
 import json
 import logging
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import urlparse
 
 from requests import RequestException
 
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
@@ -38,7 +40,12 @@ from datahub.ingestion.source.cube.constants import (
 )
 from datahub.ingestion.source.cube.cube_api import CubeAPIClient
 from datahub.ingestion.source.cube.cube_lineage import CubeLineageBuilder
-from datahub.ingestion.source.cube.models import CubeEntity, CubeMember
+from datahub.ingestion.source.cube.models import (
+    CubeEntity,
+    CubeMember,
+    CubeReport,
+    CubeWorkbook,
+)
 from datahub.ingestion.source.sql.sql_utils import gen_domain_urn
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -50,15 +57,15 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
-    SiblingsClass,
     StringTypeClass,
     TagAssociationClass,
     ViewPropertiesClass,
 )
-from datahub.metadata.urns import TagUrn
+from datahub.metadata.urns import CorpUserUrn, TagUrn
+from datahub.sdk.chart import Chart
 from datahub.sdk.container import Container
+from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataset import Dataset
-from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
@@ -235,6 +242,8 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             yield from self._emit_entity(entity, container, lineage_builder)
 
+        yield from self._emit_reports_and_workbooks(container)
+
     def _should_emit(self, entity: CubeEntity) -> bool:
         self.report.report_entity_scanned(entity.name, entity.is_view)
 
@@ -286,37 +295,95 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
         )
         yield from dataset.as_workunits()
         yield from self._emit_entity_meta(entity, str(dataset.urn))
-        yield from self._emit_siblings(entity, str(dataset.urn), lineage_builder)
         self.report.report_entity_emitted(entity.is_view)
 
-    def _emit_siblings(
-        self,
-        entity: CubeEntity,
-        dataset_urn: str,
-        lineage_builder: CubeLineageBuilder,
-    ) -> Iterable[MetadataWorkUnit]:
-        if not self.config.emit_siblings:
-            return
-        warehouse_urn = lineage_builder.single_warehouse_table_urn(entity)
-        if warehouse_urn is None:
-            return
+    def _dataset_urn(self, entity_name: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=entity_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
 
-        cube_primary = self.config.cube_is_primary_sibling
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=SiblingsClass(siblings=[warehouse_urn], primary=cube_primary),
-        ).as_workunit()
-        # Patch the warehouse table so the reverse edge does not clobber any
-        # existing siblings (e.g. a dbt model pointing at the same table).
-        warehouse_patch = DatasetPatchBuilder(warehouse_urn)
-        warehouse_patch.add_sibling(dataset_urn, primary=not cube_primary)
-        for mcp in warehouse_patch.build():
-            yield MetadataWorkUnit(
-                id=MetadataWorkUnit.generate_workunit_id(mcp),
-                mcp_raw=mcp,
-                is_primary_source=False,
-            )
-        self.report.siblings_emitted += 1
+    @staticmethod
+    def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+    def _emit_reports_and_workbooks(
+        self, container: Container
+    ) -> Iterable[MetadataWorkUnit]:
+        # Reports (saved queries) and workbooks (collections of reports) are a
+        # Cube Cloud Platform API feature. They map onto DataHub charts and
+        # dashboards respectively, extending lineage down from the views/cubes.
+        chart_by_report_id: Dict[int, Chart] = {}
+        if self.config.include_reports:
+            for report in self.api_client.get_reports():
+                self.report.reports_scanned += 1
+                if not self.config.report_pattern.allowed(report.name):
+                    self.report.filtered_reports.append(report.name)
+                    continue
+                chart = self._build_chart(report)
+                chart_by_report_id[report.id] = chart
+                yield from chart.as_workunits()
+                self.report.reports_emitted += 1
+
+        if self.config.include_workbooks:
+            for workbook in self.api_client.get_workbooks():
+                self.report.workbooks_scanned += 1
+                if not self.config.workbook_pattern.allowed(workbook.name):
+                    self.report.filtered_workbooks.append(workbook.name)
+                    continue
+                dashboard = self._build_dashboard(
+                    workbook, chart_by_report_id, container
+                )
+                yield from dashboard.as_workunits()
+                self.report.workbooks_emitted += 1
+
+    def _build_chart(self, report: CubeReport) -> Chart:
+        input_datasets = [
+            self._dataset_urn(entity) for entity in report.referenced_entities
+        ]
+        owners = [CorpUserUrn(report.owner_email)] if report.owner_email else None
+        return Chart(
+            platform=self.platform,
+            name=report.public_id or str(report.id),
+            platform_instance=self.config.platform_instance,
+            display_name=report.title or report.name,
+            description=report.description,
+            input_datasets=input_datasets or None,
+            last_modified=self._parse_timestamp(report.updated_at),
+            owners=owners,
+            custom_properties={"report_id": str(report.id)},
+        )
+
+    def _build_dashboard(
+        self,
+        workbook: CubeWorkbook,
+        chart_by_report_id: Dict[int, Chart],
+        container: Container,
+    ) -> Dashboard:
+        charts = [
+            chart_by_report_id[report_id]
+            for report_id in workbook.report_ids
+            if report_id in chart_by_report_id
+        ]
+        owners = [CorpUserUrn(workbook.owner_email)] if workbook.owner_email else None
+        return Dashboard(
+            platform=self.platform,
+            name=str(workbook.id),
+            platform_instance=self.config.platform_instance,
+            display_name=workbook.title or workbook.name,
+            description=workbook.description,
+            charts=charts or None,
+            parent_container=container,
+            last_modified=self._parse_timestamp(workbook.updated_at),
+            owners=owners,
+        )
 
     def _emit_entity_meta(
         self, entity: CubeEntity, dataset_urn: str

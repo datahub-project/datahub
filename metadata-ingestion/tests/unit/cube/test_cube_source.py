@@ -4,28 +4,19 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.cube.config import CubeSourceConfig
 from datahub.ingestion.source.cube.cube import CubeSource
-from datahub.ingestion.source.cube.cube_lineage import CubeLineageBuilder
 from datahub.ingestion.source.cube.models import (
-    CubeColumnReference,
     CubeEntity,
     CubeMember,
+    CubeReport,
+    CubeWorkbook,
 )
 from datahub.metadata.schema_classes import (
     DomainsClass,
     GlobalTagsClass,
     GlossaryTermsClass,
     OwnershipClass,
-    SiblingsClass,
 )
-
-
-def _lineage_builder(source: CubeSource) -> CubeLineageBuilder:
-    return CubeLineageBuilder(
-        config=source.config,
-        ctx=source.ctx,
-        warehouse_platform=source.config.warehouse_platform,
-        warehouse_database=source.config.warehouse_database,
-    )
+from datahub.sdk.container import Container
 
 
 def _source(**overrides: object) -> CubeSource:
@@ -160,50 +151,6 @@ def test_column_meta_mapping_tags_and_terms_field() -> None:
     assert any("CustomerData" in t.urn for t in field.glossaryTerms.terms)
 
 
-def _one_to_one_entity() -> CubeEntity:
-    return CubeEntity(
-        name="orders",
-        table_references=[CubeColumnReference(schema_name="public", table="orders")],
-    )
-
-
-def test_siblings_emitted_for_one_to_one_cube() -> None:
-    source = _source(warehouse_platform="postgres", warehouse_database="analytics")
-    wus = list(
-        source._emit_siblings(
-            _one_to_one_entity(),
-            "urn:li:dataset:(urn:li:dataPlatform:cube,orders,PROD)",
-            _lineage_builder(source),
-        )
-    )
-
-    siblings = [
-        aspect
-        for wu in wus
-        if isinstance((aspect := getattr(wu.metadata, "aspect", None)), SiblingsClass)
-    ]
-    assert len(siblings) == 1
-    assert any("postgres" in s for s in siblings[0].siblings)
-    assert siblings[0].primary is False
-    # A reverse patch on the warehouse table is also emitted.
-    assert len(wus) == 2
-
-
-def test_no_siblings_for_view() -> None:
-    source = _source(warehouse_platform="postgres", warehouse_database="analytics")
-    entity = CubeEntity(name="orders_view", is_view=True, cube_references=["orders"])
-    assert (
-        list(
-            source._emit_siblings(
-                entity,
-                "urn:li:dataset:(urn:li:dataPlatform:cube,orders_view,PROD)",
-                _lineage_builder(source),
-            )
-        )
-        == []
-    )
-
-
 def test_view_definition_uses_sql_for_cube() -> None:
     source = _source()
     entity = CubeEntity(name="orders", sql="SELECT * FROM public.orders")
@@ -307,19 +254,59 @@ def test_measure_json_props() -> None:
     assert plain.jsonProps is None
 
 
-def test_siblings_disabled() -> None:
-    source = _source(
-        warehouse_platform="postgres",
-        warehouse_database="analytics",
-        emit_siblings=False,
-    )
-    assert (
-        list(
-            source._emit_siblings(
-                _one_to_one_entity(),
-                "urn:li:dataset:(urn:li:dataPlatform:cube,orders,PROD)",
-                _lineage_builder(source),
-            )
+def test_build_chart_sets_inputs_and_owner() -> None:
+    source = _source(platform_instance="cube_demo")
+    chart = source._build_chart(
+        CubeReport(
+            id=1,
+            public_id="rpt1",
+            name="r1",
+            title="Report One",
+            referenced_entities=["orders_view", "orders"],
+            owner_email="a@example.com",
         )
-        == []
     )
+    assert str(chart.urn) == "urn:li:chart:(cube,cube_demo.rpt1)"
+
+    aspects = _aspects(list(chart.as_workunits()))
+    info = aspects["ChartInfoClass"]
+    assert set(info.inputs or []) == {  # type: ignore[attr-defined]
+        "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)",
+    }
+    ownership = aspects["OwnershipClass"]
+    assert [o.owner for o in ownership.owners] == [  # type: ignore[attr-defined]
+        "urn:li:corpuser:a@example.com"
+    ]
+
+
+def test_build_dashboard_links_known_charts() -> None:
+    source = _source(platform_instance="cube_demo")
+    container = Container(
+        source._container_key,
+        display_name="demo",
+    )
+    chart_by_report_id = {
+        1: source._build_chart(CubeReport(id=1, public_id="rpt1", name="r1")),
+        2: source._build_chart(CubeReport(id=2, public_id="rpt2", name="r2")),
+    }
+    dashboard = source._build_dashboard(
+        CubeWorkbook(
+            id=9,
+            name="wb",
+            title="Workbook",
+            owner_email="a@example.com",
+            # report 3 is unknown (e.g. filtered) and must be skipped.
+            report_ids=[1, 2, 3],
+        ),
+        chart_by_report_id,
+        container,
+    )
+    assert str(dashboard.urn) == "urn:li:dashboard:(cube,cube_demo.9)"
+
+    info = _aspects(list(dashboard.as_workunits()))["DashboardInfoClass"]
+    linked = [edge.destinationUrn for edge in info.chartEdges or []]  # type: ignore[attr-defined]
+    assert linked == [
+        "urn:li:chart:(cube,cube_demo.rpt1)",
+        "urn:li:chart:(cube,cube_demo.rpt2)",
+    ]
