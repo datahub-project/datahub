@@ -187,9 +187,14 @@ class TableLineageInfo:
 
 def _build_catalog_column_filter(
     column_expr: str, catalog_pattern: AllowDenyPattern
-) -> str:
-    """Build RLIKE filter for a single table_lineage catalog column."""
+) -> tuple[str, list[str]]:
+    """Build RLIKE filter for a single table_lineage catalog column.
+
+    Returns the SQL predicate and bind parameters for RLIKE patterns so recipe
+    catalog_pattern values are never interpolated into the query string.
+    """
     pattern_parts: List[str] = []
+    bind_params: list[str] = []
 
     def transform(pattern: str) -> str:
         return pattern.upper() if catalog_pattern.ignoreCase else pattern
@@ -200,10 +205,8 @@ def _build_catalog_column_filter(
     if allow_patterns and allow_patterns != [".*"]:
         allow_conditions = []
         for pattern in allow_patterns:
-            escaped_pattern = (
-                transform(pattern).replace("\\", "\\\\").replace("'", "''")
-            )
-            allow_conditions.append(f"{col_expr} RLIKE '{escaped_pattern}'")
+            allow_conditions.append(f"{col_expr} RLIKE %s")
+            bind_params.append(transform(pattern))
         if allow_conditions:
             pattern_parts.append(
                 allow_conditions[0]
@@ -215,10 +218,8 @@ def _build_catalog_column_filter(
     if deny_patterns:
         deny_conditions = []
         for pattern in deny_patterns:
-            escaped_pattern = (
-                transform(pattern).replace("\\", "\\\\").replace("'", "''")
-            )
-            deny_conditions.append(f"{col_expr} NOT RLIKE '{escaped_pattern}'")
+            deny_conditions.append(f"{col_expr} NOT RLIKE %s")
+            bind_params.append(transform(pattern))
         if deny_conditions:
             pattern_parts.append(
                 deny_conditions[0]
@@ -227,34 +228,42 @@ def _build_catalog_column_filter(
             )
 
     if not pattern_parts:
-        return "TRUE"
-    return (
+        return "TRUE", []
+    sql = (
         pattern_parts[0]
         if len(pattern_parts) == 1
         else f"({' AND '.join(pattern_parts)})"
     )
+    return sql, bind_params
 
 
 def _build_table_lineage_catalog_filter_condition(
     catalog_pattern: AllowDenyPattern,
-) -> str:
+) -> tuple[str, list[str]]:
     """Build catalog allow/deny filter for system.access.table_lineage pushdown."""
-    source_filter = _build_catalog_column_filter(
+    source_filter, source_params = _build_catalog_column_filter(
         "tl2.source_table_catalog", catalog_pattern
     )
-    target_filter = _build_catalog_column_filter(
+    target_filter, target_params = _build_catalog_column_filter(
         "tl2.target_table_catalog", catalog_pattern
     )
 
     if source_filter == "TRUE" and target_filter == "TRUE":
-        return "TRUE"
+        return "TRUE", []
 
     parts: List[str] = []
+    bind_params: list[str] = []
     if source_filter != "TRUE":
         parts.append(f"({source_filter} AND tl2.source_table_catalog IS NOT NULL)")
+        bind_params.extend(source_params)
     if target_filter != "TRUE":
         parts.append(f"({target_filter} AND tl2.target_table_catalog IS NOT NULL)")
-    return parts[0] if len(parts) == 1 else f"({' OR '.join(parts)})"
+        bind_params.extend(target_params)
+    sql = parts[0] if len(parts) == 1 else f"({' OR '.join(parts)})"
+    return sql, bind_params
+
+
+_ROW_PARSE_EXCEPTIONS = (AttributeError, KeyError, TypeError, ValueError)
 
 
 def _optional_row_field(
@@ -748,9 +757,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         statement_type_filter = ", ".join(f"'{typ}'" for typ in allowed_types)
 
         catalog_pushdown_clause = ""
+        catalog_filter_params: list[str] = []
         if catalog_pattern is not None:
-            catalog_filter = _build_table_lineage_catalog_filter_condition(
-                catalog_pattern
+            catalog_filter, catalog_filter_params = (
+                _build_table_lineage_catalog_filter_condition(catalog_pattern)
             )
             catalog_pushdown_clause = f"""
                 AND qh.statement_id IN (
@@ -787,9 +797,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             ORDER BY qh.start_time, qh.statement_id
         """
 
-        params: tuple[datetime, ...] = (start_time, end_time, start_time, end_time)
+        params_list: list[Any] = [start_time, end_time, start_time, end_time]
         if catalog_pattern is not None:
-            params = (start_time, end_time, start_time, end_time, start_time, end_time)
+            params_list.extend([start_time, end_time, *catalog_filter_params])
+        params = tuple(params_list)
 
         def _query_from_row(row: Row) -> Optional[Query]:
             if not row.statement_text or not row.start_time or not row.end_time:
@@ -861,7 +872,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         )
                         if target_name:
                             target_names.add(target_name)
-                    except Exception:
+                    except _ROW_PARSE_EXCEPTIONS:
                         logger.debug(
                             "Error parsing query from system table",
                             exc_info=True,
@@ -877,9 +888,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 self.report.report_warning(
                     title="Failed to parse queries from system tables",
                     message=(
-                        f"{parse_failures} statement(s) from system.query.history "
-                        "could not be parsed and were skipped."
+                        "Statements from system.query.history could not be parsed "
+                        "and were skipped."
                     ),
+                    context=f"count={parse_failures}",
                 )
             row_field_errors = (
                 self.report.num_lineage_row_field_read_errors - row_field_errors_before
@@ -888,9 +900,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 self.report.report_warning(
                     title="Failed to read lineage row fields",
                     message=(
-                        f"{row_field_errors} lineage column value(s) from "
-                        "system.access.table_lineage could not be read and were skipped."
+                        "Lineage column values from system.access.table_lineage "
+                        "could not be read and were skipped."
                     ),
+                    context=f"count={row_field_errors}",
                 )
 
     def _build_datetime_where_conditions(
