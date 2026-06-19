@@ -205,13 +205,28 @@ def test_general_log_maps_username_to_email_with_domain(mock_create_engine):
 
     observed = list(
         _source(
-            usage_source="general_log", email_domain="corp.com"
+            usage_source="general_log", user_email_domain="corp.com"
         )._fetch_general_log_queries()
     )
 
     users = [str(q.user) for q in observed]
     assert str(CorpUserUrn("svc@corp.com")) in users
     assert str(CorpUserUrn("jane@corp.com")) in users
+
+
+@patch("datahub.ingestion.source.sql.mysql.create_engine")
+def test_general_log_keeps_raw_username_without_email_domain(mock_create_engine):
+    mock_create_engine.return_value = _patch_rows(
+        [
+            _glog_row("jdoe[jdoe] @ host []", 1, "Init DB", "appdb"),
+            _glog_row("jdoe[jdoe] @ host []", 1, "Query", "SELECT id FROM orders"),
+        ]
+    )
+
+    observed = list(_source(usage_source="general_log")._fetch_general_log_queries())
+
+    # No user_email_domain configured: the raw login is kept as-is.
+    assert str(observed[0].user) == str(CorpUserUrn("jdoe"))
 
 
 @patch("datahub.ingestion.source.sql.mysql.create_engine")
