@@ -344,40 +344,34 @@ class UnityCatalogUsageExtractor:
         self.report.num_queries_observed_sqlglot += 1
 
     def _report_usage_lineage_warnings(self) -> None:
-        if self.report.num_queries_without_system_table_lineage > 0:
-            self.report.report_warning(
-                title="Queries missing system-table lineage",
-                message=(
-                    "Queries had no matching rows in system.access.table_lineage and "
-                    "were parsed with sqlglot instead."
-                ),
-                context=(
-                    f"count={self.report.num_queries_without_system_table_lineage}"
-                ),
-            )
-        if self.report.num_queries_skipped_without_system_table_lineage > 0:
-            self.report.report_warning(
-                title="Queries skipped without system-table lineage",
-                message=(
-                    "Queries had no matching rows in system.access.table_lineage and "
-                    "were skipped because "
-                    "skip_sqlglot_when_system_table_lineage_missing is enabled."
-                ),
-                context=(
-                    f"count={self.report.num_queries_skipped_without_system_table_lineage}"
-                ),
-            )
-        if self.report.num_queries_preparsed_fallback_to_sqlglot > 0:
-            self.report.report_warning(
-                title="System-table lineage fell back to SQL parsing",
-                message=(
-                    "Queries had table lineage from system tables but no resolvable "
-                    "dataset URNs; those queries were parsed with sqlglot instead."
-                ),
-                context=(
-                    f"count={self.report.num_queries_preparsed_fallback_to_sqlglot}"
-                ),
-            )
+        # Uniform count-only warnings, emitted only when their counter is non-zero.
+        for count, title, message in (
+            (
+                self.report.num_queries_without_system_table_lineage,
+                "Queries missing system-table lineage",
+                "Queries had no matching rows in system.access.table_lineage and "
+                "were parsed with sqlglot instead.",
+            ),
+            (
+                self.report.num_queries_skipped_without_system_table_lineage,
+                "Queries skipped without system-table lineage",
+                "Queries had no matching rows in system.access.table_lineage and "
+                "were skipped because "
+                "skip_sqlglot_when_system_table_lineage_missing is enabled.",
+            ),
+            (
+                self.report.num_queries_preparsed_fallback_to_sqlglot,
+                "System-table lineage fell back to SQL parsing",
+                "Queries had table lineage from system tables but no resolvable "
+                "dataset URNs; those queries were parsed with sqlglot instead.",
+            ),
+        ):
+            if count > 0:
+                self.report.report_warning(
+                    title=title, message=message, context=f"count={count}"
+                )
+
+        # Handled separately: it appends sample table names to the context.
         if self.report.num_lineage_tables_unresolvable > 0:
             sample = list(self.report.lineage_tables_unresolvable_sample)
             context = f"count={self.report.num_lineage_tables_unresolvable}"

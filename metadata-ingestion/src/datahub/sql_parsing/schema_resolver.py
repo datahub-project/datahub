@@ -147,6 +147,14 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         return urn, None
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
+        """Resolve a table to its URN and (best-effort) schema.
+
+        Contract: the returned URN is **best-effort and always non-None** — on a
+        cache/graph miss a *synthesized* URN is still returned. The resolution
+        signal is the **second element**: ``SchemaInfo is None`` means the table
+        was not found in DataHub. Callers deciding whether a table actually
+        exists must test the ``SchemaInfo``, never ``urn is None``.
+        """
         urn = self.get_urn_for_table(table)
         urn_lower = self.get_urn_for_table(table, lower=True)
         # Our treatment of platform instances when lowercasing urns
@@ -239,7 +247,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         db_schema: Optional[str],
         table: str,
     ) -> Tuple[str, Optional[SchemaInfo]]:
-        """Resolve a table URN from catalog/schema/table parts without importing _TableName."""
+        """Resolve catalog/schema/table parts to a URN without importing _TableName.
+
+        Same contract as :meth:`resolve_table`: the URN is always non-None
+        (synthesized on a miss); test the returned ``SchemaInfo`` (2nd element)
+        to tell whether the table was actually found.
+        """
         return self.resolve_table(
             _TableName(database=database, db_schema=db_schema, table=table)
         )
