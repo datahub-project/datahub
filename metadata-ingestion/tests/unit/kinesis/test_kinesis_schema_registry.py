@@ -77,6 +77,26 @@ class TestGsrAvroParsing:
         assert any("id" in fp for fp in field_paths)
 
 
+JSON_SCHEMA_STR = (
+    '{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}'
+)
+
+
+class TestGsrJsonParsing:
+    def test_json_schema_parsed_to_schemafield_list(self):
+        # JSON is one of the three advertised GSR formats (AVRO/JSON/PROTOBUF);
+        # cover the DataFormat == "JSON" branch in _parse_fields.
+        reg = _make_registry()
+        reg._glue.get_schema_version.return_value = {
+            "SchemaDefinition": JSON_SCHEMA_STR,
+            "DataFormat": "JSON",
+        }
+        result = reg.get_schema_metadata("events")
+        assert result is not None
+        field_paths = {f.fieldPath for f in result.fields}
+        assert any("id" in fp for fp in field_paths)
+
+
 PROTOBUF_SCHEMA_STR = 'syntax = "proto3";\nmessage Order { string id = 1; }\n'
 
 

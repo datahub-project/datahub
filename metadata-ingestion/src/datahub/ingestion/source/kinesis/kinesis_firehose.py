@@ -30,6 +30,7 @@ from datahub.ingestion.source.kinesis.kinesis_firehose_destinations import (
 from datahub.ingestion.source.kinesis.kinesis_report import KinesisSourceReport
 from datahub.ingestion.source.kinesis.kinesis_tagging import (
     build_global_tags_from_aws_tags,
+    fetch_aws_resource_tags,
 )
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
@@ -82,6 +83,20 @@ class KinesisFirehoseExtractor:
             platform_instance=self.config.platform_instance,
         )
 
+    def _platform_instance_aspect(self) -> DataPlatformInstanceClass:
+        """The firehose-platform DataPlatformInstance aspect, shared by the DataFlow
+        and every DataJob so the platform_instance encoding stays consistent."""
+        return DataPlatformInstanceClass(
+            platform=make_data_platform_urn(FIREHOSE_PLATFORM_NAME),
+            instance=(
+                make_dataplatform_instance_urn(
+                    FIREHOSE_PLATFORM_NAME, self.config.platform_instance
+                )
+                if self.config.platform_instance
+                else None
+            ),
+        )
+
     def list_delivery_streams(self) -> Iterator[str]:
         # NOTE: boto3 firehose has no paginator for list_delivery_streams (verified
         # via client.can_paginate). We page manually using the
@@ -103,28 +118,13 @@ class KinesisFirehoseExtractor:
             try:
                 resp = self._firehose.list_delivery_streams(**kwargs)
             except (ClientError, BotoCoreError) as e:
-                code = aws_error_code(e)
-                if pages_fetched == 0:
-                    self.report.warning(
-                        title="Permission denied for Firehose",
-                        message=(
-                            f"firehose:ListDeliveryStreams returned {code}; "
-                            "skipping Firehose section entirely."
-                        ),
-                        exc=e,
-                    )
-                    return
-                # Mid-pagination failure — incomplete data is a real problem.
-                self.report.failure(
-                    title="Firehose listing aborted mid-pagination",
-                    message=(
-                        f"firehose:ListDeliveryStreams returned {code} after "
-                        f"{pages_fetched} page(s). Delivery streams beyond this "
-                        "point were NOT scanned. Stateful ingestion may incorrectly "
-                        "soft-delete un-listed streams on the next run; re-run "
-                        "ingestion to recover."
-                    ),
+                self.report.report_listing_failure(
+                    pages_fetched=pages_fetched,
                     exc=e,
+                    service_label="Firehose",
+                    api_label="firehose:ListDeliveryStreams",
+                    section_label="Firehose",
+                    resource_plural="Delivery streams",
                 )
                 return
             pages_fetched += 1
@@ -160,7 +160,6 @@ class KinesisFirehoseExtractor:
 
     def get_dataflow_workunit(self) -> Iterable[MetadataWorkUnit]:
         flow_urn = self.dataflow_urn()
-        firehose_platform_urn = make_data_platform_urn(FIREHOSE_PLATFORM_NAME)
         region = self.config.aws_config.aws_region
         yield MetadataChangeProposalWrapper(
             entityUrn=flow_urn,
@@ -172,16 +171,7 @@ class KinesisFirehoseExtractor:
         ).as_workunit()
         yield MetadataChangeProposalWrapper(
             entityUrn=flow_urn,
-            aspect=DataPlatformInstanceClass(
-                platform=firehose_platform_urn,
-                instance=(
-                    make_dataplatform_instance_urn(
-                        FIREHOSE_PLATFORM_NAME, self.config.platform_instance
-                    )
-                    if self.config.platform_instance
-                    else None
-                ),
-            ),
+            aspect=self._platform_instance_aspect(),
         ).as_workunit()
         yield MetadataChangeProposalWrapper(
             entityUrn=flow_urn,
@@ -232,6 +222,19 @@ class KinesisFirehoseExtractor:
         arn = src.get("KinesisStreamARN", "")
         # ARN format: arn:aws:kinesis:<region>:<account>:stream/<name>
         if not arn or "/" not in arn:
+            # The delivery stream declares a Kinesis source but the ARN is missing
+            # or unparseable — an unexpected AWS shape. Unlike DirectPut (handled
+            # above), this DOES have an upstream we're failing to resolve, so the
+            # dropped lineage edge must be surfaced rather than silently skipped.
+            self.report.warning(
+                title="Unresolved Firehose source stream",
+                message=(
+                    "Delivery stream is KinesisStreamAsSource but its "
+                    f"KinesisStreamARN is missing/unparseable ({arn!r}); "
+                    "upstream lineage edge skipped."
+                ),
+                context=str(delivery_desc.get("DeliveryStreamName", "")),
+            )
             return None
         stream_name = arn.rsplit("/", 1)[-1]
         # Mirror KinesisStreamExtractor._emit_dataset: region-qualified URN name so
@@ -355,29 +358,14 @@ class KinesisFirehoseExtractor:
         """
         if not self.config.extract_tags:
             return []
-        try:
-            resp = self._firehose.list_tags_for_delivery_stream(
+        return fetch_aws_resource_tags(
+            fetch=lambda: self._firehose.list_tags_for_delivery_stream(
                 DeliveryStreamName=delivery_stream_name
-            )
-            # boto3 TagTypeDef declares Key/Value as NotRequired[str] which makes
-            # `.values()` typed as `object`. Materialise to Dict[str, str] here for
-            # the shared kinesis_tagging.py helpers.
-            return [
-                {"Key": str(t.get("Key", "")), "Value": str(t.get("Value", ""))}
-                for t in (resp.get("Tags") or [])
-            ]
-        except (ClientError, BotoCoreError) as e:
-            code = aws_error_code(e)
-            self.report.warning(
-                title="Tag fetch failed",
-                message=(
-                    f"firehose:ListTagsForDeliveryStream returned {code}; "
-                    "emitting delivery stream without tags/ownership."
-                ),
-                context=f"delivery_stream={delivery_stream_name}",
-                exc=e,
-            )
-            return []
+            ),
+            report=self.report,
+            api_label="firehose:ListTagsForDeliveryStream",
+            context=f"delivery_stream={delivery_stream_name}",
+        )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Emit DataJob aspects (info, platform-instance, sub-types) and, when
@@ -385,7 +373,6 @@ class KinesisFirehoseExtractor:
         stream. Also emits globalTags MCPs against the DataJob URN when AWS
         resource tags are present.
         """
-        firehose_platform_urn = make_data_platform_urn(FIREHOSE_PLATFORM_NAME)
         for name in self.list_delivery_streams():
             desc = self.describe_delivery_stream(name)
             if desc is None:
@@ -409,16 +396,7 @@ class KinesisFirehoseExtractor:
             ).as_workunit()
             yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
-                aspect=DataPlatformInstanceClass(
-                    platform=firehose_platform_urn,
-                    instance=(
-                        make_dataplatform_instance_urn(
-                            FIREHOSE_PLATFORM_NAME, self.config.platform_instance
-                        )
-                        if self.config.platform_instance
-                        else None
-                    ),
-                ),
+                aspect=self._platform_instance_aspect(),
             ).as_workunit()
             yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,

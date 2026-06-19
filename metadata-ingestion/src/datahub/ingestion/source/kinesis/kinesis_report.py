@@ -1,6 +1,9 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Union
 
+from botocore.exceptions import BotoCoreError, ClientError
+
+from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
@@ -109,3 +112,41 @@ class KinesisSourceReport(StaleEntityRemovalSourceReport):
 
     def report_gsr_naming_convention_miss(self, stream_name: str) -> None:
         self.gsr_naming_convention_misses.append(stream_name)
+
+    def report_listing_failure(
+        self,
+        *,
+        pages_fetched: int,
+        exc: Union[ClientError, BotoCoreError],
+        service_label: str,
+        api_label: str,
+        section_label: str,
+        resource_plural: str,
+    ) -> None:
+        """Report a paginated-listing failure, shared by the KDS and Firehose
+        list methods.
+
+        A first-page failure (``pages_fetched == 0``) is a recoverable warning —
+        the user may intentionally lack IAM for this section. A mid-pagination
+        failure escalates to ``failure`` because pages already yielded are
+        persisted as workunits, and stateful ingestion would otherwise
+        soft-delete every entity beyond the failure point on the next run.
+        """
+        code = aws_error_code(exc)
+        if pages_fetched == 0:
+            self.warning(
+                title=f"Permission denied for {service_label}",
+                message=f"{api_label} returned {code}; skipping {section_label} section entirely.",
+                exc=exc,
+            )
+        else:
+            self.failure(
+                title=f"{service_label} listing aborted mid-pagination",
+                message=(
+                    f"{api_label} returned {code} after {pages_fetched} page(s). "
+                    f"{resource_plural} beyond this point were NOT scanned. Stateful "
+                    "ingestion may incorrectly soft-delete un-listed streams on the "
+                    "next run; re-run ingestion to recover."
+                ),
+                exc=exc,
+            )

@@ -331,6 +331,36 @@ class TestFirehoseLineage:
             in edges.outputDatasets
         )
 
+    def test_kinesis_source_with_malformed_arn_warns_and_drops_input(self):
+        """A KinesisStreamAsSource delivery stream whose KinesisStreamARN is
+        present but unparseable (no `/`) must NOT silently drop the upstream
+        edge — it should emit no input edge AND surface a warning, since unlike
+        DirectPut this genuinely has an upstream we failed to resolve."""
+        ex = _make_extractor()
+        delivery_desc = {
+            "DeliveryStreamName": "events-to-s3",
+            "DeliveryStreamType": "KinesisStreamAsSource",
+            "Source": {
+                "KinesisStreamSourceDescription": {
+                    "KinesisStreamARN": "not-a-valid-arn"
+                }
+            },
+            "Destinations": [
+                {
+                    "S3DestinationDescription": {
+                        "BucketARN": "arn:aws:s3:::analytics-lake",
+                        "Prefix": "events/",
+                    }
+                }
+            ],
+        }
+        edges = ex.build_input_output(
+            cast("DeliveryStreamDescriptionTypeDef", delivery_desc)
+        )
+        assert edges.inputDatasets == []
+        warnings_text = " ".join(str(w) for w in ex.report.warnings)
+        assert "events-to-s3" in warnings_text
+
     def test_matched_handler_but_empty_urns_emits_warning_and_counter(self):
         """Regression for the matched-but-empty-build_urns silent path. When a
         handler matches a destination but build_urns() returns [] (e.g.,

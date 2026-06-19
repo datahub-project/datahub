@@ -16,10 +16,16 @@ from datahub.ingestion.source.kinesis.kinesis_report import KinesisSourceReport
 
 
 def _urn_builder(
-    platform: str, name: str, env: str = "PROD", platform_instance: Optional[str] = None
+    platform: str,
+    name: str,
+    env: Optional[str] = "PROD",
+    platform_instance: Optional[str] = None,
 ) -> str:
     return make_dataset_urn_with_platform_instance(
-        platform=platform, name=name, env=env, platform_instance=platform_instance
+        platform=platform,
+        name=name,
+        env=env or "PROD",
+        platform_instance=platform_instance,
     )
 
 

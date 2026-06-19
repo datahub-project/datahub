@@ -14,6 +14,7 @@ from datahub.ingestion.source.kinesis.kinesis_schema_registry import (
 )
 from datahub.ingestion.source.kinesis.kinesis_tagging import (
     build_global_tags_from_aws_tags,
+    fetch_aws_resource_tags,
 )
 from datahub.sdk import Dataset
 
@@ -74,28 +75,13 @@ class KinesisStreamExtractor:
                     else:
                         self.report.report_stream_filtered(name)
         except (ClientError, BotoCoreError) as e:
-            code = aws_error_code(e)
-            if pages_fetched == 0:
-                self.report.warning(
-                    title="Permission denied for Kinesis",
-                    message=(
-                        f"kinesis:ListStreams returned {code}; "
-                        "skipping KDS section entirely."
-                    ),
-                    exc=e,
-                )
-                return
-            # Mid-pagination failure — incomplete data is a real problem.
-            self.report.failure(
-                title="Kinesis listing aborted mid-pagination",
-                message=(
-                    f"kinesis:ListStreams returned {code} after "
-                    f"{pages_fetched} page(s). Streams beyond this point "
-                    "were NOT scanned. Stateful ingestion may incorrectly "
-                    "soft-delete un-listed streams on the next run; re-run "
-                    "ingestion to recover."
-                ),
+            self.report.report_listing_failure(
+                pages_fetched=pages_fetched,
                 exc=e,
+                service_label="Kinesis",
+                api_label="kinesis:ListStreams",
+                section_label="KDS",
+                resource_plural="Streams",
             )
             return
 
@@ -134,27 +120,12 @@ class KinesisStreamExtractor:
         """
         if not self.config.extract_tags:
             return []
-        try:
-            resp = self._kinesis.list_tags_for_stream(StreamName=stream_name)
-            # boto3 TagTypeDef declares Key/Value as NotRequired[str] which makes
-            # `.values()` typed as `object`. Materialise to Dict[str, str] here for
-            # the shared kinesis_tagging.py helpers.
-            return [
-                {"Key": str(t.get("Key", "")), "Value": str(t.get("Value", ""))}
-                for t in (resp.get("Tags") or [])
-            ]
-        except (ClientError, BotoCoreError) as e:
-            code = aws_error_code(e)
-            self.report.warning(
-                title="Tag fetch failed",
-                message=(
-                    f"kinesis:ListTagsForStream returned {code}; "
-                    "emitting stream without tags/ownership."
-                ),
-                context=f"stream={stream_name}",
-                exc=e,
-            )
-            return []
+        return fetch_aws_resource_tags(
+            fetch=lambda: self._kinesis.list_tags_for_stream(StreamName=stream_name),
+            report=self.report,
+            api_label="kinesis:ListTagsForStream",
+            context=f"stream={stream_name}",
+        )
 
     def _emit_dataset(
         self, stream_name: str, desc: "StreamDescriptionTypeDef"

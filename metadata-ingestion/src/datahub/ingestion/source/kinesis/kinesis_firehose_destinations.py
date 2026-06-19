@@ -8,7 +8,15 @@ touching the orchestrator.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, List, Optional
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+)
 
 from datahub.ingestion.source.kinesis.kinesis_config import DestinationPlatform
 
@@ -16,6 +24,18 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.kinesis.kinesis_report import KinesisSourceReport
 
 logger = logging.getLogger(__name__)
+
+
+class DestinationUrnBuilder(Protocol):
+    """Structural type for the URN-builder passed into each destination handler.
+
+    Implemented by ``KinesisFirehoseExtractor._destination_urn``. Declaring the
+    real keyword contract (instead of ``Callable[..., str]``) lets mypy catch a
+    typo'd keyword arg at any handler call site."""
+
+    def __call__(
+        self, platform: DestinationPlatform, name: str, env: Optional[str] = None
+    ) -> str: ...
 
 
 class DestinationHandler(ABC):
@@ -46,7 +66,7 @@ class DestinationHandler(ABC):
     def build_urns(
         self,
         destination_description: Dict[str, Any],
-        urn_builder: Callable[..., str],
+        urn_builder: DestinationUrnBuilder,
     ) -> List[str]:
         """Build the DataHub URNs for the destination, using urn_builder to apply
         platform_instance and env overrides from destination_platform_map.
@@ -61,7 +81,7 @@ class DestinationHandler(ABC):
 
 
 def _build_s3_urn(
-    s3_description: Dict[str, Any], urn_builder: Callable[..., str]
+    s3_description: Dict[str, Any], urn_builder: DestinationUrnBuilder
 ) -> List[str]:
     """Compute the S3 dataset URN from a Firehose S3 destination block.
 
@@ -104,7 +124,7 @@ class S3Destination(DestinationHandler):
         )
 
     def build_urns(
-        self, d: Dict[str, Any], urn_builder: Callable[..., str]
+        self, d: Dict[str, Any], urn_builder: DestinationUrnBuilder
     ) -> List[str]:
         return _build_s3_urn(d["S3DestinationDescription"], urn_builder)
 
@@ -125,14 +145,14 @@ class ExtendedS3Destination(DestinationHandler):
         )
 
     def build_urns(
-        self, d: Dict[str, Any], urn_builder: Callable[..., str]
+        self, d: Dict[str, Any], urn_builder: DestinationUrnBuilder
     ) -> List[str]:
         return _build_s3_urn(d["ExtendedS3DestinationDescription"], urn_builder)
 
     def extract_schema_config_glue_urn(
         self,
         d: Dict[str, Any],
-        urn_builder: Callable[..., str],
+        urn_builder: DestinationUrnBuilder,
         report: "KinesisSourceReport",
         delivery_stream_name: str,
     ) -> Optional[str]:
@@ -183,7 +203,7 @@ class RedshiftDestination(DestinationHandler):
         )
 
     def build_urns(
-        self, d: Dict[str, Any], urn_builder: Callable[..., str]
+        self, d: Dict[str, Any], urn_builder: DestinationUrnBuilder
     ) -> List[str]:
         rs = d["RedshiftDestinationDescription"]
         copy_cmd = rs.get("CopyCommand", {})
@@ -245,7 +265,7 @@ class OpenSearchDestination(DestinationHandler):
         return any(k in d and d.get(k) is not None for k in keys)
 
     def build_urns(
-        self, d: Dict[str, Any], urn_builder: Callable[..., str]
+        self, d: Dict[str, Any], urn_builder: DestinationUrnBuilder
     ) -> List[str]:
         for k in (
             "AmazonopensearchserviceDestinationDescription",
@@ -277,7 +297,7 @@ class SnowflakeDestination(DestinationHandler):
         )
 
     def build_urns(
-        self, d: Dict[str, Any], urn_builder: Callable[..., str]
+        self, d: Dict[str, Any], urn_builder: DestinationUrnBuilder
     ) -> List[str]:
         sd = d["SnowflakeDestinationDescription"]
         db = sd.get("Database", "")
@@ -310,7 +330,7 @@ class IcebergDestination(DestinationHandler):
         )
 
     def build_urns(
-        self, d: Dict[str, Any], urn_builder: Callable[..., str]
+        self, d: Dict[str, Any], urn_builder: DestinationUrnBuilder
     ) -> List[str]:
         ice = d["IcebergDestinationDescription"]
         tables: List[Dict[str, Any]] = (
@@ -342,7 +362,7 @@ class MongoDBDestination(DestinationHandler):
         )
 
     def build_urns(
-        self, d: Dict[str, Any], urn_builder: Callable[..., str]
+        self, d: Dict[str, Any], urn_builder: DestinationUrnBuilder
     ) -> List[str]:
         m = d["MongoDBDestinationDescription"]
         db = m.get("DatabaseName", "")
