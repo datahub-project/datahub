@@ -52,6 +52,17 @@ const BRAND_PALETTE_MESSAGE =
     '`color="iconBrand"`/`textBrand`/`hyperlinks` for Icon/Text, `color="primary"` for Button/Pill, ' +
     'or `${(props) => props.theme.colors.*}` / `useTheme().colors.*` in styles. See colorThemes/types.ts.';
 
+// The legacy `theme.styles[<color-key>]` channel is a parallel color on-ramp that bypasses the
+// configurable ColorTheme. Every color-bearing key has a `theme.colors.*` equivalent (brand →
+// textBrand/buttonFillBrand/borderBrand/bgSurfaceBrand; box-shadow* → shadowSm/shadowMd/shadowNavbar;
+// border-color-base → border; etc.), so the whole `theme.styles[<literal>]` surface is banned —
+// EXCEPT structural (non-color) keys like the border-radius family, which have no color equivalent.
+const NON_COLOR_STYLE_KEY_REGEX = /^border-radius(-|$)/;
+const STYLES_LEGACY_MESSAGE =
+    'Legacy theme.styles["{{key}}"] is deprecated. Use a ColorTheme token instead ' +
+    '(`${(props) => props.theme.colors.*}` — e.g. textBrand/buttonFillBrand/borderBrand/bgSurfaceBrand for brand, ' +
+    'border for borders, shadowSm/shadowMd/shadowNavbar for shadows). See colorThemes/types.ts.';
+
 function findMatches(regex, value) {
     const results = [];
     regex.lastIndex = 0;
@@ -74,6 +85,7 @@ module.exports = {
         messages: {
             noHardcodedColor: MESSAGE,
             noBrandPalette: BRAND_PALETTE_MESSAGE,
+            noLegacyStyles: STYLES_LEGACY_MESSAGE,
         },
     },
     create(context) {
@@ -133,6 +145,17 @@ module.exports = {
                     (node.property?.name === 'violet' || node.property?.name === 'primary')
                 ) {
                     reportBrandPalette(node, `colors.${node.property.name}`);
+                }
+                // Legacy `*.styles['<color-key>']` reads — the whole color surface, minus structural keys.
+                if (
+                    node.computed &&
+                    node.property?.type === 'Literal' &&
+                    typeof node.property.value === 'string' &&
+                    !NON_COLOR_STYLE_KEY_REGEX.test(node.property.value) &&
+                    node.object?.type === 'MemberExpression' &&
+                    node.object.property?.name === 'styles'
+                ) {
+                    context.report({ node, messageId: 'noLegacyStyles', data: { key: node.property.value } });
                 }
             },
         };

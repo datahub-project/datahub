@@ -1,25 +1,14 @@
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional, Tuple
 
-from datahub.ingestion.api.report import EntityFilterReport, Report
+from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
-from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.unity.platform_resource_repository import (
         UnityCatalogPlatformResourceRepository,
     )
-
-
-@dataclass
-class UnityCatalogUsagePerfReport(Report):
-    get_queries_timer: PerfTimer = field(default_factory=PerfTimer)
-    sql_parsing_timer: PerfTimer = field(default_factory=PerfTimer)
-    spark_sql_parsing_timer: PerfTimer = field(default_factory=PerfTimer)
-    aggregator_add_event_timer: PerfTimer = field(default_factory=PerfTimer)
-    gen_operation_timer: PerfTimer = field(default_factory=PerfTimer)
-    query_fingerprinting_timer: PerfTimer = field(default_factory=PerfTimer)
 
 
 @dataclass
@@ -44,17 +33,8 @@ class UnityCatalogReport(SQLSourceReport):
     num_external_upstreams_unsupported: int = 0
 
     num_queries: int = 0
-    num_unique_queries: int = 0
-    num_queries_dropped_parse_failure: int = 0
-    num_queries_missing_table: int = 0  # Can be due to pattern filter
-    num_queries_duplicate_table: int = 0
-    num_queries_parsed_by_spark_plan: int = 0
-    usage_perf_report: UnityCatalogUsagePerfReport = field(
-        default_factory=UnityCatalogUsagePerfReport
-    )
-
-    # Distinguish from Operations emitted for created / updated timestamps
-    num_operational_stats_workunits_emitted: int = 0
+    num_queries_dropped: int = 0
+    num_usage_query_fetch_failures: int = 0
 
     profile_table_timeouts: LossyList[str] = field(default_factory=LossyList)
     profile_table_empty: LossyList[str] = field(default_factory=LossyList)
