@@ -1792,9 +1792,11 @@ def test_get_query_history_with_catalog_pushdown_adds_semi_join() -> None:
     query_sql = captured["query"]
     assert "tl2.statement_id" in query_sql
     assert "system.access.table_lineage tl2" in query_sql
-    assert "UPPER(tl2.source_table_catalog) RLIKE '^MAIN$'" in query_sql
-    assert "UPPER(tl2.target_table_catalog) RLIKE '^MAIN$'" in query_sql
-    assert len(captured["params"]) == 6
+    assert "UPPER(tl2.source_table_catalog) RLIKE %s" in query_sql
+    assert "UPPER(tl2.target_table_catalog) RLIKE %s" in query_sql
+    assert "^MAIN$" not in query_sql
+    assert len(captured["params"]) == 8
+    assert captured["params"][6:] == ("^MAIN$", "^MAIN$")
 
 
 def test_get_query_history_catalog_pushdown_deny_pattern() -> None:
@@ -1805,6 +1807,7 @@ def test_get_query_history_catalog_pushdown_deny_pattern() -> None:
 
     def _capture_streaming(query: str, params: tuple) -> Iterator[object]:
         captured["query"] = query
+        captured["params"] = params
         return
         yield  # pragma: no cover - makes this a generator for closing()
 
@@ -1823,7 +1826,9 @@ def test_get_query_history_catalog_pushdown_deny_pattern() -> None:
         )
 
     query_sql = captured["query"]
-    assert "NOT RLIKE '^SYSTEM$'" in query_sql
+    assert "NOT RLIKE %s" in query_sql
+    assert "^SYSTEM$" not in query_sql
+    assert captured["params"][6:] == ("^SYSTEM$", "^SYSTEM$")
 
 
 def test_fetch_queries_passes_catalog_pattern_when_pushdown_enabled(
@@ -2226,16 +2231,48 @@ def test_preparsed_query_partial_urn_resolution(
     assert any("Unresolvable lineage table names" in t for t in warning_titles)
 
 
-def test_get_query_history_catalog_pushdown_escapes_single_quotes() -> None:
-    """Single quotes in catalog regex patterns must be SQL-escaped."""
+def test_build_catalog_column_filter_binds_patterns_with_special_chars() -> None:
     from datahub.configuration.common import AllowDenyPattern
     from datahub.ingestion.source.unity.proxy import _build_catalog_column_filter
 
-    sql = _build_catalog_column_filter(
+    sql, params = _build_catalog_column_filter(
         "tl2.source_table_catalog",
         AllowDenyPattern(allow=["^main'catalog$"], deny=[], ignoreCase=False),
     )
-    assert "RLIKE '^main''catalog$'" in sql
+    assert "RLIKE %s" in sql
+    assert "^main'catalog$" not in sql
+    assert params == ["^main'catalog$"]
+
+
+def test_get_query_history_catalog_pushdown_binds_pattern_params() -> None:
+    """Catalog regex patterns must be bound as parameters, not interpolated into SQL."""
+    from datahub.configuration.common import AllowDenyPattern
+
+    captured: dict = {}
+
+    def _capture_streaming(query: str, params: tuple) -> Iterator[object]:
+        captured["query"] = query
+        captured["params"] = params
+        yield from []
+
+    malicious_pattern = "' OR 1=1 --"
+    catalog_pattern = AllowDenyPattern(allow=[malicious_pattern], deny=[])
+
+    proxy = _make_streaming_proxy()
+    with patch.object(
+        proxy, "_execute_sql_query_streaming", side_effect=_capture_streaming
+    ):
+        list(
+            proxy.get_query_history_via_system_tables(
+                datetime(2026, 6, 1, tzinfo=timezone.utc),
+                datetime(2026, 6, 2, tzinfo=timezone.utc),
+                catalog_pattern=catalog_pattern,
+            )
+        )
+
+    assert malicious_pattern not in captured["query"]
+    assert "RLIKE %s" in captured["query"]
+    assert malicious_pattern.upper() in captured["params"]
 
 
 def test_usage_statement_types_select_only_when_ops_disabled() -> None:
@@ -2488,12 +2525,13 @@ def test_build_catalog_column_filter_respects_ignore_case_false() -> None:
     from datahub.configuration.common import AllowDenyPattern
     from datahub.ingestion.source.unity.proxy import _build_catalog_column_filter
 
-    sql = _build_catalog_column_filter(
+    sql, params = _build_catalog_column_filter(
         "tl2.source_table_catalog",
         AllowDenyPattern(allow=["^Main$"], deny=[], ignoreCase=False),
     )
     assert "UPPER" not in sql
-    assert "RLIKE '^Main$'" in sql
+    assert "RLIKE %s" in sql
+    assert params == ["^Main$"]
 
 
 def test_get_query_history_catalog_pushdown_ignore_case_true() -> None:
@@ -2503,6 +2541,7 @@ def test_get_query_history_catalog_pushdown_ignore_case_true() -> None:
 
     def _capture_streaming(query: str, params: tuple) -> Iterator[object]:
         captured["query"] = query
+        captured["params"] = params
         yield from []
 
     catalog_pattern = AllowDenyPattern(allow=["^main$"], deny=[])
@@ -2520,8 +2559,9 @@ def test_get_query_history_catalog_pushdown_ignore_case_true() -> None:
         )
 
     query_sql = captured["query"]
-    assert "UPPER(tl2.source_table_catalog) RLIKE '^MAIN$'" in query_sql
-    assert "UPPER(tl2.target_table_catalog) RLIKE '^MAIN$'" in query_sql
+    assert "UPPER(tl2.source_table_catalog) RLIKE %s" in query_sql
+    assert "UPPER(tl2.target_table_catalog) RLIKE %s" in query_sql
+    assert captured["params"][6:] == ("^MAIN$", "^MAIN$")
 
 
 def test_aggregate_parse_failure_warning() -> None:
