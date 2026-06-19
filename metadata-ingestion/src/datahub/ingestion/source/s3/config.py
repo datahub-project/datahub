@@ -126,6 +126,17 @@ class DataLakeSourceConfig(
         ),
     )
 
+    max_data_objects: Optional[int] = Field(
+        default=100_000,
+        description=(
+            "Safety cap on the number of dataObject entities emitted per path_spec. On reaching "
+            "this limit the connector stops emitting further dataObjects for that path_spec and "
+            "reports a warning (no silent truncation). Set to null for unlimited (use with care on "
+            "very large buckets). Only applies to unstructured_file_extensions emission; structured "
+            "file / dataset ingestion is unaffected."
+        ),
+    )
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config

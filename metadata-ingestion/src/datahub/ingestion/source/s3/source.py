@@ -1251,6 +1251,9 @@ class S3Source(StatefulIngestionSourceBase):
                     else self.local_browser(path_spec)
                 )
                 table_dict: Dict[str, TableData] = {}
+                num_data_objects = 0
+                max_data_objects = self.source_config.max_data_objects
+                data_objects_capped = False
                 for browse_path in file_browser:
                     # Normalize URI for pattern matching
                     normalized_file_path = self._normalize_uri_for_pattern_matching(
@@ -1264,7 +1267,24 @@ class S3Source(StatefulIngestionSourceBase):
                     ):
                         continue
                     table_data = self.extract_table_data(path_spec, browse_path)
-                    if table_data.table_path not in table_dict:
+                    file_ext = (
+                        table_data.table_path.rsplit(".", 1)[-1].lower()
+                        if "." in table_data.table_path
+                        else ""
+                    )
+                    if self._is_unstructured_file(file_ext):
+                        # Stream dataObject emission so memory stays bounded regardless of object
+                        # count: emit per file instead of accumulating in table_dict.
+                        if (
+                            max_data_objects is not None
+                            and num_data_objects >= max_data_objects
+                        ):
+                            data_objects_capped = True
+                            continue
+                        yield from self.emit_data_object(table_data, path_spec)
+                        num_data_objects += 1
+                        self.report.num_data_objects_emitted += 1
+                    elif table_data.table_path not in table_dict:
                         table_dict[table_data.table_path] = table_data
                     else:
                         table_dict[table_data.table_path].number_of_files = (
@@ -1285,16 +1305,17 @@ class S3Source(StatefulIngestionSourceBase):
                                 table_data.table_path
                             ].timestamp = table_data.timestamp
 
-                for _, table_data in table_dict.items():
-                    file_ext = (
-                        table_data.table_path.rsplit(".", 1)[-1].lower()
-                        if "." in table_data.table_path
-                        else ""
+                if data_objects_capped:
+                    self.report.report_warning(
+                        "max-data-objects-reached",
+                        f"Reached max_data_objects={max_data_objects} for path_spec "
+                        f"{path_spec.include}; stopped emitting further dataObjects. Raise "
+                        f"max_data_objects or narrow the path_spec to ingest more.",
                     )
-                    if self._is_unstructured_file(file_ext):
-                        yield from self.emit_data_object(table_data, path_spec)
-                    else:
-                        yield from self.ingest_table(table_data, path_spec)
+
+                # Structured files only — unstructured were already streamed above.
+                for _, table_data in table_dict.items():
+                    yield from self.ingest_table(table_data, path_spec)
 
             if not self.source_config.is_profiling_enabled():
                 return

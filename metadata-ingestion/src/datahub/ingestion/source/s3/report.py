@@ -12,6 +12,7 @@ class DataLakeSourceReport(StaleEntityRemovalSourceReport):
     files_scanned = 0
     filtered: LossyList[str] = dataclass_field(default_factory=LossyList)
     number_of_files_filtered: int = 0
+    num_data_objects_emitted: int = 0
 
     def report_file_scanned(self) -> None:
         self.files_scanned += 1

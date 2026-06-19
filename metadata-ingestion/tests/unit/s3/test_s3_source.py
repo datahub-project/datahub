@@ -864,3 +864,73 @@ def test_is_unstructured_file_structured_ext_guard():
     assert not source._is_unstructured_file("csv")
     # mp4 is not in SUPPORTED_FILE_TYPES -> it is unstructured
     assert source._is_unstructured_file("mp4")
+
+
+def _media_source(max_data_objects):
+    """An S3Source over a media path-spec with the unstructured allowlist + a cap set."""
+    path_spec = PathSpec(include="s3://my-test-bucket/media/*.*")
+    source = _get_s3_source(path_spec)
+    source.source_config.unstructured_file_extensions = ["mp4"]
+    source.source_config.max_data_objects = max_data_objects
+    return source
+
+
+def _drive_get_workunits(source, file_paths):
+    """Run get_workunits_internal with a stubbed browser yielding the given file paths,
+    stubbing the per-file extract/emit/ingest leaves so we test only the routing/cap loop."""
+    browse_paths = [MagicMock(file=p) for p in file_paths]
+
+    def fake_extract(path_spec, browse_path):
+        td = MagicMock()
+        td.table_path = browse_path.file
+        td.size_in_bytes = 1
+        td.number_of_files = 1
+        td.timestamp = 0
+        return td
+
+    # PathSpec has extra='forbid' so patch at the class level, not the instance.
+    with (
+        patch.object(source, "s3_browser", return_value=iter(browse_paths)),
+        patch.object(source, "extract_table_data", side_effect=fake_extract),
+        patch.object(
+            source, "emit_data_object", return_value=iter([MagicMock()])
+        ) as emit,
+        patch.object(
+            source, "ingest_table", return_value=iter([MagicMock()])
+        ) as ingest,
+        patch.object(PathSpec, "allowed", return_value=True),
+    ):
+        list(source.get_workunits_internal())
+    return emit, ingest
+
+
+def test_max_data_objects_caps_and_warns():
+    source = _media_source(max_data_objects=3)
+    emit, _ = _drive_get_workunits(
+        source, [f"s3://my-test-bucket/media/f{i}.mp4" for i in range(5)]
+    )
+    assert emit.call_count == 3  # stopped at the cap, did not emit all 5
+    assert source.report.num_data_objects_emitted == 3
+    assert any("max_data_objects" in str(w) for w in source.report.warnings)
+
+
+def test_max_data_objects_unlimited():
+    source = _media_source(max_data_objects=None)
+    emit, _ = _drive_get_workunits(
+        source, [f"s3://my-test-bucket/media/f{i}.mp4" for i in range(5)]
+    )
+    assert emit.call_count == 5
+    assert source.report.num_data_objects_emitted == 5
+    assert not any("max_data_objects" in str(w) for w in source.report.warnings)
+
+
+def test_structured_files_unaffected_by_cap():
+    # csv is structured -> must route to ingest_table regardless of the cap, and not count.
+    source = _media_source(max_data_objects=1)
+    emit, ingest = _drive_get_workunits(
+        source,
+        ["s3://my-test-bucket/media/a.csv", "s3://my-test-bucket/media/b.csv"],
+    )
+    assert emit.call_count == 0
+    assert ingest.call_count == 2
+    assert source.report.num_data_objects_emitted == 0
