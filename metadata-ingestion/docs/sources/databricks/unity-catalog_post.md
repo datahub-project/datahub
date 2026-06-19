@@ -63,6 +63,12 @@ On the **system-tables path**, query history is joined to `system.access.table_l
 
 `push_down_database_pattern_access_history: true` applies `catalog_pattern` filtering in `system.access.table_lineage` and semi-joins query history to statements that have lineage in the configured time window. Statements without lineage rows are not fetched (even when `catalog_pattern` allows all catalogs).
 
+:::warning Coverage vs. speed tradeoff
+
+`skip_sqlglot_when_system_table_lineage_missing` and `push_down_database_pattern_access_history` trade usage **coverage** for speed, not just parsing time. Databricks only records a `system.access.table_lineage` row for statements that emit a lineage event (typically a minority of warehouse/serverless queries) — `CREATE`, `DESCRIBE`, `SET`, and most other statements have no lineage row at all. Enabling either option therefore drops usage and operations for every statement that lacks lineage in the time window, which is usually the large majority of activity. They are off by default for this reason; leave them off unless you specifically want to restrict usage to the lineage-bearing subset in exchange for faster, lighter ingestion.
+
+:::
+
 #### Delta Lake External Tables
 
 When `emit_siblings` is enabled (the default), the connector emits sibling relationships between Unity Catalog external tables and their corresponding `delta-lake` platform entities for tables stored on S3 or other object storage. This means you may see a second dataset entity for each external Delta table — one under the `databricks` platform and one under `delta-lake` — linked as siblings in DataHub. Set `emit_siblings: false` in your recipe to disable this behavior if you don't need cross-platform linkage.
