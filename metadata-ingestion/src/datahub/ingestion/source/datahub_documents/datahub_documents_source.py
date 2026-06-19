@@ -725,12 +725,26 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     def _fetch_documents_graphql(self) -> list[dict[str, Any]]:
         """Fetch Document entities from DataHub using GraphQL."""
+        # scrollAcrossEntities uses cursor-based pagination and is not subject to
+        # Elasticsearch's max_result_window limit (default 10,000), unlike offset-based search.
         query = """
-        query listDocuments($input: SearchInput!) {
-          search(input: $input) {
-            start
-            count
-            total
+        query scrollDocuments(
+            $scrollId: String,
+            $batchSize: Int!,
+            $orFilters: [AndFilterInput!]
+        ) {
+          scrollAcrossEntities(input: {
+            types: [DOCUMENT],
+            query: "*",
+            count: $batchSize,
+            scrollId: $scrollId,
+            orFilters: $orFilters,
+            searchFlags: {
+              skipHighlighting: true,
+              skipAggregates: true
+            }
+          }) {
+            nextScrollId
             searchResults {
               entity {
                 urn
@@ -763,40 +777,46 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         page_size = 1000
 
         # Build optional platform filter
-        platform_filters = None
+        or_filters = None
         if (
             self.config.platform_filter
             and "*" not in self.config.platform_filter
             and "ALL" not in self.config.platform_filter
         ):
-            platform_filters = [
+            or_filters = [
                 {
-                    "field": "platform",
-                    "values": [
-                        f"urn:li:dataPlatform:{platform}"
-                        for platform in self.config.platform_filter
-                    ],
+                    "and": [
+                        {
+                            "field": "platform",
+                            "values": [
+                                f"urn:li:dataPlatform:{platform}"
+                                for platform in self.config.platform_filter
+                            ],
+                        }
+                    ]
                 }
             ]
 
         try:
             documents = []
-            start = 0
+            scroll_id: Optional[str] = None
+            first_iter = True
 
-            while True:
-                search_input: dict[str, Any] = {
-                    "type": "DOCUMENT",
-                    "query": "*",
-                    "start": start,
-                    "count": page_size,
+            while first_iter or scroll_id:
+                first_iter = False
+                variables: dict[str, Any] = {
+                    "batchSize": page_size,
+                    "scrollId": scroll_id,
+                    "orFilters": or_filters,
                 }
-                if platform_filters:
-                    search_input["filters"] = platform_filters
+                response = self.graph.execute_graphql(query, variables)
+                scroll_data = response.get("scrollAcrossEntities") or {}
+                scroll_id = scroll_data.get("nextScrollId")
+                search_results = scroll_data.get("searchResults") or []
 
-                response = self.graph.execute_graphql(query, {"input": search_input})
-                search_data = response.get("search") or {}
-                search_results = search_data.get("searchResults") or []
-                total = search_data.get("total") or 0
+                logger.debug(
+                    f"Fetched page of {len(search_results)} documents (scrollId={scroll_id})"
+                )
 
                 for result in search_results:
                     entity = result.get("entity") or {}
@@ -834,10 +854,6 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
                     documents.append({"urn": urn, "text": text})
                     self.report.report_document_fetched()
-
-                start += len(search_results)
-                if not search_results or start >= total:
-                    break
 
             logger.info(
                 f"Fetched {len(documents)} documents with text content from platforms: {self.config.platform_filter}"
