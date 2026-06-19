@@ -16,7 +16,7 @@ This source ingests the Cube data model into DataHub as datasets: each cube and 
 | `format` / `drillMembers` / `cumulative`                | Schema Field `jsonProps`                                                          | Measure presentation hints                           |
 | `joins` / `hierarchies` / `folders` / `preAggregations` | Dataset custom properties                                                         | Structural model metadata                            |
 | `public` / `isVisible`                                  | Ingestion filter                                                                  | Hidden cubes/members skipped unless `include_hidden` |
-| `table_references` / cube `sql`                         | [Lineage](https://docs.datahub.com/docs/generated/lineage/lineage-feature-guide)  | Lineage to upstream warehouse tables                 |
+| `table_references` / cube `sql`                         | [Lineage](https://docs.datahub.com/docs/features/feature-guides/lineage)          | Lineage to upstream warehouse tables                 |
 | View member `aliasMember`                               | Fine-Grained Lineage                                                              | Column-level view-to-cube lineage                    |
 | `meta`                                                  | Tags / Terms / Owners / Domains                                                   | Mapped via `meta_mapping` / `column_meta_mapping`    |
 | Report (Cube Cloud)                                     | [Chart](https://docs.datahub.com/docs/generated/metamodel/entities/chart)         | Input lineage to queried cubes/views                 |
