@@ -1880,6 +1880,10 @@ class SnowflakeSourceConnector(BaseConnector):
                 if f"dataplatform:{platform.lower()}" not in urn.lower():
                     continue
 
+                # When platform_instance is configured, DatasetUrn embeds it as
+                # "{platform_instance}.{table_name}". Strip it before pattern matching.
+                table_name = self._strip_platform_instance_prefix(table_name)
+
                 # Try pattern match (table_name from DataHub is already lowercase)
                 if regex.fullmatch(table_name):
                     matched_tables.append(table_name)
@@ -3392,6 +3396,10 @@ class DebeziumSourceConnector(BaseConnector):
                 table_name = self._extract_table_name_from_urn(urn)
                 if not table_name:
                     continue
+
+                # When platform_instance is configured, DatasetUrn embeds it as
+                # "{platform_instance}.{table_name}". Strip it before pattern matching.
+                table_name = self._strip_platform_instance_prefix(table_name)
 
                 # Try direct match first (handles patterns like "mydb.schema.*")
                 full_name_matches = (

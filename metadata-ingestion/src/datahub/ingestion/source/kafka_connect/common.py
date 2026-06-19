@@ -783,6 +783,10 @@ class BaseConnector:
                 if not table_name:
                     continue
 
+                # When platform_instance is configured, DatasetUrn embeds it as
+                # "{platform_instance}.{table_name}". Strip it before filtering.
+                table_name = self._strip_platform_instance_prefix(table_name)
+
                 # Filter by database - check if table_name starts with database prefix
                 if database_name:
                     if table_name.lower().startswith(f"{database_name.lower()}."):
@@ -1160,6 +1164,24 @@ class BaseConnector:
             logger.debug(f"Failed to extract table name from URN {urn}: {e}")
             return None
 
+    def _strip_platform_instance_prefix(self, table_name: str) -> str:
+        """Strip platform_instance prefix from URN table name if present.
+
+        DatasetUrn.create_from_ids embeds platform_instance in the name field
+        as "{platform_instance}.{table_name}". This reverses that embedding so
+        that filter and pattern-matching logic operates on the bare table name.
+        When no platform_instance is configured this is a no-op.
+        """
+        if not self.schema_resolver:
+            return table_name
+        platform_instance = getattr(self.schema_resolver, "platform_instance", None)
+        if not platform_instance:
+            return table_name
+        prefix = f"{platform_instance}."
+        if table_name.startswith(prefix):
+            return table_name[len(prefix) :]
+        return table_name
+
     def _extract_lineages_from_schema_resolver(
         self,
         source_platform: str,
@@ -1228,6 +1250,10 @@ class BaseConnector:
                 table_name = self._extract_table_name_from_urn(urn)
                 if not table_name:
                     continue
+
+                # When platform_instance is configured, DatasetUrn embeds it as
+                # "{platform_instance}.{table_name}". Strip it before topic naming.
+                table_name = self._strip_platform_instance_prefix(table_name)
 
                 # Generate base topic name using connector-specific naming logic
                 expected_topic = topic_namer(table_name)

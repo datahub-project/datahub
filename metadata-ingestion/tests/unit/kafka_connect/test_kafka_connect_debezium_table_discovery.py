@@ -14,6 +14,7 @@ from datahub.ingestion.source.kafka_connect.common import (
 )
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     DebeziumSourceConnector,
+    SnowflakeSourceConnector,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
@@ -48,6 +49,32 @@ def create_debezium_connector(
     report = Mock(spec=KafkaConnectSourceReport)
 
     connector = DebeziumSourceConnector(manifest, config, report)
+    connector.schema_resolver = schema_resolver
+
+    return connector
+
+
+def create_snowflake_connector(
+    connector_config: dict,
+    schema_resolver: Optional[SchemaResolver] = None,
+) -> SnowflakeSourceConnector:
+    """Helper to create a SnowflakeSourceConnector instance for testing."""
+    manifest = ConnectorManifest(
+        name="test-snowflake-connector",
+        type="source",
+        config=connector_config,
+        tasks=[],
+        topic_names=[],
+    )
+
+    config = Mock(spec=KafkaConnectSourceConfig)
+    config.use_schema_resolver = True
+    config.schema_resolver_expand_patterns = True
+    config.env = "PROD"
+
+    report = Mock(spec=KafkaConnectSourceReport)
+
+    connector = SnowflakeSourceConnector(manifest, config, report)
     connector.schema_resolver = schema_resolver
 
     return connector
@@ -659,3 +686,139 @@ class TestGetTopicsFromConfigIntegration:
 
         # Should return empty list instead of crashing
         assert result == []
+
+
+class TestDiscoverTablesWithPlatformInstance:
+    """Tests for platform_instance prefix stripping in table discovery.
+
+    When platform_instance_map is configured, DatasetUrn.create_from_ids embeds
+    the platform_instance in the URN name field as "{platform_instance}.{table_name}".
+    These tests verify that the PI prefix is correctly stripped before filtering and
+    pattern matching, so discovery returns the expected tables.
+    """
+
+    def test_strip_platform_instance_prefix_strips_when_present(self) -> None:
+        """_strip_platform_instance_prefix removes the PI prefix."""
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "my_db",
+        }
+        schema_resolver = Mock(spec=SchemaResolver)
+        schema_resolver.platform_instance = "my_instance"
+        connector = create_debezium_connector(
+            connector_config, schema_resolver=schema_resolver, use_schema_resolver=True
+        )
+
+        result = connector._strip_platform_instance_prefix(
+            "my_instance.my_db.public.orders"
+        )
+        assert result == "my_db.public.orders"
+
+    def test_strip_platform_instance_prefix_noop_when_no_pi(self) -> None:
+        """_strip_platform_instance_prefix is a no-op when no platform_instance is set."""
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "testdb",
+        }
+        schema_resolver = Mock(spec=SchemaResolver)
+        schema_resolver.platform_instance = None
+        connector = create_debezium_connector(
+            connector_config, schema_resolver=schema_resolver, use_schema_resolver=True
+        )
+
+        result = connector._strip_platform_instance_prefix("testdb.public.users")
+        assert result == "testdb.public.users"
+
+    def test_discover_tables_from_database_strips_pi_prefix(self) -> None:
+        """_discover_tables_from_database returns tables when URNs have a PI prefix.
+
+        Reproduces the reported platform_instance scenario: platform_instance=my_instance,
+        database=my_db. Without the fix, zero tables are discovered
+        because the PI-prefixed name never starts with the database prefix.
+        """
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "my_db",
+        }
+        schema_resolver = Mock(spec=SchemaResolver)
+        schema_resolver.platform_instance = "my_instance"
+        schema_resolver.env = "PROD"
+        # Simulate URNs as stored in the SchemaResolver cache when PI is configured
+        schema_resolver.get_urns.return_value = {
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_instance.my_db.public.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_instance.my_db.public.products,PROD)",
+        }
+        connector = create_debezium_connector(
+            connector_config, schema_resolver=schema_resolver, use_schema_resolver=True
+        )
+
+        result = connector._discover_tables_from_database(
+            platform="postgres",
+            database_name="my_db",
+        )
+
+        # After PI stripping, both tables should match the database prefix
+        assert sorted(result) == ["public.orders", "public.products"]
+
+    def test_query_tables_from_datahub_strips_pi_prefix(self) -> None:
+        """_query_tables_from_datahub pattern matching works when URNs have a PI prefix."""
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "my_db",
+            "table.include.list": "public.*",
+        }
+        schema_resolver = Mock(spec=SchemaResolver)
+        schema_resolver.platform_instance = "my_instance"
+        schema_resolver.env = "PROD"
+        schema_resolver.get_urns.return_value = {
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_instance.my_db.public.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_instance.my_db.public.products,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_instance.my_db.internal.audit,PROD)",
+        }
+        connector = create_debezium_connector(
+            connector_config, schema_resolver=schema_resolver, use_schema_resolver=True
+        )
+
+        result = connector._query_tables_from_datahub(
+            platform="postgres",
+            pattern="my_db.public.*",
+            database="my_db",
+        )
+
+        # Only tables matching "my_db.public.*" should be returned
+        assert sorted(result) == [
+            "my_db.public.orders",
+            "my_db.public.products",
+        ]
+
+    def test_snowflake_query_tables_from_datahub_strips_pi_prefix(self) -> None:
+        """Snowflake _query_tables_from_datahub matches patterns after PI stripping."""
+        connector_config = {
+            "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+            "topic.prefix": "sf_",
+        }
+        schema_resolver = Mock(spec=SchemaResolver)
+        schema_resolver.platform_instance = "my_instance"
+        schema_resolver.env = "PROD"
+        schema_resolver.graph = Mock()
+        schema_resolver.graph.get_urns_by_filter.return_value = [
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.public.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.public.products,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.internal.audit,PROD)",
+        ]
+        connector = create_snowflake_connector(
+            connector_config, schema_resolver=schema_resolver
+        )
+
+        result = connector._query_tables_from_datahub(
+            pattern="my_db.public.*",
+            platform="snowflake",
+            database="my_db",
+        )
+
+        # PI prefix stripped before matching; only public-schema tables match
+        assert sorted(result) == ["my_db.public.orders", "my_db.public.products"]
