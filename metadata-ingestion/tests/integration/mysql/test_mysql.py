@@ -1,6 +1,7 @@
 import json
 import subprocess
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pymysql
 import pytest
@@ -135,7 +136,7 @@ def mysql_usage_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         yield docker_services
 
 
-def _run_usage_pipeline(usage_source: str, output_path) -> list:
+def _run_usage_pipeline(usage_source: str, output_path: Path) -> list:
     pipeline = Pipeline.create(
         {
             "run_id": f"mysql-usage-{usage_source}",
