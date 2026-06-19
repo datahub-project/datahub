@@ -191,12 +191,19 @@ def _build_catalog_column_filter(
     """Build RLIKE filter for a single table_lineage catalog column."""
     pattern_parts: List[str] = []
 
+    def transform(pattern: str) -> str:
+        return pattern.upper() if catalog_pattern.ignoreCase else pattern
+
+    col_expr = f"UPPER({column_expr})" if catalog_pattern.ignoreCase else column_expr
+
     allow_patterns = catalog_pattern.allow
     if allow_patterns and allow_patterns != [".*"]:
         allow_conditions = []
         for pattern in allow_patterns:
-            escaped_pattern = pattern.replace("'", "''")
-            allow_conditions.append(f"UPPER({column_expr}) RLIKE '{escaped_pattern}'")
+            escaped_pattern = (
+                transform(pattern).replace("\\", "\\\\").replace("'", "''")
+            )
+            allow_conditions.append(f"{col_expr} RLIKE '{escaped_pattern}'")
         if allow_conditions:
             pattern_parts.append(
                 allow_conditions[0]
@@ -208,10 +215,10 @@ def _build_catalog_column_filter(
     if deny_patterns:
         deny_conditions = []
         for pattern in deny_patterns:
-            escaped_pattern = pattern.replace("'", "''")
-            deny_conditions.append(
-                f"UPPER({column_expr}) NOT RLIKE '{escaped_pattern}'"
+            escaped_pattern = (
+                transform(pattern).replace("\\", "\\\\").replace("'", "''")
             )
+            deny_conditions.append(f"{col_expr} NOT RLIKE '{escaped_pattern}'")
         if deny_conditions:
             pattern_parts.append(
                 deny_conditions[0]
@@ -261,7 +268,13 @@ def _optional_row_field(
         if report is not None:
             report.num_lineage_row_field_read_errors += 1
         return None
-    return value if value else None
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str):
+        if report is not None:
+            report.num_lineage_row_field_read_errors += 1
+        return None
+    return value
 
 
 class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
@@ -778,7 +791,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         if catalog_pattern is not None:
             params = (start_time, end_time, start_time, end_time, start_time, end_time)
 
-        def _query_from_row(row: Row) -> Query:
+        def _query_from_row(row: Row) -> Optional[Query]:
+            if not row.statement_text or not row.start_time or not row.end_time:
+                return None
             return Query(
                 query_id=row.statement_id,
                 query_text=row.statement_text,
@@ -815,6 +830,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             source_names = set()
             target_names = set()
 
+        missing_info_before = self.report.num_queries_missing_info
         row_field_errors_before = self.report.num_lineage_row_field_read_errors
         try:
             with closing(self._execute_sql_query_streaming(query, params)) as rows:
@@ -824,7 +840,16 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         if statement_id != current_statement_id:
                             yield from _flush_current()
                             current_statement_id = statement_id
-                            current_query = _query_from_row(row)
+                            parsed = _query_from_row(row)
+                            if parsed is None:
+                                self.report.num_queries_missing_info += 1
+                                current_statement_id = None
+                                current_query = None
+                                continue
+                            current_query = parsed
+
+                        if current_query is None:
+                            continue
 
                         source_name = _optional_row_field(
                             row, "source_table_full_name", self.report
@@ -836,19 +861,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         )
                         if target_name:
                             target_names.add(target_name)
-                    except Exception as e:
-                        logger.warning(
-                            "Error parsing query from system table", exc_info=True
-                        )
-                        try:
-                            error_statement_id = row.statement_id
-                        except Exception:
-                            error_statement_id = None
-                        self.report.report_warning(
-                            title="Failed to parse query from system tables",
-                            message="A statement read from system.query.history could not be parsed and was skipped.",
-                            context=f"statement_id={error_statement_id}",
-                            exc=e,
+                    except Exception:
+                        logger.debug(
+                            "Error parsing query from system table",
+                            exc_info=True,
                         )
                         self.report.num_queries_missing_info += 1
                         yield from _flush_current()
@@ -856,6 +872,15 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
             yield from _flush_current()
         finally:
+            parse_failures = self.report.num_queries_missing_info - missing_info_before
+            if parse_failures > 0:
+                self.report.report_warning(
+                    title="Failed to parse queries from system tables",
+                    message=(
+                        f"{parse_failures} statement(s) from system.query.history "
+                        "could not be parsed and were skipped."
+                    ),
+                )
             row_field_errors = (
                 self.report.num_lineage_row_field_read_errors - row_field_errors_before
             )
