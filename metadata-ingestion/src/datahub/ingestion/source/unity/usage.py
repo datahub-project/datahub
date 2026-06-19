@@ -11,6 +11,7 @@ from datahub.ingestion.api.source_helpers import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
@@ -109,10 +110,11 @@ class UnityCatalogUsageExtractor:
         return CorpUserUrn.from_string(self.user_urn_builder(query.user_name))
 
     def _full_name_to_urn(self, full_name: str) -> Optional[UrnStr]:
-        parts = full_name.split(".")
-        if len(parts) != 3:
+        parts = split_databricks_identifier(full_name)
+        if parts is None or len(parts) != 3:
             logger.debug("Skipping unexpected table full name: %s", full_name)
             self.report.num_lineage_tables_unresolvable += 1
+            self.report.lineage_tables_unresolvable_sample.append(full_name)
             return None
         catalog, schema, table = parts
         urn, _ = self.schema_resolver.resolve_table(
@@ -124,6 +126,7 @@ class UnityCatalogUsageExtractor:
                 full_name,
             )
             self.report.num_lineage_tables_unresolvable += 1
+            self.report.lineage_tables_unresolvable_sample.append(full_name)
         return urn
 
     def _resolve_table_urns(self, full_names: Iterable[str]) -> List[UrnStr]:
@@ -171,17 +174,21 @@ class UnityCatalogUsageExtractor:
 
         preparsed = self.report.num_queries_preparsed_from_lineage
         without_lineage = self.report.num_queries_without_system_table_lineage
+        skipped_no_lineage = (
+            self.report.num_queries_skipped_without_system_table_lineage
+        )
         fallback = self.report.num_queries_preparsed_fallback_to_sqlglot
         preparsed_pct = round(100 * preparsed / total, 1) if total else 0.0
-        logger.debug(
+        logger.info(
             "Unity usage routing summary (system-table join): "
             "total=%s preparsed=%s (%.1f%%) "
-            "sqlglot_no_lineage=%s sqlglot_urn_fallback=%s sqlglot_total=%s "
-            "unresolvable_lineage_tables=%s",
+            "sqlglot_no_lineage=%s skipped_no_system_table_lineage=%s "
+            "sqlglot_urn_fallback=%s sqlglot_total=%s unresolvable_lineage_tables=%s",
             total,
             preparsed,
             preparsed_pct,
             without_lineage,
+            skipped_no_lineage,
             fallback,
             self.report.num_queries_observed_sqlglot,
             self.report.num_lineage_tables_unresolvable,
@@ -275,6 +282,18 @@ class UnityCatalogUsageExtractor:
                 self._query_preview(query),
             )
         elif self._use_system_tables_join():
+            if self.config.skip_sqlglot_when_system_table_lineage_missing:
+                self.report.num_queries_skipped_without_system_table_lineage += 1
+                logger.debug(
+                    "Usage query skipped: no system.access.table_lineage rows "
+                    "for statement_id in configured time window "
+                    "(statement_id=%s statement_type=%s preview=%r)",
+                    query.query_id,
+                    self._statement_type_label(query),
+                    self._query_preview(query),
+                )
+                return
+
             self.report.num_queries_without_system_table_lineage += 1
             logger.debug(
                 "Usage query routed to sqlglot: no system.access.table_lineage rows "
@@ -297,6 +316,25 @@ class UnityCatalogUsageExtractor:
         self.report.num_queries_observed_sqlglot += 1
 
     def _report_usage_lineage_warnings(self) -> None:
+        if self.report.num_queries_without_system_table_lineage > 0:
+            self.report.report_warning(
+                title="Queries missing system-table lineage",
+                message=(
+                    f"{self.report.num_queries_without_system_table_lineage} queries "
+                    "had no matching rows in system.access.table_lineage and were "
+                    "parsed with sqlglot instead."
+                ),
+            )
+        if self.report.num_queries_skipped_without_system_table_lineage > 0:
+            self.report.report_warning(
+                title="Queries skipped without system-table lineage",
+                message=(
+                    f"{self.report.num_queries_skipped_without_system_table_lineage} "
+                    "queries had no matching rows in system.access.table_lineage and "
+                    "were skipped because "
+                    "skip_sqlglot_when_system_table_lineage_missing is enabled."
+                ),
+            )
         if self.report.num_queries_preparsed_fallback_to_sqlglot > 0:
             self.report.report_warning(
                 title="System-table lineage fell back to SQL parsing",
@@ -307,12 +345,16 @@ class UnityCatalogUsageExtractor:
                 ),
             )
         if self.report.num_lineage_tables_unresolvable > 0:
+            sample = list(self.report.lineage_tables_unresolvable_sample)
+            sample_text = ""
+            if sample:
+                sample_text = f" Examples: {', '.join(sample[:3])}."
             self.report.report_warning(
                 title="Unresolvable lineage table names",
                 message=(
                     f"{self.report.num_lineage_tables_unresolvable} table name(s) "
                     "from system.access.table_lineage could not be mapped to dataset "
-                    "URNs and were omitted from preparsed usage."
+                    f"URNs and were omitted from preparsed usage.{sample_text}"
                 ),
             )
 
@@ -397,30 +439,41 @@ class UnityCatalogUsageExtractor:
                     title="Failed to fetch query history",
                     message="Could not fully read query history from system tables; usage statistics may be incomplete or missing. See the related SQL query failure warning for the underlying error.",
                 )
+                return
             if self.report.num_queries == 0:
                 if not fetch_failed:
-                    if self._use_system_tables_join():
-                        hint = (
-                            "verify SELECT privilege on system.query and system.access "
-                            "and that the time window covers recent activity"
+                    if self.report.num_queries_missing_info > 0:
+                        self.report.report_warning(
+                            title="Query history rows could not be parsed",
+                            message=(
+                                f"{self.report.num_queries_missing_info} statement(s) "
+                                "from system.query.history could not be parsed and were "
+                                "skipped, so no usage was extracted."
+                            ),
                         )
-                        if (
-                            self.config.push_down_database_pattern_access_history
-                            and self.config.catalog_pattern is not None
-                        ):
-                            hint += (
-                                "; if catalog pushdown is enabled, also verify "
-                                "catalog_pattern allow/deny rules are not over-restrictive"
-                            )
                     else:
-                        hint = (
-                            "verify CAN_MANAGE privilege on the SQL warehouse "
-                            "and that the time window covers recent activity"
+                        if self._use_system_tables_join():
+                            hint = (
+                                "verify SELECT privilege on system.query and system.access "
+                                "and that the time window covers recent activity"
+                            )
+                            if (
+                                self.config.push_down_database_pattern_access_history
+                                and self.config.catalog_pattern is not None
+                            ):
+                                hint += (
+                                    "; if catalog pushdown is enabled, also verify "
+                                    "catalog_pattern allow/deny rules are not over-restrictive"
+                                )
+                        else:
+                            hint = (
+                                "verify CAN_MANAGE privilege on the SQL warehouse "
+                                "and that the time window covers recent activity"
+                            )
+                        self.report.report_warning(
+                            title="No queries found for usage",
+                            message=f"No queries were found in the configured time range. {hint}.",
                         )
-                    self.report.report_warning(
-                        title="No queries found for usage",
-                        message=f"No queries were found in the configured time range. {hint}.",
-                    )
                 # Skip resetting per-table usage when we couldn't read any queries at
                 # all (empty history or missing permission).  Emitting zero-usage aspects
                 # in that case would wrongly wipe existing usage stats in DataHub.
