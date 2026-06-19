@@ -326,6 +326,17 @@ class GlueSourceConfig(
         ),
     )
 
+    resolve_resource_link_schema: bool = Field(
+        default=True,
+        description=(
+            "When ingesting Lake Formation resource links (`ignore_resource_links=False`), fetch the "
+            "shared table's schema from its target table in the owning account, since the link "
+            "itself carries no columns. Requires `glue:GetTable` on the target table. Best-effort: "
+            "on error the link is ingested without a schema. Set to False to rely on the owner "
+            "account's own ingestion for the schema instead."
+        ),
+    )
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -651,6 +662,44 @@ class GlueSource(StatefulIngestionSourceBase):
                 if detail.env is not None:
                     env = detail.env
         return TargetPlatformConfig(platform_instance=instance, env=env)
+
+    def _populate_resource_link_schema(self, table: Dict) -> Dict:
+        """Backfill a resource link's schema from its target table in the owning account.
+
+        Resource links carry no StorageDescriptor of their own (the schema lives on the target
+        table), so the link would otherwise be ingested schemaless. Fetch the target's definition
+        and copy its StorageDescriptor onto a shallow copy of the link. Best-effort: on error (e.g.
+        missing cross-account `glue:GetTable`) the link is returned unchanged.
+        """
+        target = table.get("TargetTable")
+        # Nothing to do if it's not a resource link or it already carries columns.
+        if not target or table.get("StorageDescriptor", {}).get("Columns"):
+            return table
+
+        kwargs = {
+            "DatabaseName": target.get("DatabaseName"),
+            "Name": target.get("Name"),
+            "CatalogId": target.get("CatalogId"),
+        }
+        try:
+            response = self.glue_client.get_table(
+                **{k: v for k, v in kwargs.items() if v}
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to resolve resource link schema",
+                message="The shared table will be ingested without a schema. Check that the "
+                "ingestion role has glue:GetTable on the target table's account, or set "
+                "resolve_resource_link_schema=false to rely on the owner account's ingestion.",
+                context=f"{table.get('DatabaseName')}.{table.get('Name')} -> {target}",
+                exc=e,
+            )
+            return table
+
+        storage_descriptor = response.get("Table", {}).get("StorageDescriptor")
+        if not storage_descriptor:
+            return table
+        return {**table, "StorageDescriptor": storage_descriptor}
 
     def _gen_resource_link_lineage(
         self, table: Dict, dataset_urn: str
@@ -1373,6 +1422,13 @@ class GlueSource(StatefulIngestionSourceBase):
                 and "TargetDatabase" in database
             ):
                 table["DatabaseName"] = database["Name"]
+            # Resource links carry no schema of their own; backfill it from the target table.
+            if (
+                not self.source_config.ignore_resource_links
+                and self.source_config.resolve_resource_link_schema
+                and "TargetTable" in table
+            ):
+                table = self._populate_resource_link_schema(table)
             yield table
 
     def get_all_databases_and_tables(

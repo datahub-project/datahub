@@ -407,6 +407,49 @@ def test_resource_link_emits_upstream_edge_to_owner():
     ]
 
 
+def test_resource_link_schema_resolved_from_target():
+    # A resource link carries no columns of its own; its schema must be fetched from the target
+    # table in the owning account.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(aws_region="us-east-1"),
+    )
+
+    target_storage_descriptor = {
+        "Columns": [
+            {"Name": "txn_id", "Type": "bigint", "Comment": ""},
+            {"Name": "amount", "Type": "double", "Comment": ""},
+        ],
+        "Location": "s3://owner-bucket/transactions",
+    }
+
+    with Stubber(source.glue_client) as stubber:
+        stubber.add_response(
+            "get_table",
+            {
+                "Table": {
+                    "Name": "transactions",
+                    "StorageDescriptor": target_storage_descriptor,
+                }
+            },
+            {
+                "DatabaseName": "test-database",
+                "Name": "transactions",
+                "CatalogId": "432143214321",
+            },
+        )
+        resolved = source._populate_resource_link_schema(
+            dict(resource_link_table_in_mixed_database)
+        )
+
+    assert (
+        resolved["StorageDescriptor"]["Columns"] == target_storage_descriptor["Columns"]
+    )
+    # The link's own identity (consumer-side name/db) is untouched.
+    assert resolved["Name"] == "shared-transactions"
+    assert resolved["DatabaseName"] == "mixed-database"
+
+
 def test_extract_urns_from_query_applies_target_platform_instance():
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
