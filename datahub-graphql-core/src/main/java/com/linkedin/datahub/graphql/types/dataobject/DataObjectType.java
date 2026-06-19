@@ -47,6 +47,7 @@ public class DataObjectType
           Constants.GLOBAL_TAGS_ASPECT_NAME,
           Constants.GLOSSARY_TERMS_ASPECT_NAME,
           Constants.DOMAINS_ASPECT_NAME,
+          Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME,
           Constants.STATUS_ASPECT_NAME,
           Constants.DEPRECATION_ASPECT_NAME,
           Constants.SUB_TYPES_ASPECT_NAME,
@@ -56,7 +57,6 @@ public class DataObjectType
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
           Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
           Constants.FORMS_ASPECT_NAME,
-          Constants.OPERATION_ASPECT_NAME,
           Constants.DOCUMENTATION_ASPECT_NAME);
 
   private final EntityClient _entityClient;

@@ -374,6 +374,7 @@ entities:
       - globalTags
       - glossaryTerms
       - domains
+      - applications
       - structuredProperties
       - institutionalMemory
       - documentation

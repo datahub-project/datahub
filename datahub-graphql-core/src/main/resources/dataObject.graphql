@@ -88,6 +88,11 @@ type DataObject implements Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the Data Object
+  """
+  applications: [ApplicationAssociation!]
+
+  """
   The deprecation status of the Data Object
   """
   deprecation: Deprecation
