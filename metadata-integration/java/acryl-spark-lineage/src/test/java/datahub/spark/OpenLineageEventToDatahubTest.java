@@ -8,6 +8,7 @@ import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.dataprocess.RunResultType;
 import com.linkedin.dataset.FineGrainedLineage;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import datahub.spark.conf.SparkAppContext;
@@ -16,6 +17,7 @@ import datahub.spark.conf.SparkLineageConf;
 import datahub.spark.converter.SparkStreamingEventToDatahub;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
 import io.datahubproject.openlineage.converter.OpenLineageToDataHub;
+import io.datahubproject.openlineage.dataset.ConnectionInstanceDetail;
 import io.datahubproject.openlineage.dataset.DatahubDataset;
 import io.datahubproject.openlineage.dataset.DatahubJob;
 import io.datahubproject.openlineage.dataset.PathSpec;
@@ -26,6 +28,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -151,6 +154,61 @@ public class OpenLineageEventToDatahubTest {
 
     assertEquals("hdfs", urn.get().getPlatformEntity().getPlatformNameEntity());
     assertEquals("/tmp/streaming_output", urn.get().getDatasetNameEntity());
+  }
+
+  @Test
+  public void testGenerateUrnFromStreamingDescriptionKafkaWithPlatformInstance()
+      throws URISyntaxException {
+    Config datahubConfig =
+        ConfigFactory.parseMap(
+            new HashMap<String, Object>() {
+              {
+                put(SparkConfigParser.DATASET_ENV_KEY, "PROD");
+                put(SparkConfigParser.DATASET_PLATFORM_INSTANCE_KEY, "my_instance");
+              }
+            });
+
+    SparkLineageConf.SparkLineageConfBuilder sparkLineageConfBuilder = SparkLineageConf.builder();
+    sparkLineageConfBuilder.openLineageConf(
+        SparkConfigParser.sparkConfigToDatahubOpenlineageConf(
+            datahubConfig, new SparkAppContext()));
+
+    Optional<DatasetUrn> urn =
+        SparkStreamingEventToDatahub.generateUrnFromStreamingDescription(
+            "KafkaV2[Subscribe[my-topic]]", sparkLineageConfBuilder.build());
+    assert (urn.isPresent());
+
+    // Streaming Kafka sinks must carry the configured platform_instance so their URNs match the
+    // batch-emitted URNs for the same topic (cross-domain lineage stitching).
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,my_instance.my-topic,PROD)",
+        urn.get().toString());
+  }
+
+  @Test
+  public void testSparkConfigParsesConnectionInstanceMap() {
+    Config datahubConfig =
+        ConfigFactory.parseString(
+            "metadata.dataset.connections {\n"
+                + "  \"arn:aws:glue:us-east-1:111122223333\" { platformInstance = \"domain_a\", env = \"PROD\" }\n"
+                + "  \"snowflake://acme-prod\" { platformInstance = \"snow_prod\" }\n"
+                + "}");
+
+    DatahubOpenlineageConfig conf =
+        SparkConfigParser.sparkConfigToDatahubOpenlineageConf(datahubConfig, new SparkAppContext());
+
+    ConnectionInstanceDetail glue =
+        conf.getConnectionInstanceMap().get("arn:aws:glue:us-east-1:111122223333");
+    assertNotNull(glue);
+    assertEquals("domain_a", glue.getPlatformInstance());
+    assertEquals(Optional.of("PROD"), glue.getEnv());
+
+    // Same map, a non-Glue connection keyed by its OpenLineage namespace.
+    ConnectionInstanceDetail snowflake =
+        conf.getConnectionInstanceMap().get("snowflake://acme-prod");
+    assertNotNull(snowflake);
+    assertEquals("snow_prod", snowflake.getPlatformInstance());
+    assertEquals(Optional.empty(), snowflake.getEnv());
   }
 
   @Test
@@ -533,6 +591,91 @@ public class OpenLineageEventToDatahubTest {
           "urn:li:dataset:(urn:li:dataPlatform:hive,my_glue_database.my_output_glue_table,DEV)",
           dataset.getUrn().toString());
     }
+  }
+
+  @Test
+  public void testProcessGlueOlEventWithConnectionInstanceMap()
+      throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    // The Glue symlink in the fixture is aws:glue:us-west-2:123456789012; map that catalog (account
+    // + region) to its owning instance via its canonical ARN authority. Account alone is not
+    // unique — the same account can own a Glue catalog in another region.
+    Map<String, ConnectionInstanceDetail> connections = new HashMap<>();
+    connections.put(
+        "arn:aws:glue:us-west-2:123456789012",
+        ConnectionInstanceDetail.builder().platformInstance("domain_a").build());
+    builder.connectionInstanceMap(connections);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_glue.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    for (DatahubDataset dataset : datahubJob.getInSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:glue,domain_a.my_glue_database.my_glue_table,DEV)",
+          dataset.getUrn().toString());
+    }
+  }
+
+  @Test
+  public void testConnectionInstanceMapNonGlueUpstream() throws URISyntaxException {
+    // A non-Glue upstream with no symlink: the OpenLineage namespace IS the connection key and its
+    // scheme is the platform, so the same map works beyond Glue (e.g. a Spark job reading
+    // Postgres).
+    OpenLineage.InputDataset inputDataset =
+        new OpenLineage.InputDatasetBuilder()
+            .namespace("postgres://pg.example.com:5432")
+            .name("mydb.public.orders")
+            .build();
+
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.PROD);
+    Map<String, ConnectionInstanceDetail> connections = new HashMap<>();
+    connections.put(
+        "postgres://pg.example.com:5432",
+        ConnectionInstanceDetail.builder().platformInstance("pg_core").build());
+    builder.connectionInstanceMap(connections);
+
+    Optional<DatasetUrn> urn =
+        OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn(inputDataset, builder.build());
+    assert (urn.isPresent());
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,pg_core.mydb.public.orders,PROD)",
+        urn.get().toString());
+  }
+
+  @Test
+  public void testDataJobHasPlatformInstanceAspect() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.platformInstance("my_pipeline_instance");
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_glue.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+    List<MetadataChangeProposal> mcps = datahubJob.toMcps(builder.build());
+
+    // The DataJob must carry its own DataPlatformInstance aspect, not just inherit the instance via
+    // the parent DataFlow URN.
+    boolean dataJobHasInstance =
+        mcps.stream()
+            .anyMatch(
+                m ->
+                    "dataJob".equals(m.getEntityType())
+                        && "dataPlatformInstance".equals(m.getAspectName()));
+    assertTrue(dataJobHasInstance);
   }
 
   @Test

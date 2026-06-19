@@ -54,6 +54,7 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.schema.TimeType;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.dataset.ConnectionInstanceDetail;
 import io.datahubproject.openlineage.dataset.DatahubDataset;
 import io.datahubproject.openlineage.dataset.DatahubJob;
 import io.datahubproject.openlineage.dataset.HdfsPathDataset;
@@ -110,6 +111,11 @@ public class OpenLineageToDataHub {
   public static final String MERGE_INTO_COMMAND_PATTERN = "execute_merge_into_command_edge";
   public static final String MERGE_INTO_SQL_PATTERN = "MERGE INTO";
   public static final String TABLE_PREFIX = "table/";
+  // Matches an OpenLineage Glue namespace (with or without the "arn:" prefix), capturing region
+  // (group 1) and account (group 2) from arn:aws:glue:{region}:{account}. Both are needed to
+  // identify the catalog — account alone isn't unique across regions.
+  private static final Pattern GLUE_ARN_PATTERN =
+      Pattern.compile("(?:arn:)?aws:glue:([^:]+):([^:]+)");
   public static final String WAREHOUSE_PATH_PATTERN = "/warehouse/";
   public static final String DB_SUFFIX = ".db/";
 
@@ -132,8 +138,9 @@ public class OpenLineageToDataHub {
     if (dataset.getFacets() != null
         && dataset.getFacets().getSymlinks() != null
         && !mappingConfig.isDisableSymlinkResolution()) {
+      String connectionKey = null;
       Optional<DatasetUrn> originalUrn =
-          getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+          getDatasetUrnFromOlDataset(namespace, datasetName, null, mappingConfig);
       for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
           dataset.getFacets().getSymlinks().getIdentifiers()) {
         if ("TABLE".equals(symlink.getType())) {
@@ -142,6 +149,10 @@ public class OpenLineageToDataHub {
           if (symlink.getNamespace().startsWith("aws:glue:")
               || symlink.getNamespace().startsWith("arn:aws:glue:")) {
             namespace = "glue";
+            // The Glue ARN carries the owning account + region; keep it as the connection key so
+            // the URN gets that catalog's instance instead of collapsing every catalog to one.
+            // (The symlink rewrites namespace to "glue", so we can't recover it downstream.)
+            connectionKey = parseGlueArnAuthority(symlink.getNamespace());
           } else {
             namespace = mappingConfig.getHivePlatformAlias();
           }
@@ -153,7 +164,7 @@ public class OpenLineageToDataHub {
         }
       }
       Optional<DatasetUrn> symlinkedUrn =
-          getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+          getDatasetUrnFromOlDataset(namespace, datasetName, connectionKey, mappingConfig);
       if (symlinkedUrn.isPresent() && originalUrn.isPresent()) {
         mappingConfig
             .getUrnAliases()
@@ -161,7 +172,7 @@ public class OpenLineageToDataHub {
       }
       datahubUrn = symlinkedUrn;
     } else {
-      datahubUrn = getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+      datahubUrn = getDatasetUrnFromOlDataset(namespace, datasetName, null, mappingConfig);
     }
 
     log.debug("Dataset URN: {}, alias_list: {}", datahubUrn, mappingConfig.getUrnAliases());
@@ -184,7 +195,10 @@ public class OpenLineageToDataHub {
   }
 
   private static Optional<DatasetUrn> getDatasetUrnFromOlDataset(
-      String namespace, String datasetName, DatahubOpenlineageConfig mappingConfig) {
+      String namespace,
+      String datasetName,
+      String connectionKeyOverride,
+      DatahubOpenlineageConfig mappingConfig) {
     String platform;
     if (mappingConfig.isLowerCaseDatasetUrns()) {
       namespace = namespace.toLowerCase();
@@ -224,14 +238,53 @@ public class OpenLineageToDataHub {
       platform = namespace;
     }
 
-    String platformInstance = getPlatformInstance(mappingConfig, platform);
-    FabricType env = getEnv(mappingConfig, platform);
+    // The connection key is the canonical OpenLineage namespace authority. For Glue it's supplied
+    // by
+    // the caller (the symlink rewrites the namespace to "glue", losing the ARN); for other URI
+    // namespaces (snowflake://acct, postgres://host:port, ...) the namespace itself is the key and
+    // its scheme already identifies the platform.
+    String connectionKey = connectionKeyOverride;
+    if (connectionKey == null && namespace.contains(SCHEME_SEPARATOR)) {
+      connectionKey = namespace;
+    }
+    String platformInstance = getPlatformInstance(mappingConfig, platform, connectionKey);
+    FabricType env = getEnv(mappingConfig, platform, connectionKey);
     DatasetUrn urn = DatahubUtils.createDatasetUrn(platform, platformInstance, datasetName, env);
     return Optional.of(urn);
   }
 
-  private static FabricType getEnv(DatahubOpenlineageConfig mappingConfig, String platform) {
+  /**
+   * Normalizes an OpenLineage Glue namespace to its canonical ARN authority {@code
+   * arn:aws:glue:{region}:{account}}, accepting both the modern {@code arn:aws:glue:...} and the
+   * pre-0.17.1 {@code aws:glue:...} forms. This authority (account + region) is the catalog's
+   * unique identity and the registry-canonical key. Returns null if the namespace is not a Glue
+   * ARN.
+   */
+  static String parseGlueArnAuthority(String glueNamespace) {
+    if (glueNamespace == null) {
+      return null;
+    }
+    Matcher matcher = GLUE_ARN_PATTERN.matcher(glueNamespace);
+    if (!matcher.find()) {
+      return null;
+    }
+    return "arn:aws:glue:" + matcher.group(1) + ":" + matcher.group(2);
+  }
+
+  private static FabricType getEnv(
+      DatahubOpenlineageConfig mappingConfig, String platform, String connectionKey) {
     FabricType fabricType = mappingConfig.getFabricType();
+    if (connectionKey != null) {
+      ConnectionInstanceDetail detail = mappingConfig.getConnectionInstanceMap().get(connectionKey);
+      if (detail != null && detail.getEnv().isPresent()) {
+        try {
+          return FabricType.valueOf(detail.getEnv().get());
+        } catch (IllegalArgumentException e) {
+          log.warn(
+              "Invalid environment value for connection {}: {}", connectionKey, detail.getEnv());
+        }
+      }
+    }
     if (mappingConfig.getPathSpecs() != null
         && mappingConfig.getPathSpecs().containsKey(platform)) {
       List<PathSpec> pathSpecs = mappingConfig.getPathSpecs().get(platform);
@@ -250,7 +303,17 @@ public class OpenLineageToDataHub {
   }
 
   private static String getPlatformInstance(
-      DatahubOpenlineageConfig mappingConfig, String platform) {
+      DatahubOpenlineageConfig mappingConfig, String platform, String connectionKey) {
+    // Cross-platform lineage: resolve the upstream connection's instance first via an explicit
+    // connection->instance mapping, so datasets from different accounts/regions/hosts in one job
+    // get
+    // distinct, correct URNs instead of collapsing to a single instance.
+    if (connectionKey != null) {
+      ConnectionInstanceDetail detail = mappingConfig.getConnectionInstanceMap().get(connectionKey);
+      if (detail != null && detail.getPlatformInstance() != null) {
+        return detail.getPlatformInstance();
+      }
+    }
     // Use the platform instance from the path spec if it is present otherwise use the one from the
     // commonDatasetPlatformInstance
     String platformInstance = mappingConfig.getCommonDatasetPlatformInstance();
@@ -336,6 +399,9 @@ public class OpenLineageToDataHub {
                   dataPlatformInstanceUrn(
                       dataFlowUrn.getOrchestratorEntity(), datahubConf.getPlatformInstance()));
       jobBuilder.flowPlatformInstance(dpi);
+      // Stamp the same instance on the DataJob so the job entity carries its own
+      // DataPlatformInstance aspect, not just the instance embedded in the parent DataFlow URN.
+      jobBuilder.jobPlatformInstance(dpi);
     }
 
     StringMap customProperties = generateCustomProperties(event, true);
@@ -1388,7 +1454,7 @@ public class OpenLineageToDataHub {
     SchemaMetadata.PlatformSchema platformSchema = new SchemaMetadata.PlatformSchema();
     platformSchema.setMySqlDDL(ddl);
     Optional<DatasetUrn> datasetUrn =
-        getDatasetUrnFromOlDataset(dataset.getNamespace(), dataset.getName(), mappingConfig);
+        getDatasetUrnFromOlDataset(dataset.getNamespace(), dataset.getName(), null, mappingConfig);
 
     if (!datasetUrn.isPresent()) {
       return null;
