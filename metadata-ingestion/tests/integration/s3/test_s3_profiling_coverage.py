@@ -9,17 +9,35 @@ from datahub.ingestion.source.s3.source import S3Source
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
 
 
+def _profile_workunits(workunits: list) -> list:
+    """Return the datasetProfile workunits among the emitted workunits.
+
+    These integration tests run the real DuckDB profiler end-to-end against
+    local CSVs. Asserting on the datasetProfile aspect (rather than just
+    ``len(workunits) > 0``) proves a profile was actually produced — a source
+    that emitted only container/schema workunits but no profile would otherwise
+    pass.
+    """
+    return [
+        wu
+        for wu in workunits
+        if isinstance(
+            wu.metadata,
+            (MetadataChangeProposalClass, MetadataChangeProposalWrapper),
+        )
+        and wu.metadata.aspectName == "datasetProfile"
+    ]
+
+
 @pytest.mark.integration
 class TestS3ProfilingCoverage:
-    """Integration tests to cover all profiling code paths with different data types."""
+    """Integration tests covering DuckDB profiling code paths across data types."""
 
     def test_profiling_with_numeric_types(self, tmp_path: Path) -> None:
-        """Test profiling with various numeric column types (int, float, double).
+        """Profiling numeric columns (int/float/double).
 
-        This covers:
-        - count/when/isnan/col operations for numeric null counts
-        - isinstance checks for numeric types
-        - Cardinality-based branching for UNIQUE/FEW/MANY
+        Exercises min/max/mean/median/stddev, quantiles, histogram and
+        distinct-value frequencies for numeric and low-cardinality columns.
         """
 
         # Create test data with different numeric types
@@ -83,28 +101,14 @@ class TestS3ProfilingCoverage:
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
-        assert len(workunits) > 0
-        profile_workunits = [
-            wu
-            for wu in workunits
-            if isinstance(
-                wu.metadata,
-                (MetadataChangeProposalClass, MetadataChangeProposalWrapper),
-            )
-            and wu.metadata.aspectName == "datasetProfile"
-        ]
-        assert len(profile_workunits) > 0
+        assert len(_profile_workunits(workunits)) > 0
 
     def test_profiling_with_string_types(self, tmp_path: Path) -> None:
-        """Test profiling with string column types.
+        """Profiling string columns.
 
-        This covers:
-        - isinstance check for StringType
-        - String column profiling for FEW cardinality
-        - Non-numeric null count handling
+        Exercises distinct-value frequencies and sample values for
+        low-cardinality text columns.
         """
-        import pandas as pd
-
         test_file = tmp_path / "string_data.csv"
         df = pd.DataFrame(
             {
@@ -137,27 +141,10 @@ class TestS3ProfilingCoverage:
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
-        assert len(workunits) > 0
-        profile_workunits = [
-            wu
-            for wu in workunits
-            if isinstance(
-                wu.metadata,
-                (MetadataChangeProposalClass, MetadataChangeProposalWrapper),
-            )
-            and wu.metadata.aspectName == "datasetProfile"
-        ]
-        assert len(profile_workunits) > 0
+        assert len(_profile_workunits(workunits)) > 0
 
     def test_profiling_with_date_timestamp_types(self, tmp_path: Path) -> None:
-        """Test profiling with date and timestamp column types.
-
-        This covers:
-        - isinstance check for DateType/TimestampType
-        - Date/timestamp profiling with min/max
-        """
-        import pandas as pd
-
+        """Profiling date and timestamp columns (min/max bounds)."""
         test_file = tmp_path / "date_data.csv"
         df = pd.DataFrame(
             {
@@ -190,18 +177,14 @@ class TestS3ProfilingCoverage:
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
-        assert len(workunits) > 0
+        assert len(_profile_workunits(workunits)) > 0
 
     def test_profiling_with_null_values(self, tmp_path: Path) -> None:
-        """Test profiling with null values in numeric and non-numeric columns.
+        """Profiling columns containing nulls.
 
-        This covers:
-        - Null count calculation for numeric columns with isnan
-        - Null count calculation for non-numeric columns
-        - Null proportion calculation
+        Exercises null-count and null-proportion computation for numeric and
+        text columns.
         """
-        import pandas as pd
-
         test_file = tmp_path / "null_data.csv"
         df = pd.DataFrame(
             {
@@ -242,18 +225,14 @@ class TestS3ProfilingCoverage:
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
-        assert len(workunits) > 0
+        assert len(_profile_workunits(workunits)) > 0
 
     def test_profiling_with_sample_values(self, tmp_path: Path) -> None:
-        """Test profiling with sample values enabled.
+        """Profiling with sample values enabled.
 
-        This covers:
-        - Sample value collection when row_count < NUM_SAMPLE_ROWS
-        - Sample value collection when row_count >= NUM_SAMPLE_ROWS
-        - Sample value assignment to column profiles
+        Covers both a small dataset (fewer rows than the sample limit) and a
+        larger one.
         """
-        import pandas as pd
-
         # Test with small dataset (< 20 rows)
         test_file_small = tmp_path / "small_data.csv"
         df_small = pd.DataFrame(
@@ -293,17 +272,14 @@ class TestS3ProfilingCoverage:
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
-        assert len(workunits) > 0
+        assert len(_profile_workunits(workunits)) > 0
 
     def test_profiling_with_high_cardinality(self, tmp_path: Path) -> None:
-        """Test profiling with high cardinality columns (MANY/VERY_MANY).
+        """Profiling high-cardinality numeric columns.
 
-        This covers:
-        - Numeric columns with MANY cardinality
-        - All analyzer prep methods (min, max, mean, median, stdev, quantiles, histogram)
+        Exercises all numeric stats (min/max/mean/median/stddev/quantiles/
+        histogram) on UNIQUE and MANY cardinality columns.
         """
-        import pandas as pd
-
         test_file = tmp_path / "high_cardinality.csv"
         df = pd.DataFrame(
             {
@@ -338,18 +314,14 @@ class TestS3ProfilingCoverage:
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
-        assert len(workunits) > 0
+        assert len(_profile_workunits(workunits)) > 0
 
     def test_profiling_with_low_cardinality(self, tmp_path: Path) -> None:
-        """Test profiling with low cardinality columns (ONE/TWO/VERY_FEW/FEW).
+        """Profiling low-cardinality columns.
 
-        This covers:
-        - Numeric columns with FEW cardinality using histograms (lines 315-324)
-        - String columns with FEW cardinality using distinct value frequencies (lines 342-351)
-        - Date columns with FEW cardinality (lines 359-367)
+        Exercises numeric histograms, string distinct-value frequencies, and
+        low-cardinality date columns.
         """
-        import pandas as pd
-
         test_file = tmp_path / "low_cardinality.csv"
         df = pd.DataFrame(
             {
@@ -385,17 +357,10 @@ class TestS3ProfilingCoverage:
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
-        assert len(workunits) > 0
+        assert len(_profile_workunits(workunits)) > 0
 
     def test_profiling_with_column_filtering(self, tmp_path: Path) -> None:
-        """Test profiling with allow/deny patterns for columns.
-
-        This covers:
-        - Column filtering logic
-        - columns_to_profile list building
-        """
-        import pandas as pd
-
+        """Profiling honors profile_patterns deny rules for columns."""
         test_file = tmp_path / "filtered_columns.csv"
         df = pd.DataFrame(
             {
@@ -429,18 +394,14 @@ class TestS3ProfilingCoverage:
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
-        assert len(workunits) > 0
+        assert len(_profile_workunits(workunits)) > 0
 
     def test_profiling_with_max_fields_limit(self, tmp_path: Path) -> None:
-        """Test profiling with max_number_of_fields_to_profile limit.
+        """Profiling with max_number_of_fields_to_profile limit.
 
-        This covers:
-        - Field limiting logic
-        - Column truncation surfaces a warning (the file is still profiled with
-          fewer columns, so it must NOT be marked as filtered/not-ingested).
+        Truncating columns must surface a warning (the file is still profiled
+        with fewer columns, so it must NOT be marked as filtered/not-ingested).
         """
-        import pandas as pd
-
         test_file = tmp_path / "many_columns.csv"
         data = {f"col_{i}": range(1, 11) for i in range(20)}
         df = pd.DataFrame(data)
@@ -463,7 +424,7 @@ class TestS3ProfilingCoverage:
 
         workunits = list(source.get_workunits())
         assert len(source.report.failures) == 0
-        assert len(workunits) > 0
+        assert len(_profile_workunits(workunits)) > 0
 
         # Truncating columns emits a warning (not report_file_dropped, which would
         # wrongly count the file as filtered out).
@@ -474,14 +435,11 @@ class TestS3ProfilingCoverage:
         assert source.report.number_of_files_filtered == 0
 
     def test_profiling_with_table_level_only(self, tmp_path: Path) -> None:
-        """Test profiling with profile_table_level_only enabled.
+        """Profiling with profile_table_level_only enabled.
 
-        This covers:
-        - Early return when profile_table_level_only is True
-        - Table-level stats only without column profiling
+        Emits table-level stats (row/column counts) without per-column
+        profiling.
         """
-        import pandas as pd
-
         test_file = tmp_path / "table_level_only.csv"
         df = pd.DataFrame(
             {
@@ -510,19 +468,12 @@ class TestS3ProfilingCoverage:
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
-        assert len(workunits) > 0
+        assert len(_profile_workunits(workunits)) > 0
 
     def test_profiling_extract_table_profiles_with_quantiles(
         self, tmp_path: Path
     ) -> None:
-        """Test extract_table_profiles with quantile data.
-
-        This covers:
-        - Quantile extraction and processing
-        - QuantileClass creation
-        """
-        import pandas as pd
-
+        """Quantile extraction (QuantileClass) for numeric columns."""
         test_file = tmp_path / "quantile_data.csv"
         df = pd.DataFrame(
             {
@@ -551,17 +502,10 @@ class TestS3ProfilingCoverage:
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
-        assert len(workunits) > 0
+        assert len(_profile_workunits(workunits)) > 0
 
     def test_profiling_extract_with_histogram_distinct(self, tmp_path: Path) -> None:
-        """Test extract_table_profiles with histogram for distinct values.
-
-        This covers:
-        - Histogram processing for discrete data
-        - distinctValueFrequencies creation
-        """
-        import pandas as pd
-
+        """Distinct-value-frequency extraction for discrete data."""
         test_file = tmp_path / "histogram_distinct.csv"
         df = pd.DataFrame(
             {
@@ -590,17 +534,10 @@ class TestS3ProfilingCoverage:
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
-        assert len(workunits) > 0
+        assert len(_profile_workunits(workunits)) > 0
 
     def test_profiling_extract_with_histogram_continuous(self, tmp_path: Path) -> None:
-        """Test extract_table_profiles with histogram for continuous data.
-
-        This covers:
-        - Histogram processing for continuous data
-        - HistogramClass creation
-        """
-        import pandas as pd
-
+        """Histogram extraction (HistogramClass) for continuous data."""
         test_file = tmp_path / "histogram_continuous.csv"
         df = pd.DataFrame(
             {
@@ -629,16 +566,10 @@ class TestS3ProfilingCoverage:
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
-        assert len(workunits) > 0
+        assert len(_profile_workunits(workunits)) > 0
 
     def test_profiling_with_all_options_enabled(self, tmp_path: Path) -> None:
-        """Test profiling with all configuration options enabled.
-
-        This is a comprehensive test that exercises all code paths to ensure
-        maximum coverage
-        """
-        import pandas as pd
-
+        """Comprehensive profiling run with every field-level option enabled."""
         test_file = tmp_path / "comprehensive.csv"
         df = pd.DataFrame(
             {
@@ -686,27 +617,13 @@ class TestS3ProfilingCoverage:
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
-        assert len(workunits) > 0
-        profile_workunits = [
-            wu
-            for wu in workunits
-            if isinstance(
-                wu.metadata,
-                (MetadataChangeProposalClass, MetadataChangeProposalWrapper),
-            )
-            and wu.metadata.aspectName == "datasetProfile"
-        ]
-        assert len(profile_workunits) > 0
+        assert len(_profile_workunits(workunits)) > 0
 
     def test_profiling_with_zero_row_count(self, tmp_path: Path) -> None:
-        """Test profiling with empty dataset (row_count = 0).
+        """Profiling an empty dataset (row_count = 0) completes without error.
 
-        This covers:
-        - Division by zero handling
-        - Empty dataset profiling
+        Guards the division-by-zero path in null-proportion/cardinality math.
         """
-        import pandas as pd
-
         test_file = tmp_path / "empty_data.csv"
         df = pd.DataFrame(
             {
@@ -734,4 +651,6 @@ class TestS3ProfilingCoverage:
         assert len(source.report.failures) == 0
         assert len(source.report.warnings) == 0
 
+        # An empty file must not crash profiling; we don't assert a profile is
+        # emitted (behavior for 0-row tables is intentionally unconstrained here).
         assert len(workunits) > 0

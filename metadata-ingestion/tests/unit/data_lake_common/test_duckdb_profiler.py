@@ -192,6 +192,53 @@ def test_path_and_ext_non_partitioned_returns_full_path(tmp_path):
     assert path == full_path
 
 
+def test_path_and_ext_partitioned_extensionless_returns_sample_and_warns(tmp_path):
+    """A partitioned table whose files have no extension (format known only via
+    content_type, e.g. Spark ``part-00000``) cannot use a ``*.<ext>`` glob — that
+    would match nothing. _path_and_ext must return the concrete sample object
+    (not a glob) AND surface a warning that only one partition was profiled.
+
+    Guards against a refactor that loosens the ``partitions and file_ext`` guard
+    to ``partitions and ext``: that would build ``/**/*.parquet`` over files named
+    ``part-00000`` and silently profile zero rows for every such table.
+    """
+    sample = str(tmp_path / "year=2024" / "part-00000")
+    folder = Folder(
+        creation_time=datetime.now(timezone.utc),
+        modification_time=datetime.now(timezone.utc),
+        size=0,
+        sample_file=sample,
+    )
+    table = TableData(
+        display_name="events",
+        is_s3=False,
+        full_path=sample,
+        timestamp=datetime.now(timezone.utc),
+        table_path=str(tmp_path),
+        size_in_bytes=0,
+        number_of_files=1,
+        partitions=[folder],
+    )
+    table.content_type = "application/vnd.apache.parquet"
+    report = DataLakeSourceReport()
+    profiler = DuckDBProfiler(
+        aws_config=None,
+        report=report,
+        profiling_config=_profiling_config(),
+    )
+    path, ext = profiler._path_and_ext(table)
+    profiler.close()
+    # Resolved the format from content_type, but kept the concrete sample path.
+    assert ext == "parquet"
+    assert path == sample
+    assert "*" not in path
+    # The partial-profile fallback must be visible in the run summary.
+    assert any(
+        w.title == "Partitioned table profiled on a single file"
+        for w in report.warnings
+    )
+
+
 def _sampling_config(**kw: object) -> GEProfilingConfig:
     return GEProfilingConfig(enabled=True, **kw)
 

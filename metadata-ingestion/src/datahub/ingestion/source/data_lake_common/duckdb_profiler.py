@@ -215,9 +215,7 @@ class DuckDBProfiler:
             self._load_extension(conn, extension)
 
     @staticmethod
-    def _resolve_ext(
-        table_data: "TableData", path_spec: Optional["PathSpec"]
-    ) -> str:
+    def _resolve_ext(table_data: "TableData", path_spec: Optional["PathSpec"]) -> str:
         """Resolve the file format the same way schema inference does
         (S3Source._get_inferrer): the S3 content-type takes precedence, then the
         filename extension, then the path_spec's ``default_extension``. This lets
@@ -239,11 +237,18 @@ class DuckDBProfiler:
         """Return (resolved_path, lowercase_extension_without_dot).
 
         For partitioned tables the table_path is a directory prefix (e.g.
-        ``s3://bucket/data/my_table`` or ``/local/data/my_table``). DuckDB
-        accepts bare local directories natively for parquet, but remote paths
-        need an explicit glob so httpfs can enumerate the objects.  We append
-        ``/**/*.<ext>`` for remote partitioned paths to handle both cases
-        uniformly.
+        ``s3://bucket/data/my_table`` or ``/local/data/my_table``). When the
+        partition files carry a known extension we append ``/**/*.<ext>`` to the
+        prefix so DuckDB enumerates every object under it (via httpfs for remote
+        paths, natively for local ones). This glob is built for both local and
+        remote partitioned paths — it is not remote-only.
+
+        When the files are extension-less (the format is known only from
+        content-type/default_extension), a ``*.<ext>`` glob would match nothing,
+        so we fall back to the single sample object and warn that the profile
+        then covers one partition rather than the whole table. The same concrete
+        sample path is also returned (without a glob) when the prefix already
+        ends with ``.<ext>`` or ``*``.
         """
         partitions = table_data.partitions
         ext = self._resolve_ext(table_data, path_spec)
@@ -260,6 +265,17 @@ class DuckDBProfiler:
             if not path.endswith(f".{ext}") and not path.endswith("*"):
                 path = f"{path.rstrip('/')}/**/*.{ext}"
         else:
+            if partitions:
+                # Partitioned table whose files carry no extension (format known
+                # only via content-type/default). We cannot build a matching glob,
+                # so profiling covers just the sample object — surface that so the
+                # partial result is not mistaken for a full-table profile.
+                self.report.report_warning(
+                    f"Partitioned table {table_data.table_path} has extension-less "
+                    "files; profiled only the sample object, not the full table.",
+                    context=table_data.table_path,
+                    title="Partitioned table profiled on a single file",
+                )
             path = table_data.full_path
         return path, ext
 
@@ -483,9 +499,7 @@ class DuckDBProfiler:
             # timer before yielding, so the recorded per-table duration measures
             # profiling — not the downstream sink time during the yields.
             profiles = list(
-                profiler.generate_profiles(
-                    [request], max_workers=1, platform="duckdb"
-                )
+                profiler.generate_profiles([request], max_workers=1, platform="duckdb")
             )
             timer.finish()
             for _req, profile in profiles:

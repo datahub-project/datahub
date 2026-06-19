@@ -128,8 +128,8 @@ class DuckDBAdapter(PlatformAdapter):
             # Fall back to per-column SQL (still correct, just slower). Surface a
             # warning — deduped by title — so a systematic SUMMARIZE failure is
             # visible in the run summary instead of silently degrading on every
-            # table.
-            logger.debug(f"DuckDB SUMMARIZE failed for {context.pretty_name}: {e}")
+            # table. report.warning already logs with the exception attached, so
+            # no separate logger call is needed here.
             self.report.warning(
                 message="Falling back to per-column profiling queries.",
                 title="DuckDB SUMMARIZE fast-path unavailable",
