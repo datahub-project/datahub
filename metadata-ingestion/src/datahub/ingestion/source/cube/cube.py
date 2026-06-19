@@ -1,7 +1,7 @@
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 from urllib.parse import urlparse
 
 from requests import RequestException
@@ -60,6 +60,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     TagAssociationClass,
     ViewPropertiesClass,
+    _Aspect,
 )
 from datahub.metadata.urns import CorpUserUrn, TagUrn
 from datahub.sdk.chart import Chart
@@ -388,7 +389,7 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
     def _emit_entity_meta(
         self, entity: CubeEntity, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
-        aspects: Dict[str, Any] = {}
+        aspects: Dict[str, _Aspect] = {}
         if self.meta_processor is not None and entity.meta:
             aspects = self.meta_processor.process(entity.meta)
 
@@ -477,7 +478,7 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
     def _member_json_props(self, member: CubeMember) -> Optional[str]:
         if not self.config.emit_member_details:
             return None
-        props: Dict[str, Any] = {}
+        props: Dict[str, Union[str, List[str], bool]] = {}
         if member.format:
             props["format"] = member.format
         if member.drill_members:

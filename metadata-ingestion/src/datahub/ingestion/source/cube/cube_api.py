@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Mapping, Optional, Union
 from urllib.parse import urlparse
 
 import requests
@@ -127,10 +127,10 @@ class CubeAPIClient:
         self,
         method: str,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        json_body: Optional[Dict[str, Any]] = None,
+        params: Optional[Mapping[str, Union[str, int]]] = None,
+        json_body: Optional[Mapping[str, object]] = None,
         bearer: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, object]:
         response = self.session.request(
             method,
             self._url(endpoint),
@@ -194,8 +194,8 @@ class CubeAPIClient:
         )
 
     def _platform_request(
-        self, endpoint: str, params: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, endpoint: str, params: Optional[Mapping[str, Union[str, int]]] = None
+    ) -> Dict[str, object]:
         assert self.config.cloud_api_key is not None
         response = self.session.get(
             f"{self._control_plane_base()}/{endpoint}",
@@ -216,7 +216,7 @@ class CubeAPIClient:
         cursor: Optional[str] = None
         try:
             while True:
-                params: Dict[str, Any] = {"first": PLATFORM_API_PAGE_SIZE}
+                params: Dict[str, Union[str, int]] = {"first": PLATFORM_API_PAGE_SIZE}
                 if cursor:
                     params["after"] = cursor
                 raw = self._platform_request(endpoint, params=params)
@@ -243,7 +243,7 @@ class CubeAPIClient:
         cursor: Optional[str] = None
         try:
             while True:
-                params: Dict[str, Any] = {"first": PLATFORM_API_PAGE_SIZE}
+                params: Dict[str, Union[str, int]] = {"first": PLATFORM_API_PAGE_SIZE}
                 if cursor:
                     params["after"] = cursor
                 raw = self._platform_request(endpoint, params=params)

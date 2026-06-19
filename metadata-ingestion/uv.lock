@@ -381,6 +381,11 @@ confluence = [
     { name = "unstructured-ingest", extra = ["confluence"] },
     { name = "urllib3" },
 ]
+cube = [
+    { name = "patchy" },
+    { name = "requests" },
+    { name = "sqlglot", extra = ["c"] },
+]
 databricks = [
     { name = "acryl-datahub-classify" },
     { name = "cachetools" },
@@ -2547,6 +2552,7 @@ requires-dist = [
     { name = "patchy", marker = "extra == 'clickhouse'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'clickhouse-usage'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'cockroachdb'", specifier = "==2.8.0" },
+    { name = "patchy", marker = "extra == 'cube'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'databricks'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'datahub'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'db2'", specifier = "==2.8.0" },
@@ -2820,6 +2826,7 @@ requires-dist = [
     { name = "redshift-connector", marker = "extra == 'redshift-slim'", specifier = ">=2.1.5,<3.0.0" },
     { name = "requests", marker = "extra == 'airbyte'" },
     { name = "requests", marker = "extra == 'all'", specifier = ">=2.28.0,==2.32.5,<3.0.0" },
+    { name = "requests", marker = "extra == 'cube'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'databricks'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'datahub-debug'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'datahub-rest'", specifier = "<3.0.0" },
@@ -3053,6 +3060,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'clickhouse'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'clickhouse-usage'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'cockroachdb'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'cube'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'databricks'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'datahub'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'db2'", specifier = "==30.8.0" },
@@ -3354,7 +3362,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"

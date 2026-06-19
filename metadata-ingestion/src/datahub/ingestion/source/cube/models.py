@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -32,7 +32,7 @@ def _is_hidden(public: Optional[bool], is_visible: Optional[bool]) -> bool:
     return public is False or is_visible is False
 
 
-def _names_from(items: List[Any]) -> List[str]:
+def _names_from(items: List[object]) -> List[str]:
     # Pre-aggregations/folder members may be reported either as bare strings or
     # as objects carrying a `name`; normalise both to a list of names.
     names: List[str] = []
@@ -66,7 +66,7 @@ class RawFolder(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     name: str
-    members: List[Any] = Field(default_factory=list)
+    members: List[object] = Field(default_factory=list)
 
 
 class CoreMember(BaseModel):
@@ -82,7 +82,7 @@ class CoreMember(BaseModel):
     # For view members, the underlying cube member this aliases (e.g.
     # "base_orders.count"); used to derive view -> cube column lineage.
     alias_member: Optional[str] = Field(default=None, alias="aliasMember")
-    meta: Optional[Dict[str, Any]] = None
+    meta: Optional[Dict[str, object]] = None
     public: Optional[bool] = None
     is_visible: Optional[bool] = Field(default=None, alias="isVisible")
     format: Optional[str] = None
@@ -99,7 +99,7 @@ class CoreCube(BaseModel):
     description: Optional[str] = None
     type: str = "cube"
     sql: Optional[str] = None
-    meta: Optional[Dict[str, Any]] = None
+    meta: Optional[Dict[str, object]] = None
     connected_component: Optional[int] = Field(default=None, alias="connectedComponent")
     public: Optional[bool] = None
     is_visible: Optional[bool] = Field(default=None, alias="isVisible")
@@ -111,7 +111,9 @@ class CoreCube(BaseModel):
     hierarchies: List[RawHierarchy] = Field(default_factory=list)
     folders: List[RawFolder] = Field(default_factory=list)
     nested_folders: List[RawFolder] = Field(default_factory=list, alias="nestedFolders")
-    pre_aggregations: List[Any] = Field(default_factory=list, alias="preAggregations")
+    pre_aggregations: List[object] = Field(
+        default_factory=list, alias="preAggregations"
+    )
 
 
 class CoreMetaResponse(BaseModel):
@@ -147,7 +149,7 @@ class CloudMember(BaseModel):
     is_primary_key: bool = False
     column_references: List[CloudColumnRef] = Field(default_factory=list)
     member_references: List[str] = Field(default_factory=list)
-    meta: Optional[Dict[str, Any]] = None
+    meta: Optional[Dict[str, object]] = None
     public: Optional[bool] = None
     is_visible: Optional[bool] = Field(default=None, alias="isVisible")
     format: Optional[str] = None
@@ -174,7 +176,9 @@ class CloudEntity(BaseModel):
     hierarchies: List[RawHierarchy] = Field(default_factory=list)
     folders: List[RawFolder] = Field(default_factory=list)
     nested_folders: List[RawFolder] = Field(default_factory=list, alias="nestedFolders")
-    pre_aggregations: List[Any] = Field(default_factory=list, alias="preAggregations")
+    pre_aggregations: List[object] = Field(
+        default_factory=list, alias="preAggregations"
+    )
 
 
 class CloudPagination(BaseModel):
@@ -241,7 +245,7 @@ class CloudReport(BaseModel):
     user: Optional[CloudResourceOwner] = None
     created_at: Optional[str] = Field(default=None, alias="createdAt")
     updated_at: Optional[str] = Field(default=None, alias="updatedAt")
-    meta: Optional[Dict[str, Any]] = None
+    meta: Optional[Dict[str, object]] = None
 
 
 class CloudReportsResponse(BaseModel):
@@ -286,7 +290,7 @@ class CloudWorkbook(BaseModel):
     published_dashboard: Optional[CloudPublishedDashboard] = Field(
         default=None, alias="publishedDashboard"
     )
-    meta: Optional[Dict[str, Any]] = None
+    meta: Optional[Dict[str, object]] = None
 
 
 class CloudWorkbooksResponse(BaseModel):
@@ -307,6 +311,13 @@ class CubeColumnReference(BaseModel):
     def table_name(self, database: Optional[str] = None) -> str:
         parts = [p for p in (database, self.schema_name, self.table) if p]
         return ".".join(parts)
+
+
+class ResolvedWarehouseTable(BaseModel):
+    # Result of reconciling a Cube warehouse reference against GMS: the table
+    # URN to use and, when found, its column -> type map for casing snapping.
+    urn: str
+    schema_info: Optional[Dict[str, str]] = None
 
 
 class CubeJoin(BaseModel):
@@ -339,7 +350,7 @@ class CubeMember(BaseModel):
     cumulative: bool = False
     column_references: List[CubeColumnReference] = Field(default_factory=list)
     member_references: List[str] = Field(default_factory=list)
-    meta: Dict[str, Any] = Field(default_factory=dict)
+    meta: Dict[str, object] = Field(default_factory=dict)
 
 
 def _build_joins(raw: List[RawJoin]) -> List[CubeJoin]:
@@ -382,7 +393,7 @@ class CubeEntity(BaseModel):
     folders: List[CubeFolder] = Field(default_factory=list)
     pre_aggregation_names: List[str] = Field(default_factory=list)
     sql: Optional[str] = None
-    meta: Dict[str, Any] = Field(default_factory=dict)
+    meta: Dict[str, object] = Field(default_factory=dict)
 
     @property
     def members(self) -> List[CubeMember]:

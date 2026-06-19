@@ -64,4 +64,6 @@ Confirm `warehouse_platform` is set (or auto-detected), and that the upstream da
 
 #### Warehouse lineage edges do not connect to existing datasets
 
-Warehouses such as Snowflake and BigQuery are typically ingested with lowercased URNs. The connector lowercases upstream warehouse table and column names by default; if the warehouse connector was configured with `convert_urns_to_lowercase: false`, set `convert_lineage_urns_to_lowercase: false` here so the URNs match.
+When run against a DataHub instance (the usual case), the connector reconciles the casing of upstream warehouse table URNs and column names against what the warehouse connector actually ingested — it looks up the real schema in DataHub and snaps Cube's reported identifiers to it. This handles platforms that fold identifiers differently (Postgres/Redshift lower-case, Snowflake upper-case, BigQuery case-sensitive) without per-platform configuration.
+
+When the upstream schema is not yet in DataHub (e.g. the warehouse has not been ingested, or a dry run with no server), there is nothing to reconcile against, so the connector falls back to its configured behaviour: it lowercases upstream warehouse table and column names by default. If the warehouse connector was configured with `convert_urns_to_lowercase: false`, set `convert_lineage_urns_to_lowercase: false` here so the fallback URNs match. Ingesting the warehouse first is the most reliable fix.

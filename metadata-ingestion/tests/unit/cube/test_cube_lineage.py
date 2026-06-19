@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.cube.config import CubeSourceConfig
 from datahub.ingestion.source.cube.cube_lineage import CubeLineageBuilder
@@ -131,3 +133,49 @@ def test_warehouse_urns_preserve_case_when_disabled() -> None:
 
     assert lineage is not None
     assert any("PUBLIC.ORDERS" in u.dataset for u in lineage.upstreams)
+
+
+class _FakeResolver:
+    def __init__(self, urn: str, schema_info: dict) -> None:
+        self._urn = urn
+        self._schema_info = schema_info
+
+    def resolve_table(self, table: object) -> tuple:
+        return self._urn, self._schema_info
+
+
+def test_warehouse_columns_snapped_to_gms_casing() -> None:
+    # With a schema in GMS, casing is reconciled to it ("amount" -> "Amount")
+    # rather than blindly lowercased.
+    canonical_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.orders,PROD)"
+    )
+    fake = _FakeResolver(canonical_urn, {"Amount": "NUMBER", "Id": "NUMBER"})
+    entity = CubeEntity(
+        name="orders",
+        table_references=[CubeColumnReference(schema_name="public", table="orders")],
+        measures=[
+            CubeMember(
+                name="total_amount",
+                is_measure=True,
+                column_references=[
+                    CubeColumnReference(
+                        schema_name="public", table="orders", column="amount"
+                    )
+                ],
+            )
+        ],
+    )
+    builder = _builder(warehouse_platform="snowflake", warehouse_database="analytics")
+    builder.ctx.graph = object()  # type: ignore[assignment]
+    with patch(
+        "datahub.ingestion.source.cube.cube_lineage.create_and_cache_schema_resolver",
+        return_value=fake,
+    ):
+        lineage = builder.build(entity)
+
+    assert lineage is not None
+    assert any(u.dataset == canonical_urn for u in lineage.upstreams)
+    assert lineage.fineGrainedLineages is not None
+    upstreams = lineage.fineGrainedLineages[0].upstreams
+    assert any(f.endswith(",Amount)") for f in upstreams)

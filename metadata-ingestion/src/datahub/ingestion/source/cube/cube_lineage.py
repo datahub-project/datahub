@@ -5,7 +5,12 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.cube.config import CubeSourceConfig
 from datahub.ingestion.source.cube.constants import CUBE_PLATFORM
-from datahub.ingestion.source.cube.models import CubeEntity, CubeMember
+from datahub.ingestion.source.cube.models import (
+    CubeColumnReference,
+    CubeEntity,
+    CubeMember,
+    ResolvedWarehouseTable,
+)
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     FineGrainedLineageClass,
@@ -15,7 +20,16 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import SchemaFieldUrn
-from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.sql_parsing._models import _TableName
+from datahub.sql_parsing.schema_resolver import (
+    SchemaInfo,
+    SchemaResolver,
+    match_columns_to_schema,
+)
+from datahub.sql_parsing.sqlglot_lineage import (
+    create_and_cache_schema_resolver,
+    create_lineage_sql_parsed_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +47,9 @@ class CubeLineageBuilder:
         self.warehouse_platform = warehouse_platform
         self.warehouse_database = warehouse_database
         self._sql_tables_cache: Dict[str, List[str]] = {}
+        self._schema_resolver: Optional[SchemaResolver] = None
+        self._resolver_ready = False
+        self._table_resolution: Dict[str, ResolvedWarehouseTable] = {}
 
     def _cube_urn(self, cube_name: str) -> str:
         return make_dataset_urn_with_platform_instance(
@@ -57,6 +74,53 @@ class CubeLineageBuilder:
         return (
             column.lower() if self.config.convert_lineage_urns_to_lowercase else column
         )
+
+    def _get_resolver(self) -> Optional[SchemaResolver]:
+        # None without a graph: there is no ingested schema to reconcile against.
+        if not self._resolver_ready:
+            self._resolver_ready = True
+            if self.ctx.graph is not None and self.warehouse_platform:
+                self._schema_resolver = create_and_cache_schema_resolver(
+                    platform=self.warehouse_platform,
+                    env=self.config.warehouse_env,
+                    graph=self.ctx.graph,
+                    platform_instance=self.config.warehouse_platform_instance,
+                )
+        return self._schema_resolver
+
+    def _resolve_table(self, ref: CubeColumnReference) -> ResolvedWarehouseTable:
+        # Snap the table URN and column casing to the warehouse's ingested
+        # schema so Cube's identifiers (e.g. Snowflake upper, Postgres lower)
+        # don't dangle. Falls back to configured lowercasing when unresolved.
+        cache_key = ref.table_name(self.warehouse_database)
+        if cache_key in self._table_resolution:
+            return self._table_resolution[cache_key]
+
+        resolver = self._get_resolver()
+        if resolver is not None:
+            urn, schema_info = resolver.resolve_table(
+                _TableName(
+                    database=self.warehouse_database,
+                    db_schema=ref.schema_name,
+                    table=ref.table,
+                )
+            )
+            # Trust the resolver's URN only when it found a schema.
+            if schema_info is None:
+                urn = self._warehouse_urn(cache_key)
+            resolved = ResolvedWarehouseTable(urn=urn, schema_info=schema_info)
+        else:
+            resolved = ResolvedWarehouseTable(urn=self._warehouse_urn(cache_key))
+
+        self._table_resolution[cache_key] = resolved
+        return resolved
+
+    def _resolve_columns(
+        self, schema_info: Optional[SchemaInfo], columns: List[str]
+    ) -> List[str]:
+        if schema_info:
+            return match_columns_to_schema(schema_info, columns)
+        return [self._warehouse_column(column) for column in columns]
 
     def build(self, entity: CubeEntity) -> Optional[UpstreamLineageClass]:
         if not self.config.ingest_lineage:
@@ -92,10 +156,7 @@ class CubeLineageBuilder:
         if not self.warehouse_platform:
             return []
         if entity.table_references:
-            return [
-                self._warehouse_urn(ref.table_name(self.warehouse_database))
-                for ref in entity.table_references
-            ]
+            return [self._resolve_table(ref).urn for ref in entity.table_references]
         if entity.sql and self.config.parse_sql_for_lineage:
             return self._parse_sql_tables(entity)
         return []
@@ -114,10 +175,13 @@ class CubeLineageBuilder:
             for ref in member.column_references:
                 if not ref.column:
                     continue
-                table_urn = self._warehouse_urn(ref.table_name(self.warehouse_database))
-                upstream_urns.append(table_urn)
+                resolved = self._resolve_table(ref)
+                upstream_urns.append(resolved.urn)
+                (resolved_column,) = self._resolve_columns(
+                    resolved.schema_info, [ref.column]
+                )
                 upstream_fields.append(
-                    SchemaFieldUrn(table_urn, self._warehouse_column(ref.column)).urn()
+                    SchemaFieldUrn(resolved.urn, resolved_column).urn()
                 )
             if upstream_fields:
                 fine_grained.append(
