@@ -12,11 +12,11 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.common.subtypes import (
     DataFlowSubTypes,
     DataJobSubTypes,
 )
-from datahub.ingestion.source.kinesis.kinesis_aws_utils import aws_error_code
 from datahub.ingestion.source.kinesis.kinesis_config import (
     FIREHOSE_PLATFORM_NAME,
     PLATFORM_NAME,
@@ -30,8 +30,6 @@ from datahub.ingestion.source.kinesis.kinesis_firehose_destinations import (
 from datahub.ingestion.source.kinesis.kinesis_report import KinesisSourceReport
 from datahub.ingestion.source.kinesis.kinesis_tagging import (
     build_global_tags_from_aws_tags,
-    build_ownership_aspect,
-    extract_owner_urns_from_tags,
 )
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
@@ -352,10 +350,10 @@ class KinesisFirehoseExtractor:
         """Fetch AWS resource tags for a Firehose delivery stream.
 
         Mirrors ``KinesisStreamExtractor.fetch_tags`` — short-circuits when
-        both ``extract_tags`` and ``extract_owners`` are disabled; emits a
-        warning and returns ``[]`` on AWS API failure.
+        ``extract_tags`` is disabled; emits a warning and returns ``[]`` on AWS
+        API failure.
         """
-        if not self.config.extract_tags and not self.config.extract_owners:
+        if not self.config.extract_tags:
             return []
         try:
             resp = self._firehose.list_tags_for_delivery_stream(
@@ -384,8 +382,8 @@ class KinesisFirehoseExtractor:
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Emit DataJob aspects (info, platform-instance, sub-types) and, when
         `include_table_lineage` is True, dataJobInputOutput edges per delivery
-        stream. Also emits globalTags + ownership MCPs against the DataJob URN
-        when AWS resource tags are present (Task 11).
+        stream. Also emits globalTags MCPs against the DataJob URN when AWS
+        resource tags are present.
         """
         firehose_platform_urn = make_data_platform_urn(FIREHOSE_PLATFORM_NAME)
         for name in self.list_delivery_streams():
@@ -433,10 +431,9 @@ class KinesisFirehoseExtractor:
                     entityUrn=job_urn,
                     aspect=self.build_input_output(desc),
                 ).as_workunit()
-            # Tags + ownership (Task 11). DataJob has no SDK V2 wrapper yet —
-            # emit as direct MCPs against the DataJob URN. Config flags gate
-            # which aspects we build; the shared helpers in kinesis_tagging.py
-            # are unconditional.
+            # Tags. DataJob has no SDK V2 wrapper yet — emit as a direct MCP
+            # against the DataJob URN. (Ownership is derived from these tags by
+            # the extract_ownership_from_tags transformer, not by this source.)
             tags = self.fetch_tags(name)
             global_tags = (
                 build_global_tags_from_aws_tags(tags)
@@ -446,16 +443,6 @@ class KinesisFirehoseExtractor:
             if global_tags is not None:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=job_urn, aspect=global_tags
-                ).as_workunit()
-            owner_urns = (
-                extract_owner_urns_from_tags(tags, self.config.owner_tag_key)
-                if self.config.extract_owners
-                else []
-            )
-            ownership = build_ownership_aspect(owner_urns)
-            if ownership is not None:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=job_urn, aspect=ownership
                 ).as_workunit()
 
     @staticmethod

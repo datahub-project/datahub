@@ -2289,14 +2289,14 @@
           "supported": true
         },
         {
-          "capability": "OWNERSHIP",
-          "description": "From AWS resource tags (configurable key)",
+          "capability": "TAGS",
+          "description": "From AWS resource tags",
           "subtype_modifier": null,
           "supported": true
         },
         {
-          "capability": "TAGS",
-          "description": "From AWS resource tags",
+          "capability": "SCHEMA_METADATA",
+          "description": "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
           "subtype_modifier": null,
           "supported": true
         },

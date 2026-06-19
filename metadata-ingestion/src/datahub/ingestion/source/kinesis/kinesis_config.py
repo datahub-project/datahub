@@ -203,18 +203,11 @@ class KinesisSourceConfig(
 
     extract_tags: bool = Field(
         default=True,
-        description="Extract AWS resource tags as DataHub globalTags.",
-    )
-    extract_owners: bool = Field(
-        default=True,
         description=(
-            "Extract owner information from AWS resource tags. The tag key is "
-            "configurable via `owner_tag_key`."
+            "Extract AWS resource tags as DataHub globalTags. To derive ownership "
+            "from a tag, apply the `extract_ownership_from_tags` transformer to the "
+            "emitted tags (see the connector docs)."
         ),
-    )
-    owner_tag_key: str = Field(
-        default="owner",
-        description="Tag key whose value identifies the resource owner.",
     )
 
     glue_schema_registry: KinesisGlueSchemaRegistryConfig = Field(

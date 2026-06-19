@@ -34,13 +34,11 @@ source:
         - ".*"
     include_table_lineage: true
 
-    # --- Tags & ownership ---------------------------------------------
+    # --- Tags ---------------------------------------------------------
+    # AWS resource tags are emitted as DataHub globalTags. To derive
+    # ownership from a tag, apply the extract_ownership_from_tags
+    # transformer (see the `transformers:` block below).
     extract_tags: true
-    extract_owners: true
-    # AWS resource-tag key whose value identifies the resource owner.
-    # Change this to match your tagging convention (e.g. "team",
-    # "data_owner").
-    owner_tag_key: "owner"
 
     # --- Cross-platform lineage ---------------------------------------
     # Required when a destination platform was ingested with a
@@ -98,6 +96,13 @@ source:
       enabled: true
       remove_stale_metadata: true
       fail_safe_threshold: 100
+
+# Derive ownership from an AWS `owner` tag (emitted above as the globalTag
+# `owner:<value>`). Uncomment to map it to a corpuser owner.
+# transformers:
+#   - type: "extract_ownership_from_tags"
+#     config:
+#       tag_pattern: "owner:"
 
 # Default sink is datahub-rest, picked up from ~/.datahubenv (set via
 # `datahub init`). Override here only when you need a different target.

@@ -17,7 +17,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from datahub.ingestion.extractor import protobuf_util, schema_util
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
-from datahub.ingestion.source.kinesis.kinesis_aws_utils import aws_error_code
+from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.kinesis.kinesis_config import (
     KinesisGlueSchemaRegistryConfig,
 )

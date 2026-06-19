@@ -78,13 +78,31 @@ stream_pattern:
     - ".*-debug$"
 ```
 
-#### Tags-as-ownership
+#### Deriving ownership from tags
 
-The connector reads owner information from a single AWS resource-tag key (default `owner`). Set `owner_tag_key` to whatever convention your organization uses (e.g. `team`, `data_owner`). The tag value is used verbatim as the owner identifier and emitted as a `urn:li:corpuser:<value>` owner.
+The connector emits AWS resource tags as DataHub `globalTags` (a tag `Key=Value` becomes `urn:li:tag:Key:Value`). To turn a tag into ownership, apply the built-in [`extract_ownership_from_tags`](../../../../metadata-ingestion/docs/transformer/dataset_transformer.md#extract-ownership-from-tags) transformer to the emitted tags — this keeps ownership handling consistent with every other DataHub source rather than reimplementing it per connector.
+
+For example, to treat the value of an `owner` tag as a corpuser owner:
+
+```yaml
+transformers:
+  - type: "extract_ownership_from_tags"
+    config:
+      tag_pattern: "owner:"
+```
+
+The transformer also supports corp groups, owner types, and appending an email domain — see its documentation for the full set of options.
 
 #### Glue Schema Registry
 
-GSR is **opt-in** because it requires extra IAM permissions (`glue:Get*` / `glue:List*`). To enable it:
+GSR is **opt-in** because it requires extra IAM permissions (`glue:Get*` / `glue:List*`).
+
+**What you get / miss:**
+
+- **Disabled (default)** — streams are emitted **without** a `schemaMetadata` aspect. All other metadata (properties, tags, ownership, lineage) is unaffected. No `glue:*` permissions are needed.
+- **Enabled** — for each stream that resolves to a schema (see resolution order below), the connector fetches the schema from AWS Glue Schema Registry and attaches a `schemaMetadata` aspect with the parsed fields (Avro / JSON / Protobuf). Streams that don't resolve to a schema are still emitted, just without `schemaMetadata` — enabling GSR never drops a stream. Requires the `GlueSchemaRegistryRead` IAM statement.
+
+To enable it:
 
 ```yaml
 glue_schema_registry:

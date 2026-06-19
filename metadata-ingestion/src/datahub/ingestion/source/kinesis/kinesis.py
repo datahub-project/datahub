@@ -20,8 +20,8 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
-from datahub.ingestion.source.kinesis.kinesis_aws_utils import aws_error_code
 from datahub.ingestion.source.kinesis.kinesis_config import (
     PLATFORM_NAME,
     AwsService,
@@ -55,7 +55,6 @@ class KinesisRegionKey(ContainerKey):
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.CONTAINERS, "Region containers")
 @capability(SourceCapability.LINEAGE_COARSE, "Firehose -> destination lineage")
-@capability(SourceCapability.OWNERSHIP, "From AWS resource tags (configurable key)")
 @capability(SourceCapability.TAGS, "From AWS resource tags")
 @capability(
     SourceCapability.SCHEMA_METADATA,
@@ -68,10 +67,11 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
     Catalogs **Kinesis Data Streams (KDS)** as DataHub Datasets (subtype
     ``Stream``) and **Kinesis Data Firehose (KDF)** delivery streams as
     DataJobs under one regional DataFlow per recipe. AWS resource tags
-    become DataHub tags; the value of a configurable tag key (default
-    ``owner``) becomes a DataHub owner. Optionally, schemas registered in
-    AWS Glue Schema Registry are attached to streams via the
-    ``schemaMetadata`` aspect (Avro, JSON, and Protobuf are supported).
+    become DataHub ``globalTags`` (ownership can be derived from those tags
+    with the ``extract_ownership_from_tags`` transformer). Optionally,
+    schemas registered in AWS Glue Schema Registry are attached to streams
+    via the ``schemaMetadata`` aspect (Avro, JSON, and Protobuf are
+    supported).
 
     Firehose lineage is emitted as ``dataJobInputOutput`` edges from the
     source Kinesis stream to the destination platform. Six destinations
@@ -80,18 +80,18 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
     (HTTP, Datadog, Splunk, New Relic, etc.) result in a DataJob without
     an output edge, plus a warning.
 
-    The source is region-scoped: one recipe per AWS region, each with a
-    distinct ``platform_instance`` so streams from different regions do
-    not collide on the same URN. Authentication uses the standard
-    ``AwsConnectionConfig`` (env vars, shared credentials, IAM role,
-    SSO profile). Required IAM read permissions: ``kinesis:ListStreams``,
-    ``kinesis:DescribeStream``, ``kinesis:ListTagsForStream``,
-    ``kinesis:ListShards``, ``firehose:ListDeliveryStreams``,
+    The source is region-scoped: one recipe per AWS region. The region is
+    encoded in dataset names and the Firehose DataFlow id, so multiple
+    regions of the same account share one ``platform_instance`` (the
+    account ID by default) without colliding on URN. Authentication uses
+    the standard ``AwsConnectionConfig`` (env vars, shared credentials, IAM
+    role, SSO profile). Required IAM read permissions:
+    ``kinesis:ListStreams``, ``kinesis:DescribeStream``,
+    ``kinesis:ListTagsForStream``, ``firehose:ListDeliveryStreams``,
     ``firehose:DescribeDeliveryStream``,
     ``firehose:ListTagsForDeliveryStream``, and (when GSR is enabled)
-    ``glue:ListRegistries``, ``glue:ListSchemas``, ``glue:GetSchema``,
-    ``glue:GetSchemaVersion``. See the connector docs for the full IAM
-    policy.
+    ``glue:ListRegistries`` and ``glue:GetSchemaVersion``. See the
+    connector docs for the full IAM policy.
 
     **Important caveat:** when a Firehose destination platform was
     ingested with a non-default ``platform_instance``, the

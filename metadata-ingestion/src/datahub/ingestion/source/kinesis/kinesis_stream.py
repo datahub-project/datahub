@@ -5,8 +5,8 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.kinesis.kinesis_aws_utils import aws_error_code
 from datahub.ingestion.source.kinesis.kinesis_config import KinesisSourceConfig
 from datahub.ingestion.source.kinesis.kinesis_report import KinesisSourceReport
 from datahub.ingestion.source.kinesis.kinesis_schema_registry import (
@@ -14,11 +14,6 @@ from datahub.ingestion.source.kinesis.kinesis_schema_registry import (
 )
 from datahub.ingestion.source.kinesis.kinesis_tagging import (
     build_global_tags_from_aws_tags,
-    extract_owner_urns_from_tags,
-)
-from datahub.metadata.schema_classes import (
-    OwnerClass,
-    OwnershipTypeClass,
 )
 from datahub.sdk import Dataset
 
@@ -133,12 +128,11 @@ class KinesisStreamExtractor:
     def fetch_tags(self, stream_name: str) -> List[Dict[str, str]]:
         """Fetch AWS resource tags for a Kinesis stream.
 
-        Short-circuits to an empty list when neither tag-extraction nor
-        owner-extraction is enabled. On AWS API failure (e.g. AccessDenied),
-        emits a warning and returns an empty list so dataset emission
-        continues without tags / ownership.
+        Short-circuits to an empty list when tag-extraction is disabled. On AWS
+        API failure (e.g. AccessDenied), emits a warning and returns an empty
+        list so dataset emission continues without tags.
         """
-        if not self.config.extract_tags and not self.config.extract_owners:
+        if not self.config.extract_tags:
             return []
         try:
             resp = self._kinesis.list_tags_for_stream(StreamName=stream_name)
@@ -166,20 +160,9 @@ class KinesisStreamExtractor:
         self, stream_name: str, desc: "StreamDescriptionTypeDef"
     ) -> Iterable[MetadataWorkUnit]:
         tags = self.fetch_tags(stream_name)
-        # Config flags gate which aspects we build; the shared helpers in
-        # kinesis_tagging.py are unconditional, so we apply the flags here.
-        owner_urns = (
-            extract_owner_urns_from_tags(tags, self.config.owner_tag_key)
-            if self.config.extract_owners
-            else []
-        )
         global_tags = (
             build_global_tags_from_aws_tags(tags) if self.config.extract_tags else None
         )
-        owner_aspects = [
-            OwnerClass(owner=urn, type=OwnershipTypeClass.DATAOWNER)
-            for urn in owner_urns
-        ]
         # Glue Schema Registry lookup is opt-in (config.glue_schema_registry.enabled).
         # When disabled, schema_registry is None and we skip the lookup entirely.
         schema_metadata = (
@@ -187,9 +170,8 @@ class KinesisStreamExtractor:
             if self.schema_registry is not None
             else None
         )
-        # SDK V2 Dataset accepts `tags=Sequence[TagAssociationClass]` and
-        # `owners=Sequence[OwnerClass]` directly (see datahub.sdk._shared
-        # TagsInputType / OwnersInputType). Pass through when present.
+        # SDK V2 Dataset accepts `tags=Sequence[TagAssociationClass]` directly
+        # (see datahub.sdk._shared TagsInputType). Pass through when present.
         # URN includes region (`<region>.<stream>`) so the same stream name in two regions
         # of the same account does not collide. display_name is the bare stream_name so
         # the UI shows "TestStream" rather than "us-west-2.TestStream" — region context
@@ -210,7 +192,6 @@ class KinesisStreamExtractor:
             ),
             custom_properties=self._custom_properties(desc),
             tags=list(global_tags.tags) if global_tags else None,
-            owners=owner_aspects or None,
             schema=schema_metadata,
         )
         yield from dataset.as_workunits()

@@ -7,7 +7,7 @@ This connector covers both AWS streaming services with one recipe and one IAM po
 - **Amazon Kinesis Data Streams (KDS)** — emitted under the `kinesis` platform (display name: _Amazon Kinesis Data Streams_) as **Datasets** (`Stream` subtype).
 - **Amazon Data Firehose** (formerly _Amazon Kinesis Data Firehose / KDF_) — emitted under the `kinesis-firehose` platform (display name: _Amazon Data Firehose_) as **DataJobs** under one regional **DataFlow** per recipe, with cross-platform lineage edges to the destination (S3, Redshift, OpenSearch, Snowflake, Apache Iceberg, MongoDB).
 
-AWS resource tags become DataHub tags and ownership. Glue Schema Registry can be opted in to attach Avro / JSON / Protobuf schemas to streams.
+AWS resource tags become DataHub tags (and can be turned into ownership via the `extract_ownership_from_tags` transformer). Glue Schema Registry can be opted in to attach Avro / JSON / Protobuf schemas to streams.
 
 :::info Looking specifically for Amazon Data Firehose?
 
@@ -26,7 +26,7 @@ Firehose delivery streams are ingested by this same connector — see the [Conce
 | Firehose delivery stream                                                     | [DataJob](../../metamodel/entities/dataJob.md)            | Subtype `Firehose Delivery Stream`. Parent: the regional DataFlow.                                                                  |
 | Firehose destination (S3, Redshift, OpenSearch, Snowflake, Iceberg, MongoDB) | Lineage edge                                              | Emitted via `dataJobInputOutput.outputDatasets`. Upstream is the source KDS stream when `DeliveryStreamType=KinesisStreamAsSource`. |
 | AWS resource tag (`Key=Value`)                                               | Tag                                                       | Tag URN form: `urn:li:tag:Key:Value`.                                                                                               |
-| AWS resource tag with the configured `owner_tag_key` (default `owner`)       | CorpUser                                                  | The tag value becomes a `urn:li:corpuser:<value>` owner URN.                                                                        |
+| AWS resource tag (via the `extract_ownership_from_tags` transformer)         | Owner                                                     | Ownership is derived from the emitted tags by the transformer, not by this source directly.                                         |
 
 ### Compatibility
 

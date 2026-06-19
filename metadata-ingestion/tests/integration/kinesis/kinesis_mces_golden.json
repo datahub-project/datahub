@@ -171,32 +171,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.clicks,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:analytics",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779797207343,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.clicks,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
         "json": {
@@ -484,32 +458,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1779797207361,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:data-team",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779797207345,
         "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
         "lastRunId": "no-run-id-provided"
     }

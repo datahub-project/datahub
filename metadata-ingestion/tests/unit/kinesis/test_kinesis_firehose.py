@@ -213,17 +213,15 @@ class TestFirehoseFetchTags:
         assert {"Key": "owner", "Value": "data-team"} in tags
         assert {"Key": "env", "Value": "prod"} in tags
 
-    def test_short_circuits_when_neither_tags_nor_owners_enabled(self):
-        """When both extract_tags and extract_owners are False, fetch_tags must
-        NOT call boto3 at all — saves an IAM permission and an API round-trip
-        per delivery stream when the user has explicitly disabled tag/owner
-        extraction.
+    def test_short_circuits_when_tags_disabled(self):
+        """When extract_tags is False, fetch_tags must NOT call boto3 at all —
+        saves an IAM permission and an API round-trip per delivery stream when
+        the user has explicitly disabled tag extraction.
         """
         config = KinesisSourceConfig.model_validate(
             {
                 "aws_config": {"aws_region": "us-east-1"},
                 "extract_tags": False,
-                "extract_owners": False,
             }
         )
         ex = KinesisFirehoseExtractor(

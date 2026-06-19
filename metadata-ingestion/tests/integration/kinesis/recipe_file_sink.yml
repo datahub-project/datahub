@@ -10,8 +10,6 @@ source:
     include_streams: true
     include_firehose: true
     extract_tags: true
-    extract_owners: true
-    owner_tag_key: owner
     destination_platform_map: {}
     stream_pattern:
       deny:
