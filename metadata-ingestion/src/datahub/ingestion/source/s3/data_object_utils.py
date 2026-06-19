@@ -27,15 +27,25 @@ _EXTENSION_TO_SUBTYPE = {
     "bmp": DataObjectSubTypes.IMAGE,
     "svg": DataObjectSubTypes.IMAGE,
     "webp": DataObjectSubTypes.IMAGE,
-    # Document / text
+    # Document
     "pdf": DataObjectSubTypes.DOCUMENT,
     "doc": DataObjectSubTypes.DOCUMENT,
     "docx": DataObjectSubTypes.DOCUMENT,
-    "ppt": DataObjectSubTypes.DOCUMENT,
-    "pptx": DataObjectSubTypes.DOCUMENT,
     "rtf": DataObjectSubTypes.DOCUMENT,
+    "odt": DataObjectSubTypes.DOCUMENT,
+    # Spreadsheet (csv is structured and ingested as a dataset, not a dataObject)
+    "xls": DataObjectSubTypes.SPREADSHEET,
+    "xlsx": DataObjectSubTypes.SPREADSHEET,
+    "xlsm": DataObjectSubTypes.SPREADSHEET,
+    "ods": DataObjectSubTypes.SPREADSHEET,
+    # Presentation
+    "ppt": DataObjectSubTypes.PRESENTATION,
+    "pptx": DataObjectSubTypes.PRESENTATION,
+    "odp": DataObjectSubTypes.PRESENTATION,
+    # Text
     "txt": DataObjectSubTypes.TEXT,
     "md": DataObjectSubTypes.TEXT,
+    "log": DataObjectSubTypes.TEXT,
     # Archive
     "zip": DataObjectSubTypes.ARCHIVE,
     "tar": DataObjectSubTypes.ARCHIVE,

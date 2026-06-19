@@ -9,8 +9,16 @@ def test_classify_extension_known_media():
     assert classify_extension("mp4") == DataObjectSubTypes.VIDEO
     assert classify_extension("mp3") == DataObjectSubTypes.AUDIO
     assert classify_extension("png") == DataObjectSubTypes.IMAGE
-    assert classify_extension("pdf") == DataObjectSubTypes.DOCUMENT
+    assert classify_extension("txt") == DataObjectSubTypes.TEXT
     assert classify_extension("zip") == DataObjectSubTypes.ARCHIVE
+
+
+def test_classify_extension_documents():
+    assert classify_extension("pdf") == DataObjectSubTypes.DOCUMENT
+    assert classify_extension("odt") == DataObjectSubTypes.DOCUMENT
+    assert DataObjectSubTypes.DOCUMENT.value == "Document File"
+    assert classify_extension("xlsx") == DataObjectSubTypes.SPREADSHEET
+    assert classify_extension("pptx") == DataObjectSubTypes.PRESENTATION
 
 
 def test_classify_extension_unknown_falls_back_to_file():
