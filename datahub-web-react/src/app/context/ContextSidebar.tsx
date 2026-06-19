@@ -375,9 +375,7 @@ export default function ContextSidebar({
             <HeaderControls $isCollapsed={isCollapsed}>
                 {!isCollapsed && <SidebarTitle>{t('context.documentsSidebarTitle')}</SidebarTitle>}
                 <HeaderButtons>
-                    {!isCollapsed && canCreateDocuments && (
-                        <ImportDocumentsButton onSuccess={handleImportSuccess} />
-                    )}
+                    {!isCollapsed && canCreateDocuments && <ImportDocumentsButton onSuccess={handleImportSuccess} />}
                     {!isCollapsed && (
                         <Tooltip
                             title={

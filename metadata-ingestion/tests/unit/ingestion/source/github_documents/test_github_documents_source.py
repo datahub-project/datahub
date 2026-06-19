@@ -13,6 +13,7 @@ from datahub.ingestion.source.github_documents.github_api import (
     make_dir_source_id,
     make_file_source_id,
     make_repo_source_id,
+    normalize_document_id,
 )
 from datahub.ingestion.source.github_documents.github_documents_config import (
     GitHubDocumentsSourceConfig,
@@ -426,6 +427,19 @@ def test_get_workunit_processors_includes_stale_removal(
         and processor.func is auto_stale_entity_removal
     ]
     assert stale_processors
+    assert stale_processors[0].args[0] is source.stale_entity_removal_handler
+
+
+def test_get_excluded_workunit_processors_excludes_auto_stale_processor(
+    source: GitHubDocumentsSource,
+) -> None:
+    from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+        AutoStaleEntityRemovalProcessor,
+    )
+
+    assert source.get_excluded_workunit_processors() == [
+        AutoStaleEntityRemovalProcessor
+    ]
 
 
 def test_skips_unchanged_file_when_graph_hash_matches(
@@ -446,3 +460,29 @@ def test_skips_unchanged_file_when_graph_hash_matches(
     list(source.get_workunits())
     assert source.report.files_processed == 0
     assert source.report.files_skipped_unchanged == 1
+
+
+def test_skipping_unchanged_file_registers_entity_for_stale_removal(
+    source: GitHubDocumentsSource,
+) -> None:
+    content = "# Hello"
+    content_hash = compute_file_content_hash(content)
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        file_content=content,
+    )
+    source.ctx.graph = MagicMock()
+    mock_info = MagicMock()
+    mock_info.customProperties = {"content_hash": content_hash}
+    source.ctx.graph.get_aspect.return_value = mock_info
+    source.stale_entity_removal_handler.add_entity_to_state = MagicMock()  # type: ignore[method-assign]
+
+    list(source.get_workunits_internal())
+
+    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    expected_urn = f"urn:li:document:{normalize_document_id(source_id)}"
+    source.stale_entity_removal_handler.add_entity_to_state.assert_called_once_with(
+        "document",
+        expected_urn,
+    )
