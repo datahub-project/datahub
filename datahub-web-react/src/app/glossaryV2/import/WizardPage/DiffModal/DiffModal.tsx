@@ -1,5 +1,4 @@
 import { Modal, Text } from '@components';
-import { diffLines, diffWords } from 'diff';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -7,23 +6,16 @@ import styled from 'styled-components';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { Entity, EntityData } from '@app/glossaryV2/import/glossary.types';
 import {
+    DiffRow,
+    DiffVariant,
+    Segment,
+    buildLineDiff,
+    wordSegments,
+} from '@app/glossaryV2/import/WizardPage/DiffModal/DiffModal.utils';
+import {
     compareCustomProperties,
     parseCustomProperties,
 } from '@app/glossaryV2/import/shared/utils/customPropertiesUtils';
-
-type DiffVariant = 'removed' | 'added' | 'context';
-
-interface Segment {
-    text: string;
-    highlighted: boolean;
-}
-
-interface DiffRow {
-    num: number;
-    marker: string;
-    variant: DiffVariant;
-    segments: Segment[];
-}
 
 interface ComparisonField {
     key: string;
@@ -216,78 +208,6 @@ function formatCustomPropertiesForDisplay(value: string): string {
     } catch {
         return value;
     }
-}
-
-function ensureTrailingNewline(value: string): string {
-    return value.endsWith('\n') ? value : `${value}\n`;
-}
-
-function splitToLines(value: string): string[] {
-    const v = value.endsWith('\n') ? value.slice(0, -1) : value;
-    return v.split('\n');
-}
-
-// Word-level segments for one side of a changed line/value. side='left' keeps removed+common
-// tokens (highlighting removals); side='right' keeps added+common (highlighting additions).
-function wordSegments(removedText: string, addedText: string, side: 'left' | 'right'): Segment[] {
-    const parts = diffWords(removedText, addedText);
-    return parts
-        .filter((p) => (side === 'left' ? !p.added : !p.removed))
-        .map((p) => ({ text: p.value, highlighted: side === 'left' ? !!p.removed : !!p.added }));
-}
-
-function partVariant(part: { added?: boolean; removed?: boolean }): DiffVariant {
-    if (part.added) return 'added';
-    if (part.removed) return 'removed';
-    return 'context';
-}
-
-function buildLineDiff(existingText: string, importedText: string): { left: DiffRow[]; right: DiffRow[] } {
-    const parts = diffLines(ensureTrailingNewline(existingText || ''), ensureTrailingNewline(importedText || ''));
-    const blocks = parts.map((p) => ({ type: partVariant(p), lines: splitToLines(p.value) }));
-
-    const left: DiffRow[] = [];
-    const right: DiffRow[] = [];
-    const pushLeft = (marker: string, variant: DiffVariant, segments: Segment[]) =>
-        left.push({ num: left.length + 1, marker, variant, segments });
-    const pushRight = (marker: string, variant: DiffVariant, segments: Segment[]) =>
-        right.push({ num: right.length + 1, marker, variant, segments });
-
-    let i = 0;
-    while (i < blocks.length) {
-        const block = blocks[i];
-        const next = blocks[i + 1];
-        if (block.type === 'context') {
-            block.lines.forEach((line) => {
-                pushLeft(' ', 'context', [{ text: line, highlighted: false }]);
-                pushRight(' ', 'context', [{ text: line, highlighted: false }]);
-            });
-            i += 1;
-        } else if (block.type === 'removed' && next && next.type === 'added') {
-            // Modified region: pair removed and added lines positionally and diff words within each pair.
-            const maxLen = Math.max(block.lines.length, next.lines.length);
-            for (let k = 0; k < maxLen; k += 1) {
-                const rem = block.lines[k];
-                const add = next.lines[k];
-                if (rem !== undefined && add !== undefined) {
-                    pushLeft('-', 'removed', wordSegments(rem, add, 'left'));
-                    pushRight('+', 'added', wordSegments(rem, add, 'right'));
-                } else if (rem !== undefined) {
-                    pushLeft('-', 'removed', [{ text: rem, highlighted: true }]);
-                } else if (add !== undefined) {
-                    pushRight('+', 'added', [{ text: add, highlighted: true }]);
-                }
-            }
-            i += 2;
-        } else if (block.type === 'removed') {
-            block.lines.forEach((line) => pushLeft('-', 'removed', [{ text: line, highlighted: true }]));
-            i += 1;
-        } else {
-            block.lines.forEach((line) => pushRight('+', 'added', [{ text: line, highlighted: true }]));
-            i += 1;
-        }
-    }
-    return { left, right };
 }
 
 const RenderSegments: React.FC<{ segments: Segment[]; variant: DiffVariant }> = ({ segments, variant }) => (

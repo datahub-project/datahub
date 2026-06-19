@@ -1,0 +1,3 @@
+entity_type,urn,name,description,term_source,source_ref,source_url,ownership_users,ownership_groups,parent_nodes,related_contains,related_inherits,domain_urn,domain_name,custom_properties,status
+glossaryTerm,,ImportCypressDuplicateName,First definition of the duplicate,INTERNAL,,,,,,,,,,,
+glossaryTerm,,ImportCypressDuplicateName,Second definition of the same name,EXTERNAL,,,,,,,,,,,

@@ -318,4 +318,71 @@ describe("glossary import", () => {
     cy.wait(1000);
     cy.contains("Patient data term with relationships").should("be.visible");
   });
+
+  it("should flag a type conflict when a CSV name matches an existing entity of another type", () => {
+    cy.loginWithCredentials();
+    cy.skipIntroducePage();
+
+    // Relies on the first test having created ImportCypressImportNode as a glossary node.
+    cy.visit("/glossary/import");
+    cy.url().should("include", "/glossary/import");
+    cy.wait(2000);
+
+    // Upload a CSV that re-declares that name as a glossary TERM.
+    cy.readFile("cypress/fixtures/glossary-import-conflict.csv").then(
+      (fileContent) => {
+        cy.get("#file-input").then(($input) => {
+          const blob = new Blob([fileContent], { type: "text/csv" });
+          const file = new File([blob], "glossary-import-conflict.csv", {
+            type: "text/csv",
+          });
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+          $input[0].files = dataTransfer.files;
+
+          const changeEvent = new Event("change", { bubbles: true });
+          $input[0].dispatchEvent(changeEvent);
+        });
+      },
+    );
+
+    cy.get("[data-testid='glossary-import-list-table']", {
+      timeout: 30000,
+    }).should("be.visible");
+
+    // The row is flagged as a conflict and cannot be imported.
+    cy.contains("ImportCypressImportNode").should("be.visible");
+    cy.contains("Conflict").should("be.visible");
+    cy.contains("button", "No Changes to Import").should("be.visible");
+  });
+
+  it("should reject a CSV containing duplicate names with a validation error", () => {
+    cy.loginWithCredentials();
+    cy.skipIntroducePage();
+
+    cy.visit("/glossary/import");
+    cy.url().should("include", "/glossary/import");
+    cy.wait(2000);
+
+    cy.readFile("cypress/fixtures/glossary-import-duplicate.csv").then(
+      (fileContent) => {
+        cy.get("#file-input").then(($input) => {
+          const blob = new Blob([fileContent], { type: "text/csv" });
+          const file = new File([blob], "glossary-import-duplicate.csv", {
+            type: "text/csv",
+          });
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+          $input[0].files = dataTransfer.files;
+
+          const changeEvent = new Event("change", { bubbles: true });
+          $input[0].dispatchEvent(changeEvent);
+        });
+      },
+    );
+
+    // Validation fails: the duplicate name is reported and no list is rendered.
+    cy.contains("Duplicate name", { timeout: 30000 }).should("be.visible");
+    cy.get("[data-testid='glossary-import-list-table']").should("not.exist");
+  });
 });
