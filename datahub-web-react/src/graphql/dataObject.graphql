@@ -55,6 +55,7 @@ query getDataObject($urn: String!) {
         applications {
             ...entityApplication
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }

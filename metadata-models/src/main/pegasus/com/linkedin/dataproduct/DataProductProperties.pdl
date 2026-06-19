@@ -6,7 +6,8 @@ import com.linkedin.common.ExternalReference
  * The main properties of a Data Product
  */
 @Aspect = {
-  "name": "dataProductProperties"
+  "name": "dataProductProperties",
+  "schemaVersion": 2
 }
 record DataProductProperties includes CustomProperties, ExternalReference  {
   /**
@@ -39,7 +40,7 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   @Relationship = {
     "/*/destinationUrn": {
       "name": "DataProductContains",
-      "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey", "document" ],
+      "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey", "document", "dataObject" ],
     }
   }
   assets: optional array[DataProductAssociation]

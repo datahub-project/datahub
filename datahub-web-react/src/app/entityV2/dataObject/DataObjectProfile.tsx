@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { DataObjectEntity } from '@app/entityV2/dataObject/DataObjectEntity';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
+import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
@@ -69,6 +70,12 @@ export const DataObjectProfile = ({ urn }: { urn: string }): JSX.Element => {
                 },
                 {
                     component: SidebarApplicationSection,
+                    display: {
+                        visible: () => true,
+                    },
+                },
+                {
+                    component: DataProductSection,
                     display: {
                         visible: () => true,
                     },
