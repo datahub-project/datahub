@@ -116,7 +116,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         self._source_id_to_urn: Dict[str, str] = {}
         self._repo_root_source_id: Optional[str] = (
             None
-            if config.parent_document_urn
+            if config.parent_document_urn or not config.create_repo_root_document
             else make_repo_source_id(config.repository)
         )
 

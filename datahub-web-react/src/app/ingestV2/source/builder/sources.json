@@ -595,7 +595,7 @@
         "displayName": "GitHub",
         "description": "Import files from a GitHub repository as context Documents.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/github-documents/",
-        "recipe": "source:\n  type: github-documents\n  config:\n    github_token: null\n    repository: org/repo\n    branch: main\n    path_prefix: \"\"\n    file_extensions:\n      - .md\n      - .txt\n    document_import_mode: NATIVE\n    show_in_global_context: true",
+        "recipe": "source:\n  type: github-documents\n  config:\n    github_token: null\n    repository: org/repo\n    branch: main\n    path_prefix: \"\"\n    file_extensions:\n      - .md\n      - .txt\n    document_import_mode: NATIVE\n    create_repo_root_document: true\n    show_in_global_context: true",
         "category": "Context Document Sources",
         "isPopular": false,
         "isNew": true

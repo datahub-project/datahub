@@ -15,6 +15,7 @@ export function buildGitHubDocumentsIngestionState() {
       - .md
       - .txt
     document_import_mode: ${CONTEXT_DOCUMENT_IMPORT_MODE}
+    create_repo_root_document: true
     show_in_global_context: true
     stateful_ingestion:
       enabled: true

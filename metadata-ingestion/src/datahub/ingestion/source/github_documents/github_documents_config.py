@@ -46,6 +46,13 @@ class GitHubDocumentsSourceConfig(
         default_factory=lambda: [".md", ".txt"],
         description="File extensions to include (include the leading dot).",
     )
+    create_repo_root_document: bool = Field(
+        default=True,
+        description=(
+            "When True, create a folder document named after the repository and nest "
+            "imported files beneath it."
+        ),
+    )
     parent_document_urn: Optional[str] = Field(
         default=None,
         description=(

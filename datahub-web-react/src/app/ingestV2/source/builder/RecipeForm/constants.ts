@@ -120,11 +120,10 @@ import {
 } from '@app/ingestV2/source/builder/RecipeForm/dremio';
 import {
     GITHUB_DOCUMENTS_BRANCH,
+    GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT,
     GITHUB_DOCUMENTS_FILE_EXTENSIONS,
-    GITHUB_DOCUMENTS_PARENT_DOCUMENT_URN,
     GITHUB_DOCUMENTS_PATH_PREFIX,
     GITHUB_DOCUMENTS_REPOSITORY,
-    GITHUB_DOCUMENTS_SHOW_IN_GLOBAL_CONTEXT,
     GITHUB_DOCUMENTS_TOKEN,
 } from '@app/ingestV2/source/builder/RecipeForm/github-documents';
 import {
@@ -774,7 +773,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             GITHUB_DOCUMENTS_IMPORT_MODE,
         ],
         filterFields: [],
-        advancedFields: [GITHUB_DOCUMENTS_PARENT_DOCUMENT_URN, GITHUB_DOCUMENTS_SHOW_IN_GLOBAL_CONTEXT],
+        advancedFields: [GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT],
     },
     [CONFLUENCE]: {
         fields: [

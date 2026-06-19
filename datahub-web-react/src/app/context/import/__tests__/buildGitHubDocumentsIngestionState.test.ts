@@ -13,6 +13,7 @@ describe('buildGitHubDocumentsIngestionState', () => {
         const recipe = JSON.parse(state.config!.recipe!);
         expect(recipe.source.type).toBe('github-documents');
         expect(recipe.source.config.document_import_mode).toBe('NATIVE');
+        expect(recipe.source.config.create_repo_root_document).toBe(true);
         expect(recipe.source.config.parent_document_urn).toBeUndefined();
         expect(recipe.source.config.stateful_ingestion).toEqual({ enabled: true });
     });

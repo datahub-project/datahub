@@ -1,3 +1,5 @@
+import { get, omit, set } from 'lodash';
+
 import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export const GITHUB_DOCUMENTS_TOKEN: RecipeField = {
@@ -54,21 +56,35 @@ export const GITHUB_DOCUMENTS_FILE_EXTENSIONS: RecipeField = {
     rules: null,
 };
 
-export const GITHUB_DOCUMENTS_PARENT_DOCUMENT_URN: RecipeField = {
-    name: 'parent_document_urn',
-    label: 'Parent document URN',
-    tooltip:
-        'Optional parent under which imported items are nested. When unset, a repository root folder document is created automatically.',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.parent_document_urn',
-    rules: null,
-};
+const createRepoRootDocumentFieldPath = 'source.config.create_repo_root_document';
+const parentDocumentUrnFieldPath = 'source.config.parent_document_urn';
 
-export const GITHUB_DOCUMENTS_SHOW_IN_GLOBAL_CONTEXT: RecipeField = {
-    name: 'show_in_global_context',
-    label: 'Show in global context',
-    tooltip: 'When enabled, imported documents appear in global search and the context sidebar.',
+export const GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT: RecipeField = {
+    name: 'create_repo_root_document',
+    label: 'Create parent document with repository name',
+    tooltip:
+        'When enabled, a folder document named after the repository is created and imported files are nested beneath it.',
     type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.show_in_global_context',
+    fieldPath: createRepoRootDocumentFieldPath,
     rules: null,
+    getValueFromRecipeOverride: (recipe) => {
+        const createRepoRoot = get(recipe, createRepoRootDocumentFieldPath);
+        if (createRepoRoot !== undefined) {
+            return createRepoRoot;
+        }
+
+        const parentDocumentUrn = get(recipe, parentDocumentUrnFieldPath);
+        if (parentDocumentUrn) {
+            return false;
+        }
+
+        return true;
+    },
+    setValueOnRecipeOverride: (recipe, value) => {
+        let updatedRecipe = set(recipe, createRepoRootDocumentFieldPath, value);
+        if (value) {
+            updatedRecipe = omit(updatedRecipe, parentDocumentUrnFieldPath);
+        }
+        return updatedRecipe;
+    },
 };

@@ -317,6 +317,31 @@ def test_parent_document_urn_skips_repo_root() -> None:
     assert source.report.folders_processed == 0
 
 
+def test_create_repo_root_document_false_skips_repo_root() -> None:
+    config = GitHubDocumentsSourceConfig(
+        github_token=SecretStr("ghp_test"),
+        repository="acme/docs",
+        path_prefix="docs",
+        create_repo_root_document=False,
+    )
+    ctx = PipelineContext(run_id="test-run")
+    source = GitHubDocumentsSource(config, ctx)
+    assert source._repo_root_source_id is None
+
+    source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
+        return_value=([GitHubFileInfo(path="docs/readme.md", size=12)], False)
+    )
+    source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
+        return_value="abc123"
+    )
+    source.client.fetch_file_content = MagicMock(  # type: ignore[method-assign]
+        return_value="# Hello"
+    )
+
+    list(source.get_workunits())
+    assert source.report.folders_processed == 0
+
+
 def test_nested_file_hierarchy_links_parent_documents(
     source: GitHubDocumentsSource,
 ) -> None:

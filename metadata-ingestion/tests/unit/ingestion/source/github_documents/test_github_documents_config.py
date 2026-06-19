@@ -18,6 +18,7 @@ def test_valid_config_defaults() -> None:
     assert config.branch == "main"
     assert config.file_extensions == [".md", ".txt"]
     assert config.document_import_mode == DocumentImportMode.NATIVE
+    assert config.create_repo_root_document is True
     assert config.document_mapping.source.type == "NATIVE"
 
 
