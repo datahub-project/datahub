@@ -183,7 +183,7 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
                     }
                 }}
             >
-                <Text color="violet">{t('tags.appliedToEntityCount', { count: totalCount })}</Text>
+                <Text color="hyperlinks">{t('tags.appliedToEntityCount', { count: totalCount })}</Text>
             </div>
 
             {aggregations.slice(0, 3).map((agg) => {
@@ -204,7 +204,7 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
                             }
                         }}
                     >
-                        <Text color="violet">
+                        <Text color="hyperlinks">
                             {agg.count} {entityRegistry.getCollectionName(agg.value as unknown as EntityType)}
                         </Text>
                     </div>

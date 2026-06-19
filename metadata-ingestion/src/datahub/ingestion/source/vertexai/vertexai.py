@@ -27,7 +27,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.gcp_project_filter import (
@@ -36,7 +36,6 @@ from datahub.ingestion.source.common.gcp_project_filter import (
 )
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -288,14 +287,6 @@ class VertexAISource(StatefulIngestionSourceBase):
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def _yield_common_aspects(
         self,

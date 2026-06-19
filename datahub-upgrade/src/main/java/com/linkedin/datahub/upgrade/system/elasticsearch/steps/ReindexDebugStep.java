@@ -87,7 +87,7 @@ public class ReindexDebugStep implements UpgradeStep {
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
         try {
-          service.getIndexBuilder().buildIndex(config);
+          service.getIndexBuilder().buildIndex(context.opContext(), config);
         } catch (IOException e) {
           log.error("ReindexDebugStep failed: IOException during buildIndex", e);
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);

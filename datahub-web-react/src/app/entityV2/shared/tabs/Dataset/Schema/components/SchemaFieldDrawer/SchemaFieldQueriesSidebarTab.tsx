@@ -47,7 +47,7 @@ const StyledQueryCard = styled.div`
     margin-right: 10px;
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
 `;
 
 const QuerySubtitleContainer = styled.div`

@@ -37,6 +37,17 @@ public class DomainsPatchBuilder extends AbstractMultiFieldPatchBuilder<DomainsP
           "domainAssociations",
           Collections.unmodifiableList(Arrays.asList(DOMAIN_KEY, ATTRIBUTION_SOURCE_KEY)));
 
+  public DomainsPatchBuilder setDomain(@Nonnull Urn urn) {
+    // remove existing list of domains to set the new one
+    this.pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH, null));
+    // add empty domains object node
+    pathValues.add(
+        ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH, instance.objectNode()));
+    // set the new domain
+    addDomain(urn, null);
+    return this;
+  }
+
   public DomainsPatchBuilder addDomain(@Nonnull Urn domainUrn, @Nullable String context) {
     ObjectNode value = instance.objectNode();
     value.put(DOMAIN_KEY, domainUrn.toString());

@@ -27,7 +27,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -39,9 +38,6 @@ from datahub.ingestion.source.confluence.confluence_hierarchy import (
 )
 from datahub.ingestion.source.confluence.confluence_html import html_storage_to_markdown
 from datahub.ingestion.source.confluence.confluence_report import ConfluenceSourceReport
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -358,9 +354,6 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         # Initialize stateful ingestion handler for stale entity removal
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, ctx
-        )
 
     def _get_instance_id(self) -> str:
         """
@@ -1092,17 +1085,6 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                     or self.chunking_source.report.num_documents_limit_reached
                 ):
                     raise
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        """Register workunit processors for stateful ingestion.
-
-        The stale entity removal handler will automatically track all emitted
-        document URNs and generate deletion workunits for any that disappeared.
-        """
-        return [
-            *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
 
     @staticmethod
     def _test_semantic_search_capability(
