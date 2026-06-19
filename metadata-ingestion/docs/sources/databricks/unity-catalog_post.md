@@ -60,12 +60,15 @@ On the **system-tables path**, query history is joined to `system.access.table_l
 
 - `include_operational_stats` (default `true`) — when `false`, only `SELECT` statements are fetched.
 - `include_queries` / `include_query_usage_statistics` — emit Query entities and per-query popularity (system-tables path only).
+- `include_column_usage_stats` (default `false`) — when `true`, force full sqlglot parsing of every usage query so column-level usage statistics (`fieldCounts`) are produced. This bypasses the faster preparsed system-table lineage path and is slower; it also overrides `push_down_database_pattern_access_history` and `skip_sqlglot_when_system_table_lineage_missing`.
 
 `push_down_database_pattern_access_history: true` applies `catalog_pattern` filtering in `system.access.table_lineage` and semi-joins query history to statements that have lineage in the configured time window. Statements without lineage rows are not fetched (even when `catalog_pattern` allows all catalogs).
 
 :::warning Coverage vs. speed tradeoff
 
 `skip_sqlglot_when_system_table_lineage_missing` and `push_down_database_pattern_access_history` trade usage **coverage** for speed, not just parsing time. Databricks only records a `system.access.table_lineage` row for statements that emit a lineage event (typically a minority of warehouse/serverless queries) — `CREATE`, `DESCRIBE`, `SET`, and most other statements have no lineage row at all. Enabling either option therefore drops usage and operations for every statement that lacks lineage in the time window, which is usually the large majority of activity. They are off by default for this reason; leave them off unless you specifically want to restrict usage to the lineage-bearing subset in exchange for faster, lighter ingestion.
+
+The default preparsed path emits table-level usage only (no column `fieldCounts`). Set `include_column_usage_stats: true` to regain column-level usage statistics via full sqlglot parsing at the cost of speed.
 
 :::
 

@@ -409,6 +409,19 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    include_column_usage_stats: bool = Field(
+        default=False,
+        description=(
+            "If enabled, force full sqlglot parsing of usage queries so column-level "
+            "usage statistics (fieldCounts) are produced. This bypasses the faster "
+            "system-table preparsed lineage path, so usage extraction is slower. Only "
+            "changes behavior on the system-tables usage path (the REST API path already "
+            "parses every query). Takes precedence over "
+            "push_down_database_pattern_access_history and "
+            "skip_sqlglot_when_system_table_lineage_missing, which are ignored when set."
+        ),
+    )
+
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
         UnityCatalogGEProfilerConfig,
@@ -643,6 +656,35 @@ class UnityCatalogSourceConfig(
                 f"(usage_data_source={self.usage_data_source.value}, "
                 f"warehouse_id={'set' if self.warehouse_id else 'unset'}). "
                 "These options will have no effect."
+            )
+            logger.warning(msg)
+            add_global_warning(msg)
+        return self
+
+    @model_validator(mode="after")
+    def warn_column_usage_stats_overrides_system_table_flags(self):
+        if not self.include_column_usage_stats:
+            return self
+
+        overridden = [
+            name
+            for name, enabled in (
+                (
+                    "push_down_database_pattern_access_history",
+                    self.push_down_database_pattern_access_history,
+                ),
+                (
+                    "skip_sqlglot_when_system_table_lineage_missing",
+                    self.skip_sqlglot_when_system_table_lineage_missing,
+                ),
+            )
+            if enabled
+        ]
+        if overridden:
+            msg = (
+                f"{', '.join(overridden)} are ignored because include_column_usage_stats "
+                "is enabled: usage queries are fully sqlglot-parsed for column-level "
+                "statistics."
             )
             logger.warning(msg)
             add_global_warning(msg)

@@ -80,7 +80,10 @@ class UnityCatalogUsageExtractor:
         if self._use_system_tables_join():
             catalog_pattern = (
                 self.config.catalog_pattern
-                if self.config.push_down_database_pattern_access_history
+                if (
+                    self.config.push_down_database_pattern_access_history
+                    and not self.config.include_column_usage_stats
+                )
                 else None
             )
             return self.proxy.get_query_history_via_system_tables(
@@ -178,6 +181,16 @@ class UnityCatalogUsageExtractor:
             )
             return
 
+        if self.config.include_column_usage_stats:
+            logger.info(
+                "Unity usage routing summary (system-table join, column usage stats): "
+                "total=%s sqlglot=%s (include_column_usage_stats forces full sqlglot "
+                "parsing)",
+                total,
+                self.report.num_queries_observed_sqlglot,
+            )
+            return
+
         preparsed = self.report.num_queries_preparsed_from_lineage
         without_lineage = self.report.num_queries_without_system_table_lineage
         skipped_no_lineage = (
@@ -268,12 +281,33 @@ class UnityCatalogUsageExtractor:
             )
         return preparsed
 
+    def _add_observed_query(
+        self,
+        aggregator: SqlParsingAggregator,
+        query: Query,
+        default_db: Optional[str],
+    ) -> None:
+        aggregator.add_observed_query(
+            ObservedQuery(
+                query=query.query_text,
+                timestamp=self._normalize_timestamp(query.start_time),
+                user=self._user_urn(query),
+                default_db=default_db,
+                default_schema=None,
+            )
+        )
+        self.report.num_queries_observed_sqlglot += 1
+
     def _add_query_to_aggregator(
         self,
         aggregator: SqlParsingAggregator,
         query: Query,
         default_db: Optional[str],
     ) -> None:
+        if self.config.include_column_usage_stats:
+            self._add_observed_query(aggregator, query, default_db)
+            return
+
         if self._can_use_preparsed_query(query):
             preparsed_queries = self._to_preparsed_queries(query)
             if preparsed_queries and (
@@ -332,16 +366,7 @@ class UnityCatalogUsageExtractor:
                 self._query_preview(query),
             )
 
-        aggregator.add_observed_query(
-            ObservedQuery(
-                query=query.query_text,
-                timestamp=self._normalize_timestamp(query.start_time),
-                user=self._user_urn(query),
-                default_db=default_db,
-                default_schema=None,
-            )
-        )
-        self.report.num_queries_observed_sqlglot += 1
+        self._add_observed_query(aggregator, query, default_db)
 
     def _report_usage_lineage_warnings(self) -> None:
         # Uniform count-only warnings, emitted only when their counter is non-zero.

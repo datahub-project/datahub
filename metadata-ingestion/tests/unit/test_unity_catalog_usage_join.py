@@ -225,6 +225,8 @@ def _extractor(config: MagicMock, proxy: MagicMock) -> UnityCatalogUsageExtracto
         config.skip_sqlglot_when_system_table_lineage_missing = False
     if isinstance(config.push_down_database_pattern_access_history, MagicMock):
         config.push_down_database_pattern_access_history = False
+    if isinstance(config.include_column_usage_stats, MagicMock):
+        config.include_column_usage_stats = False
     if isinstance(config.catalog_pattern, MagicMock):
         config.catalog_pattern = None
 
@@ -2795,3 +2797,165 @@ def test_all_unparseable_history_warns_and_suppresses_no_queries(
     warning_titles = [w.title for w in ex.report.warnings]
     assert "Query history rows could not be parsed" in warning_titles
     assert "No queries found for usage" not in warning_titles
+
+
+def test_include_column_usage_stats_forces_sqlglot_with_lineage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    agg_instance: list = []
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            self.observed: list = []
+            self.preparsed: list = []
+            agg_instance.append(self)
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            self.observed.append(observed)
+
+        def add_preparsed_query(self, parsed: object, **kw: object) -> None:
+            self.preparsed.append(parsed)
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.include_queries = False
+    config.include_query_usage_statistics = False
+    config.include_operational_stats = False
+    config.include_column_usage_stats = True
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = [
+        _query_with_lineage(
+            "SELECT * FROM main.sales.orders",
+            "s1",
+            sources=["main.sales.orders"],
+        ),
+    ]
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+    _register_tables(ex, ["main.sales.orders"])
+    list(ex.get_usage_workunits(set()))
+
+    agg = agg_instance[0]
+    assert len(agg.preparsed) == 0
+    assert len(agg.observed) == 1
+    assert ex.report.num_queries_preparsed_from_lineage == 0
+    assert ex.report.num_queries_observed_sqlglot == 1
+
+
+def test_include_column_usage_stats_overrides_skip_sqlglot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    agg_instance: list = []
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            self.observed: list = []
+            self.preparsed: list = []
+            agg_instance.append(self)
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            self.observed.append(observed)
+
+        def add_preparsed_query(self, parsed: object, **kw: object) -> None:
+            self.preparsed.append(parsed)
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.include_queries = False
+    config.include_query_usage_statistics = False
+    config.include_operational_stats = False
+    config.include_column_usage_stats = True
+    config.skip_sqlglot_when_system_table_lineage_missing = True
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = [
+        Query(
+            query_id="s-no-lineage",
+            query_text="SELECT COUNT(*) FROM fivetran.smoke.base_table",
+            statement_type=QueryStatementType.SELECT,
+            start_time=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            end_time=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            user_id=1,
+            user_name="u@x.io",
+            executed_as_user_id=None,
+            executed_as_user_name=None,
+        ),
+    ]
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+    list(ex.get_usage_workunits(set()))
+
+    agg = agg_instance[0]
+    assert len(agg.observed) == 1
+    assert ex.report.num_queries_skipped_without_system_table_lineage == 0
+    assert ex.report.num_queries_observed_sqlglot == 1
+
+
+def test_fetch_queries_omits_catalog_pattern_when_column_usage_stats_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            pass
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            pass
+
+        def add_preparsed_query(self, parsed: object, **kw: object) -> None:
+            pass
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    from datahub.configuration.common import AllowDenyPattern
+
+    catalog_pattern = AllowDenyPattern(allow=["^prod$"], deny=[])
+
+    config = MagicMock()
+    config.include_queries = False
+    config.include_query_usage_statistics = False
+    config.include_operational_stats = False
+    config.include_column_usage_stats = True
+    config.usage_uses_system_tables.return_value = True
+    config.push_down_database_pattern_access_history = True
+    config.catalog_pattern = catalog_pattern
+    config.start_time = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    config.end_time = datetime(2026, 6, 2, tzinfo=timezone.utc)
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = []
+
+    ex = _extractor(config, proxy)
+    list(ex.get_usage_workunits(set()))
+
+    proxy.get_query_history_via_system_tables.assert_called_once_with(
+        config.start_time,
+        config.end_time,
+        catalog_pattern=None,
+        include_operational_stats=False,
+    )
