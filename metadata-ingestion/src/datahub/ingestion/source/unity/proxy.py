@@ -263,7 +263,13 @@ def _build_table_lineage_catalog_filter_condition(
     return sql, bind_params
 
 
-_ROW_PARSE_EXCEPTIONS = (AttributeError, KeyError, TypeError, ValueError)
+# Raised when constructing a Query from a query-history row fails (e.g. an
+# invalid statement_type enum value) — bucketed as a query-parse failure.
+_ROW_PARSE_EXCEPTIONS = (AttributeError, ValueError)
+# Raised when reading an individual lineage column off a row — bucketed as a
+# field-read error. Kept identical to what _optional_row_field catches so the
+# outer handler can't mis-bucket field reads as query parses.
+_ROW_FIELD_READ_EXCEPTIONS = (AttributeError, ValueError)
 
 
 def _optional_row_field(
@@ -273,7 +279,7 @@ def _optional_row_field(
 ) -> Optional[str]:
     try:
         value = getattr(row, field)
-    except (AttributeError, ValueError):
+    except _ROW_FIELD_READ_EXCEPTIONS:
         if report is not None:
             report.num_lineage_row_field_read_errors += 1
         return None
@@ -848,38 +854,57 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 for row in rows:
                     try:
                         statement_id = row.statement_id
-                        if statement_id != current_statement_id:
-                            yield from _flush_current()
-                            current_statement_id = statement_id
-                            parsed = _query_from_row(row)
-                            if parsed is None:
-                                self.report.num_queries_missing_info += 1
-                                current_statement_id = None
-                                current_query = None
-                                continue
-                            current_query = parsed
-
-                        if current_query is None:
-                            continue
-
-                        source_name = _optional_row_field(
-                            row, "source_table_full_name", self.report
-                        )
-                        if source_name:
-                            source_names.add(source_name)
-                        target_name = _optional_row_field(
-                            row, "target_table_full_name", self.report
-                        )
-                        if target_name:
-                            target_names.add(target_name)
-                    except _ROW_PARSE_EXCEPTIONS:
+                    except _ROW_FIELD_READ_EXCEPTIONS:
+                        # Can't determine grouping for this row. Skip it without
+                        # disturbing the in-progress statement so a single bad row
+                        # doesn't split a statement into duplicate emissions.
+                        self.report.num_lineage_row_field_read_errors += 1
                         logger.debug(
-                            "Error parsing query from system table",
+                            "Skipping system.query.history row with unreadable "
+                            "statement_id",
                             exc_info=True,
                         )
-                        self.report.num_queries_missing_info += 1
+                        continue
+
+                    if statement_id != current_statement_id:
                         yield from _flush_current()
-                        current_statement_id = None
+                        current_statement_id = statement_id
+                        try:
+                            parsed = _query_from_row(row)
+                        except _ROW_PARSE_EXCEPTIONS:
+                            logger.debug(
+                                "Skipping unparseable statement from "
+                                "system.query.history (statement_id=%s)",
+                                statement_id,
+                                exc_info=True,
+                            )
+                            self.report.num_queries_missing_info += 1
+                            current_statement_id = None
+                            current_query = None
+                            continue
+                        if parsed is None:
+                            self.report.num_queries_missing_info += 1
+                            current_statement_id = None
+                            current_query = None
+                            continue
+                        current_query = parsed
+
+                    if current_query is None:
+                        continue
+
+                    # Field-read errors are owned by _optional_row_field, which
+                    # counts them and returns None — accumulation continues into the
+                    # same statement group rather than flushing a partial result.
+                    source_name = _optional_row_field(
+                        row, "source_table_full_name", self.report
+                    )
+                    if source_name:
+                        source_names.add(source_name)
+                    target_name = _optional_row_field(
+                        row, "target_table_full_name", self.report
+                    )
+                    if target_name:
+                        target_names.add(target_name)
 
             yield from _flush_current()
         finally:
