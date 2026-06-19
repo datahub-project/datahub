@@ -9,6 +9,11 @@ source:
     username: root
     password: example
 
+    # Optionally derive usage stats + query lineage from performance_schema
+    # (no general query log required). Requires the statements_digest consumer
+    # (on by default in MariaDB 10.11) and SELECT on performance_schema.
+    # include_usage_statistics: true
+
     # If you need to use SSL with MariaDB:
     # options:
     #   connect_args:

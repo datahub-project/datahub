@@ -9,6 +9,14 @@ Grant the following privileges to the ingestion user:
 - `grant select on DATABASE.* to 'USERNAME'@'%'` (required for metadata and profiling)
 - `grant show view on DATABASE.* to 'USERNAME'@'%'` (required for view definitions)
 
+#### Usage Statistics
+
+Set `include_usage_statistics: true` to derive usage statistics and query-based lineage from
+`performance_schema.events_statements_summary_by_digest` instead of the general query log. This
+requires the `statements_digest` consumer to be enabled (the `performance_schema` default) and
+`grant select on performance_schema.* to 'USERNAME'@'%'`. Usage counts are aggregated across users
+and accumulate until the digest table is reset; see the Limitations section for details.
+
 #### AWS RDS IAM Authentication
 
 AWS RDS MySQL supports IAM authentication instead of username/password.
