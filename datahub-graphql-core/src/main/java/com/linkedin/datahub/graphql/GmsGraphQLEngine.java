@@ -2067,7 +2067,8 @@ public class GmsGraphQLEngine {
                               : null;
                         }))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
-                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient)));
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+                .dataFetcher("exists", new EntityExistsResolver(entityService)));
   }
 
   /**
