@@ -391,7 +391,21 @@ class UnityCatalogSourceConfig(
             "for improved performance during usage extraction. This filters on source and target "
             "catalogs in table_lineage. Maps to Snowflake's database_pattern semantics via "
             "catalog_pattern (Unity catalog = Snowflake database). Only applies when usage is "
-            "fetched via system tables (usage_data_source AUTO with warehouse or SYSTEM_TABLES)."
+            "fetched via system tables (usage_data_source AUTO with warehouse or SYSTEM_TABLES). "
+            "Also adds a statement_id semi-join against table_lineage, so only queries that "
+            "have at least one lineage row in the configured time window are fetched; queries "
+            "without system.access.table_lineage rows are omitted entirely (not sqlglot-fallbacked)."
+        ),
+    )
+
+    skip_sqlglot_when_system_table_lineage_missing: bool = Field(
+        default=False,
+        description=(
+            "If enabled on the system-tables usage path, queries with no matching rows "
+            "in system.access.table_lineage (for their statement_id within the configured "
+            "time window) are skipped instead of parsed with sqlglot. Only applies when "
+            "usage is fetched via system.query.history joined with system.access.table_lineage. "
+            "Queries that have lineage but unresolvable dataset URNs still fall back to sqlglot."
         ),
     )
 
