@@ -1,9 +1,15 @@
 import { Button, Input, Pill, SimpleSelect } from '@components';
+import type { TFunction } from 'i18next';
 import React from 'react';
+import styled from 'styled-components';
 
 import { Column } from '@components/components/Table/types';
 
 import { Entity } from '@app/glossaryV2/import/glossary.types';
+
+const EmptyCell = styled.div`
+    color: ${(props) => props.theme.colors.textTertiary};
+`;
 
 // ============================================
 // CONFIGURATION
@@ -137,10 +143,7 @@ const EditableCell = ({
         return (
             <Input
                 value={currentValue}
-                setValue={(value) => {
-                    const stringValue = typeof value === 'function' ? value(currentValue) : value;
-                    handleCellChange(stringValue);
-                }}
+                setValue={(value) => handleCellChange(value)}
                 onBlur={() => handleCellSave(record.id, field, currentValue)}
                 onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -228,9 +231,9 @@ type EntityWithHierarchy = Entity & {
 /**
  * Create the diff button column
  */
-function createDiffColumn(handleShowDiff: (entity: Entity) => void): Column<Entity> {
+function createDiffColumn(handleShowDiff: (entity: Entity) => void, t: TFunction): Column<Entity> {
     return {
-        title: 'Diff',
+        title: t('import.list.columnDiff'),
         key: 'diff',
         render: (record: Entity) => (
             <Button
@@ -241,7 +244,7 @@ function createDiffColumn(handleShowDiff: (entity: Entity) => void): Column<Enti
                     handleShowDiff(record);
                 }}
             >
-                Diff
+                {t('import.list.diffButton')}
             </Button>
         ),
         width: '80px',
@@ -253,9 +256,9 @@ function createDiffColumn(handleShowDiff: (entity: Entity) => void): Column<Enti
 /**
  * Create the status pill column
  */
-function createStatusColumn(): Column<Entity> {
+function createStatusColumn(t: TFunction): Column<Entity> {
     return {
-        title: 'Status',
+        title: t('import.list.columnStatus'),
         key: 'status',
         render: (record: Entity) => {
             type PillColor = 'green' | 'blue' | 'red' | 'gray';
@@ -298,9 +301,10 @@ function createNameColumn(
     expandedRowKeys: string[],
     allEntities: Entity[],
     editingValue: string,
+    t: TFunction,
 ): Column<EntityWithHierarchy> {
     return {
-        title: 'Name',
+        title: t('import.list.columnName'),
         key: 'name',
         render: (record: EntityWithHierarchy) => {
             const hasChildren = record.children && record.children.length > 0;
@@ -323,6 +327,7 @@ function createNameColumn(
                         alignItems: 'center',
                     }}
                 >
+                    {/* eslint-disable-next-line i18next/no-literal-string */}
                     {isExpanded ? '▼' : '▶'}
                 </button>
             ) : null;
@@ -333,17 +338,16 @@ function createNameColumn(
                         {expandButton}
                         <Input
                             value={editingValue}
-                            setValue={(value) => {
-                                const stringValue = typeof value === 'function' ? value(editingValue) : value;
-                                handleCellChange(stringValue);
-                            }}
+                            setValue={(value) => handleCellChange(value)}
+                            // eslint-disable-next-line i18next/no-literal-string
                             onBlur={() => handleCellSave(record.id, 'name', editingValue)}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
+                                    // eslint-disable-next-line i18next/no-literal-string
                                     handleCellSave(record.id, 'name', editingValue);
                                 }
                             }}
-                            placeholder="Enter name"
+                            placeholder={t('import.list.namePlaceholder')}
                             label=""
                             autoFocus
                         />
@@ -373,20 +377,24 @@ function createEntityTypeColumn(
     isEditing: (rowId: string, field: string) => boolean,
     handleCellEdit: (rowId: string, field: string) => void,
     handleCellSave: (rowId: string, field: string, value: string) => void,
+    t: TFunction,
 ): Column<Entity> {
     return {
-        title: 'Entity Type',
+        title: t('import.list.columnEntityType'),
         key: 'entity_type',
         render: (record) => {
             if (isEditing(record.id, 'entity_type')) {
                 return (
                     <SimpleSelect
                         values={[record.data.entity_type]}
+                        // eslint-disable-next-line i18next/no-literal-string
                         onUpdate={(values) => handleCellSave(record.id, 'entity_type', values[0])}
                         width="full"
                         options={[
-                            { value: 'glossaryTerm', label: 'Term' },
-                            { value: 'glossaryNode', label: 'Term Group' },
+                            // eslint-disable-next-line i18next/no-literal-string
+                            { value: 'glossaryTerm', label: t('import.list.entityTypeTerm') },
+                            // eslint-disable-next-line i18next/no-literal-string
+                            { value: 'glossaryNode', label: t('import.list.entityTypeTermGroup') },
                         ]}
                     />
                 );
@@ -422,14 +430,16 @@ function createTermSourceColumn(
     isEditing: (rowId: string, field: string) => boolean,
     handleCellEdit: (rowId: string, field: string) => void,
     handleCellSave: (rowId: string, field: string, value: string) => void,
+    t: TFunction,
 ): Column<Entity> {
     return {
-        title: 'Term Source',
+        title: t('import.list.columnTermSource'),
         key: 'term_source',
         render: (record) => {
             // Only show dropdown for glossaryTerm entities
             if (record.type !== 'glossaryTerm') {
-                return <div style={{ color: '#999' }}>-</div>;
+                // eslint-disable-next-line i18next/no-literal-string
+                return <EmptyCell>-</EmptyCell>;
             }
 
             if (isEditing(record.id, 'term_source')) {
@@ -437,10 +447,13 @@ function createTermSourceColumn(
                 return (
                     <SimpleSelect
                         values={[currentValue.toUpperCase()]}
+                        // eslint-disable-next-line i18next/no-literal-string
                         onUpdate={(values) => handleCellSave(record.id, 'term_source', values[0])}
                         width="full"
                         options={[
+                            // eslint-disable-next-line i18next/no-literal-string
                             { value: 'INTERNAL', label: 'INTERNAL' },
+                            // eslint-disable-next-line i18next/no-literal-string
                             { value: 'EXTERNAL', label: 'EXTERNAL' },
                         ]}
                     />
@@ -492,11 +505,12 @@ export const getTableColumns = (
     expandedRowKeys: string[],
     allEntities: Entity[],
     editingValue: string,
+    t: TFunction,
 ): Column<EntityWithHierarchy>[] => {
     // Static columns
     const staticColumns = [
-        createDiffColumn(handleShowDiff),
-        createStatusColumn(),
+        createDiffColumn(handleShowDiff, t),
+        createStatusColumn(t),
         createNameColumn(
             isEditing,
             handleCellEdit,
@@ -506,9 +520,10 @@ export const getTableColumns = (
             expandedRowKeys,
             allEntities,
             editingValue,
+            t,
         ),
-        createEntityTypeColumn(isEditing, handleCellEdit, handleCellSave),
-        createTermSourceColumn(isEditing, handleCellEdit, handleCellSave),
+        createEntityTypeColumn(isEditing, handleCellEdit, handleCellSave, t),
+        createTermSourceColumn(isEditing, handleCellEdit, handleCellSave, t),
     ];
 
     // Editable columns from config

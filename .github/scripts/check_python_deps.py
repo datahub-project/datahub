@@ -10,11 +10,12 @@ This script reads dep-analyzer.py JSON outputs from both branches and identifies
 Usage:
     check_python_deps.py --baseline-file /tmp/master-project.json \
                          --pr-file /tmp/pr-project.json \
-                         --project-name metadata-ingestion
+                         --project-name metadata-ingestion \
+                         --exclusions-file .github/python-deps-exclusions.txt
 
 Exit codes:
-    0: No violations found
-    1: Violations found
+    0: No violations found (or all violations are excluded)
+    1: Violations found (excluding allowed exclusions)
     2: Error reading or parsing files
 """
 import argparse
@@ -26,6 +27,32 @@ from typing import Any
 
 # Pin levels that should cause failure if newly introduced
 VIOLATION_LEVELS = {"unpinned", "lower_bound"}
+
+
+def load_exclusions(exclusions_file: Path | None) -> set[str]:
+    """
+    Load package exclusion list from file.
+
+    Returns set of package names that are allowed to remain unpinned.
+    Supports comments (lines starting with #) and empty lines.
+    """
+    if exclusions_file is None or not exclusions_file.exists():
+        return set()
+
+    exclusions = set()
+    try:
+        with open(exclusions_file) as f:
+            for line in f:
+                line = line.strip()
+                # Skip comments and empty lines
+                if not line or line.startswith("#"):
+                    continue
+                exclusions.add(line)
+    except Exception as e:
+        print(f"Warning: Failed to load exclusions file: {e}", file=sys.stderr)
+        return set()
+
+    return exclusions
 
 
 def load_json_results(file_path: Path) -> dict[str, Any] | None:
@@ -116,22 +143,29 @@ def classify_violation(
 
 def compare_dependencies(
     baseline_map: dict[str, dict[str, Any]],
-    pr_map: dict[str, dict[str, Any]]
-) -> list[dict[str, Any]]:
+    pr_map: dict[str, dict[str, Any]],
+    exclusions: set[str]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """
     Compare baseline and PR dependency maps to find violations.
 
-    Returns list of violation dictionaries.
+    Returns tuple of (real_violations, excluded_violations).
+    Excluded violations are those in the exclusions list - they are flagged
+    but don't cause build failure.
     """
-    violations = []
+    real_violations = []
+    excluded_violations = []
 
     for name, pr_info in pr_map.items():
         baseline_info = baseline_map.get(name)
         violation = classify_violation(name, baseline_info, pr_info)
         if violation:
-            violations.append(violation)
+            if name in exclusions:
+                excluded_violations.append(violation)
+            else:
+                real_violations.append(violation)
 
-    return violations
+    return real_violations, excluded_violations
 
 
 def generate_summary(violations: list[dict[str, Any]]) -> dict[str, int]:
@@ -175,8 +209,17 @@ def main():
         required=True,
         help="Name of the project being compared (for reporting)"
     )
+    parser.add_argument(
+        "--exclusions-file",
+        type=Path,
+        required=False,
+        help="Path to file containing allowed unpinned package names"
+    )
 
     args = parser.parse_args()
+
+    # Load exclusions
+    exclusions = load_exclusions(args.exclusions_file)
 
     try:
         # Load both JSON files
@@ -201,15 +244,20 @@ def main():
         pr_map = build_dependency_map(pr_data)
 
         # Compare and find violations
-        violations = compare_dependencies(baseline_map, pr_map)
-        summary = generate_summary(violations)
+        real_violations, excluded_violations = compare_dependencies(
+            baseline_map, pr_map, exclusions
+        )
+        real_summary = generate_summary(real_violations)
+        excluded_summary = generate_summary(excluded_violations)
 
         # Generate output
         result = {
             "project": args.project_name,
-            "has_violations": len(violations) > 0,
-            "violations": violations,
-            "summary": summary
+            "has_violations": len(real_violations) > 0,
+            "violations": real_violations,
+            "summary": real_summary,
+            "excluded_violations": excluded_violations,
+            "excluded_summary": excluded_summary
         }
 
         if baseline_data is None:
@@ -217,8 +265,8 @@ def main():
 
         print(json.dumps(result, indent=2))
 
-        # Exit with appropriate code
-        return 1 if violations else 0
+        # Exit with appropriate code (only fail on real violations, not excluded ones)
+        return 1 if real_violations else 0
 
     except ValueError as e:
         # JSON parsing or other validation error

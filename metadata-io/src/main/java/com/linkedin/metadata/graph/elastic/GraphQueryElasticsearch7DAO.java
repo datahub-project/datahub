@@ -55,7 +55,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
    *     of throwing
    */
   @Override
-  protected List<LineageRelationship> searchWithSlices(
+  protected LineageSliceFetchResult searchWithSlices(
       @Nonnull OperationContext opContext,
       @Nonnull QueryBuilder query,
       LineageGraphFilters lineageGraphFilters,
@@ -73,34 +73,38 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
 
     // Create slice-based search requests
     List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
+    try {
+      for (int sliceId = 0; sliceId < slices; sliceId++) {
+        final int currentSliceId = sliceId;
+        CompletableFuture<List<LineageRelationship>> sliceFuture =
+            CompletableFuture.supplyAsync(
+                () -> {
+                  return searchSingleSliceWithScroll(
+                      opContext,
+                      query,
+                      lineageGraphFilters,
+                      visitedEntities,
+                      viaEntities,
+                      numHops,
+                      remainingHops,
+                      existingPaths,
+                      maxRelations,
+                      defaultPageSize,
+                      currentSliceId,
+                      slices,
+                      remainingTime,
+                      entityUrns,
+                      allowPartialResults);
+                });
+        sliceFutures.add(sliceFuture);
+      }
 
-    for (int sliceId = 0; sliceId < slices; sliceId++) {
-      final int currentSliceId = sliceId;
-      CompletableFuture<List<LineageRelationship>> sliceFuture =
-          CompletableFuture.supplyAsync(
-              () -> {
-                return searchSingleSliceWithScroll(
-                    opContext,
-                    query,
-                    lineageGraphFilters,
-                    visitedEntities,
-                    viaEntities,
-                    numHops,
-                    remainingHops,
-                    existingPaths,
-                    maxRelations,
-                    defaultPageSize,
-                    currentSliceId,
-                    slices,
-                    remainingTime,
-                    entityUrns,
-                    allowPartialResults);
-              });
-      sliceFutures.add(sliceFuture);
+      // Reuse the existing slice coordination logic
+      return processSliceFutures(sliceFutures, remainingTime, allowPartialResults);
+    } finally {
+      // Match PIT DAO: cancel(true) only interrupts; bounded wait so slices can clear scroll.
+      cancelAndDrainSliceFutures(sliceFutures);
     }
-
-    // Reuse the existing slice coordination logic
-    return processSliceFutures(sliceFutures, remainingTime, allowPartialResults);
   }
 
   /**
@@ -131,8 +135,14 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
     List<LineageRelationship> sliceRelationships = new ArrayList<>();
     String scrollId = null;
     String keepAlive = config.getSearch().getGraph().getImpact().getKeepAlive();
+    long deadline = System.currentTimeMillis() + remainingTime;
 
     try {
+      if (System.currentTimeMillis() >= deadline) {
+        log.warn("Slice {} timed out before initial scroll search", sliceId);
+        return sliceRelationships;
+      }
+
       // Build initial search request with scroll and slice
       SearchRequest searchRequest = new SearchRequest();
       SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -177,9 +187,8 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
 
       // Continue scrolling until we reach the limit or no more results
       // If maxRelations is -1 or 0, treat as unlimited (only bound by time)
-      while ((maxRelations <= 0 || sliceRelationships.size() < maxRelations) && remainingTime > 0) {
-        // Check timeout
-        if (remainingTime <= 0) {
+      while (maxRelations <= 0 || sliceRelationships.size() < maxRelations) {
+        if (System.currentTimeMillis() >= deadline) {
           log.warn("Slice {} timed out, stopping scroll search", sliceId);
           break;
         }
@@ -196,7 +205,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
                     if (metricUtils != null)
                       metricUtils.increment(
                           this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-                    return client.scroll(scrollRequest, RequestOptions.DEFAULT);
+                    return client.scroll(opContext, scrollRequest, RequestOptions.DEFAULT);
                   } catch (Exception e) {
                     log.error("Scroll query failed", e);
                     throw new ESQueryException("Scroll query failed:", e);
@@ -242,9 +251,6 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
                     sliceId, maxRelations));
           }
         }
-
-        // Update remaining time
-        remainingTime = System.currentTimeMillis() - (System.currentTimeMillis() - remainingTime);
       }
 
     } catch (Exception e) {
@@ -256,7 +262,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
         try {
           ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
           clearScrollRequest.addScrollId(scrollId);
-          client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
+          client.clearScroll(opContext, clearScrollRequest, RequestOptions.DEFAULT);
         } catch (Exception e) {
           log.warn("Failed to clear scroll context for slice {}", sliceId, e);
         }
@@ -267,7 +273,8 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
   }
 
   /** Execute a search request with common error handling and metrics. */
-  private SearchResponse executeSearch(OperationContext opContext, SearchRequest searchRequest) {
+  @Override
+  SearchResponse executeSearch(OperationContext opContext, SearchRequest searchRequest) {
     return opContext.withSpan(
         "esQuery",
         () -> {
@@ -275,7 +282,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return client.search(searchRequest, RequestOptions.DEFAULT);
+            return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);

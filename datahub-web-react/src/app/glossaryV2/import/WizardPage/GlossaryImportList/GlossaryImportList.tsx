@@ -1,5 +1,8 @@
 import { Button, SearchBar, SimpleSelect, Table } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -60,12 +63,12 @@ const TableContainer = styled.div`
 
     &&& .ant-table-tbody > tr > td {
         padding: 8px 12px;
-        border-bottom: 1px solid ${(props) => props.theme.styles?.['border-color'] || '#f0f0f0'};
+        border-bottom: 1px solid ${(props) => props.theme.styles?.['border-color'] || props.theme.colors.border};
     }
 
     &&& .ant-table-thead > tr > th {
         padding: 8px 12px;
-        background-color: ${(props) => props.theme.styles?.['background-color-secondary'] || '#fafafa'};
+        background-color: ${(props) => props.theme.styles?.['background-color-secondary'] || props.theme.colors.bgSurface};
         font-weight: 600;
         font-size: 12px;
         text-transform: uppercase;
@@ -77,7 +80,7 @@ const TableContainer = styled.div`
     }
 
     &&& .ant-table-tbody > tr:hover > td {
-        background-color: ${(props) => props.theme.styles?.['background-color-hover'] || '#f5f5f5'};
+        background-color: ${(props) => props.theme.styles?.['background-color-hover'] || props.theme.colors.bgHover};
     }
 `;
 
@@ -96,6 +99,8 @@ export default function GlossaryImportList({
     setIsImportModalVisible,
     progress,
 }: GlossaryImportListProps) {
+    const { t } = useTranslation('governance.glossary');
+
     // Search state
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
@@ -180,14 +185,15 @@ export default function GlossaryImportList({
         expandedKeys,
         entities,
         editingCell?.value || '',
+        t,
     );
 
     // Status filter options
     const statusOptions = [
-        { value: '0', label: 'All' },
-        { value: '1', label: 'New' },
-        { value: '2', label: 'Updated' },
-        { value: '3', label: 'Conflict' },
+        { value: '0', label: t('import.list.statusAll') },
+        { value: '1', label: t('import.list.statusNew') },
+        { value: '2', label: t('import.list.statusUpdated') },
+        { value: '3', label: t('import.list.statusConflict') },
     ];
 
     return (
@@ -198,7 +204,7 @@ export default function GlossaryImportList({
                         ref={searchInputRef}
                         value={searchInput}
                         onChange={handleSearchInputChange}
-                        placeholder="Search entities..."
+                        placeholder={t('import.list.searchPlaceholder')}
                     />
                     <StyledSimpleSelect
                         options={statusOptions}
@@ -211,20 +217,20 @@ export default function GlossaryImportList({
                     <Button
                         variant="text"
                         size="sm"
-                        icon={{ icon: 'CaretDown', source: 'phosphor' }}
+                        icon={{ icon: CaretDown }}
                         onClick={expandAll}
                         disabled={hierarchicalData.filter((e) => e.children && e.children.length > 0).length === 0}
                     >
-                        Expand All
+                        {t('import.list.expandAll')}
                     </Button>
                     <Button
                         variant="text"
                         size="sm"
-                        icon={{ icon: 'CaretUp', source: 'phosphor' }}
+                        icon={{ icon: CaretUp }}
                         onClick={collapseAll}
                         disabled={expandedKeys.length === 0}
                     >
-                        Collapse All
+                        {t('import.list.collapseAll')}
                     </Button>
                 </FilterButtonsContainer>
             </StyledTabToolbar>

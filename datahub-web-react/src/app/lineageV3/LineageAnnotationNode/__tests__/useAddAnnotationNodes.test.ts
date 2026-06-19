@@ -1,5 +1,4 @@
 import { renderHook } from '@testing-library/react-hooks';
-import { Edge } from 'reactflow';
 import { describe, expect, it } from 'vitest';
 
 import { LINEAGE_ANNOTATION_NODE } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
@@ -27,7 +26,6 @@ describe('useAddAnnotationNodes', () => {
             },
         ];
 
-        const filteredEdges: Edge[] = [{ id: 'edge1', source: 'urn:li:dataset1', target: 'urn:li:dataset2' }];
         const levelsMap = new Map([
             ['urn:li:dataset1', 2],
             ['urn:li:dataset2', 3],
@@ -37,12 +35,12 @@ describe('useAddAnnotationNodes', () => {
             3: { shownEntities: 1, totalEntities: 1, hiddenEntities: 0 },
         };
 
-        const resultData = result.current(filteredNodes, filteredEdges, levelsInfo, levelsMap);
+        const resultNodes = result.current(filteredNodes, levelsInfo, levelsMap);
 
-        expect(resultData.nodes.find((n) => n.id === 'urn:li:dataset1')?.data.level).toBe(2);
-        expect(resultData.nodes.find((n) => n.id === 'urn:li:dataset2')?.data.level).toBe(3);
+        expect(resultNodes.find((n) => n.id === 'urn:li:dataset1')?.data.level).toBe(2);
+        expect(resultNodes.find((n) => n.id === 'urn:li:dataset2')?.data.level).toBe(3);
 
-        const annotationNode = resultData.nodes.find((n) => n.id === 'annotation-2');
+        const annotationNode = resultNodes.find((n) => n.id === 'annotation-2');
         expect(annotationNode).toBeDefined();
         expect(annotationNode?.type).toBe(LINEAGE_ANNOTATION_NODE);
         expect(annotationNode?.position.x).toBe(10);
@@ -62,16 +60,15 @@ describe('useAddAnnotationNodes', () => {
             },
         ];
 
-        const edges: Edge[] = [];
         const levelsMap = new Map([['urn:li:dataset3', 1]]);
         const levelsInfo = {
             1: { shownEntities: 1, totalEntities: 1, hiddenEntities: 0 },
         };
 
-        const resultData = result.current(nodes, edges, levelsInfo, levelsMap);
+        const resultNodes = result.current(nodes, levelsInfo, levelsMap);
 
         // No annotation nodes should be added
-        expect(resultData.nodes.length).toBe(nodes.length);
+        expect(resultNodes.length).toBe(nodes.length);
     });
 
     it('should correctly position annotation for multiple nodes at same level', () => {
@@ -92,7 +89,6 @@ describe('useAddAnnotationNodes', () => {
             },
         ];
 
-        const edges: Edge[] = [];
         const levelsMap = new Map([
             ['urn:li:datasetA', 4],
             ['urn:li:datasetB', 4],
@@ -101,9 +97,9 @@ describe('useAddAnnotationNodes', () => {
             4: { shownEntities: 2, totalEntities: 4, hiddenEntities: 2 },
         };
 
-        const resultData = result.current(nodes, edges, levelsInfo, levelsMap);
+        const resultNodes = result.current(nodes, levelsInfo, levelsMap);
 
-        const annotation = resultData.nodes.find((n) => n.id === 'annotation-4');
+        const annotation = resultNodes.find((n) => n.id === 'annotation-4');
 
         expect(annotation).toBeDefined();
         expect(annotation?.position.x).toBe(70);
@@ -122,34 +118,14 @@ describe('useAddAnnotationNodes', () => {
             },
         ];
 
-        const edges: Edge[] = [];
         const levelsMap = new Map([['urn:li:datasetX', 1]]);
         const levelsInfo = {
             1: { shownEntities: 1, totalEntities: 6, hiddenEntities: 5 },
         };
 
-        const resultData = result.current(nodes, edges, levelsInfo, levelsMap);
+        const resultNodes = result.current(nodes, levelsInfo, levelsMap);
 
-        expect(resultData.nodes.length).toBe(nodes.length);
-    });
-
-    it('should preserve edges and levelsInfo in the output object', () => {
-        const { result } = renderHook(() => useAddAnnotationNodes());
-
-        const filteredNodes = [];
-
-        const filteredEdges: Edge[] = [{ id: 'edge1', source: 'a', target: 'b' }];
-
-        const levelsMap = new Map<string, number>();
-
-        const levelsInfo = {
-            0: { shownEntities: 0, totalEntities: 0, hiddenEntities: 0 },
-        };
-
-        const resultData = result.current(filteredNodes, filteredEdges, levelsInfo, levelsMap);
-
-        expect(resultData.edges).toBe(filteredEdges);
-        expect(resultData.levelsInfo).toBe(levelsInfo);
+        expect(resultNodes.length).toBe(nodes.length);
     });
 
     it('should add level property even if levelsMap has no entry for a node', () => {
@@ -164,15 +140,13 @@ describe('useAddAnnotationNodes', () => {
             },
         ];
 
-        const filteredEdges: Edge[] = [];
-
         const levelsMap = new Map<string, number>(); // empty, no levels
 
         const levelsInfo = {};
 
-        const resultData = result.current(filteredNodes, filteredEdges, levelsInfo, levelsMap);
+        const resultNodes = result.current(filteredNodes, levelsInfo, levelsMap);
 
         // Default level 0 added
-        expect(resultData.nodes.find((n) => n.id === 'urn:li:datasetNoLevel')?.data.level).toBe(0);
+        expect(resultNodes.find((n) => n.id === 'urn:li:datasetNoLevel')?.data.level).toBe(0);
     });
 });

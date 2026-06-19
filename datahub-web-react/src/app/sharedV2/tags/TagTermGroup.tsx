@@ -1,11 +1,11 @@
-import { PlusOutlined } from '@ant-design/icons';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Typography } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
 import Tag from '@app/sharedV2/tags/tag/Tag';
@@ -51,11 +51,11 @@ const NoElementButton = styled.div`
     margin: 0px;
     padding: 0px;
     flex-basis: 100%;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.text};
 
     :hover {
         cursor: pointer;
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
+        color: ${(props) => props.theme.colors.hyperlinks};
     }
 `;
 const TagTermWrapper = styled.div<{ $showOneAndCount?: boolean }>`
@@ -63,22 +63,19 @@ const TagTermWrapper = styled.div<{ $showOneAndCount?: boolean }>`
     flex-wrap: ${(props) => (!props.$showOneAndCount ? 'wrap' : '')};
     align-items: center;
     row-gap: 4px;
-    column-gap: 8px;
+    column-gap: 4px;
     max-width: 100%;
 `;
 
 const TagText = styled.span`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.text};
     font-size: 10px;
     font-weight: 400;
     line-height: 8px;
 `;
 
-const StyledPlusOutlined = styled(PlusOutlined)`
-    && {
-        font-size: 10px;
-        margin-right: 8px;
-    }
+const StyledPlusIcon = styled(Plus).attrs({ size: 10, weight: 'bold' })`
+    margin-right: 8px;
 `;
 
 const EmptyText = styled(Typography.Text)`
@@ -88,7 +85,7 @@ const EmptyText = styled(Typography.Text)`
 `;
 
 const Count = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     font-weight: 400;
     line-height: 24px;
@@ -97,17 +94,15 @@ const Count = styled(Typography.Text)`
 `;
 
 const AddText = styled.span`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     font-weight: 500;
     line-height: 16px;
 
     :hover {
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
+        color: ${(props) => props.theme.colors.hyperlinks};
     }
 `;
-
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
 export default function TagTermGroup({
     numberOfTags,
@@ -136,9 +131,12 @@ export default function TagTermGroup({
     showOneAndCount,
     showAddButton = true,
 }: Props) {
+    const { t } = useTranslation('shared.tags');
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
 
     const tagsEmpty = !directTags?.tags?.length && !editableTags?.tags?.length && !uneditableTags?.tags?.length;
 
@@ -249,7 +247,7 @@ export default function TagTermGroup({
                 if (maxShow && renderedTags > maxShow) return null;
 
                 return (
-                    <Tooltip title="This tag is managed within another platform">
+                    <Tooltip title={t('managedTagTooltip')}>
                         <Tag
                             tag={tag}
                             entityUrn={entityUrn}
@@ -313,10 +311,14 @@ export default function TagTermGroup({
                 );
             })}
             {showEmptyMessage && canAddTag && tagsEmpty && (
+                /* eslint-disable i18next/no-literal-string -- empty-state text lives in EMPTY_MESSAGES constants (out of scope); only the trailing "." is local punctuation */
                 <EmptyText type="secondary">{EMPTY_MESSAGES.tags.title}.</EmptyText>
+                /* eslint-enable i18next/no-literal-string */
             )}
             {showEmptyMessage && canAddTerm && termsEmpty && (
+                /* eslint-disable i18next/no-literal-string -- empty-state text lives in EMPTY_MESSAGES constants (out of scope); only the trailing "." is local punctuation */
                 <EmptyText type="secondary">{EMPTY_MESSAGES.terms.title}.</EmptyText>
+                /* eslint-enable i18next/no-literal-string */
             )}
             {canAddTag && !readOnly && showAddButton && (
                 <NoElementButton
@@ -326,8 +328,8 @@ export default function TagTermGroup({
                     }}
                     {...buttonProps}
                 >
-                    <StyledPlusOutlined />
-                    <AddText data-testid="schema-field-add-tags-button">Add tags</AddText>
+                    <StyledPlusIcon />
+                    <AddText data-testid="schema-field-add-tags-button">{t('addTagsButtonLower')}</AddText>
                 </NoElementButton>
             )}
             {canAddTerm && !readOnly && showAddButton && (
@@ -338,8 +340,8 @@ export default function TagTermGroup({
                     }}
                     {...buttonProps}
                 >
-                    <StyledPlusOutlined />
-                    <AddText data-testid="schema-field-add-terms-button">Add terms</AddText>
+                    <StyledPlusIcon />
+                    <AddText data-testid="schema-field-add-terms-button">{t('addTermsButtonLower')}</AddText>
                 </NoElementButton>
             )}
             <AddTagTerm

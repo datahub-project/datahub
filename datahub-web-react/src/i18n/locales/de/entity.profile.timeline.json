@@ -1,0 +1,5 @@
+{
+    "schemaTimeline.changeAdded": "{{fieldPath}} wurde hinzugefügt.",
+    "schemaTimeline.changeModified": "{{fieldPath}} wurde geändert.",
+    "schemaTimeline.changeRemoved": "{{fieldPath}} wurde entfernt."
+}

@@ -12,6 +12,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,7 +56,8 @@ public class ESSystemMetadataDAO {
    *
    * @param taskId the task ID to get the status of
    */
-  public Optional<GetTaskResponse> getTaskStatus(@Nonnull String nodeId, long taskId) {
+  public Optional<GetTaskResponse> getTaskStatus(
+      @Nonnull OperationContext opContext, @Nonnull String nodeId, long taskId) {
     final GetTaskRequest taskRequest = new GetTaskRequest(nodeId, taskId);
     try {
       return client.getTask(taskRequest, RequestOptions.DEFAULT);
@@ -72,23 +74,28 @@ public class ESSystemMetadataDAO {
    * @param document the document to update / insert
    * @param docId the ID of the document
    */
-  public void upsertDocument(@Nonnull String docId, @Nonnull String document) {
+  public void upsertDocument(
+      @Nonnull OperationContext opContext, @Nonnull String docId, @Nonnull String document) {
     final UpdateRequest updateRequest =
         new UpdateRequest(indexConvention.getIndexName(INDEX_NAME), docId)
             .detectNoop(false)
             .docAsUpsert(true)
             .doc(document, XContentType.JSON)
             .retryOnConflict(numRetries);
-    bulkProcessor.add(updateRequest);
+    // Route by docId (Base64(SHA-256(urn + "--" + aspect))) so concurrent writes for
+    // the same (urn, aspect) — e.g. setDocStatus during soft-delete racing with a
+    // normal aspect insert — serialize on one bulk thread and retryOnConflict works.
+    bulkProcessor.add(opContext, docId, updateRequest);
   }
 
-  public DeleteResponse deleteByDocId(@Nonnull final String docId) {
+  public DeleteResponse deleteByDocId(
+      @Nonnull OperationContext opContext, @Nonnull final String docId) {
     DeleteRequest deleteRequest =
         new DeleteRequest(indexConvention.getIndexName(INDEX_NAME), docId);
 
     try {
       final DeleteResponse deleteResponse =
-          client.deleteDocument(deleteRequest, RequestOptions.DEFAULT);
+          client.deleteDocument(opContext, deleteRequest, RequestOptions.DEFAULT);
       return deleteResponse;
     } catch (IOException e) {
       log.error("ERROR: Failed to delete by query. See stacktrace for a more detailed error:");
@@ -97,29 +104,35 @@ public class ESSystemMetadataDAO {
     return null;
   }
 
-  public BulkByScrollResponse deleteByUrn(@Nonnull final String urn) {
+  public BulkByScrollResponse deleteByUrn(
+      @Nonnull OperationContext opContext, @Nonnull final String urn) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     finalQuery.must(QueryBuilders.termQuery("urn", urn));
 
     final Optional<BulkByScrollResponse> deleteResponse =
-        bulkProcessor.deleteByQuery(finalQuery, indexConvention.getIndexName(INDEX_NAME));
+        bulkProcessor.deleteByQuery(
+            opContext, finalQuery, indexConvention.getIndexName(INDEX_NAME));
 
     return deleteResponse.orElse(null);
   }
 
   public BulkByScrollResponse deleteByUrnAspect(
-      @Nonnull final String urn, @Nonnull final String aspect) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspect) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     finalQuery.filter(QueryBuilders.termQuery("urn", urn));
     finalQuery.filter(QueryBuilders.termQuery("aspect", aspect));
 
     final Optional<BulkByScrollResponse> deleteResponse =
-        bulkProcessor.deleteByQuery(finalQuery, indexConvention.getIndexName(INDEX_NAME));
+        bulkProcessor.deleteByQuery(
+            opContext, finalQuery, indexConvention.getIndexName(INDEX_NAME));
 
     return deleteResponse.orElse(null);
   }
 
   public SearchResponse findByParams(
+      @Nonnull OperationContext opContext,
       Map<String, String> searchParams,
       boolean includeSoftDeleted,
       int from,
@@ -148,7 +161,8 @@ public class ESSystemMetadataDAO {
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
     try {
-      final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+      final SearchResponse searchResponse =
+          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
       return searchResponse;
     } catch (IOException e) {
       log.error("Error while searching by params.", e);
@@ -158,6 +172,7 @@ public class ESSystemMetadataDAO {
 
   // TODO: Scroll impl for searches bound by 10k limit
   public SearchResponse findByParams(
+      @Nonnull OperationContext opContext,
       Map<String, String> searchParams,
       boolean includeSoftDeleted,
       @Nullable Object[] sort,
@@ -188,7 +203,8 @@ public class ESSystemMetadataDAO {
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
     try {
-      final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+      final SearchResponse searchResponse =
+          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
       return searchResponse;
     } catch (IOException e) {
       log.error("Error while searching by params.", e);
@@ -197,6 +213,7 @@ public class ESSystemMetadataDAO {
   }
 
   public SearchResponse scroll(
+      @Nonnull OperationContext opContext,
       BoolQueryBuilder queryBuilder,
       boolean includeSoftDeleted,
       @Nullable String scrollId,
@@ -226,7 +243,7 @@ public class ESSystemMetadataDAO {
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
     try {
-      return client.search(searchRequest, RequestOptions.DEFAULT);
+      return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("Error while searching by params.", e);
     }
@@ -234,6 +251,7 @@ public class ESSystemMetadataDAO {
   }
 
   public SearchResponse findByRegistry(
+      @Nonnull OperationContext opContext,
       String registryName,
       String registryVersion,
       boolean includeSoftDeleted,
@@ -242,15 +260,21 @@ public class ESSystemMetadataDAO {
     Map<String, String> params = new HashMap<>();
     params.put("registryName", registryName);
     params.put("registryVersion", registryVersion);
-    return findByParams(params, includeSoftDeleted, from, size);
+    return findByParams(opContext, params, includeSoftDeleted, from, size);
   }
 
   public SearchResponse findByRunId(
-      String runId, boolean includeSoftDeleted, int from, @Nullable Integer size) {
-    return findByParams(Collections.singletonMap("runId", runId), includeSoftDeleted, from, size);
+      @Nonnull OperationContext opContext,
+      String runId,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size) {
+    return findByParams(
+        opContext, Collections.singletonMap("runId", runId), includeSoftDeleted, from, size);
   }
 
-  public SearchResponse findRuns(Integer pageOffset, Integer pageSize) {
+  public SearchResponse findRuns(
+      @Nonnull OperationContext opContext, Integer pageOffset, Integer pageSize) {
 
     SearchRequest searchRequest = new SearchRequest();
 
@@ -282,7 +306,8 @@ public class ESSystemMetadataDAO {
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
     try {
-      final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+      final SearchResponse searchResponse =
+          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
       return searchResponse;
     } catch (IOException e) {
       e.printStackTrace();

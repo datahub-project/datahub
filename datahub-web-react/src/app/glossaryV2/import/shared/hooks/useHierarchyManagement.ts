@@ -14,6 +14,7 @@ import {
     findOrphanedEntities,
     sortEntitiesByHierarchy,
 } from '@app/glossaryV2/import/glossary.utils';
+import { VALIDATION_LIMITS } from '@app/glossaryV2/import/shared/utils/testConstants';
 
 export function useHierarchyManagement(): UseHierarchyManagementReturn {
     const validateHierarchy = useCallback((entities: Entity[]): ValidationResult => {
@@ -88,8 +89,6 @@ export function useHierarchyManagement(): UseHierarchyManagementReturn {
         validateHierarchy,
     };
 }
-
-import { VALIDATION_LIMITS } from '@app/glossaryV2/import/shared/utils/testConstants';
 
 function validateHierarchyDepth(entities: Entity[], errors: ValidationError[], _warnings: ValidationWarning[]): void {
     const maxDepth = VALIDATION_LIMITS.MAX_HIERARCHY_DEPTH;

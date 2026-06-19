@@ -11,6 +11,7 @@ import {
     parseColumnRef,
     setDefault,
 } from '@app/lineageV3/common';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
 
@@ -35,13 +36,18 @@ interface TentativeEdge {
  * @param nodes Map of nodes containing schema metadata
  * @returns true if the field exists, false otherwise
  */
-function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: NodeContext['nodes']): boolean {
+export function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: NodeContext['nodes']): boolean {
     const node = nodes.get(datasetUrn);
     if (!node?.entity?.schemaMetadata?.fields) {
         return false;
     }
 
-    return node.entity.schemaMetadata.fields.some((field) => field.fieldPath === fieldPath);
+    // Normalize both paths to V1 format for comparison, since fineGrainedLineages paths
+    // are downgraded to V1 in EntityRegistry but schema field paths may still be V2
+    const normalizedFieldPath = downgradeV2FieldPath(fieldPath);
+    return node.entity.schemaMetadata.fields.some(
+        (field) => downgradeV2FieldPath(field.fieldPath) === normalizedFieldPath,
+    );
 }
 
 /**

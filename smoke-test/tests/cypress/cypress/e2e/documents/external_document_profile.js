@@ -51,7 +51,6 @@ describe("External Document Profile Tests", () => {
 
   beforeEach(() => {
     enableContextDocuments();
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 
@@ -72,5 +71,29 @@ describe("External Document Profile Tests", () => {
 
     // Verify the description was updated
     ensureDescriptionContainsText(testDescription);
+  });
+
+  it("should show last synced property, inline content banner, and read-only content", () => {
+    cy.visit(`/document/${encodeURIComponent(EXTERNAL_DOC_URN)}`);
+    cy.wait(2000);
+
+    cy.contains(EXTERNAL_DOC_TITLE, { timeout: 10000 }).should("exist");
+
+    // "Last Synced" property validates the lastObserved fallback fix in DocumentMapper
+    cy.contains("Last Synced", { timeout: 10000 }).should("exist");
+
+    // Inline content section renders
+    cy.get('[data-testid="external-document-inline-content-section"]', {
+      timeout: 10000,
+    }).should("exist");
+
+    // Info banner explains the content is extracted text only
+    cy.get('[data-testid="external-document-inline-banner"]').should("exist");
+    cy.contains("Text extracted from Notion").should("exist");
+
+    // Markdown body renders the document text
+    cy.contains(
+      "This is an external document created for Cypress testing.",
+    ).should("exist");
   });
 });

@@ -55,6 +55,7 @@ public class NativeUserServiceTest {
     _secretService = mock(SecretService.class);
     AuthenticationConfiguration authenticationConfiguration = new AuthenticationConfiguration();
     authenticationConfiguration.setSystemClientId("someCustomId");
+    authenticationConfiguration.setPasswordResetTokenExpirationMs(ONE_DAY_MILLIS);
 
     _nativeUserService =
         new NativeUserService(
@@ -180,6 +181,31 @@ public class NativeUserServiceTest {
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_INVITE_TOKEN);
 
     _nativeUserService.generateNativeUserPasswordResetToken(
+        mock(OperationContext.class), USER_URN_STRING);
+    verify(_entityClient).ingestProposal(any(), any());
+  }
+
+  @Test
+  public void testGenerateNativeUserResetTokenUsesDefaultExpirationWhenNotConfigured()
+      throws Exception {
+    // Create config without explicitly setting passwordResetTokenExpirationMs
+    AuthenticationConfiguration configWithoutExpiration = new AuthenticationConfiguration();
+    configWithoutExpiration.setSystemClientId("someCustomId");
+
+    NativeUserService serviceWithDefaultExpiration =
+        new NativeUserService(
+            _entityService, _entityClient, _secretService, configWithoutExpiration);
+
+    CorpUserCredentials mockCorpUserCredentialsAspect = mock(CorpUserCredentials.class);
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), any(), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(mockCorpUserCredentialsAspect);
+    when(mockCorpUserCredentialsAspect.hasSalt()).thenReturn(true);
+    when(mockCorpUserCredentialsAspect.hasHashedPassword()).thenReturn(true);
+
+    when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_INVITE_TOKEN);
+
+    serviceWithDefaultExpiration.generateNativeUserPasswordResetToken(
         mock(OperationContext.class), USER_URN_STRING);
     verify(_entityClient).ingestProposal(any(), any());
   }

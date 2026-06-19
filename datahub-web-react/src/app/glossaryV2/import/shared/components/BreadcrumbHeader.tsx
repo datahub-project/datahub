@@ -1,4 +1,5 @@
 import { Heading, Icon, Pill, Text } from '@components';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -8,7 +9,7 @@ import { ColorOptions } from '@components/theme/config';
 // Styled Components
 const BreadcrumbWrapper = styled.div`
     padding: 20px 24px 16px 24px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const BreadcrumbContainer = styled.div`
@@ -68,7 +69,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
                             </Text>
                         )}
                         {index < items.length - 1 && (
-                            <Icon icon="CaretRight" source="phosphor" size="md" color="gray" />
+                            <Icon icon={CaretRight} size="md" color="gray" />
                         )}
                     </React.Fragment>
                 ))}

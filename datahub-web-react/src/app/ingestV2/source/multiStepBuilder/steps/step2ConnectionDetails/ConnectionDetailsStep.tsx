@@ -1,5 +1,6 @@
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -9,10 +10,14 @@ import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
 import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
-import { INGESTION_TYPE_ERROR } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/constants';
+import {
+    INGESTION_TYPE_CHANGED_ERROR,
+    INGESTION_TYPE_EMPTY_ERROR,
+} from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/constants';
 import { AdvancedSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/AdvancedSection';
 import { NameAndOwnersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/NameAndOwnersSection';
 import { RecipeSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/RecipeSection';
+import { ScheduleSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/ScheduleSection';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '@app/ingestV2/source/utils';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
@@ -21,11 +26,14 @@ const Container = styled.div`
     display: flex;
     flex-direction: column;
     gap: 12px;
+    position: relative;
 `;
 
 export function ConnectionDetailsStep() {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const { state, updateState, setCurrentStepCompleted, setCurrentStepUncompleted, setOnNextHandler } =
         useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep>();
+    const [isRecipeStateInitialized, setIsRecipeStateInitialized] = useState<boolean>(false);
 
     const { ingestionSources } = useIngestionSources();
 
@@ -49,8 +57,14 @@ export function ConnectionDetailsStep() {
                 throw Error('Invalid YAML');
             }
 
-            if (!JSON.parse(recipeJson).source?.type) {
-                throw Error(INGESTION_TYPE_ERROR);
+            const sourceType = JSON.parse(recipeJson).source?.type;
+
+            if (!sourceType) {
+                throw Error(INGESTION_TYPE_EMPTY_ERROR);
+            }
+
+            if (!!state.ingestionSource && sourceType !== state.ingestionSource.type) {
+                throw Error(INGESTION_TYPE_CHANGED_ERROR);
             }
 
             const newState = {
@@ -59,7 +73,7 @@ export function ConnectionDetailsStep() {
                     ...state.config,
                     recipe: recipeJson,
                 },
-                type: JSON.parse(recipeJson).source.type,
+                type: sourceType,
                 ...(shouldSetIsRecipeValid ? { isRecipeValid: true } : {}),
             };
             updateState(newState);
@@ -126,21 +140,34 @@ export function ConnectionDetailsStep() {
             updateRecipe(stagedRecipeYml, true);
         } catch (e: unknown) {
             if (e instanceof Error) {
-                if (e.message === INGESTION_TYPE_ERROR) {
+                if (e.message === INGESTION_TYPE_EMPTY_ERROR) {
                     message.warning({
-                        content: `Please add valid ingestion type`,
+                        content: t('multiStep.connection.invalidIngestionType'),
+                        duration: 3,
+                    });
+                } else if (e.message === INGESTION_TYPE_CHANGED_ERROR) {
+                    message.warning({
+                        content: t('multiStep.connection.cannotChangeSourceType'),
                         duration: 3,
                     });
                 }
             }
             throw e;
         }
-    }, [stagedRecipeYml, updateRecipe]);
+    }, [stagedRecipeYml, updateRecipe, t]);
 
     useEffect(() => {
         setOnNextHandler(() => onNextHandler);
         return () => setOnNextHandler(undefined);
     }, [onNextHandler, setOnNextHandler]);
+
+    // Save placeholder recipe to state if there are no any recipe in the state
+    useEffect(() => {
+        if (!initialRecipeYml && !isRecipeStateInitialized) {
+            updateRecipe(placeholderRecipe, true);
+            setIsRecipeStateInitialized(true);
+        }
+    }, [placeholderRecipe, initialRecipeYml, updateRecipe, isRecipeStateInitialized]);
 
     return (
         <>
@@ -162,6 +189,8 @@ export function ConnectionDetailsStep() {
                     sourceConfigs={sourceConfigs}
                     setStagedRecipe={updateStagedRecipeAndState}
                 />
+
+                <ScheduleSection />
 
                 <AdvancedSection state={state} updateState={updateState} />
             </Container>

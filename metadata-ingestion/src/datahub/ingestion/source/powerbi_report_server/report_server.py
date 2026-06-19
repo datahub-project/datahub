@@ -13,10 +13,15 @@ from requests.exceptions import ConnectionError
 from requests_ntlm import HttpNtlmAuth
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    HiddenFromDocs,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
 )
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -27,8 +32,12 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.identity.corp_user_status import (
+    CORP_USER_STATUS_ACTIVE,
+    make_corp_user_status_aspect,
+)
 from datahub.ingestion.source.powerbi_report_server.constants import (
     API_ENDPOINTS,
     Constant,
@@ -42,7 +51,6 @@ from datahub.ingestion.source.powerbi_report_server.report_server_domain import 
     Report,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -69,7 +77,9 @@ LOGGER = logging.getLogger(__name__)
 
 class PowerBiReportServerAPIConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     username: str = pydantic.Field(description="Windows account username")
-    password: str = pydantic.Field(description="Windows account password")
+    password: TransparentSecretStr = pydantic.Field(
+        description="Windows account password"
+    )
     workstation_name: str = pydantic.Field(
         default="localhost", description="Workstation name"
     )
@@ -118,10 +128,15 @@ class PowerBiReportServerAPIConfig(StatefulIngestionConfigBase, EnvConfigMixin):
 
 
 class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
-    platform_name: str = "powerbi"
-    platform_urn: str = builder.make_data_platform_urn(platform=platform_name)
-    report_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    # Intentionally uses "powerbi" (same as the regular PowerBI connector) so that
+    # report server assets appear under the same platform in DataHub.
+    platform_name: HiddenFromDocs[str] = pydantic.Field(default=Constant.PLATFORM_NAME)
+    report_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter PowerBI Reports by name in ingestion.",
+    )
+
+    _chart_pattern_removed = pydantic_removed_field("chart_pattern", "May", 2026)
 
 
 def log_http_error(e: BaseException, message: str) -> Any:
@@ -153,7 +168,7 @@ class PowerBiReportServerAPI:
         self.__config: PowerBiReportServerAPIConfig = config
         self.__auth: HttpNtlmAuth = HttpNtlmAuth(
             f"{self.__config.workstation_name}\\{self.__config.username}",
-            self.__config.password,
+            self.__config.password.get_secret_value(),
         )
 
     @property
@@ -405,10 +420,10 @@ class Mapper:
             user_urn = builder.make_user_urn(user.get_urn_part())
 
             user_info_instance = CorpUserInfoClass(
+                active=True,
                 displayName=user.properties.display_name,
                 email=user.properties.email,
                 title=user.properties.title,
-                active=True,
             )
 
             info_mcp = self.new_mcp(
@@ -416,6 +431,12 @@ class Mapper:
                 aspect=user_info_instance,
             )
             user_mcps.append(info_mcp)
+
+            corp_user_status_mcp = self.new_mcp(
+                entity_urn=user_urn,
+                aspect=make_corp_user_status_aspect(CORP_USER_STATUS_ACTIVE),
+            )
+            user_mcps.append(corp_user_status_mcp)
 
             # removed status mcp
             status_mcp = self.new_mcp(
@@ -479,25 +500,13 @@ class PowerBiReportServerDashboardSourceReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
     """
-    Use this plugin to connect to [PowerBI Report Server](https://powerbi.microsoft.com/en-us/report-server/).
-    It extracts the following:
+    Source that extracts metadata from PowerBI Report Server via REST API.
 
-    Metadata that can be ingested:
-       - report name
-       - report description
-       - ownership(can add existing users in DataHub as owners)
-       - transfer folders structure to DataHub as it is in Report Server
-       - webUrl to report in Report Server
-
-    Due to limits of PBIRS REST API, it's impossible to ingest next data for now:
-       - tiles info
-       - datasource of report
-       - dataset of report
-
-    Next types of report can be ingested:
-       - PowerBI report(.pbix)
-       - Paginated report(.rdl)
-       - Linked report
+    Implementation notes:
+    - Uses HttpNtlmAuth for Windows authentication
+    - Supports PowerBI reports (.pbix), Paginated reports (.rdl), and Linked reports
+    - Uses PowerBiReportServerAPI client for REST API calls
+    - Implements stateful ingestion with StaleEntityRemovalHandler
     """
 
     source_config: PowerBiReportServerDashboardSourceConfig
@@ -520,14 +529,6 @@ class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
         config = PowerBiReportServerDashboardSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Datahub Ingestion framework invoke this method
@@ -538,6 +539,9 @@ class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
         reports = self.powerbi_client.get_all_reports()
 
         for report in reports:
+            if not self.source_config.report_pattern.allowed(report.name):
+                self.report.report_dropped(f"{report.id} - {report.name}")
+                continue
             try:
                 report.user_info = self.get_user_info(report)
             except pydantic.ValidationError as e:

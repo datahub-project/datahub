@@ -1,7 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { LoaderBackRing, LoaderWrapper, StyledLoadingOutlined } from '@components/components/Loader/components';
-import { LoaderSizes, RingWidths } from '@components/components/Loader/constants';
+import { LoaderWrapper, StyledSpinner } from '@components/components/Loader/components';
+import { LoaderSizes } from '@components/components/Loader/constants';
 import { LoaderProps } from '@components/components/Loader/types';
 
 export const loaderDefault: LoaderProps = {
@@ -16,8 +17,8 @@ export function Loader({
     alignItems = loaderDefault.alignItems,
     padding,
 }: LoaderProps) {
+    const { t: tc } = useTranslation('common.feedback');
     const loaderSize = LoaderSizes[size || 'md'];
-    const ringWidth = RingWidths[size || 'md'];
 
     return (
         <LoaderWrapper
@@ -25,8 +26,7 @@ export function Loader({
             $alignItems={alignItems || 'none'}
             $padding={padding}
         >
-            <LoaderBackRing $height={loaderSize} $ringWidth={ringWidth} />
-            <StyledLoadingOutlined $height={loaderSize} />
+            <StyledSpinner $height={loaderSize} aria-label={tc('loading')} />
         </LoaderWrapper>
     );
 }

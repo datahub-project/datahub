@@ -7,8 +7,9 @@ import json
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, cast
+from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
 from unittest.mock import patch
 
 import cachetools
@@ -23,6 +24,7 @@ from databricks.sdk.service.catalog import (
     ModelVersionInfo,
     RegisteredModelInfo,
     SchemaInfo,
+    TableConstraint,
     TableInfo,
 )
 from databricks.sdk.service.files import DownloadResponse, FilesAPI
@@ -41,16 +43,15 @@ from databricks.sql import connect
 from databricks.sql.types import Row
 from typing_extensions import assert_never
 
-from datahub._version import nice_version_name
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import parse_ts_millis
-from datahub.ingestion.source.unity.azure_auth_config import AzureAuthConfig
 from datahub.ingestion.source.unity.config import (
     LineageDataSource,
     UsageDataSource,
 )
-from datahub.ingestion.source.unity.connection import DATABRICKS_USER_AGENT_ENTRY
+from datahub.ingestion.source.unity.connection import get_sql_connection_params
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
+from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
 )
@@ -122,7 +123,16 @@ class QueryFilterWithStatementTypes(QueryFilter):
     statement_types: List[QueryStatementType] = dataclasses.field(default_factory=list)
 
     def as_dict(self) -> dict:
-        return {**super().as_dict(), "statement_types": self.statement_types}
+        # Emit the enum *values* (strings), not the QueryStatementType objects —
+        # the filter is JSON-serialized into the REST query-history request body,
+        # and raw enum objects are not JSON serializable.
+        return {
+            **super().as_dict(),
+            "statement_types": [
+                t.value if isinstance(t, QueryStatementType) else t
+                for t in self.statement_types
+            ],
+        }
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "QueryFilterWithStatementTypes":
@@ -130,7 +140,21 @@ class QueryFilterWithStatementTypes(QueryFilter):
             QueryFilterWithStatementTypes,
             super().from_dict(d),
         )
-        v.statement_types = d["statement_types"]
+        raw = d.get("statement_types", [])
+        coerced: List[QueryStatementType] = []
+        for item in raw:
+            try:
+                coerced.append(
+                    item
+                    if isinstance(item, QueryStatementType)
+                    else QueryStatementType(item)
+                )
+            except Exception:
+                # Fallback: ignore invalid entries and continue
+                logger.debug(
+                    f"Unable to coerce statement_type {item} to QueryStatementType"
+                )
+        v.statement_types = coerced
         return v
 
 
@@ -170,47 +194,20 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
     def __init__(
         self,
-        workspace_url: str,
-        warehouse_id: Optional[str],
+        workspace_client: WorkspaceClient,
         report: UnityCatalogReport,
         hive_metastore_proxy: Optional[HiveMetastoreProxy] = None,
         lineage_data_source: LineageDataSource = LineageDataSource.AUTO,
         usage_data_source: UsageDataSource = UsageDataSource.AUTO,
         databricks_api_page_size: int = 0,
-        personal_access_token: Optional[str] = None,
-        azure_auth: Optional[AzureAuthConfig] = None,
     ):
-        if azure_auth:
-            self._workspace_client = WorkspaceClient(
-                host=workspace_url,
-                azure_tenant_id=azure_auth.tenant_id,
-                azure_client_id=azure_auth.client_id,
-                azure_client_secret=azure_auth.client_secret.get_secret_value(),
-                product=DATABRICKS_USER_AGENT_ENTRY,
-                product_version=nice_version_name(),
-            )
-        else:
-            self._workspace_client = WorkspaceClient(
-                host=workspace_url,
-                token=personal_access_token,
-                product=DATABRICKS_USER_AGENT_ENTRY,
-                product_version=nice_version_name(),
-            )
-        self.warehouse_id = warehouse_id or ""
+        self._workspace_client = workspace_client
+        self.warehouse_id = self._workspace_client.config.warehouse_id
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
         self.lineage_data_source = lineage_data_source
         self.usage_data_source = usage_data_source
         self.databricks_api_page_size = databricks_api_page_size
-        self._workspace_url = workspace_url
-        self._sql_connection_params = {
-            "server_hostname": self._workspace_client.config.host.replace(
-                "https://", ""
-            ),
-            "http_path": f"/sql/1.0/warehouses/{self.warehouse_id}",
-            "access_token": self._workspace_client.config.token,
-            "user_agent_entry": DATABRICKS_USER_AGENT_ENTRY,
-        }
         # Initialize MLflow APIs
         self._experiments_api = ExperimentsAPI(self._workspace_client.api_client)
         self._files_api = FilesAPI(self._workspace_client.api_client)
@@ -334,28 +331,49 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         # Parse them into proper dict/list format
                         signature_data = {}
                         if "inputs" in signature_raw:
-                            try:
-                                signature_data["inputs"] = json.loads(
-                                    signature_raw["inputs"]
-                                )
-                            except (json.JSONDecodeError, TypeError) as e:
-                                logger.debug(f"Failed to parse inputs JSON: {e}")
+                            raw_inputs = signature_raw.get("inputs")
+                            if raw_inputs is not None:
+                                if isinstance(raw_inputs, (str, bytes)):
+                                    try:
+                                        signature_data["inputs"] = json.loads(
+                                            raw_inputs
+                                        )
+                                    except (json.JSONDecodeError, TypeError) as e:
+                                        logger.debug(
+                                            f"Failed to parse inputs JSON: {e}"
+                                        )
+                                else:
+                                    signature_data["inputs"] = raw_inputs
 
                         if "outputs" in signature_raw:
-                            try:
-                                signature_data["outputs"] = json.loads(
-                                    signature_raw["outputs"]
-                                )
-                            except (json.JSONDecodeError, TypeError) as e:
-                                logger.debug(f"Failed to parse outputs JSON: {e}")
+                            raw_outputs = signature_raw.get("outputs")
+                            if raw_outputs is not None:
+                                if isinstance(raw_outputs, (str, bytes)):
+                                    try:
+                                        signature_data["outputs"] = json.loads(
+                                            raw_outputs
+                                        )
+                                    except (json.JSONDecodeError, TypeError) as e:
+                                        logger.debug(
+                                            f"Failed to parse outputs JSON: {e}"
+                                        )
+                                else:
+                                    signature_data["outputs"] = raw_outputs
 
                         if "params" in signature_raw:
-                            try:
-                                signature_data["params"] = json.loads(
-                                    signature_raw["params"]
-                                )
-                            except (json.JSONDecodeError, TypeError) as e:
-                                logger.debug(f"Failed to parse params JSON: {e}")
+                            raw_params = signature_raw.get("params")
+                            if raw_params is not None:
+                                if isinstance(raw_params, (str, bytes)):
+                                    try:
+                                        signature_data["params"] = json.loads(
+                                            raw_params
+                                        )
+                                    except (json.JSONDecodeError, TypeError) as e:
+                                        logger.debug(
+                                            f"Failed to parse params JSON: {e}"
+                                        )
+                                else:
+                                    signature_data["params"] = raw_params
 
                         return ModelSignature(
                             inputs=signature_data.get("inputs"),
@@ -564,8 +582,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 if optional_query:
                     yield optional_query
             except Exception as e:
-                logger.warning(f"Error parsing query: {e}")
-                self.report.report_warning("query-parse", str(e))
+                logger.warning("Error parsing query", exc_info=True)
+                self.report.report_warning(
+                    title="Failed to parse query",
+                    message="A query from query history could not be parsed and was skipped.",
+                    context=f"query_id={getattr(query_info, 'query_id', None)}",
+                    exc=e,
+                )
 
     def _query_history(
         self,
@@ -639,8 +662,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             ORDER BY start_time
         """
 
-        try:
-            rows = self._execute_sql_query(query, (start_time, end_time))
+        with closing(
+            self._execute_sql_query_streaming(query, (start_time, end_time))
+        ) as rows:
             for row in rows:
                 try:
                     yield Query(
@@ -659,17 +683,15 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         executed_as_user_name=row.executed_as,
                     )
                 except Exception as e:
-                    logger.warning(f"Error parsing query from system table: {e}")
-                    self.report.report_warning("query-parse-system-table", str(e))
-        except Exception as e:
-            logger.error(
-                f"Error fetching query history from system tables: {e}", exc_info=True
-            )
-            self.report.report_failure(
-                title="Failed to fetch query history from system tables",
-                message="Error querying system.query.history table",
-                context=f"Query period: {start_time} to {end_time}",
-            )
+                    logger.warning(
+                        "Error parsing query from system table", exc_info=True
+                    )
+                    self.report.report_warning(
+                        title="Failed to parse query from system tables",
+                        message="A statement read from system.query.history could not be parsed and was skipped.",
+                        context=f"statement_id={getattr(row, 'statement_id', None)}",
+                        exc=e,
+                    )
 
     def _build_datetime_where_conditions(
         self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
@@ -934,9 +956,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         # Process table upstreams
         for upstream in lineage_info.upstreams:
             upstream_table_name = upstream.table_name
-            # Parse catalog.schema.table format
-            parts = upstream_table_name.split(".")
-            if len(parts) == 3:
+            parts = split_databricks_identifier(upstream_table_name)
+            if parts is not None and len(parts) == 3:
                 catalog_name, schema_name, table_name = parts[0], parts[1], parts[2]
                 table_ref = TableReference(
                     metastore=table.schema.catalog.metastore.id
@@ -1065,7 +1086,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     ]
                 lineage = {
                     column_name: future.result()
-                    for column_name, future in zip(column_names, futures)
+                    for column_name, future in zip(column_names, futures, strict=False)
                 }
 
             for column_name in column_names:
@@ -1148,6 +1169,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             position=obj.position,
             nullable=obj.nullable,
             comment=obj.comment,
+            partition_index=obj.partition_index,
         )
 
     def _create_table(
@@ -1188,6 +1210,35 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             optional_column = self._create_column(table_id, column)
             if optional_column:
                 yield optional_column
+
+    def get_table_constraints(self, table: Table) -> List[TableConstraint]:
+        """Fetch table constraints (PK/FK) via a separate tables.get() call.
+
+        The Databricks tables.list() API does not return table_constraints; a
+        dedicated tables.get() call is required per table. Hive Metastore
+        catalog tables do not support constraints and are skipped.
+
+        Note: this adds one Databricks API call per Unity Catalog table and is
+        subject to the workspace's API rate limits. Enable only via
+        include_table_constraints=True in the connector config.
+        """
+        if table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
+            return []
+        try:
+            table_info = self._workspace_client.tables.get(
+                full_name=table.ref.qualified_table_name
+            )
+            return table_info.table_constraints or []
+        except Exception as e:
+            self.report.report_warning(
+                "table-constraints-fetch",
+                f"Unable to fetch table constraints for {table.ref}: {e}",
+            )
+            logger.warning(
+                f"Unable to fetch table constraints for {table.ref}: {e}",
+                exc_info=True,
+            )
+            return []
 
     def _create_ml_model(
         self, schema: Schema, obj: RegisteredModelInfo
@@ -1273,85 +1324,159 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             executed_as_user_name=info.executed_as_user_name,
         )
 
-    def _execute_sql_query(self, query: str, params: Sequence[Any] = ()) -> List[Row]:
-        """Execute SQL query using databricks-sql connector for better performance"""
-        logger.debug(f"Executing SQL query with {len(params)} parameters")
-        if logger.isEnabledFor(logging.DEBUG):
-            # Only log full query in debug mode to avoid performance overhead
-            logger.debug(f"Full SQL query: {query}")
-            if params:
-                logger.debug(f"Query parameters: {params}")
+    def _check_warehouse_configured(self) -> bool:
+        """Return True if a warehouse is configured for SQL operations.
 
-        # Check if warehouse_id is available for SQL operations
-        if not self.warehouse_id:
-            self.report.report_warning(
-                "Cannot execute SQL query",
-                "warehouse_id is not configured. SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration",
-            )
-            logger.warning(
-                "Cannot execute SQL query: warehouse_id is not configured. "
-                "SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration."
-            )
-            return []
+        Reports a warning and returns False otherwise, so callers can short-circuit
+        with an empty result instead of raising.
+        """
+        if self.warehouse_id:
+            return True
+        self.report.report_warning(
+            title="Cannot execute SQL query",
+            message="warehouse_id is not configured. SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration.",
+        )
+        logger.warning(
+            "Cannot execute SQL query: warehouse_id is not configured. "
+            "SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration."
+        )
+        return False
 
-        # Log connection parameters (with masked token)
-        masked_params = {**self._sql_connection_params}
-        if "access_token" in masked_params:
-            masked_params["access_token"] = "***MASKED***"
-        logger.debug(f"Using connection parameters: {masked_params}")
-
-        # Log proxy environment variables that affect SQL connections
+    def _detected_proxy_env_vars(self) -> Dict[str, str]:
+        """Return proxy-related env vars (masked) that affect SQL connections."""
         proxy_env_debug = {}
         for var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
             value = os.environ.get(var)
             if value:
                 proxy_env_debug[var] = mask_proxy_credentials(value)
+        return proxy_env_debug
 
-        if proxy_env_debug:
-            logger.debug(
-                f"SQL connection will use proxy environment variables: {proxy_env_debug}"
+    def _report_sql_query_failure(
+        self,
+        error: Exception,
+        query: str,
+        params: Sequence[Any],
+        *,
+        count_as_fetch_failure: bool = False,
+    ) -> None:
+        """Log and report a SQL execution failure, flagging likely proxy issues."""
+        logger.warning(f"Failed to execute SQL query: {error}", exc_info=True)
+        if logger.isEnabledFor(logging.DEBUG):
+            # Only log failed query details in debug mode for security
+            logger.debug(f"SQL query that failed: {query}")
+            logger.debug(f"SQL query parameters: {params}")
+
+        error_str = str(error).lower()
+        if any(
+            proxy_keyword in error_str
+            for proxy_keyword in [
+                "proxy",
+                "407",
+                "authentication required",
+                "tunnel",
+                "connect",
+            ]
+        ):
+            # Lazy: only collect proxy env vars when the error looks proxy-related.
+            proxy_env_debug = self._detected_proxy_env_vars()
+            logger.error(
+                "SQL query failure appears to be proxy-related. "
+                "Please check proxy configuration and authentication. "
+                f"Proxy environment variables detected: {list(proxy_env_debug.keys())}"
             )
-        else:
-            logger.debug("No proxy environment variables detected for SQL connection")
+
+        self.report.report_warning(
+            title="Failed to run SQL query",
+            message=(
+                f"A SQL query against the Databricks warehouse failed: {error}. Check that the service principal has SELECT on the system.access and system.query schemas and that system schemas are enabled for this workspace."
+            ),
+        )
+        if count_as_fetch_failure:
+            self.report.num_usage_query_fetch_failures += 1
+
+    def _execute_sql_query(self, query: str, params: Sequence[Any] = ()) -> List[Row]:
+        """Execute SQL query using databricks-sql connector and materialize all rows.
+
+        Used by the small-result metadata queries (catalogs, schemas, columns, tags).
+        For large result sets (e.g. query history) prefer _execute_sql_query_streaming,
+        which bounds memory by yielding rows in batches instead of buffering everything.
+        """
+        logger.debug(f"Executing SQL query with {len(params)} parameters")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Full SQL query: {query}")
+            if params:
+                logger.debug(f"Query parameters: {params}")
+
+        if not self._check_warehouse_configured():
+            return []
+
+        sql_connection_params = get_sql_connection_params(self._workspace_client)
 
         try:
             with (
-                connect(**self._sql_connection_params) as connection,
+                connect(**sql_connection_params) as connection,
                 connection.cursor() as cursor,
             ):
                 cursor.execute(query, list(params))
-                rows = cursor.fetchall()
-                logger.debug(
-                    f"SQL query executed successfully, returned {len(rows)} rows"
-                )
-                return rows
-
+                return cursor.fetchall()
         except Exception as e:
-            logger.warning(f"Failed to execute SQL query: {e}", exc_info=True)
-            if logger.isEnabledFor(logging.DEBUG):
-                # Only log failed query details in debug mode for security
-                logger.debug(f"SQL query that failed: {query}")
-                logger.debug(f"SQL query parameters: {params}")
-
-            # Check if this might be a proxy-related error
-            error_str = str(e).lower()
-            if any(
-                proxy_keyword in error_str
-                for proxy_keyword in [
-                    "proxy",
-                    "407",
-                    "authentication required",
-                    "tunnel",
-                    "connect",
-                ]
-            ):
-                logger.error(
-                    "SQL query failure appears to be proxy-related. "
-                    "Please check proxy configuration and authentication. "
-                    f"Proxy environment variables detected: {list(proxy_env_debug.keys())}"
-                )
-
+            self._report_sql_query_failure(e, query, params)
             return []
+
+    def _execute_sql_query_streaming(
+        self,
+        query: str,
+        params: Sequence[Any] = (),
+        batch_size: int = 10000,
+    ) -> Generator[Row, None, None]:
+        """Execute a SQL query and yield rows in batches.
+
+        The connection stays open for the lifetime of iteration — bounded memory in
+        exchange for a longer-held connection. Callers must fully consume or close the
+        generator to release the connection.
+        On failure, reports a warning, increments num_usage_query_fetch_failures, and
+        yields nothing (does not raise). Consumer errors propagate cleanly because yield
+        is never inside a try/except.
+        """
+        logger.debug(f"Executing SQL query (streaming) with {len(params)} parameters")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Full SQL query: {query}")
+            if params:
+                logger.debug(f"Query parameters: {params}")
+
+        if not self._check_warehouse_configured():
+            return
+
+        sql_connection_params = get_sql_connection_params(self._workspace_client)
+
+        try:
+            connection = connect(**sql_connection_params)
+        except Exception as e:
+            self._report_sql_query_failure(
+                e, query, params, count_as_fetch_failure=True
+            )
+            return
+        with closing(connection):
+            try:
+                cursor = connection.cursor()
+                cursor.execute(query, list(params))
+            except Exception as e:
+                self._report_sql_query_failure(
+                    e, query, params, count_as_fetch_failure=True
+                )
+                return
+            with closing(cursor):
+                while True:
+                    try:
+                        batch = cursor.fetchmany(batch_size)
+                    except Exception as e:
+                        self._report_sql_query_failure(
+                            e, query, params, count_as_fetch_failure=True
+                        )
+                        return
+                    if not batch:
+                        break
+                    yield from batch  # OUTSIDE any try/except — consumer errors propagate cleanly
 
     @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_schema_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:

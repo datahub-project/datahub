@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime
 from unittest.mock import MagicMock, patch
@@ -6,6 +7,7 @@ import pytest
 
 from datahub.ingestion.source.unity.proxy import (
     ExternalUpstream,
+    QueryFilterWithStatementTypes,
     TableLineageInfo,
     TableUpstream,
     UnityCatalogApiProxy,
@@ -18,14 +20,18 @@ class TestUnityCatalogProxy:
     @pytest.fixture
     def mock_proxy(self):
         """Create a mock UnityCatalogApiProxy for testing."""
-        with patch("datahub.ingestion.source.unity.proxy.WorkspaceClient"):
-            proxy = UnityCatalogApiProxy(
-                workspace_url="https://test.databricks.com",
-                personal_access_token="test_token",
-                warehouse_id="test_warehouse",
-                report=UnityCatalogReport(),
-            )
-            return proxy
+        from databricks.sdk import WorkspaceClient
+
+        mock_workspace_client = MagicMock(spec=WorkspaceClient)
+        mock_workspace_client.config.host = "https://test.databricks.com"
+        mock_workspace_client.config.token = "test_token"
+        mock_workspace_client.config.warehouse_id = "test_warehouse"
+
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_workspace_client,
+            report=UnityCatalogReport(),
+        )
+        return proxy
 
     def test_build_datetime_where_conditions_empty(self, mock_proxy):
         """Test datetime conditions with no start/end time."""
@@ -583,27 +589,31 @@ class TestUnityCatalogProxy:
         assert len(table.upstream_notebooks) == 0
         assert len(table.downstream_notebooks) == 0
 
-    def test_constructor_with_databricks_api_page_size(self):
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_constructor_with_databricks_api_page_size(self, mock_workspace_client):
         """Test UnityCatalogApiProxy constructor with databricks_api_page_size parameter."""
-        with patch("datahub.ingestion.source.unity.proxy.WorkspaceClient"):
-            # Test with default page size (0)
-            proxy = UnityCatalogApiProxy(
-                workspace_url="https://test.databricks.com",
-                personal_access_token="test_token",
-                warehouse_id="test_warehouse",
-                report=UnityCatalogReport(),
-            )
-            assert proxy.databricks_api_page_size == 0
+        from databricks.sdk import WorkspaceClient
 
-            # Test with custom page size
-            proxy = UnityCatalogApiProxy(
-                workspace_url="https://test.databricks.com",
-                personal_access_token="test_token",
-                warehouse_id="test_warehouse",
-                report=UnityCatalogReport(),
-                databricks_api_page_size=500,
-            )
-            assert proxy.databricks_api_page_size == 500
+        mock_client = MagicMock(spec=WorkspaceClient)
+        mock_client.config.host = "https://test.databricks.com"
+        mock_client.config.token = "test_token"
+        mock_client.config.warehouse_id = "test_warehouse"
+        mock_workspace_client.return_value = mock_client
+
+        # Test with default page size (0)
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_client,
+            report=UnityCatalogReport(),
+        )
+        assert proxy.databricks_api_page_size == 0
+
+        # Test with custom page size
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_client,
+            report=UnityCatalogReport(),
+            databricks_api_page_size=500,
+        )
+        assert proxy.databricks_api_page_size == 500
 
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_check_basic_connectivity_with_page_size(self, mock_workspace_client):
@@ -611,11 +621,10 @@ class TestUnityCatalogProxy:
         # Setup mock
         mock_client = mock_workspace_client.return_value
         mock_client.catalogs.list.return_value = ["catalog1"]
+        mock_client.config.warehouse_id = "test_warehouse"
 
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
             databricks_api_page_size=100,
         )
@@ -634,11 +643,10 @@ class TestUnityCatalogProxy:
         mock_client = mock_workspace_client.return_value
         mock_client.catalogs.list.return_value = []
         mock_client.metastores.summary.return_value = None
+        mock_client.config.warehouse_id = "test_warehouse"
 
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
             databricks_api_page_size=200,
         )
@@ -657,11 +665,10 @@ class TestUnityCatalogProxy:
         # Setup mock
         mock_client = mock_workspace_client.return_value
         mock_client.schemas.list.return_value = []
+        mock_client.config.warehouse_id = "test_warehouse"
 
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
             databricks_api_page_size=300,
         )
@@ -704,11 +711,10 @@ class TestUnityCatalogProxy:
         # Setup mock
         mock_client = mock_workspace_client.return_value
         mock_client.tables.list.return_value = []
+        mock_client.config.warehouse_id = "test_warehouse"
 
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
             databricks_api_page_size=400,
         )
@@ -755,11 +761,10 @@ class TestUnityCatalogProxy:
         # Setup mock
         mock_client = mock_workspace_client.return_value
         mock_client.workspace.list.return_value = []
+        mock_client.config.warehouse_id = "test_warehouse"
 
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
             databricks_api_page_size=250,
         )
@@ -778,11 +783,10 @@ class TestUnityCatalogProxy:
         # Setup mock
         mock_client = mock_workspace_client.return_value
         mock_client.api_client.do.return_value = {"res": []}
+        mock_client.config.warehouse_id = "test_warehouse"
 
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
             databricks_api_page_size=150,
         )
@@ -814,11 +818,10 @@ class TestUnityCatalogProxy:
         # Setup mock
         mock_client = mock_workspace_client.return_value
         mock_client.registered_models.list.return_value = []
+        mock_client.config.warehouse_id = "test_warehouse"
 
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
             databricks_api_page_size=150,
         )
@@ -868,11 +871,10 @@ class TestUnityCatalogProxy:
         # Setup mock
         mock_client = mock_workspace_client.return_value
         mock_client.registered_models.list.return_value = []
+        mock_client.config.warehouse_id = "test_warehouse"
 
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
 
@@ -920,6 +922,7 @@ class TestUnityCatalogProxy:
         mock_client = mock_workspace_client.return_value
         mock_version = ModelVersionInfo(version=1, comment="Test version")
         mock_client.model_versions.list.return_value = [mock_version]
+        mock_client.config.warehouse_id = "test_warehouse"
 
         # Mock get response with aliases
         mock_detailed_version = ModelVersionInfo(
@@ -928,9 +931,7 @@ class TestUnityCatalogProxy:
         mock_client.model_versions.get.return_value = mock_detailed_version
 
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
             databricks_api_page_size=75,
         )
@@ -987,11 +988,10 @@ class TestUnityCatalogProxy:
         mock_client = mock_workspace_client.return_value
         mock_version = ModelVersionInfo(version=1, comment="Test version")
         mock_client.model_versions.list.return_value = [mock_version]
+        mock_client.config.warehouse_id = "test_warehouse"
 
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
             databricks_api_page_size=75,
         )
@@ -1046,10 +1046,10 @@ class TestUnityCatalogProxy:
             Schema,
         )
 
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
 
@@ -1093,10 +1093,10 @@ class TestUnityCatalogProxy:
 
         from datahub.ingestion.source.unity.proxy_types import Model
 
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
 
@@ -1128,10 +1128,10 @@ class TestUnityCatalogProxy:
             Schema,
         )
 
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
 
@@ -1190,10 +1190,10 @@ class TestUnityCatalogProxy:
 
         from datahub.ingestion.source.unity.proxy_types import Model
 
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
 
@@ -1253,10 +1253,10 @@ class TestUnityCatalogProxy:
             RunTag,
         )
 
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
 
@@ -1312,10 +1312,10 @@ class TestUnityCatalogProxy:
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_get_run_details_with_missing_run(self, mock_workspace_client):
         """Test get_run_details() handles missing run gracefully."""
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
 
@@ -1334,10 +1334,10 @@ class TestUnityCatalogProxy:
         """Test get_run_details() handles empty metrics and parameters."""
         from databricks.sdk.service.ml import Run, RunData, RunInfo, RunInfoStatus
 
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
 
@@ -1372,10 +1372,10 @@ class TestUnityCatalogProxy:
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_get_run_details_with_api_error(self, mock_workspace_client):
         """Test get_run_details() handles API errors gracefully."""
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
 
@@ -1395,10 +1395,10 @@ class TestUnityCatalogProxy:
 
         from databricks.sdk.service.catalog import ModelVersionInfo
 
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
 
@@ -1447,10 +1447,10 @@ signature:
         """Test _extract_signature_from_files_api() handles missing MLmodel file."""
         from databricks.sdk.service.catalog import ModelVersionInfo
 
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
 
@@ -1477,10 +1477,10 @@ signature:
 
         from databricks.sdk.service.catalog import ModelVersionInfo
 
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
 
@@ -1519,10 +1519,10 @@ mlflow_version: 2.0.1
 
         from databricks.sdk.service.catalog import ModelVersionInfo
 
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
 
@@ -1563,10 +1563,10 @@ signature:
 
         from databricks.sdk.service.catalog import ModelVersionInfo
 
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-            warehouse_id="test_warehouse",
+            workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
 
@@ -1626,17 +1626,14 @@ class TestUnityCatalogProxyAuthentication:
                 {"HTTPS_PROXY": "http://user:pass@proxy.com:8080"},
                 clear=True,
             ),
-            patch("datahub.ingestion.source.unity.proxy.WorkspaceClient") as mock_ws,
         ):
             mock_client = MagicMock()
             mock_client.config.host = "https://test.databricks.com"
             mock_client.config.token = "test-token"
-            mock_ws.return_value = mock_client
+            mock_client.config.warehouse_id = "test-warehouse"
 
             proxy = UnityCatalogApiProxy(
-                workspace_url="https://test.databricks.com",
-                personal_access_token="test-token",
-                warehouse_id="test-warehouse",
+                workspace_client=mock_client,
                 report=UnityCatalogReport(),
             )
 
@@ -1664,21 +1661,25 @@ class TestUnityCatalogProxyUsageSystemTables:
     @pytest.fixture
     def mock_proxy(self):
         """Create a mock UnityCatalogApiProxy for testing."""
-        with patch("datahub.ingestion.source.unity.proxy.WorkspaceClient"):
-            proxy = UnityCatalogApiProxy(
-                workspace_url="https://test.databricks.com",
-                personal_access_token="test_token",
-                warehouse_id="test_warehouse",
-                report=UnityCatalogReport(),
-            )
-            return proxy
+        from databricks.sdk import WorkspaceClient
+
+        mock_workspace_client = MagicMock(spec=WorkspaceClient)
+        mock_workspace_client.config.host = "https://test.databricks.com"
+        mock_workspace_client.config.token = "test_token"
+        mock_workspace_client.config.warehouse_id = "test_warehouse"
+
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_workspace_client,
+            report=UnityCatalogReport(),
+        )
+        return proxy
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_empty(self, mock_execute, mock_proxy):
         """Test get_query_history_via_system_tables with no results."""
-        mock_execute.return_value = []
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [])  # type: ignore[var-annotated]
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
 
@@ -1694,7 +1695,7 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert "execution_status = 'FINISHED'" in query
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_with_data(
         self, mock_execute, mock_proxy
@@ -1726,7 +1727,7 @@ class TestUnityCatalogProxyUsageSystemTables:
                 executed_as_user_id=456,
             ),
         ]
-        mock_execute.return_value = mock_data
+        mock_execute.side_effect = lambda *a, **kw: (r for r in mock_data)
 
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
@@ -1743,13 +1744,13 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert "INSERT INTO target_table" in result[1].query_text
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_filters_statement_types(
         self, mock_execute, mock_proxy
     ):
         """Test that query includes proper statement type filtering."""
-        mock_execute.return_value = []
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [])  # type: ignore[var-annotated]
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
 
@@ -1767,7 +1768,7 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert "'OTHER'" in query
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_handles_null_values(
         self, mock_execute, mock_proxy
@@ -1788,7 +1789,7 @@ class TestUnityCatalogProxyUsageSystemTables:
                 executed_as_user_id=None,
             )
         ]
-        mock_execute.return_value = mock_data
+        mock_execute.side_effect = lambda *a, **kw: (r for r in mock_data)
 
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
@@ -1802,13 +1803,23 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert result[0].user_id is None
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_error_handling(
         self, mock_execute, mock_proxy
     ):
         """Test error handling when SQL query fails."""
-        mock_execute.side_effect = Exception("SQL execution failed")
+
+        # Simulate the streaming method's internal error path: it catches the DB
+        # exception, records a warning, and yields nothing instead of raising.
+        def _failing_stream(*a, **kw):
+            mock_proxy.report.report_warning(
+                title="Failed to run SQL query",
+                message="A SQL query against the Databricks warehouse failed.",
+            )
+            return (r for r in [])  # type: ignore[var-annotated]
+
+        mock_execute.side_effect = _failing_stream
 
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
@@ -1817,53 +1828,74 @@ class TestUnityCatalogProxyUsageSystemTables:
         )
 
         assert len(result) == 0
-        assert len(mock_proxy.report.failures) > 0
+        assert len(mock_proxy.report.warnings) > 0
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_row_parse_error(
         self, mock_execute, mock_proxy
     ):
-        """Test error handling when individual row parsing fails."""
+        """Test error handling when individual row parsing fails.
+
+        A bad row must record a "Failed to parse query from system tables" warning but must NOT abort
+        iteration — good rows that follow must still be yielded.
+        """
+        from types import SimpleNamespace
+
         from databricks.sql.types import Row
 
-        mock_data = [
-            Row(
-                statement_id="query_126",
-                statement_text="SELECT * FROM valid_table",
-                statement_type="SELECT",
-                start_time=datetime(2023, 1, 1, 10, 0, 0),
-                end_time=datetime(2023, 1, 1, 10, 0, 30),
-                executed_by="user@example.com",
-                executed_as="user@example.com",
-                executed_by_user_id=123,
-                executed_as_user_id=123,
-            )
-        ]
-        mock_execute.return_value = mock_data
+        # bad_row: statement_type is an invalid enum value, causing QueryStatementType()
+        # construction to raise ValueError — a realistic per-row parse failure.
+        bad_row = SimpleNamespace(
+            statement_id="query_bad",
+            statement_text="SELECT * FROM bad_table",
+            statement_type="NOT_A_VALID_TYPE",
+            start_time=datetime(2023, 1, 1, 10, 0, 0),
+            end_time=datetime(2023, 1, 1, 10, 0, 30),
+            executed_by="user@example.com",
+            executed_as="user@example.com",
+            executed_by_user_id=123,
+            executed_as_user_id=123,
+        )
+        good_row = Row(
+            statement_id="query_126",
+            statement_text="SELECT * FROM valid_table",
+            statement_type="SELECT",
+            start_time=datetime(2023, 1, 1, 11, 0, 0),
+            end_time=datetime(2023, 1, 1, 11, 0, 30),
+            executed_by="user@example.com",
+            executed_as="user@example.com",
+            executed_by_user_id=123,
+            executed_as_user_id=123,
+        )
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [bad_row, good_row])
 
-        with patch(
-            "datahub.ingestion.source.unity.proxy_types.Query.__init__",
-            side_effect=Exception("Query creation failed"),
-        ):
-            start_time = datetime(2023, 1, 1)
-            end_time = datetime(2023, 1, 31)
-            result = list(
-                mock_proxy.get_query_history_via_system_tables(start_time, end_time)
-            )
+        start_time = datetime(2023, 1, 1)
+        end_time = datetime(2023, 1, 31)
+        result = list(
+            mock_proxy.get_query_history_via_system_tables(start_time, end_time)
+        )
 
-            assert len(result) == 0
-            assert len(mock_proxy.report.warnings) > 0
+        # The bad row must be skipped and a warning recorded.
+        warning_titles = [str(w.title) for w in mock_proxy.report.warnings]
+        assert any(
+            "Failed to parse query from system tables" in t for t in warning_titles
+        ), (
+            f"expected 'Failed to parse query from system tables' warning, got: {warning_titles}"
+        )
+        # The good row must still be yielded — iteration must continue past the bad row.
+        assert len(result) == 1, f"expected 1 good query, got {len(result)}: {result}"
+        assert result[0].query_id == "query_126"
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
     def test_get_query_history_via_system_tables_time_parameters(
         self, mock_execute, mock_proxy
     ):
         """Test that start and end time are passed correctly as parameters."""
-        mock_execute.return_value = []
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [])  # type: ignore[var-annotated]
         start_time = datetime(2023, 5, 15, 8, 30, 0)
         end_time = datetime(2023, 5, 20, 18, 45, 0)
 
@@ -1872,3 +1904,87 @@ class TestUnityCatalogProxyUsageSystemTables:
         call_args = mock_execute.call_args
         params = call_args[0][1]
         assert params == (start_time, end_time)
+
+
+class TestQueryFilterWithStatementTypesSerialisation:
+    """Regression tests for QueryFilterWithStatementTypes.as_dict().
+
+    Bug: before the fix, as_dict() serialised statement_types as raw
+    QueryStatementType enum objects.  json.dumps() raised
+    ``TypeError: Object of type QueryStatementType is not JSON serializable``,
+    which caused the REST query-history request to fail and produced zero usage.
+    """
+
+    def test_as_dict_statement_types_are_strings(self) -> None:
+        """as_dict() must return statement_types as plain strings, not enum objects."""
+        from databricks.sdk.service.sql import QueryStatementType
+
+        f = QueryFilterWithStatementTypes.from_dict(
+            {
+                "query_start_time_range": {
+                    "start_time_ms": 1_700_000_000_000,
+                    "end_time_ms": 1_700_086_400_000,
+                },
+                "statuses": ["FINISHED"],
+                "statement_types": [
+                    QueryStatementType.SELECT.value,
+                    QueryStatementType.INSERT.value,
+                ],
+            }
+        )
+
+        result = f.as_dict()
+        assert "statement_types" in result
+        for item in result["statement_types"]:
+            assert isinstance(item, str), (
+                f"Expected str in statement_types, got {type(item)!r}: {item!r}"
+            )
+
+    def test_as_dict_is_json_serializable(self) -> None:
+        """json.dumps(filter.as_dict()) must not raise.
+
+        Pre-fix this raised ``TypeError: Object of type QueryStatementType is not
+        JSON serializable``, blocking every REST query-history call.
+        """
+        from databricks.sdk.service.sql import QueryStatementType
+
+        f = QueryFilterWithStatementTypes.from_dict(
+            {
+                "query_start_time_range": {
+                    "start_time_ms": 1_700_000_000_000,
+                    "end_time_ms": 1_700_086_400_000,
+                },
+                "statuses": ["FINISHED"],
+                "statement_types": [
+                    QueryStatementType.SELECT.value,
+                    QueryStatementType.MERGE.value,
+                ],
+            }
+        )
+
+        # Must not raise TypeError: Object of type QueryStatementType is not JSON serializable
+        serialised = json.dumps(f.as_dict())
+        parsed = json.loads(serialised)
+        assert parsed["statement_types"] == [
+            QueryStatementType.SELECT.value,
+            QueryStatementType.MERGE.value,
+        ]
+
+    def test_as_dict_preserves_enum_values_round_trip(self) -> None:
+        """Values produced by as_dict() must equal the .value strings of the enums."""
+        from databricks.sdk.service.sql import QueryStatementType
+
+        types_in = [
+            QueryStatementType.SELECT,
+            QueryStatementType.INSERT,
+            QueryStatementType.UPDATE,
+            QueryStatementType.DELETE,
+        ]
+        f = QueryFilterWithStatementTypes.from_dict(
+            {
+                "statement_types": [t.value for t in types_in],
+            }
+        )
+
+        result_types = f.as_dict()["statement_types"]
+        assert result_types == [t.value for t in types_in]

@@ -1,0 +1,216 @@
+name: Post Workflow Actions
+run-name: Post Workflow Actions for ${{ github.event_name == 'workflow_dispatch' && format('run {0}', inputs.run_id) || github.event.workflow_run.name }}
+
+# Triggered when a monitored workflow completes.
+# NOTE: workflow_run.workflows does not support wildcards —
+# workflow names must be listed explicitly here.
+# This workflow is NOT listed, so it will not trigger itself (no recursion).
+# Listing workflows that run in PR and Post Commit to the list
+on:
+  workflow_run:
+    workflows:
+      - "AI Smoke Tests (Local Embeddings)"
+      - "DataHub Actions"
+      - "DataHub Agent Context"
+      - "Airflow Plugin"
+      - "build & test"
+      - "Check Datahub Jars"
+      - "check python dependencies"
+      - "Dagster Plugin"
+      - "Docker Build, Scan, Test"
+      - "ingestion smoke"
+      - "documentation"
+      - "GX Plugin"
+      - "lint"
+      - "Metadata Ingestion"
+      - "metadata-io"
+      - "metadata model generate"
+      - "Metadata Models Custom CI"
+      - "Prefect Plugin"
+      - "PR Title Check"
+      - "Publish Datahub Java Jars (Client, Spark Lineage, Protobuf, Auth API)"
+      - "Python Build"
+      - "Quickstart Test"
+      - "Frontend Preview"
+      - "spark smoke test"
+      - "Verify Quickstart Compose"
+      - "Nightly Docker Test"
+      - "Release Tests"
+      - "Release Validation"
+    types:
+      - completed
+
+  # Allows manual triggering for ad-hoc testing against any existing workflow run.
+  # publish defaults to false so artifacts are not forwarded to downstream by accident.
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Workflow run ID to collect metrics for"
+        required: true
+        type: string
+      attempt:
+        description: "Run attempt number"
+        required: false
+        type: string
+        default: "1"
+      publish:
+        description: "Publish metrics artifacts downstream"
+        required: false
+        type: boolean
+        default: false
+      notify_slack:
+        description: "Send Slack failure notification (for testing; production
+          notifications fire automatically)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  collect-metrics:
+    # For push events: only collect metrics for default/release/hotfix branches.
+    # All other event types (pull_request, schedule, release, etc.) and workflow_dispatch pass through.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.event != 'push' ||
+      github.event.workflow_run.head_branch == github.event.repository.default_branch ||
+      startsWith(github.event.workflow_run.head_branch, 'releases/') ||
+      startsWith(github.event.workflow_run.head_branch, 'hotfixes/')
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv pip install requests==2.32.5 posthog==7.9.4 --system
+
+      - name: Collect metrics
+        id: collect-metrics
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Fall back to workflow_run event values when not triggered manually.
+          RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
+          ATTEMPT: ${{ inputs.attempt || github.event.workflow_run.run_attempt }}
+          # Always publish for automated workflow_run triggers; honour the explicit input for workflow_dispatch.
+          PUBLISH: ${{ github.event_name == 'workflow_run' || inputs.publish == true }}
+        run: |
+          ARTIFACT_NAME="workflow-metrics-${RUN_ID}-attempt-${ATTEMPT}"
+          echo "artifact_name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+          echo "publish=${PUBLISH}" >> "$GITHUB_OUTPUT"
+          cd .github/scripts
+          python collect_workflow_metrics.py \
+            --run-id "${RUN_ID}" \
+            --attempt "${ATTEMPT}" \
+            --repo "${{ github.repository }}" \
+            --output "${ARTIFACT_NAME}.json"
+          # Print workflow summary
+          jq -r '
+            "## \(.workflow.name // "Workflow"): \(.workflow.conclusion // "unknown")",
+            "Duration: \(.workflow.duration_seconds // 0)s | Jobs: \(.jobs | length)",
+            "",
+            "| Job | Conclusion | Steps | Duration |",
+            "|---|---|---|---|",
+            (.jobs[] | "| \(.full_name // .name) | \(.conclusion // "unknown") | \(.steps | length) | \(.duration_seconds // 0)s |")
+          ' "${ARTIFACT_NAME}.json" | tee -a "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload metrics artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: ${{ steps.collect-metrics.outputs.artifact_name }}
+          path: .github/scripts/${{ steps.collect-metrics.outputs.artifact_name }}.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Publish metrics to PostHog
+        if: steps.collect-metrics.outputs.publish == 'true'
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+        run: |
+          cd .github/scripts
+          python publish_to_posthog.py \
+            --input "${{ steps.collect-metrics.outputs.artifact_name }}.json"
+      # TODO(devashish.chandra): Save to S3?
+
+  retry-on-failure:
+    name: Retry on First Failure
+    runs-on: ubuntu-22.04
+    # Only retrigger workflows known to have flaky tests, on first failure only,
+    # and only when triggered by workflow_run (not workflow_dispatch).
+    if: >-
+      github.event_name == 'workflow_run' &&
+      (
+        github.event.workflow_run.name == 'Docker Build, Scan, Test' ||
+        github.event.workflow_run.name == 'metadata-io' ||
+        github.event.workflow_run.name == 'Nightly Docker Test'
+      ) &&
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.run_attempt == 1
+    permissions:
+      actions: write
+    steps:
+      - name: Rerun failed jobs
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${REPOSITORY}/actions/runs/${RUN_ID}/rerun-failed-jobs"
+
+  # Notify Slack on CI failure on protected branches.
+  # Fires when:
+  #   - workflow_dispatch with notify_slack=true (manual testing)
+  #   - workflow_run that failed or timed out,
+  #       - triggered by schedule/release
+  #       - or a push to a protected branch (default, release/*, hotfix/*)
+  notify-slack-failure:
+    name: Notify Slack on CI failure
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.notify_slack == true)
+      || (github.event_name == 'workflow_run'
+          && contains(fromJSON('["failure","timed_out"]'), github.event.workflow_run.conclusion)
+          && (contains(fromJSON('["schedule","release"]'), github.event.workflow_run.event)
+              || (github.event.workflow_run.event == 'push'
+                  && (github.event.workflow_run.head_branch == github.event.repository.default_branch
+                      || startsWith(github.event.workflow_run.head_branch, 'releases/')
+                      || startsWith(github.event.workflow_run.head_branch, 'hotfixes/')))))
+    uses: ./.github/workflows/notify-slack-status.yml
+    secrets: inherit
+    with:
+      run_id: ${{ inputs.run_id || github.event.workflow_run.id }}
+      attempt: ${{ inputs.attempt || github.event.workflow_run.run_attempt }}
+      thread_ts_file: ${{ github.event.workflow_run.event != 'schedule' && '.slack-thread-ts.json' || '' }}
+      channel: ${{ vars.BUILD_STATUS_NOTIFICATION_SLACK_CHANNEL }}
+
+  # Notify Slack when the Docker build succeeds on a push or release event.
+  # Posts a standalone message (not threaded) so it's visible as a positive signal
+  # separate from any failure thread on the same commit.
+  notify-slack-docker-success:
+    name: Notify Slack on Docker build success
+    if: >-
+      github.event_name == 'workflow_run'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.name == 'Docker Build, Scan, Test'
+      && contains(fromJSON('["push","release"]'), github.event.workflow_run.event)
+    uses: ./.github/workflows/notify-slack-status.yml
+    secrets: inherit
+    with:
+      run_id: ${{ github.event.workflow_run.id }}
+      conclusion: success
+      channel: ${{ vars.BUILD_STATUS_NOTIFICATION_SLACK_CHANNEL }}

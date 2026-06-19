@@ -11,6 +11,11 @@ import logging
 from typing import TYPE_CHECKING, Any, Optional
 
 import datahub.emitter.mce_builder as builder
+from datahub_airflow_plugin._config import (
+    get_configured_env,
+    get_enable_multi_statement,
+)
+from datahub_airflow_plugin._sql_parsing_common import parse_sql_with_datahub
 
 if TYPE_CHECKING:
     from airflow.models.taskinstance import TaskInstance
@@ -20,13 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def _should_patch_bigquery_operator(operator_class: Any) -> bool:
-    """Check if BigQuery operator should be patched."""
-    if not hasattr(operator_class, "get_openlineage_facets_on_complete"):
-        logger.debug(
-            "BigQueryInsertJobOperator.get_openlineage_facets_on_complete not found - "
-            "likely Airflow 2.x, skipping patch"
-        )
-        return False
+    """Skip when the operator has already been patched."""
     if hasattr(operator_class, "_datahub_openlineage_patched"):
         logger.debug("BigQueryInsertJobOperator already patched for OpenLineage")
         return False
@@ -92,7 +91,6 @@ def _enhance_bigquery_lineage_with_sql_parsing(
     Modifies operator_lineage in place by adding SQL parsing result to run_facets.
     """
     try:
-        from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
         from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
         from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
 
@@ -101,23 +99,26 @@ def _enhance_bigquery_lineage_with_sql_parsing(
             operator.project_id if hasattr(operator, "project_id") else None
         )
 
+        enable_multi_statement = get_enable_multi_statement()
+
         logger.debug(
             f"Running DataHub SQL parser for BigQuery (platform={platform}, "
-            f"default_db={default_database}): {rendered_sql}"
+            f"default_db={default_database}, multi_statement={enable_multi_statement}): {rendered_sql}"
         )
 
         listener = get_airflow_plugin_listener()
         graph = listener.graph if listener else None
+        env = get_configured_env()
 
         # Use DataHub's SQL parser with rendered SQL
-        sql_parsing_result = create_lineage_sql_parsed_result(
-            query=rendered_sql,
-            graph=graph,
+        sql_parsing_result = parse_sql_with_datahub(
+            sql=rendered_sql,
+            default_database=default_database,
             platform=platform,
-            platform_instance=None,
-            env=builder.DEFAULT_ENV,
-            default_db=default_database,
+            env=env,
             default_schema=None,
+            graph=graph,
+            enable_multi_statement=enable_multi_statement,
         )
 
         logger.debug(
@@ -139,7 +140,7 @@ def _enhance_bigquery_lineage_with_sql_parsing(
                 destination_table_urn = builder.make_dataset_urn(
                     platform="bigquery",
                     name=f"{project_id}.{dataset_id}.{table_id}",
-                    env=builder.DEFAULT_ENV,
+                    env=env,
                 )
                 # Add to output tables if not already present
                 if destination_table_urn not in sql_parsing_result.out_tables:

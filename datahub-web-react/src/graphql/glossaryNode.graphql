@@ -7,6 +7,9 @@ fragment childGlossaryTerm on GlossaryTerm {
         name
         description
     }
+    domain {
+        ...entityDomain
+    }
 }
 
 fragment glossaryNodeFields on GlossaryNode {
@@ -26,6 +29,9 @@ fragment glossaryNodeFields on GlossaryNode {
     ownership {
         ...ownershipFields
     }
+    domain {
+        ...entityDomain
+    }
     parentNodes {
         ...parentNodesFields
     }
@@ -42,9 +48,6 @@ fragment glossaryNodeFields on GlossaryNode {
         properties {
             ...structuredPropertiesFields
         }
-    }
-    forms {
-        ...formsFields
     }
     childrenCount {
         termsCount

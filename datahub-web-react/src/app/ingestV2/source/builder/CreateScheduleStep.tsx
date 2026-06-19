@@ -1,18 +1,18 @@
 import { CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { Checkbox, Form, Input, Switch, Typography } from 'antd';
-import cronstrue from 'cronstrue';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Cron } from 'react-js-cron';
 import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { TimezoneSelect } from '@app/ingestV2/source/builder/TimezoneSelect';
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { Button } from '@src/alchemy-components';
+import { cronToString } from '@utils/cronstrue';
 
 const Section = styled.div`
     display: flex;
@@ -31,7 +31,7 @@ const CronText = styled(Typography.Paragraph)`
     &&& {
         margin-bottom: 0px;
     }
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const CronInput = styled(Input)`
@@ -54,7 +54,7 @@ const AdvancedCheckBox = styled(Typography.Text)`
 `;
 
 const CronSuccessCheck = styled(CheckCircleOutlined)`
-    color: ${REDESIGN_COLORS.BLUE};
+    color: ${(props) => props.theme.colors.textBrand};
     margin-right: 4px;
 `;
 
@@ -66,7 +66,7 @@ const ControlsContainer = styled.div`
 
 const StyledFormItem = styled(Form.Item)`
     .cron-builder {
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
     .cron-builder-select {
         min-width: 100px;
@@ -74,7 +74,7 @@ const StyledFormItem = styled(Form.Item)`
 `;
 
 const WarningContainer = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const StyledWarningOutlined = styled(WarningOutlined)`
@@ -87,6 +87,8 @@ const ItemDescriptionText = styled(Typography.Paragraph)``;
 const DAILY_MIDNIGHT_CRON_INTERVAL = '0 0 * * *';
 
 export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps) => {
+    const { t } = useTranslation('ingestion.sourceBuilder');
+    const { t: tc } = useTranslation('common.actions');
     const { schedule } = state;
     const interval = schedule?.interval?.replaceAll(', ', ' ') || DAILY_MIDNIGHT_CRON_INTERVAL;
     const timezone = schedule?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -99,7 +101,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
         if (scheduleCronInterval) {
             try {
                 return {
-                    text: `Runs ${lowerFirstLetter(cronstrue.toString(scheduleCronInterval))}.`,
+                    text: t('schedule.runs', { schedule: lowerFirstLetter(cronToString(scheduleCronInterval)) }),
                     error: false,
                 };
             } catch (e) {
@@ -113,7 +115,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
             text: undefined,
             error: false,
         };
-    }, [scheduleCronInterval]);
+    }, [scheduleCronInterval, t]);
 
     const onClickNext = () => {
         if (scheduleEnabled) {
@@ -139,14 +141,17 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
     return (
         <>
             <Section>
-                <SelectTemplateHeader level={5}>Configure an Ingestion Schedule</SelectTemplateHeader>
+                <SelectTemplateHeader level={5} data-testid="configure-schedule-heading">
+                    {t('schedule.title')}
+                </SelectTemplateHeader>
             </Section>
             <RequiredFieldForm layout="vertical">
                 <Form.Item
-                    tooltip="Enable to run ingestion syncs on a schedule. Running syncs on a schedule helps to keep information up to date."
+                    tooltip={t('schedule.enableTooltip')}
                     label={
                         <Typography.Text strong>
-                            Run on a schedule <Typography.Text type="secondary">(Recommended)</Typography.Text>
+                            {t('schedule.runOnSchedule')}{' '}
+                            <Typography.Text type="secondary">{t('schedule.recommended')}</Typography.Text>
                         </Typography.Text>
                     }
                 >
@@ -154,11 +159,14 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                     {!scheduleEnabled && (
                         <WarningContainer>
                             <StyledWarningOutlined />
-                            Running ingestion without a schedule may result in out-of-date information.
+                            {t('schedule.noScheduleWarning')}
                         </WarningContainer>
                     )}
                 </Form.Item>
-                <StyledFormItem required label={<Typography.Text strong>Schedule</Typography.Text>}>
+                <StyledFormItem
+                    required
+                    label={<Typography.Text strong>{t('schedule.scheduleLabel')}</Typography.Text>}
+                >
                     <Schedule>
                         {advancedCronCheck ? (
                             <CronInput
@@ -177,7 +185,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                             />
                         )}
                         <AdvancedSchedule>
-                            <AdvancedCheckBox type="secondary">Show Advanced</AdvancedCheckBox>
+                            <AdvancedCheckBox type="secondary">{t('schedule.showAdvanced')}</AdvancedCheckBox>
                             <Checkbox
                                 checked={advancedCronCheck}
                                 onChange={(event) => setAdvancedCronCheck(event.target.checked)}
@@ -185,10 +193,10 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                         </AdvancedSchedule>
                     </Schedule>
                     <CronText>
-                        {cronAsText.error && <>Invalid cron schedule. Cron must be of UNIX form:</>}
+                        {cronAsText.error && <>{t('schedule.invalidCron')}</>}
                         {!cronAsText.text && (
                             <Typography.Paragraph keyboard style={{ marginTop: 4 }}>
-                                minute, hour, day, month, day of week
+                                {t('schedule.cronFormat')}
                             </Typography.Paragraph>
                         )}
                         {cronAsText.text && (
@@ -199,14 +207,14 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                         )}
                     </CronText>
                 </StyledFormItem>
-                <Form.Item required label={<Typography.Text strong>Timezone</Typography.Text>}>
-                    <ItemDescriptionText>Choose a timezone for the schedule.</ItemDescriptionText>
+                <Form.Item required label={<Typography.Text strong>{t('schedule.timezoneLabel')}</Typography.Text>}>
+                    <ItemDescriptionText>{t('schedule.timezoneDescription')}</ItemDescriptionText>
                     <TimezoneSelect value={scheduleTimezone} onChange={setScheduleTimezone} />
                 </Form.Item>
             </RequiredFieldForm>
             <ControlsContainer>
                 <Button variant="outline" color="gray" onClick={prev}>
-                    Previous
+                    {tc('previous')}
                 </Button>
                 <div>
                     <Button
@@ -214,7 +222,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                         disabled={!interval || interval.length === 0 || cronAsText.error}
                         onClick={onClickNext}
                     >
-                        Next
+                        {tc('next')}
                     </Button>
                 </div>
             </ControlsContainer>

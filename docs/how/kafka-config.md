@@ -1,5 +1,6 @@
 ---
 title: "Configuring Kafka"
+description: "Configure Kafka brokers, topics, and security settings used by DataHub for the metadata change event pub-sub backbone."
 hide_title: true
 ---
 
@@ -259,7 +260,7 @@ Client.
 
 > **Note** In the logs you might see something like
 > `The configuration 'kafkastore.ssl.truststore.password' was supplied but isn't a known config.` The configuration is
-> not a configuration required for the producer. These WARN message can be safely ignored. Each of Datahub services are
+> not a configuration required for the producer. These WARN message can be safely ignored. Each of DataHub services are
 > passed a full set of configuration but may not require all the configurations that are passed to them. These warn
 > messages indicate that the service was passed a configuration that is not relevant to it and can be safely ignored.
 

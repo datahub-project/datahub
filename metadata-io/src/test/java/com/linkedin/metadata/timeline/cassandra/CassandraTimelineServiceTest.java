@@ -7,10 +7,12 @@ import com.linkedin.metadata.CassandraTestUtils;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.timeline.TimelineServiceImpl;
 import com.linkedin.metadata.timeline.TimelineServiceTest;
+import java.util.List;
 import org.testcontainers.cassandra.CassandraContainer;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
@@ -58,7 +60,9 @@ public class CassandraTimelineServiceTest extends TimelineServiceTest<CassandraA
 
   private void configureComponents() {
     _currentSession = CassandraTestUtils.createTestSession(_cassandraContainer);
-    _aspectDao = new CassandraAspectDao(_currentSession);
+    _aspectDao =
+        new CassandraAspectDao(
+            PrimaryStorageTestUtils.cassandraResolver(_currentSession), List.of(), null);
     _aspectDao.setConnectionValidated(true);
     _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry);
     _mockProducer = mock(EventProducer.class);

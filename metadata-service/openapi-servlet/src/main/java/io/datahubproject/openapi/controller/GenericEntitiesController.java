@@ -265,16 +265,18 @@ public abstract class GenericEntitiesController<
 
     ScrollResult result =
         searchService.scrollAcrossEntities(
-            opContext.withSearchFlags(
-                flags ->
-                    DEFAULT_SEARCH_FLAGS
-                        .setSkipCache(skipCache)
-                        .setIncludeSoftDeleted(includeSoftDelete)
-                        .setSliceOptions(
-                            sliceId != null && sliceMax != null
-                                ? new SliceOptions().setId(sliceId).setMax(sliceMax)
-                                : null,
-                            SetMode.IGNORE_NULL)),
+            opContext
+                .withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS)
+                .withSearchFlags(
+                    flags ->
+                        flags
+                            .setSkipCache(skipCache)
+                            .setIncludeSoftDeleted(includeSoftDelete)
+                            .setSliceOptions(
+                                sliceId != null && sliceMax != null
+                                    ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                    : null,
+                                SetMode.IGNORE_NULL)),
             List.of(entitySpec.getName()),
             query,
             null,

@@ -1,5 +1,8 @@
 import { Tooltip } from '@components';
+import { TrendDown } from '@phosphor-icons/react/dist/csr/TrendDown';
+import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     CardContainer,
@@ -39,6 +42,7 @@ export const Card = ({
     pillLabel,
     pill,
 }: CardProps) => {
+    const { t } = useTranslation('alchemy');
     const subtitleRef = useRef<HTMLDivElement>(null);
     const [showSubtitleTooltip, setShowSubtitleTooltip] = useState(false);
 
@@ -63,7 +67,7 @@ export const Card = ({
             {isEmpty ? (
                 <CardContainer maxWidth={maxWidth} height={height} width={width} data-testid={dataTestId}>
                     <TitleContainer data-testid="no-data">
-                        <Title $isEmpty={isEmpty}>No Data</Title>
+                        <Title $isEmpty={isEmpty}>{t('noData')}</Title>
                         <SubTitle>{subTitle}</SubTitle>
                     </TitleContainer>
                 </CardContainer>
@@ -89,7 +93,7 @@ export const Card = ({
                                             label={`${Math.abs(percent)}%`}
                                             size="sm"
                                             color={percent < 0 ? 'red' : 'green'}
-                                            leftIcon={percent < 0 ? 'TrendingDown' : 'TrendingUp'}
+                                            leftIcon={percent < 0 ? TrendDown : TrendUp}
                                             clickable={false}
                                         />
                                     )}

@@ -1,7 +1,9 @@
 import { useApolloClient } from '@apollo/client';
 import { ActionsBar, Button } from '@components';
+import { ArrowClockwise } from '@phosphor-icons/react/dist/csr/ArrowClockwise';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import DropzoneTable from '@app/glossaryV2/import/WizardPage/DropzoneTable/DropzoneTable';
 import GlossaryImportList from '@app/glossaryV2/import/WizardPage/GlossaryImportList/GlossaryImportList';
@@ -15,13 +17,12 @@ import { useEntityManagement } from '@app/glossaryV2/import/shared/hooks/useEnti
 import { useGraphQLOperations } from '@app/glossaryV2/import/shared/hooks/useGraphQLOperations';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
-import { colors } from '@src/alchemy-components';
 import { PROGRESS_PERCENTAGES, QUERY_LIMITS, VALIDATION_LIMITS } from '@app/glossaryV2/import/shared/utils/testConstants';
 
 // Styled components following IngestionSourceList pattern
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding: 20px 24px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     ${(props) =>
@@ -50,6 +51,8 @@ const HeaderContainer = styled.div`
 `;
 
 export const WizardPage = () => {
+    const { t } = useTranslation('governance.glossary');
+    const theme = useTheme();
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [currentStep, setCurrentStep] = useState(0);
     const [isImportModalVisible, setIsImportModalVisible] = useState(false);
@@ -277,11 +280,11 @@ export const WizardPage = () => {
 
     const breadcrumbItems = [
         {
-            label: 'Glossary',
+            label: t('import.wizard.breadcrumbGlossary'),
             href: PageRoutes.GLOSSARY,
         },
         {
-            label: 'Import',
+            label: t('import.wizard.breadcrumbImport'),
             isActive: true,
         },
     ];
@@ -290,8 +293,8 @@ export const WizardPage = () => {
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <BreadcrumbHeader
                 items={breadcrumbItems}
-                title="Import Glossary"
-                subtitle="Import glossary terms from CSV files and manage their import status"
+                title={t('import.wizard.title')}
+                subtitle={t('import.wizard.subtitle')}
             />
             <SourceContainer>
                 <HeaderContainer>
@@ -304,6 +307,7 @@ export const WizardPage = () => {
                             isProcessing={uploadProgress > 0 && uploadProgress < PROGRESS_PERCENTAGES.COMPLETE}
                             progress={uploadProgress}
                             error={uploadError}
+                            // eslint-disable-next-line i18next/no-literal-string
                             acceptedFileTypes={['.csv']}
                             maxFileSize={VALIDATION_LIMITS.MAX_FILE_SIZE_MB}
                             onRetry={handleRetryFetch}
@@ -328,7 +332,7 @@ export const WizardPage = () => {
                         flexShrink: 0,
                         padding: '16px 0',
                         marginTop: '16px',
-                        borderTop: `1px solid ${colors.gray[100]}`,
+                        borderTop: `1px solid ${theme.colors.border}`,
                     }}
                 >
                     <ActionsBar>
@@ -344,9 +348,9 @@ export const WizardPage = () => {
                                         <Button
                                             variant="outline"
                                             onClick={handleRestart}
-                                            icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}
+                                            icon={{ icon: ArrowClockwise }}
                                         >
-                                            Reset
+                                            {t('import.wizard.reset')}
                                         </Button>
                                         <Button
                                             variant="filled"
@@ -355,8 +359,8 @@ export const WizardPage = () => {
                                             disabled={isProcessing || importCount === 0}
                                         >
                                             {importCount === 0
-                                                ? 'No Changes to Import'
-                                                : `Import ${importCount} ${importCount === 1 ? 'Entity' : 'Entities'}`}
+                                                ? t('import.wizard.noChanges')
+                                                : t('import.wizard.importEntities', { count: importCount })}
                                         </Button>
                                     </>
                                 );

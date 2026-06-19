@@ -1,18 +1,21 @@
 import '@src/App.less';
 import '@src/AppV2.less';
 
-import { ApolloClient, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
+import { ApolloClient, ApolloLink, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import Cookies from 'js-cookie';
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
 
 import { GlobalStyles } from '@components/components/GlobalStyles';
+import { ToastRenderer } from '@components/components/Toast';
 
 import { Routes } from '@app/Routes';
+import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
+import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
 import { ErrorCodes } from '@app/shared/constants';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
@@ -41,6 +44,7 @@ const errorLink = onError((error) => {
         }
     }
     // Disabled behavior for now -> Components are expected to handle their errors.
+    //
     // if (graphQLErrors && graphQLErrors.length) {
     //     const firstError = graphQLErrors[0];
     //     const { extensions } = firstError;
@@ -50,9 +54,20 @@ const errorLink = onError((error) => {
     // }
 });
 
+const injectVariablesLink = new ApolloLink((operation, forward) => {
+    // eslint-disable-next-line no-param-reassign
+    operation.variables = {
+        ...operation.variables,
+        skipSiblingsSearch: showSeparateSiblingsRef.current,
+        skipLineage: hideLineageInSearchCardsRef.current,
+    };
+
+    return forward(operation);
+});
+
 const client = new ApolloClient({
     connectToDevTools: true,
-    link: errorLink.concat(httpLink),
+    link: ApolloLink.from([injectVariablesLink, errorLink, httpLink]),
     cache: new InMemoryCache({
         typePolicies: {
             Query: {
@@ -89,13 +104,16 @@ export const InnerApp: React.VFC = () => {
         <HelmetProvider>
             <CustomThemeProvider>
                 <GlobalStyles />
+                <ToastRenderer />
                 <FilesUploadingDownloadingLatencyTracker />
 
                 <Helmet>
                     <title>{useCustomTheme().theme?.content?.title}</title>
                 </Helmet>
                 <Router basename={getRuntimeBasePath()}>
-                    <Routes />
+                    <Suspense fallback={<SuspenseGlobal />}>
+                        <Routes />
+                    </Suspense>
                 </Router>
             </CustomThemeProvider>
         </HelmetProvider>

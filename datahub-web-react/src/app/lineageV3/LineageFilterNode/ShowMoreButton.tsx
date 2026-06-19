@@ -1,8 +1,8 @@
 import KeyboardDoubleArrowDownIcon from '@mui/icons-material/KeyboardDoubleArrowDown';
 import React, { useCallback, useContext, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { LINEAGE_FILTER_PAGINATION, LineageFilter, LineageNodesContext } from '@app/lineageV3/common';
 import { applyOpacity } from '@app/sharedV2/colors/colorUtils';
 import { getColor } from '@src/alchemy-components/theme/utils';
@@ -17,7 +17,7 @@ const ExtraButtons = styled.div`
 
     flex-direction: column;
     align-items: end;
-    background-color: ${REDESIGN_COLORS.WHITE};
+    background-color: ${(props) => props.theme.colors.bg};
 `;
 
 const Wrapper = styled.div`
@@ -40,8 +40,8 @@ const Button = styled.div`
     all: unset;
     align-items: center;
     border-radius: 20px;
-    background-color: ${REDESIGN_COLORS.WHITE};
-    color: ${ANTD_GRAY[9]};
+    background-color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.textSecondary};
     cursor: pointer;
     display: flex;
     font-size: 10px;
@@ -52,7 +52,7 @@ const Button = styled.div`
         background-color: ${(props) =>
             applyOpacity(
                 props.theme.styles['primary-color'] || getColor('primary', 500, props.theme),
-                REDESIGN_COLORS.WHITE,
+                props.theme.colors.bg,
                 10,
             )};
         color: ${(props) => props.theme.styles['primary-color']};
@@ -70,6 +70,7 @@ interface Props {
 }
 
 export function ShowMoreButton({ data, numMatches }: Props) {
+    const { t } = useTranslation('lineage');
     const { direction, contents, limit, parent } = data;
     const { nodes, setDisplayVersion } = useContext(LineageNodesContext);
 
@@ -99,8 +100,11 @@ export function ShowMoreButton({ data, numMatches }: Props) {
                 <Button
                     key="show-more"
                     onClick={() => setPagination(Math.min(limit + LINEAGE_FILTER_PAGINATION, maximum))}
+                    data-testid="show-more"
                 >
-                    <Text>{limit + LINEAGE_FILTER_PAGINATION >= maximum ? 'Show All' : 'Show More'}</Text>
+                    <Text>
+                        {limit + LINEAGE_FILTER_PAGINATION >= maximum ? t('filter.showAll') : t('filter.showMore')}
+                    </Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
             );
@@ -110,34 +114,35 @@ export function ShowMoreButton({ data, numMatches }: Props) {
                 <Button
                     key="show-less"
                     onClick={() => setPagination(Math.min(maximum, limit) - LINEAGE_FILTER_PAGINATION)}
+                    data-testid="show-less"
                 >
-                    <Text>Show Less</Text>
+                    <Text>{t('filter.showLess')}</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
             );
         }
         if (limit + LINEAGE_FILTER_PAGINATION < maximum && limit + MAX_INCREASE >= maximum) {
             list.push(
-                <Button key="show-all" onClick={() => setPagination(maximum)}>
-                    <Text>Show All</Text>
+                <Button key="show-all" onClick={() => setPagination(maximum)} data-testid="show-all">
+                    <Text>{t('filter.showAll')}</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
             );
         }
         if (limit + MAX_INCREASE < maximum) {
             list.push(
-                <Button key="show-max" onClick={() => setPagination(limit + MAX_INCREASE)}>
-                    <Text>Show +{MAX_INCREASE}</Text>
+                <Button key="show-max" onClick={() => setPagination(limit + MAX_INCREASE)} data-testid="show-max">
+                    <Text>{t('filter.showPlusCount', { count: MAX_INCREASE })}</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
             );
         }
         return list;
-    }, [limit, maximum, setPagination]);
+    }, [limit, maximum, setPagination, t]);
 
     if (!buttons.length) return null;
     return (
-        <Wrapper className="show-more">
+        <Wrapper className="show-more" data-testid="show-max-wrapper">
             {buttons[0]}
             {buttons.length > 1 && <ExtraButtons>{buttons.slice(1)}</ExtraButtons>}
         </Wrapper>

@@ -27,10 +27,13 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testContainers
   testImplementation externalDependency.httpClient
-  testRuntimeOnly externalDependency.logbackClassicJava8
+  testRuntimeOnly externalDependency.logbackClassic
 }
 
 task copyAvroSchemas {
+  onlyIf {
+    !gradle.startParameter.taskNames.any { it.contains('resolveAndLockAll') }
+  }
   dependsOn(':metadata-events:mxe-schemas:renameNamespace')
   copy {
     from file('../../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeProposal.avsc')

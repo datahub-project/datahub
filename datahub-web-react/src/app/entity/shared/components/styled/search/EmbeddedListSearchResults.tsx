@@ -1,16 +1,16 @@
 import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
-import { Text, colors } from '@components';
+import { Text } from '@components';
 import { Button, Pagination, Spin, Typography } from 'antd';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import {
     EntityActionProps,
     EntitySearchResults,
 } from '@app/entity/shared/components/styled/search/EntitySearchResults';
 import MatchingViewsLabel from '@app/entity/shared/components/styled/search/MatchingViewsLabel';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityAndType } from '@app/entity/shared/types';
 import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
 import { combineSiblingsInSearchResults } from '@app/search/utils/combineSiblingsInSearchResults';
@@ -72,7 +72,7 @@ const LoadingContainer = styled.div`
 
 const StyledLoading = styled(LoadingOutlined)`
     font-size: 32px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding-bottom: 18px;
 ]`;
 
@@ -91,8 +91,8 @@ const WarningMessage = styled.div`
     display: flex;
     margin: 8px 16px 0 16px
     align-items: center;
-    color: ${colors.yellow[1000]};
-    background-color: ${colors.yellow[0]};
+    color: ${(props) => props.theme.colors.textWarning};
+    background-color: ${(props) => props.theme.colors.bgSurfaceWarning};
     border-radius: 8px;
 `;
 
@@ -158,6 +158,8 @@ export const EmbeddedListSearchResults = ({
     isViewAllMode = false,
     handleViewAllClickWarning,
 }: Props) => {
+    const { t } = useTranslation('entityV1.shared.components');
+    const theme = useTheme();
     const history = useHistory();
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(
@@ -215,21 +217,21 @@ export const EmbeddedListSearchResults = ({
                     )}
                     {isLineageTab && !loading && isServerOverloadError && (
                         <ErrorMessage>
-                            Data is too large. Please use
-                            <StyledLinkButton onClick={onLineageClick} type="link">
-                                visualize lineage
-                            </StyledLinkButton>
-                            or see less hops by clicking
-                            <StyledLinkButton onClick={onClickLessHops} type="link">
-                                here
-                            </StyledLinkButton>
+                            <Trans
+                                t={t}
+                                i18nKey="lineage.serverOverloadError"
+                                components={{
+                                    lineageLink: <StyledLinkButton onClick={onLineageClick} type="link" />,
+                                    hopsLink: <StyledLinkButton onClick={onClickLessHops} type="link" />,
+                                }}
+                            />
                         </ErrorMessage>
                     )}
                     {isViewAllMode && (
                         <WarningMessage>
-                            <ExclamationCircleFilled style={{ color: colors.yellow[1000], fontSize: 16 }} />
+                            <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
                             <Text weight="bold" style={{ lineHeight: 'normal' }}>
-                                Results may be incomplete.{' '}
+                                {t('viewAll.resultsIncomplete')}{' '}
                                 {platform && (
                                     <span
                                         onClick={handleSearchAllAssetsClick}
@@ -243,7 +245,7 @@ export const EmbeddedListSearchResults = ({
                                         tabIndex={0}
                                         style={{ cursor: 'pointer', textDecoration: 'underline' }}
                                     >
-                                        Search all ingested {platform} assets
+                                        {t('viewAll.searchAllAssets', { platform })}
                                     </span>
                                 )}
                             </Text>
@@ -273,10 +275,16 @@ export const EmbeddedListSearchResults = ({
             </SearchBody>
             <PaginationInfoContainer>
                 <PaginationInfo>
-                    <b>
-                        {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                    </b>{' '}
-                    of <b>{totalResults}</b>
+                    <Trans
+                        t={t}
+                        i18nKey="pagination.range"
+                        components={{ bold: <b /> }}
+                        values={{
+                            start: lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0,
+                            end: lastResultIndex,
+                            total: totalResults,
+                        }}
+                    />
                 </PaginationInfo>
                 <StyledPagination
                     current={page}

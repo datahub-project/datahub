@@ -6,6 +6,8 @@ import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static com.linkedin.metadata.service.RollbackService.ROLLBACK_FAILED_STATUS;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_ENTITY_NAME;
+
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -91,12 +93,13 @@ public class BatchIngestionRunResource
               systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "rollback", List.of()), authorizer, auth, true);
 
 
-      if (!AuthUtil.isAPIAuthorized(
-              opContext,
-              ENTITY, MANAGE)) {
-          throw new RestLiServiceException(
-                  HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entity");
-      }
+      if (!AuthUtil.isAPIAuthorizedEntityType(
+                opContext,
+                MANAGE,
+                INGESTION_SOURCE_ENTITY_NAME)) {
+            throw new RestLiServiceException(
+                    HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entity");
+        }
 
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
 
@@ -138,8 +141,14 @@ public class BatchIngestionRunResource
 
     return RestliUtils.toTask(systemOperationContext,
         () -> {
+          Authentication auth = AuthenticationContext.getAuthentication();
+          final OperationContext opContext = OperationContext.asSession(
+                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                          "list", List.of()), authorizer, auth, true);
+
           List<IngestionRunSummary> summaries =
               systemMetadataService.listRuns(
+                  opContext,
                   pageOffset != null ? pageOffset : DEFAULT_OFFSET,
                   pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
                   includeSoft != null ? includeSoft : DEFAULT_INCLUDE_SOFT_DELETED);
@@ -177,7 +186,7 @@ public class BatchIngestionRunResource
 
           List<AspectRowSummary> summaries =
               systemMetadataService.findByRunId(
-                  runId, includeSoft != null && includeSoft, start, count);
+                  opContext, runId, includeSoft != null && includeSoft, start, count);
 
           if (includeAspect != null && includeAspect) {
             summaries.forEach(

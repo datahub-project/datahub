@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { NoMarginButton } from '@app/entity/view/select/styledComponents';
 
 const ButtonContainer = styled.div`
@@ -12,7 +12,7 @@ const ButtonContainer = styled.div`
 const AllEntitiesButton = styled(NoMarginButton)`
     &&& {
         font-weight: normal;
-        border-bottom: 1px solid ${ANTD_GRAY_V2[5]};
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
         width: 100%;
         text-align: left;
         border-bottom-left-radius: 0;
@@ -28,6 +28,7 @@ type Props = {
 };
 
 export const ViewSelectHeader = ({ onClickClear }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     const clearButtonRef = useRef(null);
 
     const onHandleClickClear = () => {
@@ -43,7 +44,7 @@ export const ViewSelectHeader = ({ onClickClear }: Props) => {
                 ref={clearButtonRef}
                 onClick={onHandleClickClear}
             >
-                View all
+                {tc('viewAll')}
             </AllEntitiesButton>
         </ButtonContainer>
     );

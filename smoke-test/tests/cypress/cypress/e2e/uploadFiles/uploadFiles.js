@@ -1,6 +1,5 @@
 import {
   applyGraphqlInterceptors,
-  getThemeV2Interceptor,
   getUniqueTestId,
   hasOperationName,
 } from "../utils";
@@ -23,7 +22,8 @@ function getSetRequiredFeatureFlagsInterceptor() {
 
 // const testId = getUniqueTestId();
 
-describe("uploadFiles", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("uploadFiles", () => {
   const setupInterceptors = (testId) => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       if (hasOperationName(req, "getPresignedUploadUrl")) {
@@ -46,10 +46,7 @@ describe("uploadFiles", () => {
   };
 
   beforeEach(() => {
-    applyGraphqlInterceptors([
-      getThemeV2Interceptor(true),
-      getSetRequiredFeatureFlagsInterceptor(),
-    ]);
+    applyGraphqlInterceptors([getSetRequiredFeatureFlagsInterceptor()]);
 
     cy.login();
     cy.skipIntroducePage();

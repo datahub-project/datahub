@@ -1,20 +1,10 @@
-import * as PhosphorIcons from '@phosphor-icons/react';
-import { AppWindow } from '@phosphor-icons/react';
-import React from 'react';
-
 import {
     NavBarMenuDropdownItemElement,
     NavBarMenuItemTypes,
     NavBarMenuLinkItem,
 } from '@app/homeV2/layout/navBarRedesign/types';
+import { getLazyIcon } from '@app/mfeframework/lazyIconRegistry';
 import { MFESchema } from '@app/mfeframework/mfeConfigLoader';
-
-/* Converts any phosphor icon string into a phosphor JSX.Element, if iconString is undefined or not a valid icon, default is <AppWindow/>.
-  eg: Tag wil become <Tag /> */
-function getPhosphorIconElement(iconString?: string): JSX.Element {
-    const Component = iconString && PhosphorIcons[iconString];
-    return Component ? <Component /> : <AppWindow />;
-}
 
 /**
  * Returns menu items for MFEs when subNavigationMode is FALSE.
@@ -29,7 +19,7 @@ export function getMfeMenuItems(mfeConfig: MFESchema): NavBarMenuLinkItem[] {
             type: NavBarMenuItemTypes.Item,
             title: mfe.label,
             key: mfe.id,
-            icon: getPhosphorIconElement(mfe.navIcon),
+            icon: getLazyIcon(mfe.navIcon),
             link: `/mfe${mfe.path}`,
             onClick: () => {
                 console.log(`[MFE Nav] Clicked MFE nav item: ${mfe.label}, path: ${mfe.path}`);
@@ -50,7 +40,7 @@ export function getMfeMenuDropdownItems(mfeConfig: MFESchema): NavBarMenuDropdow
             type: NavBarMenuItemTypes.DropdownElement,
             title: mfe.label,
             key: mfe.id,
-            icon: getPhosphorIconElement(mfe.navIcon),
+            icon: getLazyIcon(mfe.navIcon),
             link: `/mfe${mfe.path}`,
             onClick: () => {
                 console.log(`[MFE Nav] Clicked MFE nav item: ${mfe.label}, path: ${mfe.path}`);

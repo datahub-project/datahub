@@ -3,13 +3,17 @@ package com.datahub.graphql;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.context.RelationshipTraversalContext;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
-import graphql.language.OperationDefinition;
-import graphql.parser.Parser;
+import com.linkedin.metadata.config.GraphQLConfiguration;
+import com.linkedin.metadata.config.graphql.GraphQLQueryConfiguration;
+import com.linkedin.metadata.ratelimit.GraphQLOperationNameResolver;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -23,6 +27,8 @@ public class SpringQueryContext implements QueryContext {
   @Getter private final String queryName;
   @Nonnull private final OperationContext operationContext;
   @Nonnull private final DataHubAppConfiguration dataHubAppConfig;
+  @Nonnull private final RelationshipTraversalContext relationshipTraversalContext;
+  private final int maxParentDepth;
 
   public SpringQueryContext(
       final boolean isAuthenticated,
@@ -39,19 +45,19 @@ public class SpringQueryContext implements QueryContext {
     this.authorizer = authorizer;
 
     // operationName is an optional field only required if multiple operations are present
-    this.queryName =
-        operationName != null
-            ? operationName
-            : new Parser()
-                .parseDocument(jsonQuery).getDefinitions().stream()
-                    .filter(def -> def instanceof OperationDefinition)
-                    .map(def -> (OperationDefinition) def)
-                    .filter(
-                        opDef -> opDef.getOperation().equals(OperationDefinition.Operation.QUERY))
-                    .findFirst()
-                    .map(OperationDefinition::getName)
-                    .orElse("graphql");
+    this.queryName = GraphQLOperationNameResolver.resolve(operationName, jsonQuery);
 
+    GraphQLConfiguration graphQL =
+        Objects.requireNonNull(
+            dataHubAppConfig.getGraphQL(),
+            "graphQL configuration is required; define graphQL in application.yaml");
+    GraphQLQueryConfiguration queryConfig =
+        Objects.requireNonNull(
+            graphQL.getQuery(),
+            "graphQL.query configuration is required; define graphQL.query in application.yaml");
+    this.relationshipTraversalContext =
+        new RelationshipTraversalContext(queryConfig.getMaxVisitedUrns());
+    this.maxParentDepth = queryConfig.getMaxParentDepth();
     this.operationContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -62,5 +68,15 @@ public class SpringQueryContext implements QueryContext {
             true);
 
     this.dataHubAppConfig = dataHubAppConfig;
+  }
+
+  @Override
+  public int getMaxParentDepth() {
+    return maxParentDepth;
+  }
+
+  @Override
+  public Optional<RelationshipTraversalContext> getRelationshipTraversalContext() {
+    return Optional.of(relationshipTraversalContext);
   }
 }

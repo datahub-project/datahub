@@ -1,6 +1,7 @@
 import { Modal } from '@components';
 import React, { useEffect } from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import { ComprehensiveImportProgress } from '@app/glossaryV2/import/shared/hooks/useComprehensiveImport';
 import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
@@ -29,7 +30,7 @@ const ProgressInfo = styled.div`
 const CustomProgressBar = styled.div<{ progress: number }>`
     width: 100%;
     height: 8px;
-    background-color: #e5e7eb;
+    background-color: ${(props) => props.theme.colors.border};
     border-radius: 4px;
     overflow: hidden;
 
@@ -38,7 +39,7 @@ const CustomProgressBar = styled.div<{ progress: number }>`
         display: block;
         width: ${(props) => props.progress}%;
         height: 100%;
-        background-color: #3b82f6;
+        background-color: ${(props) => props.theme.colors.iconInformation};
         border-radius: 4px;
         transition: width 0.3s ease;
     }
@@ -46,11 +47,11 @@ const CustomProgressBar = styled.div<{ progress: number }>`
 
 const ProgressText = styled.div`
     font-size: 14px;
-    color: #6b7280;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const CurrentOperation = styled.div`
-    background: #f3f4f6;
+    background: ${(props) => props.theme.colors.bgSurface};
     padding: 12px;
     border-radius: 6px;
     margin-bottom: 16px;
@@ -63,8 +64,8 @@ const ErrorList = styled.div`
 
 const ErrorItem = styled.div`
     padding: 8px 12px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
+    background: ${(props) => props.theme.colors.bgSurfaceError};
+    border: 1px solid ${(props) => props.theme.colors.borderError};
     border-radius: 6px;
     margin-bottom: 8px;
 
@@ -80,8 +81,8 @@ const WarningList = styled.div`
 
 const WarningItem = styled.div`
     padding: 8px 12px;
-    background: #fffbeb;
-    border: 1px solid #fde68a;
+    background: ${(props) => props.theme.colors.bgSurfaceWarning};
+    border: 1px solid ${(props) => props.theme.colors.borderWarning};
     border-radius: 6px;
     margin-bottom: 8px;
 
@@ -91,6 +92,8 @@ const WarningItem = styled.div`
 `;
 
 export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({ visible, onClose, progress }) => {
+    const theme = useTheme();
+    const { t } = useTranslation('governance.glossary');
     const progressPercent = progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0;
     const hasErrors = progress.errors.length > 0;
     const hasWarnings = progress.warnings.length > 0;
@@ -100,22 +103,27 @@ export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({ visibl
     useEffect(() => {
         if (isCompleted) {
             showToastMessage(
-                hasFailed ? ToastType.WARNING : ToastType.SUCCESS,
-                hasFailed ? 'Import completed with errors' : 'Import completed successfully',
+                hasFailed ? ToastType.ERROR : ToastType.SUCCESS,
+                hasFailed
+                    ? t('import.progress.completedWithErrors')
+                    : t('import.progress.completedSuccessfully'),
                 3,
             );
         }
-    }, [isCompleted, hasFailed]);
+    }, [isCompleted, hasFailed, t]);
 
     return (
-        <Modal open={visible} onCancel={onClose} width={600} title="Import Progress" footer={null}>
+        <Modal open={visible} onCancel={onClose} width={600} title={t('import.progress.title')} footer={null}>
             <ModalContainer>
                 <ProgressContainer>
                     <ProgressInfo>
                         <ProgressText>
-                            {progress.processed} of {progress.total} entities processed
+                            {t('import.progress.entitiesProcessed', {
+                                processed: progress.processed,
+                                total: progress.total,
+                            })}
                         </ProgressText>
-                        <ProgressText>{progressPercent}%</ProgressText>
+                        <ProgressText>{t('import.progress.percentComplete', { percent: progressPercent })}</ProgressText>
                     </ProgressInfo>
 
                     <CustomProgressBar progress={progressPercent} />
@@ -123,30 +131,39 @@ export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({ visibl
 
                 {progress.currentEntity && (
                     <CurrentOperation>
-                        <strong>Current Operation:</strong>
+                        <strong>{t('import.progress.currentOperation')}</strong>
                         <br />
                         {progress.currentPhase}
                         <br />
-                        <span style={{ color: '#6b7280' }}>Entity: {progress.currentEntity.name}</span>
+                        <span style={{ color: theme.colors.textSecondary }}>
+                            {t('import.progress.entityLabel', { name: progress.currentEntity.name })}
+                        </span>
                     </CurrentOperation>
                 )}
 
                 {hasWarnings && (
                     <div style={{ marginBottom: '16px' }}>
-                        <h5 style={{ color: '#d97706', margin: '0 0 8px 0', fontSize: '14px', fontWeight: 600 }}>
-                            Warnings ({progress.warnings.length})
+                        <h5
+                            style={{
+                                color: theme.colors.textWarning,
+                                margin: '0 0 8px 0',
+                                fontSize: '14px',
+                                fontWeight: 600,
+                            }}
+                        >
+                            {t('import.progress.warningsHeading', { count: progress.warnings.length })}
                         </h5>
                         <WarningList>
                             {progress.warnings.slice(0, 5).map((warning, index) => (
                                 <WarningItem key={warning.entityId || index}>
-                                    <strong>{warning.entityName || 'Import'}</strong>
+                                    <strong>{warning.entityName || t('import.progress.importLabel')}</strong>
                                     <br />
-                                    <span style={{ color: '#6b7280' }}>{warning.message}</span>
+                                    <span style={{ color: theme.colors.textSecondary }}>{warning.message}</span>
                                 </WarningItem>
                             ))}
                             {progress.warnings.length > 5 && (
-                                <span style={{ color: '#6b7280' }}>
-                                    ... and {progress.warnings.length - 5} more warnings
+                                <span style={{ color: theme.colors.textSecondary }}>
+                                    {t('import.progress.moreWarnings', { count: progress.warnings.length - 5 })}
                                 </span>
                             )}
                         </WarningList>
@@ -155,20 +172,27 @@ export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({ visibl
 
                 {hasErrors && (
                     <div style={{ marginBottom: '16px' }}>
-                        <h5 style={{ color: '#dc2626', margin: '0 0 8px 0', fontSize: '14px', fontWeight: 600 }}>
-                            Errors ({progress.errors.length})
+                        <h5
+                            style={{
+                                color: theme.colors.textError,
+                                margin: '0 0 8px 0',
+                                fontSize: '14px',
+                                fontWeight: 600,
+                            }}
+                        >
+                            {t('import.progress.errorsHeading', { count: progress.errors.length })}
                         </h5>
                         <ErrorList>
                             {progress.errors.slice(0, 5).map((error) => (
                                 <ErrorItem key={error.entityId || error.error}>
                                     <strong>{error.entityName}</strong>
                                     <br />
-                                    <span style={{ color: '#6b7280' }}>{error.error}</span>
+                                    <span style={{ color: theme.colors.textSecondary }}>{error.error}</span>
                                 </ErrorItem>
                             ))}
                             {progress.errors.length > 5 && (
-                                <span style={{ color: '#6b7280' }}>
-                                    ... and {progress.errors.length - 5} more errors
+                                <span style={{ color: theme.colors.textSecondary }}>
+                                    {t('import.progress.moreErrors', { count: progress.errors.length - 5 })}
                                 </span>
                             )}
                         </ErrorList>

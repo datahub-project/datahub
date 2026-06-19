@@ -52,6 +52,15 @@ import {
     VIEW_DENY,
 } from '@app/ingest/source/builder/RecipeForm/common';
 import {
+    CONFLUENCE_API_TOKEN,
+    CONFLUENCE_PAGE_ALLOW,
+    CONFLUENCE_PAGE_DENY,
+    CONFLUENCE_SPACE_ALLOW,
+    CONFLUENCE_SPACE_DENY,
+    CONFLUENCE_URL,
+    CONFLUENCE_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/confluence';
+import {
     CSV_ARRAY_DELIMITER,
     CSV_DELIMITER,
     CSV_FILE_URL,
@@ -73,6 +82,13 @@ import {
     TARGET_PLATFORM,
     TARGET_PLATFORM_INSTANCE,
 } from '@app/ingest/source/builder/RecipeForm/dbt_cloud';
+import {
+    DORIS,
+    DORIS_DATABASE,
+    DORIS_HOST_PORT,
+    DORIS_PASSWORD,
+    DORIS_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/doris';
 import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,
@@ -118,6 +134,24 @@ import {
     MARIADB_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/mariadb';
 import {
+    MATILLION_CLIENT_ID,
+    MATILLION_CLIENT_SECRET,
+    MATILLION_ENV,
+    MATILLION_ENVIRONMENT_ALLOW,
+    MATILLION_ENVIRONMENT_DENY,
+    MATILLION_INCLUDE_EXECUTIONS,
+    MATILLION_INCLUDE_UNPUBLISHED,
+    MATILLION_PIPELINE_ALLOW,
+    MATILLION_PIPELINE_DENY,
+    MATILLION_PLATFORM_INSTANCE,
+    MATILLION_PROJECT_ALLOW,
+    MATILLION_PROJECT_DENY,
+    MATILLION_REGION,
+    MATILLION_STATEFUL_INGESTION,
+    MATILLION_STREAMING_ALLOW,
+    MATILLION_STREAMING_DENY,
+} from '@app/ingest/source/builder/RecipeForm/matillion-dpc';
+import {
     MSSQL,
     MSSQL_DATABASE,
     MSSQL_HOST_PORT,
@@ -125,6 +159,7 @@ import {
     MSSQL_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/mssql';
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from '@app/ingest/source/builder/RecipeForm/mysql';
+import { NOTION_API_KEY, NOTION_PAGE_IDS } from '@app/ingest/source/builder/RecipeForm/notion';
 import {
     INCLUDE_DEPROVISIONED_USERS,
     INCLUDE_SUSPENDED_USERS,
@@ -188,7 +223,10 @@ import {
 } from '@app/ingest/source/builder/RecipeForm/sac';
 import {
     SNOWFLAKE_ACCOUNT_ID,
+    SNOWFLAKE_AUTHENTICATION_TYPE,
     SNOWFLAKE_PASSWORD,
+    SNOWFLAKE_PRIVATE_KEY,
+    SNOWFLAKE_PRIVATE_KEY_PASSWORD,
     SNOWFLAKE_ROLE,
     SNOWFLAKE_USERNAME,
     SNOWFLAKE_WAREHOUSE,
@@ -202,6 +240,13 @@ import {
     TABLEAU_TOKEN_VALUE,
     TABLEAU_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/tableau';
+import {
+    TIDB,
+    TIDB_DATABASE,
+    TIDB_HOST_PORT,
+    TIDB_PASSWORD,
+    TIDB_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/tidb';
 import {
     TRINO,
     TRINO_DATABASE,
@@ -233,10 +278,13 @@ import {
 import {
     AZURE,
     BIGQUERY_BETA,
+    CONFLUENCE,
     CSV,
     DATABRICKS,
     DBT_CLOUD,
+    MATILLION_DPC,
     MYSQL,
+    NOTION,
     OKTA,
     POWER_BI,
     SAC,
@@ -271,7 +319,16 @@ interface RecipeFields {
 
 export const RECIPE_FIELDS: RecipeFields = {
     [SNOWFLAKE]: {
-        fields: [SNOWFLAKE_ACCOUNT_ID, SNOWFLAKE_WAREHOUSE, SNOWFLAKE_USERNAME, SNOWFLAKE_PASSWORD, SNOWFLAKE_ROLE],
+        fields: [
+            SNOWFLAKE_ACCOUNT_ID,
+            SNOWFLAKE_WAREHOUSE,
+            SNOWFLAKE_USERNAME,
+            SNOWFLAKE_AUTHENTICATION_TYPE,
+            SNOWFLAKE_PASSWORD,
+            SNOWFLAKE_PRIVATE_KEY,
+            SNOWFLAKE_PRIVATE_KEY_PASSWORD,
+            SNOWFLAKE_ROLE,
+        ],
         advancedFields: [
             INCLUDE_TABLES,
             INCLUDE_VIEWS,
@@ -499,6 +556,52 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
+    [TIDB]: {
+        fields: [TIDB_HOST_PORT, TIDB_USERNAME, TIDB_PASSWORD, TIDB_DATABASE],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [
+            INCLUDE_TABLES,
+            INCLUDE_VIEWS,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
+    },
+    [MATILLION_DPC]: {
+        fields: [
+            MATILLION_CLIENT_ID,
+            MATILLION_CLIENT_SECRET,
+            MATILLION_REGION,
+            MATILLION_ENV,
+            MATILLION_PLATFORM_INSTANCE,
+        ],
+        filterFields: [
+            MATILLION_PROJECT_ALLOW,
+            MATILLION_PROJECT_DENY,
+            MATILLION_ENVIRONMENT_ALLOW,
+            MATILLION_ENVIRONMENT_DENY,
+            MATILLION_PIPELINE_ALLOW,
+            MATILLION_PIPELINE_DENY,
+            MATILLION_STREAMING_ALLOW,
+            MATILLION_STREAMING_DENY,
+        ],
+        advancedFields: [MATILLION_INCLUDE_EXECUTIONS, MATILLION_INCLUDE_UNPUBLISHED, MATILLION_STATEFUL_INGESTION],
+        filterSectionTooltip:
+            'Include or exclude specific Projects, Environments, Pipelines, and Streaming Pipelines from ingestion.',
+    },
+    [DORIS]: {
+        fields: [DORIS_HOST_PORT, DORIS_USERNAME, DORIS_PASSWORD, DORIS_DATABASE],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [
+            INCLUDE_TABLES,
+            INCLUDE_VIEWS,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
+    },
     [DATABRICKS]: {
         fields: [WORKSPACE_URL, TOKEN],
         filterFields: [
@@ -612,8 +715,28 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         advancedFields: [STATEFUL_INGESTION_ENABLED],
     },
+    [NOTION]: {
+        fields: [NOTION_API_KEY, NOTION_PAGE_IDS],
+        filterFields: [],
+        advancedFields: [],
+    },
+    [CONFLUENCE]: {
+        fields: [CONFLUENCE_URL, CONFLUENCE_USERNAME, CONFLUENCE_API_TOKEN],
+        filterFields: [CONFLUENCE_SPACE_ALLOW, CONFLUENCE_SPACE_DENY, CONFLUENCE_PAGE_ALLOW, CONFLUENCE_PAGE_DENY],
+        advancedFields: [],
+        filterSectionTooltip:
+            'Control which Confluence content is ingested by filtering spaces and pages. Leave empty to ingest all accessible content.',
+    },
 };
 
 export const CONNECTORS_WITH_FORM = new Set(Object.keys(RECIPE_FIELDS));
 
-export const CONNECTORS_WITH_TEST_CONNECTION = new Set([SNOWFLAKE, LOOKER, BIGQUERY_BETA, BIGQUERY, DATABRICKS, SAC]);
+export const CONNECTORS_WITH_TEST_CONNECTION = new Set([
+    SNOWFLAKE,
+    LOOKER,
+    BIGQUERY_BETA,
+    BIGQUERY,
+    DATABRICKS,
+    MATILLION_DPC,
+    SAC,
+]);

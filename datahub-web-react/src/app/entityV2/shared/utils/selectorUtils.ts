@@ -21,7 +21,7 @@ export const isEntityResolutionRequired = (urns: string[], entityCache: Map<stri
 /**
  * Entity deduplication utilities
  */
-export interface DeduplicateEntitiesOptions {
+interface DeduplicateEntitiesOptions {
     placeholderEntities?: Entity[];
     searchResults?: Entity[];
     selectedEntities?: Entity[];

@@ -8,14 +8,20 @@ const applyAdvancedSearchFilter = (filterType, value) => {
   cy.clickOptionWithId("#search-results-advanced-search");
   cy.clickOptionWithText("Add Filter");
   cy.clickOptionWithText(filterType);
-  cy.get("div.ant-select-selection-overflow").click();
-  cy.get(".ant-select-item-option-content").contains(value).click();
-  cy.clickOptionWithText("Add Tags");
+  // Tag/GlossaryTerm filter types reuse AddTagsModal / AddTermsModal (both
+  // alchemy SimpleSelect): click the trigger to open the portal-rendered
+  // dropdown, then type into its search input and pick the suffixed option.
+  cy.get('[data-testid="tag-term-modal-input"]').click();
+  cy.get('[data-testid="dropdown-search-input"]').type(value);
+  cy.get(`[data-testid="tag-term-option-${value}"]`)
+    .first()
+    .click({ force: true });
   cy.clickOptionWithTestId("add-tag-term-from-modal-btn");
 };
 
 const createTerm = (glossaryTerm) => {
   cy.clickOptionWithText("CypressNode");
+  cy.clickOptionWithTestId("Contents-entity-tab-header");
   cy.clickOptionWithTestId("add-term-button");
   cy.waitTextVisible("Create Glossary Term");
   cy.enterTextInTestId("create-glossary-entity-modal-name", glossaryTerm);
@@ -51,10 +57,10 @@ const enterKeyInSearchBox = (text) => {
     .type(`${text}{enter}`);
 };
 
-describe("glossaryTerm", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("glossaryTerm", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-    cy.loginWithCredentials();
+    cy.login();
     cy.skipIntroducePage();
     nevigateGlossaryPage();
     cy.wait(1000); // adding waits because UI flickers with new UI and causes cypress to miss things

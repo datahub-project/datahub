@@ -1,3 +1,7 @@
+---
+description: "Use Personal Access Tokens (PATs) to authenticate users and scripts when calling DataHub APIs in production deployments."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Personal Access Tokens

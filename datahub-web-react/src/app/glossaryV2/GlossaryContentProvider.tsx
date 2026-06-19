@@ -1,7 +1,11 @@
-import { FileTextOutlined, FolderOutlined, UploadOutlined } from '@ant-design/icons';
 import { Button, Dropdown } from '@components';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { UploadSimple } from '@phosphor-icons/react/dist/csr/UploadSimple';
 import { MenuProps } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -20,7 +24,7 @@ const MainContentWrapper = styled.div`
     flex-direction: column;
 `;
 
-export const HeaderWrapper = styled.div`
+const HeaderWrapper = styled.div`
     padding: 16px 20px 12px 20px;
     display: flex;
     align-items: center;
@@ -33,7 +37,7 @@ const ButtonContainer = styled.div`
 `;
 
 const ListWrapper = styled.div`
-    padding: 4px 12px 12px 12px;
+    padding: 4px 20px 12px 20px;
     overflow: auto;
 `;
 
@@ -48,6 +52,7 @@ interface Props {
 }
 
 const GlossaryContentProvider = (props: Props) => {
+    const { t } = useTranslation('governance.glossary');
     const {
         setIsCreateNodeModalVisible,
         setIsCreateTermModalVisible,
@@ -63,20 +68,20 @@ const GlossaryContentProvider = (props: Props) => {
     const dropdownItems: MenuProps['items'] = [
         {
             key: 'create-group',
-            label: 'Create Glossary',
-            icon: <FolderOutlined />,
+            label: t('page.createGlossary'),
+            icon: <Folder />,
             onClick: () => setIsCreateNodeModalVisible(true),
         },
         {
             key: 'create-term',
-            label: 'Create Term',
-            icon: <FileTextOutlined />,
+            label: t('page.createTerm'),
+            icon: <FileText />,
             onClick: () => setIsCreateTermModalVisible(true),
         },
         {
             key: 'import',
-            label: 'Import CSV',
-            icon: <UploadOutlined />,
+            label: t('page.importCsv'),
+            icon: <UploadSimple />,
             onClick: () => history.push(PageRoutes.GLOSSARY_IMPORT),
         },
     ];
@@ -84,10 +89,7 @@ const GlossaryContentProvider = (props: Props) => {
     return (
         <MainContentWrapper data-testid="glossary-entities-list">
             <HeaderWrapper data-testid="glossaryPageV2">
-                <PageTitle
-                    title="Business Glossary"
-                    subTitle="Classify your data assets and columns using data dictionaries"
-                />
+                <PageTitle title={t('page.title')} subTitle={t('page.subtitle')} />
                 <ButtonContainer>
                     <Dropdown menu={{ items: dropdownItems }} trigger={['click']} placement="bottomRight">
                         <Button
@@ -95,10 +97,10 @@ const GlossaryContentProvider = (props: Props) => {
                             data-testid="create-glossary-object-button"
                             name="Create"
                             size="md"
-                            icon={{ icon: 'Add', source: 'material' }}
+                            icon={{ icon: Plus }}
                             // can not be disabled on acryl-main due to ability to propose
                         >
-                            Create Glossary
+                            {t('page.createGlossary')}
                         </Button>
                     </Dropdown>
                 </ButtonContainer>
@@ -108,8 +110,8 @@ const GlossaryContentProvider = (props: Props) => {
             </ListWrapper>
             {!(termsLoading || nodesLoading) && !hasTermsOrNodes && (
                 <EmptyGlossarySection
-                    title="Empty Glossary"
-                    description="Create Terms and Term Groups to organize data assets using a shared vocabulary."
+                    title={t('empty.title')}
+                    description={t('empty.description')}
                     onAddTerm={() => setIsCreateTermModalVisible(true)}
                     onAddtermGroup={() => setIsCreateNodeModalVisible(true)}
                 />

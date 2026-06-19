@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { LINEAGE_TABLE_EDGE_NAME, LineageTableEdge } from '@app/lineageV2/LineageEdge/LineageTableEdge';
 import TentativeEdge, { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
@@ -59,6 +59,7 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const [isFocused, setIsFocused] = useState(false);
     const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const location = useLocation();
@@ -105,7 +106,15 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                 <ZoomControls />
                 <SearchControl />
                 <LineageControls />
-                <MiniMap position="bottom-right" ariaLabel={null} pannable zoomable />
+                <MiniMap
+                    position="bottom-right"
+                    ariaLabel={null}
+                    pannable
+                    zoomable
+                    style={{ backgroundColor: theme.colors.bgSurface }}
+                    maskColor={`${theme.colors.bg}cc`}
+                    nodeColor={theme.colors.border}
+                />
             </StyledReactFlow>
         </LineageVisualizationContext.Provider>
     );

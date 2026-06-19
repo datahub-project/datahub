@@ -16,6 +16,7 @@ import static com.linkedin.metadata.Constants.ML_MODEL_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.NOTEBOOK_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
@@ -46,6 +47,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
+import jakarta.annotation.PostConstruct;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -54,7 +56,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.annotation.PostConstruct;
 import org.apache.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -114,7 +115,8 @@ public class AuthUtil {
           DOMAIN_ENTITY_NAME,
           DATA_PRODUCT_ENTITY_NAME,
           NOTEBOOK_ENTITY_NAME,
-          DATAHUB_VIEW_ENTITY_NAME);
+          DATAHUB_VIEW_ENTITY_NAME,
+          QUERY_ENTITY_NAME);
 
   /** OpenAPI/Rest.li Methods */
   public static List<Pair<MetadataChangeProposal, Integer>> isAPIAuthorized(

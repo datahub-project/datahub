@@ -14,6 +14,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DescriptionUpdateInput;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -40,6 +41,39 @@ public class UpdateDescriptionResolverTest {
     mockEntityService = getMockEntityService();
     mockEntityClient = Mockito.mock(EntityClient.class);
     resolver = new UpdateDescriptionResolver(mockEntityService, mockEntityClient);
+  }
+
+  @Test
+  public void testUpdateDatasetTopLevelDescription() throws Exception {
+    Mockito.when(
+            mockEntityService.exists(any(), eq(Urn.createFromString(TEST_DATASET_URN)), eq(true)))
+        .thenReturn(true);
+
+    QueryContext mockContext = getMockAllowContext(TEST_ACTOR_URN);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+
+    DescriptionUpdateInput input = new DescriptionUpdateInput();
+    input.setResourceUrn(TEST_DATASET_URN);
+    input.setDescription(TEST_DESCRIPTION);
+    // No subResourceType - should update top-level description
+
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Boolean result = resolver.get(mockEnv).get();
+
+    assertTrue(result);
+
+    EditableDatasetProperties expectedProperties = new EditableDatasetProperties();
+    expectedProperties.setDescription(TEST_DESCRIPTION);
+
+    final MetadataChangeProposal proposal =
+        MutationUtils.buildMetadataChangeProposalWithUrn(
+            Urn.createFromString(TEST_DATASET_URN),
+            EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+            expectedProperties);
+
+    verifySingleIngestProposal(mockEntityService, 1, proposal);
   }
 
   @Test

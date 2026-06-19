@@ -1,0 +1,63 @@
+[
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHdfsDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Test dataset for autocomplete search",
+              "customProperties": {}
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+        "urn": "urn:li:dashboard:(looker,sample-dashboard)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+              "customProperties": {},
+              "externalUrl": "https://sample.looker.com/dashboards/1",
+              "title": "SamplePlaywrightDashboard",
+              "description": "Test dashboard for autocomplete search",
+              "charts": [],
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:datahub"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+        "urn": "urn:li:chart:(looker,sample-chart)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.chart.ChartInfo": {
+              "customProperties": {},
+              "externalUrl": "https://sample.looker.com/looks/1",
+              "title": "SamplePlaywrightChart",
+              "description": "Test chart for autocomplete search",
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:datahub"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+]

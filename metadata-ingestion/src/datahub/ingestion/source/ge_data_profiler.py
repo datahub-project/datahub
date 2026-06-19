@@ -56,6 +56,7 @@ from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
+    ProfilerRequest,
     convert_to_cardinality,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -175,10 +176,9 @@ def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
             yield
 
 
-@dataclasses.dataclass
-class GEProfilerRequest:
-    pretty_name: str
-    batch_kwargs: dict
+# Legacy alias - GEProfilerRequest is the historical name. New code should
+# import ProfilerRequest from datahub.ingestion.source.profiling.common.
+GEProfilerRequest = ProfilerRequest
 
 
 def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> int:
@@ -747,6 +747,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     for quantile, value in zip(
                         res["observed_value"]["quantiles"],
                         res["observed_value"]["values"],
+                        strict=False,
                     )
                 ]
         except Exception as e:

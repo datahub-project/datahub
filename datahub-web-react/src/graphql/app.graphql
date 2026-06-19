@@ -121,6 +121,11 @@ query appConfig {
             ingestionOnboardingRedesignV1
             documentationFileUploadV1
             contextDocumentsEnabled
+            hideLineageInSearchCards
+            glossaryBasedPoliciesEnabled
+            multipleDataProductsPerAsset
+            showTestsInHealthIcon
+            i18nEnabled
         }
         chromeExtensionConfig {
             enabled

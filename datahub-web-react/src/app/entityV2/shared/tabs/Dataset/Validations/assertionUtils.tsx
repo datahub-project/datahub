@@ -1,12 +1,8 @@
-import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined, StopOutlined } from '@ant-design/icons';
 import { Location } from 'history';
+import i18next from 'i18next';
 import QueryString from 'query-string';
 import React from 'react';
-
-import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
-
-// TODO
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { DefaultTheme } from 'styled-components';
 
 import {
     AssertionResult,
@@ -14,9 +10,6 @@ import {
     AssertionResultType,
     AssertionStdParameter,
     AssertionStdParameterType,
-    DatasetAssertionInfo,
-    Maybe,
-    StringMapEntry,
 } from '@types';
 
 import AssertionErrorIcon from '@images/assertion_error_dot.svg?react';
@@ -40,78 +33,27 @@ export const sortAssertions = (a, b) => {
 };
 
 /**
- * Returns the display text assoociated with an AssertionResultType
- */
-export const getResultText = (result: AssertionResultType) => {
-    switch (result) {
-        case AssertionResultType.Success:
-            return 'Passed';
-        case AssertionResultType.Failure:
-            return 'Failed';
-        case AssertionResultType.Error:
-            return 'Error';
-        case AssertionResultType.Init:
-            return 'Initializing';
-        default:
-            throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
-    }
-};
-
-/**
  * Returns the display color associated with an AssertionResultType
  */
-const INIT_COLOR_HEX = '#2F54EB';
-const NO_RESULTS_COLOR_HEX = ANTD_GRAY[8];
+export const getResultColor = (theme: DefaultTheme, result?: AssertionResultType) => {
+    const initColor = theme?.colors?.textInformation;
+    const noResultsColor = theme?.colors?.textTertiary;
 
-export const getResultColor = (result?: AssertionResultType) => {
     if (!result) {
-        return NO_RESULTS_COLOR_HEX;
+        return noResultsColor;
     }
     switch (result) {
         case AssertionResultType.Success:
-            return SUCCESS_COLOR_HEX;
+            return theme?.colors?.iconSuccess;
         case AssertionResultType.Failure:
-            return FAILURE_COLOR_HEX;
+            return theme?.colors?.iconError;
         case AssertionResultType.Error:
-            return ERROR_COLOR_HEX;
+            return theme?.colors?.iconWarning;
         case AssertionResultType.Init:
-            return INIT_COLOR_HEX;
+            return initColor;
         default:
             throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
     }
-};
-
-/**
- * Returns the display icon associated with an AssertionResultType
- */
-export const getResultIcon = (result: AssertionResultType, color?: string) => {
-    const resultColor = color || getResultColor(result);
-    switch (result) {
-        case AssertionResultType.Success:
-            return <CheckCircleOutlined style={{ color: resultColor }} />;
-        case AssertionResultType.Failure:
-            return <CloseCircleOutlined style={{ color: resultColor }} />;
-        case AssertionResultType.Error:
-            return <ExclamationCircleOutlined style={{ color: resultColor }} />;
-        case AssertionResultType.Init:
-            return <StopOutlined style={{ color: resultColor }} />;
-        default:
-            throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
-    }
-};
-
-/**
- * Convert an array of StringMapEntry into a map, for easy retrieval.
- */
-export const convertNativeParametersArrayToMap = (nativeParameters: Maybe<Array<StringMapEntry>> | undefined) => {
-    if (nativeParameters) {
-        const map = new Map();
-        nativeParameters.forEach((parameter) => {
-            map.set(parameter.key, parameter.value);
-        });
-        return map;
-    }
-    return undefined;
 };
 
 export const getResultErrorMessage = (result: AssertionResult) => {
@@ -123,21 +65,21 @@ export const getResultErrorMessage = (result: AssertionResult) => {
 
     switch (errorType) {
         case AssertionResultErrorType.SourceConnectionError:
-            return 'Unable to connect to source data platform. Please check the connection.';
+            return i18next.t('entity.profile.validations:error.unableToConnect');
         case AssertionResultErrorType.SourceQueryFailed:
-            return 'Failed to evaluate query against the source platform.';
+            return i18next.t('entity.profile.validations:error.failedEvaluateQuery');
         case AssertionResultErrorType.InsufficientData:
-            return 'Not enough data to evaluate assertion.';
+            return i18next.t('entity.profile.validations:error.notEnoughData');
         case AssertionResultErrorType.InvalidParameters:
-            return 'Invalid parameters. Please check the assertion configuration.';
+            return i18next.t('entity.profile.validations:error.invalidParameters');
         case AssertionResultErrorType.InvalidSourceType:
-            return 'Invalid source type selected. Please select different source type in assertion configuration.';
+            return i18next.t('entity.profile.validations:error.invalidSourceType');
         case AssertionResultErrorType.UnsupportedPlatform:
-            return 'Unsupported platform.';
+            return i18next.t('entity.profile.validations:error.unsupportedPlatform');
         case AssertionResultErrorType.CustomSqlError:
-            return 'Custom SQL query resulted in an error.';
+            return i18next.t('entity.profile.validations:error.customSqlError');
         default:
-            return 'An unknown error occurred.';
+            return i18next.t('entity.profile.validations:error.unknownError');
     }
 };
 
@@ -161,16 +103,6 @@ export const getFormattedParameterValue = (parameter: AssertionStdParameter | un
                 ? parameter.value
                 : parseFloat(parameter.value as string).toLocaleString();
     }
-};
-
-/**
- * Throws if an assertion has no input fields
- */
-export const validateAssertionsHasInputFields = (info: DatasetAssertionInfo) => {
-    if (info.fields && info.fields.length === 1) {
-        return info.fields[0].path;
-    }
-    throw new Error('Failed to find field path(s) for column assertion.');
 };
 
 export const getQueryParams = (param: string, location: Location): string | null => {

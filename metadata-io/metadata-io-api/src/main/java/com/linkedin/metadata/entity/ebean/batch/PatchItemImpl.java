@@ -127,12 +127,20 @@ public class PatchItemImpl implements PatchMCP {
   private ChangeItemImpl applyGenericPatch(
       RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
     try {
+      // Prefer the registered template's default (e.g. GlossaryTermsTemplate.getDefault() which
+      // injects the required auditStamp) over a bare constructor call which yields an incomplete
+      // object that fails validation.
+      AspectTemplateEngine templateEngine =
+          aspectRetriever.getEntityRegistry().getAspectTemplateEngine();
+      RecordTemplate templateDefault = templateEngine.getDefaultTemplate(getAspectName());
+      if (templateDefault == null) {
+        templateDefault = aspectSpec.getDataTemplateClass().getDeclaredConstructor().newInstance();
+      }
       GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate =
           GenericPatchTemplate.builder()
               .genericJsonPatch(genericJsonPatch)
               .templateType(aspectSpec.getDataTemplateClass())
-              .templateDefault(
-                  aspectSpec.getDataTemplateClass().getDeclaredConstructor().newInstance())
+              .templateDefault(templateDefault)
               .build();
       return ChangeItemImpl.fromPatch(
           urn, aspectSpec, recordTemplate, genericPatchTemplate, auditStamp, aspectRetriever);
@@ -205,6 +213,11 @@ public class PatchItemImpl implements PatchMCP {
       }
       this.patch = patch;
       return this;
+    }
+
+    public PatchItemImpl.PatchItemImplBuilder patch(GenericJsonPatch genericPatch) {
+      this.genericJsonPatch = genericPatch;
+      return patch(genericPatch.getJsonPatch());
     }
 
     public PatchItemImpl build(EntityRegistry entityRegistry) {

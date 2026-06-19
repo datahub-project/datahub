@@ -1,4 +1,5 @@
-import { FileOutlined } from '@ant-design/icons';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, IconStyleType } from '@app/entityV2/Entity';
@@ -13,18 +14,12 @@ export class DataContractEntity implements Entity<DataContract> {
     type: EntityType = EntityType.DataContract;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <FileOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FileOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#d6246c' }} />;
-        }
-
         return (
-            <FileOutlined
+            <FileText
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -41,11 +36,11 @@ export class DataContractEntity implements Entity<DataContract> {
 
     getPathName = () => 'dataContracts';
 
-    getEntityName = () => 'Data Contract';
+    getEntityName = () => i18next.t('entity.types:dataContract.name');
 
-    getCollectionName = () => 'Data Contracts';
+    getCollectionName = () => i18next.t('entity.types:dataContract.namePlural');
 
-    renderProfile = () => <span>Not Implemented</span>;
+    renderProfile = () => <span>{i18next.t('entity.types:dataContract.notImplemented')}</span>;
 
     getSidebarSections = () => [];
 
@@ -54,15 +49,15 @@ export class DataContractEntity implements Entity<DataContract> {
     getOverridePropertiesFromEntity = () => {};
 
     renderPreview = () => {
-        return <span>Not Implemented</span>;
+        return <span>{i18next.t('entity.types:dataContract.notImplemented')}</span>;
     };
 
     renderSearch = () => {
-        return <span>Not Implemented</span>;
+        return <span>{i18next.t('entity.types:dataContract.notImplemented')}</span>;
     };
 
     displayName = () => {
-        return 'Data Contract';
+        return i18next.t('entity.types:dataContract.name');
     };
 
     getGenericEntityProperties = (data: DataContract) => {

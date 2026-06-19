@@ -319,12 +319,17 @@ public class AspectTestUtilsTest {
 
     PluginConfiguration pluginConfiguration =
         new PluginConfiguration(
-            configs, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
+            configs,
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList());
 
     return new PluginFactory(
         pluginConfiguration,
         Collections.emptyList(),
         validators,
+        Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList());
@@ -349,6 +354,7 @@ public class AspectTestUtilsTest {
     protected java.util.stream.Stream<
             com.linkedin.metadata.aspect.plugins.validation.AspectValidationException>
         validateProposedAspects(
+            @Nonnull com.datahub.context.OperationFingerprint operationContext,
             @Nonnull
                 java.util.Collection<? extends com.linkedin.metadata.aspect.batch.BatchItem>
                     mcpItems,
@@ -360,6 +366,7 @@ public class AspectTestUtilsTest {
     protected java.util.stream.Stream<
             com.linkedin.metadata.aspect.plugins.validation.AspectValidationException>
         validatePreCommitAspects(
+            @Nonnull com.datahub.context.OperationFingerprint operationContext,
             @Nonnull java.util.Collection<com.linkedin.metadata.aspect.batch.ChangeMCP> changeMCPs,
             @Nonnull com.linkedin.metadata.aspect.RetrieverContext retrieverContext) {
       return java.util.stream.Stream.empty();

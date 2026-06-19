@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.DATA_TYPE_URN_PREFIX;
+import static com.linkedin.metadata.Constants.ENTITY_TYPE_URN_PREFIX;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -220,5 +221,33 @@ public class StructuredPropertyMappingBuilderTest {
         "Both URN formats should produce the same number of mappings");
     assertEquals(mappingsLegacy.size(), 1, "Legacy format should produce one mapping");
     assertEquals(mappingsDatahub.size(), 1, "Datahub prefix format should produce one mapping");
+  }
+
+  /**
+   * Regression test: valueType urn:li:dataType:datahub.urn must be resolved via
+   * StructuredPropertyUtils.getLogicalValueType() so getMappingsForStructuredProperty does not
+   * throw (LogicalValueType.valueOf("datahub.urn") would throw) and returns a mapping with a type
+   * for reindex.
+   */
+  @Test
+  public void testGetMappingsForStructuredPropertyWithDatahubUrnValueType()
+      throws URISyntaxException {
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("com.example.domain.owner_urn")
+            .setDisplayName("Owner URN")
+            .setEntityTypes(
+                new UrnArray(
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset"),
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataJob")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.urn"));
+
+    Map<String, Object> mapping =
+        StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(definition);
+
+    assertNotNull(mapping, "Mapping should not be null");
+    assertNotNull(mapping.get("type"), "URN structured property must have type for reindex");
+    assertEquals(mapping.get("type"), "keyword", "URN type should map to keyword");
   }
 }

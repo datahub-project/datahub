@@ -1,4 +1,6 @@
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useGetDomains } from '@app/homeV2/content/tabs/discovery/sections/domains/useGetDomains';
@@ -12,6 +14,7 @@ import useGetDomainUtils from '@app/homeV3/modules/domains/useDomainModuleUtils'
 import { DataHubPageModuleType } from '@types';
 
 const TopDomainsModule = (props: ModuleProps) => {
+    const { t } = useTranslation('modules');
     const { user } = useUserContext();
     const { isReloading } = useModuleContext();
 
@@ -23,10 +26,10 @@ const TopDomainsModule = (props: ModuleProps) => {
         <LargeModule {...props} loading={loading} onClickViewAll={navigateToDomains} dataTestId="domains-module">
             {domains.length === 0 ? (
                 <EmptyContent
-                    icon="Globe"
-                    title="No Domains Created"
-                    description="Start by creating a domain in order to see it on your list"
-                    linkText="Configure your data domains"
+                    icon={Globe}
+                    title={t('domains.emptyTitle')}
+                    description={t('domains.emptyDescription')}
+                    linkText={t('domains.emptyLink')}
                     onLinkClick={navigateToDomains}
                 />
             ) : (

@@ -192,11 +192,11 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
     final SearchResponse searchResponse;
 
     if (scrollId == null) {
-      searchResponse = elasticsearchClient.search(searchRequest, RequestOptions.DEFAULT);
+      searchResponse = elasticsearchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
     } else {
       SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
       scrollRequest.scroll(scroll);
-      searchResponse = elasticsearchClient.scroll(scrollRequest, RequestOptions.DEFAULT);
+      searchResponse = elasticsearchClient.scroll(opContext, scrollRequest, RequestOptions.DEFAULT);
     }
 
     final SearchHit[] searchHits = searchResponse.getHits().getHits();
@@ -268,6 +268,8 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
   }
 
   private void deleteDocumentIds(Set<String> documentIds) {
-    documentIds.forEach(docId -> elasticsearchClient.addBulk(new DeleteRequest(indexName, docId)));
+    documentIds.forEach(
+        docId ->
+            elasticsearchClient.addBulk(opContext, docId, new DeleteRequest(indexName, docId)));
   }
 }

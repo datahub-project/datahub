@@ -26,7 +26,7 @@
             "customProperties": {
                 "schema_inferred_from": "gs://my-test-bucket/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv",
                 "number_of_files": "1",
-                "size_in_bytes": "3575"
+                "size_in_bytes": "3581"
             },
             "externalUrl": "https://console.cloud.google.com/storage/browser/my-test-bucket/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv",
             "name": "NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv",

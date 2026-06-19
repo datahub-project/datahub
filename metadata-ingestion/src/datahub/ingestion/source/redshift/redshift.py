@@ -1,4 +1,3 @@
-import functools
 import logging
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Type, Union
@@ -14,6 +13,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
     make_tag_urn,
+    make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -25,10 +25,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     TestableSource,
     TestConnectionReport,
 )
@@ -79,9 +77,6 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
     RedundantUsageRunSkipHandler,
 )
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -110,7 +105,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
 )
-from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
+from datahub.metadata.schema_classes import (
+    GlobalTagsClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+    TagAssociationClass,
+)
 from datahub.utilities import memory_footprint
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
@@ -145,6 +146,10 @@ logger: logging.Logger = logging.getLogger(__name__)
     "Optionally enabled via `include_usage_statistics`",
 )
 @capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Optionally enabled via `include_usage_statistics`; controlled by `include_operational_stats`",
+)
+@capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 @capability(
@@ -153,6 +158,10 @@ logger: logging.Logger = logging.getLogger(__name__)
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(
+    SourceCapability.OWNERSHIP,
+    "Optionally enabled via `extract_ownership`",
+)
 class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
@@ -348,17 +357,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             sub_types=[DatasetContainerSubTypes.DATABASE],
         )
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def _warn_deprecated_configs(self):
         if (
             self.config.match_fully_qualified_names is not None
@@ -468,7 +466,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     def process_schemas(self, connection, database):
         for schema in self.data_dictionary.get_schemas(
-            conn=connection, database=database
+            conn=connection,
+            database=database,
+            extract_ownership=self.config.extract_ownership,
         ):
             if not is_schema_allowed(
                 self.config.schema_pattern,
@@ -516,6 +516,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 env=self.config.env,
             )
 
+            schema_owner_urn = None
+            if self.config.extract_ownership and schema.owner:
+                schema_owner_urn = self._make_owner_urn(schema.owner)
+
             yield from gen_schema_container(
                 schema=schema.name,
                 database=database,
@@ -524,6 +528,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 domain_config=self.config.domain,
                 domain_registry=self.domain_registry,
                 sub_types=[DatasetSubTypes.SCHEMA],
+                owner_urn=schema_owner_urn,
+                ownership_type=OwnershipTypeClass.TECHNICAL_OWNER,
             )
 
             schema_columns: Dict[str, Dict[str, List[RedshiftColumn]]] = {}
@@ -767,6 +773,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
 
+    def _make_owner_urn(self, username: str) -> str:
+        if self.config.email_domain and "@" not in username:
+            return make_user_urn(f"{username}@{self.config.email_domain}")
+        return make_user_urn(username)
+
     # TODO: Move to common
     def gen_dataset_workunits(
         self,
@@ -843,6 +854,20 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn, aspect=subTypes
         ).as_workunit()
 
+        if self.config.extract_ownership and table.owner:
+            owner_urn = self._make_owner_urn(table.owner)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=OwnershipClass(
+                    owners=[
+                        OwnerClass(
+                            owner=owner_urn,
+                            type=OwnershipTypeClass.TECHNICAL_OWNER,
+                        )
+                    ]
+                ),
+            ).as_workunit()
+
         if self.domain_registry:
             yield from get_domain_wu(
                 dataset_name=str(datahub_dataset_name),
@@ -859,6 +884,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             database=database,
             skip_external_tables=self.config.skip_external_tables,
             is_shared_database=self.report.is_shared_database,
+            extract_ownership=self.config.extract_ownership,
         )
         for schema in tables:
             if not is_schema_allowed(

@@ -1,40 +1,47 @@
 """
 Smoke tests for Semantic Search functionality.
 
-These tests validate end-to-end semantic search:
-1. Ingest sample documents via GraphQL
-2. Generate embeddings and emit via MCP (Metadata Change Proposal)
-3. Wait for indexing (20 seconds)
-4. Execute semantic search via GraphQL
-5. Verify our created documents appear in results
+These tests validate end-to-end semantic search in two embedding modes:
 
-These tests are DISABLED by default. To enable, set:
-    ENABLE_SEMANTIC_SEARCH_TESTS=true
+**Client-side embedding (default)**
+  The test runner executes the ``datahub-documents`` ingestion source in-process,
+  generating embeddings via Bedrock and writing ``semanticContent`` aspects to the
+  target DataHub instance.  Requires AWS credentials on the machine running the tests.
 
-Prerequisites:
-- DataHub running with semantic search enabled
-- ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
-- SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true
-- AWS credentials configured for embedding generation (AWS_PROFILE or AWS_ACCESS_KEY_ID)
+**Server-side embedding (pre-provisioned)**
+  Set ``DOCS_INGESTION_SERVER_SIDE=true`` when the target DataHub instance already has
+  a ``datahub-documents`` ingestion source pre-provisioned (as in production DataHub
+  Cloud).  The test skips the in-process ingestion and instead polls until
+  ``semanticContent`` appears on each document — emitted automatically by the server.
+  No AWS credentials needed on the test runner in this mode.
 
-Usage:
-    # Run with semantic search tests enabled
-    AWS_PROFILE=your-profile ENABLE_SEMANTIC_SEARCH_TESTS=true pytest tests/semantic/test_semantic_search.py -v
+Gate: ENABLE_SEMANTIC_SEARCH_TESTS=true
 
-For implementation details, see docs/dev-guides/semantic-search/.
+Usage — local instance (client-side embedding):
+    AWS_PROFILE=acryl-read-write ENABLE_SEMANTIC_SEARCH_TESTS=true \\
+        pytest tests/semantic/test_semantic_search.py -v
+
+Usage — remote pre-provisioned instance (server-side embedding):
+    ENABLE_SEMANTIC_SEARCH_TESTS=true DOCS_INGESTION_SERVER_SIDE=true \\
+        DATAHUB_GMS_URL=https://your-instance.acryl.io/gms \\
+        DATAHUB_FRONTEND_URL=https://your-instance.acryl.io \\
+        ADMIN_USERNAME=you@company.com ADMIN_PASSWORD=<pat-token> \\
+        pytest tests/semantic/test_semantic_search.py -v
 """
 
 import json
 import logging
 import os
+import tempfile
 import time
 import uuid
-from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 import pytest
-import requests
 
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utils import run_datahub_cmd
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +50,16 @@ SEMANTIC_SEARCH_ENABLED = (
     os.environ.get("ENABLE_SEMANTIC_SEARCH_TESTS", "false").lower() == "true"
 )
 
-# Hardcoded wait time for indexing
+# When True, skip the in-process ingestion and poll for server-generated semanticContent.
+# Use when the target instance has datahub-documents pre-provisioned (e.g. DataHub Cloud).
+DOCS_INGESTION_SERVER_SIDE = (
+    os.environ.get("DOCS_INGESTION_SERVER_SIDE", "false").lower() == "true"
+)
+
+# How long to poll for server-side embedding generation before giving up (seconds).
+SERVER_SIDE_EMBEDDING_TIMEOUT = int(os.environ.get("EMBEDDING_WAIT_TIMEOUT", "300"))
+
+# How long to wait for ES to index after embedding is confirmed
 INDEXING_WAIT_SECONDS = 20
 
 # Sample documents for testing semantic search
@@ -112,46 +128,6 @@ Performance Metrics
 """,
         "sub_type": "model",
     },
-    {
-        "title": "ETL Pipeline Documentation: Sales Data",
-        "text": """Sales Data ETL Pipeline
-
-Pipeline Overview
-This pipeline extracts sales data from our CRM, transforms it, and loads into the data warehouse.
-
-Schedule
-- Runs daily at 2:00 AM UTC
-- Full refresh on Sundays
-
-Data Sources
-1. Salesforce CRM (primary)
-2. Payment gateway logs
-3. Product catalog database
-
-Output Tables
-- sales.transactions - Individual sale records
-- sales.daily_summary - Aggregated daily metrics
-""",
-        "sub_type": "pipeline",
-    },
-    {
-        "title": "Customer Data Platform Overview",
-        "text": """Customer Data Platform (CDP)
-
-What is a CDP?
-A Customer Data Platform is a unified database that collects customer data from multiple sources.
-
-Our CDP Architecture
-- Website tracking
-- Mobile app events
-- CRM integrations
-
-Key Metrics
-- 50M+ unified customer profiles
-- 200+ data sources integrated
-""",
-        "sub_type": "overview",
-    },
 ]
 
 
@@ -171,75 +147,307 @@ def execute_graphql(auth_session, query: str, variables: dict | None = None) -> 
     return result
 
 
-def create_document(
-    auth_session, doc_id: str, title: str, text: str, sub_type: str
-) -> str:
-    """Create a document via GraphQL and return the URN."""
-    mutation = """
-        mutation CreateDocument($input: CreateDocumentInput!) {
-            createDocument(input: $input)
-        }
+def create_documents_with_sdk(
+    auth_session, docs: list[dict[str, str]]
+) -> list[tuple[str, str]]:
     """
-    variables = {
-        "input": {
-            "id": doc_id,
-            "subType": sub_type,
-            "title": title,
-            "contents": {"text": text},
-            "state": "PUBLISHED",
+    Create documents using the Document SDK.
+    Returns list of (doc_id, urn) tuples.
+    """
+    from datahub.emitter.rest_emitter import DatahubRestEmitter
+    from datahub.sdk.document import Document
+
+    emitter = DatahubRestEmitter(
+        gms_server=auth_session.gms_url(), token=auth_session.gms_token()
+    )
+
+    created_docs: list[tuple[str, str]] = []
+
+    for doc_data in docs:
+        doc_id = _unique_id("semantic-sdk-test")
+        doc = Document.create_document(
+            id=doc_id,
+            title=doc_data["title"],
+            text=doc_data["text"],
+            subtype=doc_data["sub_type"],
+        )
+
+        # Emit the document
+        for mcp in doc.as_mcps():
+            emitter.emit(mcp)
+
+        urn = f"urn:li:document:{doc_id}"
+        created_docs.append((doc_id, urn))
+        logger.info(f"Created document via SDK: {urn}")
+
+    emitter.close()
+    wait_for_writes_to_sync(mcp_only=True)
+
+    return created_docs
+
+
+def create_ingestion_recipe(auth_session, doc_ids: list[str], tmp_dir: Path) -> Path:
+    """
+    Create a recipe file for the datahub-documents ingestion source.
+    Returns path to the recipe file.
+    """
+    recipe = {
+        "pipeline_name": "smoke-test-semantic-search",
+        "source": {
+            "type": "datahub-documents",
+            "config": {
+                "datahub": {
+                    "server": auth_session.gms_url(),
+                    "token": auth_session.gms_token(),
+                },
+                "document_urns": [f"urn:li:document:{doc_id}" for doc_id in doc_ids],
+                "chunking": {
+                    "strategy": "by_title",
+                    "max_characters": 500,
+                },
+                # No embedding config - should auto-load from server via AppConfig API
+                # Disable incremental mode for testing to force reprocessing
+                "incremental": {
+                    "enabled": False,
+                },
+            },
+        },
+        "sink": {
+            "type": "datahub-rest",
+            "config": {
+                "server": auth_session.gms_url(),
+                "token": auth_session.gms_token(),
+            },
+        },
+    }
+
+    recipe_path = tmp_dir / "datahub_documents_recipe.yml"
+    with open(recipe_path, "w") as f:
+        import yaml
+
+        yaml.dump(recipe, f)
+
+    logger.info(f"Created recipe file: {recipe_path}")
+    return recipe_path
+
+
+DOCS_INGESTION_SOURCE_URN = "urn:li:dataHubIngestionSource:datahub-documents"
+
+TRIGGER_INGESTION_MUTATION = """
+    mutation TriggerIngestion($urn: String!) {
+        createIngestionExecutionRequest(input: { ingestionSourceUrn: $urn })
+    }
+"""
+
+GET_EXECUTION_REQUEST_QUERY = """
+    query GetExecutionRequest($urn: String!) {
+        executionRequest(urn: $urn) {
+            result { status durationMs }
         }
     }
-    result = execute_graphql(auth_session, mutation, variables)
-    if "errors" in result:
-        raise Exception(f"Failed to create document: {result['errors']}")
-    return result["data"]["createDocument"]
+"""
 
 
-def delete_document(auth_session, urn: str) -> bool:
-    """Delete a document via GraphQL."""
-    mutation = """
-        mutation DeleteDocument($urn: String!) {
-            deleteDocument(urn: $urn)
-        }
+def trigger_and_wait_for_ingestion(
+    auth_session, timeout: int = SERVER_SIDE_EMBEDDING_TIMEOUT
+) -> None:
+    """Trigger the datahub-documents ingestion source and wait for it to complete.
+
+    This is faster and more deterministic than passively polling for semanticContent —
+    we fire the run immediately and monitor the execution request until SUCCESS/FAILURE.
     """
-    result = execute_graphql(auth_session, mutation, {"urn": urn})
-    return result.get("data", {}).get("deleteDocument", False)
+    import time as _time
+
+    # 1. Trigger the ingestion source
+    trigger_result = execute_graphql(
+        auth_session,
+        TRIGGER_INGESTION_MUTATION,
+        {"urn": DOCS_INGESTION_SOURCE_URN},
+    )
+    if "errors" in trigger_result:
+        raise RuntimeError(f"Failed to trigger ingestion: {trigger_result['errors']}")
+    execution_urn = trigger_result["data"]["createIngestionExecutionRequest"]
+    logger.info(f"Triggered ingestion — execution request: {execution_urn}")
+
+    # 2. Poll execution request until terminal state
+    deadline = _time.time() + timeout
+    while _time.time() < deadline:
+        status_result = execute_graphql(
+            auth_session, GET_EXECUTION_REQUEST_QUERY, {"urn": execution_urn}
+        )
+        result = (
+            status_result.get("data", {}).get("executionRequest", {}).get("result")
+            or {}
+        )
+        status = result.get("status", "PENDING")
+        if status == "SUCCESS":
+            duration_ms = result.get("durationMs", 0)
+            logger.info(f"  ✓ Ingestion completed in {duration_ms}ms")
+            return
+        if status in ("FAILURE", "FAILED", "CANCELLED"):
+            raise RuntimeError(f"Ingestion execution ended with status: {status}")
+        logger.debug(f"  … ingestion status={status}, waiting…")
+        _time.sleep(5)
+
+    raise TimeoutError(
+        f"Timed out after {timeout}s waiting for ingestion execution {execution_urn}"
+    )
 
 
-def search_documents_keyword(auth_session, query: str, count: int = 10) -> dict:
-    """Search documents using keyword search."""
-    graphql_query = """
-        query SearchDocuments($input: SearchAcrossEntitiesInput!) {
-            searchAcrossEntities(input: $input) {
-                start
-                count
-                total
-                searchResults {
-                    entity {
-                        urn
-                        type
-                        ... on Document {
-                            info {
-                                title
-                            }
-                        }
-                    }
-                }
-            }
-        }
+def wait_for_server_side_embeddings(
+    auth_session, urns: list[str], timeout: int = SERVER_SIDE_EMBEDDING_TIMEOUT
+) -> None:
+    """Trigger the datahub-documents ingestion source and wait for semanticContent.
+
+    In server-side mode we:
+    1. Fire the ingestion source immediately (no waiting for a schedule)
+    2. Poll the execution request until it completes
+    3. Then verify semanticContent appeared on each document
     """
-    variables = {
-        "input": {
-            "query": query,
-            "types": ["DOCUMENT"],
-            "start": 0,
-            "count": count,
-        }
-    }
-    return execute_graphql(auth_session, graphql_query, variables)
+    import time as _time
+
+    # Trigger the ingestion and wait for the run to finish
+    trigger_and_wait_for_ingestion(auth_session, timeout=timeout)
+
+    # Verify semanticContent is now present on each document
+    for urn in urns:
+        deadline = _time.time() + 60  # short timeout after ingestion just ran
+        while _time.time() < deadline:
+            try:
+                verify_semantic_content(auth_session, urn)
+                logger.info(f"  ✓ {urn}: semanticContent verified")
+                break
+            except Exception:
+                _time.sleep(5)
+        else:
+            raise TimeoutError(
+                f"semanticContent not found on {urn} after ingestion completed. "
+                "The document may not have been processed by this run."
+            )
 
 
-def search_documents_semantic(auth_session, query: str, count: int = 10) -> dict:
+def ensure_embeddings(
+    auth_session, doc_ids: list[str], tmp_path: Path | None = None
+) -> None:
+    """Generate (or wait for) embeddings depending on the current mode.
+
+    - Client-side mode: runs the datahub-documents ingestion source in-process.
+    - Server-side mode: triggers the pre-provisioned source, waits for completion.
+    """
+    urns = [f"urn:li:document:{doc_id}" for doc_id in doc_ids]
+    if DOCS_INGESTION_SERVER_SIDE:
+        logger.info("Server-side embedding mode: triggering datahub-documents source…")
+        wait_for_server_side_embeddings(auth_session, urns)
+    else:
+        if tmp_path is None:
+            raise ValueError("tmp_path required for client-side embedding mode")
+        logger.info("Client-side embedding mode: running datahub-documents ingestion…")
+        recipe_path = create_ingestion_recipe(auth_session, doc_ids, tmp_path)
+        run_ingestion(auth_session, recipe_path)
+        wait_for_writes_to_sync(mcp_only=True)
+
+    # Wait for Kafka consumers to catch up, then sleep for ES semantic index refresh.
+    wait_for_writes_to_sync(mcp_only=True)
+    logger.info(f"Waiting {INDEXING_WAIT_SECONDS}s for ES semantic index refresh…")
+    time.sleep(INDEXING_WAIT_SECONDS)
+
+
+def run_ingestion(auth_session, recipe_path: Path) -> None:
+    """Run the datahub-documents ingestion source."""
+    logger.info(f"Running ingestion with recipe: {recipe_path}")
+
+    try:
+        # Load recipe file
+        import yaml
+
+        with open(recipe_path) as f:
+            recipe_config = yaml.safe_load(f)
+
+        # Create and run pipeline
+        from datahub.ingestion.run.pipeline import Pipeline
+
+        pipeline = Pipeline.create(recipe_config)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        logger.info("Ingestion completed successfully")
+
+    except Exception as e:
+        logger.error(f"Ingestion failed: {e}")
+        raise
+
+
+def verify_semantic_content(auth_session, urn: str) -> dict[str, Any]:
+    """
+    Verify that the semanticContent aspect exists with chunks and embeddings.
+    Returns the semantic content aspect data.
+    """
+    logger.info(f"Verifying semanticContent for {urn}")
+
+    result = run_datahub_cmd(
+        ["get", "--urn", urn, "-a", "semanticContent"],
+        env={
+            "DATAHUB_GMS_URL": auth_session.gms_url(),
+            "DATAHUB_GMS_TOKEN": auth_session.gms_token(),
+        },
+    )
+
+    if result.exit_code != 0:
+        raise Exception(f"Failed to get semanticContent aspect: {result.stderr}")
+
+    aspect_data = json.loads(result.stdout)
+
+    if not aspect_data:
+        raise Exception(f"No semanticContent aspect found for {urn}")
+
+    semantic_content = aspect_data.get("semanticContent", {})
+    embeddings = semantic_content.get("embeddings", {})
+
+    if not embeddings:
+        raise Exception(f"No embeddings found in semanticContent for {urn}")
+
+    # Find the first embedding field dynamically - supports any model key
+    # (cohere_embed_v3, text_embedding_3_small, etc.)
+    embedding_keys = list(embeddings.keys())
+    if not embedding_keys:
+        raise Exception(f"No embedding keys found in semanticContent for {urn}")
+
+    model_embedding_key = embedding_keys[0]
+    model_embed = embeddings.get(model_embedding_key)
+    if not model_embed:
+        raise Exception(
+            f"No embeddings found for key '{model_embedding_key}'. Available fields: {embedding_keys}"
+        )
+
+    chunks = model_embed.get("chunks", [])
+    total_chunks = model_embed.get("totalChunks", 0)
+
+    logger.info(
+        f"  ✓ Found semanticContent with {len(chunks)} chunks (totalChunks: {total_chunks})"
+    )
+
+    if len(chunks) == 0:
+        raise Exception(f"No chunks found in embeddings for {urn}")
+
+    # Verify first chunk structure
+    first_chunk = chunks[0]
+    required_fields = ["position", "vector", "text", "characterOffset"]
+    for field in required_fields:
+        if field not in first_chunk:
+            raise Exception(f"Chunk missing required field: {field}")
+
+    vector = first_chunk["vector"]
+    if not isinstance(vector, list) or len(vector) == 0:
+        raise Exception(f"Invalid vector in chunk: {vector}")
+
+    logger.info(
+        f"  ✓ Chunks have valid structure with {len(vector)}-dimensional embeddings"
+    )
+
+    return semantic_content
+
+
+def search_documents_semantic(auth_session, query: str, count: int = 50) -> dict:
     """Search documents using semantic search."""
     graphql_query = """
         query SemanticSearchDocuments($input: SearchAcrossEntitiesInput!) {
@@ -272,175 +480,27 @@ def search_documents_semantic(auth_session, query: str, count: int = 10) -> dict
     return execute_graphql(auth_session, graphql_query, variables)
 
 
-def chunk_text(
-    text: str, max_chunk_tokens: int = 400, chars_per_token: int = 4
-) -> list[str]:
-    """Chunk text into segments of approximately max_chunk_tokens."""
-    if not text or not text.strip():
-        return []
-
-    max_chars = max_chunk_tokens * chars_per_token
-    if len(text) <= max_chars:
-        return [text]
-
-    chunks = []
-    current_chunk = ""
-    sentences = text.replace(". ", ".|").replace(".\n", ".|").split("|")
-
-    for sentence in sentences:
-        sentence = sentence.strip()
-        if not sentence:
-            continue
-
-        if current_chunk and len(current_chunk) + len(sentence) + 1 > max_chars:
-            chunks.append(current_chunk)
-            current_chunk = sentence
-        else:
-            current_chunk = (
-                f"{current_chunk} {sentence}".strip() if current_chunk else sentence
-            )
-
-        while len(current_chunk) > max_chars:
-            chunks.append(current_chunk[:max_chars])
-            current_chunk = current_chunk[max_chars:]
-
-    if current_chunk:
-        chunks.append(current_chunk)
-
-    return chunks
-
-
-def create_embeddings():
-    """Create an embeddings instance using litellm with AWS Bedrock."""
-    try:
-        from litellm import embedding
-
-        class LiteLLMEmbeddings:
-            def __init__(self, model: str = "bedrock/cohere.embed-english-v3"):
-                self.model = model
-                self.model_name = model
-
-            def embed_documents(self, texts: list[str]) -> list[list[float]]:
-                """Generate embeddings for a list of texts."""
-                response = embedding(
-                    model=self.model,
-                    input=texts,
-                    input_type="search_document",
-                )
-                return [item["embedding"] for item in response.data]
-
-            def embed_query(self, text: str) -> list[float]:
-                """Generate embedding for a single query."""
-                response = embedding(
-                    model=self.model,
-                    input=[text],
-                    input_type="search_query",
-                )
-                return response.data[0]["embedding"]
-
-        return LiteLLMEmbeddings()
-    except ImportError:
-        raise ImportError(
-            "litellm is required for embedding generation. Install with: pip install litellm"
-        )
-
-
-def emit_semantic_content_mcp(
-    auth_session,
-    doc_id: str,
-    text: str,
-    embedding_field: str = "cohere_embed_v3",
-) -> None:
-    """
-    Generate embeddings and emit them via MCP (Metadata Change Proposal).
-
-    This tests the full MCP flow for semantic content ingestion.
-    Raises exception on failure.
-    """
-    urn = f"urn:li:document:{doc_id}"
-
-    embeddings = create_embeddings()
-
-    # Chunk the text
-    chunks = chunk_text(text, max_chunk_tokens=400)
-    assert chunks, f"No text to embed for {urn}"
-
-    logger.info(f"Generating embeddings for {doc_id}: {len(chunks)} chunks...")
-    vectors = embeddings.embed_documents(chunks)
-
-    # Build chunk data matching the PDL schema
-    chunk_data = []
-    current_offset = 0
-    for i, (chunk_text_item, vector) in enumerate(zip(chunks, vectors, strict=False)):
-        chunk_data.append(
-            {
-                "position": i,
-                "vector": vector,
-                "characterOffset": current_offset,
-                "characterLength": len(chunk_text_item),
-                "tokenCount": len(chunk_text_item.split()),
-                "text": chunk_text_item,
-            }
-        )
-        current_offset += len(chunk_text_item)
-
-    # Build the SemanticContent aspect payload
-    aspect_value = {
-        "embeddings": {
-            embedding_field: {
-                "modelVersion": embeddings.model_name,
-                "generatedAt": int(datetime.utcnow().timestamp() * 1000),
-                "chunkingStrategy": "sentence_boundary_400t",
-                "totalChunks": len(chunks),
-                "totalTokens": sum(c["tokenCount"] for c in chunk_data),
-                "chunks": chunk_data,
-            }
+def delete_document(auth_session, urn: str) -> bool:
+    """Delete a document via GraphQL."""
+    mutation = """
+        mutation DeleteDocument($urn: String!) {
+            deleteDocument(urn: $urn)
         }
-    }
-
-    # Build the MCP payload
-    mcp_payload = {
-        "entityType": "document",
-        "entityUrn": urn,
-        "changeType": "UPSERT",
-        "aspectName": "semanticContent",
-        "aspect": {
-            "value": json.dumps(aspect_value),
-            "contentType": "application/json",
-        },
-    }
-
-    # Emit MCP via the GMS ingest endpoint
-    gms_url = os.environ.get("DATAHUB_GMS_URL", "http://localhost:8080")
-    url = f"{gms_url}/aspects?action=ingestProposal"
-
-    # Use a new session with the auth token
-    session = requests.Session()
-    token = auth_session.gms_token()
-    if token:
-        session.headers["Authorization"] = f"Bearer {token}"
-
-    response = session.post(
-        url,
-        json={"proposal": mcp_payload},
-        timeout=60,
-    )
-    response.raise_for_status()
-
-    logger.info(
-        f"Emitted SemanticContent MCP for {doc_id}: {len(chunks)} chunks, {len(vectors[0])} dims"
-    )
+    """
+    result = execute_graphql(auth_session, mutation, {"urn": urn})
+    return result.get("data", {}).get("deleteDocument", False)
 
 
 @pytest.mark.skipif(
     not SEMANTIC_SEARCH_ENABLED,
     reason="Semantic search tests disabled. Set ENABLE_SEMANTIC_SEARCH_TESTS=true to run.",
 )
-class TestSemanticSearch:
+class TestSemanticSearchWithIngestion:
     """
-    Semantic search smoke tests.
+    Semantic search smoke tests using the full ingestion pipeline.
 
-    These tests ingest sample documents, wait for indexing, and verify
+    These tests create documents with the SDK, run the datahub-documents
+    ingestion source to generate chunks and embeddings, and verify
     that semantic search returns relevant results.
     """
 
@@ -460,139 +520,124 @@ class TestSemanticSearch:
             except Exception as e:
                 logger.warning(f"Failed to delete {urn}: {e}")
 
-    def test_ingest_and_semantic_search(self, auth_session):
+    def test_end_to_end_ingestion_and_semantic_search(self, auth_session):
         """
-        End-to-end test: ingest documents with embeddings and verify semantic search works.
+        End-to-end test: create documents, ensure embeddings exist, verify semantic search.
 
-        Steps:
-        1. Create sample documents via GraphQL
-        2. Generate embeddings and emit via MCP
-        3. Wait for indexing (20 seconds)
-        4. Execute semantic search
-        5. Verify our created documents appear in results
+        Embedding mode is selected by DOCS_INGESTION_SERVER_SIDE env var:
+          - false (default): runs datahub-documents ingestion in-process (requires AWS creds)
+          - true: polls until the server generates semanticContent automatically
         """
-        logger.info("Starting semantic search smoke test")
+        mode = "server-side" if DOCS_INGESTION_SERVER_SIDE else "client-side"
+        logger.info(f"Starting semantic search test [{mode} embedding mode]")
 
-        # Track doc_ids for embedding generation
-        created_docs: list[dict[str, str]] = []
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
 
-        # Step 1: Ingest sample documents
-        logger.info(f"Ingesting {len(SAMPLE_DOCUMENTS)} sample documents...")
-        for doc in SAMPLE_DOCUMENTS:
-            doc_id = _unique_id("semantic-test")
-            try:
-                urn = create_document(
-                    auth_session,
-                    doc_id=doc_id,
-                    title=doc["title"],
-                    text=doc["text"],
-                    sub_type=doc["sub_type"],
-                )
+            # Step 1: Create documents
+            logger.info(f"Creating {len(SAMPLE_DOCUMENTS)} documents with SDK...")
+            created_docs = create_documents_with_sdk(auth_session, SAMPLE_DOCUMENTS)
+
+            for _doc_id, urn in created_docs:
                 self.created_urns.append(urn)
-                created_docs.append(
-                    {"id": doc_id, "text": doc["text"], "title": doc["title"]}
+
+            assert len(created_docs) == len(SAMPLE_DOCUMENTS), (
+                f"Expected to create {len(SAMPLE_DOCUMENTS)} documents, "
+                f"but created {len(created_docs)}"
+            )
+
+            # Step 2: Ensure embeddings are generated (client-side or server-side)
+            doc_ids = [doc_id for doc_id, _ in created_docs]
+            ensure_embeddings(auth_session, doc_ids, tmp_path)
+
+            # Step 3: Verify semanticContent aspect is present for each document
+            logger.info("Verifying semanticContent aspects...")
+            for _doc_id, urn in created_docs:
+                try:
+                    verify_semantic_content(auth_session, urn)
+                    logger.info(f"  ✓ {urn}: semanticContent verified")
+                except Exception as e:
+                    pytest.fail(f"Failed to verify semanticContent for {urn}: {e}")
+
+            # Step 6: Execute semantic search
+            test_query = "how to request data access permissions"
+            logger.info(f"Executing semantic search: '{test_query}'")
+
+            result = search_documents_semantic(auth_session, test_query)
+
+            # Check for GraphQL errors
+            if "errors" in result:
+                pytest.fail(f"GraphQL errors: {result['errors']}")
+
+            # Step 7: Verify results
+            search_data = result.get("data", {}).get("semanticSearchAcrossEntities", {})
+            total = search_data.get("total", 0)
+            search_results = search_data.get("searchResults", [])
+
+            logger.info(f"Semantic search returned {total} total results")
+
+            # We should get at least some results
+            assert total > 0, "Semantic search returned no results"
+            assert len(search_results) > 0, "No search results in response"
+
+            # Log the results for debugging
+            for i, item in enumerate(search_results[:5], 1):
+                entity = item.get("entity", {})
+                info = entity.get("info") or {}
+                title = info.get("title", "Unknown")
+                urn = entity.get("urn", "no-urn")
+                is_ours = "✓" if urn in self.created_urns else " "
+                logger.info(f"  {i}. [{is_ours}] {title} ({urn})")
+
+            result_urns = [item.get("entity", {}).get("urn") for item in search_results]
+
+            # Map each of our 3 documents to its rank in the result list.
+            # inf = not in results at all.
+            our_doc_urns = [f"urn:li:document:{doc_id}" for doc_id in doc_ids]
+            access_doc_urn = our_doc_urns[1]  # "Data Access Request Process"
+            getting_started_urn = our_doc_urns[0]  # "Getting Started with DataHub"
+            churn_doc_urn = our_doc_urns[
+                2
+            ]  # "Machine Learning Model: Churn Prediction"
+
+            ranks = {
+                urn: result_urns.index(urn) if urn in result_urns else float("inf")
+                for urn in our_doc_urns
+            }
+
+            for urn, rank in ranks.items():
+                title = next(
+                    d["title"]
+                    for d, uid in zip(SAMPLE_DOCUMENTS, doc_ids, strict=False)
+                    if f"urn:li:document:{uid}" == urn
                 )
-                logger.info(f"Created document: {urn}")
-            except Exception as e:
-                pytest.fail(f"Failed to create document '{doc['title']}': {e}")
+                logger.info(
+                    f"  Rank {rank + 1 if rank != float('inf') else 'N/A'}: {title}"
+                )
 
-        assert len(self.created_urns) == len(SAMPLE_DOCUMENTS), (
-            f"Expected to create {len(SAMPLE_DOCUMENTS)} documents, "
-            f"but created {len(self.created_urns)}"
-        )
+            # All 3 docs must appear somewhere in results (count=50 to leave headroom)
+            for urn in our_doc_urns:
+                assert urn in result_urns, (
+                    f"Document {urn} not found in top-{len(result_urns)} semantic search "
+                    f"results — embeddings may not have been indexed yet or count is too low"
+                )
 
-        # Step 2: Generate embeddings and emit via MCP
-        logger.info("Generating embeddings and emitting via MCP...")
-        for doc in created_docs:
-            emit_semantic_content_mcp(auth_session, doc["id"], doc["text"])
+            # Relative ranking: "Data Access Request Process" must rank higher than
+            # both other docs for the query "how to request data access permissions".
+            # This validates semantic relevance ordering, not absolute position —
+            # it is robust to stale documents from prior test runs ranking above ours.
+            assert ranks[access_doc_urn] < ranks[getting_started_urn], (
+                f"'Data Access Request Process' (rank {ranks[access_doc_urn] + 1}) should "
+                f"rank above 'Getting Started' (rank {ranks[getting_started_urn] + 1})"
+            )
+            assert ranks[access_doc_urn] < ranks[churn_doc_urn], (
+                f"'Data Access Request Process' (rank {ranks[access_doc_urn] + 1}) should "
+                f"rank above 'Churn Prediction' (rank {ranks[churn_doc_urn] + 1})"
+            )
 
-        logger.info(f"Emitted embeddings for {len(created_docs)} documents")
-
-        # Step 3: Wait for indexing
-        logger.info(f"Waiting {INDEXING_WAIT_SECONDS} seconds for indexing...")
-        time.sleep(INDEXING_WAIT_SECONDS)
-
-        # Also wait for writes to sync
-        wait_for_writes_to_sync()
-
-        # Step 4: Execute semantic search with a query that should match our documents
-        test_query = "how to request data access permissions"
-        logger.info(f"Executing semantic search: '{test_query}'")
-
-        result = search_documents_semantic(auth_session, test_query)
-
-        # Check for GraphQL errors
-        if "errors" in result:
-            pytest.fail(f"GraphQL errors: {result['errors']}")
-
-        # Step 5: Verify results
-        search_data = result.get("data", {}).get("semanticSearchAcrossEntities", {})
-        total = search_data.get("total", 0)
-        search_results = search_data.get("searchResults", [])
-
-        logger.info(f"Semantic search returned {total} total results")
-
-        # We should get at least some results
-        assert total > 0, "Semantic search returned no results"
-        assert len(search_results) > 0, "No search results in response"
-
-        # Log the results for debugging
-        for i, item in enumerate(search_results[:5], 1):
-            entity = item.get("entity", {})
-            info = entity.get("info") or {}
-            title = info.get("title", "Unknown")
-            urn = entity.get("urn", "no-urn")
-            is_ours = "✓" if urn in self.created_urns else " "
-            logger.info(f"  {i}. [{is_ours}] {title} ({urn})")
-
-        # Verify at least one of our test documents appears in results
-        result_urns = {item.get("entity", {}).get("urn") for item in search_results}
-
-        matching_urns = result_urns.intersection(set(self.created_urns))
-        logger.info(f"Found {len(matching_urns)} of our test documents in results")
-
-        # Assert that at least one of our documents with embeddings appears in results
-        assert len(matching_urns) > 0, (
-            f"None of our test documents appeared in semantic search results. "
-            f"Created URNs: {self.created_urns}, "
-            f"Result URNs: {result_urns}"
-        )
-
-    def test_keyword_search_comparison(self, auth_session):
-        """
-        Compare keyword search to ensure basic search works.
-
-        This test verifies that keyword search works, which is a prerequisite
-        for semantic search.
-        """
-        logger.info("Testing keyword search as baseline")
-
-        # Create a single document for this test
-        doc_id = _unique_id("keyword-test")
-        doc_title = "Unique Keyword Search Test Document"
-        doc_text = "This is a unique test document for keyword search validation."
-
-        urn = create_document(
-            auth_session,
-            doc_id=doc_id,
-            title=doc_title,
-            text=doc_text,
-            sub_type="test",
-        )
-        self.created_urns.append(urn)
-
-        # Wait for indexing
-        logger.info(f"Waiting {INDEXING_WAIT_SECONDS} seconds for indexing...")
-        time.sleep(INDEXING_WAIT_SECONDS)
-        wait_for_writes_to_sync()
-
-        # Search for the unique title
-        result = search_documents_keyword(auth_session, "Unique Keyword Search Test")
-
-        assert "errors" not in result, f"GraphQL errors: {result.get('errors')}"
-
-        search_data = result.get("data", {}).get("searchAcrossEntities", {})
-        total = search_data.get("total", 0)
-
-        logger.info(f"Keyword search returned {total} results")
-        assert total > 0, "Keyword search returned no results"
+            logger.info(
+                f"✓ Relative ranking correct — 'Data Access Request Process' ranked "
+                f"#{ranks[access_doc_urn] + 1} (above Getting Started #{ranks[getting_started_urn] + 1} "
+                f"and Churn Prediction #{ranks[churn_doc_urn] + 1})"
+            )
+            logger.info("✓ End-to-end semantic search test passed!")

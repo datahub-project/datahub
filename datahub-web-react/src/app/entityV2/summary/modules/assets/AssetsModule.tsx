@@ -1,5 +1,7 @@
 import { InfiniteScrollList } from '@components';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import AddAssetsModal from '@app/entityV2/summary/modules/assets/AddAssetsModal';
@@ -15,6 +17,7 @@ import { DataHubPageModuleType, Entity } from '@types';
 const DEFAULT_PAGE_SIZE = 10;
 
 export default function AssetsModule(props: ModuleProps) {
+    const { t } = useTranslation('modules');
     const { loading, fetchAssets, total, navigateToAssetsTab } = useGetAssets();
     const { entityType } = useEntityData();
 
@@ -32,10 +35,10 @@ export default function AssetsModule(props: ModuleProps) {
                 emptyState={
                     canAddToAssets ? (
                         <EmptyContent
-                            icon="Database"
-                            title="No Assets"
-                            description="Add assets to the parent entity to view them"
-                            linkText="Add assets"
+                            icon={Database}
+                            title={t('assets.emptyTitle')}
+                            description={t('assets.emptyDescription')}
+                            linkText={t('assets.emptyLink')}
                             onLinkClick={() => setShowAddAssetsModal(true)}
                         />
                     ) : null

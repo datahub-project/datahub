@@ -1,8 +1,7 @@
 import { RightOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React, { useRef } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { IconWrapper } from '@app/searchV2/filters/SearchFilterView';
 import { MoreFilterOptionLabel } from '@app/searchV2/filters/styledComponents';
@@ -38,6 +37,7 @@ interface Props {
 }
 
 export default function MoreFilterOption({ filter, filterPredicates, activeFilters, onChangeFilters }: Props) {
+    const theme = useTheme();
     const { finalAggregations, updateFilters, numActiveFilters, manuallyUpdateFilters } = useSearchFilterDropdown({
         filter,
         activeFilters,
@@ -72,22 +72,22 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
                 data-testid={`more-filter-${displayName?.replace(/\s/g, '-')}`}
                 ref={labelRef}
             >
-                <Tooltip title={displayName} placement="left">
-                    <IconNameWrapper>
-                        {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                        <Typography.Text
-                            ellipsis={{
-                                tooltip: {
-                                    title: displayName,
-                                    showArrow: false,
-                                },
-                            }}
-                        >
-                            {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
-                        </Typography.Text>
-                    </IconNameWrapper>
-                    <StyledRightOutlined />
-                </Tooltip>
+                <IconNameWrapper>
+                    {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
+                    <Typography.Text
+                        ellipsis={{
+                            tooltip: {
+                                title: displayName,
+                                showArrow: false,
+                                overlayInnerStyle: { color: theme.colors.textSecondary },
+                                placement: 'left',
+                            },
+                        }}
+                    >
+                        {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                    </Typography.Text>
+                </IconNameWrapper>
+                <StyledRightOutlined />
             </MoreFilterOptionLabel>
         </StyledValueSelector>
     );

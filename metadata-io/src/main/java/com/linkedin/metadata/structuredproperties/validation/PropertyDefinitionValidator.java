@@ -3,6 +3,7 @@ package com.linkedin.metadata.structuredproperties.validation;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.structured.PropertyCardinality.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
@@ -56,6 +57,7 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
    */
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
@@ -63,8 +65,11 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return validateDefinitionUpserts(
+        operationContext,
         changeMCPs.stream()
             .filter(i -> STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(i.getAspectName()))
             .collect(Collectors.toList()),
@@ -72,7 +77,9 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
   }
 
   public static Stream<AspectValidationException> validateDefinitionUpserts(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
 
@@ -80,7 +87,8 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
 
     // Batch fetch status aspects
     Map<Urn, Map<String, Aspect>> structuredPropertyAspects =
-        fetchPropertyStatusAspects(propertyUrns, retrieverContext.getAspectRetriever());
+        fetchPropertyStatusAspects(
+            operationContext, propertyUrns, retrieverContext.getAspectRetriever());
 
     for (ChangeMCP item : changeMCPs) {
       // Prevent updates to the definition, if soft deleted property
@@ -98,7 +106,10 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
       qualifiedNameCheck(item, newDefinition.getQualifiedName())
           .ifPresent(exceptions::addException);
       allowedTypesCheck(
-              item, newDefinition.getTypeQualifier(), retrieverContext.getAspectRetriever())
+              item,
+              newDefinition.getTypeQualifier(),
+              operationContext,
+              retrieverContext.getAspectRetriever())
           .ifPresent(exceptions::addException);
 
       if (item.getPreviousSystemAspect() != null) {
@@ -148,9 +159,11 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
   }
 
   private static Map<Urn, Map<String, Aspect>> fetchPropertyStatusAspects(
-      Set<Urn> structuredPropertyUrns, AspectRetriever aspectRetriever) {
+      OperationFingerprint operationContext,
+      Set<Urn> structuredPropertyUrns,
+      AspectRetriever aspectRetriever) {
     return aspectRetriever.getLatestAspectObjects(
-        structuredPropertyUrns, ImmutableSet.of(Constants.STATUS_ASPECT_NAME));
+        operationContext, structuredPropertyUrns, ImmutableSet.of(Constants.STATUS_ASPECT_NAME));
   }
 
   static <T extends BatchItem> Optional<AspectValidationException> softDeleteCheck(
@@ -221,7 +234,10 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
   }
 
   private static Optional<AspectValidationException> allowedTypesCheck(
-      MCPItem item, @Nullable StringArrayMap typeQualifier, AspectRetriever aspectRetriever) {
+      MCPItem item,
+      @Nullable StringArrayMap typeQualifier,
+      OperationFingerprint operationContext,
+      AspectRetriever aspectRetriever) {
     if (typeQualifier == null || typeQualifier.get(ALLOWED_TYPES) == null) {
       return Optional.empty();
     }
@@ -242,7 +258,8 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
       }
 
       // ensure all types exist as entities
-      Map<Urn, Boolean> existsMap = aspectRetriever.entityExists(new HashSet<>(allowedTypesUrns));
+      Map<Urn, Boolean> existsMap =
+          aspectRetriever.entityExists(operationContext, new HashSet<>(allowedTypesUrns));
       if (existsMap.containsValue(false)) {
         return Optional.of(
             AspectValidationException.forItem(

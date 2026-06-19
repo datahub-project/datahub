@@ -1,12 +1,13 @@
 import { Breadcrumb } from '@components';
 import React, { useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { VerticalDivider } from '@components/components/Breadcrumb/components';
-import { BreadcrumbItem } from '@components/components/Breadcrumb/types';
+import { BreadcrumbItemType } from '@components/components/Breadcrumb/types';
 
 import { AIChat } from '@app/ingestV2/source/multiStepBuilder/AIChat';
-import { IngestionSourceBottomPanel } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBottomPanel';
+import IngestionSourceNavigationButtons from '@app/ingestV2/source/multiStepBuilder/IngestionSourceNavigationButtons';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export function IngestionSourceBuilderLayout({ children }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const { getCurrentStep, state, steps, goToStep, isStepVisited } = useMultiStepContext<
         MultiStepSourceBuilderState,
         IngestionSourceFormStep
@@ -32,11 +34,12 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
 
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-    const breadCrumbStepItems: BreadcrumbItem[] = steps.map((step) => {
-        const breadCrumbItem: BreadcrumbItem = {
+    const breadCrumbStepItems: BreadcrumbItemType[] = steps.map((step) => {
+        const breadCrumbItem: BreadcrumbItemType = {
+            key: step.key,
             label: step.label,
             onClick: isStepVisited(step.key) ? () => goToStep(step.key) : undefined,
-            isCurrent: currentStep === step,
+            isActive: currentStep === step,
         };
 
         return breadCrumbItem;
@@ -52,12 +55,16 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
         <Breadcrumb
             items={[
                 {
-                    label: 'Manage Data Sources',
+                    key: 'back',
+                    label: t('multiStep.builder.breadcrumbManageDataSources'),
                     href: tabUrlMap[TabType.Sources],
                     separator: <VerticalDivider type="vertical" />,
                 },
                 {
-                    label: isEditing ? 'Update Source' : 'Create Source',
+                    key: 'action',
+                    label: isEditing
+                        ? t('multiStep.builder.breadcrumbUpdateSource')
+                        : t('multiStep.builder.breadcrumbCreateSource'),
                     separator: <VerticalDivider type="vertical" />,
                 },
                 ...breadCrumbStepItems,
@@ -70,8 +77,8 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
             title={currentStep?.label}
             subTitle={currentStep?.subTitle}
             rightPanelContent={currentStep?.hideRightPanel ? null : <AIChat />}
-            bottomPanelContent={currentStep?.hideBottomPanel ? null : <IngestionSourceBottomPanel />}
             topBreadcrumb={breadCrumb}
+            topRightContent={<IngestionSourceNavigationButtons />}
         >
             <ContentWrapper ref={scrollContainerRef}>{children}</ContentWrapper>
         </PageLayout>

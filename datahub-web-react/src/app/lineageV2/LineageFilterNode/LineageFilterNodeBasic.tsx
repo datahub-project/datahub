@@ -1,8 +1,8 @@
 import React, { useContext, useState } from 'react';
+import { Trans } from 'react-i18next';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import { useAvoidIntersectionsOften } from '@app/lineageV2/LineageEntityNode/useAvoidIntersections';
 import { LINEAGE_NODE_WIDTH } from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
 import LineageFilterSearch from '@app/lineageV2/LineageFilterNode/LineageFilterSearch';
@@ -21,8 +21,8 @@ import { EntityType } from '@types';
 export const LINEAGE_FILTER_NODE_NAME = 'lineage-filter';
 
 const NodeWrapper = styled.div`
-    background-color: white;
-    border: 1px solid ${LINEAGE_COLORS.NODE_BORDER};
+    background-color: ${(props) => props.theme.colors.bg};
+    border: ${(props) => `1px solid ${props.theme.colors.border}`};
     border-radius: 12px;
     cursor: pointer;
     padding: 8px;
@@ -30,8 +30,8 @@ const NodeWrapper = styled.div`
 `;
 
 const ExtraCard = styled.div<{ bottom: number }>`
-    background-color: white;
-    border: 1px solid #eee;
+    background-color: ${(props) => props.theme.colors.bg};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
     bottom: ${({ bottom }) => bottom}px;
     height: 40px;
@@ -104,13 +104,19 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
             <CustomHandle type="target" position={Position.Left} isConnectable={false} />
             <CustomHandle type="source" position={Position.Right} isConnectable={false} />
             <TitleWrapper>
-                <Title>
-                    <TitleCount>{Math.min(numerator, denominator)}</TitleCount> of{' '}
-                    <TitleCount>
-                        {denominator}
-                        {showGhostEntities && '+'}
-                    </TitleCount>{' '}
-                    shown
+                <Title data-testid="title">
+                    <Trans
+                        i18nKey="lineage:filter.shownOfTotal"
+                        values={{
+                            shown: Math.min(numerator, denominator),
+                            total: denominator,
+                            plus: showGhostEntities ? '+' : '',
+                        }}
+                        components={{
+                            shown: <TitleCount />,
+                            total: <TitleCount />,
+                        }}
+                    />
                 </Title>
                 <ShowMoreButton data={data} numMatches={numMatches} />
             </TitleWrapper>
@@ -135,11 +141,11 @@ interface EntryProps<T> {
 }
 
 function PlatformEntry({ agg, index }: EntryProps<PlatformAggregate>) {
-    return LineageFilterEntry(PLATFORM_FILTER_NAME, agg, index);
+    return LineageFilterEntry(PLATFORM_FILTER_NAME, agg, index, 'platform');
 }
 
 function SubtypeEntry({ agg, index }: EntryProps<SubtypeAggregate>) {
-    return LineageFilterEntry(ENTITY_SUB_TYPE_FILTER_NAME, agg, index);
+    return LineageFilterEntry(ENTITY_SUB_TYPE_FILTER_NAME, agg, index, 'subtype');
 }
 
 const EntryWrapper = styled.span<{ includeBefore: boolean }>`
@@ -162,6 +168,7 @@ function LineageFilterEntry(
     filterName: string,
     [filterValue, count, entity]: PlatformAggregate | SubtypeAggregate,
     index: number,
+    dataTestIdPrefix: string,
 ) {
     const entityRegistry = useEntityRegistryV2();
     const { icon, label } = getFilterIconAndLabel(filterName, filterValue, entityRegistry, entity || null, 12);
@@ -169,7 +176,7 @@ function LineageFilterEntry(
     return (
         <EntryWrapper title={label} includeBefore={index > 0}>
             {icon}
-            <CountWrapper>{count}</CountWrapper>
+            <CountWrapper data-testid={`filter-counter-${dataTestIdPrefix}-${label}`}>{count}</CountWrapper>
         </EntryWrapper>
     );
 }

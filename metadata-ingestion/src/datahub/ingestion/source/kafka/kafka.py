@@ -33,7 +33,6 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -45,7 +44,6 @@ from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -318,14 +316,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         config: KafkaSourceConfig = KafkaSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         topics = self.consumer.list_topics(
             timeout=self.source_config.connection.client_timeout_seconds
@@ -430,7 +420,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             # In Kafka documentSchema and keySchema both contains "doc" field.
             # DataHub Dataset "description" field is mapped to documentSchema's "doc" field.
             avro_schema = avro.schema.parse(
-                schema_metadata.platformSchema.documentSchema
+                schema_metadata.platformSchema.documentSchema,
+                validate_names=False,
             )
             description = getattr(avro_schema, "doc", None)
 

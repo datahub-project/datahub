@@ -1,0 +1,13 @@
+{
+    "resultText.failing": "Fallidas",
+    "resultText.passing": "Correctas",
+    "summary.allFailing": "Todas las pruebas están fallando",
+    "summary.allPassing": "Todas las pruebas son correctas",
+    "summary.countsSubtitle": "{{passing}} pruebas correctas, {{failing}} pruebas fallidas",
+    "summary.noTestsRun": "No se ha ejecutado ninguna prueba",
+    "summary.someFailing": "Algunas pruebas están fallando",
+    "summary.statusTooltip": "Este estado se basa en la ejecución más reciente de cada prueba.",
+    "testResults.empty": "No se encontraron pruebas :(",
+    "testResults.noEvaluations": "Sin evaluaciones",
+    "testResults.title": "Resultados de las pruebas de gobernanza"
+}

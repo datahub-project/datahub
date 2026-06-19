@@ -19,6 +19,12 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.api.incremental_ownership_helper import (
+    IncrementalOwnershipConfigMixin,
+)
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -59,9 +65,10 @@ class UnityCatalogProfilerConfig(ConfigModel):
     method: str = Field(
         description=(
             "Profiling method to use."
-            " Options supported are `ge` and `analyze`."
+            " Options supported are `ge`, `analyze`, and `sqlalchemy`."
             " `ge` uses Great Expectations and runs SELECT SQL queries on profiled tables."
             " `analyze` calls ANALYZE TABLE on profiled tables. Only works for delta tables."
+            " `sqlalchemy` uses the custom SQLAlchemy-based profiler (no GE dependency)."
         ),
     )
 
@@ -82,7 +89,7 @@ class UnityCatalogProfilerConfig(ConfigModel):
 
 class DeltaLakeDetails(ConfigModel):
     platform_instance_name: Optional[str] = Field(
-        default=None, description="Delta-lake paltform instance name"
+        default=None, description="Delta-lake platform instance name"
     )
     env: str = Field(default="PROD", description="Delta-lake environment")
 
@@ -127,8 +134,20 @@ class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
         return not self.profile_table_level_only
 
 
+# TODO: should this max_wait_secs had been implemented as a global profiler feature instead of keeping it specific to Unity Catalog?
 class UnityCatalogGEProfilerConfig(UnityCatalogProfilerConfig, GEProfilingConfig):
     method: Literal["ge"] = "ge"
+
+    max_wait_secs: Optional[int] = Field(
+        default=None,
+        description="Maximum time to wait for a table to be profiled.",
+    )
+
+
+class UnityCatalogSQLAlchemyProfilerConfig(
+    UnityCatalogProfilerConfig, GEProfilingConfig
+):
+    method: Literal["sqlalchemy"] = "sqlalchemy"
 
     max_wait_secs: Optional[int] = Field(
         default=None,
@@ -144,6 +163,8 @@ class UnityCatalogSourceConfig(
     DatasetSourceConfigMixin,
     StatefulProfilingConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
+    IncrementalOwnershipConfigMixin,
+    IncrementalPropertiesConfigMixin,
 ):
     include_metastore: bool = pydantic.Field(
         default=False,
@@ -167,10 +188,12 @@ class UnityCatalogSourceConfig(
     )
 
     _only_ingest_assigned_metastore_removed = pydantic_removed_field(
-        "only_ingest_assigned_metastore"
+        "only_ingest_assigned_metastore", month="June", year=2023
     )
 
-    _metastore_id_pattern_removed = pydantic_removed_field("metastore_id_pattern")
+    _metastore_id_pattern_removed = pydantic_removed_field(
+        "metastore_id_pattern", month="June", year=2023
+    )
 
     catalogs: Optional[List[str]] = pydantic.Field(
         default=None,
@@ -201,6 +224,28 @@ class UnityCatalogSourceConfig(
             "Regex patterns for notebooks to filter in ingestion, based on notebook *path*."
             " Specify regex to match the entire notebook path in `/<dir>/.../<name>` format."
             " e.g. to match all notebooks in the root Shared directory, use the regex `/Shared/.*`."
+        ),
+    )
+
+    metric_view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for Unity Catalog Metric Views to filter in ingestion."
+            " Specify regex to match the full `catalog.schema.metric_view_name`."
+            " Only applies when `include_metric_views` is True."
+        ),
+    )
+
+    include_metric_views: bool = pydantic.Field(
+        default=False,
+        description=(
+            "Enable enriched ingestion of Unity Catalog Metric Views: subtype"
+            " 'Metric View', YAML body as ViewProperties, upstream and column-level"
+            " lineage from `source` / `joins` / `dimensions.expr` / `measures.expr`,"
+            " `Dimension` / `Measure` tags on matching columns, `materialization`"
+            " → `ViewProperties.materialized`, and `filter` as a custom property."
+            " Default `false` keeps metric views as plain Tables. Requires a"
+            " `databricks-sdk` recent enough to expose `TableType.METRIC_VIEW`."
         ),
     )
 
@@ -248,6 +293,26 @@ class UnityCatalogSourceConfig(
     include_column_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
+    )
+
+    include_table_constraints: bool = pydantic.Field(
+        default=False,
+        description=(
+            "If enabled, fetches primary key and foreign key constraints for each table "
+            "via an additional tables.get() API call per table (one call per table). "
+            "Disabled by default to avoid unexpected API load on large catalogs. "
+            "Enables PK/FK visualisation in the DataHub schema view when set to true."
+        ),
+    )
+
+    include_partition_keys: bool = pydantic.Field(
+        default=False,
+        description=(
+            "If enabled, the `isPartitioningKey` field is populated on schema fields "
+            "for columns that are part of the table's partition key. "
+            "Partition key information is already present in the tables.list() response "
+            "so no additional API calls are made."
+        ),
     )
 
     lineage_data_source: LineageDataSource = pydantic.Field(
@@ -302,11 +367,30 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    include_queries: bool = pydantic.Field(
+        default=True,
+        description=(
+            "If enabled, emit DataHub Query entities for the SQL statements seen in query "
+            "history (the statement text and the datasets it reads/writes). Only effective "
+            "on the system-tables usage path; identical statements are de-duplicated by "
+            "fingerprint."
+        ),
+    )
+    include_query_usage_statistics: bool = pydantic.Field(
+        default=True,
+        description=(
+            "If enabled, emit per-query usage/popularity statistics (queryUsageStatistics) "
+            "for the emitted Query entities. Only effective when include_queries is enabled."
+        ),
+    )
+
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
-        UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig
+        UnityCatalogGEProfilerConfig,
+        UnityCatalogAnalyzeProfilerConfig,
+        UnityCatalogSQLAlchemyProfilerConfig,
     ] = Field(  # type: ignore
-        default=UnityCatalogGEProfilerConfig(),
+        default=UnityCatalogSQLAlchemyProfilerConfig(),
         description="Data profiling configuration",
         discriminator="method",
     )
@@ -385,6 +469,15 @@ class UnityCatalogSourceConfig(
             forced_disable_hive_metastore_extraction
         )
 
+    def usage_uses_system_tables(self, warehouse_id: Optional[str]) -> bool:
+        """Return True when usage data should come from the system-tables join path."""
+        src = self.usage_data_source
+        if src == UsageDataSource.SYSTEM_TABLES:
+            return True
+        if src == UsageDataSource.AUTO:
+            return bool(warehouse_id)
+        return False
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -393,16 +486,33 @@ class UnityCatalogSourceConfig(
     def is_ge_profiling(self) -> bool:
         return self.profiling.method == "ge"
 
+    def is_sqlalchemy_profiling(self) -> bool:
+        return self.profiling.method == "sqlalchemy"
+
+    def uses_table_level_profiler(self) -> bool:
+        return self.is_ge_profiling() or self.is_sqlalchemy_profiling()
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )
 
-    @field_validator("start_time", mode="after")
-    @classmethod
-    def within_thirty_days(cls, v: datetime) -> datetime:
-        if (datetime.now(timezone.utc) - v).days > 30:
-            raise ValueError("Query history is only maintained for 30 days.")
-        return v
+    def _validate_start_time_window(self) -> None:
+        # Called at the end of set_warehouse_id_from_profiling so self.warehouse_id is
+        # already resolved from profiling before this check runs.
+        # Intentionally checks BOTH usage and lineage data sources: either path using
+        # system tables extends the allowed history window from 30 to 365 days.
+        uses_system_tables = bool(self.warehouse_id) and (
+            self.usage_data_source != UsageDataSource.API
+            or self.lineage_data_source != LineageDataSource.API
+        )
+        # system.query.history / system.access.* retain ~365 days; the REST API is limited to 30.
+        max_days = 365 if uses_system_tables else 30
+        age_days = (datetime.now(timezone.utc) - self.start_time).days
+        if age_days > max_days:
+            raise ValueError(
+                f"start_time is {age_days} days old; the configured source retains at "
+                f"most {max_days} days of history."
+            )
 
     @field_validator("workspace_url", mode="after")
     @classmethod
@@ -412,24 +522,6 @@ class UnityCatalogSourceConfig(
                 "Workspace URL must start with http scheme. e.g. https://my-workspace.cloud.databricks.com"
             )
         return workspace_url
-
-    @model_validator(mode="before")
-    def either_token_or_azure_auth_provided(cls, values: dict) -> dict:
-        token = values.get("token")
-        azure_auth = values.get("azure_auth")
-
-        # Check if exactly one of the authentication methods is provided
-        if not token and not azure_auth:
-            raise ValueError(
-                "Either 'azure_auth' or 'token' (personal access token) must be provided in the configuration."
-            )
-
-        if token and azure_auth:
-            raise ValueError(
-                "Cannot specify both 'token' and 'azure_auth'. Please provide only one authentication method."
-            )
-
-        return values
 
     @field_validator("include_metastore", mode="after")
     @classmethod
@@ -466,6 +558,9 @@ class UnityCatalogSourceConfig(
         if profiling and profiling.enabled and not profiling.warehouse_id:
             raise ValueError("warehouse_id must be set when profiling is enabled.")
 
+        # Run after warehouse_id is resolved so the 30 vs 365-day cap is correct.
+        self._validate_start_time_window()
+
         return self
 
     @model_validator(mode="after")
@@ -499,4 +594,11 @@ class UnityCatalogSourceConfig(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:
         v.deny.append(".*\\.information_schema")
+        return v
+
+    @field_validator("profiling", mode="before")
+    @classmethod
+    def _default_profiling_method(cls, v: object) -> object:
+        if isinstance(v, dict) and "method" not in v:
+            return {**v, "method": "sqlalchemy"}
         return v

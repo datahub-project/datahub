@@ -126,10 +126,10 @@ const orderedIncidents = (priorityIncidentGroups) => {
     return newOrderedIncidents;
 };
 
-export const getIncidentType = (incident: Incident) =>
+const getIncidentType = (incident: Incident) =>
     incident.incidentType === IncidentType.Custom ? incident.customType : incident.incidentType;
 
-export const createIncidentGroups = (incidents: Array<Incident>): IncidentGroupBy => {
+const createIncidentGroups = (incidents: Array<Incident>): IncidentGroupBy => {
     // Pre-sort the list of incidents based on which has been most recently created.
     incidents?.sort((a, b) => a?.created?.time - b?.created?.time);
 
@@ -157,10 +157,10 @@ const generateStageFilters = (data: IncidentStage[], order: string[]) => {
 
     if (Array.isArray(data)) {
         // ✅ Type guard ensures 'find' exists
-        order.forEach((stage) => {
+        order.forEach((orderKey) => {
             const foundItem = data.find((item) => {
                 const filter = item as unknown as IncidentRecommendedFilter;
-                return filter?.displayName?.toLowerCase() === stage?.toLowerCase();
+                return filter?.name?.toLowerCase() === orderKey?.toLowerCase();
             });
             if (foundItem) {
                 newOrderedArray.push(foundItem);
@@ -176,10 +176,10 @@ const generatePriorityFilters = (data: IncidentPriority[], order: string[]) => {
 
     if (Array.isArray(data)) {
         // ✅ Type guard ensures 'find' exists
-        order.forEach((priority) => {
+        order.forEach((orderKey) => {
             const foundItem = data.find((item) => {
                 const filter = item as unknown as IncidentRecommendedFilter;
-                return filter?.displayName?.toLowerCase() === priority?.toLowerCase();
+                return filter?.name?.toLowerCase() === orderKey?.toLowerCase();
             });
             if (foundItem) {
                 newOrderedArray.push(foundItem);
@@ -195,10 +195,10 @@ const generateStateFilters = (data: IncidentState[], order: string[]) => {
 
     if (Array.isArray(data)) {
         // ✅ Type guard ensures 'find' exists
-        order.forEach((state) => {
+        order.forEach((orderKey) => {
             const foundItem = data.find((item) => {
                 const filter = item as unknown as IncidentRecommendedFilter;
-                return filter?.displayName?.toLowerCase() === state?.toLowerCase();
+                return filter?.name?.toLowerCase() === orderKey?.toLowerCase();
             });
             if (foundItem) {
                 newOrderedArray.push(foundItem);

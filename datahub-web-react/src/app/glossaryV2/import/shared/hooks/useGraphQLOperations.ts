@@ -5,7 +5,6 @@ import { gql, useApolloClient } from '@apollo/client';
 import { useCallback } from 'react';
 
 import { EntityPatchInput, GraphQLEntity, UseGraphQLOperationsReturn } from '@app/glossaryV2/import/glossary.types';
-import { QUERY_LIMITS } from '@app/glossaryV2/import/shared/utils/testConstants';
 
 // GraphQL query for fetching glossary entities (with pagination support)
 // Note: count: 1000 in query string uses QUERY_LIMITS.DEFAULT_COUNT value

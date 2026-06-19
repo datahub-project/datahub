@@ -202,7 +202,8 @@ public class ElasticSearchServiceTest {
   public void testAppendRunId_DualWriteToSemanticIndex() {
     // Setup: Create a mock that supports indexExists check
     ESWriteDAO mockEsWriteDAOWithIndex = mock(ESWriteDAO.class);
-    when(mockEsWriteDAOWithIndex.indexExists(any(String.class))).thenReturn(true);
+    when(mockEsWriteDAOWithIndex.indexExists(any(OperationContext.class), any(String.class)))
+        .thenReturn(true);
 
     ElasticSearchService serviceWithSemanticIndex =
         new ElasticSearchService(
@@ -246,6 +247,7 @@ public class ElasticSearchServiceTest {
 
     verify(mockEsWriteDAOWithIndex)
         .applyScriptUpdateByIndexName(
+            any(OperationContext.class),
             indexNameCaptor.capture(),
             docIdCaptor.capture(),
             scriptSourceCaptor.capture(),
@@ -264,7 +266,8 @@ public class ElasticSearchServiceTest {
   public void testAppendRunId_SkipsSemanticIndexWhenNotExists() {
     // Setup: Create a mock where semantic index does not exist
     ESWriteDAO mockEsWriteDAONoSemanticIndex = mock(ESWriteDAO.class);
-    when(mockEsWriteDAONoSemanticIndex.indexExists(any(String.class))).thenReturn(false);
+    when(mockEsWriteDAONoSemanticIndex.indexExists(any(OperationContext.class), any(String.class)))
+        .thenReturn(false);
 
     ElasticSearchService serviceWithoutSemanticIndex =
         new ElasticSearchService(
@@ -295,11 +298,37 @@ public class ElasticSearchServiceTest {
     // Verify semantic index update was NOT called (since index doesn't exist)
     verify(mockEsWriteDAONoSemanticIndex, never())
         .applyScriptUpdateByIndexName(
+            any(OperationContext.class),
             any(String.class),
             any(String.class),
             any(String.class),
             any(Map.class),
             any(Map.class));
+  }
+
+  @Test
+  public void testAppendRunIdBySearchGroup() {
+    String searchGroup = "dataset";
+    String runId = "run-v3-123";
+
+    testInstance.appendRunIdBySearchGroup(opContext, searchGroup, TEST_DOC_ID, TEST_URN, runId);
+
+    ArgumentCaptor<Map<String, Object>> scriptParamsCaptor = ArgumentCaptor.forClass(Map.class);
+    ArgumentCaptor<Map<String, Object>> upsertCaptor = ArgumentCaptor.forClass(Map.class);
+
+    verify(mockEsWriteDAO)
+        .applyScriptUpdateBySearchGroup(
+            eq(opContext),
+            eq(searchGroup),
+            eq(TEST_DOC_ID),
+            eq(ElasticSearchService.SCRIPT_SOURCE),
+            scriptParamsCaptor.capture(),
+            upsertCaptor.capture());
+
+    assertEquals(runId, scriptParamsCaptor.getValue().get("runId"));
+    assertEquals(MAX_RUN_IDS_INDEXED, scriptParamsCaptor.getValue().get("maxRunIds"));
+    assertEquals(Collections.singletonList(runId), upsertCaptor.getValue().get("runId"));
+    assertEquals(TEST_URN.toString(), upsertCaptor.getValue().get("urn"));
   }
 
   @Test

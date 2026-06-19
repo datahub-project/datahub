@@ -1,5 +1,8 @@
 import { Badge, Modal, Table, Text } from '@components';
+import type { TFunction } from 'i18next';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { DefaultTheme, useTheme } from 'styled-components';
 
 import { Entity, EntityData } from '@app/glossaryV2/import/glossary.types';
 import {
@@ -60,9 +63,9 @@ const formatCustomPropertiesForDisplay = (value: string): string => {
 };
 
 // Create table columns following DataHub patterns
-const createTableColumns = () => [
+const createTableColumns = (theme: DefaultTheme, t: TFunction) => [
     {
-        title: 'Field',
+        title: t('import.diff.field'),
         key: 'field',
         dataIndex: 'field',
         width: '20%',
@@ -75,7 +78,7 @@ const createTableColumns = () => [
     {
         title: (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Text weight="medium">Existing Data</Text>
+                <Text weight="medium">{t('import.diff.existingData')}</Text>
             </div>
         ),
         key: 'existing',
@@ -86,14 +89,14 @@ const createTableColumns = () => [
                 style={{
                     padding: '8px 12px',
                     backgroundColor: (() => {
-                        if (record.isConflict) return '#fef2f2';
-                        if (record.hasChanges) return '#fef3c7';
-                        return '#f9fafb';
+                        if (record.isConflict) return theme.colors.bgSurfaceError;
+                        if (record.hasChanges) return theme.colors.bgSurfaceWarning;
+                        return theme.colors.bgSurface;
                     })(),
                     border: `1px solid ${(() => {
-                        if (record.isConflict) return '#fecaca';
-                        if (record.hasChanges) return '#fde68a';
-                        return '#e5e7eb';
+                        if (record.isConflict) return theme.colors.borderError;
+                        if (record.hasChanges) return theme.colors.borderWarning;
+                        return theme.colors.border;
                     })()}`,
                     borderRadius: '6px',
                     minHeight: '40px',
@@ -116,7 +119,7 @@ const createTableColumns = () => [
                     </Text>
                 ) : (
                     <Text color="gray" size="sm" style={{ fontStyle: 'italic' }}>
-                        No value
+                        {t('import.diff.noValue')}
                     </Text>
                 )}
                 {record.isConflict && (
@@ -138,7 +141,7 @@ const createTableColumns = () => [
     {
         title: (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Text weight="medium">Imported Data</Text>
+                <Text weight="medium">{t('import.diff.importedData')}</Text>
             </div>
         ),
         key: 'imported',
@@ -149,14 +152,14 @@ const createTableColumns = () => [
                 style={{
                     padding: '8px 12px',
                     backgroundColor: (() => {
-                        if (record.isConflict) return '#fef2f2';
-                        if (record.hasChanges) return '#fef3c7';
-                        return '#f9fafb';
+                        if (record.isConflict) return theme.colors.bgSurfaceError;
+                        if (record.hasChanges) return theme.colors.bgSurfaceWarning;
+                        return theme.colors.bgSurface;
                     })(),
                     border: `1px solid ${(() => {
-                        if (record.isConflict) return '#fecaca';
-                        if (record.hasChanges) return '#fde68a';
-                        return '#e5e7eb';
+                        if (record.isConflict) return theme.colors.borderError;
+                        if (record.hasChanges) return theme.colors.borderWarning;
+                        return theme.colors.border;
                     })()}`,
                     borderRadius: '6px',
                     minHeight: '40px',
@@ -179,7 +182,7 @@ const createTableColumns = () => [
                     </Text>
                 ) : (
                     <Text color="gray" size="sm" style={{ fontStyle: 'italic' }}>
-                        No value
+                        {t('import.diff.noValue')}
                     </Text>
                 )}
                 {record.isConflict && (
@@ -201,6 +204,8 @@ const createTableColumns = () => [
 ];
 
 export const DiffModal: React.FC<DiffModalProps> = ({ visible, onClose, entity, existingEntity }) => {
+    const theme = useTheme();
+    const { t } = useTranslation('governance.glossary');
     const tableData = useMemo(() => {
         if (!entity || !entity.data) return [];
 
@@ -279,7 +284,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({ visible, onClose, entity, 
             dataTestId="diff-modal"
         >
             <Table
-                columns={createTableColumns()}
+                columns={createTableColumns(theme, t)}
                 data={tableData}
                 showHeader
                 isScrollable

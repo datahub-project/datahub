@@ -1,3 +1,7 @@
+---
+description: "Overview of DataHub Telemetry, the anonymous usage data the project collects, and instructions for opting out."
+---
+
 # DataHub Telemetry
 
 ## Overview of DataHub Telemetry
@@ -25,4 +29,4 @@ Telemetry is enabled by default. While we are careful to anonymize all telemetry
 
 You can disable backend telemetry by setting the `DATAHUB_TELEMETRY_ENABLED` environment variable to `false`. You'll need to set this on both the datahub-gms and datahub-actions containers.
 
-If you're using the DataHub CLI, ingestion framework telemetry will be disabled when the `DATAHUB_TELEMETRY_ENABLED` environment variable is set to `false`. To persist this change for your machine, run `datahub telemetry disable`.
+If you're using the DataHub CLI, ingestion framework telemetry will be disabled when the `DATAHUB_TELEMETRY_ENABLED` environment variable is set to `false`. To persist this change, set `DATAHUB_TELEMETRY_ENABLED=false` in your shell profile.

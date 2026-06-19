@@ -1,0 +1,20 @@
+{
+    "logOut": "Sair",
+    "nav.access": "Acesso",
+    "nav.accessTokens": "Tokens de Acesso",
+    "nav.appearance": "Aparência",
+    "nav.developer": "Desenvolvedor",
+    "nav.features": "Recursos",
+    "nav.homePage": "Página Inicial",
+    "nav.manage": "Gerenciar",
+    "nav.myNotifications": "Minhas Notificações",
+    "nav.mySubscriptions": "Minhas Assinaturas",
+    "nav.ownershipTypes": "Tipos de Propriedade",
+    "nav.permissions": "Permissões",
+    "nav.personal": "Pessoal",
+    "nav.preferences": "Preferências",
+    "nav.usersGroups": "Usuários e Grupos",
+    "nav.views": "Visualizações",
+    "subTitle": "Gerencie suas configurações",
+    "title": "Configurações"
+}

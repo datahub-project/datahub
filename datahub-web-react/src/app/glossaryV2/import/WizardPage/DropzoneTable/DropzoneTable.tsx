@@ -2,30 +2,34 @@
  * DropzoneTable component for file upload with drag-and-drop
  */
 import { Button, Icon, Text } from '@components';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { Upload } from '@phosphor-icons/react/dist/csr/Upload';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React, { useCallback } from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 const DropzoneContainer = styled.div<{ isDragActive: boolean; hasFile: boolean }>`
     border: 2px dashed
         ${(props) => {
-            if (props.isDragActive) return '#1890ff';
-            if (props.hasFile) return '#52c41a';
-            return '#d9d9d9';
+            if (props.isDragActive) return props.theme.colors.borderInformation;
+            if (props.hasFile) return props.theme.colors.borderSuccess;
+            return props.theme.colors.border;
         }};
     border-radius: 8px;
     padding: 48px 24px;
     text-align: center;
     background-color: ${(props) => {
-        if (props.isDragActive || props.hasFile) return '#f6ffed';
-        return '#fafafa';
+        if (props.isDragActive || props.hasFile) return props.theme.colors.bgSurfaceSuccess;
+        return props.theme.colors.bgSurface;
     }};
     transition: all 0.3s ease;
     cursor: pointer;
     position: relative;
 
     &:hover {
-        border-color: #1890ff;
-        background-color: #f6ffed;
+        border-color: ${(props) => props.theme.colors.borderInformation};
+        background-color: ${(props) => props.theme.colors.bgSurfaceSuccess};
     }
 `;
 
@@ -38,7 +42,7 @@ const DropzoneContent = styled.div`
 
 const UploadIcon = styled.div`
     font-size: 48px;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textSecondary};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -55,9 +59,9 @@ const StatusIcon = styled.div<{ status: 'success' | 'error' | 'processing' }>`
         width: 24px;
         height: 24px;
         color: ${(props) => {
-            if (props.status === 'success') return '#52c41a';
-            if (props.status === 'error') return '#ff4d4f';
-            return '#1890ff';
+            if (props.status === 'success') return props.theme.colors.iconSuccess;
+            if (props.status === 'error') return props.theme.colors.iconError;
+            return props.theme.colors.iconInformation;
         }};
     }
 `;
@@ -75,7 +79,7 @@ const FileName = styled(Text)`
 `;
 
 const FileSize = styled(Text)`
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 14px;
 `;
 
@@ -87,7 +91,7 @@ const ProgressContainer = styled.div`
 const CustomProgressBar = styled.div<{ progress: number }>`
     width: 100%;
     height: 8px;
-    background-color: #e5e7eb;
+    background-color: ${(props) => props.theme.colors.border};
     border-radius: 4px;
     overflow: hidden;
 
@@ -96,7 +100,7 @@ const CustomProgressBar = styled.div<{ progress: number }>`
         display: block;
         width: ${(props) => props.progress}%;
         height: 100%;
-        background-color: #3b82f6;
+        background-color: ${(props) => props.theme.colors.iconInformation};
         border-radius: 4px;
         transition: width 0.3s ease;
     }
@@ -137,6 +141,8 @@ export default function DropzoneTable({
     onRetry,
     canRetry = false,
 }: DropzoneTableProps) {
+    const { t } = useTranslation('governance.glossary');
+    const theme = useTheme();
     const validateAndSelectFile = useCallback(
         (selectedFile: File) => {
             // Validate file type
@@ -217,27 +223,27 @@ export default function DropzoneTable({
         if (error) {
             return (
                 <StatusIcon status="error">
-                    <Icon icon="Warning" source="phosphor" size="md" color="red" />
+                    <Icon icon={Warning} size="md" color="red" />
                 </StatusIcon>
             );
         }
         if (file && !isProcessing) {
             return (
                 <StatusIcon status="success">
-                    <Icon icon="CheckCircle" source="phosphor" size="md" color="green" />
+                    <Icon icon={CheckCircle} size="md" color="green" />
                 </StatusIcon>
             );
         }
         if (isProcessing) {
             return (
                 <StatusIcon status="processing">
-                    <Icon icon="Upload" source="phosphor" size="md" color="blue" />
+                    <Icon icon={Upload} size="md" color="blue" />
                 </StatusIcon>
             );
         }
         return (
             <UploadIcon>
-                <Icon icon="Upload" source="phosphor" size="lg" color="gray" />
+                <Icon icon={Upload} size="lg" color="gray" />
             </UploadIcon>
         );
     };
@@ -262,15 +268,15 @@ export default function DropzoneTable({
                         <div
                             style={{
                                 padding: '12px',
-                                backgroundColor: '#fef2f2',
-                                border: '1px solid #fecaca',
+                                backgroundColor: theme.colors.bgSurfaceError,
+                                border: `1px solid ${theme.colors.borderError}`,
                                 borderRadius: '6px',
-                                color: '#dc2626',
+                                color: theme.colors.textError,
                                 fontSize: '14px',
                                 maxWidth: 400,
                             }}
                         >
-                            <strong>Error:</strong> {error}
+                            <strong>{t('import.dropzone.errorLabel')}</strong> {error}
                         </div>
                     )}
 
@@ -278,14 +284,14 @@ export default function DropzoneTable({
                         <ActionButtons>
                             {canRetry && onRetry && (
                                 <Button variant="filled" color="primary" onClick={onRetry}>
-                                    Retry
+                                    {t('import.dropzone.retry')}
                                 </Button>
                             )}
                             <Button onClick={handleClick} disabled={isProcessing}>
-                                Choose Different File
+                                {t('import.dropzone.chooseDifferentFile')}
                             </Button>
                             <Button variant="filled" color="red" onClick={onFileRemove}>
-                                Remove File
+                                {t('import.dropzone.removeFile')}
                             </Button>
                         </ActionButtons>
                     )}
@@ -298,10 +304,10 @@ export default function DropzoneTable({
                 {getStatusIcon()}
                 <div>
                     <Text weight="bold" style={{ fontSize: 16 }}>
-                        {isProcessing ? 'Processing file...' : 'Drop your CSV file here'}
+                        {isProcessing ? t('import.dropzone.processing') : t('import.dropzone.dropPrompt')}
                     </Text>
                     <br />
-                    <Text color="gray">or click to browse files</Text>
+                    <Text color="gray">{t('import.dropzone.clickToBrowse')}</Text>
                 </div>
 
                 {isProcessing && (
@@ -311,10 +317,12 @@ export default function DropzoneTable({
                 )}
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 12, color: '#6b7280' }}>
-                        Supported formats: {acceptedFileTypes.join(', ')}
+                    <Text style={{ fontSize: 12, color: theme.colors.textTertiary }}>
+                        {t('import.dropzone.supportedFormats', { formats: acceptedFileTypes.join(', ') })}
                     </Text>
-                    <Text style={{ fontSize: 12, color: '#6b7280' }}>Maximum file size: {maxFileSize}MB</Text>
+                    <Text style={{ fontSize: 12, color: theme.colors.textTertiary }}>
+                        {t('import.dropzone.maxFileSize', { size: maxFileSize })}
+                    </Text>
                 </div>
             </DropzoneContent>
         );
@@ -338,6 +346,7 @@ export default function DropzoneTable({
             <HiddenInput
                 id="file-input"
                 type="file"
+                // eslint-disable-next-line i18next/no-literal-string
                 accept={acceptedFileTypes.join(',')}
                 onChange={handleFileInputChange}
                 disabled={isProcessing}

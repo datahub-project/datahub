@@ -287,7 +287,7 @@ def guessing_url_name(url: str, examples: dict) -> str:
     guessed_url = url  # just a copy of the original url
 
     # substituting the parameter's name w the value
-    for name, clean_name in zip(needed_n, cleaned_needed_n):
+    for name, clean_name in zip(needed_n, cleaned_needed_n, strict=False):
         if clean_name in examples[ex2use]:
             guessed_url = re.sub(name, str(examples[ex2use][clean_name]), guessed_url)
 

@@ -162,7 +162,7 @@ describe('URN Generation Utils', () => {
             };
 
             const urnMap = new Map<string, string>();
-            expect(() => resolveEntityUrn(entity, urnMap)).toThrow('No URN available for entity');
+            expect(() => UrnManager.resolveEntityUrn(entity, urnMap)).toThrow('No URN available for entity');
         });
     });
 

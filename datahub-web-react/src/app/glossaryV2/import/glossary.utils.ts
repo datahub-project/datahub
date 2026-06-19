@@ -9,7 +9,6 @@ import {
     ValidationResult,
     ValidationWarning,
 } from '@app/glossaryV2/import/glossary.types';
-import { UrnManager } from '@app/glossaryV2/import/shared/utils/urnManager';
 
 export function generateEntityId(entity: EntityData, parentNames: string[] = []): string {
     const hierarchyPath = [...parentNames, entity.name].join(' > ');

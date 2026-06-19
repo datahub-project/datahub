@@ -1,4 +1,5 @@
-import { Button, Dropdown, Icon, colors } from '@components';
+import { Button, Dropdown, Icon } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -39,10 +40,10 @@ const StyledButton = styled(Button)<{ $orientation: AddModuleButtonOrientation; 
             `}
 
     justify-content: center;
-    background: ${colors.gray[1600]};
+    background: ${(props) => props.theme.colors.bgSurface};
 
     :hover {
-        background: ${colors.gray[1600]};
+        background: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
@@ -109,7 +110,7 @@ export default function AddModuleButton({ orientation, className, rowIndex, rowS
                     onClick={onClick}
                     data-testid="add-module-button"
                 >
-                    <Icon icon="Plus" source="phosphor" color="primary" />
+                    <Icon icon={Plus} color="primary" />
                 </ButtonComponent>
             </Dropdown>
         </Wrapper>

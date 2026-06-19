@@ -71,8 +71,11 @@ public class SearchQueryBuilder {
     this.exactMatchConfiguration = searchConfiguration.getExactMatch();
     this.partialConfiguration = searchConfiguration.getPartial();
     this.wordGramConfiguration = searchConfiguration.getWordGram();
-    this.searchValidationConfiguration = searchConfiguration.getValidation();
-    this.validationRegex = Pattern.compile(searchConfiguration.getValidation().getRegex());
+    this.searchValidationConfiguration =
+        searchConfiguration.getValidation() != null
+            ? searchConfiguration.getValidation()
+            : new SearchValidationConfiguration();
+    this.validationRegex = Pattern.compile(this.searchValidationConfiguration.getRegex());
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(searchConfiguration.getCustom(), customSearchConfiguration)
             .build();
@@ -122,6 +125,7 @@ public class SearchQueryBuilder {
       getSimpleQuery(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(finalQuery::should);
       getPrefixAndExactMatchQuery(
+              opContext,
               opContext.getEntityRegistry(),
               customQueryConfig,
               entitySpecs,
@@ -138,6 +142,7 @@ public class SearchQueryBuilder {
           .ifPresent(finalQuery::should);
       if (exactMatchConfiguration.isEnableStructured()) {
         getPrefixAndExactMatchQuery(
+                opContext,
                 opContext.getEntityRegistry(),
                 customQueryConfig,
                 entitySpecs,
@@ -433,6 +438,7 @@ public class SearchQueryBuilder {
   }
 
   private Optional<QueryBuilder> getPrefixAndExactMatchQuery(
+      @Nonnull OperationContext opContext,
       @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
@@ -477,7 +483,7 @@ public class SearchQueryBuilder {
                   finalQuery.should(
                       QueryBuilders.termQuery(
                               ESUtils.toKeywordField(
-                                  searchFieldConfig.fieldName(), false, aspectRetriever),
+                                  opContext, searchFieldConfig.fieldName(), false, aspectRetriever),
                               unquotedQuery)
                           .caseInsensitive(false)
                           .boost(
@@ -489,7 +495,7 @@ public class SearchQueryBuilder {
                 finalQuery.should(
                     QueryBuilders.termQuery(
                             ESUtils.toKeywordField(
-                                searchFieldConfig.fieldName(), false, aspectRetriever),
+                                opContext, searchFieldConfig.fieldName(), false, aspectRetriever),
                             unquotedQuery)
                         .caseInsensitive(true)
                         .boost(
@@ -503,7 +509,7 @@ public class SearchQueryBuilder {
                 finalQuery.should(
                     QueryBuilders.matchPhraseQuery(
                             ESUtils.toKeywordField(
-                                searchFieldConfig.fieldName(), false, aspectRetriever),
+                                opContext, searchFieldConfig.fieldName(), false, aspectRetriever),
                             unquotedQuery)
                         .boost(
                             searchFieldConfig.boost()

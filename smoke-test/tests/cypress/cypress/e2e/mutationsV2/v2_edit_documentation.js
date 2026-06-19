@@ -153,7 +153,8 @@ const ensureThatUrlIsNotAvaliableOnSidebar = (url) => {
   });
 };
 
-describe("edit documentation and link to dataset", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("edit documentation and link to dataset", () => {
   // https://github.com/cypress-io/cypress/issues/29277
   Cypress.on(
     "uncaught:exception",
@@ -161,7 +162,6 @@ describe("edit documentation and link to dataset", () => {
   );
 
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
     goToEntityDocumentationTab();
   });
