@@ -119,6 +119,10 @@ class UnityCatalogUsageExtractor:
             _TableName(database=catalog, db_schema=schema, table=table)
         )
         if urn is None:
+            logger.debug(
+                "Could not resolve lineage table name to URN: %s",
+                full_name,
+            )
             self.report.num_lineage_tables_unresolvable += 1
         return urn
 
@@ -140,6 +144,48 @@ class UnityCatalogUsageExtractor:
 
     def _can_use_preparsed_query(self, query: Query) -> bool:
         return self._use_system_tables_join() and query.has_system_table_lineage
+
+    @staticmethod
+    def _statement_type_label(query: Query) -> str:
+        if query.statement_type is None:
+            return "unknown"
+        return str(query.statement_type.value)
+
+    @staticmethod
+    def _query_preview(query: Query, max_len: int = 120) -> str:
+        text = (query.query_text or "").replace("\n", " ").strip()
+        if len(text) <= max_len:
+            return text
+        return f"{text[:max_len]}..."
+
+    def _log_usage_routing_summary(self) -> None:
+        total = self.report.num_queries
+        if not self._use_system_tables_join():
+            logger.debug(
+                "Unity usage routing summary (warehouse API path): "
+                "queries=%s sqlglot=%s",
+                total,
+                self.report.num_queries_observed_sqlglot,
+            )
+            return
+
+        preparsed = self.report.num_queries_preparsed_from_lineage
+        without_lineage = self.report.num_queries_without_system_table_lineage
+        fallback = self.report.num_queries_preparsed_fallback_to_sqlglot
+        preparsed_pct = round(100 * preparsed / total, 1) if total else 0.0
+        logger.debug(
+            "Unity usage routing summary (system-table join): "
+            "total=%s preparsed=%s (%.1f%%) "
+            "sqlglot_no_lineage=%s sqlglot_urn_fallback=%s sqlglot_total=%s "
+            "unresolvable_lineage_tables=%s",
+            total,
+            preparsed,
+            preparsed_pct,
+            without_lineage,
+            fallback,
+            self.report.num_queries_observed_sqlglot,
+            self.report.num_lineage_tables_unresolvable,
+        )
 
     def _to_preparsed_queries(self, query: Query) -> List[PreparsedQuery]:
         upstreams = self._resolve_table_urns(query.source_table_full_names)
@@ -202,8 +248,42 @@ class UnityCatalogUsageExtractor:
                 for preparsed in preparsed_queries:
                     aggregator.add_preparsed_query(preparsed)
                 self.report.num_queries_preparsed_from_lineage += 1
+                logger.debug(
+                    "Usage query routed to preparsed lineage path "
+                    "(statement_id=%s statement_type=%s "
+                    "lineage_sources=%s lineage_targets=%s "
+                    "resolved_upstream_urns=%s resolved_downstream_urns=%s)",
+                    query.query_id,
+                    self._statement_type_label(query),
+                    query.source_table_full_names,
+                    query.target_table_full_names,
+                    sum(len(p.upstreams) for p in preparsed_queries),
+                    sum(1 for p in preparsed_queries if p.downstream),
+                )
                 return
+
             self.report.num_queries_preparsed_fallback_to_sqlglot += 1
+            logger.debug(
+                "Usage query fell back to sqlglot: system-table lineage present but "
+                "no resolvable dataset URNs "
+                "(statement_id=%s statement_type=%s "
+                "lineage_sources=%s lineage_targets=%s preview=%r)",
+                query.query_id,
+                self._statement_type_label(query),
+                query.source_table_full_names,
+                query.target_table_full_names,
+                self._query_preview(query),
+            )
+        elif self._use_system_tables_join():
+            self.report.num_queries_without_system_table_lineage += 1
+            logger.debug(
+                "Usage query routed to sqlglot: no system.access.table_lineage rows "
+                "for statement_id in configured time window "
+                "(statement_id=%s statement_type=%s preview=%r)",
+                query.query_id,
+                self._statement_type_label(query),
+                self._query_preview(query),
+            )
 
         aggregator.add_observed_query(
             ObservedQuery(
@@ -294,6 +374,7 @@ class UnityCatalogUsageExtractor:
                             context=f"query_id={query.query_id}",
                             exc=per_query_exc,
                         )
+                self._log_usage_routing_summary()
                 self._report_usage_lineage_warnings()
             except (MemoryError, SystemExit, KeyboardInterrupt):
                 raise

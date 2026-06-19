@@ -36,6 +36,7 @@ class UnityCatalogReport(SQLSourceReport):
     num_queries_dropped: int = 0
     num_queries_preparsed_from_lineage: int = 0
     num_queries_observed_sqlglot: int = 0
+    num_queries_without_system_table_lineage: int = 0
     num_queries_preparsed_fallback_to_sqlglot: int = 0
     num_lineage_tables_unresolvable: int = 0
     num_lineage_row_field_read_errors: int = 0

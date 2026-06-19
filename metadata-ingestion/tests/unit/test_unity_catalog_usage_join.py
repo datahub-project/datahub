@@ -5,6 +5,7 @@ from typing import Iterator, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+from databricks.sdk.service.sql import QueryStatementType
 
 import datahub.ingestion.source.unity.usage as usage_mod
 from datahub.configuration.time_window_config import BucketDuration
@@ -1450,6 +1451,7 @@ def test_preparsed_query_used_when_system_table_lineage_present(
     assert len(agg.observed) == 0
     assert ex.report.num_queries_preparsed_from_lineage == 1
     assert ex.report.num_queries_observed_sqlglot == 0
+    assert ex.report.num_queries_without_system_table_lineage == 0
     assert agg.preparsed[0].upstreams, "preparsed query must carry upstream urns"
 
 
@@ -1499,8 +1501,70 @@ def test_fallback_to_observed_when_lineage_unresolvable(
     assert len(agg.preparsed) == 0
     assert ex.report.num_queries_observed_sqlglot == 1
     assert ex.report.num_queries_preparsed_fallback_to_sqlglot == 1
+    assert ex.report.num_queries_without_system_table_lineage == 0
     warning_titles = [str(w.title) for w in ex.report.warnings]
     assert any("fell back to SQL parsing" in t for t in warning_titles)
+
+
+def test_sqlglot_when_no_system_table_lineage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    agg_instance: list = []
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            self.observed: list = []
+            self.preparsed: list = []
+            agg_instance.append(self)
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            self.observed.append(observed)
+
+        def add_preparsed_query(self, parsed: object, **kw: object) -> None:
+            self.preparsed.append(parsed)
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.include_queries = False
+    config.include_query_usage_statistics = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    proxy.get_query_history_via_system_tables.return_value = [
+        Query(
+            query_id="s-no-lineage",
+            query_text="SELECT COUNT(*) FROM fivetran.smoke.base_table",
+            statement_type=QueryStatementType.SELECT,
+            start_time=ts,
+            end_time=ts,
+            user_id=1,
+            user_name="u@x.io",
+            executed_as_user_id=None,
+            executed_as_user_name=None,
+            source_table_full_names=[],
+            target_table_full_names=[],
+        ),
+    ]
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+    list(ex.get_usage_workunits(set()))
+
+    agg = agg_instance[0]
+    assert len(agg.observed) == 1
+    assert len(agg.preparsed) == 0
+    assert ex.report.num_queries_without_system_table_lineage == 1
+    assert ex.report.num_queries_observed_sqlglot == 1
+    assert ex.report.num_queries_preparsed_from_lineage == 0
 
 
 def test_get_query_history_via_system_tables_groups_lineage_rows() -> None:
