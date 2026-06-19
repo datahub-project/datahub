@@ -245,6 +245,21 @@ def _extractor(config: MagicMock, proxy: MagicMock) -> UnityCatalogUsageExtracto
     return ex
 
 
+def _register_tables(ex: UnityCatalogUsageExtractor, full_names: List[str]) -> None:
+    """Seed the schema resolver so preparsed resolution succeeds for these tables.
+
+    resolve_table_parts signals resolution via SchemaInfo, which is only present for
+    tables the recipe ingested, so preparsed-path tests must register the tables they
+    expect to resolve to dataset URNs.
+    """
+    for name in full_names:
+        catalog, schema, table = name.split(".")
+        urn = ex.schema_resolver.resolve_table_parts(
+            database=catalog, db_schema=schema, table=table
+        )[0]
+        ex.schema_resolver.add_raw_schema_info(urn, {"col": "int"})
+
+
 def test_builds_aggregator_and_feeds_observed_queries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1461,6 +1476,7 @@ def test_preparsed_query_used_when_system_table_lineage_present(
 
     ex = _extractor(config, proxy)
     ex.report = UnityCatalogReport()
+    _register_tables(ex, ["main.sales.orders"])
     list(ex.get_usage_workunits(set()))
 
     agg = agg_instance[0]
@@ -2003,8 +2019,10 @@ def test_get_query_history_mid_statement_error_preserves_partial_lineage() -> No
     assert proxy.report.num_lineage_row_field_read_errors == 1
 
 
-def test_get_query_history_mid_statement_statement_id_error_flushes() -> None:
-    """When statement_id cannot be read mid-statement, partial lineage is flushed."""
+def test_get_query_history_mid_statement_statement_id_error_skips_row() -> None:
+    """A row whose statement_id can't be read is skipped without splitting the
+    in-progress statement: it stays one Query (no duplicate emission), carries the
+    lineage from readable rows, and the bad row counts as a field-read error."""
     ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
 
     class BrokenStatementIdRow:
@@ -2071,8 +2089,12 @@ def test_get_query_history_mid_statement_statement_id_error_flushes() -> None:
         )
 
     assert len(result) == 1
+    assert result[0].query_id == "s1"
     assert result[0].source_table_full_names == ["main.s.t1"]
-    assert proxy.report.num_queries_missing_info == 1
+    # The bad row is a field-read error, not a query-parse failure, and the
+    # statement is emitted exactly once (not split into duplicates).
+    assert proxy.report.num_queries_missing_info == 0
+    assert proxy.report.num_lineage_row_field_read_errors == 1
 
 
 def test_preparsed_query_multi_target_fanout(
@@ -2118,6 +2140,7 @@ def test_preparsed_query_multi_target_fanout(
 
     ex = _extractor(config, proxy)
     ex.report = UnityCatalogReport()
+    _register_tables(ex, ["main.s.src", "main.s.t1", "main.s.t2"])
     list(ex.get_usage_workunits(set()))
 
     agg = agg_instance[0]
@@ -2169,6 +2192,7 @@ def test_preparsed_query_target_only_lineage(
 
     ex = _extractor(config, proxy)
     ex.report = UnityCatalogReport()
+    _register_tables(ex, ["main.s.t1"])
     list(ex.get_usage_workunits(set()))
 
     agg = agg_instance[0]
@@ -2220,6 +2244,7 @@ def test_preparsed_query_partial_urn_resolution(
 
     ex = _extractor(config, proxy)
     ex.report = UnityCatalogReport()
+    _register_tables(ex, ["main.s.t1"])
     list(ex.get_usage_workunits(set()))
 
     agg = agg_instance[0]
@@ -2448,6 +2473,7 @@ def test_mixed_routing_counters(monkeypatch: pytest.MonkeyPatch) -> None:
 
     ex = _extractor(config, proxy)
     ex.report = UnityCatalogReport()
+    _register_tables(ex, ["main.sales.orders"])
     list(ex.get_usage_workunits(set()))
 
     assert ex.report.num_queries == 3
@@ -2630,8 +2656,142 @@ def test_full_name_to_urn_quoted_identifier() -> None:
     ex.report = UnityCatalogReport()
 
     quoted = "main.`schema.with.dots`.orders"
-    urn = ex._full_name_to_urn(quoted)
 
-    assert urn is not None
+    # A well-formed name that is not in the schema resolver (i.e. not ingested by
+    # this recipe) is unresolvable: resolution is signalled by SchemaInfo, which is
+    # only present for known tables.
+    assert ex._full_name_to_urn(quoted) is None
+    assert ex.report.num_lineage_tables_unresolvable == 1
+
+    # Once registered, the quoted identifier still parses to the right URN and
+    # resolves without recounting it as unresolvable.
+    synthesized = ex.schema_resolver.resolve_table_parts(
+        database="main", db_schema="schema.with.dots", table="orders"
+    )[0]
+    ex.schema_resolver.add_raw_schema_info(synthesized, {"id": "int"})
+
+    urn = ex._full_name_to_urn(quoted)
+    assert urn == synthesized
     assert "main.schema.with.dots.orders" in urn
-    assert ex.report.num_lineage_tables_unresolvable == 0
+    assert ex.report.num_lineage_tables_unresolvable == 1
+
+
+def test_preparsed_fingerprint_falls_back_to_statement_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A fingerprinting error must not drop a query that already has resolved
+    lineage; the query id falls back to a deterministic statement_id-based id."""
+
+    def _boom(*args: object, **kwargs: object) -> str:
+        raise ValueError("sqlglot tokenization failed")
+
+    monkeypatch.setattr(usage_mod, "get_query_fingerprint", _boom)
+
+    config = MagicMock()
+    proxy = MagicMock()
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+    _register_tables(ex, ["main.sales.orders"])
+
+    query = _query_with_lineage(
+        "SELECT * FROM main.sales.orders",
+        "stmt-123",
+        sources=["main.sales.orders"],
+    )
+    preparsed = ex._to_preparsed_queries(query)
+
+    assert len(preparsed) == 1
+    assert preparsed[0].query_id == "unity-stmt-stmt-123"
+    assert preparsed[0].upstreams, "lineage must still be emitted despite fp error"
+    assert ex.report.num_queries_preparsed_fingerprint_fallback == 1
+
+
+def _no_op_aggregator(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            pass
+
+        def add_observed_query(self, observed: object, **kw: object) -> None:
+            pass
+
+        def add_preparsed_query(self, parsed: object, **kw: object) -> None:
+            pass
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+
+def test_no_queries_hint_mentions_overrestrictive_pushdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """System-tables path + catalog pushdown + zero queries: the 'No queries found'
+    hint must point operators at a possibly over-restrictive catalog_pattern."""
+    from datahub.configuration.common import AllowDenyPattern
+
+    _no_op_aggregator(monkeypatch)
+
+    config = MagicMock()
+    config.include_queries = False
+    config.include_query_usage_statistics = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+    config.push_down_database_pattern_access_history = True
+    config.catalog_pattern = AllowDenyPattern(allow=["^nonexistent$"])
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.return_value = []
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+    list(ex.get_usage_workunits(set()))
+
+    no_query_warnings = [
+        w for w in ex.report.warnings if w.title == "No queries found for usage"
+    ]
+    assert no_query_warnings, "expected 'No queries found for usage' warning"
+    context = " ".join(no_query_warnings[0].context)
+    assert "over-restrictive" in context, (
+        f"expected over-restrictive pushdown hint, got context: {context!r}"
+    )
+
+
+def test_all_unparseable_history_warns_and_suppresses_no_queries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When every history row fails to parse (num_queries == 0 but missing_info > 0),
+    the parse-failure warning fires and the benign 'No queries found' warning does not."""
+    _no_op_aggregator(monkeypatch)
+
+    config = MagicMock()
+    config.include_queries = False
+    config.include_query_usage_statistics = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+    config.push_down_database_pattern_access_history = False
+    config.catalog_pattern = None
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+
+    # Mirror production, where proxy and extractor share one report: the proxy
+    # records per-row parse failures while yielding no usable queries.
+    def _fetch_all_unparseable(*args: object, **kwargs: object) -> Iterator[Query]:
+        ex.report.num_queries_missing_info += 2
+        return iter([])
+
+    proxy.get_query_history_via_system_tables.side_effect = _fetch_all_unparseable
+
+    list(ex.get_usage_workunits(set()))
+
+    warning_titles = [w.title for w in ex.report.warnings]
+    assert "Query history rows could not be parsed" in warning_titles
+    assert "No queries found for usage" not in warning_titles
