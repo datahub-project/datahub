@@ -301,6 +301,95 @@ def test_platform_config():
     assert source.platform == "athena"
 
 
+def test_catalog_to_platform_instance_resolves_owning_account():
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            platform_instance="ingestion_acct",
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-west-2:111122223333": {
+                    "platform_instance": "domain_a",
+                    "env": "PROD",
+                }
+            },
+        ),
+    )
+
+    # Owning account present in the map -> stamp its instance/env.
+    mapped = source._resolve_platform_instance("111122223333")
+    assert mapped.platform_instance == "domain_a"
+    assert mapped.env == "PROD"
+
+    # Account not in the map -> fall back to the source's own platform_instance.
+    fallback = source._resolve_platform_instance("999988887777")
+    assert fallback.platform_instance == "ingestion_acct"
+
+    # No catalog id -> fall back as well.
+    assert source._resolve_platform_instance(None).platform_instance == "ingestion_acct"
+
+
+def test_catalog_to_platform_instance_is_region_specific():
+    # The same account in two regions is two different catalogs, so the key includes region.
+    # Each source must resolve the SAME account to its own region's instance — this fails if the
+    # lookup ignored region (account-only keying).
+    catalog_map = {
+        "arn:aws:glue:us-west-2:111122223333": {"platform_instance": "domain_a_usw2"},
+        "arn:aws:glue:eu-west-1:111122223333": {"platform_instance": "domain_a_euw1"},
+    }
+
+    source_euw1 = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="eu-west-1",
+            platform_instance="ingestion_acct",
+            catalog_to_platform_instance=catalog_map,
+        ),
+    )
+    assert (
+        source_euw1._resolve_platform_instance("111122223333").platform_instance
+        == "domain_a_euw1"
+    )
+
+    source_usw2 = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            platform_instance="ingestion_acct",
+            catalog_to_platform_instance=catalog_map,
+        ),
+    )
+    assert (
+        source_usw2._resolve_platform_instance("111122223333").platform_instance
+        == "domain_a_usw2"
+    )
+
+
+def test_extract_urns_from_query_applies_target_platform_instance():
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            target_platform_configs={
+                "postgres": {"platform_instance": "pg_core", "env": "PROD"}
+            },
+        ),
+    )
+
+    urns = source._extract_urns_from_query(
+        query="SELECT * FROM public.orders",
+        platform="postgres",
+        database="mydb",
+        flow_urn="urn:li:dataFlow:(urn:li:dataPlatform:glue,flow,PROD)",
+        node_label="node-1",
+    )
+
+    assert urns is not None
+    # The configured platform_instance must be part of the parsed upstream URN so it matches the
+    # postgres connector's own URNs.
+    assert any("pg_core" in urn for urn in urns)
+
+
 @pytest.mark.parametrize(
     "ignore_resource_links, all_databases_and_tables_result",
     [

@@ -313,6 +313,19 @@ class GlueSourceConfig(
         ),
     )
 
+    catalog_to_platform_instance: Dict[str, TargetPlatformConfig] = Field(
+        default_factory=dict,
+        description=(
+            "Maps a Glue catalog's ARN authority `arn:aws:glue:{region}:{account}` to the "
+            "platform_instance (and optionally env) to stamp on tables owned by that catalog. "
+            "Use this for cross-account catalogs (e.g. ingesting another account via `catalog_id`, "
+            "or Lake Formation shared tables) so each table's URN matches the one the owning "
+            "account's own Glue ingestion produces, instead of the ingestion account's instance. "
+            "The key is account + region — account alone is not unique across regions — and matches "
+            "the key used by the Spark/OpenLineage `connections` map."
+        ),
+    )
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -615,6 +628,30 @@ class GlueSource(StatefulIngestionSourceBase):
             return f"{prefix}:table/{database}/{table}"
         return f"{prefix}:database/{database}"
 
+    def _resolve_platform_instance(
+        self, catalog_id: Optional[str]
+    ) -> TargetPlatformConfig:
+        """Resolve the platform_instance/env to stamp on a table owned by ``catalog_id``.
+
+        Cross-account tables (a different ``catalog_id``, or Lake Formation shared tables) must be
+        stamped with the *owning* account's instance so their URNs match what that account's own
+        Glue ingestion emits — not the ingestion account's instance. The owning catalog is keyed by
+        its ARN authority ``arn:aws:glue:{region}:{account}`` (account + region; account alone is not
+        unique across regions), the same key the Spark/OpenLineage ``connections`` map uses. Falls
+        back to the source's own ``platform_instance``/``env`` when there is no mapping.
+        """
+        instance = self.source_config.platform_instance
+        env = self.env
+        if catalog_id and self.source_config.catalog_to_platform_instance:
+            arn = f"arn:aws:glue:{self.source_config.aws_region}:{catalog_id}"
+            detail = self.source_config.catalog_to_platform_instance.get(arn)
+            if detail is not None:
+                if detail.platform_instance is not None:
+                    instance = detail.platform_instance
+                if detail.env is not None:
+                    env = detail.env
+        return TargetPlatformConfig(platform_instance=instance, env=env)
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = GlueSourceConfig.model_validate(config_dict)
@@ -750,12 +787,17 @@ class GlueSource(StatefulIngestionSourceBase):
         Uses dialect-aware parsing via sqlglot_lineage with default schema resolution.
         Returns None on parse failure or when no tables are found.
         """
+        # Apply the target platform's instance/env (if configured) so the parsed upstream URNs match
+        # what that platform's own connector emits — same as _make_dataset_urn_for_platform.
+        target_config = self.source_config.target_platform_configs.get(platform)
         result = create_lineage_sql_parsed_result(
             query=query,
             default_db=database,
             platform=platform,
-            platform_instance=None,
-            env=self.env,
+            platform_instance=(
+                target_config.platform_instance if target_config else None
+            ),
+            env=target_config.env if target_config and target_config.env else self.env,
             default_schema=JDBC_DEFAULT_SCHEMA.get(platform),
             schema_aware=False,
             generate_column_lineage=False,
@@ -1737,11 +1779,14 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.report_table_dropped(full_table_name)
             return
 
+        # Stamp the owning catalog's instance/env (cross-account tables resolve to the owner's
+        # instance, not the ingestion account's) so URNs match the owner's own Glue ingestion.
+        resolved = self._resolve_platform_instance(table.get("CatalogId"))
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=full_table_name,
-            env=self.env,
-            platform_instance=self.source_config.platform_instance,
+            env=resolved.env or self.env,
+            platform_instance=resolved.platform_instance,
         )
 
         yield from self._extract_record(dataset_urn, table, full_table_name)
