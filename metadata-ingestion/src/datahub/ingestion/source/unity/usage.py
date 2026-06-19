@@ -116,16 +116,23 @@ class UnityCatalogUsageExtractor:
             self.report.lineage_tables_unresolvable_sample.append(full_name)
             return None
         catalog, schema, table = parts
-        urn, _ = self.schema_resolver.resolve_table_parts(
+        # resolve_table_parts always returns a (synthesized) URN; the SchemaInfo is
+        # the resolution signal. It is None when the table is not in the schema
+        # resolver cache, i.e. not one this recipe ingested. Treating those as
+        # unresolvable keeps preparsed usage scoped to known datasets and lets the
+        # caller fall back to sqlglot instead of emitting confident lineage to a
+        # possibly-nonexistent URN.
+        urn, schema_info = self.schema_resolver.resolve_table_parts(
             database=catalog, db_schema=schema, table=table
         )
-        if urn is None:
+        if schema_info is None:
             logger.debug(
-                "Could not resolve lineage table name to URN: %s",
+                "Could not resolve lineage table name to a known dataset: %s",
                 full_name,
             )
             self.report.num_lineage_tables_unresolvable += 1
             self.report.lineage_tables_unresolvable_sample.append(full_name)
+            return None
         return urn
 
     def _resolve_table_urns(self, full_names: Iterable[str]) -> List[UrnStr]:
@@ -193,18 +200,45 @@ class UnityCatalogUsageExtractor:
             self.report.num_lineage_tables_unresolvable,
         )
 
+    def _query_fingerprint(
+        self, query: Query, secondary_id: Optional[str] = None
+    ) -> str:
+        """Fingerprint a query, falling back to its statement_id on parse error.
+
+        get_query_fingerprint runs sqlglot tokenization, which can still raise on
+        malformed SQL even in fast mode. On the system-tables path the lineage is
+        already resolved, so a fingerprinting hiccup must not drop the query — fall
+        back to a deterministic id derived from the (always-present) statement_id.
+        """
+        try:
+            return get_query_fingerprint(
+                query.query_text,
+                self.platform,
+                fast=True,
+                secondary_id=secondary_id,
+            )
+        except Exception as e:
+            self.report.num_queries_preparsed_fingerprint_fallback += 1
+            logger.debug(
+                "Falling back to statement_id for query fingerprint "
+                "(statement_id=%s): %r",
+                query.query_id,
+                e,
+            )
+            base = f"unity-stmt-{query.query_id}"
+            return f"{base}-{secondary_id}" if secondary_id else base
+
     def _to_preparsed_queries(self, query: Query) -> List[PreparsedQuery]:
         upstreams = self._resolve_table_urns(query.source_table_full_names)
         targets = self._resolve_table_urns(query.target_table_full_names)
         ts = self._normalize_timestamp(query.start_time)
         user = self._user_urn(query)
         query_type = self._query_type(query.statement_type)
-        query_id = get_query_fingerprint(query.query_text, self.platform, fast=True)
 
         if not targets:
             return [
                 PreparsedQuery(
-                    query_id=query_id,
+                    query_id=self._query_fingerprint(query),
                     query_text=query.query_text,
                     upstreams=upstreams,
                     downstream=None,
@@ -221,12 +255,7 @@ class UnityCatalogUsageExtractor:
             secondary_id = downstream if len(targets) > 1 else None
             preparsed.append(
                 PreparsedQuery(
-                    query_id=get_query_fingerprint(
-                        query.query_text,
-                        self.platform,
-                        fast=True,
-                        secondary_id=secondary_id,
-                    ),
+                    query_id=self._query_fingerprint(query, secondary_id=secondary_id),
                     query_text=query.query_text,
                     upstreams=upstreams,
                     downstream=downstream,
