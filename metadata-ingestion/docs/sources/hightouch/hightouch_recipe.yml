@@ -1,0 +1,23 @@
+source:
+  type: hightouch
+  config:
+    api_config:
+      api_key: "${HIGHTOUCH_API_KEY}"
+
+    env: "PROD"
+    platform_instance: "hightouch-prod"
+
+    emit_models_as_datasets: true
+    extract_workspaces_to_containers: true
+
+    include_sync_runs: true
+    max_sync_runs_per_sync: 10
+
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
