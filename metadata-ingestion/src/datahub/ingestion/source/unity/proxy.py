@@ -44,6 +44,7 @@ from databricks.sql.types import Row
 from typing_extensions import assert_never
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.source.unity.config import (
     LineageDataSource,
@@ -56,7 +57,6 @@ from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
 )
 from datahub.ingestion.source.unity.proxy_types import (
-    ALLOWED_STATEMENT_TYPES,
     Catalog,
     Column,
     CustomCatalogType,
@@ -73,6 +73,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    usage_statement_types,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.utilities.file_backed_collections import FileBackedDict
@@ -182,6 +183,113 @@ class TableLineageInfo:
     downstream_notebooks: List[NotebookReference] = dataclasses.field(
         default_factory=list
     )
+
+
+def _build_catalog_column_filter(
+    column_expr: str, catalog_pattern: AllowDenyPattern
+) -> tuple[str, list[str]]:
+    """Build RLIKE filter for a single table_lineage catalog column.
+
+    Returns the SQL predicate and bind parameters for RLIKE patterns so recipe
+    catalog_pattern values are never interpolated into the query string.
+    """
+    pattern_parts: List[str] = []
+    bind_params: list[str] = []
+
+    def transform(pattern: str) -> str:
+        return pattern.upper() if catalog_pattern.ignoreCase else pattern
+
+    col_expr = f"UPPER({column_expr})" if catalog_pattern.ignoreCase else column_expr
+
+    allow_patterns = catalog_pattern.allow
+    if allow_patterns and allow_patterns != [".*"]:
+        allow_conditions = []
+        for pattern in allow_patterns:
+            allow_conditions.append(f"{col_expr} RLIKE %s")
+            bind_params.append(transform(pattern))
+        if allow_conditions:
+            pattern_parts.append(
+                allow_conditions[0]
+                if len(allow_conditions) == 1
+                else f"({' OR '.join(allow_conditions)})"
+            )
+
+    deny_patterns = catalog_pattern.deny
+    if deny_patterns:
+        deny_conditions = []
+        for pattern in deny_patterns:
+            deny_conditions.append(f"{col_expr} NOT RLIKE %s")
+            bind_params.append(transform(pattern))
+        if deny_conditions:
+            pattern_parts.append(
+                deny_conditions[0]
+                if len(deny_conditions) == 1
+                else f"({' AND '.join(deny_conditions)})"
+            )
+
+    if not pattern_parts:
+        return "TRUE", []
+    sql = (
+        pattern_parts[0]
+        if len(pattern_parts) == 1
+        else f"({' AND '.join(pattern_parts)})"
+    )
+    return sql, bind_params
+
+
+def _build_table_lineage_catalog_filter_condition(
+    catalog_pattern: AllowDenyPattern,
+) -> tuple[str, list[str]]:
+    """Build catalog allow/deny filter for system.access.table_lineage pushdown."""
+    source_filter, source_params = _build_catalog_column_filter(
+        "tl2.source_table_catalog", catalog_pattern
+    )
+    target_filter, target_params = _build_catalog_column_filter(
+        "tl2.target_table_catalog", catalog_pattern
+    )
+
+    if source_filter == "TRUE" and target_filter == "TRUE":
+        return "TRUE", []
+
+    parts: List[str] = []
+    bind_params: list[str] = []
+    if source_filter != "TRUE":
+        parts.append(f"({source_filter} AND tl2.source_table_catalog IS NOT NULL)")
+        bind_params.extend(source_params)
+    if target_filter != "TRUE":
+        parts.append(f"({target_filter} AND tl2.target_table_catalog IS NOT NULL)")
+        bind_params.extend(target_params)
+    sql = parts[0] if len(parts) == 1 else f"({' OR '.join(parts)})"
+    return sql, bind_params
+
+
+# Raised when constructing a Query from a query-history row fails (e.g. an
+# invalid statement_type enum value) — bucketed as a query-parse failure.
+_ROW_PARSE_EXCEPTIONS = (AttributeError, ValueError)
+# Raised when reading an individual lineage column off a row — bucketed as a
+# field-read error. Kept identical to what _optional_row_field catches so the
+# outer handler can't mis-bucket field reads as query parses.
+_ROW_FIELD_READ_EXCEPTIONS = (AttributeError, ValueError)
+
+
+def _optional_row_field(
+    row: object,
+    field: str,
+    report: Optional[UnityCatalogReport] = None,
+) -> Optional[str]:
+    try:
+        value = getattr(row, field)
+    except _ROW_FIELD_READ_EXCEPTIONS:
+        if report is not None:
+            report.num_lineage_row_field_read_errors += 1
+        return None
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str):
+        if report is not None:
+            report.num_lineage_row_field_read_errors += 1
+        return None
+    return value
 
 
 class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
@@ -560,12 +668,15 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self,
         start_time: datetime,
         end_time: datetime,
+        *,
+        include_operational_stats: bool = True,
     ) -> Iterable[Query]:
         """Returns all queries that were run between start_time and end_time with relevant statement_type.
 
         Raises:
             DatabricksError: If the query history API returns an error.
         """
+        statement_types = usage_statement_types(include_operational_stats)
         filter_by = QueryFilterWithStatementTypes.from_dict(
             {
                 "query_start_time_range": {
@@ -573,7 +684,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     "end_time_ms": end_time.timestamp() * 1000,
                 },
                 "statuses": [QueryStatus.FINISHED],
-                "statement_types": [typ.value for typ in ALLOWED_STATEMENT_TYPES],
+                "statement_types": [typ.value for typ in statement_types],
             }
         )
         for query_info in self._query_history(filter_by=filter_by):
@@ -629,69 +740,196 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self,
         start_time: datetime,
         end_time: datetime,
+        *,
+        catalog_pattern: Optional[AllowDenyPattern] = None,
+        include_operational_stats: bool = True,
     ) -> Iterable[Query]:
-        """Get query history using system.query.history table.
+        """Get query history using system.query.history joined with table lineage.
 
-        This method provides an alternative to the REST API for fetching query history,
-        offering better performance and richer data for large query volumes.
+        Joins system.access.table_lineage on statement_id so each query carries
+        pre-resolved source/target table names, avoiding sqlglot parsing during
+        usage extraction.
+
+        When catalog_pattern is provided, filters queries via a semi-join on
+        table_lineage so only statements touching matching catalogs are fetched.
         """
         logger.info(
             f"Fetching query history from system.query.history for period: {start_time} to {end_time}"
         )
 
-        allowed_types = [typ.value for typ in ALLOWED_STATEMENT_TYPES]
+        allowed_types = [
+            typ.value for typ in usage_statement_types(include_operational_stats)
+        ]
         statement_type_filter = ", ".join(f"'{typ}'" for typ in allowed_types)
+
+        catalog_pushdown_clause = ""
+        catalog_filter_params: list[str] = []
+        if catalog_pattern is not None:
+            catalog_filter, catalog_filter_params = (
+                _build_table_lineage_catalog_filter_condition(catalog_pattern)
+            )
+            catalog_pushdown_clause = f"""
+                AND qh.statement_id IN (
+                    SELECT DISTINCT tl2.statement_id
+                    FROM system.access.table_lineage tl2
+                    WHERE tl2.event_time >= %s
+                        AND tl2.event_time <= %s
+                        AND {catalog_filter}
+                )"""
 
         query = f"""
             SELECT
-                statement_id,
-                statement_text,
-                statement_type,
-                start_time,
-                end_time,
-                executed_by,
-                executed_as,
-                executed_by_user_id,
-                executed_as_user_id
-            FROM system.query.history
+                qh.statement_id,
+                qh.statement_text,
+                qh.statement_type,
+                qh.start_time,
+                qh.end_time,
+                qh.executed_by,
+                qh.executed_as,
+                qh.executed_by_user_id,
+                qh.executed_as_user_id,
+                tl.source_table_full_name,
+                tl.target_table_full_name
+            FROM system.query.history qh
+            LEFT JOIN system.access.table_lineage tl
+                ON qh.statement_id = tl.statement_id
+                AND tl.event_time >= %s
+                AND tl.event_time <= %s
             WHERE
-                start_time >= %s
-                AND end_time <= %s
-                AND execution_status = 'FINISHED'
-                AND statement_type IN ({statement_type_filter})
-            ORDER BY start_time
+                qh.start_time >= %s
+                AND qh.end_time <= %s
+                AND qh.execution_status = 'FINISHED'
+                AND qh.statement_type IN ({statement_type_filter}){catalog_pushdown_clause}
+            ORDER BY qh.start_time, qh.statement_id
         """
 
-        with closing(
-            self._execute_sql_query_streaming(query, (start_time, end_time))
-        ) as rows:
-            for row in rows:
-                try:
-                    yield Query(
-                        query_id=row.statement_id,
-                        query_text=row.statement_text,
-                        statement_type=(
-                            QueryStatementType(row.statement_type)
-                            if row.statement_type
-                            else None
-                        ),
-                        start_time=row.start_time,
-                        end_time=row.end_time,
-                        user_id=row.executed_by_user_id,
-                        user_name=row.executed_by,
-                        executed_as_user_id=row.executed_as_user_id,
-                        executed_as_user_name=row.executed_as,
+        params_list: list[Any] = [start_time, end_time, start_time, end_time]
+        if catalog_pattern is not None:
+            params_list.extend([start_time, end_time, *catalog_filter_params])
+        params = tuple(params_list)
+
+        def _query_from_row(row: Row) -> Optional[Query]:
+            if not row.statement_text or not row.start_time or not row.end_time:
+                return None
+            return Query(
+                query_id=row.statement_id,
+                query_text=row.statement_text,
+                statement_type=(
+                    QueryStatementType(row.statement_type)
+                    if row.statement_type
+                    else None
+                ),
+                start_time=row.start_time,
+                end_time=row.end_time,
+                user_id=row.executed_by_user_id,
+                user_name=row.executed_by,
+                executed_as_user_id=row.executed_as_user_id,
+                executed_as_user_name=row.executed_as,
+            )
+
+        current_statement_id: Optional[str] = None
+        current_query: Optional[Query] = None
+        source_names: set[str] = set()
+        target_names: set[str] = set()
+
+        def _flush_current() -> Iterable[Query]:
+            nonlocal current_query, source_names, target_names
+            if current_query is None:
+                source_names = set()
+                target_names = set()
+                return
+            yield dataclasses.replace(
+                current_query,
+                source_table_full_names=sorted(source_names),
+                target_table_full_names=sorted(target_names),
+            )
+            current_query = None
+            source_names = set()
+            target_names = set()
+
+        missing_info_before = self.report.num_queries_missing_info
+        row_field_errors_before = self.report.num_lineage_row_field_read_errors
+        try:
+            with closing(self._execute_sql_query_streaming(query, params)) as rows:
+                for row in rows:
+                    try:
+                        statement_id = row.statement_id
+                    except _ROW_FIELD_READ_EXCEPTIONS:
+                        # Can't determine grouping for this row. Skip it without
+                        # disturbing the in-progress statement so a single bad row
+                        # doesn't split a statement into duplicate emissions.
+                        self.report.num_lineage_row_field_read_errors += 1
+                        logger.debug(
+                            "Skipping system.query.history row with unreadable "
+                            "statement_id",
+                            exc_info=True,
+                        )
+                        continue
+
+                    if statement_id != current_statement_id:
+                        yield from _flush_current()
+                        current_statement_id = statement_id
+                        try:
+                            parsed = _query_from_row(row)
+                        except _ROW_PARSE_EXCEPTIONS:
+                            logger.debug(
+                                "Skipping unparseable statement from "
+                                "system.query.history (statement_id=%s)",
+                                statement_id,
+                                exc_info=True,
+                            )
+                            self.report.num_queries_missing_info += 1
+                            current_statement_id = None
+                            current_query = None
+                            continue
+                        if parsed is None:
+                            self.report.num_queries_missing_info += 1
+                            current_statement_id = None
+                            current_query = None
+                            continue
+                        current_query = parsed
+
+                    if current_query is None:
+                        continue
+
+                    # Field-read errors are owned by _optional_row_field, which
+                    # counts them and returns None — accumulation continues into the
+                    # same statement group rather than flushing a partial result.
+                    source_name = _optional_row_field(
+                        row, "source_table_full_name", self.report
                     )
-                except Exception as e:
-                    logger.warning(
-                        "Error parsing query from system table", exc_info=True
+                    if source_name:
+                        source_names.add(source_name)
+                    target_name = _optional_row_field(
+                        row, "target_table_full_name", self.report
                     )
-                    self.report.report_warning(
-                        title="Failed to parse query from system tables",
-                        message="A statement read from system.query.history could not be parsed and was skipped.",
-                        context=f"statement_id={getattr(row, 'statement_id', None)}",
-                        exc=e,
-                    )
+                    if target_name:
+                        target_names.add(target_name)
+
+            yield from _flush_current()
+        finally:
+            parse_failures = self.report.num_queries_missing_info - missing_info_before
+            if parse_failures > 0:
+                self.report.report_warning(
+                    title="Failed to parse queries from system tables",
+                    message=(
+                        "Statements from system.query.history could not be parsed "
+                        "and were skipped."
+                    ),
+                    context=f"count={parse_failures}",
+                )
+            row_field_errors = (
+                self.report.num_lineage_row_field_read_errors - row_field_errors_before
+            )
+            if row_field_errors > 0:
+                self.report.report_warning(
+                    title="Failed to read lineage row fields",
+                    message=(
+                        "Lineage column values from system.access.table_lineage "
+                        "could not be read and were skipped."
+                    ),
+                    context=f"count={row_field_errors}",
+                )
 
     def _build_datetime_where_conditions(
         self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
