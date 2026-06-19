@@ -422,9 +422,8 @@ class UnityCatalogUsageExtractor:
             )
 
     def _report_no_queries(self) -> None:
-        # Called when query history yielded zero usable queries (and no fetch
-        # failure occurred). Distinguishes "rows were present but unparseable"
-        # from "no rows at all", and tailors the permission hint to the path.
+        # Zero usable queries: distinguish unparseable rows from an empty read,
+        # with a path-specific permission hint.
         if self.report.num_queries_missing_info > 0:
             self.report.report_warning(
                 title="Query history rows could not be parsed",
@@ -492,20 +491,12 @@ class UnityCatalogUsageExtractor:
 
         aggregator: Optional[SqlParsingAggregator] = None
         shared_connection: Optional[ConnectionWrapper] = None
-        # Drain all rows from _fetch_queries() into a disk-backed buffer before
-        # parsing. Holding the Databricks warehouse cursor open across slow per-query
-        # sqlglot parsing (~20-30 min for large histories) causes the server-side
-        # operation handle to be evicted with a non-retryable RESOURCE_DOES_NOT_EXIST.
-        # Draining is near-instant; the cursor/connection is released as soon as the
-        # generator is fully consumed. Parsing then runs against the buffer.
-        # Ref: https://github.com/databricks/databricks-sql-python/pull/785
-        #
-        # When local_temp_path is set the buffer is a named, window-keyed SQLite file
-        # that persists across runs: the next run over the same window reloads it and
-        # skips the fetch (use_cached_audit_log) — including after a crash. The
-        # window-keyed name keeps it from ever serving a stale window (a different
-        # window or usage source resolves to a different file). Without local_temp_path
-        # the buffer is an ephemeral, self-cleaning FileBackedList and no caching occurs.
+        # Drain query history to a disk-backed buffer before parsing: holding the
+        # warehouse cursor open across the slow sqlglot parse risks the server-side
+        # operation handle being evicted (non-retryable RESOURCE_DOES_NOT_EXIST after
+        # ~20-30 min). See https://github.com/databricks/databricks-sql-python/pull/785.
+        # With local_temp_path set, the buffer is a window-keyed SQLite file reused
+        # across runs (use_cached_audit_log); otherwise it is ephemeral and self-cleaning.
         audit_log_file: Optional[pathlib.Path] = None
         if isinstance(self.config.local_temp_path, pathlib.Path):
             audit_log_file = self.config.local_temp_path / self._audit_log_filename()
@@ -558,14 +549,10 @@ class UnityCatalogUsageExtractor:
                 )
                 return
             if self.report.num_queries == 0:
-                # No usable queries, but the fetch itself succeeded — a fetch
-                # failure would have returned at the fetch_failed check above.
-                # Emit a diagnostic warning, then fall through so
-                # auto_empty_dataset_usage_statistics stamps zero-usage for the
-                # idle window, matching Snowflake/BigQuery/Redshift (which call
-                # auto_empty whenever the read succeeded). datasetUsageStatistics
-                # is a timeseries aspect and the empty aspect is UPSERTed (a
-                # current-bucket zero datapoint); it does not delete prior history.
+                # Successful but empty read (a fetch failure returns above): warn, then
+                # fall through to auto_empty so the idle window records a zero datapoint,
+                # matching Snowflake/BigQuery/Redshift. (Timeseries UPSERT — adds a
+                # current-bucket zero, does not delete history.)
                 self._report_no_queries()
 
             assert buffered_queries is not None
