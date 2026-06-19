@@ -1,0 +1,10 @@
+source:
+  type: cube
+  config:
+    api_url: "https://demo.cubecloud.dev/cubejs-api"
+    api_token: "test-token"
+    deployment_type: "CLOUD"
+    use_metadata_api: true
+    env: "PROD"
+    platform_instance: "cube_demo"
+    warehouse_platform_instance: "pg_prod"

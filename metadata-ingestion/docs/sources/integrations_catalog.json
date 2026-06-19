@@ -67,6 +67,13 @@
       "Status Aspect"
     ]
   },
+  "cube": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "title": "Cube",
+    "description": "Import cubes, views, measures, and dimensions from the Cube semantic layer, including view-to-cube and warehouse lineage.",
+    "img_path": "img/logos/platforms/cube.png"
+  },
   "databricks": {
     "platform_type": "ETL/ELT",
     "connection_type": "Pull",
