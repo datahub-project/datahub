@@ -450,6 +450,72 @@ def test_resource_link_schema_resolved_from_target():
     assert resolved["DatabaseName"] == "mixed-database"
 
 
+def test_glue_ingest_cross_account_and_resource_links(
+    tmp_path: Path, pytestconfig: pytest.Config
+) -> None:
+    # End-to-end pipeline test for the cross-account features: a mixed database containing a normal
+    # table (consumer account) and a Lake Formation resource link pointing at a table owned by
+    # account 432143214321. Expect: consumer tables under "consumer_domain", and the resource link
+    # carrying an upstream edge to the owner's table under "owner_domain" plus a backfilled schema.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="consumer_domain",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-east-1:432143214321": {
+                    "platform_instance": "owner_domain"
+                },
+            },
+        ),
+    )
+
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response(
+            "get_databases", get_databases_response_with_mixed_database, {}
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_for_mixed_database,
+            {"DatabaseName": "mixed-database"},
+        )
+        # The resource link has no schema of its own -> resolved from the target table.
+        glue_stubber.add_response(
+            "get_table",
+            {
+                "Table": {
+                    "Name": "transactions",
+                    "StorageDescriptor": {
+                        "Columns": [
+                            {"Name": "txn_id", "Type": "bigint", "Comment": ""},
+                            {"Name": "amount", "Type": "double", "Comment": ""},
+                        ],
+                        "Location": "s3://owner-bucket-432143214321/transactions",
+                    },
+                }
+            },
+            {
+                "DatabaseName": "test-database",
+                "Name": "transactions",
+                "CatalogId": "432143214321",
+            },
+        )
+
+        mce_objects = [wu.metadata for wu in source.get_workunits()]
+        glue_stubber.assert_no_pending_responses()
+
+        write_metadata_file(tmp_path / "glue_mces_cross_account.json", mce_objects)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "glue_mces_cross_account.json",
+        golden_path=test_resources_dir / "glue_mces_cross_account_golden.json",
+    )
+
+
 def test_extract_urns_from_query_applies_target_platform_instance():
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
