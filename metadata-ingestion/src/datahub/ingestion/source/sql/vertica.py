@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tupl
 
 import pydantic
 from pydantic import field_validator
-from vertica_sqlalchemy_dialect.base import VerticaInspector
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
@@ -40,6 +39,7 @@ from datahub.ingestion.source.sql.sql_config import (
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import get_domain_wu
+from datahub.ingestion.source.sql.vertica_inspector import VerticaInspector
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
@@ -141,6 +141,14 @@ class VerticaSource(SQLAlchemySource):
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "VerticaSource":
         config = VerticaConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    def get_inspectors(self) -> Iterable[VerticaInspector]:
+        # The base dialect (sqlalchemy-vertica-python) only provides standard
+        # reflection. Wrap each standard inspector in our VerticaInspector so the
+        # Vertica-specific methods (projections, models, owners, lineage, ...)
+        # are available downstream.
+        for inspector in super().get_inspectors():
+            yield VerticaInspector(inspector)
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_workunits_internal()
