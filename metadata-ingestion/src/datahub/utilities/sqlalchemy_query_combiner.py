@@ -25,7 +25,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 # so we need to ignore the error here.
 SQLALCHEMY_VERSION = sqlalchemy.__version__  # type: ignore[attr-defined]
 IS_SQLALCHEMY_1_4 = version.parse(SQLALCHEMY_VERSION) >= version.parse("1.4.0")
-IS_SQLALCHEMY_2 = version.parse(SQLALCHEMY_VERSION) >= version.parse("2.0.0")
 
 
 MAX_QUERIES_TO_COMBINE_AT_ONCE = 40
