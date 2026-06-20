@@ -29,3 +29,28 @@ def test_combines_two_single_row_selects_into_one(tmp_path):
     assert results == {"a": 1, "b": 2}
     assert combiner.report.combined_queries_issued == 1
     assert combiner.report.queries_combined == 2
+
+
+def test_combines_multi_column_single_row_queries():
+    engine = sa.create_engine("sqlite://")
+    combiner = SQLAlchemyQueryCombiner(
+        enabled=True,
+        catch_exceptions=False,
+        is_single_row_query_method=lambda q: True,
+        serial_execution_fallback_enabled=False,
+    )
+    out = {}
+
+    def work(key):
+        with engine.connect() as conn:
+            row = conn.execute(
+                sa.select(sa.literal(1).label("x"), sa.literal(2).label("y"))
+            ).fetchall()
+            out[key] = (row[0][0], row[0][1])
+
+    with combiner.activate():
+        combiner.run(lambda: work("a"))
+        combiner.run(lambda: work("b"))
+        combiner.flush()
+
+    assert out == {"a": (1, 2), "b": (1, 2)}

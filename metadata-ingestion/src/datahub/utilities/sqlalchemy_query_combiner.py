@@ -122,12 +122,13 @@ class _QueryFuture:
 
 
 def get_query_columns(query: Any) -> List[Any]:
-    try:
-        # inner_columns will be more accurate if the column names are unnamed,
-        # since .columns will remove the "duplicates".
-        return list(query.inner_columns)
-    except AttributeError:
-        return list(query.columns)
+    # CTE/subquery exposes columns via `.c`; Select exposes selected columns.
+    # `inner_columns` is the most accurate for unnamed columns on a Select.
+    for attr in ("inner_columns", "selected_columns"):
+        cols = getattr(query, attr, None)
+        if cols is not None:
+            return list(cols)
+    return list(query.columns)
 
 
 @dataclasses.dataclass
@@ -348,22 +349,20 @@ class SQLAlchemyQueryCombiner:
             row = results[0]
 
             # Extract the results into a result for each query.
+            # We use the CTE's columns here (not the original query's columns)
+            # because the combined select was built from CTE columns, and on SA 2.0
+            # the original query may contain unlabeled BindParameter objects without
+            # a .name attribute. CTE columns always have stable string names.
             index = 0
-            for _, query_future in pending_queue.items():
-                query = query_future.query
-                if IS_SQLALCHEMY_1_4:
-                    # On 1.4, it prints a warning if we don't call subquery.
-                    query = query.subquery()  # type: ignore
-                cols = query.columns
+            for k, query_future in pending_queue.items():
+                cols = get_query_columns(ctes[k])
 
                 data = {}
                 for col in cols:
                     data[col.name] = row[index]
                     index += 1
 
-                res = _ResultProxyFake([_RowProxyFake(data)])
-
-                query_future.res = res
+                query_future.res = _ResultProxyFake([_RowProxyFake(data)])
                 query_future.done = True
 
             # Verify that we consumed all the columns.
