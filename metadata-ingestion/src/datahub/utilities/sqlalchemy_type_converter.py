@@ -52,6 +52,9 @@ class SqlAlchemyColumnToAvroConverter:
         if isinstance(
             column_type, tuple(cls.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE.keys())
         ):
+            # All keys are TypeEngine subclasses, so the matched column_type is one too.
+            # The assert narrows the union for the dict lookup below.
+            assert isinstance(column_type, types.TypeEngine)
             return {
                 "type": cls.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE[type(column_type)],
                 "native_data_type": str(column_type),
