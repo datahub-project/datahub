@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional
 from dateutil import parser
 from pydantic.fields import Field
 from pydantic.main import BaseModel
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
@@ -166,7 +166,10 @@ class TrinoUsageSource(Source):
     def _get_trino_history(self):
         query = self._make_usage_query()
         engine = self._make_sql_engine()
-        results = engine.execute(query)
+        # SA 2.0 removed Engine.execute() and rejects bare SQL strings; run on a
+        # connection and materialize before it closes so the loop below is unchanged.
+        with engine.connect() as conn:
+            results = conn.execute(text(query)).fetchall()
         events = []
         for row in results:
             event_dict = row._asdict()
