@@ -212,6 +212,26 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
                     f"Auto-detected warehouse platform '{mapped}' from Cube data "
                     f"source type '{primary.type}'."
                 )
+            else:
+                self.report.warning(
+                    title="Could not auto-detect warehouse platform",
+                    message=(
+                        "The Cube data source type is not mapped to a DataHub "
+                        "platform, so warehouse lineage will be skipped. Set "
+                        "`warehouse_platform` explicitly to enable it."
+                    ),
+                    context=primary.type,
+                )
+        else:
+            self.report.warning(
+                title="Could not auto-detect warehouse platform",
+                message=(
+                    "The Cube data source reports no type, so warehouse lineage "
+                    "will be skipped. Set `warehouse_platform` explicitly to "
+                    "enable it."
+                ),
+                context=primary.name,
+            )
         if not self.config.warehouse_database and primary.database:
             self.config.warehouse_database = primary.database
 

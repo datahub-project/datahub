@@ -1,14 +1,14 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.cube.config import CubeSourceConfig, CubeSourceReport
 from datahub.ingestion.source.cube.constants import CUBE_PLATFORM
 from datahub.ingestion.source.cube.models import (
-    CubeColumnReference,
     CubeEntity,
     CubeMember,
+    CubeTableReference,
     ResolvedWarehouseTable,
 )
 from datahub.metadata.schema_classes import (
@@ -98,7 +98,7 @@ class CubeLineageBuilder:
                 )
         return self._schema_resolver
 
-    def _resolve_table(self, ref: CubeColumnReference) -> ResolvedWarehouseTable:
+    def _resolve_table(self, ref: CubeTableReference) -> ResolvedWarehouseTable:
         # Snap the table URN and column casing to the warehouse's ingested
         # schema so Cube's identifiers (e.g. Snowflake upper, Postgres lower)
         # don't dangle. Falls back to configured lowercasing when unresolved.
@@ -136,17 +136,19 @@ class CubeLineageBuilder:
         if not self.config.include_lineage:
             return None
 
+        downstream_urn = self._cube_urn(entity.name)
         upstream_urns: List[str] = []
         fine_grained: List[FineGrainedLineageClass] = []
-        downstream_urn = self._cube_urn(entity.name)
 
+        # Each helper returns its own contributions; build() is the single place
+        # that aggregates and dedupes them.
         upstream_urns.extend(self._warehouse_table_urns(entity))
-        self._add_warehouse_column_lineage(
-            entity, downstream_urn, upstream_urns, fine_grained
-        )
-        self._add_cube_reference_lineage(
-            entity, downstream_urn, upstream_urns, fine_grained
-        )
+        wh_urns, wh_fine = self._warehouse_column_lineage(entity, downstream_urn)
+        cube_urns, cube_fine = self._cube_reference_lineage(entity, downstream_urn)
+        upstream_urns.extend(wh_urns)
+        upstream_urns.extend(cube_urns)
+        fine_grained.extend(wh_fine)
+        fine_grained.extend(cube_fine)
 
         deduped = list(dict.fromkeys(upstream_urns))
         if not deduped and not fine_grained:
@@ -171,15 +173,13 @@ class CubeLineageBuilder:
             return self._parse_sql_tables(entity)
         return []
 
-    def _add_warehouse_column_lineage(
-        self,
-        entity: CubeEntity,
-        downstream_urn: str,
-        upstream_urns: List[str],
-        fine_grained: List[FineGrainedLineageClass],
-    ) -> None:
+    def _warehouse_column_lineage(
+        self, entity: CubeEntity, downstream_urn: str
+    ) -> Tuple[List[str], List[FineGrainedLineageClass]]:
+        upstream_urns: List[str] = []
+        fine_grained: List[FineGrainedLineageClass] = []
         if not (self.warehouse_platform and self.config.include_column_lineage):
-            return
+            return upstream_urns, fine_grained
         members = entity.visible_members(self.config.include_hidden)
 
         # Cube Core's /v1/meta gives no per-member column references. As a
@@ -192,28 +192,34 @@ class CubeLineageBuilder:
         base = None if has_explicit_refs else self._single_warehouse_schema(entity)
 
         for member in members:
-            upstream_fields: List[str] = []
-            if member.column_references:
-                for ref in member.column_references:
-                    if not ref.column:
-                        continue
-                    resolved = self._resolve_table(ref)
-                    upstream_urns.append(resolved.urn)
-                    (resolved_column,) = self._resolve_columns(
-                        resolved.schema_info, [ref.column]
-                    )
-                    upstream_fields.append(
-                        SchemaFieldUrn(resolved.urn, resolved_column).urn()
-                    )
-            elif base is not None and base.schema_info is not None:
-                column = self._match_member_to_column(base.schema_info, member.name)
-                if column is not None:
-                    upstream_urns.append(base.urn)
-                    upstream_fields.append(SchemaFieldUrn(base.urn, column).urn())
-            if upstream_fields:
-                fine_grained.append(
-                    self._field_lineage(downstream_urn, member, upstream_fields)
+            urns, fields = self._member_column_fields(member, base)
+            upstream_urns.extend(urns)
+            if fields:
+                fine_grained.append(self._field_lineage(downstream_urn, member, fields))
+        return upstream_urns, fine_grained
+
+    def _member_column_fields(
+        self, member: CubeMember, base: Optional[ResolvedWarehouseTable]
+    ) -> Tuple[List[str], List[str]]:
+        # Returns (upstream table urns, upstream schema-field urns) for one member.
+        urns: List[str] = []
+        fields: List[str] = []
+        if member.column_references:
+            for ref in member.column_references:
+                if not ref.column:
+                    continue
+                resolved = self._resolve_table(ref)
+                (resolved_column,) = self._resolve_columns(
+                    resolved.schema_info, [ref.column]
                 )
+                urns.append(resolved.urn)
+                fields.append(SchemaFieldUrn(resolved.urn, resolved_column).urn())
+        elif base is not None and base.schema_info is not None:
+            column = self._match_member_to_column(base.schema_info, member.name)
+            if column is not None:
+                urns.append(base.urn)
+                fields.append(SchemaFieldUrn(base.urn, column).urn())
+        return urns, fields
 
     def _single_warehouse_schema(
         self, entity: CubeEntity
@@ -238,18 +244,15 @@ class CubeLineageBuilder:
         by_lower = {column.lower(): column for column in schema_info}
         return by_lower.get(member_name.lower())
 
-    def _add_cube_reference_lineage(
-        self,
-        entity: CubeEntity,
-        downstream_urn: str,
-        upstream_urns: List[str],
-        fine_grained: List[FineGrainedLineageClass],
-    ) -> None:
-        for cube_name in entity.cube_references:
-            upstream_urns.append(self._cube_urn(cube_name))
-
+    def _cube_reference_lineage(
+        self, entity: CubeEntity, downstream_urn: str
+    ) -> Tuple[List[str], List[FineGrainedLineageClass]]:
+        upstream_urns: List[str] = [
+            self._cube_urn(cube_name) for cube_name in entity.cube_references
+        ]
+        fine_grained: List[FineGrainedLineageClass] = []
         if not self.config.include_column_lineage:
-            return
+            return upstream_urns, fine_grained
 
         for member in entity.visible_members(self.config.include_hidden):
             upstream_fields: List[str] = []
@@ -264,6 +267,7 @@ class CubeLineageBuilder:
                 fine_grained.append(
                     self._field_lineage(downstream_urn, member, upstream_fields)
                 )
+        return upstream_urns, fine_grained
 
     def _parse_sql_tables(self, entity: CubeEntity) -> List[str]:
         # Cube Core only: parse the cube SQL to recover upstream warehouse tables.

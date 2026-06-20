@@ -1,5 +1,5 @@
 import json
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -303,14 +303,19 @@ class CloudWorkbooksResponse(BaseModel):
 # Normalised domain models
 
 
-class CubeColumnReference(BaseModel):
+class CubeTableReference(BaseModel):
+    # A cube's upstream warehouse table (no column component).
     schema_name: Optional[str] = None
     table: str
-    column: Optional[str] = None
 
     def table_name(self, database: Optional[str] = None) -> str:
         parts = [p for p in (database, self.schema_name, self.table) if p]
         return ".".join(parts)
+
+
+class CubeColumnReference(CubeTableReference):
+    # A member's upstream warehouse column: a table reference plus the column.
+    column: Optional[str] = None
 
 
 class ResolvedWarehouseTable(BaseModel):
@@ -353,6 +358,39 @@ class CubeMember(BaseModel):
     meta: Dict[str, object] = Field(default_factory=dict)
 
 
+def _normalise_member(
+    raw: Union[CoreMember, CloudMember],
+    *,
+    is_measure: bool,
+    title: Optional[str],
+    is_primary_key: bool,
+    member_references: List[str],
+    column_references: List[CubeColumnReference],
+) -> CubeMember:
+    # Shared normalisation for the fields Core and Cloud raw members express
+    # identically; source-specific bits (title fallback, primary-key flag,
+    # member/column references) are passed in by the caller.
+    return CubeMember(
+        name=_short_member_name(raw.name),
+        title=title,
+        description=raw.description,
+        data_type=raw.type,
+        agg_type=raw.agg_type if is_measure else None,
+        is_measure=is_measure,
+        is_primary_key=is_primary_key,
+        is_temporal=raw.type == "time",
+        is_hidden=_is_hidden(raw.public, raw.is_visible),
+        format=raw.format,
+        drill_members=[_short_member_name(d) for d in raw.drill_members]
+        if is_measure
+        else [],
+        cumulative=bool(raw.cumulative or raw.cumulative_total),
+        meta=raw.meta or {},
+        member_references=member_references,
+        column_references=column_references,
+    )
+
+
 def _build_joins(raw: List[RawJoin]) -> List[CubeJoin]:
     return [CubeJoin(name=j.name, relationship=j.relationship) for j in raw]
 
@@ -386,7 +424,7 @@ class CubeEntity(BaseModel):
     measures: List[CubeMember] = Field(default_factory=list)
     dimensions: List[CubeMember] = Field(default_factory=list)
     segment_names: List[str] = Field(default_factory=list)
-    table_references: List[CubeColumnReference] = Field(default_factory=list)
+    table_references: List[CubeTableReference] = Field(default_factory=list)
     cube_references: List[str] = Field(default_factory=list)
     joins: List[CubeJoin] = Field(default_factory=list)
     hierarchies: List[CubeHierarchy] = Field(default_factory=list)
@@ -407,35 +445,24 @@ class CubeEntity(BaseModel):
     @classmethod
     def from_core_cube(cls, cube: CoreCube) -> "CubeEntity":
         measures = [
-            CubeMember(
-                name=_short_member_name(m.name),
-                title=m.title or m.short_title,
-                description=m.description,
-                data_type=m.type,
-                agg_type=m.agg_type,
+            _normalise_member(
+                m,
                 is_measure=True,
-                is_hidden=_is_hidden(m.public, m.is_visible),
-                format=m.format,
-                drill_members=[_short_member_name(d) for d in m.drill_members],
-                cumulative=bool(m.cumulative or m.cumulative_total),
+                title=m.title or m.short_title,
+                is_primary_key=False,
                 member_references=[m.alias_member] if m.alias_member else [],
-                meta=m.meta or {},
+                column_references=[],
             )
             for m in cube.measures
         ]
         dimensions = [
-            CubeMember(
-                name=_short_member_name(m.name),
-                title=m.title or m.short_title,
-                description=m.description,
-                data_type=m.type,
+            _normalise_member(
+                m,
                 is_measure=False,
+                title=m.title or m.short_title,
                 is_primary_key=bool(m.primary_key),
-                is_temporal=m.type == "time",
-                is_hidden=_is_hidden(m.public, m.is_visible),
-                format=m.format,
                 member_references=[m.alias_member] if m.alias_member else [],
-                meta=m.meta or {},
+                column_references=[],
             )
             for m in cube.dimensions
         ]
@@ -460,22 +487,12 @@ class CubeEntity(BaseModel):
     @classmethod
     def from_cloud_entity(cls, entity: CloudEntity) -> "CubeEntity":
         def _convert(member: CloudMember, is_measure: bool) -> CubeMember:
-            return CubeMember(
-                name=_short_member_name(member.name),
-                title=member.title,
-                description=member.description,
-                data_type=member.type,
-                agg_type=member.agg_type if is_measure else None,
+            return _normalise_member(
+                member,
                 is_measure=is_measure,
+                title=member.title,
                 is_primary_key=member.is_primary_key,
-                is_temporal=member.type == "time",
-                is_hidden=_is_hidden(member.public, member.is_visible),
-                format=member.format,
-                drill_members=[_short_member_name(d) for d in member.drill_members]
-                if is_measure
-                else [],
-                cumulative=bool(member.cumulative or member.cumulative_total),
-                meta=member.meta or {},
+                member_references=list(member.member_references),
                 column_references=[
                     CubeColumnReference(
                         schema_name=ref.schema_name,
@@ -485,7 +502,6 @@ class CubeEntity(BaseModel):
                     for ref in member.column_references
                     if ref.table
                 ],
-                member_references=list(member.member_references),
             )
 
         return cls(
@@ -498,7 +514,7 @@ class CubeEntity(BaseModel):
             measures=[_convert(m, True) for m in entity.measures],
             dimensions=[_convert(d, False) for d in entity.dimensions],
             table_references=[
-                CubeColumnReference(schema_name=ref.schema_name, table=ref.table)
+                CubeTableReference(schema_name=ref.schema_name, table=ref.table)
                 for ref in entity.table_references
             ],
             cube_references=list(entity.cube_references),
@@ -512,10 +528,12 @@ class CubeEntity(BaseModel):
 def _overlay_lineage(base: CubeEntity, lineage: CubeEntity) -> None:
     # The Metadata API carries warehouse/column lineage that /v1/meta lacks;
     # copy it onto the structural base without clobbering existing values.
+    # Copy the lists rather than aliasing them, so base and the (discarded)
+    # lineage entity never share mutable list objects.
     if lineage.table_references:
-        base.table_references = lineage.table_references
+        base.table_references = list(lineage.table_references)
     if lineage.cube_references:
-        base.cube_references = lineage.cube_references
+        base.cube_references = list(lineage.cube_references)
 
     lineage_members = {m.name: m for m in lineage.members}
     for member in base.members:
@@ -523,11 +541,11 @@ def _overlay_lineage(base: CubeEntity, lineage: CubeEntity) -> None:
         if source is None:
             continue
         if source.column_references:
-            member.column_references = source.column_references
+            member.column_references = list(source.column_references)
         # Prefer the Metadata API's references, but keep /v1/meta's aliasMember
         # (view->cube) references when the Metadata API has none.
         if source.member_references:
-            member.member_references = source.member_references
+            member.member_references = list(source.member_references)
 
 
 def _entities_from_query_members(json_query: Optional[str]) -> List[str]:

@@ -6,6 +6,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.cube.config import CubeSourceConfig
 from datahub.ingestion.source.cube.cube import CubeSource
 from datahub.ingestion.source.cube.models import (
+    CloudDataSource,
     CubeEntity,
     CubeFolder,
     CubeHierarchy,
@@ -276,6 +277,36 @@ def test_build_chart_sets_inputs_and_owner() -> None:
     assert [o.owner for o in ownership.owners] == [  # type: ignore[attr-defined]
         "urn:li:corpuser:a@example.com"
     ]
+
+
+def test_warehouse_defaults_autodetected_from_data_sources() -> None:
+    # The 'default' data source's type maps to a DataHub platform and its
+    # database back-fills warehouse_database.
+    source = _source()
+    with patch.object(
+        source.api_client,
+        "get_data_sources",
+        return_value=[
+            CloudDataSource(name="other", type="snowflake"),
+            CloudDataSource(name="default", type="Postgres", database="analytics"),
+        ],
+    ):
+        source._resolve_warehouse_defaults()
+    assert source.config.warehouse_platform == "postgres"
+    assert source.config.warehouse_database == "analytics"
+
+
+def test_warehouse_defaults_unmapped_type_warns() -> None:
+    # An unrecognized warehouse type must surface a warning, not silently skip lineage.
+    source = _source()
+    with patch.object(
+        source.api_client,
+        "get_data_sources",
+        return_value=[CloudDataSource(name="default", type="some_new_db")],
+    ):
+        source._resolve_warehouse_defaults()
+    assert source.config.warehouse_platform is None
+    assert len(source.report.warnings) == 1
 
 
 def test_one_bad_entity_does_not_abort_ingestion() -> None:
