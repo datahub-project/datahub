@@ -135,23 +135,20 @@ ischema_names: Dict[str, Any] = {
 }
 
 
-class VerticaInspector:
+class VerticaInspector(Inspector):
     """SQLAlchemy 2.0 compatible replacement for the dialect's VerticaInspector.
 
-    Wraps a standard SQLAlchemy :class:`Inspector` (composition rather than
-    subclassing). Standard reflection methods are delegated to the wrapped
-    inspector via ``__getattr__``; the Vertica-specific methods below are
-    implemented as direct SQL.
+    Subclasses the standard SQLAlchemy :class:`Inspector` so it is type-compatible
+    everywhere an ``Inspector`` is expected, while adding the Vertica-specific
+    methods below. Standard reflection (get_columns, get_view_names,
+    get_schema_names, get_pk_constraint, get_foreign_keys, get_table_names, ...) is
+    inherited. We populate state from an already-constructed inspector rather than
+    calling ``Inspector.__init__``, which is deprecated in SA 2.0 and would re-open
+    a connection.
     """
 
     def __init__(self, inspector: Inspector) -> None:
-        self._inspector = inspector
-
-    def __getattr__(self, name: str) -> Any:
-        # Delegate everything we don't explicitly implement (get_columns,
-        # get_view_names, get_schema_names, get_pk_constraint, get_foreign_keys,
-        # get_table_names, engine, bind, ...) to the wrapped standard inspector.
-        return getattr(self._inspector, name)
+        self.__dict__.update(inspector.__dict__)
 
     # ------------------------------------------------------------------
     # Column type reconstruction (ported from the dialect's _get_column_info)
@@ -205,7 +202,8 @@ class VerticaInspector:
         if default is not None:
             match = re.search(r"""(nextval\(')([^']+)('.*$)""", default)
             if match is not None:
-                if issubclass(coltype._type_affinity, sqltypes.Integer):
+                affinity = coltype._type_affinity
+                if affinity is not None and issubclass(affinity, sqltypes.Integer):
                     autoincrement = True
                 sch = schema
                 if "." not in match.group(2) and sch is not None:
@@ -231,7 +229,7 @@ class VerticaInspector:
     # Database / schema property bags
     # ------------------------------------------------------------------
     def _get_database_properties(self, database: str, **kw: Any) -> Dict[str, str]:
-        with self._inspector.engine.connect() as conn:
+        with self.engine.connect() as conn:
             cluster_type = ""
             communal_path = ""
             cluster_type_res = conn.execute(
@@ -285,7 +283,7 @@ class VerticaInspector:
             }
 
     def _get_schema_properties(self, schema: str, **kw: Any) -> Dict[str, str]:
-        with self._inspector.engine.connect() as conn:
+        with self.engine.connect() as conn:
             projection_count: Optional[Any] = None
             projection_count_rows = conn.execute(
                 sqlalchemy.text(
@@ -333,7 +331,7 @@ class VerticaInspector:
     def get_table_owner(
         self, table: str, schema: Optional[str] = None, **kw: Any
     ) -> Optional[str]:
-        with self._inspector.engine.connect() as conn:
+        with self.engine.connect() as conn:
             rows = conn.execute(
                 sqlalchemy.text(
                     "SELECT table_name, owner_name FROM v_catalog.tables "
@@ -349,7 +347,7 @@ class VerticaInspector:
     def get_view_owner(
         self, view: str, schema: Optional[str] = None, **kw: Any
     ) -> Optional[str]:
-        with self._inspector.engine.connect() as conn:
+        with self.engine.connect() as conn:
             rows = conn.execute(
                 sqlalchemy.text(
                     "SELECT table_name, owner_name FROM v_catalog.views "
@@ -368,7 +366,7 @@ class VerticaInspector:
     def get_projection_names(
         self, schema: Optional[str] = None, **kw: Any
     ) -> List[str]:
-        with self._inspector.engine.connect() as conn:
+        with self.engine.connect() as conn:
             if schema is not None:
                 stmt = sqlalchemy.text(
                     "SELECT projection_name from v_catalog.projections "
@@ -385,7 +383,7 @@ class VerticaInspector:
     def get_projection_columns(
         self, projection: str, schema: Optional[str] = None, **kw: Any
     ) -> List[Dict[str, Any]]:
-        with self._inspector.engine.connect() as conn:
+        with self.engine.connect() as conn:
             rows = conn.execute(
                 sqlalchemy.text(
                     "SELECT projection_column_name, data_type, "
@@ -417,7 +415,7 @@ class VerticaInspector:
     def get_projection_owner(
         self, projection: str, schema: Optional[str] = None, **kw: Any
     ) -> Optional[str]:
-        with self._inspector.engine.connect() as conn:
+        with self.engine.connect() as conn:
             rows = conn.execute(
                 sqlalchemy.text(
                     "SELECT projection_name as table_name, owner_name "
@@ -499,7 +497,7 @@ class VerticaInspector:
         original behaviour exactly.
         """
         target = projection.lower()
-        with self._inspector.engine.connect() as conn:
+        with self.engine.connect() as conn:
             comment: Dict[str, Any] = {"projection_name": target}
 
             ros_rows = conn.execute(
@@ -618,7 +616,7 @@ class VerticaInspector:
     # ML Models
     # ------------------------------------------------------------------
     def get_models_names(self, schema: Optional[str] = None, **kw: Any) -> List[str]:
-        with self._inspector.engine.connect() as conn:
+        with self.engine.connect() as conn:
             rows = conn.execute(
                 sqlalchemy.text(
                     "SELECT model_name FROM models "
@@ -631,7 +629,7 @@ class VerticaInspector:
     def get_model_comment(
         self, model_name: str, schema: Optional[str] = None, **kw: Any
     ) -> Dict[str, Any]:
-        with self._inspector.engine.connect() as conn:
+        with self.engine.connect() as conn:
             used_by = ""
             used_by_rows = conn.execute(
                 sqlalchemy.text(
@@ -639,8 +637,8 @@ class VerticaInspector:
                 ),
                 {"model": model_name},
             ).mappings()
-            for data in used_by_rows:
-                used_by = data["owner_name"]
+            for used_by_row in used_by_rows:
+                used_by = used_by_row["owner_name"]
 
             attr_name: List[Dict[str, Any]] = []
             attr_rows = conn.execute(
@@ -650,12 +648,12 @@ class VerticaInspector:
                 ),
                 {"model_full": f"{schema.lower() if schema else schema}.{model_name}"},
             )
-            for data in attr_rows:
+            for attr_row in attr_rows:
                 attr_name.append(
                     {
-                        "attr_name": data[0],
-                        "attr_fields": data[1],
-                        "#_of_rows": data[2],
+                        "attr_name": attr_row[0],
+                        "attr_fields": attr_row[1],
+                        "#_of_rows": attr_row[2],
                     }
                 )
 
@@ -710,7 +708,7 @@ class VerticaInspector:
         self, view: str, schema: str, **kw: Any
     ) -> Dict[str, List[Tuple[str, str, str]]]:
         view_lineage_map: Dict[str, List[Tuple[str, str, str]]] = defaultdict(list)
-        with self._inspector.engine.connect() as conn:
+        with self.engine.connect() as conn:
             rows = conn.execute(
                 sqlalchemy.text(
                     "select table_name, table_schema, reference_table_name, "
@@ -734,7 +732,7 @@ class VerticaInspector:
         projection_lineage_map: Dict[str, List[Tuple[str, str, str]]] = defaultdict(
             list
         )
-        with self._inspector.engine.connect() as conn:
+        with self.engine.connect() as conn:
             rows = conn.execute(
                 sqlalchemy.text(
                     "select basename, schemaname, name from vs_projections "

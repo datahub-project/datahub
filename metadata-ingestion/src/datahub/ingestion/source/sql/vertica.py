@@ -194,7 +194,7 @@ class VerticaSource(SQLAlchemySource):
                     profile_requests, profiler, platform=self.platform
                 )
 
-    def get_identifier(
+    def get_identifier(  # type: ignore[override]  # VerticaSource only uses VerticaInspector
         self, *, schema: str, entity: str, inspector: VerticaInspector, **kwargs: Any
     ) -> str:
         regular = f"{schema}.{entity}"
@@ -203,7 +203,7 @@ class VerticaSource(SQLAlchemySource):
         current_database = self.get_db_name(inspector)
         return f"{current_database}.{regular}"
 
-    def get_database_properties(
+    def get_database_properties(  # type: ignore[override]  # VerticaSource only uses VerticaInspector
         self, inspector: VerticaInspector, database: str
     ) -> Optional[Dict[str, str]]:
         try:
@@ -216,7 +216,7 @@ class VerticaSource(SQLAlchemySource):
             )
         return None
 
-    def get_schema_properties(
+    def get_schema_properties(  # type: ignore[override]  # VerticaSource only uses VerticaInspector
         self, inspector: VerticaInspector, database: str, schema: str
     ) -> Optional[Dict[str, str]]:
         try:
@@ -228,7 +228,7 @@ class VerticaSource(SQLAlchemySource):
             )
         return None
 
-    def _process_table(
+    def _process_table(  # type: ignore[override]  # VerticaSource only uses VerticaInspector
         self,
         dataset_name: str,
         inspector: VerticaInspector,
@@ -253,7 +253,7 @@ class VerticaSource(SQLAlchemySource):
             dataset_name, inspector, schema, table, sql_config, data_reader
         )
 
-    def loop_views(
+    def loop_views(  # type: ignore[override]  # VerticaSource only uses VerticaInspector
         self,
         inspector: VerticaInspector,
         schema: str,
@@ -323,7 +323,7 @@ class VerticaSource(SQLAlchemySource):
         except Exception as e:
             self.report.report_failure(f"{schema}", f"Views error: {e}")
 
-    def _process_view(
+    def _process_view(  # type: ignore[override]  # VerticaSource only uses VerticaInspector
         self,
         dataset_name: str,
         inspector: VerticaInspector,
@@ -484,7 +484,7 @@ class VerticaSource(SQLAlchemySource):
             owner_urn=f"urn:li:corpuser:{projection_owner}",
         )
         # extra_tags = self.get_extra_tags(inspector, schema, projection)
-        pk_constraints: dict = inspector.get_pk_constraint(projection, schema)
+        pk_constraints: dict = dict(inspector.get_pk_constraint(projection, schema))
         foreign_keys = self._get_foreign_keys(
             dataset_urn, inspector, schema, projection
         )
@@ -525,7 +525,7 @@ class VerticaSource(SQLAlchemySource):
                 domain_registry=self.domain_registry,
             )
 
-    def loop_profiler_requests(
+    def loop_profiler_requests(  # type: ignore[override]  # VerticaSource only uses VerticaInspector
         self,
         inspector: VerticaInspector,
         schema: str,
