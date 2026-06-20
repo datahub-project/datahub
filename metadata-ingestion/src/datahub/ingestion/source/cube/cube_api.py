@@ -1,12 +1,16 @@
 import logging
-from typing import Dict, List, Mapping, Optional, Union
+from typing import Dict, Iterable, List, Mapping, Optional, Type, TypeVar, Union
 from urllib.parse import urlparse
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from datahub.ingestion.source.cube.config import CubeDeploymentType, CubeSourceConfig
+from datahub.ingestion.source.cube.config import (
+    CubeDeploymentType,
+    CubeSourceConfig,
+    CubeSourceReport,
+)
 from datahub.ingestion.source.cube.constants import (
     API_ENDPOINT_DATA_SOURCES,
     API_ENDPOINT_ENTITIES_ALL,
@@ -42,10 +46,17 @@ from datahub.ingestion.source.cube.models import (
 
 logger = logging.getLogger(__name__)
 
+# Cloud Platform API list responses share a common cursor-paginated shape
+# (`items` + `pageInfo`); this bounds the generic pagination helper to them.
+_PlatformResponse = TypeVar(
+    "_PlatformResponse", CloudReportsResponse, CloudWorkbooksResponse
+)
+
 
 class CubeAPIClient:
-    def __init__(self, config: CubeSourceConfig):
+    def __init__(self, config: CubeSourceConfig, report: CubeSourceReport):
         self.config = config
+        self.report = report
         self.session = self._create_session()
         self._meta_sync_token: Optional[str] = None
 
@@ -156,22 +167,23 @@ class CubeAPIClient:
             return core_entities
 
         # On Cloud, enrich the structural metadata with the Metadata API's
-        # warehouse/column lineage. Fall back gracefully when the token cannot
-        # reach the Metadata API.
+        # warehouse/column lineage. Fall back gracefully (to /v1/meta only) when
+        # the Metadata API or the Control Plane token-mint cannot be reached, so
+        # a lineage-only failure never aborts the whole ingestion.
         try:
             cloud_entities = self._get_cloud_entities()
-        except requests.HTTPError as e:
-            status = e.response.status_code if e.response is not None else None
-            if status in (401, 403, 404):
-                logger.warning(
-                    "Cube Metadata API is not accessible "
-                    f"(HTTP {status}); using /v1/meta only. Lineage to warehouse "
-                    "tables will be unavailable. Provide cloud_api_key + "
-                    "deployment_id + environment_id (or a Control Plane token) to "
-                    "enable the Metadata API."
-                )
-                return core_entities
-            raise
+        except (requests.HTTPError, ValueError) as e:
+            self.report.warning(
+                title="Cube Metadata API unavailable",
+                message=(
+                    "Using /v1/meta only; lineage to warehouse tables will be "
+                    "unavailable. Provide cloud_api_key + deployment_id + "
+                    "environment_id (or a Control Plane token) to enable the "
+                    "Metadata API."
+                ),
+                context=str(e),
+            )
+            return core_entities
         return merge_entities(core_entities, cloud_entities)
 
     def get_data_sources(self) -> List[CloudDataSource]:
@@ -180,7 +192,14 @@ class CubeAPIClient:
         try:
             raw = self._request(HTTP_METHOD_GET, API_ENDPOINT_DATA_SOURCES, bearer=True)
         except requests.HTTPError as e:
-            logger.info(f"Could not list Cube data sources: {e}")
+            self.report.warning(
+                title="Could not list Cube data sources",
+                message=(
+                    "Warehouse platform/database auto-detection was skipped; set "
+                    "warehouse_platform explicitly if warehouse lineage is missing."
+                ),
+                context=str(e),
+            )
             return []
         return CloudDataSourcesResponse.model_validate(raw).data.data_sources
 
@@ -208,29 +227,40 @@ class CubeAPIClient:
         response.raise_for_status()
         return response.json()
 
+    def _paginate_platform(
+        self, endpoint: str, response_cls: Type[_PlatformResponse]
+    ) -> Iterable[_PlatformResponse]:
+        # Walk a cursor-paginated Platform API list endpoint, yielding one parsed
+        # page at a time so callers can stream items without buffering raw pages.
+        cursor: Optional[str] = None
+        while True:
+            params: Dict[str, Union[str, int]] = {"first": PLATFORM_API_PAGE_SIZE}
+            if cursor:
+                params["after"] = cursor
+            raw = self._platform_request(endpoint, params=params)
+            response = response_cls.model_validate(raw)
+            yield response
+            page_info = response.page_info
+            if not (page_info and page_info.has_next_page and page_info.end_cursor):
+                break
+            cursor = page_info.end_cursor
+
     def get_reports(self) -> List[CubeReport]:
         if not self._can_use_platform_api():
             return []
         endpoint = API_ENDPOINT_REPORTS.format(deployment_id=self.config.deployment_id)
         reports: List[CubeReport] = []
-        cursor: Optional[str] = None
         try:
-            while True:
-                params: Dict[str, Union[str, int]] = {"first": PLATFORM_API_PAGE_SIZE}
-                if cursor:
-                    params["after"] = cursor
-                raw = self._platform_request(endpoint, params=params)
-                response = CloudReportsResponse.model_validate(raw)
-                reports.extend(CubeReport.from_cloud(r) for r in response.items)
-                page_info = response.page_info
-                if not page_info or not page_info.has_next_page:
-                    break
-                cursor = page_info.end_cursor
-                if not cursor:
-                    break
+            for page in self._paginate_platform(endpoint, CloudReportsResponse):
+                reports.extend(CubeReport.from_cloud(r) for r in page.items)
         except requests.HTTPError as e:
-            logger.warning(f"Could not list Cube reports: {e}")
-            return []
+            # Keep whatever pages succeeded before the failure rather than
+            # discarding them, and surface the truncation in the report.
+            self.report.warning(
+                title="Could not list all Cube reports",
+                message="Report ingestion may be incomplete.",
+                context=str(e),
+            )
         return reports
 
     def get_workbooks(self) -> List[CubeWorkbook]:
@@ -240,24 +270,15 @@ class CubeAPIClient:
             deployment_id=self.config.deployment_id
         )
         workbooks: List[CubeWorkbook] = []
-        cursor: Optional[str] = None
         try:
-            while True:
-                params: Dict[str, Union[str, int]] = {"first": PLATFORM_API_PAGE_SIZE}
-                if cursor:
-                    params["after"] = cursor
-                raw = self._platform_request(endpoint, params=params)
-                response = CloudWorkbooksResponse.model_validate(raw)
-                workbooks.extend(CubeWorkbook.from_cloud(w) for w in response.items)
-                page_info = response.page_info
-                if not page_info or not page_info.has_next_page:
-                    break
-                cursor = page_info.end_cursor
-                if not cursor:
-                    break
+            for page in self._paginate_platform(endpoint, CloudWorkbooksResponse):
+                workbooks.extend(CubeWorkbook.from_cloud(w) for w in page.items)
         except requests.HTTPError as e:
-            logger.warning(f"Could not list Cube workbooks: {e}")
-            return []
+            self.report.warning(
+                title="Could not list all Cube workbooks",
+                message="Workbook ingestion may be incomplete.",
+                context=str(e),
+            )
         return workbooks
 
     def test_connection(self) -> None:

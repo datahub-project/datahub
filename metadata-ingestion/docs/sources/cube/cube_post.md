@@ -13,7 +13,7 @@ The connector extracts the following metadata:
 
 #### Lineage
 
-Lineage is emitted when `ingest_lineage` is enabled (the default):
+Lineage is emitted when `include_lineage` is enabled (the default):
 
 - **View to cube** — views are linked to the cubes they are built on, including column-level lineage derived from each member's `aliasMember`.
 - **Cube to warehouse** — on Cube Cloud with the Metadata API, table and column references are read directly. On Cube Core, table-level lineage is parsed from each cube's SQL definition when `parse_sql_for_lineage` and `warehouse_platform` are set. Column-level lineage on Cube Core is best-effort: since `/v1/meta` does not expose per-member SQL, members are matched by name against the upstream table's columns as found in DataHub (so the warehouse must be ingested first, and members whose name differs from the underlying column — e.g. aggregate measures — are not linked).

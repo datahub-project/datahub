@@ -1,4 +1,5 @@
-from typing import Dict, List
+from typing import Dict, Iterator, List
+from unittest.mock import patch
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -6,6 +7,9 @@ from datahub.ingestion.source.cube.config import CubeSourceConfig
 from datahub.ingestion.source.cube.cube import CubeSource
 from datahub.ingestion.source.cube.models import (
     CubeEntity,
+    CubeFolder,
+    CubeHierarchy,
+    CubeJoin,
     CubeMember,
     CubeReport,
     CubeWorkbook,
@@ -212,12 +216,6 @@ def test_hidden_members_excluded_from_schema() -> None:
 
 
 def test_structural_metadata_as_custom_properties() -> None:
-    from datahub.ingestion.source.cube.models import (
-        CubeFolder,
-        CubeHierarchy,
-        CubeJoin,
-    )
-
     source = _source()
     entity = CubeEntity(
         name="orders",
@@ -278,6 +276,32 @@ def test_build_chart_sets_inputs_and_owner() -> None:
     assert [o.owner for o in ownership.owners] == [  # type: ignore[attr-defined]
         "urn:li:corpuser:a@example.com"
     ]
+
+
+def test_one_bad_entity_does_not_abort_ingestion() -> None:
+    # A single failing cube/view must be reported and skipped, not abort the run.
+    source = _source()
+    good = CubeEntity(name="orders")
+    bad = CubeEntity(name="broken")
+
+    def fake_emit(
+        entity: CubeEntity, container: object, lineage_builder: object
+    ) -> Iterator[MetadataWorkUnit]:
+        if entity.name == "broken":
+            raise ValueError("boom")
+        yield from ()
+
+    with (
+        patch.object(source.api_client, "get_entities", return_value=[bad, good]),
+        patch.object(source.api_client, "get_reports", return_value=[]),
+        patch.object(source.api_client, "get_workbooks", return_value=[]),
+        patch.object(source.api_client, "get_data_sources", return_value=[]),
+        patch.object(source, "_emit_entity", side_effect=fake_emit),
+    ):
+        list(source.get_workunits_internal())
+
+    assert len(source.report.warnings) == 1
+    assert source.report.cubes_scanned == 2
 
 
 def test_build_dashboard_links_known_charts() -> None:

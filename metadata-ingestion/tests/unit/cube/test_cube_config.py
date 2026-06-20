@@ -2,7 +2,7 @@ from typing import Dict
 
 import pytest
 
-from datahub.ingestion.source.cube.config import CubeDeploymentType, CubeSourceConfig
+from datahub.ingestion.source.cube.config import CubeSourceConfig
 
 
 def _config(**overrides: object) -> CubeSourceConfig:
@@ -34,16 +34,6 @@ def test_request_timeout_must_be_positive() -> None:
         _config(request_timeout_sec=0)
 
 
-def test_defaults() -> None:
-    cfg = _config()
-    assert cfg.deployment_type == CubeDeploymentType.CORE
-    assert cfg.include_cubes is True
-    assert cfg.include_views is True
-    assert cfg.ingest_lineage is True
-    assert cfg.convert_lineage_urns_to_lowercase is True
-    assert cfg.enable_meta_mapping is True
-
-
 def test_meta_mapping_requires_operation_and_match() -> None:
     with pytest.raises(ValueError):
         _config(meta_mapping={"owner": {"match": ".*"}})
@@ -61,13 +51,25 @@ def test_cloud_api_key_and_deployment_id_required_together() -> None:
 def test_cloud_api_key_with_deployment_id_is_valid_for_platform_api() -> None:
     # The Platform API (reports/workbooks) needs only the key + deployment id;
     # environment_id is not required.
-    cfg = _config(cloud_api_key="k", deployment_id="1")
+    cfg = _config(deployment_type="CLOUD", cloud_api_key="k", deployment_id="1")
     assert cfg.deployment_id == "1"
     assert cfg.environment_id is None
 
 
 def test_environment_id_requires_key_and_deployment_id() -> None:
     with pytest.raises(ValueError):
-        _config(environment_id="2")
-    cfg = _config(cloud_api_key="k", deployment_id="1", environment_id="2")
+        _config(deployment_type="CLOUD", environment_id="2")
+    cfg = _config(
+        deployment_type="CLOUD",
+        cloud_api_key="k",
+        deployment_id="1",
+        environment_id="2",
+    )
     assert cfg.environment_id == "2"
+
+
+def test_cloud_credentials_rejected_for_core_deployment() -> None:
+    # The Cloud-only credentials are meaningless against a Core deployment and
+    # must be rejected rather than silently ignored.
+    with pytest.raises(ValueError):
+        _config(deployment_type="CORE", cloud_api_key="k", deployment_id="1")

@@ -1,8 +1,9 @@
 from typing import Dict
 
+import pytest
 import requests_mock as rm
 
-from datahub.ingestion.source.cube.config import CubeSourceConfig
+from datahub.ingestion.source.cube.config import CubeSourceConfig, CubeSourceReport
 from datahub.ingestion.source.cube.cube_api import CubeAPIClient
 
 
@@ -13,7 +14,7 @@ def _client(**overrides: object) -> CubeAPIClient:
         "deployment_type": "CLOUD",
     }
     base.update(overrides)
-    return CubeAPIClient(CubeSourceConfig.model_validate(base))
+    return CubeAPIClient(CubeSourceConfig.model_validate(base), CubeSourceReport())
 
 
 def test_metadata_token_uses_api_token_without_control_plane() -> None:
@@ -164,3 +165,42 @@ def test_get_reports_returns_empty_on_http_error(requests_mock: rm.Mocker) -> No
         "https://demo.cubecloud.dev/api/v1/deployments/123/reports", status_code=403
     )
     assert client.get_reports() == []
+    assert len(client.report.warnings) == 1
+
+
+def test_get_entities_falls_back_to_core_on_metadata_api_error(
+    requests_mock: rm.Mocker,
+) -> None:
+    # When the Cloud Metadata API is forbidden, ingestion degrades to /v1/meta
+    # rather than aborting, and the degradation is surfaced in the report.
+    client = _client()
+    requests_mock.get(
+        "https://demo.cubecloud.dev/cubejs-api/v1/meta",
+        json={
+            "cubes": [
+                {
+                    "name": "orders",
+                    "type": "cube",
+                    "measures": [{"name": "orders.count", "type": "number"}],
+                    "dimensions": [],
+                }
+            ]
+        },
+    )
+    requests_mock.post(
+        "https://demo.cubecloud.dev/cubejs-api/v1/entities/all", status_code=403
+    )
+
+    entities = client.get_entities()
+    assert [e.name for e in entities] == ["orders"]
+    assert len(client.report.warnings) == 1
+
+
+def test_metadata_token_mint_missing_token_raises(requests_mock: rm.Mocker) -> None:
+    client = _client(cloud_api_key="cp-key", deployment_id="123", environment_id="456")
+    requests_mock.post(
+        "https://demo.cubecloud.dev/api/v1/deployments/123/environments/456/tokens-for-meta-sync",
+        json={"data": {}},
+    )
+    with pytest.raises(ValueError):
+        client._metadata_api_token()

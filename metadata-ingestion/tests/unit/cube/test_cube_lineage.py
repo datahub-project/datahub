@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.cube.config import CubeSourceConfig
+from datahub.ingestion.source.cube.config import CubeSourceConfig, CubeSourceReport
 from datahub.ingestion.source.cube.cube_lineage import CubeLineageBuilder
 from datahub.ingestion.source.cube.models import (
     CubeColumnReference,
@@ -19,6 +19,7 @@ def _builder(warehouse_platform=None, warehouse_database=None, **cfg_overrides):
         ctx=PipelineContext(run_id="test"),
         warehouse_platform=warehouse_platform,
         warehouse_database=warehouse_database,
+        report=CubeSourceReport(),
     )
 
 
@@ -76,9 +77,18 @@ def test_view_to_cube_lineage_from_member_references() -> None:
     assert any("base_orders" in f and f.endswith("count)") for f in upstream_fields)
 
 
-def test_ingest_lineage_disabled_returns_none() -> None:
+def test_include_lineage_disabled_returns_none() -> None:
     entity = CubeEntity(name="orders", cube_references=["base_orders"])
-    assert _builder(ingest_lineage=False).build(entity) is None
+    assert _builder(include_lineage=False).build(entity) is None
+
+
+def test_sql_parse_failure_is_counted_and_reported() -> None:
+    # An unparseable cube SQL must be counted in the report, not silently dropped.
+    entity = CubeEntity(name="orders", sql="THIS IS NOT VALID SQL ((")
+    builder = _builder(warehouse_platform="postgres", parse_sql_for_lineage=True)
+    builder.build(entity)
+    assert builder.report.sql_parsing_failures >= 1
+    assert len(builder.report.warnings) >= 1
 
 
 def test_column_lineage_disabled_keeps_coarse_only() -> None:

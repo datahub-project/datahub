@@ -119,7 +119,7 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
         super().__init__(config, ctx)
         self.config = config
         self.report: CubeSourceReport = CubeSourceReport()
-        self.api_client = CubeAPIClient(config)
+        self.api_client = CubeAPIClient(config, self.report)
 
         self._deployment = self._deployment_name()
         self._container_key = CubeDeploymentKey(
@@ -163,7 +163,7 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
         test_report = TestConnectionReport()
         try:
             config = CubeSourceConfig.model_validate(config_dict)
-            CubeAPIClient(config).test_connection()
+            CubeAPIClient(config, CubeSourceReport()).test_connection()
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except RequestException as e:
             test_report.basic_connectivity = CapabilityReport(
@@ -232,6 +232,7 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
             ctx=self.ctx,
             warehouse_platform=self.config.warehouse_platform,
             warehouse_database=self.config.warehouse_database,
+            report=self.report,
         )
 
         self.report.report_api_call()
@@ -241,7 +242,17 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
         for entity in entities:
             if not self._should_emit(entity):
                 continue
-            yield from self._emit_entity(entity, container, lineage_builder)
+            # Isolate per-entity failures so one malformed cube/view does not
+            # abort ingestion of the rest.
+            try:
+                yield from self._emit_entity(entity, container, lineage_builder)
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to emit Cube entity",
+                    message="Skipping this cube/view; ingestion continues.",
+                    context=entity.name,
+                    exc=e,
+                )
 
         yield from self._emit_reports_and_workbooks(container)
 
@@ -328,10 +339,18 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
                 if not self.config.report_pattern.allowed(report.name):
                     self.report.filtered_reports.append(report.name)
                     continue
-                chart = self._build_chart(report)
-                chart_by_report_id[report.id] = chart
-                yield from chart.as_workunits()
-                self.report.reports_emitted += 1
+                try:
+                    chart = self._build_chart(report)
+                    chart_by_report_id[report.id] = chart
+                    yield from chart.as_workunits()
+                    self.report.reports_emitted += 1
+                except Exception as e:
+                    self.report.warning(
+                        title="Failed to emit Cube report",
+                        message="Skipping this report; ingestion continues.",
+                        context=report.name,
+                        exc=e,
+                    )
 
         if self.config.include_workbooks:
             for workbook in self.api_client.get_workbooks():
@@ -339,11 +358,19 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
                 if not self.config.workbook_pattern.allowed(workbook.name):
                     self.report.filtered_workbooks.append(workbook.name)
                     continue
-                dashboard = self._build_dashboard(
-                    workbook, chart_by_report_id, container
-                )
-                yield from dashboard.as_workunits()
-                self.report.workbooks_emitted += 1
+                try:
+                    dashboard = self._build_dashboard(
+                        workbook, chart_by_report_id, container
+                    )
+                    yield from dashboard.as_workunits()
+                    self.report.workbooks_emitted += 1
+                except Exception as e:
+                    self.report.warning(
+                        title="Failed to emit Cube workbook",
+                        message="Skipping this workbook; ingestion continues.",
+                        context=workbook.name,
+                        exc=e,
+                    )
 
     def _build_chart(self, report: CubeReport) -> Chart:
         input_datasets = [

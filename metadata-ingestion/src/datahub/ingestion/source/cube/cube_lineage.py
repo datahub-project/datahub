@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.cube.config import CubeSourceConfig
+from datahub.ingestion.source.cube.config import CubeSourceConfig, CubeSourceReport
 from datahub.ingestion.source.cube.constants import CUBE_PLATFORM
 from datahub.ingestion.source.cube.models import (
     CubeColumnReference,
@@ -41,15 +41,25 @@ class CubeLineageBuilder:
         ctx: PipelineContext,
         warehouse_platform: Optional[str],
         warehouse_database: Optional[str],
+        report: CubeSourceReport,
     ):
         self.config = config
         self.ctx = ctx
+        self.report = report
         self.warehouse_platform = warehouse_platform
         self.warehouse_database = warehouse_database
         self._sql_tables_cache: Dict[str, List[str]] = {}
         self._schema_resolver: Optional[SchemaResolver] = None
         self._resolver_ready = False
         self._table_resolution: Dict[str, ResolvedWarehouseTable] = {}
+
+    def _report_sql_failure(self, entity_name: str, detail: str) -> None:
+        self.report.sql_parsing_failures += 1
+        self.report.warning(
+            title="Cube SQL lineage parsing failed",
+            message="Could not derive warehouse lineage from a cube's SQL.",
+            context=f"{entity_name}: {detail}",
+        )
 
     def _cube_urn(self, cube_name: str) -> str:
         return make_dataset_urn_with_platform_instance(
@@ -123,7 +133,7 @@ class CubeLineageBuilder:
         return [self._warehouse_column(column) for column in columns]
 
     def build(self, entity: CubeEntity) -> Optional[UpstreamLineageClass]:
-        if not self.config.ingest_lineage:
+        if not self.config.include_lineage:
             return None
 
         upstream_urns: List[str] = []
@@ -277,12 +287,10 @@ class CubeLineageBuilder:
                 generate_column_lineage=False,
             )
             if result.debug_info.error:
-                logger.debug(
-                    f"SQL parsing for cube {entity.name} reported: {result.debug_info.error}"
-                )
+                self._report_sql_failure(entity.name, str(result.debug_info.error))
             tables = list(result.in_tables)
         except Exception as e:
-            logger.warning(f"Failed to parse SQL for cube {entity.name}: {e}")
+            self._report_sql_failure(entity.name, str(e))
 
         self._sql_tables_cache[entity.name] = tables
         return tables

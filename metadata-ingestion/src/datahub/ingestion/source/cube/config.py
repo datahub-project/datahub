@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
@@ -22,6 +22,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants
 
 logger = logging.getLogger(__name__)
@@ -92,8 +93,8 @@ class CubeSourceConfig(
         default=None,
         description="Cube Cloud environment id, used to mint a Metadata API token via the Control Plane API.",
     )
-    security_context: Dict = Field(
-        default={},
+    security_context: Dict[str, object] = Field(
+        default_factory=dict,
         description=(
             "Security context embedded in the minted Metadata API token. Controls "
             "which parts of the data model are visible, following Cube's "
@@ -151,7 +152,7 @@ class CubeSourceConfig(
         description="Regex patterns for filtering workbooks to ingest (matched on the workbook name).",
     )
 
-    ingest_lineage: bool = Field(
+    include_lineage: bool = Field(
         default=True,
         description=(
             "Whether to emit lineage. This includes view->cube lineage and, where "
@@ -162,7 +163,7 @@ class CubeSourceConfig(
         default=True,
         description=(
             "Whether to emit column-level (fine-grained) lineage. Requires "
-            "`ingest_lineage` to be enabled."
+            "`include_lineage` to be enabled."
         ),
     )
     parse_sql_for_lineage: bool = Field(
@@ -252,16 +253,16 @@ class CubeSourceConfig(
         default=True,
         description="Whether to process `meta_mapping` and `column_meta_mapping` rules.",
     )
-    meta_mapping: Dict = Field(
-        default={},
+    meta_mapping: Dict[str, Dict[str, object]] = Field(
+        default_factory=dict,
         description=(
             "Mapping rules applied to the `meta` of each cube/view to derive tags, "
             "glossary terms, owners, domains, and documentation links. Uses the same "
             "syntax as the dbt connector's `meta_mapping`."
         ),
     )
-    column_meta_mapping: Dict = Field(
-        default={},
+    column_meta_mapping: Dict[str, Dict[str, object]] = Field(
+        default_factory=dict,
         description=(
             "Mapping rules applied to the `meta` of each measure/dimension to derive "
             "schema-field tags and glossary terms."
@@ -277,7 +278,7 @@ class CubeSourceConfig(
     )
 
     domain: Dict[str, AllowDenyPattern] = Field(
-        default={},
+        default_factory=dict,
         description=(
             "Regex patterns matched against a cube/view name to assign it to a "
             "DataHub domain (keyed by domain id or urn)."
@@ -291,7 +292,9 @@ class CubeSourceConfig(
 
     @field_validator("meta_mapping", "column_meta_mapping")
     @classmethod
-    def validate_meta_mapping(cls, value: Dict) -> Dict:
+    def validate_meta_mapping(
+        cls, value: Dict[str, Dict[str, object]]
+    ) -> Dict[str, Dict[str, object]]:
         for key, mapping in value.items():
             if Constants.OPERATION not in mapping:
                 raise ValueError(
@@ -315,6 +318,16 @@ class CubeSourceConfig(
 
     @model_validator(mode="after")
     def validate_cloud_api_credentials(self) -> "CubeSourceConfig":
+        # The Cloud-only credentials are meaningless against a Core deployment
+        # (the Platform/Metadata APIs are gated on deployment_type == CLOUD), so
+        # reject the combination instead of silently ignoring it.
+        if self.deployment_type != CubeDeploymentType.CLOUD and (
+            self.cloud_api_key or self.deployment_id or self.environment_id
+        ):
+            raise ValueError(
+                "cloud_api_key, deployment_id, and environment_id are only valid "
+                "for deployment_type=CLOUD."
+            )
         # cloud_api_key + deployment_id together unlock the Platform API
         # (reports/workbooks) and are the prerequisite for minting a Metadata
         # API token. environment_id is additionally required only for the
@@ -358,13 +371,13 @@ class CubeSourceReport(StaleEntityRemovalSourceReport):
     reports_emitted: int = 0
     workbooks_scanned: int = 0
     workbooks_emitted: int = 0
-    filtered_reports: List[str] = dataclass_field(default_factory=list)
-    filtered_workbooks: List[str] = dataclass_field(default_factory=list)
+    filtered_reports: LossyList[str] = dataclass_field(default_factory=LossyList)
+    filtered_workbooks: LossyList[str] = dataclass_field(default_factory=LossyList)
     api_calls_count: int = 0
     data_sources_scanned: int = 0
     sql_parsing_failures: int = 0
-    filtered_cubes: List[str] = dataclass_field(default_factory=list)
-    filtered_views: List[str] = dataclass_field(default_factory=list)
+    filtered_cubes: LossyList[str] = dataclass_field(default_factory=LossyList)
+    filtered_views: LossyList[str] = dataclass_field(default_factory=LossyList)
 
     def report_entity_scanned(self, name: str, is_view: bool) -> None:
         if is_view:
