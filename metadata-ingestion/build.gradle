@@ -234,7 +234,7 @@ task testPerformance(type: Exec, dependsOn: [installDev, ':metadata-models:gener
 // Ensures the SA-2.0 compat paths stay green until the repo-wide SA bump lands.
 task testSqlAlchemy2(type: Exec) {
   inputs.files(project.fileTree(dir: "src/datahub/utilities/", include: "sqlalchemy_query_combiner.py"))
-  inputs.files(project.fileTree(dir: "src/datahub/ingestion/source/sql/sqlalchemy_profiler/", include: "*.py"))
+  inputs.files(project.fileTree(dir: "src/datahub/ingestion/source/sqlalchemy_profiler/", include: "*.py"))
   inputs.files(project.fileTree(dir: "tests/unit/utilities/", include: "test_sqlalchemy_query_combiner.py"))
   inputs.files(project.fileTree(dir: "tests/unit/sqlalchemy_profiler/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/unit/utilities/sa2_compat/", include: "*.sh"))

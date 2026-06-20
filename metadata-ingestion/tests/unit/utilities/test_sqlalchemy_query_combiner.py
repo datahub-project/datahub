@@ -7,7 +7,7 @@ def _single_row(query) -> bool:
     return True
 
 
-def test_combines_two_single_row_selects_into_one(tmp_path):
+def test_combines_two_single_row_selects_into_one():
     engine = sa.create_engine("sqlite://")
     combiner = SQLAlchemyQueryCombiner(
         enabled=True,
@@ -81,7 +81,9 @@ def test_parameterized_query_is_not_combined_and_returns_correct_value():
     assert combiner.report.uncombined_queries_issued >= 1
 
 
-def test_serial_fallback_when_combine_fails():
+def test_executes_correctly_with_serial_fallback_enabled():
+    # Exercises the happy path with serial_execution_fallback_enabled=True;
+    # does NOT exercise the fallback branch itself (the query is trivially combinable).
     engine = sa.create_engine("sqlite://")
     combiner = SQLAlchemyQueryCombiner(
         enabled=True,
