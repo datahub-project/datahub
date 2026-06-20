@@ -1,3 +1,4 @@
+import pathlib
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -15,6 +16,7 @@ from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
 from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
 
 
 def _row(**kw):
@@ -925,15 +927,17 @@ def test_auto_empty_usage_emitted_for_unqueried_tables(
     )
 
 
-def test_zero_queries_emits_no_usage_workunits(
+def test_zero_queries_emits_empty_usage_for_idle_window(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """When the query history is empty (num_queries == 0), NO datasetUsageStatistics
-    workunit must be emitted, and the no-queries-found warning must fire.
+    """When the query history is genuinely empty (num_queries == 0 and no fetch
+    failure), the ingested tables must still receive a zero-usage aspect for the
+    window, and the no-queries-found warning must fire.
 
-    Emitting zero-usage aspects on a query-less run would wrongly wipe existing
-    usage stats in DataHub (e.g. when the warehouse has no recent activity or the
-    connector lacks SELECT privilege on query history tables).
+    A genuinely idle window should record a current-bucket zero datapoint (via
+    auto_empty_dataset_usage_statistics) rather than leaving stale usage stats —
+    fetch *failures* are handled separately and short-circuit before this point
+    (see test_fetch_failure_reports_failure_and_no_usage_workunits).
     """
 
     class FakeAgg:
@@ -951,11 +955,20 @@ def test_zero_queries_emits_no_usage_workunits(
 
     monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
 
+    start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    end = datetime(2026, 6, 2, tzinfo=timezone.utc)
+
     config = MagicMock()
     config.include_queries = False
     config.include_query_usage_statistics = False
     config.include_operational_stats = False
     config.usage_uses_system_tables.return_value = True
+    # Real time-window values so auto_empty_dataset_usage_statistics can compute
+    # bucket timestamps via config.majority_buckets().
+    config.start_time = start
+    config.end_time = end
+    config.bucket_duration = BucketDuration.DAY
+    config.majority_buckets.return_value = [start]
 
     proxy = MagicMock()
     proxy.warehouse_id = "wh1"
@@ -966,19 +979,39 @@ def test_zero_queries_emits_no_usage_workunits(
     ex.report = UnityCatalogReport()
 
     ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+    expected_urn = ex.table_urn_builder(ref)
     workunits = list(ex.get_usage_workunits({ref}))
 
+    # The idle window must still stamp a zero-usage aspect for the ingested table.
     usage_wus = [
         wu
         for wu in workunits
-        if wu.get_aspect_of_type(DatasetUsageStatisticsClass) is not None
+        if wu.get_urn() == expected_urn
+        and wu.get_aspect_of_type(DatasetUsageStatisticsClass) is not None
     ]
-    assert not usage_wus, (
-        f"Expected NO datasetUsageStatistics workunits when num_queries == 0, "
-        f"but got {len(usage_wus)}: {[wu.id for wu in usage_wus]}"
+    assert usage_wus, (
+        f"Expected a zero-usage DatasetUsageStatistics workunit for {expected_urn!r} "
+        f"on an idle window, but none was emitted. Workunits: {[wu.id for wu in workunits]}"
     )
+    usage_aspect = usage_wus[0].get_aspect_of_type(DatasetUsageStatisticsClass)
+    assert usage_aspect is not None
+    assert usage_aspect.totalSqlQueries == 0
+    assert usage_aspect.uniqueUserCount == 0
 
-    # The "No queries found for usage" warning must be reported.
+    # Zeros must be scoped to the ingested table set, not over-stamped onto
+    # tables this recipe didn't ingest.
+    other_urn = ex.table_urn_builder(
+        TableReference(
+            metastore=None, catalog="main", schema="sales", table="not_ingested"
+        )
+    )
+    assert not any(
+        wu.get_urn() == other_urn
+        and wu.get_aspect_of_type(DatasetUsageStatisticsClass) is not None
+        for wu in workunits
+    ), "idle window must not stamp usage for non-ingested tables"
+
+    # The "No queries found for usage" warning must still be reported.
     warning_titles = [w.title for w in ex.report.warnings]
     assert any(t == "No queries found for usage" for t in warning_titles), (
         f"Expected 'No queries found for usage' warning, got: {warning_titles}"
@@ -2958,4 +2991,313 @@ def test_fetch_queries_omits_catalog_pattern_when_column_usage_stats_enabled(
         config.end_time,
         catalog_pattern=None,
         include_operational_stats=False,
+    )
+
+
+def test_queries_drained_before_parsing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fetch generator must be fully consumed before the first _add_query_to_aggregator
+    call (drain-before-parse invariant).
+
+    Holding the Databricks warehouse cursor open across slow per-query sqlglot parsing
+    causes the server-side operation handle to be evicted with a non-retryable
+    RESOURCE_DOES_NOT_EXIST error. The fix drains all rows into a FileBackedList first
+    (releasing the cursor/connection in seconds), then routes/parses from the buffer.
+    Ref: https://github.com/databricks/databricks-sql-python/pull/785
+
+    This test FAILS on the old interleaved code (first route call happens mid-fetch,
+    before the generator is exhausted, so fetch_exhausted would be False).
+    """
+    fetch_exhausted = [False]
+    fetch_exhausted_at_first_route: list = []
+
+    def _fake_fetch_queries() -> Iterator[Query]:
+        ts = datetime(2026, 6, 1, tzinfo=timezone.utc)
+        for i in range(3):
+            yield Query(
+                query_id=f"q{i}",
+                query_text=f"SELECT {i}",
+                statement_type=None,
+                start_time=ts,
+                end_time=ts,
+                user_id=1,
+                user_name="u@x.io",
+                executed_as_user_id=None,
+                executed_as_user_name=None,
+            )
+        # Only set after the last item is yielded (generator fully consumed).
+        fetch_exhausted[0] = True
+
+    class FakeAgg:
+        def __init__(self, **kw: object) -> None:
+            self.observed: list = []
+
+        def add_observed_query(self, obs: object, **kw: object) -> None:
+            # Record the drain state at the moment of the very first routing call.
+            if not fetch_exhausted_at_first_route:
+                fetch_exhausted_at_first_route.append(fetch_exhausted[0])
+            self.observed.append(obs)
+
+        def add_preparsed_query(self, parsed: object, **kw: object) -> None:
+            if not fetch_exhausted_at_first_route:
+                fetch_exhausted_at_first_route.append(fetch_exhausted[0])
+
+        def gen_metadata(self):  # type: ignore[return]
+            return iter([])
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(usage_mod, "SqlParsingAggregator", FakeAgg)
+
+    config = MagicMock()
+    config.include_queries = False
+    config.include_query_usage_statistics = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+    monkeypatch.setattr(ex, "_fetch_queries", _fake_fetch_queries)
+
+    list(ex.get_usage_workunits(set()))
+
+    # All three queries must have been routed.
+    assert len(fetch_exhausted_at_first_route) == 1, (
+        "expected exactly one first-route observation"
+    )
+    # Key assertion: fetch was fully exhausted BEFORE the first route call.
+    assert fetch_exhausted_at_first_route[0] is True, (
+        "fetch generator was not fully drained before the first _add_query_to_aggregator call; "
+        "the old interleaved code would cause this to be False"
+    )
+    # All three queries must still have been routed despite the drain-first change.
+    assert ex.report.num_queries == 3, (
+        f"expected 3 queries counted, got {ex.report.num_queries}"
+    )
+
+
+def _audit_log_config(tmp_path: pathlib.Path) -> MagicMock:
+    """A MagicMock config wired for the system-tables usage path with a real
+    local_temp_path (so the named/window-keyed audit-log cache is exercised)."""
+    start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    end = datetime(2026, 6, 2, tzinfo=timezone.utc)
+    config = MagicMock()
+    config.include_queries = False
+    config.include_query_usage_statistics = False
+    config.include_operational_stats = False
+    config.usage_uses_system_tables.return_value = True
+    config.local_temp_path = tmp_path
+    config.start_time = start
+    config.end_time = end
+    config.bucket_duration = BucketDuration.DAY
+    config.majority_buckets.return_value = [start]
+    return config
+
+
+def test_audit_log_persists_and_second_run_reloads(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """With local_temp_path set, the audit log persists after a run, and a second run
+    over the same window reloads it and skips the fetch (the reload-from-file route)."""
+    _no_op_aggregator(monkeypatch)
+    config = _audit_log_config(tmp_path)
+
+    fetch_calls: List[int] = []
+
+    def _fetch(*_a: object, **_k: object) -> Iterator[Query]:
+        fetch_calls.append(1)
+        return iter([_query("SELECT * FROM main.sales.orders", "q1")])
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.side_effect = _fetch
+    ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+
+    # First run: cache miss -> fetches, and leaves the audit log behind.
+    ex1 = _extractor(config, proxy)
+    ex1.report = UnityCatalogReport()
+    list(ex1.get_usage_workunits({ref}))
+    assert len(fetch_calls) == 1, "first run must fetch"
+    assert ex1.report.num_queries == 1
+    assert len(list(tmp_path.glob("unity_usage_audit_log_*.sqlite"))) == 1, (
+        "audit log must persist after a successful run so a re-run can reload it"
+    )
+
+    # Second run, same window: cache hit -> reloads from file, no new fetch.
+    ex2 = _extractor(config, proxy)
+    ex2.report = UnityCatalogReport()
+    list(ex2.get_usage_workunits({ref}))
+    assert len(fetch_calls) == 1, "second run must reload from file, not re-fetch"
+    assert ex2.report.num_queries == 1, "the cached query must be read back"
+
+
+def test_audit_log_cache_hit_skips_fetch(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """When a window-keyed audit log already exists, the run reads it and skips the
+    fetch entirely; the cached file is left in place for re-use."""
+    _no_op_aggregator(monkeypatch)
+    config = _audit_log_config(tmp_path)
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+
+    # Pre-populate the exact window-keyed file the extractor will look for.
+    audit_file = tmp_path / ex._audit_log_filename()
+    conn = ConnectionWrapper(audit_file)
+    cached: FileBackedList[Query] = FileBackedList(conn)
+    cached.append(_query("SELECT * FROM main.sales.orders", "cached1"))
+    cached.close()
+    conn.close()
+    assert audit_file.exists()
+
+    fetch_calls: List[int] = []
+
+    def _fetch(*_a: object, **_k: object) -> Iterator[Query]:
+        fetch_calls.append(1)
+        return iter([])
+
+    proxy.get_query_history_via_system_tables.side_effect = _fetch
+
+    ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+    list(ex.get_usage_workunits({ref}))
+
+    assert not fetch_calls, "fetch must be skipped on a cache hit"
+    assert ex.report.num_queries == 1, "the one cached query must be read from the file"
+    # A cached run leaves the file in place (only non-cached runs remove it).
+    assert audit_file.exists()
+
+
+def test_audit_log_filename_keyed_by_version_window_and_mode(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The cache filename encodes format version, usage source, and time window so a
+    leftover file is never reused for a different window/mode/version."""
+    config = _audit_log_config(tmp_path)
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    ex = _extractor(config, proxy)
+
+    name = ex._audit_log_filename()
+    assert name.startswith("unity_usage_audit_log_v"), name
+    assert "_systables_" in name, name
+    assert ex._audit_log_filename() == name, "stable for identical inputs"
+
+    # Different time window -> different filename.
+    config.end_time = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    assert ex._audit_log_filename() != name
+
+    # Different usage source (api vs systables) -> different filename.
+    config.usage_uses_system_tables.return_value = False
+    assert "_api_" in ex._audit_log_filename()
+
+
+def test_audit_log_different_window_does_not_reuse_cache(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """A file left from window A must NOT be reused for window B (stale-window guard)."""
+    _no_op_aggregator(monkeypatch)
+    config = _audit_log_config(tmp_path)
+
+    fetch_calls: List[int] = []
+
+    def _fetch(*_a: object, **_k: object) -> Iterator[Query]:
+        fetch_calls.append(1)
+        return iter([_query("SELECT * FROM main.sales.orders", "q1")])
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.side_effect = _fetch
+    ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+
+    # Window A: fetch + persist.
+    ex1 = _extractor(config, proxy)
+    ex1.report = UnityCatalogReport()
+    list(ex1.get_usage_workunits({ref}))
+    assert len(fetch_calls) == 1
+
+    # Window B (same local_temp_path): must re-fetch, not reuse window A's file.
+    config.start_time = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    config.end_time = datetime(2026, 7, 2, tzinfo=timezone.utc)
+    config.majority_buckets.return_value = [config.start_time]
+    ex2 = _extractor(config, proxy)
+    ex2.report = UnityCatalogReport()
+    list(ex2.get_usage_workunits({ref}))
+    assert len(fetch_calls) == 2, (
+        "a different window must re-fetch, not reuse the cache"
+    )
+    assert len(list(tmp_path.glob("unity_usage_audit_log_*.sqlite"))) == 2
+
+
+def test_no_caching_when_local_temp_path_unset(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """With local_temp_path unset, the buffer is ephemeral — no named file persists."""
+    _no_op_aggregator(monkeypatch)
+    config = _audit_log_config(tmp_path)
+    config.local_temp_path = None  # disable caching
+
+    fetch_calls: List[int] = []
+
+    def _fetch(*_a: object, **_k: object) -> Iterator[Query]:
+        fetch_calls.append(1)
+        return iter([_query("SELECT * FROM main.sales.orders", "q1")])
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.side_effect = _fetch
+    ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+    list(ex.get_usage_workunits({ref}))
+
+    assert len(fetch_calls) == 1
+    assert list(tmp_path.glob("unity_usage_audit_log_*.sqlite")) == [], (
+        "no named cache file should be created when local_temp_path is unset"
+    )
+
+
+def test_corrupt_cached_audit_log_discarded_and_refetched(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """A corrupt/unreadable cached file must be discarded and re-fetched with a warning,
+    not crash the run or be served as valid."""
+    _no_op_aggregator(monkeypatch)
+    config = _audit_log_config(tmp_path)
+
+    fetch_calls: List[int] = []
+
+    def _fetch(*_a: object, **_k: object) -> Iterator[Query]:
+        fetch_calls.append(1)
+        return iter([_query("SELECT * FROM main.sales.orders", "q1")])
+
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    proxy.get_query_history_via_system_tables.side_effect = _fetch
+
+    ex = _extractor(config, proxy)
+    ex.report = UnityCatalogReport()
+
+    # Plant a non-SQLite file at the exact window-keyed path so use_cached is True but
+    # opening/reading it fails.
+    audit_file = tmp_path / ex._audit_log_filename()
+    audit_file.write_bytes(b"this is not a sqlite database")
+
+    ref = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+    list(ex.get_usage_workunits({ref}))
+
+    assert len(fetch_calls) == 1, "a corrupt cache must trigger a re-fetch"
+    warning_titles = [w.title for w in ex.report.warnings]
+    assert "Discarded unreadable cached audit log" in warning_titles, warning_titles
+    failure_titles = [getattr(f, "title", "") for f in ex.report.failures]
+    assert not any("Usage extraction failed" in t for t in failure_titles), (
+        "corrupt cache must not surface as a run failure; it should re-fetch"
     )

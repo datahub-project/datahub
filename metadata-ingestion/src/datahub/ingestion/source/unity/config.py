@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Union
 
@@ -422,6 +423,19 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    local_temp_path: HiddenFromDocs[Optional[pathlib.Path]] = pydantic.Field(
+        default=None,
+        description=(
+            "Advanced/dev only. Local directory in which to persist the drained "
+            "query-history audit log (SQLite). When set, the audit log is kept across "
+            "runs so the next run over the same time window reloads it and skips "
+            "re-fetching (including after a crash). The file name is keyed by the usage "
+            "source and time window so it never serves a stale window; files for other "
+            "windows are not pruned automatically. When unset, an ephemeral, "
+            "self-cleaning buffer is used and no caching occurs."
+        ),
+    )
+
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
         UnityCatalogGEProfilerConfig,
@@ -560,6 +574,17 @@ class UnityCatalogSourceConfig(
                 "Workspace URL must start with http scheme. e.g. https://my-workspace.cloud.databricks.com"
             )
         return workspace_url
+
+    @field_validator("local_temp_path", mode="after")
+    @classmethod
+    def local_temp_path_must_be_dir(
+        cls, v: Optional[pathlib.Path]
+    ) -> Optional[pathlib.Path]:
+        # Fail fast with a clear message instead of a confusing extraction error when
+        # the audit-log cache directory doesn't exist (matches Snowflake/BigQuery).
+        if v is not None and not v.is_dir():
+            raise ValueError(f"local_temp_path must be an existing directory, got: {v}")
+        return v
 
     @field_validator("include_metastore", mode="after")
     @classmethod
