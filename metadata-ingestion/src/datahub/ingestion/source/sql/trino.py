@@ -131,7 +131,7 @@ def get_table_names(self, connection, schema: str = None, **kw):  # type: ignore
         WHERE "table_schema" = :schema and "table_type" != 'VIEW'
     """
     ).strip()
-    res = connection.execute(sql.text(query), schema=schema)
+    res = connection.execute(sql.text(query), {"schema": schema})
     return [row.table_name for row in res]
 
 
@@ -149,7 +149,10 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
         ):
             properties_table = self._get_full_table(f"{table_name}$properties", schema)
             query = f"SELECT * FROM {properties_table}"
-            rows = connection.execute(sql.text(query)).fetchall()
+            # .mappings() yields dict-like rows so the key-membership and
+            # column-name indexing below work on SQLAlchemy 2.0 (Row dropped
+            # __contains__/__getitem__-by-name and .items()).
+            rows = connection.execute(sql.text(query)).mappings().fetchall()
 
             # Generate properties dictionary.
             properties = {}
@@ -205,7 +208,7 @@ def _get_columns(self, connection, table_name, schema: str = None, **kw):  # typ
         ORDER BY "ordinal_position" ASC
     """
     ).strip()
-    res = connection.execute(sql.text(query), schema=schema, table=table_name)
+    res = connection.execute(sql.text(query), {"schema": schema, "table": table_name})
     columns = []
     for record in res:
         column = dict(

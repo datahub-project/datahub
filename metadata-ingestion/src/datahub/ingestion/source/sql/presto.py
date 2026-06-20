@@ -40,7 +40,7 @@ def get_view_names(self, connection, schema: str = None, **kw):  # type: ignore
         WHERE "table_schema" = :schema and "table_type" = 'VIEW'
     """
     ).strip()
-    res = connection.execute(sql.text(query), schema=schema)
+    res = connection.execute(sql.text(query), {"schema": schema})
     return [row.table_name for row in res]
 
 
