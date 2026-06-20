@@ -18,7 +18,7 @@
 set -euo pipefail
 
 ING_DIR="$(cd "$(dirname "$0")/../../../.." && pwd)"   # metadata-ingestion/
-TEST_FILE="$ING_DIR/tests/unit/sqlalchemy_profiler/test_query_combiner_runner.py"
+TEST_FILE="$ING_DIR/tests/unit/utilities/test_sqlalchemy_query_combiner.py"
 TMP_VENV="$(mktemp -d)/sa2-venv"
 
 echo "=== SQLAlchemy 2.0 combiner test harness ==="

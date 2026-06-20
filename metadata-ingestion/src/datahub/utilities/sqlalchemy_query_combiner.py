@@ -25,6 +25,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 # so we need to ignore the error here.
 SQLALCHEMY_VERSION = sqlalchemy.__version__  # type: ignore[attr-defined]
 IS_SQLALCHEMY_1_4 = version.parse(SQLALCHEMY_VERSION) >= version.parse("1.4.0")
+IS_SQLALCHEMY_2 = version.parse(SQLALCHEMY_VERSION) >= version.parse("2.0.0")
 
 
 MAX_QUERIES_TO_COMBINE_AT_ONCE = 40
@@ -326,18 +327,16 @@ class SQLAlchemyQueryCombiner:
                 for k, query_future in pending_queue.items()
             }
 
-            combined_cols = itertools.chain(
-                *[
-                    [
-                        col  # .label(self._generate_sql_safe_identifier())
-                        for col in get_query_columns(cte)
-                    ]
-                    for _, cte in ctes.items()
-                ]
+            combined_cols = list(
+                itertools.chain.from_iterable(
+                    get_query_columns(cte) for cte in ctes.values()
+                )
             )
-            combined_query = sqlalchemy.select(combined_cols)
+            # SA 2.0 removed the list form of select() and Select.append_from().
+            # select(*cols) + generative select_from() works on both 1.4 and 2.0.
+            combined_query = sqlalchemy.select(*combined_cols)
             for cte in ctes.values():
-                combined_query.append_from(cte)
+                combined_query = combined_query.select_from(cte)
 
             logger.debug(f"Executing combined query: {str(combined_query)}")
             self.report.combined_queries_issued += 1
