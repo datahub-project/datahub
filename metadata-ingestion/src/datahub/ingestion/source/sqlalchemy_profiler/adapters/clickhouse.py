@@ -59,9 +59,7 @@ class ClickHouseAdapter(PlatformAdapter):
         # ClickHouse's `stddev` is an alias for `stddevPop` (population), so we
         # call `stddevSamp` explicitly to match sample-stddev semantics.
         try:
-            query = sa.select([sa.func.stddevSamp(sa.column(column))]).select_from(
-                table
-            )
+            query = sa.select(sa.func.stddevSamp(sa.column(column))).select_from(table)
             result = conn.execute(query).scalar()
         except SQLAlchemyError as e:
             self.report.warning(
@@ -123,7 +121,7 @@ class ClickHouseAdapter(PlatformAdapter):
             expr = sa.literal_column(f"quantiles({levels})({quoted_column})").label(
                 "quantiles"
             )
-            query = sa.select([expr]).select_from(table)
+            query = sa.select(expr).select_from(table)
             raw = conn.execute(query).scalar()
         except SQLAlchemyError as e:
             batched_failed = True
@@ -163,7 +161,7 @@ class ClickHouseAdapter(PlatformAdapter):
                 expr = sa.literal_column(f"quantile({q})({quoted_column})").label(
                     "quantile"
                 )
-                query = sa.select([expr]).select_from(table)
+                query = sa.select(expr).select_from(table)
                 result = conn.execute(query).scalar()
             except SQLAlchemyError as e:
                 if first_exc is None:

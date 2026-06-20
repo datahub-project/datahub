@@ -243,7 +243,7 @@ class AthenaAdapter(PlatformAdapter):
         athena_expr = sa.literal_column(
             f"approx_percentile({quoted_column}, {array_str})"
         ).label("quantiles")
-        query = sa.select([athena_expr]).select_from(table)
+        query = sa.select(athena_expr).select_from(table)
         result = conn.execute(query).scalar()
         logger.debug(
             f"Athena quantiles for {column}: result type={type(result)}, "

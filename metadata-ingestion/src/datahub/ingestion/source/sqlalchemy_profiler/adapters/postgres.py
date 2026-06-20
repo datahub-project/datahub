@@ -99,7 +99,7 @@ class PostgresAdapter(PlatformAdapter):
                 percentile_expr = sa.literal_column(
                     f"PERCENTILE_DISC({q}) WITHIN GROUP (ORDER BY {quoted_column} ASC)"
                 ).label("percentile")
-                query = sa.select([percentile_expr]).select_from(table)
+                query = sa.select(percentile_expr).select_from(table)
                 result = conn.execute(query).scalar()
                 results.append(float(result) if result is not None else None)
             except SQLAlchemyError as e:
@@ -160,7 +160,7 @@ class PostgresAdapter(PlatformAdapter):
                 schema="pg_catalog",
             )
             query = (
-                sa.select([sa.cast(pg_class.c.reltuples, sa.BigInteger)])
+                sa.select(sa.cast(pg_class.c.reltuples, sa.BigInteger))
                 .select_from(
                     pg_class.join(
                         pg_namespace, pg_class.c.relnamespace == pg_namespace.c.oid

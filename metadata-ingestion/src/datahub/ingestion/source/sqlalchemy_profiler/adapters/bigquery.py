@@ -266,7 +266,7 @@ class BigQueryAdapter(PlatformAdapter):
         """
         try:
             if context.sql_table is not None:
-                query: Any = sa.select([sa.func.count()]).select_from(context.sql_table)
+                query: Any = sa.select(sa.func.count()).select_from(context.sql_table)
             else:
                 # Build quick count query using query builder
                 if not context.table:
@@ -277,7 +277,7 @@ class BigQueryAdapter(PlatformAdapter):
                     sa.MetaData(),
                     schema=context.schema,
                 )
-                query = sa.select([sa.func.count()]).select_from(table_obj)
+                query = sa.select(sa.func.count()).select_from(table_obj)
 
             result = conn.execute(query).scalar()
             return int(result) if result is not None else None

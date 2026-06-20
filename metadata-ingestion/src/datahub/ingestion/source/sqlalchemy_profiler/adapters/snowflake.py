@@ -223,7 +223,7 @@ class SnowflakeAdapter(PlatformAdapter):
         for q in quantiles:
             try:
                 snowflake_expr = sa.func.approx_percentile(sa.column(column), q)
-                query = sa.select([snowflake_expr]).select_from(table)
+                query = sa.select(snowflake_expr).select_from(table)
                 result = conn.execute(query).scalar()
                 results.append(float(result) if result is not None else None)
             except SQLAlchemyError as e:

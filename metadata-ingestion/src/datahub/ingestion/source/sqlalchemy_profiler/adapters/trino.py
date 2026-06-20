@@ -253,7 +253,7 @@ class TrinoAdapter(PlatformAdapter):
         trino_expr = sa.literal_column(
             f"approx_percentile({quoted_column}, {array_str})"
         ).label("quantiles")
-        query = sa.select([trino_expr]).select_from(table)
+        query = sa.select(trino_expr).select_from(table)
         result = conn.execute(query).scalar()
         logger.debug(
             f"Trino quantiles for {column}: result type={type(result)}, "

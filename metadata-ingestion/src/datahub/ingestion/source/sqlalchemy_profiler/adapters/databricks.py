@@ -93,7 +93,7 @@ class DatabricksAdapter(PlatformAdapter):
         databricks_expr = sa.literal_column(
             f"approx_percentile({quoted_column}, {array_str})"
         ).label("quantiles")
-        query = sa.select([databricks_expr]).select_from(table)
+        query = sa.select(databricks_expr).select_from(table)
         result = conn.execute(query).scalar()
         logger.debug(
             f"Databricks quantiles for {column}: result type={type(result)}, "
