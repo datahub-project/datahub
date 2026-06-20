@@ -23,14 +23,7 @@ from typing import (
 import sqlalchemy.dialects.postgresql.base
 from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
 from sqlalchemy.engine.reflection import Inspector
-
-try:
-    # SQLAlchemy 1.4 exposes a distinct LegacyRow type; on 2.0 it was removed
-    # and the single Row type covers it. Aliasing keeps the isinstance() check
-    # below working on both versions.
-    from sqlalchemy.engine.row import LegacyRow  # type: ignore[attr-defined]
-except ImportError:
-    from sqlalchemy.engine.row import Row as LegacyRow
+from sqlalchemy.engine.row import Row
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
@@ -982,7 +975,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             table_info: dict = inspector.get_table_comment(table, f'"{schema}"')  # type: ignore
 
         description = table_info.get("text")
-        if isinstance(description, LegacyRow):
+        if isinstance(description, Row):
             # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
             description = table_info["text"][0]
 
