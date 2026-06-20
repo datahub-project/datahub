@@ -14,7 +14,7 @@ import sqlalchemy.dialects.postgresql as custom_types
 from geoalchemy2 import Geometry  # noqa: F401
 from pydantic import BaseModel, field_validator, model_validator
 from pydantic.fields import Field
-from sqlalchemy import create_engine, event, inspect
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine.reflection import Inspector
 
 if TYPE_CHECKING:
@@ -419,8 +419,10 @@ class PostgresSource(SQLAlchemySource):
                 # exclude template databases - https://www.postgresql.org/docs/current/manage-ag-templatedbs.html
                 # exclude rdsadmin - AWS RDS administrative database
                 databases = conn.execute(
-                    "SELECT datname from pg_database where datname not in ('template0', 'template1', 'rdsadmin')"
-                )
+                    text(
+                        "SELECT datname from pg_database where datname not in ('template0', 'template1', 'rdsadmin')"
+                    )
+                ).mappings()
                 for db in databases:
                     if not self.config.database_pattern.allowed(db["datname"]):
                         continue
@@ -451,11 +453,13 @@ class PostgresSource(SQLAlchemySource):
     ) -> Dict[Tuple[str, str], List[str]]:
         data: List[ViewLineageEntry] = []
         with inspector.engine.connect() as conn:
-            results = conn.execute(VIEW_LINEAGE_QUERY)
+            results = conn.execute(text(VIEW_LINEAGE_QUERY))
             if results.returns_rows is False:
                 return {}
 
-            for row in results:
+            # .mappings() yields dict-like rows; SA 2.0 plain Row is not a Mapping,
+            # so model_validate() needs the mapping view.
+            for row in results.mappings():
                 data.append(ViewLineageEntry.model_validate(row))
 
         lineage_elements: Dict[Tuple[str, str], List[str]] = defaultdict(list)
@@ -615,7 +619,9 @@ class PostgresSource(SQLAlchemySource):
         try:
             with inspector.engine.connect() as conn:
                 for row in conn.execute(
-                    """SELECT table_catalog, table_schema, table_name, pg_table_size('"' || table_catalog || '"."' || table_schema || '"."' || table_name || '"') AS table_size FROM information_schema.TABLES"""
+                    text(
+                        """SELECT table_catalog, table_schema, table_name, pg_table_size('"' || table_catalog || '"."' || table_schema || '"."' || table_name || '"') AS table_size FROM information_schema.TABLES"""
+                    )
                 ):
                     self.profile_metadata_info.dataset_name_to_storage_bytes[
                         self.get_identifier(
@@ -640,7 +646,8 @@ class PostgresSource(SQLAlchemySource):
         base_procedures = []
         with inspector.engine.connect() as conn:
             procedures = conn.execute(
-                """
+                text(
+                    """
                     SELECT
                         p.proname AS name,
                         l.lanname AS language,
@@ -655,9 +662,10 @@ class PostgresSource(SQLAlchemySource):
                         pg_language l ON l.oid = p.prolang
                     WHERE
                         p.prokind = 'p'
-                        AND n.nspname = %s;
-                """,
-                (schema,),
+                        AND n.nspname = :schema;
+                    """
+                ),
+                {"schema": schema},
             )
 
             procedure_rows = list(procedures)
