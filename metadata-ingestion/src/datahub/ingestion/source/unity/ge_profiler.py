@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, List, Optional, Union
 
 from databricks.sdk.service.catalog import DataSourceFormat
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Connection, Engine
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -211,7 +211,7 @@ def _get_dataset_size_in_bytes(
     # This query only works for delta table.
     # Ref: https://docs.databricks.com/en/delta/table-details.html
     # Note: Any change here should also update _get_dataset_row_count
-    row = conn.execute(f"DESCRIBE DETAIL {name}").fetchone()
+    row = conn.execute(text(f"DESCRIBE DETAIL {name}")).fetchone()
     if row is None:
         return None
     else:
@@ -229,7 +229,7 @@ def _get_dataset_row_count(
         for c in [table.ref.catalog, table.ref.schema, table.ref.table]
     )
     # This query only works efficiently for delta table
-    row = conn.execute(f"select count(*) as numRows from {name}").fetchone()
+    row = conn.execute(text(f"select count(*) as numRows from {name}")).fetchone()
     if row is None:
         return None
     else:
