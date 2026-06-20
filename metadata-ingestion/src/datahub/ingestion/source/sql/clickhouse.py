@@ -258,7 +258,9 @@ class ClickHouseConfig(
         if self.sqlalchemy_uri and current_db:
             url = url.set(database=current_db)
 
-        return str(url)
+        # render_as_string(hide_password=False): str(URL) masks the password as "***"
+        # on SQLAlchemy 2.0, which would break the create_engine() connection.
+        return url.render_as_string(hide_password=False)
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @model_validator(mode="before")
