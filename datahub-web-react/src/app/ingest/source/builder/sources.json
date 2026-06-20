@@ -223,6 +223,14 @@
         "recipe": "source:\n    type: doris\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:cube",
+        "name": "cube",
+        "displayName": "Cube",
+        "description": "Import Cubes, Views, deployments, and lineage to upstream warehouse tables from Cube Core or Cube Cloud.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/cube/",
+        "recipe": "source:\n    type: cube\n    config:\n        # Coordinates\n        api_url: \"https://your-tenant.cubecloud.dev/cubejs-api\"\n\n        # Deployment type: \"CORE\" (self-hosted) or \"CLOUD\"\n        deployment_type: \"CLOUD\"\n\n        # Credentials\n        # Add secrets in the Secrets tab for each variable\n        api_token: \"${CUBE_API_TOKEN}\"\n\n        # Cube Cloud only: unlocks warehouse lineage, reports and workbooks\n        cloud_api_key: \"${CUBE_CLOUD_API_KEY}\"\n        deployment_id: null\n        environment_id: null\n\n        # The warehouse Cube reads from, used to build lineage to upstream tables\n        warehouse_platform: null\n        warehouse_database: null\n\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:mongodb",
         "name": "mongodb",
         "displayName": "MongoDB",
