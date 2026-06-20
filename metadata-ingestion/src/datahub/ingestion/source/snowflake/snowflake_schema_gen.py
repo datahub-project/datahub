@@ -19,10 +19,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_structured_properties_to_entity_wu
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.glossary.classification_mixin import (
-    ClassificationHandler,
-    classification_workunit_processor,
-)
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
@@ -43,7 +39,6 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnection,
     SnowflakePermissionError,
 )
-from datahub.ingestion.source.snowflake.snowflake_data_reader import SnowflakeDataReader
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -219,7 +214,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.report.data_dictionary_cache = self.data_dictionary
 
         self.domain_registry: Optional[DomainRegistry] = domain_registry
-        self.classification_handler = ClassificationHandler(self.config, self.report)
         self.tag_extractor = SnowflakeTagExtractor(
             config, self.data_dictionary, self.report, identifiers
         )
@@ -606,7 +600,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         schema_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.include_technical_schema:
-            data_reader = self.make_data_reader()
             for table in tables:
                 if isinstance(table, SnowflakeDynamicTable) and self.aggregator:
                     table_identifier = self.identifiers.get_dataset_identifier(
@@ -663,12 +656,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 table_wu_generator = self._process_table(
                     table, snowflake_schema, db_name
                 )
-                yield from classification_workunit_processor(
-                    table_wu_generator,
-                    self.classification_handler,
-                    data_reader,
-                    [db_name, schema_name, table.name],
-                )
+                yield from table_wu_generator
 
     def _process_views(
         self,
@@ -1041,14 +1029,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     exc=e,
                 )
                 return []
-
-    def make_data_reader(self) -> Optional[SnowflakeDataReader]:
-        if self.classification_handler.is_classification_enabled() and self.connection:
-            return SnowflakeDataReader.create(
-                self.connection, self.snowflake_identifier
-            )
-
-        return None
 
     def _process_table(
         self,

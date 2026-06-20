@@ -3,7 +3,6 @@ import datetime
 import logging
 import traceback
 from dataclasses import dataclass, field
-from functools import partial
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -46,10 +45,6 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_protocols import MetadataWorkUnitIterable
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.glossary.classification_mixin import (
-    SAMPLE_SIZE_MULTIPLIER,
-    ClassificationHandler,
-)
 from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -71,9 +66,6 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_key,
     get_domain_wu,
     schema_requires_v2,
-)
-from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
-    SqlAlchemyTableDataReader,
 )
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
@@ -340,7 +332,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self.report: SQLSourceReport = SQLSourceReport()
         self.profile_metadata_info: ProfileMetadata = ProfileMetadata()
 
-        self.classification_handler = ClassificationHandler(self.config, self.report)
         config_report = {
             config_option: config.model_dump().get(config_option)
             for config_option in config_options_to_report
@@ -712,12 +703,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         if source provides clause to pick random sample instead of current
         limit-based sample
         """
-        if (
-            self.classification_handler
-            and self.classification_handler.is_classification_enabled()
-        ):
-            return SqlAlchemyTableDataReader.create(inspector)
-
         return None
 
     def loop_tables(
@@ -860,8 +845,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             foreign_keys,
             schema_fields,
         )
-        self._classify(dataset_name, schema, table, data_reader, schema_metadata)
-
         dataset_snapshot.aspects.append(schema_metadata)
         if self._save_schema_to_resolver():
             self.aggregator.register_schema(dataset_urn, schema_metadata)
@@ -898,44 +881,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 entity_urn=dataset_urn,
                 domain_config=sql_config.domain,
                 domain_registry=self.domain_registry,
-            )
-
-    def _classify(
-        self,
-        dataset_name: str,
-        schema: str,
-        table: str,
-        data_reader: Optional[DataReader],
-        schema_metadata: SchemaMetadataClass,
-    ) -> None:
-        try:
-            if (
-                self.classification_handler.is_classification_enabled_for_table(
-                    dataset_name
-                )
-                and data_reader
-                and schema_metadata.fields
-            ):
-                self.classification_handler.classify_schema_fields(
-                    dataset_name,
-                    schema_metadata,
-                    partial(
-                        data_reader.get_sample_data_for_table,
-                        [schema, table],
-                        int(
-                            self.config.classification.sample_size
-                            * SAMPLE_SIZE_MULTIPLIER
-                        ),
-                    ),
-                )
-        except Exception as e:
-            logger.debug(
-                f"Failed to classify table columns for {dataset_name} due to error -> {e}",
-                exc_info=e,
-            )
-            self.report.report_warning(
-                "Failed to classify table columns",
-                dataset_name,
             )
 
     def get_database_properties(

@@ -35,11 +35,6 @@ from datahub.ingestion.api.source_helpers import (
     create_dataset_props_patch_builder,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.glossary.classification_mixin import (
-    ClassificationHandler,
-    classification_workunit_processor,
-)
-from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -50,7 +45,6 @@ from datahub.ingestion.source.redshift.datashares import RedshiftDatasharesHelpe
 from datahub.ingestion.source.redshift.exception import handle_redshift_exceptions_yield
 from datahub.ingestion.source.redshift.lineage import RedshiftSqlLineage
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
-from datahub.ingestion.source.redshift.redshift_data_reader import RedshiftDataReader
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftColumn,
     RedshiftDatabase,
@@ -278,7 +272,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.catalog_metadata: Dict = {}
         self.config: RedshiftConfig = config
         self.report: RedshiftReport = RedshiftReport()
-        self.classification_handler = ClassificationHandler(self.config, self.report)
         self.datashares_helper = RedshiftDatasharesHelper(
             self.config, self.report, self.ctx.graph
         )
@@ -484,15 +477,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             self.db_schemas[database][schema.name] = schema
             yield from self.process_schema(connection, database, schema)
 
-    def make_data_reader(
-        self,
-        connection: redshift_connector.Connection,
-    ) -> Optional[DataReader]:
-        if self.classification_handler.is_classification_enabled():
-            return RedshiftDataReader.create(connection)
-
-        return None
-
     def process_schema(
         self,
         connection: redshift_connector.Connection,
@@ -541,7 +525,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             if self.config.include_tables:
-                data_reader = self.make_data_reader(connection)
                 logger.info(f"Process tables in schema {database}.{schema.name}")
                 if (
                     self.db_tables[schema.database]
@@ -553,12 +536,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                         table_wu_generator = self._process_table(
                             table, database=database
                         )
-                        yield from classification_workunit_processor(
-                            table_wu_generator,
-                            self.classification_handler,
-                            data_reader,
-                            [schema.database, schema.name, table.name],
-                        )
+                        yield from table_wu_generator
                         self.report.table_processed[report_key] = (
                             self.report.table_processed.get(
                                 f"{database}.{schema.name}", 0

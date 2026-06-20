@@ -1,74 +1,26 @@
-import os
-from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from datahub_classify.helper_classes import ColumnInfo
-from pydantic.fields import Field
+from pydantic import model_validator
 
-from datahub.configuration.common import (
-    AllowDenyPattern,
-    ConfigModel,
-    DynamicTypedConfig,
+from datahub.configuration.common import ConfigModel
+
+# Column-level classification relied on the unmaintained `acryl-datahub-classify`
+# package, which pinned numpy<2 and an outdated spaCy stack. The feature has been
+# removed; this message tells users how to keep using it if they still need it.
+CLASSIFICATION_REMOVED_MESSAGE = (
+    "Column-level classification has been removed from acryl-datahub because it "
+    "depended on the unmaintained `acryl-datahub-classify` package. If you still "
+    "need classification, install the last release that supports it: "
+    "`pip install 'acryl-datahub==1.6.0.5'`."
 )
 
 
-class DynamicTypedClassifierConfig(DynamicTypedConfig):
-    # Respecifying the base-class just to override field level docs
-
-    type: str = Field(
-        description="The type of the classifier to use. For DataHub,  use `datahub`",
-    )
-    # This config type is declared Optional[Any] here. The eventual parser for the
-    # specified type is responsible for further validation.
-    config: Optional[Any] = Field(
-        default=None,
-        description="The configuration required for initializing the classifier. If not specified, uses defaults for classifer type.",
-    )
-
-
-class ClassificationConfig(ConfigModel):
-    enabled: bool = Field(
-        default=False,
-        description="Whether classification should be used to auto-detect glossary terms",
-    )
-
-    sample_size: int = Field(
-        default=100, description="Number of sample values used for classification."
-    )
-
-    max_workers: int = Field(
-        default=(os.cpu_count() or 4),
-        description="Number of worker processes to use for classification. Set to 1 to disable.",
-    )
-
-    table_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter tables for classification. This is used in combination with other patterns in parent config. Specify regex to match the entire table name in `database.schema.table` format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
-    )
-
-    column_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter columns for classification. This is used in combination with other patterns in parent config. Specify regex to match the column name in `database.schema.table.column` format.",
-    )
-
-    info_type_to_term: Dict[str, str] = Field(
-        default=dict(),
-        description="Optional mapping to provide glossary term identifier for info type",
-    )
-
-    classifiers: List[DynamicTypedClassifierConfig] = Field(
-        default=[DynamicTypedClassifierConfig(type="datahub", config=None)],
-        description="Classifiers to use to auto-detect glossary terms. If more than one classifier, infotype predictions from the classifier defined later in sequence take precedance.",
-    )
-
-
-@dataclass
-class Classifier(metaclass=ABCMeta):
-    @abstractmethod
-    def classify(self, columns: List[ColumnInfo]) -> List[ColumnInfo]:
-        pass
-
+class ClassificationSourceConfigMixin(ConfigModel):
+    # `classification` is intentionally undeclared so it no longer appears in source
+    # config schemas/docs. A recipe that still sets it fails fast with guidance.
+    @model_validator(mode="before")
     @classmethod
-    def create(cls, config_dict: Dict[str, Any]) -> "Classifier":
-        raise NotImplementedError("Sub-classes must override this method.")
+    def _reject_removed_classification(cls, values: Any) -> Any:
+        if isinstance(values, dict) and "classification" in values:
+            raise ValueError(CLASSIFICATION_REMOVED_MESSAGE)
+        return values
