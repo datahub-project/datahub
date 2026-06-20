@@ -174,10 +174,6 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
     "By default, platform_instance will use the AWS account id",
 )
 @capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-)
-@capability(
     SourceCapability.TAGS,
     "Optionally enabled via `extract_table_tags` to extract dynamoDB table tags as DataHub tags",
 )

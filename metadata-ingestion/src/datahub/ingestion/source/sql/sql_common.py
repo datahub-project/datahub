@@ -280,11 +280,6 @@ class ProfileMetadata:
 
 
 @capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
-@capability(
     SourceCapability.SCHEMA_METADATA,
     "Enabled by default",
     supported=True,

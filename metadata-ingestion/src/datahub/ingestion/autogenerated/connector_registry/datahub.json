@@ -119,12 +119,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Supported via upstream lineage to Glue, Iceberg, or S3 entities depending on catalog type",
           "subtype_modifier": [
@@ -263,12 +257,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Optionally enabled via configuration",
           "subtype_modifier": null,
@@ -390,12 +378,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default via `include_view_column_lineage`",
           "subtype_modifier": null,
@@ -499,12 +481,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -861,12 +837,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -1079,12 +1049,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -1241,12 +1205,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -1306,12 +1264,6 @@
     },
     "dynamodb": {
       "capabilities": [
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
@@ -1717,12 +1669,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -1874,12 +1820,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default for views via `include_view_column_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
           "subtype_modifier": [
@@ -1949,12 +1889,6 @@
             "Schema"
           ],
           "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Not Supported",
-          "subtype_modifier": null,
-          "supported": false
         },
         {
           "capability": "LINEAGE_FINE",
@@ -2379,12 +2313,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -2636,12 +2564,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -2716,12 +2638,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -2974,12 +2890,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -3092,12 +3002,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -3305,12 +3209,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Column-level lineage when emitting lineage to connector sources (e.g. Iceberg, Hive)",
           "subtype_modifier": [
@@ -3380,12 +3278,6 @@
             "Schema"
           ],
           "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Not Supported",
-          "subtype_modifier": null,
-          "supported": false
         },
         {
           "capability": "LINEAGE_FINE",
@@ -3626,12 +3518,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -4007,12 +3893,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, can be disabled via configuration `include_column_lineage`",
           "subtype_modifier": null,
@@ -4172,12 +4052,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -4258,12 +4132,6 @@
             "Catalog",
             "Database"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -4454,12 +4322,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Optionally enabled via configuration",
           "subtype_modifier": null,
@@ -4617,12 +4479,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -4691,12 +4547,6 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4771,12 +4621,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -4975,12 +4819,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
