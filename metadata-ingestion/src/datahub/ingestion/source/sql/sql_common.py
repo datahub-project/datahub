@@ -21,7 +21,14 @@ from typing import (
 import sqlalchemy.dialects.postgresql.base
 from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
 from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.engine.row import LegacyRow
+
+try:
+    # SQLAlchemy 1.4 exposes a distinct LegacyRow type; on 2.0 it was removed
+    # and the single Row type covers it. Aliasing keeps the isinstance() check
+    # below working on both versions.
+    from sqlalchemy.engine.row import LegacyRow
+except ImportError:
+    from sqlalchemy.engine.row import Row as LegacyRow
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine

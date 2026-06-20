@@ -4,8 +4,6 @@ acryl-datahub-classify==0.0.11
     # via acryl-datahub
 acryl-datahub-cloud==0.3.14.1
     # via acryl-datahub
-acryl-great-expectations==0.15.50.1
-    # via acryl-datahub
 acryl-pyhive==0.6.18
     # via acryl-datahub
 adlfs==2026.2.0
@@ -32,11 +30,7 @@ aioitertools==0.13.0
 aiosignal==1.4.0
     # via aiohttp
 alembic==1.18.4
-    # via
-    #   databricks-sql-connector
-    #   starrocks
-altair==4.2.0
-    # via acryl-great-expectations
+    # via starrocks
 annotated-doc==0.0.4
     # via
     #   fastapi
@@ -51,8 +45,6 @@ anyio==4.12.1
     #   jupyter-server
     #   starlette
     #   watchfiles
-appnope==0.1.4 ; sys_platform == 'darwin'
-    # via ipykernel
 argon2-cffi==25.1.0
     # via jupyter-server
 argon2-cffi-bindings==25.1.0
@@ -65,12 +57,8 @@ asn1crypto==1.5.1
     # via
     #   scramp
     #   snowflake-connector-python
-ast-serialize==0.5.0
-    # via mypy
 asttokens==3.0.1
     # via stack-data
-async-lru==2.2.0
-    # via jupyterlab
 async-timeout==5.0.1 ; python_full_version < '3.11'
     # via aiohttp
 asynch==0.2.5
@@ -137,9 +125,7 @@ azure-storage-blob==12.28.0
 azure-storage-file-datalake==12.23.0
     # via acryl-datahub
 babel==2.18.0
-    # via
-    #   jupyterlab-server
-    #   python-liquid
+    # via python-liquid
 backoff==2.2.1
     # via
     #   gql
@@ -241,7 +227,6 @@ ciso8601==2.3.3
 click==8.3.1
     # via
     #   acryl-datahub
-    #   acryl-great-expectations
     #   click-default-group
     #   dask
     #   dataflows-tabulator
@@ -264,7 +249,7 @@ click-spinner==0.1.10
     # via acryl-datahub
 clickhouse-driver==0.2.10
     # via clickhouse-sqlalchemy
-clickhouse-sqlalchemy==0.2.4
+clickhouse-sqlalchemy==0.3.2
     # via acryl-datahub
 cloudpathlib==0.23.0
     # via weasel
@@ -274,7 +259,6 @@ cloudpickle==3.1.2
     #   mlflow-skinny
 colorama==0.4.6
     # via
-    #   acryl-great-expectations
     #   build
     #   click
     #   feast
@@ -283,10 +267,6 @@ colorama==0.4.6
     #   tqdm
     #   uvicorn
     #   wasabi
-comm==0.2.3
-    # via
-    #   ipykernel
-    #   ipywidgets
 confection==0.1.5
     # via
     #   thinc
@@ -306,7 +286,6 @@ croniter==6.0.0
 cryptography==48.0.1
     # via
     #   acryl-datahub
-    #   acryl-great-expectations
     #   authlib
     #   azure-identity
     #   azure-storage-blob
@@ -341,7 +320,7 @@ databricks-sdk==0.97.0
     # via
     #   acryl-datahub
     #   mlflow-skinny
-databricks-sql-connector==2.9.6
+databricks-sql-connector==4.3.0
     # via acryl-datahub
 dataclasses-json==0.6.7
     # via
@@ -351,8 +330,6 @@ dataflows-tabulator==1.54.3
     # via tableschema
 db-dtypes==1.5.0
     # via acryl-datahub
-debugpy==1.8.20
-    # via ipykernel
 decorator==5.2.1
     # via
     #   gssapi
@@ -397,8 +374,6 @@ elasticsearch==7.13.4
     # via acryl-datahub
 emoji==2.15.0
     # via unstructured
-entrypoints==0.4
-    # via altair
 et-xmlfile==2.0.0
     # via openpyxl
 exceptiongroup==1.3.1 ; python_full_version < '3.11'
@@ -559,7 +534,6 @@ graphql-core==3.2.8
 greenlet==3.3.2
     # via
     #   acryl-datahub
-    #   clickhouse-sqlalchemy
     #   sqlalchemy
 grpc-google-iam-v1==0.14.3
     # via
@@ -615,7 +589,6 @@ httpx==0.28.1
     # via
     #   confluent-kafka
     #   google-genai
-    #   jupyterlab
     #   mixpanel
     #   notion-client
     #   unstructured-client
@@ -626,7 +599,7 @@ humanize==4.15.0
     # via dlt
 ibm-db==3.2.8 ; platform_machine == 'x86_64' or sys_platform == 'darwin'
     # via ibm-db-sa
-ibm-db-sa==0.4.3 ; platform_machine == 'x86_64' or sys_platform == 'darwin'
+ibm-db-sa==0.4.4 ; platform_machine == 'x86_64' or sys_platform == 'darwin'
     # via acryl-datahub
 id==1.5.0
     # via twine
@@ -644,7 +617,6 @@ ijson==3.5.0
     #   dataflows-tabulator
 importlib-metadata==8.7.1
     # via
-    #   acryl-great-expectations
     #   build
     #   dask
     #   keyring
@@ -656,16 +628,8 @@ iniconfig==2.3.0
     # via pytest
 ipaddress==1.0.23
     # via acryl-datahub-classify
-ipykernel==7.2.0
-    # via jupyterlab
 ipython==8.38.0
-    # via
-    #   acryl-datahub
-    #   acryl-great-expectations
-    #   ipykernel
-    #   ipywidgets
-ipywidgets==8.1.8
-    # via acryl-great-expectations
+    # via acryl-datahub
 isodate==0.6.1
     # via
     #   azure-mgmt-datafactory
@@ -694,13 +658,9 @@ jeepney==0.9.0 ; platform_machine != 'ppc64le' and platform_machine != 's390x' a
     #   secretstorage
 jinja2==3.1.6
     # via
-    #   acryl-great-expectations
-    #   altair
     #   feast
     #   flask
     #   jupyter-server
-    #   jupyterlab
-    #   jupyterlab-server
     #   memray
     #   moto
     #   nbconvert
@@ -717,12 +677,8 @@ joserfc==1.6.4
     # via authlib
 jpype1==1.6.0
     # via acryl-datahub
-json5==0.13.0
-    # via jupyterlab-server
 jsonlines==4.0.0
     # via dataflows-tabulator
-jsonpatch==1.33
-    # via acryl-great-expectations
 jsonpath-ng==1.7.0
     # via
     #   acryl-datahub
@@ -730,61 +686,37 @@ jsonpath-ng==1.7.0
 jsonpickle==4.1.1
     # via acryl-datahub
 jsonpointer==3.0.0
-    # via
-    #   jsonpatch
-    #   jsonschema
+    # via jsonschema
 jsonref==1.1.0
     # via acryl-datahub
 jsonschema==4.24.1
     # via
     #   acryl-datahub
-    #   acryl-great-expectations
-    #   altair
     #   feast
     #   jupyter-events
-    #   jupyterlab-server
     #   nbformat
     #   tableschema
 jsonschema-specifications==2025.9.1
     # via jsonschema
 jupyter-client==8.8.0
     # via
-    #   ipykernel
     #   jupyter-server
     #   nbclient
 jupyter-core==5.9.1
     # via
-    #   ipykernel
     #   jupyter-client
     #   jupyter-server
-    #   jupyterlab
     #   nbclient
     #   nbconvert
     #   nbformat
 jupyter-events==0.12.0
     # via jupyter-server
-jupyter-lsp==2.3.0
-    # via jupyterlab
 jupyter-server==2.17.0
-    # via
-    #   acryl-datahub
-    #   jupyter-lsp
-    #   jupyterlab
-    #   jupyterlab-server
-    #   notebook
-    #   notebook-shim
+    # via acryl-datahub
 jupyter-server-terminals==0.5.4
     # via jupyter-server
-jupyterlab==4.5.5
-    # via notebook
 jupyterlab-pygments==0.3.0
     # via nbconvert
-jupyterlab-server==2.28.0
-    # via
-    #   jupyterlab
-    #   notebook
-jupyterlab-widgets==3.0.16
-    # via ipywidgets
 kerberos==1.3.1
     # via acryl-datahub
 keyring==25.7.0 ; platform_machine != 'ppc64le' and platform_machine != 's390x'
@@ -799,8 +731,6 @@ lark==1.3.1
     #   starrocks
 leb128==1.0.9
     # via asynch
-librt==0.11.0 ; platform_python_implementation != 'PyPy'
-    # via mypy
 linear-tsv==1.1.0
     # via dataflows-tabulator
 linkify-it-py==2.1.0
@@ -821,8 +751,6 @@ lz4==4.4.5
     #   asynch
     #   databricks-sql-connector
     #   trino
-makefun==1.16.0
-    # via acryl-great-expectations
 mako==1.3.10
     # via alembic
 markdown==3.10.2
@@ -843,13 +771,9 @@ markupsafe==3.0.3
     #   python-liquid
     #   werkzeug
 marshmallow==3.26.2
-    # via
-    #   acryl-great-expectations
-    #   dataclasses-json
+    # via dataclasses-json
 matplotlib-inline==0.2.1
-    # via
-    #   ipykernel
-    #   ipython
+    # via ipython
 mdit-py-plugins==0.5.0
     # via textual
 mdurl==0.1.2
@@ -859,9 +783,7 @@ memray==1.19.1
 mini-racer==0.14.1
     # via acryl-datahub
 mistune==3.2.0
-    # via
-    #   acryl-great-expectations
-    #   nbconvert
+    # via nbconvert
 mixpanel==5.0.0
     # via acryl-datahub
 mlflow-skinny==2.20.4
@@ -896,7 +818,7 @@ murmurhash==1.0.15
     #   preshed
     #   spacy
     #   thinc
-mypy==2.1.0
+mypy==1.17.1
     # via
     #   acryl-datahub
     #   sqlalchemy
@@ -922,16 +844,13 @@ nbconvert==7.17.0
     # via jupyter-server
 nbformat==5.10.4
     # via
-    #   acryl-great-expectations
     #   jupyter-server
     #   nbclient
     #   nbconvert
 neo4j==6.1.0
     # via acryl-datahub
 nest-asyncio==1.6.0
-    # via
-    #   acryl-datahub
-    #   ipykernel
+    # via acryl-datahub
 networkx==3.4.2 ; python_full_version < '3.11'
     # via acryl-datahub
 networkx==3.6.1 ; python_full_version >= '3.11'
@@ -940,22 +859,13 @@ nh3==0.3.3
     # via readme-renderer
 nltk==3.9.3
     # via unstructured
-notebook==7.5.4
-    # via acryl-great-expectations
-notebook-shim==0.2.4
-    # via
-    #   jupyterlab
-    #   notebook
 notion-client==3.0.0
     # via unstructured-ingest
 numpy==1.26.4
     # via
     #   acryl-datahub
-    #   acryl-great-expectations
-    #   altair
     #   blis
     #   dask
-    #   databricks-sql-connector
     #   db-dtypes
     #   feast
     #   pandas
@@ -1006,7 +916,6 @@ overrides==7.7.0 ; python_full_version < '3.12'
 packaging==24.2
     # via
     #   acryl-datahub
-    #   acryl-great-expectations
     #   build
     #   dask
     #   db-dtypes
@@ -1015,12 +924,9 @@ packaging==24.2
     #   google-cloud-aiplatform
     #   google-cloud-bigquery
     #   gunicorn
-    #   ipykernel
     #   jpype1
     #   jupyter-events
     #   jupyter-server
-    #   jupyterlab
-    #   jupyterlab-server
     #   marshmallow
     #   mlflow-skinny
     #   nbconvert
@@ -1036,11 +942,19 @@ packaging==24.2
     #   thinc
     #   twine
     #   weasel
-pandas==2.1.4
+pandas==2.1.4 ; python_full_version < '3.13'
     # via
     #   acryl-datahub
-    #   acryl-great-expectations
-    #   altair
+    #   dask
+    #   dask-expr
+    #   databricks-sql-connector
+    #   db-dtypes
+    #   feast
+    #   pydeequ
+    #   unstructured-ingest
+pandas==2.3.3 ; python_full_version >= '3.13'
+    # via
+    #   acryl-datahub
     #   dask
     #   dask-expr
     #   databricks-sql-connector
@@ -1143,7 +1057,6 @@ psutil==7.2.2
     # via
     #   acryl-datahub
     #   feast
-    #   ipykernel
     #   unstructured
 psycopg2-binary==2.9.11
     # via acryl-datahub
@@ -1165,7 +1078,6 @@ pyarrow==18.0.0
     # via
     #   acryl-datahub
     #   dask-expr
-    #   databricks-sql-connector
     #   db-dtypes
     #   deltalake
     #   feast
@@ -1180,8 +1092,10 @@ pyasn1-modules==0.4.2
     # via
     #   google-auth
     #   python-ldap
-pyathena==2.25.2
+pyathena==3.32.0
     # via acryl-datahub
+pybreaker==1.4.1
+    # via databricks-sql-connector
 pycountry==26.2.16
     # via schwifty
 pycparser==3.0 ; implementation_name != 'PyPy'
@@ -1195,7 +1109,6 @@ pycryptodomex==3.23.0
 pydantic==2.11.10
     # via
     #   acryl-datahub
-    #   acryl-great-expectations
     #   confection
     #   fastapi
     #   feast
@@ -1226,12 +1139,13 @@ pygments==2.19.2
     #   readme-renderer
     #   rich
     #   textual
-pyiceberg==0.11.1
+pyiceberg==0.10.0
     # via acryl-datahub
 pyiceberg-core==0.6.0
     # via pyiceberg
 pyjwt==2.11.0
     # via
+    #   databricks-sql-connector
     #   feast
     #   msal
     #   simple-salesforce
@@ -1254,7 +1168,6 @@ pyopenssl==26.2.0
     #   snowflake-connector-python
 pyparsing==3.3.2
     # via
-    #   acryl-great-expectations
     #   pyiceberg
     #   rdflib
 pypdf==6.10.2
@@ -1295,17 +1208,18 @@ pytest-timeout==2.4.0
 python-dateutil==2.9.0.post0
     # via
     #   acryl-datahub
-    #   acryl-great-expectations
     #   acryl-pyhive
     #   aiobotocore
     #   arrow
     #   botocore
     #   croniter
+    #   databricks-sql-connector
     #   google-cloud-bigquery
     #   jupyter-client
     #   moto
     #   pandas
     #   pendulum
+    #   pyathena
     #   python-liquid
     #   strictyaml
     #   tableschema
@@ -1343,7 +1257,6 @@ python3-openid==3.2.0
 pytz==2026.1.post1
     # via
     #   acryl-datahub-cloud
-    #   acryl-great-expectations
     #   asynch
     #   clickhouse-driver
     #   croniter
@@ -1383,7 +1296,6 @@ pyzipper==0.3.6
     # via acryl-datahub
 pyzmq==27.1.0
     # via
-    #   ipykernel
     #   jupyter-client
     #   jupyter-server
 rapidfuzz==3.14.3
@@ -1406,7 +1318,6 @@ regex==2026.2.28
 requests==2.32.5
     # via
     #   acryl-datahub
-    #   acryl-great-expectations
     #   atlassian-python-api
     #   azure-core
     #   azure-datalake-store
@@ -1425,7 +1336,6 @@ requests==2.32.5
     #   google-genai
     #   gql
     #   id
-    #   jupyterlab-server
     #   looker-sdk
     #   mixpanel
     #   mlflow-skinny
@@ -1512,10 +1422,8 @@ rsa==4.9.1
 rstr==3.2.2
     # via schwifty
 ruamel-yaml==0.17.17
-    # via
-    #   acryl-datahub
-    #   acryl-great-expectations
-ruff==0.15.18
+    # via acryl-datahub
+ruff==0.11.7
     # via acryl-datahub
 s3fs==2026.2.0
     # via pyiceberg
@@ -1526,13 +1434,9 @@ schwifty==2025.9.0
     #   acryl-datahub
     #   acryl-datahub-classify
 scipy==1.15.3 ; python_full_version < '3.11'
-    # via
-    #   acryl-datahub
-    #   acryl-great-expectations
+    # via acryl-datahub
 scipy==1.17.1 ; python_full_version >= '3.11'
-    # via
-    #   acryl-datahub
-    #   acryl-great-expectations
+    # via acryl-datahub
 scramp==1.4.8
     # via redshift-connector
 secretstorage==3.5.0 ; platform_machine != 'ppc64le' and platform_machine != 's390x' and sys_platform == 'linux'
@@ -1548,7 +1452,6 @@ setuptools==81.0.0
     #   acryl-datahub
     #   dlt
     #   grpcio-tools
-    #   jupyterlab
     #   redshift-connector
     #   spacy
     #   thinc
@@ -1571,10 +1474,8 @@ six==1.17.0
     #   python-dateutil
     #   rfc3339-validator
     #   tableschema
-    #   thrift
     #   thrift-sasl
     #   vertica-python
-    #   vertica-sqlalchemy-dialect
 slack-sdk==3.18.1
     # via acryl-datahub
 smart-open==7.5.1
@@ -1593,7 +1494,7 @@ snowflake-sqlalchemy==1.9.0
     # via acryl-datahub
 sortedcontainers==2.4.0
     # via
-    #   acryl-datahub
+    #   pyiceberg
     #   snowflake-connector-python
 soupsieve==2.8.3
     # via beautifulsoup4
@@ -1605,12 +1506,11 @@ spacy-loggers==1.0.5
     # via spacy
 sql-metadata==2.20.0
     # via acryl-datahub
-sqlalchemy==1.4.44
+sqlalchemy==2.0.51
     # via
     #   acryl-datahub
     #   alembic
     #   clickhouse-sqlalchemy
-    #   databricks-sql-connector
     #   dataflows-tabulator
     #   feast
     #   geoalchemy2
@@ -1625,21 +1525,20 @@ sqlalchemy==1.4.44
     #   starrocks
     #   teradatasqlalchemy
     #   trino
-    #   vertica-sqlalchemy-dialect
 sqlalchemy-bigquery==1.16.0
     # via acryl-datahub
-sqlalchemy-cockroachdb==1.4.6
+sqlalchemy-cockroachdb==2.0.4
     # via acryl-datahub
-sqlalchemy-hana==3.0.3 ; platform_machine != 'aarch64' and platform_machine != 'arm64'
+sqlalchemy-hana==4.6.0 ; platform_machine != 'aarch64' and platform_machine != 'arm64'
     # via acryl-datahub
-sqlalchemy-pytds==0.3.5
+sqlalchemy-pytds==1.0.2
     # via acryl-datahub
-sqlalchemy-redshift==0.8.14
+sqlalchemy-redshift==1.0.0
+    # via acryl-datahub
+sqlalchemy-vertica-python==0.6.3
     # via acryl-datahub
 sqlalchemy2-stubs==0.0.2a38
-    # via
-    #   acryl-datahub
-    #   sqlalchemy
+    # via acryl-datahub
 sqlglot==30.8.0
     # via
     #   acryl-datahub
@@ -1687,7 +1586,7 @@ tenacity==8.5.0
     #   pyiceberg
 teradatasql==20.0.0.52
     # via teradatasqlalchemy
-teradatasqlalchemy==20.0.0.2
+teradatasqlalchemy==20.0.0.9
     # via acryl-datahub
 terminado==0.18.1
     # via
@@ -1699,7 +1598,7 @@ thinc==8.2.5
     # via spacy
 thoughtspot-rest-api==2.0.3
     # via acryl-datahub
-thrift==0.16.0
+thrift==0.22.0
     # via
     #   acryl-pyhive
     #   databricks-sql-connector
@@ -1721,7 +1620,6 @@ tomli==2.4.0 ; python_full_version <= '3.11'
     #   alembic
     #   build
     #   coverage
-    #   jupyterlab
     #   mypy
     #   pytest
 tomlkit==0.14.0
@@ -1730,20 +1628,15 @@ tomlkit==0.14.0
     #   snowflake-connector-python
 toolz==1.1.0
     # via
-    #   altair
     #   dask
     #   partd
 tornado==6.5.4
     # via
-    #   ipykernel
     #   jupyter-client
     #   jupyter-server
-    #   jupyterlab
-    #   notebook
     #   terminado
 tqdm==4.67.3
     # via
-    #   acryl-great-expectations
     #   feast
     #   nltk
     #   pinecone-client
@@ -1753,14 +1646,11 @@ tqdm==4.67.3
 traitlets==5.14.3
     # via
     #   acryl-datahub
-    #   ipykernel
     #   ipython
-    #   ipywidgets
     #   jupyter-client
     #   jupyter-core
     #   jupyter-events
     #   jupyter-server
-    #   jupyterlab
     #   matplotlib-inline
     #   nbclient
     #   nbconvert
@@ -1824,13 +1714,11 @@ types-urllib3==1.26.25.14
 typing-extensions==4.15.0
     # via
     #   acryl-datahub
-    #   acryl-great-expectations
     #   aiobotocore
     #   aiosignal
     #   alembic
     #   anyio
     #   asgiref
-    #   async-lru
     #   atlassian-python-api
     #   azure-core
     #   azure-identity
@@ -1877,6 +1765,8 @@ typing-extensions==4.15.0
     #   schwifty
     #   simple-salesforce
     #   snowflake-connector-python
+    #   sqlalchemy
+    #   sqlalchemy-hana
     #   sqlalchemy2-stubs
     #   starlette
     #   textual
@@ -1904,7 +1794,6 @@ tzdata==2025.3
 tzlocal==5.3.1
     # via
     #   acryl-datahub-cloud
-    #   acryl-great-expectations
     #   asynch
     #   clickhouse-driver
     #   trino
@@ -1927,7 +1816,6 @@ uri-template==1.3.0
 urllib3==1.26.20
     # via
     #   acryl-datahub
-    #   acryl-great-expectations
     #   botocore
     #   databricks-sql-connector
     #   docker
@@ -1950,9 +1838,7 @@ uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'c
 vcrpy==8.1.1
     # via acryl-datahub
 vertica-python==1.4.0
-    # via vertica-sqlalchemy-dialect
-vertica-sqlalchemy-dialect==0.0.8.2
-    # via acryl-datahub
+    # via sqlalchemy-vertica-python
 vininfo==1.9.2
     # via acryl-datahub-classify
 wasabi==1.1.3
@@ -1987,8 +1873,6 @@ werkzeug==3.1.6
     # via
     #   flask
     #   moto
-widgetsnbextension==4.0.15
-    # via ipywidgets
 win-precise-time==1.4.2 ; (python_full_version < '3.13' and os_name == 'nt' and platform_machine != 'arm64') or (python_full_version < '3.13' and os_name == 'nt' and sys_platform != 'darwin')
     # via dlt
 wrapt==2.1.2

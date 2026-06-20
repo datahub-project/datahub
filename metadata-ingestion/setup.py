@@ -188,7 +188,6 @@ great_expectations_lib = {
     #    https://github.com/great-expectations/great_expectations/compare/0.15.50...acryldata:great_expectations:0.15.50-pydantic-2-patch?expand=1
     #    This was derived from work done by @jskrzypek in
     #    https://github.com/datahub-project/datahub/issues/8115#issuecomment-2264219783
-    "acryl-great-expectations==0.15.50.1",
     "jupyter_server>=2.14.1,<3.0.0",  # CVE-2024-35178
 }
 
@@ -215,7 +214,7 @@ profiling_ge = {
 sqlalchemy_lib = {
     # Required for all SQL sources.
     # Multiple packages require <2: sqlalchemy-redshift, databricks-sql-connector, great-expectations
-    "sqlalchemy>=1.4.39,<2",
+    "sqlalchemy>=2.0.0,<2.1",
     # greenlet is imported directly by datahub.utilities.sqlalchemy_query_combiner, which
     # is used by both the SQLAlchemy and GE profilers (via sql_report.py).
     "greenlet<4.0.0",
@@ -279,7 +278,7 @@ clickhouse_common = {
     # Note that there's also a known issue around nested map types: https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/269.
     # zstd needs to be pinned because the latest version causes issues on arm
     "zstd<1.5.6.8",
-    "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
+    "clickhouse-sqlalchemy>=0.3.0,<0.4.0",
 }
 
 datacatalog_lineage_common = {
@@ -298,7 +297,7 @@ dataplex_common = {
 
 redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
-    "sqlalchemy-redshift>=0.8.3,<=0.8.14",
+    "sqlalchemy-redshift>=1.0.0,<2.0.0",
     "GeoAlchemy2<0.19.0",
     "redshift-connector>=2.1.5,<3.0.0",
     *path_spec_common,
@@ -390,7 +389,7 @@ iceberg_common = {
 
 mssql_common = {
     # Note: sqlalchemy-pytds>=1.0 requires SQLAlchemy>=2, so constrained to 0.x automatically
-    "sqlalchemy-pytds>=0.3,<2.0.0",
+    "sqlalchemy-pytds>=1.0.0,<2.0.0",
     "pyOpenSSL>=26.0.0,<27.0.0",
 }
 
@@ -481,15 +480,12 @@ databricks_common = {
     # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
     # in src/datahub/ingestion/source/unity/proxy.py (_patch_databricks_sql_proxy_auth)
     # as the fix was included natively in 3.0.0 via https://github.com/databricks/databricks-sql-python/pull/354
-    "databricks-sql-connector>=2.8.0,<3.0.0",
+    "databricks-sql-connector>=4.1.2,<5.0.0",
 }
 
 databricks = {
     "pyspark~=3.5.6,<4.0.0",
     "requests<3.0.0",
-    # Due to https://github.com/databricks/databricks-sql-python/issues/326
-    # databricks-sql-connector<3.0.0 requires pandas<2.2.0
-    "pandas<2.2.0",
 }
 
 mysql = {"pymysql>=1.0.2,<2.0.0"}
@@ -596,7 +592,7 @@ plugins: Dict[str, Set[str]] = {
     # this version has missing dependency asyncio
     # https://github.com/jd/tenacity/issues/471
     | {
-        "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
+        "PyAthena[SQLAlchemy]>=3.0.0,<4.0.0",
         "sqlalchemy-bigquery>=1.5.0,<2.0.0",
         "tenacity!=8.4.0,<9.0.0",
     },
@@ -629,14 +625,14 @@ plugins: Dict[str, Set[str]] = {
     "cockroachdb": sql_common
     | postgres_common
     | aws_common
-    | {"sqlalchemy-cockroachdb<2.0.0"},
+    | {"sqlalchemy-cockroachdb>=2.0.0,<3.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common,
     "delta-lake": {*data_lake_profiling, *delta_lake},
     "db2": {
         # The underlying ibm_db library and Db2 clidriver don't work on Linux ARM
-        "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
+        "ibm_db_sa>=0.4.4,<0.5.0; platform_machine == 'x86_64' or platform_system == 'Darwin'",
         "pyodbc<6.0.0",
         *sql_common,
     },
@@ -684,7 +680,7 @@ plugins: Dict[str, Set[str]] = {
     "hana": sql_common
     | {
         # Note: sqlalchemy-hana>=4.0 requires SQLAlchemy>=2, so constrained to 3.x automatically
-        "sqlalchemy-hana>=0.5.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
+        "sqlalchemy-hana>=4.0.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
         "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
         "defusedxml>=0.7.1,<0.8.0",
     },
@@ -808,7 +804,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         # On 2024-10-30, teradatasqlalchemy 20.0.0.2 was released. This version seemed to cause issues
         # in our CI, so we're pinning the version for now.
-        "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
+        "teradatasqlalchemy>=20.0.0.9,<21.0.0.0",
     },
     # aws_common is needed for the inherited PostgresSource RDS IAM auth.
     "timescaledb": sql_common | postgres_common | aws_common,
@@ -823,7 +819,7 @@ plugins: Dict[str, Set[str]] = {
         | threading_timeout_common
     ),
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
+    "vertica": sql_common | {"sqlalchemy-vertica-python>=0.6.3,<0.7.0"},
     "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks_common | databricks | sql_common,
