@@ -967,13 +967,6 @@ presto-on-hive = [
     "tenacity>=8.0.1,<9.0.0",
 ]
 
-profiling-ge = [
-    "IPython!=8.22.0,<9.0.0",
-    "jupyter_server>=2.14.1,<3.0.0",
-    "scipy>=1.7.2,<2.0.0",
-    "traitlets!=5.2.2,<6.0.0",
-]
-
 pulsar = [
     "requests<3.0.0",
 ]
@@ -1409,11 +1402,9 @@ all = [
     "grpcio>=1.44.0,<2.0.0",
     "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     "ibm_db_sa>=0.4.4,<0.5.0; platform_machine == 'x86_64' or platform_system == 'Darwin'",
-    "IPython!=8.22.0,<9.0.0",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
     "jsonpath-ng==1.7.0",
-    "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
     "lark>=1.3.1,<2.0",
     "lkml>=1.3.4,<2.0.0",
@@ -1461,7 +1452,6 @@ all = [
     "requests_file==3.0.1",
     "requests_ntlm<2.0.0",
     "schwifty<2026.0.0",
-    "scipy>=1.7.2,<2.0.0",
     "setuptools<82",
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
@@ -1485,7 +1475,6 @@ all = [
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=20.0.0.9,<21.0.0.0",
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
-    "traitlets!=5.2.2,<6.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==0.7.2",

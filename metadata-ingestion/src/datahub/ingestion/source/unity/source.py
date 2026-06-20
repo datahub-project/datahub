@@ -80,7 +80,6 @@ from datahub.ingestion.source.unity import proxy_types as unity_proxy_types
 from datahub.ingestion.source.unity.analyze_profiler import UnityCatalogAnalyzeProfiler
 from datahub.ingestion.source.unity.config import (
     UnityCatalogAnalyzeProfilerConfig,
-    UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
     UnityCatalogSQLAlchemyProfilerConfig,
 )
@@ -564,15 +563,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         "Using UnityCatalogGEProfiler with SQLAlchemyProfiler (method: sqlalchemy)"
                     )
                     # Use GenericProfiler which will use SQLAlchemyProfiler internally
-                    yield from UnityCatalogGEProfiler(
-                        config=self.config,
-                        profiling_config=self.config.profiling,
-                        report=self.report,
-                    ).get_workunits(list(self.tables.values()))
-                elif isinstance(self.config.profiling, UnityCatalogGEProfilerConfig):
-                    logger.info(
-                        "Using UnityCatalogGEProfiler with DatahubGEProfiler (method: ge)"
-                    )
                     yield from UnityCatalogGEProfiler(
                         config=self.config,
                         profiling_config=self.config.profiling,

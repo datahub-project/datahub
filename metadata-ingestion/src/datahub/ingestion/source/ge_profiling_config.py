@@ -24,14 +24,11 @@ logger = logging.getLogger(__name__)
 class ProfilingMethodConfig(ConfigModel):
     """Base class for profiling configs that support method selection."""
 
-    method: Literal["ge", "sqlalchemy"] = Field(
+    method: Literal["sqlalchemy"] = Field(
         default="sqlalchemy",
         description=(
-            "Profiling method to use. "
-            "`sqlalchemy` (default) runs profiling queries directly against your "
-            "source's existing SQLAlchemy connection. "
-            "`ge` selects the legacy Great Expectations profiler, which is "
-            "deprecated and requires `pip install 'acryl-datahub[profiling-ge]'`."
+            "Profiling method to use. `sqlalchemy` runs profiling queries "
+            "directly against your source's existing SQLAlchemy connection."
         ),
     )
 
