@@ -36,7 +36,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1781857543416,
-        "runId": "cube-test",
+        "runId": "cube-core-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -108,7 +108,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1781857543416,
-        "runId": "cube-test",
+        "runId": "cube-core-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -124,7 +124,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1781859424000,
-        "runId": "cube-test",
+        "runId": "cube-core-test",
         "lastRunId": "no-run-id-provided"
     }
 },
