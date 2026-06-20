@@ -376,6 +376,17 @@ class SQLAlchemyQueryCombiner:
 
             logger.debug(f"Executing query via fallback: {str(query_future.query)}")
             self.report.uncombined_queries_issued += 1
+            # The failed combined query (or a preceding fallback query) may have
+            # left the connection's transaction in an aborted state — on SA 2.0
+            # autocommit is gone, so e.g. Postgres/Redshift return 25P02 ("current
+            # transaction is aborted") for every subsequent statement until a
+            # rollback. Roll back first so each fallback query runs in a clean
+            # transaction instead of cascade-failing. These are read-only profiling
+            # SELECTs whose results are already materialized, so rollback is safe.
+            try:
+                query_future.conn.rollback()
+            except Exception as rollback_err:
+                logger.debug(f"Rollback before fallback query failed: {rollback_err}")
             try:
                 res = _sa_execute_underlying_method(
                     query_future.conn,
