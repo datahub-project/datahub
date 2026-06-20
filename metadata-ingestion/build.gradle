@@ -230,6 +230,19 @@ task testPerformance(type: Exec, dependsOn: [installDev, ':metadata-models:gener
     "${pytest_default_env} pytest ${cvg_arg} tests/performance -m 'perf' --junit-xml=test-results/junit.performance.xml"
 }
 
+// Run combiner + profiler unit suites in an isolated SA 2.0 venv (sqlite-only, no connector deps).
+// Ensures the SA-2.0 compat paths stay green until the repo-wide SA bump lands.
+task testSqlAlchemy2(type: Exec) {
+  inputs.files(project.fileTree(dir: "src/datahub/utilities/", include: "sqlalchemy_query_combiner.py"))
+  inputs.files(project.fileTree(dir: "src/datahub/ingestion/source/sql/sqlalchemy_profiler/", include: "*.py"))
+  inputs.files(project.fileTree(dir: "tests/unit/utilities/", include: "test_sqlalchemy_query_combiner.py"))
+  inputs.files(project.fileTree(dir: "tests/unit/sqlalchemy_profiler/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/unit/utilities/sa2_compat/", include: "*.sh"))
+  commandLine 'bash', '-c',
+    "bash ${project.projectDir}/tests/unit/utilities/sa2_compat/run_combiner_sa2.sh && " +
+    "bash ${project.projectDir}/tests/unit/utilities/sa2_compat/run_profiler_sa2.sh"
+}
+
 task installDocs(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_docs_sentinel"
   inputs.file file('setup.py')

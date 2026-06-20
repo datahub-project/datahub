@@ -12,14 +12,17 @@
 # import individually.  The SA pin on the base install (sqlalchemy<2) is simply
 # overridden by the subsequent upgrade step.
 #
-# --noconftest: the top-level tests/conftest.py pulls in time_machine, docker helpers,
-# and graph mocks that are not needed for the combiner unit tests.
+# --noconftest: the top-level tests/conftest.py pulls in docker helpers and graph
+# mocks that are not needed for the combiner unit tests.
 
 set -euo pipefail
 
 ING_DIR="$(cd "$(dirname "$0")/../../../.." && pwd)"   # metadata-ingestion/
 TEST_FILE="$ING_DIR/tests/unit/utilities/test_sqlalchemy_query_combiner.py"
-TMP_VENV="$(mktemp -d)/sa2-venv"
+TMP_VENV_PARENT="$(mktemp -d)"
+TMP_VENV="$TMP_VENV_PARENT/sa2-venv"
+
+trap 'rm -rf "$TMP_VENV_PARENT"' EXIT
 
 echo "=== SQLAlchemy 2.0 combiner test harness ==="
 echo "ING_DIR : $ING_DIR"
@@ -45,16 +48,15 @@ echo "Upgrading SQLAlchemy to 2.0..."
 #   - cachetools: imported by ge_profiling_config -> configuration.common
 #   - sqlparse: imported by sql_report -> sql_parsing_aggregator
 #   - sqlglot+patchy: imported by sql_report -> sql_parsing._models
-#   - pytest + time_machine: test runner deps (time_machine used by top-level conftest,
-#     but we skip that via --noconftest; still needed for clean venv setup)
 echo "Installing extra deps for combiner import chain..."
+# sqlglot[c]==30.8.0 pinned: >=30.7.0 SIGSEGVs on LATERAL/explode over un-cataloged tables (ING-2868)
 "$TMP_VENV/bin/pip" install -q \
     "acryl-datahub-classify==0.0.11" \
     "cachetools<6.0.0" \
     "sqlparse<0.6.0" \
     "sqlglot[c]==30.8.0" \
     "patchy==2.8.0" \
-    pytest
+    "pytest>=8,<10"
 
 # Print actual SA version so the output is easy to grep.
 echo ""
@@ -62,9 +64,9 @@ echo ""
 echo ""
 
 # Run the tests. We intentionally do NOT pass -x so we see all failures.
-# --noconftest: skip the top-level conftest.py which needs time_machine and docker helpers.
+# --noconftest: skip the top-level conftest.py which needs docker helpers.
 echo "=== Running test suite ==="
-"$TMP_VENV/bin/pytest" "$TEST_FILE" -v --tb=short --noconftest 2>&1 || true
+"$TMP_VENV/bin/pytest" "$TEST_FILE" -v --tb=short --noconftest
 
 echo ""
 echo "=== Harness complete ==="

@@ -13,7 +13,10 @@ set -euo pipefail
 
 ING_DIR="$(cd "$(dirname "$0")/../../../.." && pwd)"   # metadata-ingestion/
 PROFILER_TEST_DIR="$ING_DIR/tests/unit/sqlalchemy_profiler"
-TMP_VENV="$(mktemp -d)/sa2-profiler-venv"
+TMP_VENV_PARENT="$(mktemp -d)"
+TMP_VENV="$TMP_VENV_PARENT/sa2-profiler-venv"
+
+trap 'rm -rf "$TMP_VENV_PARENT"' EXIT
 
 echo "=== SQLAlchemy 2.0 profiler test harness ==="
 echo "ING_DIR          : $ING_DIR"
@@ -33,6 +36,7 @@ echo "Upgrading SQLAlchemy to 2.0..."
 "$TMP_VENV/bin/pip" install -q "sqlalchemy>=2.0,<3" greenlet
 
 # Step 3: add extra deps required by the profiler test import chain.
+# sqlglot[c]==30.8.0 pinned: >=30.7.0 SIGSEGVs on LATERAL/explode over un-cataloged tables (ING-2868)
 echo "Installing extra deps for profiler import chain..."
 "$TMP_VENV/bin/pip" install -q \
     "acryl-datahub-classify==0.0.11" \
@@ -40,7 +44,7 @@ echo "Installing extra deps for profiler import chain..."
     "sqlparse<0.6.0" \
     "sqlglot[c]==30.8.0" \
     "patchy==2.8.0" \
-    pytest
+    "pytest>=8,<10"
 
 # Print actual SA version so the output is easy to grep.
 echo ""
@@ -48,9 +52,13 @@ echo ""
 echo ""
 
 # Run the tests. We intentionally do NOT pass -x so we see all failures.
-# --noconftest: skip the top-level conftest.py which needs time_machine and docker helpers.
+# --noconftest: skip the top-level conftest.py which needs docker helpers.
+# --ignore test_adapters.py: imports connector packages (pyathena, etc.) not available in the
+#   sqlite-only venv; those tests pass on SA 1.4 and are flagged for connector-revalidation.
 echo "=== Running profiler test suite ==="
-"$TMP_VENV/bin/pytest" "$PROFILER_TEST_DIR" -v --tb=short --noconftest 2>&1 || true
+"$TMP_VENV/bin/pytest" "$PROFILER_TEST_DIR" \
+    --ignore="$PROFILER_TEST_DIR/test_adapters.py" \
+    -v --tb=short --noconftest
 
 echo ""
 echo "=== Harness complete ==="
