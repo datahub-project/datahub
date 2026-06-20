@@ -673,7 +673,6 @@ dev = [
     { name = "sqlalchemy-pytds" },
     { name = "sqlalchemy-redshift" },
     { name = "sqlalchemy-vertica-python" },
-    { name = "sqlalchemy2-stubs" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "stopit" },
@@ -869,7 +868,6 @@ docs = [
     { name = "sqlalchemy-pytds" },
     { name = "sqlalchemy-redshift" },
     { name = "sqlalchemy-vertica-python" },
-    { name = "sqlalchemy2-stubs" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "stopit" },
@@ -3079,8 +3077,6 @@ requires-dist = [
     { name = "sqlalchemy-vertica-python", marker = "extra == 'docs'", specifier = ">=0.6.3,<0.7.0" },
     { name = "sqlalchemy-vertica-python", marker = "extra == 'integration-tests'", specifier = ">=0.6.3,<0.7.0" },
     { name = "sqlalchemy-vertica-python", marker = "extra == 'vertica'", specifier = ">=0.6.3,<0.7.0" },
-    { name = "sqlalchemy2-stubs", marker = "extra == 'dev'", specifier = "<0.1.0" },
-    { name = "sqlalchemy2-stubs", marker = "extra == 'docs'", specifier = "<0.1.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'all'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'athena'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'bigquery'", specifier = "==30.8.0" },
@@ -12273,18 +12269,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e0/fc/e52cac0df3d55a2b4d0b07d449ddf9600adcc35c5715b289e17114ad86c2/sqlalchemy-vertica-python-0.6.3.tar.gz", hash = "sha256:5cbebb9875e59366b9e3b4791ef7c2a8e45dbe460fd27687f3dc742dc058a024", size = 7237, upload-time = "2023-06-05T20:29:06.031Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1b/7f/bc56d6d5dd40ead585529289505547f83322e1ba2cd4990bde534d2445c9/sqlalchemy_vertica_python-0.6.3-py3-none-any.whl", hash = "sha256:9f41c8d51f81bb00d9064cfe8facfda698667c105200f5d570d574696bcca4c9", size = 6747, upload-time = "2023-06-05T20:29:04.55Z" },
-]
-
-[[package]]
-name = "sqlalchemy2-stubs"
-version = "0.0.2a38"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/94/df/be9e0062f649fd2e9b9b73a98c250f520fa10beaebddb8948dffad23c3b6/sqlalchemy2-stubs-0.0.2a38.tar.gz", hash = "sha256:861d722abeb12f13eacd775a9f09379b11a5a9076f469ccd4099961b95800f9e", size = 123950, upload-time = "2023-12-30T12:15:29.27Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ee/ea/6eff437d0a26c894da2982429ed2c148ecaf0526349ddc8cda1e7151c171/sqlalchemy2_stubs-0.0.2a38-py3-none-any.whl", hash = "sha256:b62aa46943807287550e2033dafe07564b33b6a815fbaa3c144e396f9cc53bcb", size = 191786, upload-time = "2023-12-30T12:15:27.882Z" },
 ]
 
 [[package]]

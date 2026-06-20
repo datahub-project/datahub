@@ -918,7 +918,8 @@ mypy_stubs = {
     "types-ujson>=5.2.0,<6.0.0",
     "types-Deprecated<2.0.0",
     "types-protobuf>=4.21.0.1,<7.0.0",
-    "sqlalchemy2-stubs<0.1.0",
+    # No sqlalchemy stubs: SQLAlchemy 2.0 ships inline (PEP 561) types, and its mypy
+    # plugin refuses to load when sqlalchemy2-stubs/sqlalchemy-stubs are installed.
 }
 
 
