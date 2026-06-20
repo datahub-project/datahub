@@ -108,8 +108,9 @@ def gen_catalog_connector_dict(engine: Engine) -> Dict[str, str]:
         FROM "system"."metadata"."catalogs"
     """
     ).strip()
-    res = engine.execute(sql.text(query))
-    return {row.catalog_name: row.connector_name for row in res}
+    with engine.connect() as conn:
+        res = conn.execute(sql.text(query))
+        return {row.catalog_name: row.connector_name for row in res}
 
 
 def get_catalog_connector_name(engine: Engine, catalog_name: str) -> Optional[str]:
